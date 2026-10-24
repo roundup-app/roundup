@@ -278,7 +278,6 @@ export type RpcMethods = {
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
   "message.send": { params: message_SendParams; result: message_Message };
-  "message.pass": { params: message_MessageId; result: message_Message };
   "message.get": { params: message_MessageId; result: message_Message };
   "message.list": { params: message_ListParams; result: message_Message[] };
   "message.deliver": { params: message_MessageId; result: message_Message };

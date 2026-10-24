@@ -144,34 +144,6 @@ def step2(e: M.Ev, +s: M.World) -> L.T(S.implies(Bool.not(S.is_user_call(e)), H2
           match s:
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               fl2(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, False{}, True{}})
-    case M.Ask{o, c}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.HopMade{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.HopEnded{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.BoundPassed{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.Answer{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.Escalate{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
-    case M.Reply{}:
-      match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          L.all_in_refl(haf)
 
 def m2_main(+evs: +List<M.Ev>, e: M.Ev) -> L.T(S.implies(Bool.not(S.is_user_call(e)), S.all_in(S.held_af(S.world(evs)), S.held_af(M.step(e, S.world(evs)))))):
   step2(e, S.world(evs))
