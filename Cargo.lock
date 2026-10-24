@@ -3796,6 +3796,7 @@ dependencies = [
  "checkpoints",
  "contracts",
  "getrandom 0.3.4",
+ "memchr",
  "messages",
  "pads",
  "percent-encoding",
