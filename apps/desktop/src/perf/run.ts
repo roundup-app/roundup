@@ -12,9 +12,24 @@ export const READY = "ready";
 
 export const SETUP_BOUND_MS = 10_000;
 
+/** The whole of typing, warm-up included: 1100 keys take about 70 s, so this leaves room under the runner's 240 s for a slow machine, and a run that drops every key still reports. */
+export const TYPING_BOUND_MS = 150_000;
+
 const FRAMES = 60;
 
+/** A report holds every hop, so it is a few KiB; one write that large into a tty under the stream is the likeliest to be cut short. */
+const WRITE_CHUNK = 4096;
+
+/** Hands `bytes` to `write` in order, `WRITE_CHUNK` at a time, each after the last was accepted. */
+export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array) => Promise<void>): Promise<void> => {
+  for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
+};
+
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Settles with `work`, or rejects naming `step` once `ms` pass: a setup call that never answers must still end in a report line, with its cause. */
+export const bounded = <T>(work: Promise<T>, ms: number, step: string): Promise<T> =>
+  Promise.race([work, sleep(ms).then(() => Promise.reject(new Error(`${step} did not finish within ${ms} ms`)))]);
 
 /** Resolves with what `find` returns as soon as the DOM holds it; fails at the bound. */
 export const appears = <T>(find: () => T | null, what: string): Promise<T> =>
@@ -150,7 +165,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
 
-    await app.rpc("terminal.write", { id, data: toBase64(new TextEncoder().encode(line)) });
+    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
   };
 
   const measure = async () => {
@@ -166,13 +181,15 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
     const textarea = await appears(() => document.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea"), "the Terminal's input");
 
-    await Promise.race([terminal.printed, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+    await bounded(terminal.printed, SETUP_BOUND_MS, `the Terminal's ${READY} line`);
     textarea.focus();
 
-    const frame = await frameMs();
+    // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
+    const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
     const timerResolution = timerResolutionMs();
+    const end = performance.now() + TYPING_BOUND_MS;
 
-    await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random }, KEYS + WARMUP_KEYS);
+    await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
     await report({
       ...probe.summary(WARMUP_KEYS),
       hops: probe.hops(WARMUP_KEYS),
@@ -206,9 +223,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
       try {
         await measure();
       } catch (failure) {
-        if (!(failure instanceof Error)) throw failure;
-
-        await report({ error: failure.message });
+        await report({ error: failure instanceof Error ? failure.message : String(failure) });
       }
     },
   };

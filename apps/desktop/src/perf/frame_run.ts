@@ -5,7 +5,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
-import { READY, SETUP_BOUND_MS, appears, reportTerminal, sleep, timerResolutionMs } from "./run";
+import { READY, SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -51,18 +51,6 @@ export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Pr
 
   return { performed, completed: true };
 };
-
-/** A report holds every raw interval, so it is tens of KiB; one write that large into a tty under the stream is the likeliest to be cut short. */
-const WRITE_CHUNK = 4096;
-
-/** Hands `bytes` to `write` in order, `WRITE_CHUNK` at a time, each after the last was accepted. */
-export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array) => Promise<void>): Promise<void> => {
-  for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
-};
-
-/** Settles with `work`, or rejects naming `step` once `ms` pass: a setup call that never answers must still end in a report line, with its cause. */
-export const bounded = <T>(work: Promise<T>, ms: number, step: string): Promise<T> =>
-  Promise.race([work, sleep(ms).then(() => Promise.reject(new Error(`${step} did not finish within ${ms} ms`)))]);
 
 /** What the Layers driver presses; each answers whether its control was found. */
 export type Layers = {
