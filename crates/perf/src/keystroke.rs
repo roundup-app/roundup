@@ -224,7 +224,7 @@ async fn one_run_with_report(
         &claude,
         format!(
             "#!/bin/sh\nexec python3 {} \"$@\"\n",
-            quote(Path::new(FAKE_CLAUDE))?
+            shlex::try_quote(FAKE_CLAUDE).map_err(io::Error::other)?
         ),
     )?;
     std::fs::set_permissions(&claude, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
@@ -278,19 +278,16 @@ async fn one_run_with_report(
 }
 
 fn daemon_script(data: &Path, daemon: &Path, log: &Path) -> io::Result<String> {
+    let [data, daemon, log] = [data, daemon, log].map(|path| {
+        let text = path
+            .to_str()
+            .ok_or_else(|| failure("the perf executable path is not UTF-8"))?;
+        shlex::try_quote(text).map_err(io::Error::other)
+    });
     Ok(format!(
         "#!/bin/sh\nexport ROUNDUP_DATA_DIR={}\nexec {} \"$@\" 2>>{}\n",
-        quote(data)?,
-        quote(daemon)?,
-        quote(log)?,
+        data?, daemon?, log?,
     ))
-}
-
-fn quote(path: &Path) -> io::Result<String> {
-    let text = path
-        .to_str()
-        .ok_or_else(|| failure("the perf executable path is not UTF-8"))?;
-    Ok(format!("'{}'", text.replace('\'', "'\\''")))
 }
 
 /// Exit codes carry evidence only when the report actually exposes the required stage.
