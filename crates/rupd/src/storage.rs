@@ -55,11 +55,19 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
         return Ok(());
     }
     let staging = path.with_extension("db.new");
+    // A crashed earlier start may have left a log that would replay onto this image.
+    for leftover in ["db.new-wal", "db.new-shm"] {
+        let _ = std::fs::remove_file(path.with_extension(leftover));
+    }
     std::fs::write(&staging, FRESH)?;
     let db = Connection::open(&staging).map_err(std::io::Error::other)?;
+    // One sync below makes the image durable; SQLite's own syncs of a throwaway file cost four each.
+    db.pragma_update(None, "synchronous", "OFF")
+        .map_err(std::io::Error::other)?;
     db.execute_batch(REIDENTIFY)
         .map_err(std::io::Error::other)?;
-    drop(db);
+    db.close().map_err(|(_, e)| std::io::Error::other(e))?;
+    std::fs::File::open(&staging)?.sync_all()?;
     // A racing opener or an existing file wins; the normal path then migrates it.
     let linked = std::fs::hard_link(&staging, path);
     std::fs::remove_file(&staging)?;

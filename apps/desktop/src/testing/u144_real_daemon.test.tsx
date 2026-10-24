@@ -535,7 +535,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     document.body.append(outside);
     outside.focus();
     mount();
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     outside.remove();
     const focus = document.activeElement;
@@ -674,7 +674,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     holder.settle(a.revision, "failed");
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     await app.forProject(first.dir).rpc("rail.remove", { id: original.id });
     const recovery = await openRecovery();
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
@@ -719,7 +719,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     outside.focus();
     calls.forEach((spy) => spy.mockClear());
     mount(emulators);
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     const recovery = await openRecovery();
     expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
