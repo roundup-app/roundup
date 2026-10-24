@@ -88,11 +88,16 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("!!document.querySelector('.measurement-dashboard table') && document.querySelector('.measurement-dashboard table').offsetHeight > 0");
     await capture("details");
 
-    const trigger = async <M extends "message.send">(method: M, params: RpcMethods[M]["params"]) => {
+    const trigger = async <M extends "agent.ask" | "message.send">(method: M, params: RpcMethods[M]["params"]) => {
       writeFileSync(join(real.dir, `call-${home.id}.json`), JSON.stringify({method,params}));
       await app.rpc("terminal.write", {id:terminal,data:"AQ=="});
     };
 
+    await trigger("agent.ask", {question:"Continue measured work?",answers:[{label:"Yes",description:"Continue"}]});
+    await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBeGreaterThan(0);
+    const [asked] = await app.rpc("decision.list", null);
+    await app.rpc("decision.answer", {id:asked!.id,answer:"Yes"});
+    await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBe(0);
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
     await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
     writeFileSync(join(folder,`00000000-0000-4000-8000-${receiver.id.padStart(12,"0")}.jsonl`), "");
