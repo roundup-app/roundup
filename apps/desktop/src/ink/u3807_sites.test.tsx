@@ -106,7 +106,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button");
+  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /retry/i });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -229,12 +229,23 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
   const mounted = await mountTodos([], true, [agent("a", "working", "building", { work: { kind: "work", ask: "Ship", limits: [] } })]);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
   fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
-  fireEvent.input(await within(view.container).findByLabelText("Ask"), { target: { value: "Changed ask" } });
+  const ask = await within(view.container).findByLabelText<HTMLTextAreaElement>("Ask");
+  fireEvent.input(ask, { target: { value: "Changed ask" } });
   mounted.app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, FAILURE); };
 
   await cycle(view.container,
     () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
-    () => { mounted.app.handlers["agent.setOrder"] = () => new Promise(() => {}); fireEvent.click(within(view.container).getByRole("button", { name: "Save" })); });
+    async () => {
+      const reply = gate<ReturnType<typeof agent>>();
+      mounted.app.handlers["agent.setOrder"] = () => reply.promise;
+      fireEvent.click(within(view.container).getByRole("button", { name: "Save" }));
+      const submitted = mounted.connected.drafts.list().find(draft => draft.value.ask === "Changed ask")!;
+      // A newer revision keeps the editor and its reserved place mounted after acknowledgement.
+      fireEvent.input(ask, { target: { value: "  Newer unsent ask 🧭\n" } });
+      reply.resolve(agent("a", "working", "building", { work: { kind: "work", ask: "Changed ask", limits: [] } }));
+      await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.revision === submitted.revision)).toBe(false));
+    });
+  expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {

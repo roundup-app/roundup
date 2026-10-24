@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- RowActions belongs to InboxRow; rail/RowIcons has a different directly imported action contract.
 import { createUniqueId } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { copy } from "../copy";
