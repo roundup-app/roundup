@@ -18,6 +18,7 @@
     "@milkdown/kit": "^7.22.2",
     "@pierre/diffs": "^1.6.1",
     "@pierre/trees": "1.0.0-beta.6",
+    "@zag-js/focus-visible": "1.45.0",
     "@radix-ui/colors": "3.0.0",
     "@solid-primitives/scheduled": "^1.5.3",
     "@tauri-apps/api": "^2.12.1",
