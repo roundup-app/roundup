@@ -110,6 +110,19 @@ describe("p3557c_failure_lifetime_ask_state", () => {
     expect(asks.intakeFailure()?.submission).toBe("s3");
   });
 
+  it("p3557c_failure_lifetime_ask_state_intake_failure_clears_on_acknowledged_send", async () => {
+    const { app, asks } = await open();
+
+    app.handlers["ask.send"] = () => { throw new RpcError(-32602, "bad"); };
+    await asks.send({ text: "y", submission: "s1" });
+    expect(asks.failure()).toBe("bad");
+
+    app.handlers["ask.send"] = (params) => ask("a9", params.submission);
+    await asks.send({ text: "y2", submission: "s2" });
+    expect(asks.intakeFailure()).toBeNull();
+    expect(asks.failure()).toBeNull();
+  });
+
   it("p3557c_failure_lifetime_ask_state_list_recovery_clears_its_failure", async () => {
     const { app, asks } = await open();
 
