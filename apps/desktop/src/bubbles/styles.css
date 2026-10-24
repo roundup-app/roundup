@@ -68,10 +68,11 @@
   pointer-events: auto;
 }
 
-/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
+/* U3517c: the shell viewport shares the Terminal canvas ground. */
+.bubble-body,
 .bubble .xterm .xterm-viewport,
 .bubble .xterm .xterm-scrollable-element {
-  background-color: var(--ground);
+  background-color: var(--terminal-background);
 }
 
 /* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
@@ -137,7 +138,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: var(--ground);
+  background: var(--terminal-background);
 }
 
 .bubble-body > div {

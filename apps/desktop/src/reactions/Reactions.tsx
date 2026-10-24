@@ -1,3 +1,4 @@
+import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
 import type { Message } from "@contracts/message/Message";
@@ -174,9 +175,9 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
       }} onCancel={back} />
     </Show>
     <Show when={view().kind === "detail"}>
-      <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><button type="button" data-button="quiet" onClick={back}>{copy.reactionBack}</button></ReservedLine>}>
+      <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
-          <button type="button" data-button="quiet" class="reaction-back" onClick={back}>{copy.reactionBack}</button>
+          <ExitButton class="reaction-back" onClick={back} />
           <h3 class="reaction-title">{reaction().name}</h3>
           <ReservedLine message={inspection()?.failure ?? actionFailure()} />
           <Facts reaction={reaction()} />
@@ -269,7 +270,7 @@ const Facts = (props: { reaction: Reaction }) => {
     </Show></dd>
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
-      <button type="button" data-button="quiet" ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage}>{copy.reactionBackToFiring}</button>
+      <ExitButton ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage} />
       <ReservedLine message={message()?.failure}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></ReservedLine>
       <Show when={!message.loading && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
@@ -452,7 +453,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
   const expiryFields = when(copy.reactionExpires, "expDate", "expTime", "expOffset", expiry);
 
   return <form class="reaction-form" aria-label={copy.reactionCreate} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <button type="button" data-button="quiet" class="reaction-back" onClick={props.onCancel}>{copy.reactionBack}</button>
+    <ExitButton class="reaction-back" onClick={props.onCancel} />
     <h3 class="reaction-title">{copy.reactionCreate}</h3>
     {nameField}
     <Select label={copy.reactionTarget} value={form().target}
