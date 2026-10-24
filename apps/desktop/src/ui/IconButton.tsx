@@ -1,6 +1,8 @@
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Chord } from "../keys/chords";
+import { copy } from "../copy";
+import { Icon } from "../ink/Icon";
 import { Tooltip } from "./Tooltip";
 
 export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; chord?: Chord | undefined; tooltip?: string | undefined }) => {
@@ -28,3 +30,7 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Portal><Tooltip.Positioner><Tooltip.Content chord={local.chord}>{local.tooltip ?? props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
 };
+
+/** The App's return control retains its caller's navigation and focus ownership. */
+export const ExitButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children">) =>
+  <IconButton {...props} aria-label={copy.close}><Icon name="x" /></IconButton>;

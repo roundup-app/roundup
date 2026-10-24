@@ -941,6 +941,16 @@ An expandable App region with a named trigger; closing it retains its content.
 **Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
 The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
 
+**Agent time rule** (`Kind::counts_time`, generated `countsTime`):
+An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
+contributes none while the Attempt remains alive. Timeline samples retain the `ended`
+fact from Status Events or the Rail and use the Status `since` as the observed boundary.
+Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
+A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
+
+**Exit button** (`ExitButton`):
+The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.
+
 **Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
 A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.
 
