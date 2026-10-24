@@ -158,7 +158,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
       expect(screen.getAllByRole("alert")).toHaveLength(2);
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss copy failure" }));
   } else if (action === "discard") {
     fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
   } else if (action === "acknowledged" || action === "failed") {
@@ -188,8 +188,9 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
   expect(clipboard.mock.calls[0]).toEqual(["  original é\n雪  \nexact excerpt"]);
 });
 
-it.each(["history", "read", "render"].flatMap(failure => ["dismiss", "switch"].map(action => ({ failure, action }))))("p3557c_failure_lifetime_item_drawer_$failure_$action", async ({ failure, action }) => {
+it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map(action => ({ failure, action }))))("p3557c_failure_lifetime_item_drawer_$failure_$action", async ({ failure, action }) => {
   localStorage.clear();
+  let fixed = false;
   const app = createFakeApp();
   app.handlers["provenance.history"] = () => {
     if (failure === "history") throw new Error("opening refused");
@@ -202,12 +203,12 @@ it.each(["history", "read", "render"].flatMap(failure => ["dismiss", "switch"].m
   const [item, setItem] = createSignal("original");
   render(() => <ConnectedProjectContext.Provider value={connected}>
     <ItemDrawer item={item()} read={async () => {
-      if (item() === "original" && failure === "read") throw new Error("opening refused");
+      if (item() === "original" && failure === "read" && !fixed) throw new Error("opening refused");
 
       return item();
     }}>
       {value => {
-        if (value === "original" && failure === "render") throw new Error("opening refused");
+        if (value === "original" && failure === "render" && !fixed) throw new Error("opening refused");
 
         return <p>{value}</p>;
       }}
@@ -215,8 +216,11 @@ it.each(["history", "read", "render"].flatMap(failure => ["dismiss", "switch"].m
   </ConnectedProjectContext.Provider>);
   await screen.findByText("opening refused");
 
-  if (action === "dismiss") {
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (action === "retry") {
+    fixed = true;
+    app.handlers["provenance.history"] = () => [];
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByText("original");
     expect(screen.queryByRole("alert")).toBeNull();
   } else {
     app.handlers["provenance.history"] = () => [];
