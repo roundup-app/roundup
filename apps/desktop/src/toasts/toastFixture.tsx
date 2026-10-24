@@ -45,7 +45,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
-    watchProject(connected, queue.push, () => shown.push("/p"), () => true);
+    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle);
 
     return (
       <ConnectedProjectContext.Provider value={connected}>

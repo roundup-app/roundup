@@ -18,19 +18,24 @@ const cut = (text: string): string => (text.length > TITLE_CHARS ? `${text.slice
 
 const GONE = copy.thatIsGone;
 
+const todoItem = (id: number) => `todo:${id}`;
+
+const padItem = (name: string) => `pad:${name}`;
+
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, push: (candidate: Candidate) => void, show: () => void, isActive: () => boolean): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, push: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settle: (item: string) => void): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
   const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (node.status ? [[node.id, node.status.kind] as const] : [])));
 
-  const byAgent = (actor: Actor, line: string, open: Candidate["open"]): Candidate | null => {
+  const byAgent = (actor: Actor, item: string, line: string, open: Candidate["open"]): Candidate | null => {
     if (actor.kind !== "agent") return null;
 
     const node = rail.nodes.find((each) => each.id === actor.id);
 
     return {
       key: actor.id,
+      item,
       kind: node?.status?.kind ?? "working",
       name: rail.nameOf(actor),
       line,
@@ -99,14 +104,23 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
 
       push({
         key: id,
+        item: `agent:${id}`,
         kind: status.kind,
         name: node?.name ?? id,
         line: status.kind === "error" ? copy.failedStatus : copy.needsYou,
         selected: isActive() && rail.selected() === id,
         open: openAgent(id),
       });
+    } else if (event.name === "todo.deleted") {
+      settle(todoItem(event.data.id));
+    } else if (event.name === "pad.deleted") {
+      settle(padItem(event.data.name));
+    } else if (event.name === "todo.updated" && event.actor.kind === "user") {
+      settle(todoItem(event.data.id));
+    } else if (event.name === "pad.changed" && event.actor.kind === "user") {
+      settle(padItem(event.data.name));
     } else if (event.name === "todo.updated" && event.data.creator.kind === "user") {
-      const candidate = byAgent(event.actor, copy.changedTodo(cut(event.data.title)), openTodo(event.data.id));
+      const candidate = byAgent(event.actor, todoItem(event.data.id), copy.changedTodo(cut(event.data.title)), openTodo(event.data.id));
 
       if (candidate) push(candidate);
     } else if (event.name === "pad.changed" && event.actor.kind === "agent") {
@@ -117,7 +131,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
         (pads) => {
           if (!pads.some((pad) => pad.name === name && pad.owner.kind === "user")) return;
 
-          const candidate = byAgent(actor, copy.changedPad(cut(name)), openPad(name));
+          const candidate = byAgent(actor, padItem(name), copy.changedPad(cut(name)), openPad(name));
 
           if (candidate) push(candidate);
         },
