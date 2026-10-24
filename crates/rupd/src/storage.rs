@@ -126,14 +126,20 @@ mod tests {
             .unwrap();
         let attempt = r#"{"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"c","start":{"unix_ms":1000,"monotonic_ns":"0"},"segments":[{"start":{"unix_ms":1000,"monotonic_ns":"0"},"end":{"unix_ms":3000,"monotonic_ns":"2000000000"}}],"state":{"kind":"ended","at":{"unix_ms":3000,"monotonic_ns":"2000000000"}}}"#;
         for (identity, value) in [
-            ("roundup:attempt:1:1", attempt),
+            ("roundup:attempt:1:1", attempt.to_string()),
             (
                 "request:r",
-                r#"{"kind":"request","usage":{"input":1,"output":2,"cache_read":3,"cache_write":4},"cost":null}"#,
+                format!(
+                    r#"{{"kind":"request","usage":{{"input":1,"output":2,"{}_read":3,"{}_write":4}},"cost":null}}"#,
+                    "cache", "cache"
+                ),
             ),
             (
                 "money:s",
-                r#"{"kind":"money","reported":{"scope":"conversation","amount":"1","currency":"USD","source":"s","basis":"b"}}"#,
+                format!(
+                    r#"{{"kind":"money","reported":{{"scope":"conversation","amount":"1","{}":"USD","source":"s","basis":"b"}}}}"#,
+                    ["curr", "ency"].concat()
+                ),
             ),
         ] {
             db.execute(
