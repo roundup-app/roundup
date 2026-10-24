@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
-import { chord, glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
+import { chord, rowGlyph as glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
