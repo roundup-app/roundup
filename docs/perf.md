@@ -377,16 +377,32 @@ attribution, false-fail evidence and separate later main pass remain open.
 ### Fresh-image search cost (#3696)
 
 `reidentified` searches a 507,904-byte migrated image twice to replace the two
-Project identities. The scalar comparison at every byte is startup work unrelated
-to SQLite, process sampling or the listing sidecar. An optimized Linux probe of
-this function, using the actual image and a fixed random input to exclude RNG
-cost, measured about 1.3 ms per copy while the initial release build was running.
-This establishes a local cause, not a Mac attribution or an idle timing result.
+Project identities. `2a259871a` introduced a scalar comparison at every byte;
+this startup work is independent of SQLite, process sampling and the listing
+sidecar. `memchr::memmem::find_iter` replaces that scan, searching the immutable
+image before copying replacement bytes. The image, synchronization, migration
+fallback and budgets stay unchanged.
 
-Use the maintained substring search already in the dependency graph to remove
-that scalar scan. The existing
+Linux x86_64, Intel Xeon Platinum 8573C, four available CPUs, rustc 1.99.0:
+extract `reidentified`, `FRESH` and `IDENTITIES` from `storage.rs`, replace only
+the RNG call with `random.fill(0x71)`, and compile with `rustc -O --edition 2024`.
+Each invocation times seven batches of 1,000 copies, black-boxing every returned
+image. The after probe links the existing release `memchr` rlib. With builds
+and checks stopped, three alternating before/after invocations gave these
+median batch means (ms per copy):
+
+| Pair | Scalar scan | Library search |
+|---|---:|---:|
+| 1 | 0.68837 | 0.04957 |
+| 2 | 0.68939 | 0.04981 |
+| 3 | 0.69635 | 0.05155 |
+
+The repair removes about 0.64 ms of Linux image preparation. It excludes RNG,
+file writing, fsync, database opening and process startup; it is neither a full
+cold-start timing nor Mac attribution. The existing
 `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` checks
 schema/data equivalence, different Project identities and removal of every
-placeholder. Keep the image, synchronization, migration fallback and budgets.
+placeholder. No new clock-sensitive test is added.
+
 R3696c's full Mac gate, remaining startup/RSS attribution, false-fail evidence and
-separate later main pass remain open.
+separate later main pass remain open. No baseline rebase is justified here.
