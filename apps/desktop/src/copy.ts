@@ -965,6 +965,7 @@ export const copy = {
   triageDone: "Done",
   triageComment: "Comment",
   triageLeave: "Leave",
+  triageMore: "More",
   noteTo: (name: string) => `Note to ${name}`,
   notesWaiting: (count: number) => `${count} waiting`,
   removeQueuedNote: (firstLine: string) => `Remove note: ${firstLine}`,

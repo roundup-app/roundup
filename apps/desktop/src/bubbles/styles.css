@@ -26,11 +26,11 @@
   pointer-events: auto;
 }
 
-/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre column itself, from the window bar to the top of the Terminal bar, which stays undimmed, above every pane descendant; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
+/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre column itself, from the window bar to the top of the Terminal bar, hint line included, which stays undimmed, above every pane descendant; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
 .centre-stack::before {
   content: "";
   position: absolute;
-  inset: 0 0 calc(var(--hint-row-height) + var(--rail-actions-height));
+  inset: 0 0 var(--rail-actions-height);
   z-index: var(--layer-popover);
   pointer-events: none;
   background: none;
