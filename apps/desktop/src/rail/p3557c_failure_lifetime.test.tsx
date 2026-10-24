@@ -6,6 +6,7 @@ import { agent, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { mountRail, rowOf } from "./railFixture";
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 
 afterEach(cleanup);
 
