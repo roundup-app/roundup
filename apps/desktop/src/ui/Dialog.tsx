@@ -1,9 +1,9 @@
-import { getInteractionModality, trackFocusVisible } from "@zag-js/focus-visible";
 import { Portal } from "solid-js/web";
 import { createSlideLifetime } from "./slideLifetime";
 import { createReducedMotion } from "../app/reducedMotion";
+import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/solid/dialog";
-import { createContext, createEffect, createSignal, Show, on, onCleanup, untrack, useContext, type Accessor } from "solid-js";
+import { createContext, createEffect, createSignal, Show, on, untrack, useContext, onCleanup, onMount, type Accessor } from "solid-js";
 import { modalOutside, registerKeys } from "../keys/registry";
 import "./Dialog.css";
 
@@ -43,12 +43,13 @@ export const floatingControl = (props: { open?: boolean | undefined; defaultOpen
 export const Dialog = {
   ...ArkDialog,
   Root: (props: ArkDialog.RootProps & { instant?: boolean }) => {
-    onCleanup(trackFocusVisible());
     const parent = useContext(Ownership);
     const [element, setElement] = createSignal<HTMLElement>();
     const [local, setLocal] = createSignal(props.defaultOpen ?? false);
     const requested = () => props.open ?? local();
     const lifetime = createSlideLifetime();
+    // U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades.
+    onMount(() => onCleanup(trackFocusVisible()));
     const [present, setPresent] = createSignal(requested());
     const reduced = window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true;
     let wasOpen = false;
@@ -62,7 +63,7 @@ export const Dialog = {
       }
 
       wasOpen = open;
-      lifetime.retarget(open, !props.instant && !reduce && getInteractionModality() === "pointer");
+      lifetime.retarget(open, !props.instant && !reduce && !isFocusVisible());
       setPresent(open || lifetime.exiting());
     }));
     // A close request must not unmount the panel before the lifetime effect retains its exit.
