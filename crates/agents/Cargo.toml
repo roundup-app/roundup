@@ -33,6 +33,7 @@ time = { version = "0.3.55", features = ["parsing"] }
 libproc = "0.14"
 
 [dev-dependencies]
+shlex = "2.0.1"
 messages = { path = "../messages" }
 provenance = { path = "../provenance" }
 tokio = { workspace = true, features = ["test-util"] }
