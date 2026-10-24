@@ -35,7 +35,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -48,16 +48,18 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     return contextMenu(app, entries(node, exit, removed), x, y);
   };
 
-  const attempt = async (call: () => Promise<void>) => {
+  const attempt = async (call: () => Promise<void>, item?: string) => {
     close();
 
     try {
       await call();
+
+      if (item !== undefined) acknowledge(item);
     } catch (error) {
       if (error instanceof RpcError && error.code === -32001) {
         await rail.refresh();
       } else if (error instanceof Error) {
-        onFailure(error.message);
+        onFailure(error.message, item);
       } else {
         throw error;
       }
@@ -70,7 +72,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const chooseStop = () => {
     const current = state();
 
-    if (current) void attempt(async () => { await stop(current.node); });
+    if (current) void attempt(async () => { await stop(current.node); }, current.node.id);
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
@@ -91,16 +93,17 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     try {
       await app.rpc("agent.resume", { id });
       await rail.refresh();
+      acknowledge(id);
     } catch (error) {
       if (!(error instanceof RpcError)) {
-        if (error instanceof Error) onFailure(error.message);
+        if (error instanceof Error) onFailure(error.message, id);
         else throw error;
       } else if (error.code === UNKNOWN_OUTCOME) {
         await rail.refresh({ terminals: true });
 
-        if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed);
+        if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
       } else {
-        onFailure(error.message);
+        onFailure(error.message, id);
 
         if (error.code === NOT_FOUND) await rail.refresh();
       }
@@ -156,7 +159,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     attempt(async () => {
       await app.rpc("rail.remove", { id: current.node.id });
       current.removed?.();
-    });
+    }, current.node.id);
 
   /** U367: a Workstream always asks, after reading the facts A34 judges. */
   const confirmWorkstream = async (current: MenuState) => {
@@ -169,7 +172,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     } catch (error) {
       close();
 
-      if (error instanceof Error) onFailure(error.message);
+      if (error instanceof Error) onFailure(error.message, current.node.id);
       else throw error;
     }
   };
@@ -186,10 +189,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     try {
       await app.rpc("agent.resume", { id: node.id, mode });
       await rail.refresh();
+      acknowledge(node.id);
     } catch (error) {
       if (!(error instanceof RpcError)) throw error;
 
-      onFailure(error.message);
+      onFailure(error.message, node.id);
 
       if (error.code === NOT_FOUND) await rail.refresh();
     }
@@ -210,10 +214,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       const call = (run: () => Promise<void>) => async () => {
         try {
           await run();
+          acknowledge(node.id);
         } catch (error) {
           if (!(error instanceof Error)) throw error;
 
-          onFailure(error.message);
+          onFailure(error.message, node.id);
         }
 
         await queue.refresh();
@@ -250,7 +255,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
-      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id)),
       remove,
     ];
   };

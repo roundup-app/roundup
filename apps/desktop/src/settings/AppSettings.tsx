@@ -18,7 +18,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const view = createSettingsView();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
-  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();
   const drafts = draftStorage("app-settings");
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
