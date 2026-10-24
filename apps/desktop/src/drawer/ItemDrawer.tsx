@@ -1,6 +1,7 @@
 import { createResource, createSignal, ErrorBoundary, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Event } from "@contracts/Event";
+import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
@@ -32,7 +33,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   const lineOf = (history: Parameters<typeof lastTouchLine>[0]) =>
     (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf);
 
-  const [loaded] = createResource(async () => {
+  const [loaded, { refetch }] = createResource(async () => {
     const history = await connected.app.rpc("provenance.history", { item: props.item });
 
     return { line: lineOf(history), value: await props.read() };
@@ -56,13 +57,11 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   );
 
   return (
-    <ErrorBoundary fallback={(error: Error) => {
-      const [dismissed, setDismissed] = createSignal(false);
-
-      return <ReservedLine message={!dismissed() && error.message}>
-        <button data-button="quiet" type="button" onClick={() => setDismissed(true)}>Dismiss failure</button>
-      </ReservedLine>;
-    }}>
+    <ErrorBoundary fallback={(error: Error, reset) => (
+      <ReservedLine message={error.message}>
+        <button data-button="quiet" type="button" onClick={() => { void refetch(); reset(); }}>{copy.tryAgain}</button>
+      </ReservedLine>
+    )}>
       <Show when={loaded()}>
         {(item) => (
           <>
