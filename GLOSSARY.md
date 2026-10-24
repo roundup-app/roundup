@@ -533,7 +533,7 @@ The Daemon coordinator's durable protection of a selected later Agent's existing
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
 **Held**:
-A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input, or the user's answer to an escalated question.
+A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input.
 
 **Draft** (`draftStorage`):
 Unsubmitted user-entered content and selections belonging to one original Project,
@@ -545,13 +545,7 @@ acknowledgement or explicit selected discard consumes only that revision (U2773a
 The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
 
 **Reason**:
-The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` or `inbox` (held); `receiver gone`, `not accepted` or `passed` (dropped).
-
-**Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
-
-**Escalated question**:
-The Message to the user that ends a bubbling question: `held` with the reason `escalated`, never `delivered` until the user answers it.
+The word on a held or dropped Message saying why: `ask-first`, `takeover` or `inbox` (held); `receiver gone`, `not accepted`, `removed` or `merged` (dropped).
 
 **Card**:
 Anything the user sees in the app (an Inbox Message, a status, a summary); it has a kind.

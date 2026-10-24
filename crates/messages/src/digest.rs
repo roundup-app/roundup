@@ -646,7 +646,6 @@ mod tests {
             reply_to: None,
             status: MessageStatus::Delivered,
             reason: None,
-            passed_from: None,
             at: id.into(),
             iteration: None,
         }

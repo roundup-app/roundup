@@ -538,7 +538,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   if (name === "note-queue") {
     // U3780's observer: the densest queue, a long multi-line note, an unbreakable word, non-Latin text and an ask-first note from a Door.
     const from = { kind: "user", id: "user", parent: null } as const;
-    const base = { to: "agent-4", kind: "note", replyTo: null, passedFrom: null, reason: null, status: "pending" } as const;
+    const base = { to: "agent-4", kind: "note", replyTo: null, reason: null, status: "pending" } as const;
 
     const queued: Message[] = [
       { ...base, id: 1, from, body: `${"A very long first line that cannot fit one row of the narrowest pane ".repeat(4)}\nand a second line`, at: now },
