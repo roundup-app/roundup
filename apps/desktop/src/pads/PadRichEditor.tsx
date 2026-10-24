@@ -76,7 +76,7 @@ export default function PadRichEditor(props: {
   let applying = false;
   let closed = false;
 
-  // The restored selection, held until the user's first input: Chromium may still hand ProseMirror the caret it adopted at focus.
+  // The restored selection, kept until the user's first input: Chromium may still hand ProseMirror the caret it adopted at focus.
   let restored: { start: number; end: number; direction: "forward" | "backward" | "none" } | null = null;
   let restoreAgain = () => {};
 
