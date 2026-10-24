@@ -344,3 +344,32 @@ supply the missing in-process evidence; they do not establish a Mac pass or attr
 the entire remaining startup gap. The nine alternating same-session invocations,
 commit-by-commit attribution, unchanged-code false-fail bar and separate later main
 pass required by #3696 remain outstanding. No baseline rebase is justified here.
+
+### Rail reply allocation (#3696)
+
+The latest M4 Max A/B on #3696 (`59cff55cae` against `02fd86775`, nine
+alternating invocations each) reproduces the baseline and still fails current
+cold start (10.64 ms), Rail 40 (0.186 ms) and RSS growth (3.922 MB). The startup
+logs give median open/bound times of 5.32/5.38 ms; neither these logs nor the
+following Linux measurement attributes the entire remaining startup or RSS gap.
+
+`e03234712` removes temporary allocations from Rail reads: rusqlite's borrowed
+`ValueRef` supplies kind and Order text, traversal moves loaded nodes instead of
+cloning them, and presentation formats a finish count only in the Status that
+uses it. No result is cached. Through `Module::call_reply`, the ordinary
+forty-Workstream reply allocates 290 times / 176,266 bytes, against 530 times /
+181,047 bytes before the repair. `r3696c_forty_workstreams_avoid_temporary_node_copies`
+uses the existing `stats_alloc` observer, with no Daemon, process or clock; its
+400-allocation ceiling fails on the original path. Existing Rail ordering,
+Order and Status tests cover the returned contents.
+
+A separate release probe on Linux (four available CPUs, AMD EPYC 9V45) constructs
+40 Workstreams, warms 100 reads, then times seven batches of 10,000 `Rail::tree`
+reads. Two alternating before/after invocations, with builds and tests stopped,
+gave median batch means of 38.35 us before (37.22–41.07) and 32.44 us after
+(31.85–33.10), about 15% less construction time. This probe excludes live
+presentation, JSON and transport; it is not the end-to-end Mac metric. The final
+presentation change is included in the allocation observer, not this timing.
+The saved allocations are temporary request work, not an explanation of idle
+RSS. Budgets remain unchanged. R3696c's same-M4-Max full gate, remaining
+attribution, false-fail evidence and separate later main pass remain open.
