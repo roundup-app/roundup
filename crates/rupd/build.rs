@@ -75,4 +75,7 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     Migrations::new(migrations).to_latest(&mut db).unwrap();
     db.execute("VACUUM INTO ?1", [image.to_str().unwrap()])
         .unwrap();
+    // The WAL mode is kept in the file, so `storage::open` finds it set and writes nothing.
+    let image = Connection::open(&image).unwrap();
+    image.pragma_update(None, "journal_mode", "WAL").unwrap();
 }

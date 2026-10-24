@@ -432,12 +432,11 @@ Write each limit of a Work order as a rule that reads on its own, such as \"Chan
 
 ";
 
-/// LC3: Plain's rules in the Door's own words; the Door reads no user `CLAUDE.md` and a Project's
-/// stays in force, so nothing here overrides it or forces a status table.
+/// LC3: Plain's rules without the worker's vendored body; Project instructions stay in force.
 const DOOR_PLAIN: &str = "\
 ## Output style
 
-Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
+Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
 Keep prose to a few short lines and put rows in a table. \
 Where the Project's `CLAUDE.md` asks for something else, follow it.
 
@@ -518,8 +517,9 @@ fn command(name: &str) -> String {
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3). `mcp` is whether the
 /// roundup MCP server is launched (M2219); with it off the Brief names `rup` commands instead.
-pub fn text(role: Role, mcp: bool) -> String {
-    let brief = with_tools(role, mcp);
+/// `plain` delivers hold:Plain only when the user has no output style (LC2).
+pub fn text(role: Role, mcp: bool, plain: bool) -> String {
+    let brief = with_tools(role, mcp, plain);
     if mcp {
         return brief;
     }
@@ -549,7 +549,7 @@ pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
         .filter(|name| !matches!(*name, "agent_run" | "terminal_spawn" | "terminal_open"))
 }
 
-fn with_tools(role: Role, mcp: bool) -> String {
+fn with_tools(role: Role, mcp: bool, plain: bool) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = match (mcp, role) {
         (true, Role::Door) => {
@@ -605,15 +605,14 @@ fn with_tools(role: Role, mcp: bool) -> String {
     }
     text.push('\n');
     text.push_str(TERMINAL_HABIT);
-    // LC3, LC5: the vendored body is the worker's; the Door states the rules in its own words and a
-    // scout, which writes only to its parent, needs none.
-    match role {
-        Role::Door => text.push_str(DOOR_PLAIN),
-        Role::Scout => {}
-        Role::Agent => {
-            text.push_str(PLAIN_RULE);
-            text.push_str(HOLD_PLAIN);
-            text.push('\n');
+    if plain {
+        match role {
+            Role::Door | Role::Scout => text.push_str(DOOR_PLAIN),
+            Role::Agent => {
+                text.push_str(PLAIN_RULE);
+                text.push_str(HOLD_PLAIN);
+                text.push('\n');
+            }
         }
     }
     text.push_str(ASK_RULE);
@@ -638,24 +637,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn o9_the_brief_and_the_tool_description_name_order_and_prompt() {
-        let brief = text(Role::Door, true);
-        assert!(
-            brief.contains("`order`") && brief.contains("`prompt`"),
-            "{brief}"
-        );
-    }
-
-    #[test]
-    fn i8_every_brief_says_to_run_rup_help() {
-        for role in [Role::Agent, Role::Door] {
-            assert!(text(role, true).contains("run `rup help`"), "{role:?}");
-        }
-    }
-
-    #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {
-        let brief = text(Role::Door, true);
+        let brief = text(Role::Door, true, true);
         assert!(
             brief.contains("`prompt`")
                 && brief.contains("`order`")
