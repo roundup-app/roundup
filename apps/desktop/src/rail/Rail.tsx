@@ -325,7 +325,7 @@ export const Rail = () => {
   });
 
   /** Where the drop slot sits: at the top of the room the library opened for the dragged row, once it has moved there. */
-  let followRoom: MutationObserver | undefined;
+  let followRoom: number | undefined;
   let roomDepth = 0;
 
   const measureRoom = () => {
@@ -335,16 +335,18 @@ export const Rail = () => {
     const height = room?.height ?? 0;
 
     setDrop((now) => (base && room ? (now && now.depth === roomDepth && now.top === top && now.height === height ? now : { depth: roomDepth, top, height }) : null));
+  };
 
-    // The library slides the room into place by an animation that writes nothing to the DOM when it ends: measure again then.
-    const running = followRoom === undefined ? [] : (container()?.getAnimations?.({ subtree: true }) ?? []);
-
-    if (running.length > 0) void Promise.allSettled(running.map((one) => one.finished)).then(() => followRoom !== undefined && measureRoom());
+  // The library moves the room by its own DOM writes and animations: measure on every frame of the drag so the slot always matches the gap a release commits.
+  const followFrame = () => {
+    measureRoom();
+    followRoom = requestAnimationFrame(followFrame);
   };
 
   const placeDrop = (next: { depth: number } | null) => {
     if (next === null) {
-      followRoom?.disconnect();
+      if (followRoom !== undefined) cancelAnimationFrame(followRoom);
+
       followRoom = undefined;
       const back = liftedRow;
 
@@ -359,13 +361,7 @@ export const Rail = () => {
     roomDepth = next.depth;
     queueMicrotask(measureRoom);
 
-    // The library moves the room after the preview, by its own DOM writes: measure on each one so the slot never trails it.
-    const tree = container();
-
-    if (followRoom === undefined && tree) {
-      followRoom = new MutationObserver(measureRoom);
-      followRoom.observe(tree, { subtree: true, childList: true, attributes: true, attributeFilter: ["style", "data-dnd-placeholder"] });
-    }
+    if (followRoom === undefined) followRoom = requestAnimationFrame(followFrame);
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
