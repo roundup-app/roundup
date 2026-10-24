@@ -208,12 +208,11 @@ async fn one_run_with_report(
     // The App supplies its own data override; reset it at the executable boundary as well.
     std::fs::write(
         &wrapper,
-        format!(
-            "#!/bin/sh\nexport ROUNDUP_DATA_DIR={}\nexec {} \"$@\" 2>>{}\n",
-            quote(&data)?,
-            quote(&daemon)?,
-            quote(&std::path::absolute(logs.join("daemon.stderr.log"))?)?
-        ),
+        daemon_script(
+            &data,
+            &daemon,
+            &std::path::absolute(logs.join("daemon.stderr.log"))?,
+        )?,
     )?;
     std::fs::set_permissions(
         &wrapper,
@@ -225,7 +224,7 @@ async fn one_run_with_report(
         &claude,
         format!(
             "#!/bin/sh\nexec python3 {} \"$@\"\n",
-            quote(Path::new(FAKE_CLAUDE))?
+            shlex::try_quote(FAKE_CLAUDE).map_err(io::Error::other)?
         ),
     )?;
     std::fs::set_permissions(&claude, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
@@ -278,11 +277,17 @@ async fn one_run_with_report(
     result
 }
 
-fn quote(path: &Path) -> io::Result<String> {
-    let text = path
-        .to_str()
-        .ok_or_else(|| failure("the perf executable path is not UTF-8"))?;
-    Ok(format!("'{}'", text.replace('\'', "'\\''")))
+fn daemon_script(data: &Path, daemon: &Path, log: &Path) -> io::Result<String> {
+    let [data, daemon, log] = [data, daemon, log].map(|path| {
+        let text = path
+            .to_str()
+            .ok_or_else(|| failure("the perf executable path is not UTF-8"))?;
+        shlex::try_quote(text).map_err(io::Error::other)
+    });
+    Ok(format!(
+        "#!/bin/sh\nexport ROUNDUP_DATA_DIR={}\nexec {} \"$@\" 2>>{}\n",
+        data?, daemon?, log?,
+    ))
 }
 
 /// Exit codes carry evidence only when the report actually exposes the required stage.
@@ -460,6 +465,50 @@ mod n7_fixture;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn z3742n_quoted_words_round_trip() {
+        for word in [
+            "",
+            "with spaces",
+            "apostrophe's",
+            "日本語",
+            "$(touch forbidden); * & | >",
+            "line\nbreak",
+        ] {
+            let script = daemon_script(Path::new(word), Path::new(word), Path::new(word)).unwrap();
+            let words = shlex::split(&script).unwrap();
+            assert_eq!(
+                words,
+                [
+                    "export",
+                    &format!("ROUNDUP_DATA_DIR={word}"),
+                    "exec",
+                    word,
+                    "$@",
+                    &format!("2>>{word}")
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn z3742n_unrepresentable_paths_are_rejected() {
+        use std::os::unix::ffi::OsStrExt;
+        for invalid in [
+            std::ffi::OsStr::from_bytes(b"bad\0path"),
+            std::ffi::OsStr::from_bytes(b"bad\xffpath"),
+        ] {
+            for slot in 0..3 {
+                let mut paths = [Path::new("valid"); 3];
+                paths[slot] = Path::new(invalid);
+                assert!(
+                    daemon_script(paths[0], paths[1], paths[2]).is_err(),
+                    "accepted {invalid:?} in slot {slot}"
+                );
+            }
+        }
+    }
 
     /// Real Daemon/Terminal PTY, with no App or native window.
     async fn transport(script: &str, body: Value) -> io::Result<Value> {
