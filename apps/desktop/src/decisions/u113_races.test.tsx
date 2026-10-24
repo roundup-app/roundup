@@ -96,3 +96,37 @@ describe("u113 listing and events reconcile by id", () => {
     expect(card()).toBeNull();
   });
 });
+
+it.each(["unrelated", "original"] as const)("p3557c_failure_lifetime_decisions_list_failure_%s", async target => {
+  const { app, container } = await mountApp([], app => {
+    app.handlers["decision.list"] = () => { throw new RpcError(-32000, "List failed; retry"); };
+  });
+
+  await waitFor(() => expect(container.querySelector(".decision-list-failure")?.textContent).toContain("List failed"));
+  app.emit(opened(decision("d1", "a")));
+  app.emit(cleared(target === "original" ? "d1" : "d2"));
+  expect(container.querySelector(".decision-list-failure")?.textContent).toContain("List failed");
+  app.handlers["decision.list"] = () => [];
+  fireEvent.click(within(container.querySelector<HTMLElement>(".decision-list-failure")!).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(container.querySelector(".decision-list-failure")).toBeNull());
+});
+
+it.each(["failure", "success"] as const)("p3557c_failure_lifetime_decisions_late_answer_%s", async outcome => {
+  const { app } = await mountApp([decision("d1", "a")]);
+  const pending = gate<null>();
+  app.handlers["decision.answer"] = () => pending.promise;
+  select("alpha");
+  await waitFor(() => expect(card()).not.toBeNull());
+  fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+  await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(1));
+  app.emit(cleared("d1"));
+  const next = decision("d1", "b");
+  app.emit(opened(next));
+
+  if (outcome === "failure") pending.reject(new RpcError(-32003, "Old answer failed"));
+  else pending.resolve(null);
+  await pending.promise.catch(() => {});
+  select("beta");
+  await waitFor(() => expect(card()?.textContent).toContain("beta"));
+  expect(within(card()!).queryByRole("alert")).toBeNull();
+});

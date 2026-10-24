@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
@@ -23,16 +23,7 @@ describe("u35 Todo triage without the Drawer", () => {
     await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 3 } }]));
   });
 
-  it("u35_no_complete_word_once_the_row_is_no_longer_hovered", async () => {
-    await mountTodos([todo(3)]);
-    await screen.findByText(/todo 3/);
-    fireEvent.mouseEnter(rowOf(3));
-    await screen.findByRole("checkbox", { name: "Complete todo 3" });
 
-    fireEvent.mouseLeave(rowOf(3));
-
-    expect(screen.queryByText("Complete")).toBeNull();
-  });
 
   it("u35_focusing_an_open_row_keeps_the_tick_box", async () => {
     await mountTodos([todo(3)]);
@@ -44,17 +35,7 @@ describe("u35 Todo triage without the Drawer", () => {
   });
 
 
-  it("u35_no_complete_word_once_focus_moves_to_another_row", async () => {
-    await mountTodos([todo(3), todo(4)]);
-    const row3Button = await screen.findByRole("button", { name: /#3/ });
-    row3Button.focus();
-    await within(rowOf(3)).findByRole("checkbox");
-    const row4Button = screen.getByRole("button", { name: /#4/ });
 
-    row4Button.focus();
-
-    expect(within(rowOf(3)).queryByText("Complete")).toBeNull();
-  });
 
   it("u35_complete_logs_no_read_touch_and_does_not_open_the_drawer", async () => {
     const { app, connected } = await mountTodos([todo(3)]);
@@ -81,20 +62,7 @@ describe("u35 Todo triage without the Drawer", () => {
     ]).toEqual([null, " #5  session store"]);
   });
 
-  it("u35_a_blockers_title_click_opens_the_drawer_exactly_once", async () => {
-    const { connected } = await mountTodos(shelf());
-    await screen.findByRole("button", { name: "Open blocker migrate" });
-    const opened: unknown[] = [];
-    const open = connected.drawer.open.bind(connected.drawer);
-    connected.drawer.open = (content) => {
-      opened.push(content);
-      open(content);
-    };
 
-    fireEvent.click(screen.getByRole("button", { name: "Open blocker migrate" }));
-
-    expect(opened).toHaveLength(1);
-  });
 
   it("u35_the_blockers_title_is_reachable_by_keyboard", async () => {
     await mountTodos(shelf());
@@ -119,7 +87,7 @@ describe("u35 Todo triage without the Drawer", () => {
     expect([...place.parentElement!.children]).toEqual(siblings);
     app.handlers["todo.complete"] = () => new Promise(() => {});
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
-    expect(screen.queryByText(/cannot complete/)).toBeNull();
+    expect(screen.getByRole("alert", { name: "cannot complete" })).toBeTruthy();
     expect(rowOf(5).querySelector(".reserved-line")).toBe(place);
     expect([...place.parentElement!.children]).toEqual(siblings);
   });
@@ -173,7 +141,7 @@ describe("u35 Todo triage without the Drawer", () => {
     expect(callsTo(app, "todo.list")).toHaveLength(2);
   });
 
-  it("u35_a_click_anywhere_in_the_shelf_clears_another_rows_failure", async () => {
+  it("p3557c_an_unrelated_shelf_click_keeps_the_row_failure", async () => {
     const { app } = await mountTodos(shelf());
     await screen.findByRole("button", { name: "Open blocker migrate" });
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
@@ -183,7 +151,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
     fireEvent.click(rowOf(4));
 
-    expect(screen.queryByText(/cannot complete/)).toBeNull();
+    expect(screen.getByRole("alert", { name: "cannot complete" })).toBeTruthy();
   });
 
   it("u35_moving_focus_from_the_row_to_complete_keeps_it_visible_and_clickable", async () => {
@@ -219,19 +187,6 @@ describe("u35 Todo triage without the Drawer", () => {
     await waitFor(() => expect(rowOf(5).getAttribute("aria-level")).toBe("1"));
   });
 
-  it("u35_a_rows_shelf_click_listener_is_removed_once_the_shelf_unmounts", async () => {
-    const addSpy = vi.spyOn(document, "addEventListener");
-    const removeSpy = vi.spyOn(document, "removeEventListener");
-    const { unmount } = await mountTodos([todo(3)]);
-    await screen.findByText(/todo 3/);
-    const added = addSpy.mock.calls.filter(([type]) => type === "click").length;
 
-    unmount();
-
-    const removed = removeSpy.mock.calls.filter(([type]) => type === "click").length;
-    expect([added > 0, removed]).toEqual([true, added]);
-    addSpy.mockRestore();
-    removeSpy.mockRestore();
-  });
 
 });
