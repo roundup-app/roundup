@@ -36,6 +36,8 @@ const PadBody = (props: {
   /** T27: a Todo's section link opens the Pad scrolled to this heading. */
   heading?: string | undefined;
   onLateFailure: (message: string) => void;
+  /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
+  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
@@ -312,6 +314,8 @@ const PadBody = (props: {
         sent = null;
       }
 
+      props.onAcknowledged?.(destination.object);
+
       if (due) void write();
     });
 
@@ -546,6 +550,8 @@ export const PadDrawer = (props: {
   recovery?: { project: string; revision: string; list: PadList };
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
+  /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
+  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
 
@@ -557,7 +563,7 @@ export const PadDrawer = (props: {
     const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
     const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
 
-    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} /> : null;
+    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onAcknowledged={props.onAcknowledged} /> : null;
   }
 
   return (
@@ -573,6 +579,7 @@ export const PadDrawer = (props: {
           pads={props.pads}
           heading={props.heading}
           onLateFailure={props.onLateFailure}
+          onAcknowledged={props.onAcknowledged}
         />
       )}
     </ItemDrawer>

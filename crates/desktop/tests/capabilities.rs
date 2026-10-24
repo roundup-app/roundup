@@ -1,7 +1,9 @@
-//! S1 and U3560a: the webview receives only its named native capabilities.
+//! S1 and U3560a: the exact webview permission boundary (`scenarios/app.md`).
+
+use std::collections::BTreeSet;
+use std::path::Path;
 
 use serde_json::Value;
-use std::{collections::BTreeSet, path::Path};
 
 #[test]
 fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothing_else() {
@@ -21,11 +23,11 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
         .collect();
 
     let expected = [
-        // U3560a grants native writes only; U3512a grants system questions.
+        // U3560a grants native writes only.
         "clipboard-manager:allow-write-text",
-        "dialog:allow-message",
         "dialog:allow-open",
         "dialog:allow-save",
+        "dialog:allow-message",
         "core:window:allow-set-badge-count",
         "window-bar:allow-set-window-title",
         "window-bar:allow-drag-window",
