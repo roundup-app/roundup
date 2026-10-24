@@ -29,6 +29,7 @@ fn door(id: &str, parent: Option<&str>) -> RailNode {
             kind: Kind::Working,
             label: "x".into(),
             since: 0,
+            finished: "0".into(),
         }),
     );
     workstream.parent = parent.map(str::to_owned);
@@ -144,6 +145,7 @@ impl Hops {
             kind,
             label: "x".into(),
             since: 0,
+            finished: "0".into(),
         };
         let mut revision = 1;
         for node in self
@@ -569,6 +571,7 @@ fn idle(h: &Hops, ids: &[&str]) {
                 kind: Kind::Idle,
                 label: "x".into(),
                 since: 0,
+                finished: "0".into(),
             });
         }
     }

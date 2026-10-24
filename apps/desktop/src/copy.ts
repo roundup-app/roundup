@@ -948,6 +948,7 @@ export const copy = {
   daemonExit: (exit: string) => `Daemon ${exit}`,
   unseenOutput: "New output",
   unseenMark: "●",
+  unreadResult: "Unread result",
   previousProjectsMark: "◂ ",
   nextProjectsMark: " ▸",
   roundup: "roundup",
