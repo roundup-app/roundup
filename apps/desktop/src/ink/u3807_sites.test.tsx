@@ -106,7 +106,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear)/ });
+  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear|Dismiss)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
