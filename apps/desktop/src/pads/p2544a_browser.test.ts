@@ -206,7 +206,11 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     show(a.revision);
   })()`);
   await browser("wait", "[aria-label='Pad body']");
-  await expect.poll(() => evaluate("window.getSelection().toString()"), { timeout: 20_000 }).toBe(" 🌱 é");
+  // The restore changes no focus, and the browser shows a ProseMirror selection only in the focused editor; focus it here rather than wait on creation-time focus.
+  await expect.poll(async () => {
+    await evaluate("document.querySelector('[aria-label=\"Pad body\"]').focus()");
+    return evaluate("window.getSelection().toString()");
+  }, { timeout: 20_000 }).toBe(" 🌱 é");
   await browser("click", ".pad-head-name");
   expect(await evaluate("(() => { const p = window.__selectedPad; return [p.app.calls, p.connected.drafts.list()]; })()")).toEqual(
     await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
