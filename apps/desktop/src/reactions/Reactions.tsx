@@ -282,8 +282,7 @@ const Facts = (props: { reaction: Reaction }) => {
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
       <ExitButton ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage} />
-      <Show when={message()?.id !== messageId() || !message()?.value}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></Show>
-      <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
+      <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
       <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
