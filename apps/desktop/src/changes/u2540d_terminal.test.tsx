@@ -29,7 +29,7 @@ it("u2540d_close_returns_to_the_same_live_terminal", async () => {
   terminal.type(new TextEncoder().encode("unsent draft"));
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   await openFile();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(emulators.get("t-a")).toBe(terminal);
   expect(terminal.disposed).toBe(false);
