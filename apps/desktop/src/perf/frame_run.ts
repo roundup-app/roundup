@@ -48,6 +48,10 @@ export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array
   for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
 };
 
+/** Settles with `work`, or rejects naming `step` once `ms` pass: a setup call that never answers must still end in a report line, with its cause. */
+export const bounded = <T>(work: Promise<T>, ms: number, step: string): Promise<T> =>
+  Promise.race([work, sleep(ms).then(() => Promise.reject(new Error(`${step} did not finish within ${ms} ms`)))]);
+
 /** What the Layers driver presses; each answers whether its control was found. */
 export type Layers = {
   openDrawer(): boolean;
@@ -270,7 +274,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       return;
     }
 
-    const cycle = await prepare(app, workload, cwd);
+    const cycle = await bounded(prepare(app, workload, cwd), SETUP_BOUND_MS, `the ${workload} setup`);
 
     await report(
       await recordFrames(
