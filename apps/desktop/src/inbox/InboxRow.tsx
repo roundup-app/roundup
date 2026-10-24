@@ -22,6 +22,7 @@ export type RowActions = {
   busy(row: AgentRow): boolean;
   failure(row: AgentRow): string | null;
   folded(row: AgentRow): void;
+  dismiss(row: AgentRow): void;
 };
 
 const summaryOf = (decision: Decision): string => decision.tool === "ask_user" ? (questionOf(decision.args)?.question ?? decision.tool) : decision.tool;
@@ -67,7 +68,9 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
         <Collapsible.Content>
           <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <ReservedLine message={failure()} />
+            <ReservedLine message={failure()}>
+              <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
+            </ReservedLine>
           </div>
         </Collapsible.Content>
       </Collapsible.Root>}>
