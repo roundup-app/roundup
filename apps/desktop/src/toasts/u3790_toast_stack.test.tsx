@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import css from "../ui/Toast.css?raw";
 import { agent, USER } from "../testing/nodes";
@@ -42,7 +42,7 @@ describe("u3790 every Toast has a time and shows it", () => {
     expect(cards(view)[0]!.dataset.state).toBe("closed");
   });
 
-  it("u3790_a_failure_toast_hides_at_ten_seconds", async () => {
+  it("u3790_a_failure_toast_has_no_time_and_closes_on_dismissal", async () => {
     const { app, view } = await mountToasts(tree(), { todos: [] });
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
@@ -50,9 +50,10 @@ describe("u3790 every Toast has a time and shows it", () => {
     fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
     expect(screen.getByRole("alert").textContent).toContain("gone");
-    await vi.advanceTimersByTimeAsync(9900);
+    await vi.advanceTimersByTimeAsync(60_000);
     expect(screen.queryByRole("alert")).not.toBeNull();
-    await vi.advanceTimersByTimeAsync(100 + 200);
+    fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Close" }));
+    await vi.advanceTimersByTimeAsync(400);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(view.container.querySelector(".app-toast")).toBeNull();
   });
@@ -73,9 +74,6 @@ describe("u3790 every Toast has a time and shows it", () => {
     const { app, view } = await mountToasts(tree(), { todos: [] });
 
     app.emit(status("a", "needs-you"));
-    app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
-    await settle();
-    fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
     await vi.advanceTimersByTimeAsync(10_000 + 400);
     await settle();
