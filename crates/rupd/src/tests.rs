@@ -9,7 +9,11 @@ pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
         events,
         output: None,
     };
-    daemon.dispatch(&mut conn, line, None).await.unwrap()
+    daemon
+        .dispatch(&mut conn, line, None)
+        .await
+        .unwrap()
+        .into_value()
 }
 
 pub(super) fn daemon_in(dir: &Path) -> Daemon {
@@ -143,6 +147,34 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
     drop(write);
     drop(lines);
     handler.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
+    let (_dir, daemon) = daemon();
+    for name in ["Ship", "日本語 \"Door\""] {
+        let line = json!({"id":1,"method":"rail.createWorkstream","params":{"name":name}});
+        ask(&daemon, &line.to_string()).await;
+    }
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    let routed = daemon
+        .route(&mut conn, "rail.tree", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(routed.as_array().unwrap().len(), 2);
+    for method in ["rail.tree", "rail.list"] {
+        let reply = ask(&daemon, &json!({"id":"a\nb","method":method}).to_string()).await;
+        assert_eq!(
+            reply,
+            json!({"jsonrpc":"2.0", "id":"a\nb", "result":routed})
+        );
+    }
 }
 
 async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
