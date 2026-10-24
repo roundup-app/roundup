@@ -16,7 +16,24 @@ async fn a7_b1_b9_real_daemon_fences_old_status_after_door_restart() {
     let dir = project.path().join(".roundup");
     std::fs::create_dir(&dir).unwrap();
     let fake = project.path().join("fake-claude");
-    std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\n# A20: the launch's Attempt is in the hook command of its --settings file, not the program's env.\nattempt=$(sed -n \"s/.*ROUNDUP_ATTEMPT='\\([0-9]*\\)'.*/\\1/p\" \"$2\" | head -n 1)\nwhile read line; do printf '%s:%s\\n' \"$attempt\" \"$line\" >> \"$(dirname \"$0\")/input\"; done\n").unwrap();
+    std::fs::write(
+        &fake,
+        r#"#!/usr/bin/env python3
+import json, pathlib, shlex, sys
+if sys.argv[1:3] == ['plugin', 'test']:
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
+# A20: read the Attempt from the hook's shell words, not the program's env.
+settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
+command = settings['hooks']['Stop'][0]['hooks'][0]['command']
+assignment = shlex.split(command)[0]
+assert assignment.startswith('ROUNDUP_ATTEMPT=')
+attempt = assignment.removeprefix('ROUNDUP_ATTEMPT=')
+for line in sys.stdin:
+    with open(pathlib.Path(__file__).with_name('input'), 'a') as output:
+        output.write(f'{attempt}:{line}')
+"#,
+    )
+    .unwrap();
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
