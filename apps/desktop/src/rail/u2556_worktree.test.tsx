@@ -4,7 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { mountRail, rowOf, glyphOf, settled } from "./railFixture";
+import { mountRail, rowOf, rowGlyph as glyphOf, settled } from "./railFixture";
 
 const worktree = { path: "/p/a", branch: "topic", base: "base" };
 
