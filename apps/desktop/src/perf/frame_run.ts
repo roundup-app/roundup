@@ -20,6 +20,18 @@ const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
 
+/** The first task after the rendering update that follows the current animation callback. */
+const afterUpdate = (callback: () => void) => {
+  const channel = new MessageChannel();
+
+  channel.port1.onmessage = () => {
+    channel.port1.close();
+    callback();
+  };
+
+  channel.port2.postMessage(null);
+};
+
 /** The only thing the drivers ask of time: a fake clock in tests, `setTimeout` in the App. */
 type Clock = { sleep(ms: number): Promise<void> };
 
@@ -324,12 +336,13 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
     await report(
       await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
+          entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
         async () => (await everyTwoSeconds(wallClock, cycle)).completed,
       ),
