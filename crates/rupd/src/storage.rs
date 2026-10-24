@@ -42,8 +42,37 @@ fn migrations() -> Vec<M<'static>> {
         .collect()
 }
 
+/// R3696c: every migration applied to an empty database, built by `build.rs`.
+const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
+
+/// Seeds a Project's own identities, which the image would otherwise share between Projects.
+const REIDENTIFY: &str = "UPDATE deliverable_project SET id=lower(hex(randomblob(16)));
+UPDATE reaction_project SET id=lower(hex(randomblob(16)));";
+
+/// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
+fn seed_fresh(path: &Path) -> std::io::Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    let staging = path.with_extension("db.new");
+    std::fs::write(&staging, FRESH)?;
+    let db = Connection::open(&staging).map_err(std::io::Error::other)?;
+    db.execute_batch(REIDENTIFY)
+        .map_err(std::io::Error::other)?;
+    drop(db);
+    // A racing opener or an existing file wins; the normal path then migrates it.
+    let linked = std::fs::hard_link(&staging, path);
+    std::fs::remove_file(&staging)?;
+    match linked {
+        Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => Err(e),
+        _ => Ok(()),
+    }
+}
+
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let path = dir.join("project.db");
+    // A failed seed only costs the replay: the migrations below build the same database.
+    let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
@@ -78,6 +107,63 @@ mod tests {
         "checkpoints",
     ];
 
+    fn dump(db: &Connection) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut q = db
+            .prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name")
+            .unwrap();
+        let rows: Vec<(String, String, Option<String>)> = q
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        for (kind, name, sql) in rows {
+            out.push(format!("{kind} {name} {sql:?}"));
+            if kind == "table"
+                && !name.starts_with("sqlite_")
+                && name != "deliverable_project"
+                && name != "reaction_project"
+            {
+                let mut s = db.prepare(&format!("SELECT * FROM \"{name}\"")).unwrap();
+                let n = s.column_count();
+                let mut rows = s.query([]).unwrap();
+                while let Some(r) = rows.next().unwrap() {
+                    let row: Vec<String> = (0..n)
+                        .map(|i| format!("{:?}", r.get_ref(i).unwrap()))
+                        .collect();
+                    out.push(format!("{name}: {}", row.join("|")));
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        open(a.path()).unwrap();
+        open(b.path()).unwrap();
+        let migrated = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
+        apply(&mut db, migrations()).unwrap();
+        let fresh = Connection::open(a.path().join("project.db")).unwrap();
+        let version = |d: &Connection| {
+            d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap()
+        };
+        assert_eq!(version(&fresh), version(&db));
+        assert_eq!(dump(&fresh), dump(&db));
+        let id = |dir: &Path, table: &str| -> String {
+            Connection::open(dir.join("project.db"))
+                .unwrap()
+                .query_row(&format!("SELECT id FROM {table}"), [], |r| r.get(0))
+                .unwrap()
+        };
+        for table in ["deliverable_project", "reaction_project"] {
+            assert_ne!(id(a.path(), table), id(b.path(), table));
+        }
+    }
+
     mod standalone {
         include!("../tests/support/store_migrations.rs");
     }
@@ -105,6 +191,68 @@ mod tests {
         let upgraded = crate::tests::daemon_in(dir.path());
         let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
         assert_eq!(reply["result"][0]["auto"], false);
+    }
+
+    #[tokio::test]
+    async fn u3016m_measurement_store_has_no_token_or_money_and_reopens_with_the_same_time() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        let before = 10
+            + added::ADDED
+                .iter()
+                .position(|sql| {
+                    *sql == include_str!(
+                        "../migrations/project/0023-measurement-no-tokens-or-money.sql"
+                    )
+                })
+                .unwrap();
+        Migrations::new(migrations())
+            .to_version(&mut db, before)
+            .unwrap();
+        let attempt = r#"{"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"c","start":{"unix_ms":1000,"monotonic_ns":"0"},"segments":[{"start":{"unix_ms":1000,"monotonic_ns":"0"},"end":{"unix_ms":3000,"monotonic_ns":"2000000000"}}],"state":{"kind":"ended","at":{"unix_ms":3000,"monotonic_ns":"2000000000"}}}"#;
+        for (identity, value) in [
+            ("roundup:attempt:1:1", attempt.to_string()),
+            (
+                "request:r",
+                format!(
+                    r#"{{"kind":"request","usage":{{"input":1,"output":2,"{}_read":3,"{}_write":4}},"cost":null}}"#,
+                    "cache", "cache"
+                ),
+            ),
+            (
+                "money:s",
+                format!(
+                    r#"{{"kind":"money","reported":{{"scope":"conversation","amount":"1","{}":"USD","source":"s","basis":"b"}}}}"#,
+                    ["curr", "ency"].concat()
+                ),
+            ),
+        ] {
+            db.execute(
+                "INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','roundup:1','1','1','2','maker',1000,?2,'[]')",
+                params![identity, value],
+            )
+            .unwrap();
+        }
+        drop(db);
+        let reopened = crate::tests::daemon_in(dir.path());
+        let reply =
+            crate::tests::ask(&reopened, r#"{"id":1,"method":"project.measurements"}"#).await;
+        let facts = reply["result"]["time_evidence"].as_array().unwrap();
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0]["identity"], "roundup:attempt:1:1");
+        assert_eq!(reply["result"]["contributions"], json!([]));
+        let db = Connection::open(dir.path().join("project.db")).unwrap();
+        let tables: Vec<String> = db
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'measurement%'",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(tables.iter().all(|t| !t.contains("request")), "{tables:?}");
     }
 
     #[tokio::test]
@@ -473,6 +621,10 @@ mod tests {
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        // The standalone Agents store keeps its frozen head; the Project drops the answers table.
+        expected.remove("decision_answers");
+        expected.remove("decision_answers_agent");
+        expected.remove("chains");
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
@@ -659,7 +811,17 @@ mod tests {
     fn crate_copy(root: &Path) {
         let src = Path::new(env!("CARGO_MANIFEST_DIR"));
         std::fs::create_dir_all(root.join("crate")).unwrap();
-        std::fs::copy(src.join("build.rs"), root.join("crate/build.rs")).unwrap();
+        // The probe has no dependencies: cut the fresh image, which needs rusqlite.
+        let build = std::fs::read_to_string(src.join("build.rs")).unwrap();
+        let listing: String = build
+            .split("// IMAGE-BEGIN")
+            .next()
+            .unwrap()
+            .lines()
+            .filter(|l| !l.contains("// IMAGE-CALL"))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        std::fs::write(root.join("crate/build.rs"), listing).unwrap();
     }
 
     fn git(root: &Path, args: &[&str]) -> std::process::Output {

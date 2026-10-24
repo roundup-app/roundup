@@ -20,11 +20,10 @@ struct Project {
     socket: PathBuf,
 }
 
-fn start_daemon(proof: Option<&str>) -> Project {
+fn start_daemon() -> Project {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon =
-        rupd::Daemon::open_with_proof(&dir.path().join(".roundup"), proof.map(Into::into)).unwrap();
+    let daemon = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
     tokio::spawn(rupd::serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::new(daemon),
@@ -72,7 +71,7 @@ fn stderr(out: &Output) -> String {
 
 #[tokio::test]
 async fn cl1_ping_names_the_daemon_its_socket_and_its_project() {
-    let project = start_daemon(None);
+    let project = start_daemon();
 
     let out = rup(Some(&project.socket), project.dir.path(), &["ping"]).await;
 
@@ -102,7 +101,7 @@ async fn cl1_ping_without_a_daemon_names_the_default_socket() {
 
 #[tokio::test]
 async fn cl1_ping_json_holds_the_actor_the_socket_and_the_reply() {
-    let project = start_daemon(None);
+    let project = start_daemon();
 
     let out = rup(
         Some(&project.socket),
@@ -119,7 +118,7 @@ async fn cl1_ping_json_holds_the_actor_the_socket_and_the_reply() {
 
 #[tokio::test]
 async fn cl2_json_prints_who_rup_acted_as() {
-    let project = start_daemon(None);
+    let project = start_daemon();
     let home = project.dir.path();
 
     let user = rup(Some(&project.socket), home, &["--json", "ping"]).await;
@@ -158,10 +157,10 @@ async fn cl2_a_bad_actor_name_exits_2_and_sends_nothing() {
 
 #[tokio::test]
 async fn cl2_as_with_an_agent_command_is_refused() {
-    let project = start_daemon(None);
+    let project = start_daemon();
     let home = project.dir.path();
 
-    for hook in ["signal", "context", "permission"] {
+    for hook in ["signal", "context"] {
         let out = rup(Some(&project.socket), home, &["--as", "ext:x", hook, "a1"]).await;
         assert_eq!(out.status.code(), Some(1), "{hook}");
         assert!(stderr(&out).contains("Agent hooks"));
@@ -174,7 +173,7 @@ async fn cl2_as_with_an_agent_command_is_refused() {
 
 #[tokio::test]
 async fn cl2_an_ext_actor_mcp_call_is_a_touch_under_its_name() {
-    let project = start_daemon(None);
+    let project = start_daemon();
     let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
         .args(["--as", "ext:claude-code", "mcp"])
         .env("RUPD_SOCKET", &project.socket)
@@ -231,7 +230,7 @@ async fn cl3_an_ext_actor_is_forbidden_what_the_daemon_forbids_it() {
 
 #[tokio::test]
 async fn cl3_an_ext_actor_todo_and_pad_calls_touch_under_its_name() {
-    let project = start_daemon(None);
+    let project = start_daemon();
     let outside = client_as(&project.socket, ext("claude-code")).await;
 
     outside
@@ -254,27 +253,6 @@ async fn cl3_an_ext_actor_todo_and_pad_calls_touch_under_its_name() {
 }
 
 #[tokio::test]
-async fn cl3_an_ext_actor_decision_answer_needs_the_proof() {
-    let project = start_daemon(Some("secret"));
-    let outside = client_as(&project.socket, ext("claude-code")).await;
-
-    let without = outside
-        .request("decision.answer", json!({"id": "d1", "answer": "yes"}))
-        .await
-        .unwrap_err();
-    let with = outside
-        .request(
-            "decision.answer",
-            json!({"id": "d1", "answer": "yes", "proof": "secret"}),
-        )
-        .await
-        .unwrap_err();
-
-    assert_eq!(without.code, rpc::code::FORBIDDEN);
-    assert_ne!(with.code, rpc::code::FORBIDDEN);
-}
-
-#[tokio::test]
 async fn cl4_help_lists_each_command_and_who_may_run_it() {
     let home = tempfile::tempdir().unwrap();
 
@@ -288,7 +266,6 @@ async fn cl4_help_lists_each_command_and_who_may_run_it() {
             ("mcp", "User: yes   Ext: yes"),
             ("signal", "User: no    Ext: no"),
             ("context", "User: no    Ext: no"),
-            ("permission", "User: no    Ext: no"),
         ] {
             let at = lines
                 .iter()
@@ -326,7 +303,6 @@ mod common;
 #[tokio::test]
 async fn cl2706a_outside_callers_read_current_rail_names() {
     let fx = common::NamedRail::start().await;
-    let (_decision, pending) = fx.decision().await;
     for prefix in [vec!["mcp"], vec!["--as", "ext:observer", "mcp"]] {
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
             .args(prefix)
@@ -363,7 +339,6 @@ async fn cl2706a_outside_callers_read_current_rail_names() {
             for (tool, args) in [
                 ("rail_move", json!({"id":fx.door,"parent":null,"index":0})),
                 ("rail_tree", json!({})),
-                ("decision_list", json!({})),
             ] {
                 let result = shim
                     .call_tool(
@@ -388,14 +363,7 @@ async fn cl2706a_outside_callers_read_current_rail_names() {
                                 .all(|node| node["parent_name"] == name)
                         );
                     }
-                    _ => {
-                        let decisions: Value = serde_json::from_str(raw).unwrap();
-                        assert_eq!(decisions[0]["agent"], fx.child);
-                        assert_eq!(
-                            decisions[0]["agent_name"],
-                            if renamed { "Author" } else { "Writer" }
-                        );
-                    }
+                    _ => unreachable!(),
                 }
             }
             let disposable = fx.spawn("Disposable").await;
@@ -436,12 +404,11 @@ async fn cl2706a_outside_callers_read_current_rail_names() {
             assert_eq!(forbidden.is_error, Some(true));
         }
     }
-    pending.abort();
 }
 
 #[tokio::test]
 async fn cl2706a_help_explains_rail_names() {
-    let project = start_daemon(None);
+    let project = start_daemon();
     for args in [vec![], vec!["help"], vec!["--help"], vec!["-h"]] {
         let output = rup(Some(&project.socket), project.dir.path(), &args).await;
         assert_eq!(output.status.code(), Some(0));

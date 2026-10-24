@@ -1,10 +1,10 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
+import { mountApp, select } from "../testing/appFixture";
 import { agent, clarifying } from "../testing/nodes";
 
 it("u471_previous_copy_assertions_are_preserved_order_labels_use_sentence_case_and_preserve_agent_text", async () => {
-  await mountApp([], (app) => {
+  await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", {
         name: "lower case Agent", order: 0,

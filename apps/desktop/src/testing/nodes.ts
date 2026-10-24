@@ -25,7 +25,7 @@ export const node = (id: string, over: Partial<RailNode> = {}): RailNode => ({
   name: id,
   parent: null,
   order: 0,
-  status: { kind: "working", label: "starting", since: 0 },
+  status: { kind: "working", label: "starting", since: 0, finished: "0" },
   attempt: "1",
   status_revision: "1",
   terminal_id: `t-${id}`,
@@ -40,14 +40,14 @@ export const node = (id: string, over: Partial<RailNode> = {}): RailNode => ({
 });
 
 export const agent = (id: string, kind: Kind, label: string, over: Partial<RailNode> = {}): RailNode =>
-  node(id, { status: { kind, label, since: NOW }, ...over });
+  node(id, { status: { kind, label, since: NOW, finished: "0" }, ...over });
 
 export const workstream = (id: string, over: Partial<RailNode> = {}): RailNode =>
-  node(id, { kind: "workstream", status: { kind: "done", label: "terminal gone", since: NOW }, attempt: null, status_revision: null, terminal_id: null, ...over });
+  node(id, { kind: "workstream", status: { kind: "done", label: "terminal gone", since: NOW, finished: "0" }, attempt: null, status_revision: null, terminal_id: null, ...over });
 
 /** A Door as the Daemon sends it: a Workstream with a live Agent sitting at it. */
 export const door = (id: string, kind: Kind, label: string, over: Partial<RailNode> = {}): RailNode =>
-  workstream(id, { attempt: "1", status_revision: "1", status: { kind, label, since: NOW }, terminal_id: `t-${id}`, ...over });
+  workstream(id, { attempt: "1", status_revision: "1", status: { kind, label, since: NOW, finished: "0" }, terminal_id: `t-${id}`, ...over });
 
 /** A node that holds a Terminal and no Status: the Pane's tests mount one. A Terminal is no Rail row (X12), so it is an Agent here. */
 export const terminal = (id: string, over: Partial<RailNode> = {}): RailNode =>

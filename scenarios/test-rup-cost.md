@@ -29,7 +29,6 @@ Baseline: `rup` binaries on green `check` run 39378452452, 341 s together. The r
 | `m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied` | `rup::mcp` | 20.1 |
 | `d9_clear_with_a_sixty_second_handoff_keeps_the_connection_available` | `rup::d9` | 18.6 |
 | `x14_ten_busy_terminals_do_not_lag_rail_events` | `rup::x14` | 16.0 |
-| `h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_and_the_note` | `rup::mcp` | 11.1 |
 | `o12_the_door_spawns_with_order_and_the_users_words` | `rup::o12` | 10.2 |
 | `i7_a_daemon_that_never_answers_exits_1_in_ten_seconds` | `rup::cli` | 10.2 |
 | `o4_agent_set_order_fills_its_own_id_and_retains_the_captured_order` | `rup::mcp` | 10.1 |

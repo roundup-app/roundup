@@ -6,7 +6,7 @@ use daemon::aimock;
 
 use contracts::{EventData, Kind};
 use daemon::next;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::time::Duration;
 #[path = "common/doors.rs"]
 #[allow(dead_code)]
@@ -406,7 +406,7 @@ os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], 
 }
 
 #[tokio::test]
-async fn e12_default_permissions_reach_the_permission_hook() {
+async fn e12_default_permissions_raise_needs_you_until_allowed() {
     let project = daemon::start_real("e12_default_permissions", &[]);
     let mut client = project.subscribed().await;
     let agent: contracts::agent::RailNode = serde_json::from_value(
@@ -430,24 +430,8 @@ async fn e12_default_permissions_reach_the_permission_hook() {
         _ => None,
     })
     .await;
-    let decisions: Vec<contracts::decision::Decision> =
-        serde_json::from_value(client.request("decision.list", Value::Null).await.unwrap())
-            .unwrap();
-    let decision = decisions
-        .iter()
-        .find(|decision| decision.agent == agent.id)
-        .unwrap();
-    assert_eq!(decision.tool, "Bash");
     assert!(!project.dir.path().join("e12-denied").exists());
-    client
-        .request(
-            "decision.answer",
-            json!({
-                "id": decision.id, "answer": "deny", "proof": "0".repeat(64)
-            }),
-        )
-        .await
-        .unwrap();
+    daemon::allow_prompt(&client, &agent.id).await;
     next(&mut client, |event| match event {
         EventData::AgentStatus(status)
             if status.id == agent.id && status.status.kind == Kind::Idle =>
@@ -458,8 +442,7 @@ async fn e12_default_permissions_reach_the_permission_hook() {
     })
     .await;
     let model = project.model.as_ref().unwrap();
-    let result = model.tool_result("toolu_e12_denied").await;
-    assert_eq!(result["content"], "Denied in roundup", "{result}");
-    assert!(!project.dir.path().join("e12-denied").exists());
+    model.tool_result("toolu_e12_denied").await;
+    assert!(project.dir.path().join("e12-denied").exists());
     model.assert_matched();
 }

@@ -207,13 +207,9 @@ impl Shared {
                 .map(name::from_prompt),
             _ => None,
         };
-        let names_conversation = matches!(&observation, Observation::Signal(payload)
-            if claude_code::conversation_id(payload).is_some());
         // Taken before `runs`, as every other path does, so a rename and a prompt cannot deadlock.
-        let mut rail = (first_prompt.is_some()
-            || names_conversation
-            || matches!(observation, Observation::Exit { .. }))
-        .then(|| self.rail());
+        // U3566c: any Observation may end a turn, and the finish count is saved with its Status.
+        let mut rail = Some(self.rail());
         let (prompt, tick_at) = {
             let mut runs = self.runs();
             // A20: an Observation from an earlier Attempt is ignored, never an error to its sender.
@@ -324,24 +320,6 @@ impl Shared {
                 .expect("measurement timing lock")
                 .end_attempt(id, &run.attempt);
         }
-        match &observation {
-            // H6: an Agent that ends takes its Decision with it.
-            Observation::Exit { .. } => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            }
-            Observation::Stopped => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            }
-            // H7(a): the tool ran or the prompt moved on, so the dialog was answered in the
-            // Terminal.
-            Observation::Signal(payload) if claude_code::ends_decision(payload) => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::Terminal, "answered in the Terminal");
-            }
-            _ => {}
-        }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
@@ -391,10 +369,7 @@ impl Shared {
         }
         // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
         // leaves the Agent idle, or with the Agent.
-        let acks = matches!(
-            observation,
-            Observation::Title(_) | Observation::Tick | Observation::Dismissed
-        );
+        let acks = matches!(observation, Observation::Title(_) | Observation::Tick);
         if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.interrupt = None;
         }
@@ -422,6 +397,7 @@ impl Shared {
             }
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
+        let was_finished = run.adapter.finished();
         let signal = matches!(observation, Observation::Signal(_));
         let changed = run.adapter.observe(observation).or_else(|| {
             if !exited || run.ended {
@@ -458,6 +434,12 @@ impl Shared {
             if let Some(rail) = rail.as_deref_mut() {
                 rail.detach_terminal(id)?;
             }
+        }
+        // U3566c: a counted finish is saved before its Status is published.
+        if run.adapter.finished() != was_finished
+            && let Some(rail) = rail.as_deref_mut()
+        {
+            rail.set_finished(id, run.adapter.finished())?;
         }
         // Announced while `runs` is held, so announcements leave in the order the Status
         // changed; `emit` never blocks.

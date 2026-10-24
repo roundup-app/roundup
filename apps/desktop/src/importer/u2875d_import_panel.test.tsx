@@ -296,7 +296,7 @@ it("u3299d_copy_uses_selected_item_import", async () => {
   const duplicate = candidates.map((candidate, index) => ({ ...candidate, title: "Review", cwd: `/Users/test/projects/${index}/source` }));
   app.handlers["project.importDiscover"] = () => ({ candidates: duplicate, excluded: [] });
   const write = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: write } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(write);
   openProjectPage("import-work");
   const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
   const rows = choices.map(choice => choice.closest("li")!);
@@ -369,7 +369,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         window.__auditReactions = observations.map((observation,index) => ({...common,id:'audit-'+index,name:['Watch Review','Waiting to watch','Source unavailable','Recovered observation','Changed PR','Removed Agent','Unknown details'][index], observation, ...(index === 4 ? {state:'invalidated',condition:{kind:'pr-checks',repository:'orchard/app',number:7}} : {}), ...(index === 5 ? {target:'removed-original-id',actor:{kind:'agent',id:'removed-authorizer',parent:null}} : index === 0 ? {actor:{kind:'agent',id:'tokens',parent:null}} : {}) }));
         app.handlers['reaction.list'] = () => window.__auditReactions;
         app.handlers['reaction.get'] = ({id}) => window.__auditReactions.find(r => r.id === id);
-        app.handlers['message.get'] = () => ({id:42,from:{kind:'user',id:'you',parent:null},to:'migrate',body:'Exact accepted instruction /Users/authored/path',kind:'note',replyTo:null,status:'held',reason:'receiver gone',passedFrom:null,at:0});
+        app.handlers['message.get'] = () => ({id:42,from:{kind:'user',id:'you',parent:null},to:'migrate',body:'Exact accepted instruction /Users/authored/path',kind:'note',replyTo:null,status:'held',reason:'receiver gone',at:0});
         app.handlers['deliverable.list'] = () => [7,9].map(revision => ({id:'published-'+revision,project:'original-project',title:'Orchard report',maker:{kind:'agent',id:'removed-maker',parent:null},maker_name:'Review',home:'backend',published_at:1792713600000,target:{kind:'pad',name:'Authored report',incarnation:'original-incarnation',revision,length:10,sha256:'original-hash-'+revision}}));
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         window.dispatchEvent(new Event('focus'));

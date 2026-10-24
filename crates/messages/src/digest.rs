@@ -593,6 +593,7 @@ mod tests {
             kind,
             label: label.into(),
             since: 0,
+            finished: "0".into(),
         }
     }
 
@@ -645,7 +646,6 @@ mod tests {
             reply_to: None,
             status: MessageStatus::Delivered,
             reason: None,
-            passed_from: None,
             at: id.into(),
             iteration: None,
         }

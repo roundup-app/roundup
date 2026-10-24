@@ -522,10 +522,6 @@ const OTHER: &[(&str, &str)] = &[
         "Hook: hand the Daemon a Signal from stdin",
     ),
     ("rup context <agent-id>", "Hook: print the Agent's Context"),
-    (
-        "rup permission <agent-id>",
-        "Hook: ask the Daemon about a permission request",
-    ),
 ];
 
 /// CL4: what `rup help` prints.
@@ -542,8 +538,6 @@ commands, and who may run each (User: a shell outside every Agent; Ext: --as ext
   signal      an Agent's hook (rup signal <agent-id>)
               User: no    Ext: no
   context     an Agent's hook (rup context <agent-id>)
-              User: no    Ext: no
-  permission  an Agent's hook (rup permission <agent-id>)
               User: no    Ext: no
   help        print this text
 

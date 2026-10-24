@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
@@ -21,9 +21,9 @@ const prompt = `## Details\n\n${"Walk through each part of the screenshot. ".rep
 
 export const openDrawer = async (
   order: Order,
-  options: { kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
+  options: { app?: (app: ReturnType<typeof createFakeApp>) => void; kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
 ) => {
-  await mountApp([], (app) => {
+  await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", options.kind ?? "working", "editing", { name: "alpha", order: 0, work: order }),
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
@@ -31,6 +31,7 @@ export const openDrawer = async (
     ];
     app.handlers["agent.spawnPrompt"] = () => ({ prompt });
     Object.assign(app.handlers, options.handlers ?? {});
+    options.app?.(app);
   });
   select("alpha");
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
@@ -260,7 +261,8 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
 
 it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   const sends: object[] = [];
-  await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sends.push(params);
+  const clipboard = vi.fn(async (_text: string) => {});
+  await openDrawer(full, { app: value => { value.clipboardWrite = clipboard; }, handlers: { "agent.setOrder": (params) => { sends.push(params);
 
  return {}; } } });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
@@ -269,8 +271,6 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
   expect(screen.getByRole("alert").textContent).toContain("reload");
-  const clipboard = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
@@ -293,7 +293,7 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
 it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   let latest = full;
 
-  const { app } = await mountApp([], (app) => {
+  const { app } = await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
       agent("b", "working", "editing", { name: "beta", order: 1 }),
@@ -621,7 +621,7 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const write = vi.fn().mockRejectedValue(new Error("clipboard denied"));
-  vi.stubGlobal("navigator", { clipboard: { writeText: write } });
+  app.clipboardWrite = write;
   render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" inline /></ConnectedProjectContext.Provider>);
 
   if (transition === "timer") vi.useFakeTimers();
@@ -654,5 +654,4 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
   }
 
   expect(screen.queryByRole("alert") !== null).toBe(transition === "unrelated removal" || transition === "timer");
-  vi.unstubAllGlobals();
 });

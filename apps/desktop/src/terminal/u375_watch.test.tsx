@@ -1,6 +1,6 @@
+import { imageFile, pasteEvent } from "../testing/clipboard";
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Decision } from "@contracts/decision/Decision";
 import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
 import { agent, door, event, NOW } from "../testing/nodes";
@@ -14,13 +14,8 @@ const band = () => document.querySelector('.pane-control[data-state="managed"]')
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 
-const open: Decision = { id: "d1", agent: "a", tool: "Bash", args: JSON.stringify({ command: "rm -rf build" }), opened_at: 1, answerable: true };
-
-const mountWatch = async (decisions: Decision[] = []) => {
-  const mounted = await mountCentre(tree(), { select: "a", prepare: (app) => {
-    app.handlers["decision.list"] = () => decisions;
-    app.handlers["decision.answer"] = () => null;
-  } });
+const mountWatch = async () => {
+  const mounted = await mountCentre(tree(), { select: "a" });
 
   // As u162 does: jsdom's box is 0×0, so a drop at (5, 5) would never reach the Watch gate.
   document.querySelector<HTMLElement>(".pane-body")!.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
@@ -50,6 +45,16 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
   });
 
+  it.each(["text", "image"])("u3560b_watch_paste_neither_saves_nor_types_%s", async payload => {
+    const { app, emulators } = await mountWatch();
+    pasteEvent(document.querySelector(".pane-screen [data-terminal]")!, payload === "text" ? "blocked text" : "", payload === "image" ? [imageFile()] : []);
+    // The Watch band acknowledges refusal before this observation; no scheduler-step wait stands in for it.
+    await screen.findByText("Managed: typing is not sent");
+    expect(app.savedImages).toEqual([]);
+    expect(emulators.get("t-a")!.pasted).toEqual([]);
+    expect(callsTo(app, "terminal.write")).toEqual([]);
+  });
+
   it("u375_the_overlay_says_managed_and_offers_take_control", async () => {
     await mountWatch();
 
@@ -68,7 +73,8 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     const written: string[] = [];
 
-    Object.assign(navigator, { clipboard: { writeText: async (text: string) => { written.push(text); } } });
+    app.clipboardWrite = async (text: string) => { written.push(text); };
+
     const target = document.querySelector<HTMLElement>(".pane-screen > *")!;
 
     target.focus();
@@ -154,23 +160,11 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
   });
 
-  it("u375_a_decision_card_holds_in_watch", async () => {
-    const { app } = await mountWatch([open]);
-
-    await vi.waitFor(() => expect(document.querySelector(".decision-card")).not.toBeNull());
-    expect(document.querySelector(".decision-card")!.textContent).toContain("rm -rf build");
-    expect(band()).not.toBeNull();
-
-    fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "Allow" }));
-    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
-  });
-
-
   it("u468_a_child_that_needs_you_takes_its_answer_in_its_terminal", async () => {
     const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
 
     const status = (kind: "needs-you" | "working", revision: string) =>
-      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW } } }));
+      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW, finished: "0" } } }));
 
     status("needs-you", "2");
     // U412: activating the child's Toast selects its row, as a click on the row does.

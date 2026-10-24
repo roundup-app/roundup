@@ -103,7 +103,7 @@ An invalid run (missing metadata/raw stages, changed fixture/load, occluded/napp
 | Valid sample misses budget/continuity or cleanup | 1 | Diagnose and repair, retain failure |
 | Unsupported/unmeasured stage, invalid run or unavailable native observer | 2 | Incomplete evidence; no smoothness claim |
 
-Rule 7 remains cold start <300 ms, keystroke-to-render <16 ms p95, ten idle Agents <150 MB extra RSS, and the existing >10% regression rule. `just perf` measures Daemon work; `just perf-keystroke` measures Terminal echo, neither proves motion FPS. Preserve high-refresh reporting. Native observation is only on the owner's explicit Mac instruction through the existing escalation path; `ROUNDUP_ALLOW_WINDOW=1` remains restricted exactly as `docs/perf.md` requires. This specification runs no native window or OS input. Linux/Chromium results never substitute for WKWebView or imply 60/120 displayed FPS.
+Rule 7 remains cold start <300 ms, keystroke-to-render <16 ms p95, ten idle Agents <150 MB extra RSS, and the existing >10% regression rule. `just perf` measures Daemon work; `just perf-keystroke` measures Terminal echo, neither proves motion FPS. Preserve high-refresh reporting. Native observation is only on the owner's explicit Mac instruction through the existing request path; `ROUNDUP_ALLOW_WINDOW=1` remains restricted exactly as `docs/perf.md` requires. This specification runs no native window or OS input. Linux/Chromium results never substitute for WKWebView or imply 60/120 displayed FPS.
 
 ## U3010b result
 

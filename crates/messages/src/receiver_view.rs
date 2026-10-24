@@ -4,7 +4,7 @@ use contracts::ActorKind;
 use contracts::message::{Delivery, Message, MessageStatus, Reason};
 
 /// The `State` of one receiver as the store holds it: `pending` Messages in delivery order, the
-/// `held` ones by Reason. `escalated` holds are not in `step` yet (B13 to B17).
+/// `held` ones by Reason.
 pub(crate) fn view(pending: &[Message], held: &[Message], takeover: bool) -> State {
     let ids = |messages: &[Message], reason: Option<Reason>| -> Vec<u32> {
         messages

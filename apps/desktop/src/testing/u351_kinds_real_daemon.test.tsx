@@ -146,14 +146,13 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
     }
 
-    // Quiet: a working Agent opens no Decision Card and the selection stays.
+    // Quiet: a working Agent leaves the selection alone.
     const working = agents.find((each) => each.kind === "working")!.id;
 
     fireEvent.click(row(working).querySelector(".name")!);
     await waitFor(() => expect(selected()).toBe(working));
     await new Promise((done) => setTimeout(done, 1500));
     expect(selected()).toBe(working);
-    expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
     expect(await kindOf(working)).toBe("working");
 
     // Jump: `error` before `needs-you`, oldest first, across both Workstreams, then it wraps.
@@ -169,12 +168,6 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       leaderKey("KeyJ");
       await waitFor(() => expect(selected()).not.toBe(visited.at(-1) ?? working));
       visited.push(selected());
-
-      if (urgent[press % urgent.length]?.status?.kind === "needs-you") {
-        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for| wants to / })).toBeTruthy());
-      } else {
-        expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
-      }
     }
 
     expect(visited.slice(0, urgent.length)).toEqual(urgent.map((node) => node.id));

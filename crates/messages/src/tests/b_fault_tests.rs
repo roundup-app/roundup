@@ -1,7 +1,7 @@
 //! B28: one failure fails one operation. `Env::fault` stands in for a Store that panics or errs
 //! while an operation holds the lock.
 
-use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use contracts::agent::StatusEvent;
 use contracts::{Actor, EventData, Kind, Status};
@@ -24,8 +24,6 @@ struct Faulty {
     touches: Arc<provenance::Touches>,
     typed: Arc<StdMutex<Vec<(String, String)>>>,
     armed: Arc<StdMutex<Option<(&'static str, Fail)>>>,
-    calls: Arc<AtomicUsize>,
-    clock: Arc<AtomicI64>,
     completed: tokio::sync::Mutex<tokio::sync::broadcast::Receiver<&'static str>>,
 }
 
@@ -44,17 +42,13 @@ impl Faulty {
             Box::pin(async { Ok(()) })
         });
         let armed: Arc<StdMutex<Option<(&'static str, Fail)>>> = Arc::default();
-        let calls = Arc::new(AtomicUsize::new(0));
-        let (trigger, counted) = (Arc::clone(&armed), Arc::clone(&calls));
+        let trigger = Arc::clone(&armed);
         let clock: Arc<AtomicI64> = Arc::default();
         let reads = Arc::clone(&clock);
         let env = Env {
             touches: Arc::clone(&touches),
             clock: Arc::new(move || reads.load(Ordering::SeqCst)),
             fault: Arc::new(move |op| {
-                if op == "clock" {
-                    counted.fetch_add(1, Ordering::SeqCst);
-                }
                 let mut armed = lock(&trigger);
                 match armed.filter(|(name, _)| *name == op) {
                     Some((_, Fail::Panic)) => {
@@ -80,8 +74,6 @@ impl Faulty {
             touches,
             typed,
             armed,
-            calls,
-            clock,
             completed,
         }
     }
@@ -98,17 +90,6 @@ impl Faulty {
         })
         .await
         .expect("Message operation completed");
-    }
-
-    async fn clock_at(&self, at: i64) {
-        let mut completed = self.completed.lock().await;
-        // These tests use Tokio's current-thread runtime: no pass can run between draining
-        // old acknowledgements and supplying the next clock input, without an await.
-        while completed.try_recv().is_ok() {}
-        self.clock.store(at, Ordering::SeqCst);
-        drop(completed);
-        // Two completed passes include a successful pass after the armed clock panic.
-        self.completed("clock", 2, 1_100).await;
     }
 
     fn arm(&self, op: &'static str, fail: Fail) {
@@ -129,6 +110,7 @@ impl Faulty {
             kind: Kind::Idle,
             label: "x".into(),
             since: 0,
+            finished: "0".into(),
         };
         self.bus.emit(
             Actor::daemon(),
@@ -214,7 +196,7 @@ async fn b28_a_transaction_open_at_a_panic_rolls_back() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_clock() {
+async fn b28_a_failure_in_on_status_does_not_stop_delivery() {
     let dir = tempfile::tempdir().unwrap();
     let h = Faulty::new(dir.path());
     h.call("message.send", send()).await.unwrap();
@@ -225,71 +207,6 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     h.completed("on_status", 1, 100).await;
     assert!(h.armed.lock().unwrap().is_none());
     assert!(h.typed.lock().unwrap().is_empty());
-
-    h.arm("settle", Fail::Panic);
-    h.becomes_idle("3");
-    h.completed("on_status", 1, 100).await;
-    assert!(h.armed.lock().unwrap().is_none());
-    assert_eq!(h.typed.lock().unwrap().len(), 1);
-
-    a_hop_passes_at_the_bound(None).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn b28_a_failure_in_the_clock_does_not_stop_it() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Faulty::new(dir.path());
-    h.call("route.list", json!({})).await.unwrap();
-
-    h.completed("initial", 1, 100).await;
-    {
-        let mut completed = h.completed.lock().await;
-        while completed.try_recv().is_ok() {}
-    }
-    h.arm("clock", Fail::Panic);
-    let before = h.calls.load(Ordering::SeqCst);
-    h.completed("clock", 3, 1_600).await;
-    assert!(h.armed.lock().unwrap().is_none());
-    assert!(h.calls.load(Ordering::SeqCst) >= before + 3);
-
-    a_hop_passes_at_the_bound(Some("clock")).await;
-}
-
-/// A pending hop has not passed at 59 999 ms of the fake clock and has at 60 000 ms.
-async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Faulty::over(dir.path(), super::b_hop_tests::tree());
-    let ask = json!({"to": "sub", "kind": "question", "body": "which?"});
-    let ctx = Ctx {
-        actor: super::agent("c"),
-        bus: h.bus.clone(),
-        touches: Arc::clone(&h.touches),
-    };
-    h.messages.call(&ctx, "message.send", ask).await.unwrap();
-    h.completed("initial", 1, 100).await;
-    if let Some(op) = arm {
-        h.arm(op, Fail::Panic);
-    }
-    h.clock_at(59_999).await;
-    assert_eq!(
-        h.call("message.list", json!({}))
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    h.clock_at(60_000).await;
-    assert_eq!(
-        h.call("message.list", json!({}))
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .len(),
-        2
-    );
 }
 
 #[tokio::test]
@@ -410,6 +327,7 @@ async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
                     kind: Kind::Idle,
                     label: "x".into(),
                     since: 0,
+                    finished: "0".into(),
                 },
             })),
         );

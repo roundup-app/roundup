@@ -4,21 +4,16 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 import { drawerSliding } from "./sliding";
-import { mountApp } from "../decisions/decisionsFixture";
+import { mountApp } from "../testing/appFixture";
 import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { ItemDrawer } from "./ItemDrawer";
 
-const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
-
-  if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
-  else Reflect.deleteProperty(navigator, "clipboard");
 });
 
 const setup = () => {
@@ -138,13 +133,13 @@ it("u3010b_preference_change_preserves_destination_and_focus", () => {
 
 it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other-discard", "other-save", "failed", "retention"] as const)("p3557c_failure_lifetime_draft_recovery_%s", async action => {
   localStorage.clear();
-  const { drafts } = await mountApp();
+  const { app, drafts } = await mountApp();
   const store = drafts("/p");
   const original = store.edit({ surface: "terminal_selection", object: "original", recipient: "a" }, { note: "  original é\n雪  ", excerpt: "exact excerpt", source: "gone" }, null, "ordinary").draft;
   const other = store.edit({ surface: "terminal_selection", object: "other", recipient: "b" }, { note: "  unrelated 🪁\n  ", source: "gone-too" }, null, "ordinary").draft;
   const retained = store.list();
   const clipboard = vi.fn().mockRejectedValue(new Error("clipboard refused"));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   await openRecovery();
   const panel = await screen.findByLabelText("Unfinished work");
   const row = panel.querySelector<HTMLElement>(`[data-revision="${original.revision}"]`)!;

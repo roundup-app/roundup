@@ -49,8 +49,6 @@ export type OutputSubscription = { offset: number; release(): Promise<void> };
 
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
-  /** The proof the App gave the Project's Daemon, which `decision.answer` needs (H4); keep it in memory only. Rejects when the Project is not open and after its Daemon exits. */
-  daemonProof(): Promise<string>;
   rpc<M extends RpcMethodName>(
     method: M,
     params: RpcMethods[M]["params"],
@@ -75,10 +73,10 @@ export const SEAM_COMMANDS = [
   "subscribe",
   "terminal_output",
   "terminal_output_stop",
-  "daemon_proof",
   "open_target",
   "open_in_editor",
   "save_pasted_image",
+  "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
@@ -90,6 +88,8 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
+  writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
   ask(question: NativeQuestion): Promise<boolean>;
   /** The open Projects in tab order. */

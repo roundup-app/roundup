@@ -5,7 +5,6 @@ import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from
 import { createStore, reconcile } from "solid-js/store";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
-import { DecisionCard } from "../decisions/DecisionCard";
 import { glyphOf } from "../ink/glyph";
 import { LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
@@ -17,8 +16,6 @@ import "./styles.css";
 const HEADROOM_MS = 5 * 60_000;
 
 const MINUTE_MS = 60_000;
-
-const FIRST_CONTROL = ["textarea", "input", "button"].join(",");
 
 const SpanLabel = (props: { kind: Kind }) => {
   const fit = createCutTitle(() => LABELS[props.kind]);
@@ -33,14 +30,11 @@ const SpanLabel = (props: { kind: Kind }) => {
  */
 export const TimelineView = (props: { home: string; name: string; back: () => void; clock?: () => number }) => {
   const connected = useConnectedProject();
-  const { rail, decisions } = connected;
+  const { rail } = connected;
   const clock = props.clock ?? Date.now;
   const [now, setNow] = createSignal(clock());
   const [anchor, setAnchor] = createSignal(clock());
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
-  const [asking, setAsking] = createSignal<string | null>(null);
-  let card: HTMLElement | undefined;
-  const blockOf = new Map<string, HTMLButtonElement>();
 
   const redraw = () => {
     const at = clock();
@@ -110,37 +104,16 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     return parent < 0 ? [] : [{ from: parent, to: at, at: child.blocks[0]!.start, label: copy.timelineStarted(lanes()[parent]!.name, child.name) }];
   });
 
-  const waiting = (id: string, block: { open: boolean; kind: Kind }) => block.open && block.kind === "needs-you" && decisions.of(id) !== undefined;
-
-  const closeCard = () => {
-    const id = asking();
-
-    setAsking(null);
-
-    if (id !== null) queueMicrotask(() => blockOf.get(id)?.focus());
-  };
-
-  // An answered Decision is no longer a button, so its card goes with it.
-  createEffect(() => {
-    const id = asking();
-
-    if (id !== null && decisions.of(id) === undefined) setAsking(null);
-  });
+  const waiting = (block: { open: boolean; kind: Kind }) => block.open && block.kind === "needs-you";
 
   onCleanup(() => {
     document.removeEventListener("visibilitychange", onVisibility);
   });
 
-  const toAgent = () => {
-    const id = asking();
-
-    if (id !== null) rail.select(id);
+  /** An open needs-you block selects the Agent's Terminal, where its native question waits. */
+  const toAgent = (id: string) => {
+    rail.select(id);
     props.back();
-  };
-
-  const openCard = (id: string) => {
-    setAsking(id);
-    queueMicrotask(() => (card?.querySelector<HTMLElement>(FIRST_CONTROL) ?? card)?.focus());
   };
 
   return <section class="timeline-view" classList={{ "timeline-single": lanes().length === 1 }} ref={(element) => queueMicrotask(() => element.focus())} role="region" aria-label={copy.timeline} data-window-start={Math.round(axisStart())} data-window-end={Math.round(axisEnd())} data-running={running() ? "" : undefined} tabIndex={-1}
@@ -148,8 +121,7 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.stopPropagation();
 
-      if (asking() !== null) closeCard();
-      else props.back();
+      props.back();
     }}>
     <header class="timeline-header"><h2>{props.name}</h2><ExitButton onClick={props.back} /></header>
     <Show when={lanes().length > 0} fallback={<p class="empty-state timeline-empty">{copy.timelineEmpty}</p>}>
@@ -167,8 +139,8 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
                 const style = () => ({ left: percent(block.start), width: `calc(${percent(endOf(block))} - ${percent(block.start)})` });
                 const label = () => LABELS[block.kind];
 
-                return <Show when={waiting(lane.id, block)} fallback={<span class="timeline-block" role="img" aria-label={label()} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-attempt={block.attempt} data-open={block.open ? "" : undefined} data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()}><SpanLabel kind={block.kind} /></span>}>
-                  <Tip text={copy.decisionFor(lane.name)}>{(trigger) => <button {...trigger()} class="timeline-block" type="button" ref={(element) => blockOf.set(lane.id, element)} aria-label={copy.decisionFor(lane.name)} aria-expanded={asking() === lane.id} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-open="" data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()} onClick={() => openCard(lane.id)}><SpanLabel kind={block.kind} /></button>}</Tip>
+                return <Show when={waiting(block)} fallback={<span class="timeline-block" role="img" aria-label={label()} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-attempt={block.attempt} data-open={block.open ? "" : undefined} data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()}><SpanLabel kind={block.kind} /></span>}>
+                  <Tip text={copy.timelineOpenTerminal(lane.name)}>{(trigger) => <button {...trigger()} class="timeline-block" type="button" aria-label={copy.timelineOpenTerminal(lane.name)} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-open="" data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()} onClick={() => toAgent(lane.id)}><SpanLabel kind={block.kind} /></button>}</Tip>
                 </Show>;
               }}</For>
             </div>
@@ -176,6 +148,5 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
         </ol>
       </div>
     </Show>
-    <Show when={asking() !== null ? decisions.of(asking()!) : undefined}>{(decision) => <DecisionCard decision={decision()} name={known[asking()!]?.name ?? ""} focusTerminal={toAgent} ref={(element) => { card = element; }} onEscape={closeCard} onFocusIn={() => {}} onFocusOut={() => {}} />}</Show>
   </section>;
 };

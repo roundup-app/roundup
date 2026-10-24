@@ -8,7 +8,6 @@ pub mod digest;
 pub mod digest_schema;
 pub mod evidence;
 mod flight;
-mod hops;
 mod inbox;
 mod input;
 mod pushes;
@@ -372,16 +371,6 @@ impl Messages {
                 p.to, status.status
             )));
         }
-        // B13: read once, when the sender sends; a Rail move afterwards does not change it.
-        let chain_rest = if p.kind == MessageKind::Question
-            && ctx.actor.kind != ActorKind::User
-            && receiver_status.is_some()
-        {
-            let nodes = load_rail_nodes(&self.inner).await?;
-            Some(hops::agents_above(&nodes, &p.to, &ctx.actor.id))
-        } else {
-            None
-        };
         // The reply-to check, the bound check and the insert run while one lock is held, so a
         // second sender racing for the same receiver's last open slot cannot pass its own check
         // before this one's insert lands (B1).
@@ -472,7 +461,6 @@ impl Messages {
                     reason,
                     (self.inner.clock)(),
                     receiver_status.as_ref().map_or((0, 0), binding),
-                    None,
                 )?;
                 if wake.is_some() {
                     (self.inner.fault)("wake").map_err(RpcError::internal)?;
@@ -485,11 +473,6 @@ impl Messages {
                     store.accept_continuation(c, message.id)?;
                     (self.inner.fault)("continuation").map_err(RpcError::internal)?;
                 }
-                self.answer(ctx, store, &message)?;
-                if let Some(rest) = &chain_rest {
-                    store.start_chain(&ctx.actor, &message.body, rest, message.id)?;
-                }
-                store.arm_chains((self.inner.clock)())?;
                 let mut merged = Vec::new();
                 for id in folded {
                     if store.drop_merged(id)? {
@@ -512,9 +495,6 @@ impl Messages {
             MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone().into())),
             MessageStatus::Pending => {}
         }
-        if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
-            ctx.emit(EventData::MessageDelivered(escalated_question.into()));
-        }
         {
             let routing = async {
                 // The Status read before the insert may be stale: an `idle` that landed between that read
@@ -523,8 +503,6 @@ impl Messages {
                 if message.status == MessageStatus::Pending && receiver_status.is_some() {
                     nudge(&self.inner, &p.to).await;
                 }
-                // A hop the Route dropped moves the chain on at once (B16).
-                settle_logged(&self.inner, "settle").await;
             };
             // A ready future never blocked its caller. Retain evidence only after the
             // existing routing operation yields Pending, never pending-Message duration.
@@ -544,76 +522,6 @@ impl Messages {
             drop(waiting);
         }
         Ok(message)
-    }
-
-    /// B17: a `note` from the Agent a question's current hop was delivered to, with `replyTo` that
-    /// hop, answers it: the chain ends and no hop follows.
-    fn answer(&self, ctx: &Ctx, store: &Store, message: &Message) -> Result<(), RpcError> {
-        let Some(hop_id) = message.reply_to else {
-            return Ok(());
-        };
-        if ctx.actor.kind != ActorKind::Agent || message.kind != MessageKind::Note {
-            return Ok(());
-        }
-        let (Some(chain), Some(hop)) = (store.chain_of(hop_id)?, store.get(hop_id)?) else {
-            return Ok(());
-        };
-        if hop.status == MessageStatus::Delivered
-            && hops::is_hop_receiver(&ctx.actor, &hop)
-            && is_receiver(&chain.origin, &message.to)
-        {
-            store.move_chain(chain.id, None, &[])?;
-        }
-        Ok(())
-    }
-
-    /// B15: the user's reply to an Escalated question delivers it. `None` when `message` answers nothing held
-    /// for `escalated`.
-    fn answered_escalation(
-        &self,
-        ctx: &Ctx,
-        message: &Message,
-    ) -> Result<Option<Message>, RpcError> {
-        let Some(escalated_id) = message.reply_to else {
-            return Ok(None);
-        };
-        if ctx.actor.kind != ActorKind::User {
-            return Ok(None);
-        }
-        let store = self.store()?;
-        let escalated = store.get(escalated_id)?.is_some_and(|held| {
-            held.to == Actor::user().id
-                && held.reason == Some(Reason::Escalated)
-                && is_receiver(&held.from, &message.to)
-        });
-        if escalated && store.release_held(escalated_id, MessageStatus::Delivered, None)? {
-            return store.get(escalated_id);
-        }
-        Ok(None)
-    }
-
-    /// B13: the Agent a hop was sent to passes it on at once.
-    async fn pass(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
-        let hop = self.get_or_not_found(p.id)?;
-        if !hops::is_hop_receiver(&ctx.actor, &hop) {
-            return Err(RpcError::forbidden(
-                "only the Agent a hop was sent to may pass it",
-            ));
-        }
-        let live = self.store()?.chain_of(hop.id)?.is_some();
-        if !live
-            || !matches!(
-                hop.status,
-                MessageStatus::Pending | MessageStatus::Delivered
-            )
-        {
-            return Err(RpcError::conflict(format!(
-                "message {} is not a pending or delivered hop of a live question",
-                hop.id
-            )));
-        }
-        settle(&self.inner, Some(hop.id), "settle").await?;
-        reply(&self.get_or_not_found(hop.id)?)
     }
 
     fn get(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
@@ -647,11 +555,6 @@ impl Messages {
     async fn deliver(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
         require_user(ctx, "deliver a held Message")?;
         let message = self.get_or_not_found(p.id)?;
-        if message.reason == Some(Reason::Escalated) {
-            return Err(RpcError::conflict(
-                "an escalated Message is answered with a reply, or dropped",
-            ));
-        }
         if message.status == MessageStatus::Held
             && (message.reason == Some(Reason::Inbox)
                 || (inbox::is_inbox_message(&message)
@@ -684,7 +587,6 @@ impl Messages {
             if let Some(node) = &receiver {
                 store.bind(p.id, binding(node))?;
             }
-            store.arm_chains((self.inner.clock)())?;
         }
         ctx.touch(Verb::Wrote, &item(p.id))?;
         nudge(&self.inner, &message.to).await;
@@ -773,9 +675,7 @@ impl Messages {
         let held = {
             let mut store = self.store()?;
             accept_receiver(&self.inner, &mut store, &node)?;
-            let held = store.begin_takeover(&agent, hold_for_takeover)?;
-            store.arm_chains((self.inner.clock)())?;
-            held
+            store.begin_takeover(&agent, hold_for_takeover)?
         };
         if let Some(held) = held {
             for message in &held {
@@ -804,9 +704,7 @@ impl Messages {
             if store.retirement(&agent)?.is_none() {
                 accept_receiver(&self.inner, &mut store, &node)?;
             }
-            let promoted = store.end_takeover(&agent, release_order)?;
-            store.arm_chains((self.inner.clock)())?;
-            promoted
+            store.end_takeover(&agent, release_order)?
         };
         if promoted.is_some() {
             ctx.emit(EventData::TakeoverChanged(TakeoverChanged {
@@ -1032,7 +930,6 @@ impl Messages {
         trip(&self.inner, method).map_err(RpcError::internal)?;
         match method {
             "message.send" => self.send(ctx, send_params(value)?).await,
-            "message.pass" => self.pass(ctx, params(value)?).await,
             "message.get" => self.get(ctx, params(value)?),
             "message.list" => self.list(ctx, params(value)?),
             "message.deliver" => self.deliver(ctx, params(value)?).await,
@@ -1096,7 +993,7 @@ async fn guarded<T>(op: &str, fut: impl Future<Output = T> + Send) -> Result<T, 
 /// `agent.status` fired between `open` and this first poll is lost.
 fn start_listener(inner: &Arc<Inner>) {
     inner.listener_started.call_once(|| {
-        spawn_bound_clock(Arc::downgrade(inner));
+        spawn_push_clock(Arc::downgrade(inner));
         let events = lock(&inner.events)
             .take()
             .expect("subscribed once, at open");
@@ -1104,9 +1001,8 @@ fn start_listener(inner: &Arc<Inner>) {
     });
 }
 
-/// B14: every half second, passes the hops whose bound ran out by the Daemon's clock; the first
-/// tick after a restart passes those that ran out while the Daemon was down, once.
-fn spawn_bound_clock(inner: std::sync::Weak<Inner>) {
+/// B22: every half second, sends the pushed digests whose window ended by the Daemon's clock.
+fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
         // A stalled clock (a suspended host, a paused test clock) owes one pass, not one per missed tick.
@@ -1116,64 +1012,11 @@ fn spawn_bound_clock(inner: std::sync::Weak<Inner>) {
             let Some(inner) = inner.upgrade() else {
                 break;
             };
-            settle_logged(&inner, "clock").await;
             pushes::flush(&inner).await;
             #[cfg(test)]
             let _ = inner.completed.send("clock");
         }
     });
-}
-
-/// A background `settle` pass: a panic or an `Err` is logged once with `op` and the pass ends (B28).
-async fn settle_logged(inner: &Arc<Inner>, op: &str) {
-    if let Ok(Err(err)) = guarded(op, settle(inner, None, op)).await {
-        log_failure(op, &err.message);
-    }
-}
-
-/// B13 to B16: moves every question whose current hop passed, ended or ran out its bound to its
-/// next hop, or to the Escalated question; `force` passes that hop now (`message.pass`). Emits what it made.
-async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), RpcError> {
-    let nodes = load_rail_nodes(inner).await?;
-    let made = {
-        let mut store = lock(&inner.store);
-        (inner.fault)(op).map_err(RpcError::internal)?;
-        hops::settle(inner, &mut store, &nodes, (inner.clock)(), force)?
-    };
-    let rupd = Actor::daemon();
-    let mut waiting = Vec::new();
-    for hop in made {
-        let message = hop.message;
-        if hop.new && message.status == MessageStatus::Pending {
-            waiting.push(message.to.clone());
-        }
-        if hop.new {
-            inner
-                .touches
-                .record(&rupd, Verb::Wrote, &item(message.id))
-                .map_err(RpcError::internal)?;
-            inner
-                .bus
-                .emit(rupd.clone(), EventData::MessageSent(message.clone().into()));
-        }
-        match message.status {
-            MessageStatus::Held => inner
-                .bus
-                .emit(rupd.clone(), EventData::MessageHeld(message.into())),
-            MessageStatus::Delivered => inner
-                .bus
-                .emit(rupd.clone(), EventData::MessageDelivered(message.into())),
-            MessageStatus::Dropped => inner
-                .bus
-                .emit(rupd.clone(), EventData::MessageDropped(message.into())),
-            MessageStatus::Pending => {}
-        }
-    }
-    // B13: a hop made for a receiver already idle has no later `idle` to wait for.
-    for door in waiting {
-        nudge(inner, &door).await;
-    }
-    Ok(())
 }
 
 /// Reads `agent.status` off `events` for as long as `inner` has a subscriber: an `idle` Kind
@@ -1188,7 +1031,6 @@ fn spawn_status_listener(
 ) {
     tokio::spawn(async move {
         let mut resync_due = !resync(&inner).await;
-        settle_logged(&inner, "settle").await;
         #[cfg(test)]
         let _ = inner.completed.send("initial");
         loop {
@@ -1231,7 +1073,6 @@ fn spawn_status_listener(
             }
             if resync_due {
                 resync_due = !resync(&inner).await;
-                settle_logged(&inner, "settle").await;
             }
         }
     });
@@ -1270,7 +1111,6 @@ async fn on_status(inner: &Arc<Inner>, agent: &str, attempt: &str, revision: &st
     if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
     }
-    settle_logged(inner, "settle").await;
 }
 
 /// Resync after bus lag or Rail changes so missed endings cannot leave Messages deliverable.
@@ -1857,6 +1697,7 @@ mod tests {
                 kind,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         )
     }
@@ -2050,6 +1891,7 @@ mod tests {
                 kind: Kind::Idle,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         );
         let h = Harness::new(dir.path(), vec![meta]);
@@ -3563,6 +3405,7 @@ mod tests {
                 kind: Kind::Idle,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         );
         door.parent = parent.map(Into::into);
@@ -3651,80 +3494,5 @@ mod tests {
             typed[0].1,
             "[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] two"
         );
-    }
-
-    #[tokio::test]
-    async fn b13_a_hop_passed_to_an_idle_ancestor_door_is_typed_without_a_status_event() {
-        let dir = tempfile::tempdir().unwrap();
-        let (deliver, typed) = recording_deliver();
-        let h = Harness::with_deliver(
-            dir.path(),
-            vec![
-                door("m1", Some("m2")),
-                door("m2", None),
-                agent_node("a", Kind::Working),
-            ],
-            deliver,
-        );
-        let sent = h
-            .call_as(
-                agent("a"),
-                "message.send",
-                json!({"to": "m1", "kind": "question", "body": "why?"}),
-            )
-            .await
-            .unwrap();
-        assert_eq!(typed.lock().unwrap().len(), 1);
-
-        h.call_as(agent("m1"), "message.pass", json!({"id": sent["id"]}))
-            .await
-            .unwrap();
-
-        let typed = typed.lock().unwrap();
-        assert_eq!(typed.len(), 2);
-        assert_eq!(typed[1].0, "m2");
-    }
-
-    #[tokio::test]
-    async fn b17_a_failure_between_the_escalated_question_and_the_chain_move_leaves_neither() {
-        let dir = tempfile::tempdir().unwrap();
-        let (deliver, _typed) = recording_deliver();
-        let h = Harness::with_deliver(
-            dir.path(),
-            vec![door("m", None), agent_node("a", Kind::Working)],
-            deliver,
-        );
-        let sent = h
-            .call_as(
-                agent("a"),
-                "message.send",
-                json!({"to": "m", "kind": "question", "body": "why?"}),
-            )
-            .await
-            .unwrap();
-        // The crash boundary: the chain move fails after the Escalated question was inserted.
-        rusqlite::Connection::open(dir.path().join("messages.db"))
-            .unwrap()
-            .execute_batch(
-                "CREATE TRIGGER fail_move BEFORE UPDATE ON chains
-                 BEGIN SELECT RAISE(ABORT, 'killed between the writes'); END;",
-            )
-            .unwrap();
-
-        let passed = h
-            .call_as(agent("m"), "message.pass", json!({"id": sent["id"]}))
-            .await;
-        assert!(passed.is_err());
-
-        let all = h.call("message.list", json!({})).await.unwrap();
-        assert_eq!(
-            all.as_array().unwrap().len(),
-            1,
-            "no escalated question was stored"
-        );
-        drop(h);
-        let reopened = Harness::new(dir.path(), vec![door("m", None)]);
-        let all = reopened.call("message.list", json!({})).await.unwrap();
-        assert_eq!(all.as_array().unwrap().len(), 1);
     }
 }

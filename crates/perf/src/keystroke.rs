@@ -468,7 +468,7 @@ mod tests {
         let project = dir.path().join("project");
         std::fs::create_dir(&project)?;
         let daemon = std::sync::Arc::new(
-            rupd::Daemon::open_project(&project, &dir.path().join("data"), None)
+            rupd::Daemon::open_project(&project, &dir.path().join("data"))
                 .map_err(io::Error::other)?,
         );
         let socket = dir.path().join("daemon.sock");

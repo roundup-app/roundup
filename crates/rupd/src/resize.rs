@@ -4,7 +4,6 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use contracts::agent::{HeldAction, HeldCall, NodeId, SetOrderParams};
-use contracts::decision::AnswerParams;
 use contracts::terminal::{ResizeAction, ResizeOutcome, ResizeParams, TerminalId};
 use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError};
@@ -277,37 +276,6 @@ impl Daemon {
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
             "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
             "agent.prompt" => HeldCall::Prompt(rpc::params(params)?),
-            "decision.answer" => {
-                if conn.actor.kind == ActorKind::Agent && conn.actor.id == child {
-                    // An Agent's own answer is not a Door action on a child.
-                    return Ok(None);
-                }
-                let mut answer: AnswerParams = rpc::params(params)?;
-                // The original prompt is fixed now, so release never answers a later one.
-                let identity = match answer.identity.take() {
-                    Some(identity) => identity,
-                    None => serde_json::from_value(
-                        self.modules["decision"]
-                            .call(
-                                &self.ctx(conn.actor.clone()),
-                                "decision.capture",
-                                serde_json::json!({"id": answer.id}),
-                            )
-                            .await?,
-                    )
-                    .map_err(RpcError::internal)?,
-                };
-                if identity.agent != child || identity.decision != answer.id {
-                    return Err(RpcError::conflict(format!(
-                        "original prompt {} is not a prompt of {child}",
-                        answer.id
-                    )));
-                }
-                answer.identity = Some(identity);
-                // An Agent's answer never carries the App's proof; none is stored.
-                answer.proof = None;
-                HeldCall::Answer(answer)
-            }
             _ => return Err(RpcError::method_not_found(method)),
         };
         if terminal_call(&call) {
@@ -423,8 +391,7 @@ impl Daemon {
                     }
                     self.held_actions
                         .outcome(&action.id, ResizeOutcome::InProgress)?;
-                    self.before_prompt_effect(&accepted.actor, method, &params)
-                        .await?;
+                    self.before_prompt_effect(&accepted.actor, method).await?;
                     let ctx = self.ctx(accepted.actor);
                     if matches!(
                         action.call,
@@ -453,7 +420,7 @@ impl Daemon {
                             .decode(&write.data)
                             .map_err(|err| RpcError::internal(format!("held bytes: {err}")))?;
                         self.agents
-                            .write_terminal(&ctx.actor, &write.id, bytes, write.identity.clone())
+                            .write_terminal(&ctx.actor, &write.id, bytes)
                             .await?;
                     } else {
                         let namespace = method.split('.').next().unwrap_or_default();
@@ -695,7 +662,7 @@ fn node_bound(call: &HeldCall) -> bool {
 fn attempt_bound(call: &HeldCall) -> bool {
     matches!(
         call,
-        HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_) | HeldCall::Answer(_)
+        HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_)
     )
 }
 
@@ -731,7 +698,6 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Rename(_) => "rail.rename",
         HeldCall::SetOrder(_) => "agent.setOrder",
         HeldCall::Resume(_) => "agent.resume",
-        HeldCall::Answer(_) => "decision.answer",
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
         HeldCall::Prompt(_) => "agent.prompt",
@@ -744,7 +710,6 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
         HeldCall::SetOrder(params) => serde_json::to_value(params),
-        HeldCall::Answer(params) => serde_json::to_value(params),
         HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
         HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
         HeldCall::Resume(params) => serde_json::to_value(params),
@@ -763,7 +728,6 @@ fn original_terminal(call: &HeldCall) -> Option<&str> {
         HeldCall::Rename(_)
         | HeldCall::SetOrder(_)
         | HeldCall::Resume(_)
-        | HeldCall::Answer(_)
         | HeldCall::Stop(_)
         | HeldCall::Interrupt(_)
         | HeldCall::Prompt(_)

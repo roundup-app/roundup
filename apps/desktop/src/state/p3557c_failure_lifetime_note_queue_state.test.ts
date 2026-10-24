@@ -5,7 +5,7 @@ import { connectProject } from "./connectedProject";
 import { event } from "../testing/nodes";
 
 const note = (id: number, to = "a", over: Partial<Message> = {}): Message => ({
-  id, from: { kind: "user", id: "user", parent: null }, to, kind: "note", body: `n${id}`, replyTo: null, status: "pending", reason: null, passedFrom: null, at: id, ...over,
+  id, from: { kind: "user", id: "user", parent: null }, to, kind: "note", body: `n${id}`, replyTo: null, status: "pending", reason: null, at: id, ...over,
 });
 
 const open = async (listFails = false) => {

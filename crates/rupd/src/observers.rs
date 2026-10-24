@@ -45,33 +45,6 @@ pub(crate) fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
     env
 }
 
-/// B6's physical-effect observer. The two phases distinguish invalidation before the
-/// check from a user action arriving while the checked effect holds its locks.
-pub(crate) fn prompt_effect_observer()
--> impl Fn(&contracts::decision::PromptIdentity) -> Result<(), RpcError> + Send + Sync {
-    let gate = std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(std::path::PathBuf::from);
-    move |identity| {
-        let Some(gate) = &gate else {
-            return Ok(());
-        };
-        if std::fs::read_to_string(gate).ok().as_deref() != Some("effect") {
-            return Ok(());
-        }
-        std::fs::write(gate.with_extension("arrived"), &identity.decision)
-            .map_err(RpcError::internal)?;
-        let started = std::time::Instant::now();
-        while gate.is_file() {
-            if started.elapsed() >= std::time::Duration::from_secs(10) {
-                return Err(RpcError::conflict(
-                    "original prompt effect observer was not released",
-                ));
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
-        Ok(())
-    }
-}
-
 /// B6's real-Daemon observer pauses on the Terminal input thread before any Steer bytes.
 pub(crate) fn steer_effect_observer() -> impl Fn(&str) -> Result<(), RpcError> + Send + Sync {
     let gate = std::env::var_os("RUPD_ORDER_EFFECT_GATE").map(std::path::PathBuf::from);

@@ -1,3 +1,4 @@
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
@@ -83,6 +84,7 @@ export const createTauriApp = (): App => {
   const selections = new Map<string, object>();
 
   const app: App = {
+    writeClipboardText: (text) => guarded(() => writeText(text)),
     ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
@@ -114,7 +116,6 @@ export const createTauriApp = (): App => {
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
       ...app,
-      daemonProof: () => parsedCommand(v.string(), "daemon_proof", { path }),
       rpc: async (method, params) => {
         try {
           return await command("rpc", { path, method, params });

@@ -23,17 +23,6 @@ pub(crate) struct ReceiverState {
     pub closed: bool,
 }
 
-/// One bubbling question (B13): who asked, what, the Doors still to try, and the hop now waiting.
-pub(crate) struct Chain {
-    pub id: i64,
-    pub origin: Actor,
-    pub body: String,
-    pub rest: Vec<String>,
-    pub current: u32,
-    /// When the current hop's bound started (B14); `None` while the hop is `held`.
-    pub armed_at: Option<i64>,
-}
-
 pub(crate) enum FirstPrompt {
     Absent,
     Reserved(String),
@@ -242,7 +231,6 @@ impl Store {
         agent: &str,
         key: &str,
         at: Binding,
-        now: i64,
     ) -> Result<(), RpcError> {
         self.db.execute("UPDATE messages SET receiver_attempt=?,receiver_revision=? WHERE to_id=? AND status IN ('pending','held')", params![at.0,at.1,agent]).map_err(RpcError::internal)?;
         self.set_generation(
@@ -264,8 +252,8 @@ impl Store {
                 "UPDATE message_restarts SET released=? WHERE agent=? AND key=?",
                 params![at.0, agent, key],
             )
-            .map_err(RpcError::internal)?;
-        self.arm_chains(now)
+            .map_err(RpcError::internal)
+            .map(|_| ())
     }
 
     pub(crate) fn receivers(&self) -> Result<Vec<String>, RpcError> {
@@ -338,8 +326,7 @@ impl Store {
     }
 
     /// Runs `f` as one SQLite transaction: its writes all land or none do, so a kill between two
-    /// of them never leaves a Message and the chain that should have moved with it disagreeing
-    /// (B8, B17).
+    /// of them never leaves the Store half-written (B8).
     pub(crate) fn atomically<T>(
         &mut self,
         f: impl FnOnce(&mut Self) -> Result<T, RpcError>,
@@ -389,12 +376,11 @@ impl Store {
         reason: Option<Reason>,
         at: i64,
         binding: Binding,
-        passed_from: Option<u32>,
     ) -> Result<Message, RpcError> {
         self.db
             .execute(
-                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, passed_from, rank)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, rank)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                      CASE WHEN ?6 = 'pending' THEN (SELECT COALESCE(MAX(rank), 0) + 1 FROM messages) ELSE 0 END)",
                 params![
                     actor_json(from),
@@ -406,8 +392,7 @@ impl Store {
                     reason.map(text_of),
                     at,
                     binding.0,
-                    binding.1,
-                    passed_from
+                    binding.1
                 ],
             )
             .map_err(RpcError::internal)?;
@@ -456,7 +441,7 @@ impl Store {
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
         self.db
             .query_row(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE id = ?1",
                 [id],
                 row_to_message,
@@ -468,7 +453,7 @@ impl Store {
     pub(crate) fn list(&self) -> Result<Vec<Message>, RpcError> {
         self.db
             .prepare(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages ORDER BY id",
             )
             .and_then(|mut stmt| stmt.query_map([], row_to_message)?.collect())
@@ -505,7 +490,7 @@ impl Store {
     ) -> Result<Vec<Message>, RpcError> {
         self.db
             .prepare(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status = 'pending' AND receiver_attempt = ?2 AND receiver_revision < ?3
                  ORDER BY rank ASC, id ASC",
             )
@@ -722,7 +707,7 @@ impl Store {
     fn list_pending_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
         self.db
             .prepare(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status = 'pending' ORDER BY id",
             )
             .and_then(|mut stmt| stmt.query_map(params![to], row_to_message)?.collect())
@@ -732,7 +717,7 @@ impl Store {
     fn list_takeover_held_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
         self.db
             .prepare(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status = 'held' AND reason = 'takeover'
                  ORDER BY id",
             )
@@ -943,122 +928,6 @@ impl Store {
         Ok(dropped)
     }
 
-    /// B13: the live question chain whose current hop is `hop`.
-    pub(crate) fn chain_of(&self, hop: u32) -> Result<Option<Chain>, RpcError> {
-        self.chains("WHERE done = 0 AND current = ?1", params![hop])
-            .map(|mut chains| chains.pop())
-    }
-
-    /// B13, B14: every question chain still waiting on a hop, oldest first.
-    pub(crate) fn live_chains(&self) -> Result<Vec<Chain>, RpcError> {
-        self.chains("WHERE done = 0", params![])
-    }
-
-    fn chains(&self, filter: &str, args: impl rusqlite::Params) -> Result<Vec<Chain>, RpcError> {
-        self.db
-            .prepare(&format!(
-                "SELECT id, origin, body, rest, current, armed_at FROM chains {filter} ORDER BY id"
-            ))
-            .and_then(|mut stmt| {
-                stmt.query_map(args, |row| {
-                    let origin: String = row.get(1)?;
-                    let rest: String = row.get(3)?;
-                    let bad = |err: serde_json::Error| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            1,
-                            rusqlite::types::Type::Text,
-                            Box::new(err),
-                        )
-                    };
-                    Ok(Chain {
-                        id: row.get(0)?,
-                        origin: serde_json::from_str(&origin).map_err(bad)?,
-                        body: row.get(2)?,
-                        rest: serde_json::from_str(&rest).map_err(bad)?,
-                        current: row.get(4)?,
-                        armed_at: row.get(5)?,
-                    })
-                })?
-                .collect()
-            })
-            .map_err(RpcError::internal)
-    }
-
-    pub(crate) fn start_chain(
-        &self,
-        origin: &Actor,
-        body: &str,
-        rest: &[String],
-        current: u32,
-    ) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "INSERT INTO chains (origin, body, rest, current) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    actor_json(origin),
-                    body,
-                    serde_json::to_string(rest).expect("strings serialize"),
-                    current
-                ],
-            )
-            .map_err(RpcError::internal)?;
-        Ok(())
-    }
-
-    /// Points a chain at its next hop with the Doors still to come, or ends it (`current` of
-    /// `None`).
-    pub(crate) fn move_chain(
-        &self,
-        id: i64,
-        current: Option<u32>,
-        rest: &[String],
-    ) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE chains SET current = COALESCE(?2, current), done = ?2 IS NULL, rest = ?3, armed_at = NULL
-                 WHERE id = ?1",
-                params![id, current, serde_json::to_string(rest).expect("strings serialize")],
-            )
-            .map_err(RpcError::internal)?;
-        Ok(())
-    }
-
-    /// B14: a hop's bound runs from the moment it is `pending` or `delivered`. A `held` hop has
-    /// none, and a hop that became `held` again (a Takeover began) starts over when released.
-    pub(crate) fn arm_chains(&self, now: i64) -> Result<(), RpcError> {
-        self.db
-            .execute_batch(
-                "UPDATE chains SET armed_at = NULL WHERE done = 0 AND armed_at IS NOT NULL
-                     AND ((SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered') OR (SELECT to_id FROM messages WHERE id=current) IN (SELECT agent FROM message_protection));",
-            )
-            .map_err(RpcError::internal)?;
-        self.db
-            .execute(
-                "UPDATE chains SET armed_at = ?1 WHERE done = 0 AND armed_at IS NULL
-                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered') AND (SELECT to_id FROM messages WHERE id=current) NOT IN (SELECT agent FROM message_protection)",
-                params![now],
-            )
-            .map_err(RpcError::internal)?;
-        Ok(())
-    }
-
-    /// B13: a hop still `pending` becomes `dropped` with the reason `passed`; any other status
-    /// is left as it is. `None` when the hop was not `pending`.
-    pub(crate) fn drop_passed(&self, id: u32) -> Result<Option<Message>, RpcError> {
-        let changed = self
-            .db
-            .execute(
-                "UPDATE messages SET status = 'dropped', reason = 'passed'
-                 WHERE id = ?1 AND status = 'pending'",
-                params![id],
-            )
-            .map_err(RpcError::internal)?;
-        if changed == 0 {
-            return Ok(None);
-        }
-        self.get(id)
-    }
-
     pub(crate) fn count_wakes(&self, waiter: &str) -> Result<u32, RpcError> {
         self.db
             .query_row(
@@ -1164,7 +1033,7 @@ impl Store {
     ) -> Result<Option<Message>, RpcError> {
         self.db
             .query_row(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages
                  WHERE to_id = ?1 AND status IN ('pending', 'delivered')
                    AND receiver_attempt = ?2 AND from_actor != ?3 AND (?4 IS NULL OR id != ?4)
@@ -1197,7 +1066,7 @@ impl Store {
     pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<Message>, RpcError> {
         self.db
             .prepare(&format!(
-                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND ({DIGEST})
                  ORDER BY id"
             ))
@@ -1332,7 +1201,6 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
             .map(|text| from_text(7, &text))
             .transpose()?,
         at: row.get(8)?,
-        passed_from: row.get(9)?,
         iteration: None,
     })
 }
@@ -1388,7 +1256,6 @@ mod tests {
                 reason,
                 1,
                 (1, 1),
-                None,
             )
             .unwrap()
             .id
@@ -1401,7 +1268,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let reasons = [
             (MessageStatus::Held, Reason::AskFirst),
-            (MessageStatus::Held, Reason::Escalated),
             (MessageStatus::Dropped, Reason::ReceiverGone),
             (MessageStatus::Dropped, Reason::NotAccepted),
         ];
