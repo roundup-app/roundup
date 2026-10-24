@@ -163,6 +163,7 @@ impl Held2 {
             kind,
             label: "x".into(),
             since: 0,
+            finished: "0".into(),
         };
         let mut revision = "1".to_owned();
         for node in self
@@ -1025,6 +1026,7 @@ async fn b6_a_door_can_be_taken_over() {
         kind: Kind::Working,
         label: "x".into(),
         since: 0,
+        finished: "0".into(),
     };
     let h = Held2::new(
         dir.path(),
@@ -1107,6 +1109,7 @@ fn status_flood(h: &Held2) {
                     kind: Kind::Working,
                     label: "x".into(),
                     since: 0,
+                    finished: "0".into(),
                 },
             })),
         );
@@ -1887,6 +1890,7 @@ async fn b40_a_message_in_flight_to_a_gone_terminal_waits_for_the_resumed_agent(
             kind: Kind::Done,
             label: "terminal gone".into(),
             since: 0,
+            finished: "0".into(),
         });
     }
     h.bus.emit(Actor::daemon(), EventData::RailChanged);
@@ -1925,6 +1929,7 @@ async fn b40_a_message_in_flight_to_a_gone_terminal_waits_for_the_resumed_agent(
                 kind: Kind::Idle,
                 label: "x".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     );
