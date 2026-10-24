@@ -1,7 +1,11 @@
 name: loop
 
+# L46: the merge queue's `merge_group` commit runs the lanes again; the per-PR gates (trailers, frozen paths, closes, empty
+# diff, merge loss) judged the PR head and have no PR to read there.
 on:
   pull_request:
+  merge_group:
+    types: [checks_requested]
 
 concurrency:
   group: loop-${{ github.ref }}
@@ -21,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: loop/rules.sh ci-trailers "$PR"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
