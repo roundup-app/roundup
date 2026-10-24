@@ -35,7 +35,6 @@ Audit starting points on main (policy; not an exhaustive substitute for inspecti
 | Changes tree, diff and worktree controls | `changes/tree.styles.css`, shadow-root tree; `changes/diff.styles.css`, shadow-root diff; `changes/styles.css`, `.diff-content`, `.worktree-panel` |
 | Shelf lists and question; Drawer and Help | `shelf/styles.css`, `.shelf-area`, `.shelf-question`; `styles.css`, `.drawer`, `.help` |
 | Ask, mention list, published work and call text | `ask/styles.css`, `.ask-bar`, `.app-mentions`, `.made-panel`, `.call-text` |
-| Decisions, arguments, answers and preview | `decisions/styles.css`, `.decision-card`, `.ask-answers`, `.ask-preview` |
 | Orders and overview; timeline; Settings | `orders/styles.css`, `.order-field textarea`, `.order-overview`; `timeline/styles.css`, `.timeline-view`; `settings/styles.css`, `.settings-view` |
 | Import dialog and list; draft recovery | `importer/import.css`, `.import-panel`, `.import-list`; `styles.css`, `.draft-recovery` |
 | Shared dialogs, menus, selects, choice lists and text fields; Todo owner picker | `ui/Dialog.css`, `ui/Menu.tsx`, `ui/Select.css`, `.app-select-list`, `ui/Combobox.css`, `.app-combobox-list`, `ui/Textarea.css`, `.app-textarea`; `todos/rowButton.styles.css`, `.owner-picker` |

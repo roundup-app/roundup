@@ -8,7 +8,7 @@ use contracts::agent::RailNode;
 use rpc::code;
 use serde_json::{Value, json};
 
-use super::daemon::{Project, h21_ask, h21_bash, h21_poll, rail_tree, signal, start};
+use super::daemon::{Project, h21_poll, needs_you, rail_tree, signal, start};
 use super::{actor, agent_in_as, client_as, start_door};
 
 pub(super) const STOP: &str = "Stop";
@@ -368,7 +368,7 @@ async fn b43_error_and_needs_you_reach_a_non_door_parent() {
         "{note}"
     );
     let d = agent_in_as(&s.project, &s.w).await;
-    let _ask = h21_ask(&s.project, &d, "Bash", h21_bash()).await;
+    needs_you(&s.user, &d).await;
     let n = name_of(&s.user, &d).await;
     h21_poll("the needs-you note", async || {
         let found = messages(&s.user, &s.w, "[digest]").await;

@@ -46,7 +46,7 @@ MOD = """export function register(on) {
 """
 
 
-def m15_interactive_source(claude, version, role, cli_grant, timeout):
+def m15_interactive_source(claude, version, role, cli_allow, timeout):
     """Compare one interactive vendor instance's permission-only source with M15."""
     with tempfile.TemporaryDirectory(prefix="m15-interactive-") as root:
         folder = Path(root)
@@ -88,9 +88,9 @@ def m15_interactive_source(claude, version, role, cli_grant, timeout):
         ]
         if role == "Door":
             argv += ["--tools", "Read,Grep,Glob,ToolSearch"]
-        if cli_grant:
+        if cli_allow:
             argv += ["--allowedTools", "Bash(touch:*)"]
-        row = {"role": role, "cliGrant": cli_grant, "argv": argv, "failures": []}
+        row = {"role": role, "cliAllow": cli_allow, "argv": argv, "failures": []}
         master, slave = pty.openpty()
         try:
             program = subprocess.Popen(argv, cwd=project, env=env, stdin=slave,
@@ -140,7 +140,7 @@ def m15_interactive_source(claude, version, role, cli_grant, timeout):
                             or not isinstance(source.get("tools"), list)
                             or not all(isinstance(tool, str) for tool in source["tools"])):
                         raise ValueError("source must identify its conversation and tool list")
-                    expected = ["allow", "allow" if cli_grant else "ask", "deny"]
+                    expected = ["allow", "allow" if cli_allow else "ask", "deny"]
                     actual = [check["reply"]["decision"] if check.get("error") is None else None
                               for check in checks]
                     row["expected"] = expected

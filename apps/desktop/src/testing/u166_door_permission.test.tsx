@@ -24,9 +24,9 @@ const mount = () => {
   return app;
 };
 
-const settle = async (answer: "allow" | "deny", prompt: string) => {
+const settle = async (prompt: string) => {
   // E10: the Door's Claude is the pinned one, its model aimock serving this test's turns.
-  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), `src/testing/fixtures/u166_${answer}.json`));
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), `src/testing/fixtures/u166_allow.json`));
   const app = mount();
   const rail = await screen.findByRole("region", { name: "Rail" });
   const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
@@ -66,17 +66,6 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
-  const card = await waitFor(
-    () => {
-      const found = screen.getByRole("region", { name: /Decision for| wants to / });
-
-      expect(found.textContent).toContain(prompt);
-
-      return found;
-    },
-    { timeout: 30_000 },
-  );
-
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
@@ -84,56 +73,28 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
-  const toSecond = async () => (await app.rpc("message.list", { to: null, status: null })).filter((message) => message.to === second?.id);
-  const secondThread = await toSecond();
-  const decisionsBefore = await app.rpc("decision.list", null);
 
   expect(otherBefore).not.toBe("needs-you");
-  expect(decisionsBefore).toHaveLength(1);
-
-  fireEvent.click(within(card).getByRole("button", { name: answer === "allow" ? "Allow" : "Deny" }));
-
-  await waitFor(() => expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull(), { timeout: 30_000 });
-  await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("idle"), { timeout: 30_000 });
-  expect(await messages()).toContainEqual([prompt, "delivered"]);
+  // The Door's native prompt waits in its own Terminal: no roundup form appears, and selecting the row leaves the other Workstream as it was.
+  expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
+  fireEvent.click(rail.querySelector<HTMLElement>(`[data-id="${first?.id}"] .name`)!);
+  await waitFor(() => expect(rail.querySelector("[data-selected=true]")?.getAttribute("data-id")).toBe(first?.id));
+  expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   expect((await workstreams()).find((room) => room.id === second?.id)?.status?.kind).toBe(otherBefore);
-  expect(await toSecond()).toEqual(secondThread);
-  expect(await app.rpc("decision.list", null)).toHaveLength(0);
-
-  // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
-  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-
-  if (answer === "allow") {
-    expect(await screen.findByText(new RegExp(prompt), { selector: "[data-todo] *" }, { timeout: 30_000 })).toBeTruthy();
-  }
-
-  fireEvent.click(await waitFor(() => {
-    const name = rail.querySelector<HTMLElement>(`[data-id="${second?.id}"] .name`);
-
-    expect(name).not.toBeNull();
-
-    return name!;
-  }));
-  expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
+  expect(await messages()).toContainEqual([prompt, "delivered"]);
 
   cleanup();
 
   const Reopened = mount();
 
-  await waitFor(async () => expect((await Reopened.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").map((room) => room.status?.kind)).not.toContain("needs-you"), { timeout: 30_000 });
+  await waitFor(async () => expect((await Reopened.rpc("rail.tree", null)).find((node) => node.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
   expect(await messages()).toContainEqual([prompt, "delivered"]);
 
   await real.model!.assertMatched();
-
-  return (await Reopened.rpc("todo.list", null)).map((todo) => todo.title);
 };
 
-describe("u166 a Door's answered permission ends with the Workstream idle on the real Daemon", () => {
-  it("u166_allow_runs_the_tool_call_and_the_room_is_idle_with_its_message_delivered", async () => {
-    expect(await settle("allow", "ship a")).toContain("ship a");
-  }, 240_000);
-
-  it("u166_deny_makes_no_tool_call_and_the_room_is_idle_with_its_message_delivered", async () => {
-    expect(await settle("deny", "ship b")).not.toContain("ship b");
+describe("u166 a Door's native prompt waits in its Terminal on the real Daemon", () => {
+  it("u166_a_door_needing_you_leaves_the_other_workstream_and_its_message_delivered", async () => {
+    await settle("ship a");
   }, 240_000);
 });

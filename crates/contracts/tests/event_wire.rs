@@ -1,5 +1,4 @@
 use contracts::common::ActorKind;
-use contracts::decision::Decision;
 use contracts::message::{Message, MessageKind, MessageStatus, Reason};
 use contracts::todo::Todo;
 use contracts::{Actor, Event, EventData};
@@ -41,18 +40,6 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         iteration: Some(2),
     };
     let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"escalated","passedFrom":8,"at":456,"iteration":2});
-    let decision = Decision {
-        id: "d1".into(),
-        agent: "a1".into(),
-        tool: "Bash".into(),
-        args: "echo hi".into(),
-        opened_at: 789,
-        answerable: true,
-        scopes: vec![],
-        risk: None,
-        failure: None,
-    };
-    let decision_wire = json!({"id":"d1","agent":"a1","tool":"Bash","args":"echo hi","opened_at":789,"answerable":true});
     let status = contracts::agent::StatusEvent {
         ended: true,
         id: "a1".into(),
@@ -101,11 +88,6 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             EventData::MessageDropped(message.into()),
             message_wire,
         ),
-        (
-            "decision.opened",
-            EventData::DecisionOpened(decision.into()),
-            decision_wire,
-        ),
     ];
     for (name, data, payload) in cases {
         let expected = json!({"name":name,"data":payload});
@@ -118,7 +100,6 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             | (EventData::MessageHeld(a), EventData::MessageHeld(b))
             | (EventData::MessageDelivered(a), EventData::MessageDelivered(b))
             | (EventData::MessageDropped(a), EventData::MessageDropped(b)) => assert_eq!(a, b),
-            (EventData::DecisionOpened(a), EventData::DecisionOpened(b)) => assert_eq!(a, b),
             (EventData::AgentStatus(a), EventData::AgentStatus(b)) => {
                 assert_eq!(a.id, b.id);
                 assert_eq!(a.attempt, b.attempt);

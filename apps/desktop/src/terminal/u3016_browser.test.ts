@@ -81,19 +81,11 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("!!document.querySelector('.measurement-rows') && document.querySelector('.measurement-rows').offsetHeight > 0");
     await capture("details");
 
-    const trigger = async <M extends "agent.ask" | "message.send">(method: M, params: RpcMethods[M]["params"]) => {
+    const trigger = async <M extends "message.send">(method: M, params: RpcMethods[M]["params"]) => {
       writeFileSync(join(real.dir, `call-${home.id}.json`), JSON.stringify({method,params}));
       await app.rpc("terminal.write", {id:terminal,data:"AQ=="});
     };
 
-    await trigger("agent.ask", {question:"Continue measured work?",answers:[{label:"Yes",description:"Continue"}]});
-    await until("!!document.querySelector('.decision-card')");
-    await browser("press", "Escape");
-    await until("document.querySelector('.decision-card')?.offsetHeight > 0");
-    await browser("click", '.decision-card [role="option"]');
-    await until("document.querySelector('.decision-card button[type=submit]')?.getAttribute('aria-disabled') !== 'true'");
-    await browser("click", '.decision-card button[type=submit]');
-    await until("!document.querySelector('.decision-card')");
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
     await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
     writeFileSync(join(folder,`00000000-0000-4000-8000-${receiver.id.padStart(12,"0")}.jsonl`), "");
@@ -111,7 +103,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
     const timed=await app.rpc("project.measurementSummary",{home:home.id,offset:0,revision:null});
-    expect(BigInt(timed.time.human_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.coordination_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.execution_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
@@ -139,7 +130,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       row.maker = `${i} · 成果📖 résumé ${"long contributor name ".repeat(5)}`;
 
       const spent = BigInt(i + 1) * 1_000_000_000n;
-      row.time = { ...row.time, summed_ns: (spent * 4n).toString(), human_ns: spent.toString(), tools_ns: spent.toString(), execution_ns: (spent * 2n).toString(), coverage: i === 19 ? ["Attempt end unknown"] : [] };
+      row.time = { ...row.time, summed_ns: (spent * 3n).toString(), tools_ns: spent.toString(), execution_ns: (spent * 2n).toString(), coverage: i === 19 ? ["Attempt end unknown"] : [] };
     });
 
     dense.cause = "Fixture collection unavailable; last good measurements remain visible.";
@@ -164,13 +155,13 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       owner.revision = dense.revision;
       owner.rows = owner.rows.slice(0, 1); owner.rows[0]!.maker = "Review changes";
       owner.contributors = 1; owner.next_offset = null;
-      owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000", unmeasured_ns: "0" };
+      owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", coordination_ns: "0", other_ns: "555000000000", unmeasured_ns: "0" };
       owner.rows[0]!.time = { ...owner.time };
       await show(owner, "owner-other-9m14s");
-      owner.time.other_ns = "624000000000"; owner.time.summed_ns = "626000000000"; owner.rows[0]!.time = { ...owner.time };
+      owner.time.other_ns = "624000000000"; owner.time.summed_ns = "625000000000"; owner.rows[0]!.time = { ...owner.time };
       await show(owner, "duration-10m24s");
 
-      owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+      owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
       owner.rows[0]!.time = { ...owner.time, coverage: ["Attempt end unknown"] };
       await show(owner, "unknown-time-one-agent");
       await browser("press", "Tab");
