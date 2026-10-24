@@ -102,6 +102,7 @@ fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
             kind: Kind::Blocked,
             label: format!("waits on #{blocker}"),
             since: status.since,
+            finished: status.finished.clone(),
         },
         _ => status.clone(),
     }

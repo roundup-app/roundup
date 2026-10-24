@@ -61,7 +61,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
     await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Sent"));
     expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Idle" })).toBeTruthy();
-    app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2 } } }));
+    app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2, finished: "0" } } }));
     await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Working" })).toBeTruthy());
   });
 

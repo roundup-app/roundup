@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -33,7 +34,7 @@ export const useRecoveryMenu = (): ((source?: ActivationSource) => MenuEntry[]) 
 };
 
 const DraftRecoveryPanel = () => {
-  const { drafts, project, rail, drawer } = useConnectedProject();
+  const { app, drafts, project, rail, drawer } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const work = useUnfinishedWork();
@@ -50,7 +51,7 @@ const DraftRecoveryPanel = () => {
 
   const copyText = async (row: Row) => {
     try {
-      await navigator.clipboard.writeText(typedText(row.draft).join("\n"));
+      await writeText(app, typedText(row.draft).join("\n"));
       clear(row.draft.revision);
     } catch (error) {
       setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }));

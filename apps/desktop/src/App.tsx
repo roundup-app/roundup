@@ -75,6 +75,8 @@ const Connection = (props: {
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
   active: () => boolean;
+  /** U3566: this Project is on screen in a visible, focused window. */
+  viewing: () => boolean;
   show: () => void;
 }) => {
   const first = props.tab();
@@ -86,7 +88,7 @@ const Connection = (props: {
 
   const [connected] = createResource(async () => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path));
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -201,6 +203,16 @@ export const App = (props: {
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+  // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
+  const [focused, setFocused] = createSignal(document.hasFocus());
+  const onFocus = () => setFocused(true);
+  const onBlur = () => setFocused(false);
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("blur", onBlur);
+  onCleanup(() => {
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("blur", onBlur);
+  });
 
   const isWorking = () => projects.tabs().some((tab) => {
     const connection = connections().get(tab.project.path);
@@ -265,6 +277,12 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection?.rail;
   };
 
+  const connectionOf = (path: string): ConnectedProject | undefined => {
+    const connection = connections().get(path);
+
+    return connection instanceof Error ? undefined : connection;
+  };
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -276,6 +294,7 @@ export const App = (props: {
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),
+        unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -337,7 +356,7 @@ export const App = (props: {
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} viewing={() => projects.active() === key.split("\n")[0] && visible() && focused()} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}

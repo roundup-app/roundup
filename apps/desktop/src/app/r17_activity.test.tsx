@@ -23,7 +23,7 @@ const visibility = (value: "hidden" | "visible") => {
 
 let revision = 1;
 
-const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now() } } }));
+const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now(), finished: "0" } } }));
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
@@ -35,13 +35,12 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
   app.handlers["agent.changedFiles"] = () => ({ files: [] });
-  app.handlers["project.measurementSummary"] = ({ home, category }) => {
-    const sample = measurementFixture(home, category);
+  app.handlers["project.measurementSummary"] = ({ home }) => {
+    const sample = measurementFixture(home);
 
     return { ...sample, rows: [], contributors: 0, next_offset: null };
   };
 
-  app.handlers["project.weeklyLimit"] = () => ({ used_percent: null, resets_at: null, reason: null });
   setup?.(app);
   const clock = vi.fn(() => Date.now());
   const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
@@ -73,7 +72,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useR
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
-    const { app, clock, view } = await mount([agent("a", "idle", "stopped", { status: kind === null ? null : { kind, label: "stopped", since: NOW } })]);
+    const { app, clock, view } = await mount([agent("a", "idle", "stopped", { status: kind === null ? null : { kind, label: "stopped", since: NOW, finished: "0" } })]);
     const reads = clock.mock.calls.length;
     app.calls.length = 0;
     await vi.advanceTimersByTimeAsync(60_000);
@@ -177,8 +176,8 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
   let active = initial !== "stopped";
 
   const { app } = await mount([door("a", active ? "working" : "done", "building")], (app) => {
-    app.handlers["project.measurementSummary"] = ({ home, category }) => {
-      const sample = measurementFixture(home, category);
+    app.handlers["project.measurementSummary"] = ({ home }) => {
+      const sample = measurementFixture(home);
 
       return { ...sample, rows: [], contributors: 0, next_offset: null, time: { ...sample.time, active } };
     };
@@ -192,12 +191,12 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
 
   await assertSleeping(app);
 
-  for (const name of ["Timeline", "Cost and time"]) {
+  for (const name of ["Timeline", "Time"]) {
     fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".measurement-action button")].find((button) => button.textContent === name)!);
     await settle();
     await assertSleeping(app);
 
-    if (initial !== "transition" || name !== "Cost and time") {
+    if (initial !== "transition" || name !== "Time") {
       fireEvent.keyDown(document.querySelector(".timeline-view, .measurement-dashboard")!, { key: "Escape" });
       await settle();
     }
@@ -206,7 +205,7 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
   if (initial === "transition") {
     visibility("visible");
     await settle();
-    expect(intervals.size).toBe(4);
+    expect(intervals.size).toBe(3);
     active = false;
     status(app, "a", "done");
     app.emit(event({ name: "project.measurementsChanged", data: { revision: "2" } }));

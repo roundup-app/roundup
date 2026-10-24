@@ -46,11 +46,20 @@
   min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
 }
 
+/* U3566: the unread dot's column and gap sit outside the name's floor, so the tail never clips. */
+.project-tab[data-unseen="true"] {
+  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule) + var(--space-3) + var(--space-1));
+}
+
+.tab-name-button > .unread-dot {
+  align-self: center;
+}
+
 .tab-name-button {
   --button-inline: var(--space-1);
   display: grid;
   /* U443: the dot follows the name's last character; U382’s floor lives on the tab’s min-width, not on a padded name column. */
-  grid-template-columns: minmax(0, max-content);
+  grid-template-columns: minmax(min-content, max-content);
   grid-auto-flow: column;
   grid-auto-columns: max-content;
   justify-content: start;
@@ -62,12 +71,14 @@
 }
 
 .tab-name {
-  display: flex;
+  /* U3566: the head keeps 5ch and the tail its width, so the dot's column cannot clip the tail. */
+  display: grid;
+  grid-template-columns: minmax(5ch, max-content) max-content;
   overflow: hidden;
 }
 
 .tab-head {
-  min-width: 5ch;
+  min-width: 0;
   white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -182,7 +182,8 @@ it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [change] });
   await open(m); await disclose(m);
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  m.app.clipboardWrite = async (text: string) => { copied.push(text); };
+
   const history = within(panel()).getByRole("region", { name: "Todo history" });
   fireEvent.click(within(history).getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(copied).toHaveLength(1));

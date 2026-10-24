@@ -58,9 +58,9 @@ it("u2567a_root_agents_need_attention_without_workstreams", async () => {
 
 it("u2567a_attention_is_error_first_then_oldest_since", async () => {
   await mountAskBar([], null, [workstream("a", { status: null }),
-    agent("new", "needs-you", "permission", { parent: "a", status: { kind: "needs-you", label: "permission", since: 20 } }),
-    agent("old", "needs-you", "permission", { parent: "a", status: { kind: "needs-you", label: "permission", since: 10 } }),
-    agent("error", "error", "failed", { parent: "a", status: { kind: "error", label: "failed", since: 30 } })]);
+    agent("new", "needs-you", "permission", { parent: "a", status: { kind: "needs-you", label: "permission", since: 20, finished: "0" } }),
+    agent("old", "needs-you", "permission", { parent: "a", status: { kind: "needs-you", label: "permission", since: 10, finished: "0" } }),
+    agent("error", "error", "failed", { parent: "a", status: { kind: "error", label: "failed", since: 30, finished: "0" } })]);
 
   expectNames(["a", "error Error", "old Needs-you", "new Needs-you"]);
 });
@@ -72,7 +72,7 @@ it("u2567a_nothing_needs_you", async () => {
 
 it("u2567b_a_status_event_moves_the_line_and_the_count", async () => {
   const { app, connected } = await mountAskBar([], null, tree());
-  app.emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40 } } }));
+  app.emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
   await connected.rail.settled();
 
   expectNames(["a Error", "a Error", "b Working"]);
@@ -91,7 +91,7 @@ it("u2567b_create_and_remove_follow_the_tree", async () => {
 
 it("u2567b_the_overview_makes_no_call_of_its_own", async () => {
   const { app, connected } = await mountAskBar([], null, tree());
-  app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40 } } }));
+  app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
   await connected.rail.settled();
 
   expect(app.calls.map((call) => call.method).sort()).toEqual(["ask.list", "daemon.ping", "deliverable.list", "rail.tree", "reaction.list", "terminal.list", "terminal.scheme"]);

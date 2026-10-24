@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { copy } from "../copy";
@@ -20,6 +21,7 @@ const elapsed = (ms: number): string => {
 
 /** U3780c: the plain text a fold shows, with its own `Copy`. */
 const Payload = (props: { label: string; text: string | undefined }): JSX.Element => {
+  const { app } = useConnectedProject();
   const [state, setState] = createSignal<"idle" | "copied" | "failed">("idle");
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -27,9 +29,11 @@ const Payload = (props: { label: string; text: string | undefined }): JSX.Elemen
 
   const write = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await writeText(app, text);
       setState("copied");
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
       setState("failed");
     }
 

@@ -255,7 +255,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
-      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id)),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id)),
       remove,
     ];
   };

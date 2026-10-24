@@ -309,7 +309,7 @@ async fn a39_repeated_text_can_use_a_later_nonoverlapping_span() {
 fn rail() -> Vec<contracts::agent::RailNode> {
     use serde_json::json;
     [
-        json!({"id":"work", "kind":"workstream", "name":"Repair", "parent":null, "order":0, "status":{"kind":"idle", "label":"idle", "since":0}, "attempt":null, "status_revision":null, "terminal_id":null, "worktree":null, "can_resume":false, "channel":null, "work":{"kind":"work", "title":"Fix café", "ask":"Fix the coffee", "limits":[]}, "stray":[], "model":null, "effort":null}),
+        json!({"id":"work", "kind":"workstream", "name":"Repair", "parent":null, "order":0, "status":{"kind":"idle", "label":"idle", "since":0,"finished":"0"}, "attempt":null, "status_revision":null, "terminal_id":null, "worktree":null, "can_resume":false, "channel":null, "work":{"kind":"work", "title":"Fix café", "ask":"Fix the coffee", "limits":[]}, "stray":[], "model":null, "effort":null}),
         json!({"id":"question", "kind":"workstream", "name":"Question", "parent":null, "order":1, "status":null, "attempt":null, "status_revision":null, "terminal_id":null, "worktree":null, "can_resume":false, "channel":null, "work":{"kind":"clarification", "question":"Which ship?"}, "stray":[], "model":null, "effort":null}),
     ].into_iter().map(|node| serde_json::from_value(node).unwrap()).collect()
 }

@@ -74,6 +74,7 @@ const statusAt = (now: number, kind: Kind, label: string, minutesAgo: number) =>
   kind,
   label,
   since: now - minutesAgo * MINUTE,
+  finished: "0",
 });
 
 const cyclingAgents = (now: number, count: number, parentOf: (index: number) => string | null): RailNode[] =>

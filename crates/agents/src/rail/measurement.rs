@@ -1,6 +1,6 @@
 //! Project-owned attribution and replay positions share the existing Rail transaction owner.
 use super::*;
-use crate::measurement::{Batch, Contribution, Position};
+use crate::measurement::Contribution;
 use contracts::project::{Measurement, MeasurementSource, Measurements};
 use contracts::{Actor, EventData};
 use rpc::Bus;
@@ -12,7 +12,6 @@ use tokio::time::Instant;
 struct Owner {
     agent: String,
     source: String,
-    cwd: String,
     attempt: Option<String>,
     home: Option<String>,
     maker: String,
@@ -68,177 +67,15 @@ impl Rail {
         result
     }
 
-    pub(crate) fn collect_measurements(
-        &mut self,
-        launcher: &crate::Launcher,
-        now: i64,
-    ) -> (Option<String>, Option<String>) {
-        let result = self
-            .collect_sources(launcher, now)
-            .and_then(|()| self.measurement_revision());
-        // Only collection plus its revision read reconciles a collector failure. Owner writes
-        // and successful public reads cannot establish that passive collection has recovered.
+    pub(crate) fn measurement_status(&mut self) -> (Option<String>, Option<String>) {
+        // Only a successful revision read reconciles a collector failure. Owner writes and
+        // successful public reads cannot establish that passive collection has recovered.
+        let result = self.measurement_revision();
         self.measurement_failure = result.err().map(|error| error.message);
         (
             self.measurement_revision.clone(),
             self.measurement_failure.clone(),
         )
-    }
-
-    fn collect_sources(&self, launcher: &crate::Launcher, now: i64) -> Result<(), RpcError> {
-        // Retained facts and replay positions must not become readable under an old revision.
-        // The shared borrow lets owner helpers use this same connection inside the transaction.
-        let mut tx = self.db.unchecked_transaction().map_err(sql)?;
-        let before = self.db.total_changes();
-        let tree = self.tree()?;
-        let mut claims: HashMap<String, Vec<String>> = HashMap::new();
-        // Recover known local sources for previously saved Agents; Attempt remains unknown.
-        for node in &tree {
-            if let Some((source, cwd)) = self.conversation(&node.id)? {
-                claims
-                    .entry(source.clone())
-                    .or_default()
-                    .push(node.id.clone());
-                let exists = self
-                    .db
-                    .query_row(
-                        "SELECT EXISTS(SELECT 1 FROM measurement_owners WHERE source=?1)",
-                        [&source],
-                        |r| r.get::<_, bool>(0),
-                    )
-                    .map_err(sql)?;
-                if !exists {
-                    self.retain_measurement_owner(&node.id, &source, &cwd, None)?;
-                }
-            }
-        }
-        let mut query=self.db.prepare("SELECT agent,source,cwd,attempt,home,maker FROM measurement_owners WHERE disabled=0 AND unresolved=0").map_err(sql)?;
-        let owners = query
-            .query_map([], |r| {
-                Ok(Owner {
-                    agent: r.get(0)?,
-                    source: r.get(1)?,
-                    cwd: r.get(2)?,
-                    attempt: r.get(3)?,
-                    home: r.get(4)?,
-                    maker: r.get(5)?,
-                })
-            })
-            .map_err(sql)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(sql)?;
-        drop(query);
-        for mut owner in owners {
-            if claims
-                .get(&owner.source)
-                .is_some_and(|agents| agents.iter().any(|agent| agent != &owner.agent))
-            {
-                self.db.execute("INSERT INTO measurement_positions(source,file,position,cause) VALUES(?1,'ownership','{}','source ownership is ambiguous between Agents') ON CONFLICT(source,file) DO NOTHING",[&owner.source]).map_err(sql)?;
-                self.db
-                    .execute(
-                        "UPDATE measurement_owners SET unresolved=1 WHERE source=?1",
-                        [&owner.source],
-                    )
-                    .map_err(sql)?;
-                continue;
-            }
-            self.db
-                .execute(
-                    "DELETE FROM measurement_positions WHERE source=?1 AND file='ownership'",
-                    [&owner.source],
-                )
-                .map_err(sql)?;
-            if let Some(node) = tree.iter().find(|n| n.id == owner.agent) {
-                owner.home = home(&tree, &owner.agent);
-                owner.maker = node.name.clone();
-                self.db
-                    .execute(
-                        "UPDATE measurement_owners SET home=?1,maker=?2 WHERE source=?3 AND (home IS NOT ?1 OR maker IS NOT ?2)",
-                        params![owner.home, owner.maker, owner.source],
-                    )
-                    .map_err(sql)?;
-            }
-            let mut query = self
-                .db
-                .prepare("SELECT file,position FROM measurement_positions WHERE source=?1")
-                .map_err(sql)?;
-            let positions = query
-                .query_map([&owner.source], |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-                })
-                .map_err(sql)?
-                .map(|r| {
-                    let (file, position) = r.map_err(sql)?;
-                    Ok((
-                        file,
-                        serde_json::from_str::<Position>(&position).map_err(RpcError::internal)?,
-                    ))
-                })
-                .collect::<Result<HashMap<_, _>, RpcError>>()?;
-            drop(query);
-            match launcher.collect_measurements(Path::new(&owner.cwd), &owner.source, &positions) {
-                Ok(batches) => {
-                    for batch in batches {
-                        if let Err(error) = self.accept_batch(&mut tx, &owner, batch, now) {
-                            if error.code != rpc::code::CONFLICT {
-                                return Err(error);
-                            }
-                            self.db.execute("INSERT INTO measurement_positions(source,file,position,cause) VALUES(?1,'collection','{}',?2) ON CONFLICT(source,file) DO UPDATE SET cause=excluded.cause WHERE cause IS NOT excluded.cause",params![owner.source,error.message]).map_err(sql)?;
-                        }
-                    }
-                }
-                Err(cause) => {
-                    self.db.execute("INSERT INTO measurement_positions(source,file,position,cause) VALUES(?1,'collection','{}',?2) ON CONFLICT(source,file) DO UPDATE SET cause=excluded.cause WHERE cause IS NOT excluded.cause",params![owner.source,cause]).map_err(sql)?;
-                }
-            }
-        }
-        if self.db.total_changes() != before {
-            self.db
-                .execute("UPDATE measurement_state SET revision=revision+1", [])
-                .map_err(sql)?;
-        }
-        tx.commit().map_err(sql)
-    }
-
-    fn accept_batch(
-        &self,
-        tx: &mut rusqlite::Transaction<'_>,
-        owner: &Owner,
-        batch: Batch,
-        now: i64,
-    ) -> Result<(), RpcError> {
-        let position = serde_json::to_string(&batch.position).map_err(RpcError::internal)?;
-        let same = self
-            .db
-            .query_row(
-                "SELECT position=?2 FROM measurement_positions WHERE source=?1 AND file=?3",
-                params![owner.source, position, batch.file],
-                |r| r.get::<_, bool>(0),
-            )
-            .optional()
-            .map_err(sql)?
-            .unwrap_or(false);
-        if same && batch.contributions.is_empty() && batch.cause.is_none() {
-            self.db
-                .execute(
-                    "DELETE FROM measurement_positions WHERE source=?1 AND file='collection'",
-                    [&owner.source],
-                )
-                .map_err(sql)?;
-            return Ok(());
-        }
-        let tx = tx.savepoint().map_err(sql)?;
-        for contribution in batch.contributions {
-            accept(&tx, owner, contribution, None, now)?;
-        }
-        let position = serde_json::to_string(&batch.position).map_err(RpcError::internal)?;
-        tx.execute("INSERT INTO measurement_positions(source,file,position,cause,last_good) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(source,file) DO UPDATE SET position=excluded.position,cause=excluded.cause,last_good=CASE WHEN excluded.cause IS NULL THEN excluded.last_good ELSE measurement_positions.last_good END",params![owner.source,batch.file,position,batch.cause,if batch.cause.is_none(){Some(now)}else{None}]).map_err(sql)?;
-        tx.execute(
-            "DELETE FROM measurement_positions WHERE source=?1 AND file='collection'",
-            [&owner.source],
-        )
-        .map_err(sql)?;
-        tx.commit().map_err(sql)
     }
 
     pub(crate) fn record_interval_failure(&mut self, agent: &str, attempt: &str, cause: &str) {
@@ -274,7 +111,7 @@ impl Rail {
                 return Err(RpcError::conflict("interval source ownership is ambiguous"));
             }
         }
-        let owner=self.db.query_row("SELECT agent,source,cwd,attempt,home,maker FROM measurement_owners WHERE agent=?1 AND source=?3 AND disabled=0 AND unresolved=0 AND EXISTS(SELECT 1 FROM measurement_attempts WHERE agent=?1 AND source=?3 AND attempt=?2)",params![agent,attempt,source],|r|Ok(Owner {agent:r.get(0)?,source:r.get(1)?,cwd:r.get(2)?,attempt:r.get(3)?,home:r.get(4)?,maker:r.get(5)?})).optional().map_err(sql)?.ok_or_else(||RpcError::conflict("interval ownership is unresolved"))?;
+        let owner=self.db.query_row("SELECT agent,source,attempt,home,maker FROM measurement_owners WHERE agent=?1 AND source=?3 AND disabled=0 AND unresolved=0 AND EXISTS(SELECT 1 FROM measurement_attempts WHERE agent=?1 AND source=?3 AND attempt=?2)",params![agent,attempt,source],|r|Ok(Owner {agent:r.get(0)?,source:r.get(1)?,attempt:r.get(2)?,home:r.get(3)?,maker:r.get(4)?})).optional().map_err(sql)?.ok_or_else(||RpcError::conflict("interval ownership is unresolved"))?;
         let tree = self.tree()?;
         let mut owner = owner;
         owner.attempt = Some(attempt.to_owned());
@@ -310,40 +147,34 @@ impl Rail {
         };
         self.measurement_revision = Some(revision.clone());
         let contributions = {
-            let mut query=tx.prepare("SELECT identity,source,source_revision,agent,COALESCE(attempt,(SELECT attempt FROM measurement_request_attempts a WHERE a.identity=measurement_revisions.identity)),home,maker,observed,value,coverage FROM measurement_revisions WHERE revision IN (SELECT MAX(revision) FROM measurement_revisions GROUP BY identity) ORDER BY identity").map_err(sql)?;
+            let mut query=tx.prepare("SELECT identity,source,source_revision,agent,attempt,home,maker,observed,value,coverage FROM measurement_revisions WHERE revision IN (SELECT MAX(revision) FROM measurement_revisions GROUP BY identity) ORDER BY identity").map_err(sql)?;
             let rows = query
                 .query_map([], |r| {
                     Ok((
-                        Measurement {
-                            identity: r.get(0)?,
-                            source: r.get(1)?,
-                            source_revision: r.get(2)?,
-                            agent: r.get(3)?,
-                            attempt: r.get(4)?,
-                            home: r.get(5)?,
-                            maker: r.get(6)?,
-                            observed: r.get(7)?,
-                            value: contracts::project::MeasurementValue::Request {
-                                cost: None,
-                                usage: contracts::project::Consumed {
-                                    input: None,
-                                    output: None,
-                                    cache_read: None,
-                                    cache_write: None,
-                                },
-                            },
-                            coverage: Vec::new(),
-                        },
-                        r.get::<_, String>(8)?,
-                        r.get::<_, String>(9)?,
+                        (r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?),
+                        (r.get(5)?, r.get(6)?, r.get(7)?),
+                        (r.get::<_, String>(8)?, r.get::<_, String>(9)?),
                     ))
                 })
                 .map_err(sql)?;
             rows.map(|r| {
-                let (mut c, value, coverage) = r.map_err(sql)?;
-                c.value = serde_json::from_str(&value).map_err(RpcError::internal)?;
-                c.coverage = serde_json::from_str(&coverage).map_err(RpcError::internal)?;
-                Ok(c)
+                let (
+                    (identity, source, source_revision, agent, attempt),
+                    (home, maker, observed),
+                    (value, coverage),
+                ) = r.map_err(sql)?;
+                Ok(Measurement {
+                    identity,
+                    source,
+                    source_revision,
+                    agent,
+                    attempt,
+                    home,
+                    maker,
+                    observed,
+                    value: serde_json::from_str(&value).map_err(RpcError::internal)?,
+                    coverage: serde_json::from_str(&coverage).map_err(RpcError::internal)?,
+                })
             })
             .collect::<Result<Vec<_>, RpcError>>()?
         };
@@ -356,30 +187,12 @@ impl Rail {
             });
         let mut sources = {
             let mut query=tx.prepare("SELECT o.source,o.agent,MAX(p.last_good),GROUP_CONCAT(p.cause,'; ') FROM measurement_owners o LEFT JOIN measurement_positions p ON p.source=o.source WHERE o.disabled=0 GROUP BY o.source ORDER BY o.source").map_err(sql)?;
-            query.query_map([],|r|Ok(MeasurementSource {source:r.get(0)?,agent:r.get(1)?,last_good:r.get(2)?,cause:r.get(3)?,coverage:vec!["completed local request records; earlier missing history uncovered; execution spans unavailable unless emitted to this Attempt's collector; roundup lifetimes and waits are in time_evidence; vendor intervals use source wall time".into()]})).map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?
+            query.query_map([],|r|Ok(MeasurementSource {source:r.get(0)?,agent:r.get(1)?,last_good:r.get(2)?,cause:r.get(3)?,coverage:vec!["earlier missing history uncovered; execution spans unavailable unless emitted to this Attempt's collector; roundup lifetimes and waits are in time_evidence; vendor intervals use source wall time".into()]})).map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?
         };
         {
             let mut query = tx.prepare("SELECT source,agent,observed,(SELECT GROUP_CONCAT(cause,'; ') FROM measurement_positions p WHERE p.source=m.source) FROM measurement_revisions m WHERE revision IN (SELECT MAX(revision) FROM measurement_revisions WHERE source LIKE 'roundup:%' GROUP BY source) UNION ALL SELECT p.source,SUBSTR(p.source,9),NULL,GROUP_CONCAT(p.cause,'; ') FROM measurement_positions p WHERE p.source LIKE 'roundup:%' AND NOT EXISTS(SELECT 1 FROM measurement_revisions m WHERE m.source=p.source) GROUP BY p.source ORDER BY source").map_err(sql)?;
             sources.extend(query.query_map([], |r| Ok(MeasurementSource {source:r.get(0)?,agent:r.get(1)?,last_good:r.get(2)?,cause:r.get(3)?,coverage:vec!["roundup-observed lifetimes and blocking waits; end unknown after interruption; placement fixed at start".into()]})).map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?);
         }
-        let mut query = tx
-            .prepare("SELECT position FROM measurement_positions WHERE source=?1")
-            .map_err(sql)?;
-        for source in &mut sources {
-            let positions = query
-                .query_map([&source.source], |r| r.get::<_, String>(0))
-                .map_err(sql)?;
-            for position in positions {
-                let position: Position =
-                    serde_json::from_str(&position.map_err(sql)?).map_err(RpcError::internal)?;
-                if let Some(gap) = position.gap
-                    && !source.coverage.contains(&gap)
-                {
-                    source.coverage.push(gap);
-                }
-            }
-        }
-        drop(query);
         tx.commit().map_err(sql)?;
         Ok(Measurements {
             project: project.to_string_lossy().into_owned(),
@@ -418,13 +231,6 @@ fn accept(
         .map_err(sql)?
     {
         return Ok(());
-    }
-    if let (Some(identity), Some(attempt)) = (&contribution.related_request, attempt) {
-        let same=db.query_row("SELECT agent=?2 AND source=?3 AND attempt=?4 FROM measurement_request_attempts WHERE identity=?1",params![identity,owner.agent,owner.source,attempt],|r|r.get::<_,bool>(0)).optional().map_err(sql)?;
-        if same == Some(false) {
-            return Err(RpcError::conflict("request Attempt attribution conflicts"));
-        }
-        db.execute("INSERT OR IGNORE INTO measurement_request_attempts(identity,agent,source,attempt) VALUES(?1,?2,?3,?4)",params![identity,owner.agent,owner.source,attempt]).map_err(sql)?;
     }
     let existing:Option<(String,Option<String>,String)>=db.query_row("SELECT agent,home,maker FROM measurement_revisions WHERE identity=?1 ORDER BY revision LIMIT 1",[&contribution.identity],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(sql)?;
     if existing

@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
@@ -130,6 +131,15 @@ export const AskBar = (props: {
 
   const [failure, setFailure] = createSignal<{ revision: string; message: string } | null>(null);
   const [dismissed, setDismissed] = createSignal(false);
+
+  const dismissSend = () => {
+    setFailure(null);
+
+    const intake = asks.intakeFailure();
+
+    if (intake) asks.dismiss(intake);
+  };
+
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
@@ -284,6 +294,11 @@ export const AskBar = (props: {
           </div>;
         }}</For>
         <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+        <Show when={!problem() && !records().some(draft => draft.status === "unknown")}>
+          <Show when={failure()} fallback={<Show when={asks.listFailure() ?? asks.intakeFailure()}>{each => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show>}>
+            <button type="button" data-button="quiet" onClick={dismissSend}>{copy.dismiss}</button>
+          </Show>
+        </Show>
         </ReservedLine>
         </div>
         <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
@@ -390,7 +405,16 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   const records = createMemo(() => props.state.records().filter(record => scope.includes(record.home, record.maker)));
   const [selected, setSelected] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal<string | null>(null);
-  const [failure, setFailure] = createSignal<{ id: string; cause: string } | null>(null);
+  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const failure = (id: string): string | null => failures().get(id) ?? null;
+
+  const fail = (id: string, cause: string) => setFailures(all => new Map(all).set(id, cause));
+  const clear = (id: string) => setFailures(all => all.has(id) ? new Map([...all].filter(([each]) => each !== id)) : all);
+  // P3557c: a failure leaves with its record; it never moves to another.
+  createEffect(() => {
+    const present = new Set(props.state.records().map(record => record.id));
+    setFailures(all => [...all.keys()].every(id => present.has(id)) ? all : new Map([...all].filter(([id]) => present.has(id))));
+  });
   let disposed = false;
   onCleanup(() => { disposed = true; });
 
@@ -398,16 +422,16 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     if (pending() !== null || connected.daemonExit() !== null) return;
     setSelected(record.id);
     setPending(record.id);
-    setFailure(null);
+    clear(record.id);
 
     try {
       const cause = await openDeliverable(connected.app, record.project, record.id);
 
-      if (!disposed && cause !== null) setFailure({ id: record.id, cause });
+      if (!disposed && cause !== null) fail(record.id, cause);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      if (!disposed) setFailure({ id: record.id, cause: error.message });
+      if (!disposed) fail(record.id, error.message);
     } finally {
       if (!disposed) setPending(null);
     }
@@ -415,24 +439,25 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   const openMenu = (record: Deliverable, x: number, y: number) => {
     setSelected(record.id);
-    setFailure(null);
+    clear(record.id);
     void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
-      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })).map(entry => entry.id !== "copy-link" ? entry : {
+      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => fail(record.id, cause)).map(entry => entry.id !== "copy-link" ? entry : {
         ...entry, label: copy.copy, run: async () => {
           try {
             const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
 
             if (resolved.kind === "unavailable") {
-              setFailure({ id: record.id, cause: copy.deliverableUnavailable[resolved.cause] });
+              fail(record.id, copy.deliverableUnavailable[resolved.cause]);
 
               return;
             }
 
             const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-            await navigator.clipboard.writeText(`${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
+            await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
+            clear(record.id);
           } catch (error) {
             if (!(error instanceof Error)) throw error;
-            setFailure({ id: record.id, cause: copy.copyDraftFailure(error.message) });
+            fail(record.id, copy.copyDraftFailure(error.message));
           }
         },
       }), x, y);
@@ -468,7 +493,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <ReservedLine message={props.state.failure()} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure()?.id === record.id} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
@@ -479,7 +504,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           </span>
           <Icon name="right" />
         </button>}</Tip>
-        <ReservedLine overlay message={failure()?.id === record.id ? failure()?.cause ?? "" : null} />
+        <ReservedLine overlay message={failure(record.id)}><button type="button" data-button="quiet" onClick={() => clear(record.id)}>{copy.dismiss}</button></ReservedLine>
       </li>}</For></ul>
     </section>
   </Show>;
