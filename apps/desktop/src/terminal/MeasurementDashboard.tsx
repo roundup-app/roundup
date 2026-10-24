@@ -1,52 +1,78 @@
 import { ExitButton } from "../ui/IconButton";
 import { createStore, reconcile } from "solid-js/store";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { MeasurementSummary } from "@contracts/project/MeasurementSummary";
-import type { MeasurementCost } from "@contracts/project/MeasurementCost";
+import type { MeasurementContributor } from "@contracts/project/MeasurementContributor";
 import type { MeasurementTime } from "@contracts/project/MeasurementTime";
-import type { ConsumedCategory } from "@contracts/project/ConsumedCategory";
-import type { WeeklyLimit } from "@contracts/project/WeeklyLimit";
 import { RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { useConnectedProject } from "../state/connectedProject";
-import { createCut } from "../ink/Tip";
-import { Tabs } from "../ui/Tabs";
 import { Tip } from "../ui/Tip";
-import { duration, exact, listPrice, modelLabel, moneyText, percent, tokenFigure, weekdayTime } from "./measurementFormat";
+import { duration, percent } from "./measurementFormat";
 import "./measurement.styles.css";
 
-const categories: ConsumedCategory[] = ["total", "input", "output", "cache_read", "cache_write"];
-
-const parts = copy.measurementParts;
-
 const retryAfter = 500;
-
-const limitEvery = 60_000;
 
 /** A figure that is only the known part carries a mark that opens its own note. */
 const Partial = (props: { note: string }) => <Tip text={props.note}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="measurement-mark" aria-label={copy.measurementPartial}>{copy.measurementMark}</button>}</Tip>;
 
-const reported = (cost: MeasurementCost) => cost.reported.map((money) => money.currency === null ? `${money.amount} ?` : moneyText(money.amount, money.currency));
+type Category = { key: string; label: string; of: (time: MeasurementTime) => string };
 
-const timeRows = (time: MeasurementTime): [string, string][] => ([
-  [copy.measurementExecution, time.execution_ns], [copy.measurementTools, time.tools_ns], [copy.measurementHuman, time.human_ns],
-  [copy.measurementCoordination, time.coordination_ns], [copy.measurementOther, time.other_ns], [copy.measurementUnmeasured, time.unmeasured_ns],
-] satisfies [string, string][]).filter(([, value]) => BigInt(value) > 0n).sort((a, b) => BigInt(a[1]) > BigInt(b[1]) ? -1 : BigInt(a[1]) < BigInt(b[1]) ? 1 : 0);
+/** The segment order of every row: waiting for the user first, so every wait starts on one baseline. */
+const order: Category[] = [
+  { key: "human", label: copy.measurementHuman, of: (time) => time.human_ns },
+  { key: "tools", label: copy.measurementTools, of: (time) => time.tools_ns },
+  { key: "coordination", label: copy.measurementCoordination, of: (time) => time.coordination_ns },
+  { key: "execution", label: copy.measurementExecution, of: (time) => time.execution_ns },
+  { key: "other", label: copy.measurementOther, of: (time) => time.other_ns },
+  { key: "unmeasured", label: copy.measurementUnmeasured, of: (time) => time.unmeasured_ns },
+];
 
-const ratio = (part: string, whole: string) => (BigInt(whole) > 0n ? (Number(BigInt(part)) / Number(BigInt(whole))) * 100 : 0);
+/** `part` of `whole` in thousandths of a percent, exact in nanoseconds. */
+const width = (part: bigint, whole: bigint) => (whole > 0n ? Number((part * 100_000n) / whole) / 1000 : 0);
+
+/** The categories with a positive duration, in segment order. */
+const positive = (time: MeasurementTime) => {
+  const found: { category: Category; ns: bigint }[] = [];
+
+  for (const category of order) {
+    const ns = BigInt(category.of(time));
+
+    if (ns > 0n) found.push({ category, ns });
+  }
+
+  return found;
+};
+
+const partial = (row: MeasurementContributor) => [...row.time.coverage, ...row.coverage];
+
+const Row = (props: { row: MeasurementContributor; longest: bigint; open: (row: MeasurementContributor) => void }) => {
+  const segments = () => positive(props.row.time);
+  const summed = () => BigInt(props.row.time.summed_ns);
+  const unknown = () => partial(props.row).length > 0;
+
+  return <li class="measurement-row">
+    <Tip text={props.row.maker}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="measurement-agent" onClick={() => props.open(props.row)}>{props.row.maker}</button>}</Tip>
+    <div class="measurement-bar"><Show when={segments().length > 0}><div class="measurement-stack" style={{ width: `${width(segments().reduce((sum, segment) => sum + segment.ns, 0n), props.longest)}%` }}>
+      <For each={segments()}>{(segment) => {
+        const name = copy.measurementSegment(props.row.maker, segment.category.label, duration(segment.ns.toString()), percent(Number(segment.ns), Number(summed())));
+
+        return <Tip text={name}>{(trigger) => <span {...trigger()} role="img" aria-label={name} tabIndex={0} class="measurement-segment" data-category={segment.category.key} style={{ "flex-grow": segment.ns.toString() }} />}</Tip>;
+      }}</For>
+    </div></Show></div>
+    <span class="measurement-duration">{segments().length === 0 && unknown() ? copy.measurementUnknown : duration(props.row.time.summed_ns)}<Show when={unknown()}><Partial note={[copy.measurementPartialTime, ...partial(props.row)].join(" ")} /></Show></span>
+  </li>;
+};
 
 /** The current Workstream owns one reader, revision and subscription. Unmount drops late replies. */
 export const MeasurementDashboard = (props: { home: string; name: string; back: () => void }) => {
   const connected = useConnectedProject();
   const [data, setData] = createStore<{ snapshot: MeasurementSummary | null }>({ snapshot: null });
-  const [category, setCategory] = createSignal<ConsumedCategory>("total");
   const [pending, setPending] = createSignal(false);
   const [failures, setFailures] = createSignal(0);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [removed, setRemoved] = createSignal<string | null>(null);
-  const [limit, setLimit] = createSignal<WeeklyLimit | null>(null);
-  const [active, setActive] = createSignal<(typeof parts)[number] | null>(null);
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
 
   const snapshot = () => data.snapshot;
@@ -84,18 +110,17 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
 
     if (more && (before === null || before.next_offset === null)) return;
     const ticket = ++generation;
-    const chosen = category();
     const count = before?.rows.length ?? 0;
     loadingMore = true;
     setPending(true);
 
     try {
-      const next = await connected.app.rpc("project.measurementSummary", { home: props.home, category: chosen, offset: more ? before!.next_offset! : 0, revision: more ? before!.revision : null });
+      const next = await connected.app.rpc("project.measurementSummary", { home: props.home, offset: more ? before!.next_offset! : 0, revision: more ? before!.revision : null });
 
-      if (closed || ticket !== generation || chosen !== category()) return;
+      if (closed || ticket !== generation) return;
       const current = snapshot();
 
-      if (next.home !== props.home || next.category !== chosen || (current !== null && BigInt(next.revision) < BigInt(current.revision))) return;
+      if (next.home !== props.home || (current !== null && BigInt(next.revision) < BigInt(current.revision))) return;
 
       if (more && current?.revision !== next.revision) {
         queued = true;
@@ -105,7 +130,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
 
       // A revision update invalidates all loaded pages together. Same-revision timer reads
       // preserve those pages and their DOM/focus, rather than replacing them with twenty rows.
-      const rows = more ? [...before!.rows, ...next.rows] : current?.revision === next.revision && current.category === next.category && count >= next.rows.length ? current.rows : next.rows;
+      const rows = more ? [...before!.rows, ...next.rows] : current?.revision === next.revision && count >= next.rows.length ? current.rows : next.rows;
       setData("snapshot", reconcile({ ...next, rows, next_offset: !more && rows.length > next.rows.length ? current!.next_offset : next.next_offset }, { key: "agent" }));
       retryMore = false;
       clearTimeout(retryTimer);
@@ -135,18 +160,6 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     }
   };
 
-  const readLimit = async () => {
-    try {
-      const next = await connected.app.rpc("project.weeklyLimit", null);
-
-      if (!closed) setLimit(next);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      if (!closed) setLimit({ used_percent: null, resets_at: null, reason: error.message });
-    }
-  };
-
   const changedVisibility = () => setVisible(document.visibilityState !== "hidden");
   document.addEventListener("visibilitychange", changedVisibility);
 
@@ -154,10 +167,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     if (event.name === "project.measurementsChanged") void read();
   });
 
-  createEffect(on(category, () => {
-    ++generation;
-    void read();
-  }));
+  onMount(() => void read());
   createEffect(() => {
     if (connected.daemonExit() !== null) { ++generation; setFailure(copy.measurementDaemonEnded); setFailures(2); }
   });
@@ -166,75 +176,18 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     const timer = setInterval(() => void read(), 1000);
     onCleanup(() => clearInterval(timer));
   });
-  createEffect(() => {
-    if (!visible() || !live()) return;
-    void readLimit();
-    const timer = setInterval(() => void readLimit(), limitEvery);
-    onCleanup(() => clearInterval(timer));
-  });
   onMount(() => region?.focus());
   onCleanup(() => { closed = true; ++generation; clearTimeout(retryTimer); stop(); document.removeEventListener("visibilitychange", changedVisibility); });
 
-  const shares = createMemo(() => {
-    const tokens = snapshot()?.tokens;
-    const whole = tokens ? parts.reduce((sum, key) => sum + Number(BigInt(tokens[key].known)), 0) : 0;
+  const rows = () => snapshot()?.rows ?? [];
+  const longest = createMemo(() => rows().reduce((most, row) => (BigInt(row.time.summed_ns) > most ? BigInt(row.time.summed_ns) : most), 0n));
+  // One chart, or one line saying nothing was measured: no row has a positive category.
+  const measured = createMemo(() => rows().some((row) => positive(row.time).length > 0));
+  const key = createMemo(() => (snapshot() ? positive(snapshot()!.time) : []));
 
-    return parts.map((key) => ({ key, label: copy.measurementCategory[key], count: tokens?.[key], part: tokens ? Number(BigInt(tokens[key].known)) : 0, whole })).filter((share) => share.part > 0);
-  });
-
-  const largest = () => shares().reduce<(ReturnType<typeof shares>[number]) | undefined>((best, share) => !best || share.part > best.part ? share : best, undefined);
-
-  const readout = () => {
-    const share = shares().find((candidate) => candidate.key === active());
-
-    return share?.count ? `${share.label} ${exact(share.count)} · ${percent(share.part, share.whole)}` : "";
-  };
-
-  const multiple = () => {
-    const time = snapshot()?.time;
-
-    if (!time?.elapsed_ns || BigInt(time.elapsed_ns) <= 0n) return null;
-    const value = (Number(BigInt(time.summed_ns)) / Number(BigInt(time.elapsed_ns))).toFixed(1);
-
-    return value === "0.0" ? null : `${value}×`;
-  };
-
-  const price = () => snapshot() ? listPrice(snapshot()!.cost) : null;
-
-  const columns = createMemo(() => categories.filter((key) => snapshot()?.rows.some((row) => BigInt(row.tokens[key].known) > 0n)));
-
-  const ranks = createMemo(() => {
-    const rows = snapshot()?.rows ?? [];
-
-    if (rows.length < 2) return [];
-    const available = categories.filter((key) => BigInt(snapshot()!.tokens[key].known) > 0n);
-
-    // Unloaded contributors may lead another category; only all rows can prove redundant ranks.
-    if (snapshot()!.next_offset !== null) return available;
-    const values = available.map((key) => ({ key, maximum: rows.reduce((most, row) => BigInt(row.tokens[key].known) > most ? BigInt(row.tokens[key].known) : most, 0n) }));
-
-    return values.flatMap((candidate, index) => values.slice(0, index).some((previous) => rows.every((row) => BigInt(row.tokens[previous.key].known) * candidate.maximum === BigInt(row.tokens[candidate.key].known) * previous.maximum && (row.tokens[previous.key].missing > 0) === (row.tokens[candidate.key].missing > 0))) ? [] : [candidate.key]);
-  });
-
-  createEffect(() => {
-    if (category() !== "total" && !ranks().includes(category())) setCategory("total");
-  });
-
-  const isInspectable = () => shares().length > 1 || shares().some((share) => share.count !== undefined && tokenFigure(share.count) !== share.count.known);
-
-  const times = createMemo(() => snapshot() ? timeRows(snapshot()!.time) : []);
-  const limitReason = () => used() === null ? limit()?.reason ?? copy.measurementLimitReason : null;
-  const priceDetail = () => snapshot() && (snapshot()!.cost.reference.length > 0 || snapshot()!.cost.reported.length > 0 || snapshot()!.cost.unavailable.length > 0);
-
-  const most = createMemo(() => Math.max(0, ...(snapshot()?.rows ?? []).map((row) => Number(BigInt(row.tokens[category()].known)))));
-  const resets = () => limit()?.resets_at ?? null;
-  const used = () => limit()?.used_percent ?? null;
-
-  const moveActive = (step: number) => {
-    const values = shares();
-    const index = values.findIndex((share) => share.key === active());
-
-    setActive(values[(index + step + values.length) % values.length]?.key ?? null);
+  const open = (row: MeasurementContributor) => {
+    if (row.removed || !connected.rail.nodes.some((node) => node.id === row.agent)) setRemoved(row.maker);
+    else { connected.rail.select(row.agent); props.back(); }
   };
 
   const header = (): JSX.Element => {
@@ -249,63 +202,20 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
 
   const retry = () => <Show when={problem()}><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(retryMore); }}>{copy.retry}</button></Show>;
 
-  return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.costAndTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
+  const note = () => [copy.measurementPartialTime, ...(snapshot()?.time.coverage ?? [])].join(" ");
+
+  return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.measurementTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
     <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<ExitButton onClick={props.back} /></div></header>
-    <div class="measurement-tiles">
-      <div class="measurement-tile" data-tile="time">
-        <h3>{copy.measurementTime}</h3>
-        <p class="measurement-figure">{copy.measurementElapsed(duration(snapshot()?.time.elapsed_ns ?? null))}<Show when={snapshot() && snapshot()!.time.elapsed_ns === null}><Partial note={[copy.measurementPartialTime, ...snapshot()!.time.coverage].join(" ")} /></Show></p>
-        <Show when={snapshot() && BigInt(snapshot()!.time.summed_ns) > 0n}><p class="measurement-line">{copy.measurementAgentTime(duration(snapshot()?.time.summed_ns ?? null), multiple())}<Show when={snapshot()!.time.coverage.length > 0}><Partial note={[copy.measurementPartialTime, ...snapshot()!.time.coverage].join(" ")} /></Show></p></Show>
-      </div>
-      <div class="measurement-tile" data-tile="tokens">
-        <h3>{copy.measurementTokensTile}</h3>
-        <p class="measurement-figure measurement-tokens">{snapshot() ? tokenFigure(snapshot()!.tokens.total) : copy.measurementUnknown}<Show when={snapshot() && snapshot()!.tokens.total.missing > 0}><Partial note={[copy.measurementPartialTokens(snapshot()!.tokens.total.missing), ...snapshot()!.coverage].join(" ")} /></Show></p>
-        <Show when={shares().length > 0}><div class="measurement-stack" role="group" aria-label={copy.measurementShares} tabIndex={isInspectable() ? 0 : undefined} data-dim={active() !== null} onFocus={() => isInspectable() && active() === null && setActive(largest()?.key ?? null)} onBlur={() => setActive(null)} onPointerLeave={() => setActive(null)} onKeyDown={(event) => { if (shares().length < 2) return;
-
- if (event.key === "ArrowRight") { event.preventDefault(); moveActive(1); } else if (event.key === "ArrowLeft") { event.preventDefault(); moveActive(-1); } }}>
-          <For each={shares()}>{(share) => <Tip text={share.count ? `${share.label} ${exact(share.count)}` : undefined} disabled={!isInspectable()}>{(trigger) => <span {...trigger({ onPointerEnter: () => isInspectable() && setActive(share.key) })} class="measurement-segment" data-category={share.key} data-active={active() === share.key} style={{ width: `${share.whole > 0 ? (share.part / share.whole) * 100 : 0}%` }} />}</Tip>}</For>
-        </div>
-        <ul class="measurement-legend"><For each={shares()}>{(share) => <li data-category={share.key}><span class="measurement-swatch" />{share.label} {percent(share.part, share.whole)}</li>}</For></ul>
-        <p class="measurement-line">{largest() ? copy.measurementLargest(largest()!.label, percent(largest()!.part, largest()!.whole)) : ""}</p>
-        <Show when={isInspectable()}><p class="measurement-line" aria-live="polite">{readout()}</p></Show></Show>
-      </div>
-      <div class="measurement-tile" data-tile="price">
-        <h3>{copy.measurementPrice}</h3>
-        <p class="measurement-figure">{price() === null ? copy.measurementUnknown : `≈ ${price()}`}
-          <Show when={priceDetail() && snapshot()}>{(value) => <Tip class="ink-tip" content={<><For each={value().cost.reference}>{(estimate) => <div>{modelLabel(estimate.rates.model)} {moneyText(estimate.amount, estimate.rates.currency)}<div>{copy.measurementJoin(estimate.rates.currency, copy.measurementRates(modelLabel(estimate.rates.model), estimate.rates))}</div><For each={estimate.missing}>{(cause) => <div>{cause}</div>}</For></div>}</For><For each={reported(value().cost)}>{(figure, index) => <div>{copy.measurementJoin(copy.measurementPriceReported(figure), value().cost.reported[index()]!.source, value().cost.reported[index()]!.basis)}</div>}</For><For each={value().cost.unavailable}>{(cause) => <div>{cause}</div>}</For><Show when={price() !== null && (value().cost.unavailable.length > 0 || value().cost.reference.some((estimate) => estimate.missing.length > 0))}><div>{copy.measurementPartialPrice}</div></Show></>}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="measurement-mark" aria-label={copy.measurementPriceDetail}>{copy.measurementInfo}</button>}</Tip>}</Show>
-        </p>
-        <Show when={price() !== null}><p class="measurement-line">{copy.measurementNotYourBill}</p></Show>
-      </div>
-    </div>
-    <div class="measurement-limit" data-near={(used() ?? 0) >= 80}>
-      <span class="measurement-label">{copy.measurementLimit}</span>
-      <span class="measurement-limit-text">{used() === null ? copy.measurementUnknown : copy.measurementLimitUsed(`${used()}%`, resets() === null ? null : weekdayTime(resets()!), used()! >= 80)}</span>
-      <Show when={used() !== null && used()! > 0}><span class="measurement-meter" role="meter" aria-label={copy.measurementLimit} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used() ?? undefined}><span style={{ width: `${Math.min(100, used() ?? 0)}%` }} /></span></Show><Show when={limitReason()}>{(reason) => <span class="measurement-note">{reason()}</span>}</Show>
-    </div>
-    <section class="measurement-section" aria-label={copy.measurementTimeSpent}>
-      <h3>{copy.measurementTimeSpent}</h3>
-      <Show when={times().length > 0} fallback={<p class="measurement-note">{copy.measurementEmpty}</p>}>
-        <dl class="measurement-time"><For each={times()}>{([label, value]) => <div><dt>{label} <span class="measurement-share">{percent(Number(BigInt(value)), Number(BigInt(snapshot()!.time.summed_ns)))}</span><span class="measurement-bar"><span style={{ width: `${ratio(value, snapshot()!.time.summed_ns)}%` }} /></span></dt><dd class="measurement-duration">{duration(value)}</dd></div>}</For></dl>
+    <p class="measurement-line">{copy.measurementElapsed(duration(snapshot()?.time.elapsed_ns ?? null))}<Show when={snapshot() && snapshot()!.time.elapsed_ns === null}><Partial note={note()} /></Show>
+      <Show when={snapshot()}>{(value) => <>{copy.measurementSeparator}{copy.measurementAgentTime(duration(value().time.summed_ns))}<Show when={value().time.coverage.length > 0}><Partial note={note()} /></Show></>}</Show></p>
+    <section class="measurement-chart" aria-label={copy.measurementTimeSpent}>
+      <Show when={snapshot() !== null}>
+        <Show when={measured()} fallback={<p class="measurement-note">{copy.measurementEmpty}</p>}>
+          <ul class="measurement-key"><For each={key()}>{(entry) => <li data-category={entry.category.key}><span class="measurement-swatch" />{copy.measurementKeyEntry(entry.category.label, duration(entry.ns.toString()), percent(Number(entry.ns), Number(BigInt(snapshot()!.time.summed_ns))))}</li>}</For></ul>
+          <ol class="measurement-rows"><For each={rows()}>{(row) => <Row row={row} longest={longest()} open={open} />}</For></ol>
+        </Show>
       </Show>
-    </section>
-    <section class="measurement-section measurement-agents" aria-label={copy.measurementAgents(snapshot()?.contributors ?? null)}>
-      <h3>{copy.measurementAgents(snapshot()?.contributors ?? null)}</h3>
-      <Show when={ranks().length > 1}><Tabs.Root value={category()} onValueChange={({ value }) => { const chosen = categories.find((key) => key === value);
-
-        if (chosen) setCategory(chosen); }}>
-        <Tabs.List aria-label={copy.measurementRank}><For each={ranks()}>{(key) => <Tabs.Trigger value={key}>{copy.measurementCategory[key]}</Tabs.Trigger>}</For></Tabs.List>
-      </Tabs.Root></Show>
       <Show when={removed()}>{(name) => <p class="measurement-note">{copy.measurementRemoved(name())}</p>}</Show>
-      <Show when={(snapshot()?.rows.length ?? 0) > 0} fallback={<p class="measurement-note">{copy.measurementEmpty}</p>}>
-      <table><thead><tr><th>{copy.measurementAgent}</th><For each={columns()}>{(key) => <th>{copy.measurementCategory[key]}</th>}</For></tr></thead>
-        <tbody><For each={snapshot()?.rows ?? []}>{(row) => <tr><th scope="row"><Tip text={row.maker}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" onClick={() => { if (row.removed || !connected.rail.nodes.some((node) => node.id === row.agent)) setRemoved(row.maker); else { connected.rail.select(row.agent); props.back(); } }}>{row.maker}</button>}</Tip>
-          <Show when={BigInt(row.tokens[category()].known) > 0n}><span class="measurement-bar"><span style={{ width: `${most() > 0 ? (Number(BigInt(row.tokens[category()].known)) / most()) * 100 : 0}%` }} /></span></Show>
-        </th><For each={columns()}>{(key) => {
-          const [ref, cut] = createCut();
-
-          return <td><div class="measurement-count"><Tip text={exact(row.tokens[key])} cut={cut}>{(trigger) => <span {...trigger()} ref={ref} tabIndex={cut() ? 0 : undefined}>{exact(row.tokens[key])}</span>}</Tip><Show when={row.tokens[key].missing > 0}><Partial note={[copy.measurementPartialTokens(row.tokens[key].missing), ...row.coverage].join(" ")} /></Show></div></td>;
-        }}</For></tr>}</For></tbody>
-      </table></Show>
       <Show when={snapshot()?.next_offset != null}><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(true); }}>{copy.measurementLoadMore}</button></Show>
     </section>
   </section>;

@@ -133,8 +133,8 @@ it("u3780c_copy_writes_the_shown_text", async () => {
     return Promise.resolve();
   };
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  await mountAskBar([], null, tree({ ann: call({ state: "done", result: "out… (cut, 5 bytes more)", duration_ms: 1 }) }));
+  const { app } = await mountAskBar([], null, tree({ ann: call({ state: "done", result: "out… (cut, 5 bytes more)", duration_ms: 1 }) }));
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   await toggle("ann");
 
   const copies = screen.getAllByRole("button", { name: "Copy" });

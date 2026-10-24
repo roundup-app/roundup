@@ -328,7 +328,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (value: string) => { copied.push(value); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
   write.mockRestore();
@@ -406,7 +406,7 @@ const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
 
     return <ProjectDraftsContext.Provider value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
       <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
-        selected recovery={recovery()} onMark={() => {}} onClose={() => {}}
+        selected app={app} recovery={recovery()} onMark={() => {}} onClose={() => {}}
         onRename={(name, base) => projects.rename(path("api"), name, base)} />
     </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>;
   });
@@ -530,14 +530,14 @@ it.each(["project", "object", "recipient", "missing-base", "missing-revision"] a
 });
 
 it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () => {
-  const { authority, drafts, destination, a, b, view } = await selectedHeader();
+  const { app, authority, drafts, destination, a, b, view } = await selectedHeader();
   const other = authority(path("web"));
   const elsewhere = other.edit({ ...destination, object: path("web") }, { name: "other Project", base: "same name" }, null, "ordinary").draft;
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · same name" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
@@ -556,7 +556,7 @@ it("u3299d_copy_uses_selected_item_project", async () => {
       selected={selected() === project} app={app} onMark={() => {}} onRename={async () => ({ status: "acknowledged", path: project, name: "Review", revision: 1, project: { path: project, name: "Review" } })} onClose={() => {}} />)}
   </Tabs.List></Tabs.Root>);
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
   const tabs = screen.getAllByRole("tab", { name: "Review" });
   fireEvent.click(tabs[1]!);
   fireEvent.contextMenu(tabs[1]!);
@@ -595,10 +595,10 @@ it.each([
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   let dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn(async () => { throw new Error("clipboard blocked"); }) } });
+  const blocked = vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
-  expect(navigator.clipboard.writeText).toHaveBeenCalledExactlyOnceWith(a.value.name);
+  expect(blocked).toHaveBeenCalledExactlyOnceWith(a.value.name);
 
   if (action === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Close · Copy name" }));
   else if (action.startsWith("discard")) {
@@ -626,7 +626,7 @@ it.each([
 });
 
 it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retention_%s", async action => {
-  await openTabs({ api: [], web: [] });
+  const { app } = await openTabs({ api: [], web: [] });
   fireEvent.click(tab("web"));
   const other = await edit("web");
   fireEvent.input(other, { target: { value: "  other Project 雪  " } });
@@ -639,7 +639,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   press("Escape");
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("clipboard blocked"); } } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
   expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
@@ -660,7 +660,7 @@ it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_m
   press("Escape");
   const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
   fireEvent.click(tab("api"));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("clipboard blocked"); } } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.contextMenu(tab("api"));
   await app.pickMenu("Copy");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });

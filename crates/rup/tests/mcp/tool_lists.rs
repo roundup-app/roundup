@@ -196,8 +196,6 @@ pub const NO_TOOL: [&str; 72] = [
     "project.importDiscover",
     "project.importCommit",
     "agent.setModel",
-    // U3016h: the App's weekly-limit line, the account's figure
-    "project.weeklyLimit",
     // D8: the App's Resource strip
     "project.resources",
     // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
@@ -208,6 +206,8 @@ pub const NO_TOOL: [&str; 72] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U3560a: only the user writes the native pasteboard.
+    "plugin:clipboard-manager|write_text",
     // U2694a: the native menu of the user's right-click
     "show_context_menu",
     // U3813: native commands act on the user’s selected tab.
@@ -259,6 +259,8 @@ pub fn seam_commands() -> Vec<String> {
             .into_iter()
             .map(|command| format!("plugin:window-bar|{command}")),
     );
+    // The maintained clipboard plugin registers its own commands. The web adapter observer probes this command.
+    registered.push("plugin:clipboard-manager|write_text".into());
     let mut declared = table.clone();
     registered.sort();
     declared.sort();

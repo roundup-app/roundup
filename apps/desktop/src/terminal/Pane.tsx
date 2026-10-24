@@ -114,7 +114,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
+  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
@@ -217,8 +217,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     { chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], ...onScreen(resize("grow"), true) },
     { chords: ["Meta+-"], ...onScreen(resize("shrink"), true) },
     { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
-    { chords: ["Meta+C"], ...onScreen((id) => void screens.copy(id, navigator.clipboard)) },
-    { chords: ["Meta+V"], ...onScreen((id) => void screens.paste(id, navigator.clipboard)) },
   ]);
 
   const leftThePane = (leave: FocusEvent): void => {
@@ -273,7 +271,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
-    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
+    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
   };
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
@@ -399,7 +397,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   return (
     <div class="pane" data-takeover={taken() ? "" : undefined} onFocusOut={leftThePane}>
       <Show when={selected()?.kind === "workstream"}>
-        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.costAndTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
+        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.measurementTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
       </Show>
       <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
       <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <TimelineView home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
