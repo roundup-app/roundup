@@ -353,7 +353,7 @@ it.each(([
   { owner: "message", method: "message.get", action: copy.retry },
   { owner: "message_clipboard", method: null, action: copy.copy },
 ] as const).flatMap(row => (["dismiss", "recover", "navigate"] as const).map(transition => ({ ...row, transition }))))("p3557c_failure_lifetime_reactions_$owner ($action, $transition)", async ({ owner, method, action, transition }) => {
-  const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] });
+  const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "pending" }] });
   const second = saved({ id: "r2", name: "Other reaction", instruction: "other instruction" });
   const { app, connected } = await mount(() => [record, second]);
   connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
@@ -473,10 +473,10 @@ it.each(["refused", "unknown", "retention"] as const)("p3557c_failure_lifetime_r
 });
 
 it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_identity_%s", async transition => {
-  const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] });
+  const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "pending" }] });
   const { app, connected } = await mount(() => [record]);
   const retained = structuredClone(connected.drafts.list());
-  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "different accepted instruction", kind: "note", replyTo: null, status: "held", reason: null, passedFrom: null, at: 0 });
+  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "different accepted instruction", kind: "note", replyTo: null, status: "pending", reason: null, passedFrom: null, at: 0 });
   const write = vi.fn().mockRejectedValue(new Error("reaction clipboard unavailable"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(write);
 

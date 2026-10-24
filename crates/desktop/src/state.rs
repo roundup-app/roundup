@@ -166,7 +166,7 @@ impl AppState {
         let run = *self
             .runs
             .lock()
-            .expect("the runs lock is never held across a panic");
+            .expect("the runs lock is never kept across a panic");
         match self.start_daemon(app, path, run).await {
             Ok(project) => {
                 self.save_open();
@@ -378,7 +378,7 @@ impl AppState {
     fn entries(&self) -> MutexGuard<'_, Vec<Entry>> {
         self.entries
             .lock()
-            .expect("the entries lock is never held across a panic")
+            .expect("the entries lock is never kept across a panic")
     }
 
     fn is_running(&self, path: &str) -> bool {
@@ -424,7 +424,7 @@ impl AppState {
         let mut runs = self
             .runs
             .lock()
-            .expect("the runs lock is never held across a panic");
+            .expect("the runs lock is never kept across a panic");
         *runs = run + 1;
     }
 

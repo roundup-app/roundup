@@ -1087,23 +1087,6 @@ async fn b21_a_child_with_no_door_above_it_pushes_nothing() {
 }
 
 #[tokio::test]
-async fn b21_under_a_takeover_of_the_door_the_push_is_held() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    settled(&user, &rail.m).await;
-    user.request("takeover.begin", json!({ "agent": rail.m }))
-        .await
-        .unwrap();
-
-    signal(&user, &rail.b, json!({"hook_event_name": "Stop"})).await;
-
-    let (message, _) = push_where(&user, &rail.m, |_, e| e["kind"] == "idle").await;
-    assert_eq!(message["status"], "held");
-    assert_eq!(message["reason"], "takeover");
-}
-
-#[tokio::test]
 async fn b22_a_burst_of_changes_sends_a_door_at_most_eight_pushes_in_a_window() {
     let project = start(&[]);
     let user = project.client().await;
@@ -3114,25 +3097,19 @@ async fn h21_a_replaced_decision_sends_one_message_for_the_new_one() {
 }
 
 #[tokio::test]
-async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
+async fn h21_no_message_when_the_door_is_gone() {
     let project = start(&[]);
     let client = project.client().await;
     let door = start_door(&client).await;
     let gone = start_door(&client).await;
     let live = start_door(&client).await;
-    let taken = agent_in(&project, &client, Some(&door)).await;
     let orphan = agent_in(&project, &client, Some(&gone)).await;
     let witness = agent_in(&project, &client, Some(&live)).await;
-    client
-        .request("takeover.begin", json!({ "agent": taken }))
-        .await
-        .unwrap();
     client
         .request("agent.stop", json!({ "id": gone }))
         .await
         .unwrap();
 
-    let _a = h21_ask(&project, &taken, "Bash", h21_bash()).await;
     let _b = h21_ask(&project, &orphan, "Bash", h21_bash()).await;
     let _c = h21_ask(&project, &witness, "Bash", h21_bash()).await;
     let heard = h21_notes(&client, &live, 1).await;
@@ -3924,14 +3901,7 @@ async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() 
         ] {
             assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
         }
-        for name in [
-            "message_deliver",
-            "message_drop",
-            "takeover_begin",
-            "takeover_end",
-            "terminal_list",
-            "terminal_snapshot",
-        ] {
+        for name in ["message_drop", "terminal_list", "terminal_snapshot"] {
             assert!(!offered.iter().any(|n| n == name), "{id} has {name}");
         }
     }
@@ -4166,7 +4136,7 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
     let rail = rail(&project, &user).await;
     for id in [&rail.m, &rail.a] {
         let mut shim = Shim::start(&project, id).await;
-        for name in ["message_deliver", "message_drop"] {
+        for name in ["message_drop"] {
             let result = shim
                 .request(
                     "tools/call",

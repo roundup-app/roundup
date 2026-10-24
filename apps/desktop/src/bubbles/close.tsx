@@ -17,7 +17,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
     const terminal = shown().find(terminal => terminal.id === id);
     const active = document.activeElement;
-    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
+    const controlHadFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     setClosing((ids) => new Set([...ids, id]));
 
     try {
@@ -32,10 +32,10 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
-      setRetry((held) => held?.id === id ? null : held);
+      setRetry((prior) => prior?.id === id ? null : prior);
       clearItemFailure(terminal);
 
-      if (controlHeldFocus) queueMicrotask(() => {
+      if (controlHadFocus) queueMicrotask(() => {
         const remaining = shown();
         const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
         const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
@@ -47,7 +47,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       setRetry({ id, message: thrown.message });
       setFailure(thrown.message, terminal);
     } finally {
-      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
+      setClosing((ids) => new Set([...ids].filter((prior) => prior !== id)));
     }
   };
 

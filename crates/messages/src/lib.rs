@@ -322,7 +322,7 @@ impl Messages {
         } else {
             None
         };
-        // The reply-to check, the bound check and the insert run while one lock is held, so a
+        // The reply-to check, the bound check and the insert run while one lock is taken, so a
         // second sender racing for the same receiver's last open slot cannot pass its own check
         // before this one's insert lands (B1).
         let digest = p.kind == MessageKind::Note && pushes::is_digest(&ctx.actor, &p.body);
@@ -746,7 +746,7 @@ impl Messages {
     }
 }
 
-/// Takes the store lock, whatever panicked while it was held before: a writer's transaction
+/// Takes the store lock, whatever panicked while it was taken before: a writer's transaction
 /// rolls back with its panic (`Store::atomically`), so the Store it guards is whole (B28).
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)

@@ -23,7 +23,7 @@ const STDERR_DRAIN_BOUND: Duration = Duration::from_secs(1);
 
 pub struct Started {
     pub client: Client,
-    /// Held and never written: its closing is how the Daemon learns the App is gone (D1).
+    /// Kept open and never written: its closing is how the Daemon learns the App is gone (D1).
     pub stdin: ChildStdin,
     pub child: Child,
     /// What `decision.answer` needs (H4); it lives here and in the Daemon's memory only.

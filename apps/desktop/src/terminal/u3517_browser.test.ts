@@ -26,8 +26,8 @@ it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
   await read(`(() => {
     const load = document.fonts.load.bind(document.fonts);
     let release;
-    const held = new Promise(resolve => { release = resolve; });
-    document.fonts.load = async (...args) => { await held; return load(...args); };
+    const prior = new Promise(resolve => { release = resolve; });
+    document.fonts.load = async (...args) => { await prior; return load(...args); };
     window.__releaseFonts = () => { document.fonts.load = load; release(); };
     window.__fake.app.calls.length = 0;
     document.querySelector('.rail-row[data-id="agent-4"]').click();

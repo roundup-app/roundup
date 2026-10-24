@@ -93,7 +93,7 @@ impl Store {
         let mut guard = self
             .saved
             .lock()
-            .expect("the store lock is never held across a panic");
+            .expect("the store lock is never kept across a panic");
         let saved = guard.get_or_insert_with(|| self.read());
         let result = change(saved);
         if let Some(dir) = self.dir.get() {

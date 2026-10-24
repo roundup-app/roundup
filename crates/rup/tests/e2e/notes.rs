@@ -699,24 +699,6 @@ async fn t25_a_second_idle_without_a_change_sends_nothing() {
 }
 
 #[tokio::test]
-async fn t25_a_takeover_or_unsent_input_hands_nothing() {
-    let s = scene(&[]).await;
-    todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
-    s.user
-        .request("takeover.begin", json!({ "agent": s.a }))
-        .await
-        .unwrap();
-    drive(&s.user, &s.a, STOP).await;
-    still(&s.user, &s.a, "Next:", 0).await;
-    s.user
-        .request("takeover.end", json!({ "agent": s.a }))
-        .await
-        .unwrap();
-    turn(&s.user, &s.a).await;
-    notes(&s.user, &s.a, "Next:", 1).await;
-}
-
-#[tokio::test]
 async fn t25_me_unassigned_done_and_foreign_todos_are_never_handed() {
     let s = scene(&[]).await;
     todo(
