@@ -72,7 +72,7 @@ async fn b17_only_the_current_delivered_inbox_hop_can_answer() {
     }
 }
 
-// B51(g): rejects silent peer repeat discard when releasing a held question or making a hop.
+// B51(g): rejects silent peer repeat discard when releasing a pending question or making a hop.
 // B14: rejects starting the bound while the inbox is unavailable or restarting it on receipt.
 #[tokio::test]
 async fn b14_inbox_question_bounds_wait_for_the_inbox() {

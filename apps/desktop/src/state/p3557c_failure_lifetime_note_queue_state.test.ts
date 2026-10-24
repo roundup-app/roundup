@@ -45,7 +45,7 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   const calls = app.calls.length;
   notes.dismiss(first);
   expect(app.calls.length).toBe(calls);
-  expect(notes.rows("a").map((row) => row.message.id)).toEqual([1, 2]);
+  expect(notes.rows("a").map((row) => row.id)).toEqual([1, 2]);
   expect(notes.selected("a")).toMatchObject({ message: 1 });
   await notes.remove(two);
   expect(notes.selected("a")!.key).not.toBe(first);
@@ -64,19 +64,6 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   expect(notes.selected("a")).toBeNull();
   expect(notes.failure("b")).toBeNull();
 
-  // starting a retry does not acknowledge; the acknowledged one does
-  app.handlers["message.deliver"] = () => { throw new Error("no"); };
-
-  await notes.allow(two);
-  let release: (m: Message) => void = () => {};
-
-  app.handlers["message.deliver"] = () => new Promise<Message>((resolve) => { release = resolve; });
-  const retry = notes.allow(two);
-  expect(notes.selected("a")).toMatchObject({ message: 2, cause: "no" });
-  release(two);
-  await retry;
-  expect(notes.selected("a")).toBeNull();
-
   // list failure is isolated from item actions and recovered only by its own retry
   const other = await open(true);
   other.notes.load("a");
@@ -90,5 +77,5 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   other.notes.load("a");
   await other.tick();
   expect(other.notes.failure("a")).toBeNull();
-  expect(other.notes.rows("a").map((row) => row.message.id)).toEqual([1]);
+  expect(other.notes.rows("a").map((row) => row.id)).toEqual([1]);
 });

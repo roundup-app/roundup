@@ -185,7 +185,7 @@ async fn u468_a_child_permission_is_answered_in_its_terminal() {
         .map(|node| node["status"]["kind"].clone())
         .collect();
     assert_eq!(kinds, [json!("needs-you")]);
-    // The user answers by typing into the child's Terminal, with no Takeover.
+    // The user answers by typing into the child's Terminal.
     run.user
         .request(
             "terminal.write",

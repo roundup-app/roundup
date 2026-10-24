@@ -1,6 +1,6 @@
 //! B41 to B44: the saved Wake requests of Agents, and the one write that fires one. The Daemon
 //! decides from `agent.status` Events when a request holds; this module keeps the requests across a
-//! restart and turns a held request into exactly one Message.
+//! restart and turns a pending request into exactly one Message.
 
 use contracts::agent::DigestEntry;
 use contracts::message::{MessageKind, SendParams};

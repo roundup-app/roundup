@@ -65,9 +65,9 @@ export const Bubbles = (props: {
   const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
   createEffect(() => {
     const listed = records();
-    const held = untrack(copyFailure);
+    const prior = untrack(copyFailure);
 
-    if (held && !listed.some(draft => draft.revision === held.revision)) failCopy(null);
+    if (prior && !listed.some(draft => draft.revision === prior.revision)) failCopy(null);
   });
   const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
 
@@ -87,7 +87,7 @@ export const Bubbles = (props: {
 
     try {
       await writeText(connected.app, parsed.output.name);
-      failCopy(held => held?.revision === draft!.revision ? null : held);
+      failCopy(prior => prior?.revision === draft!.revision ? null : prior);
     } catch (error) {
       failCopy({ revision: draft!.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) });
     }
@@ -111,16 +111,16 @@ export const Bubbles = (props: {
   const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
 
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
-    setFailure(held => held?.terminal?.id === terminal.id && held.terminal.incarnation === terminal.incarnation ? null : held);
+    setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
   };
 
   createEffect(() => {
     const terminals = rail.terminals();
 
     if (connected.daemonExit() !== null) return;
-    const held = untrack(failure);
+    const prior = untrack(failure);
 
-    if (held?.terminal && !terminals.some(terminal => terminal.id === held.terminal!.id && terminal.incarnation === held.terminal!.incarnation)) setFailure(null);
+    if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
   });
   const [opening, setOpening] = createSignal(false);
   const [wanted, setWanted] = createSignal<string | null>(null);
@@ -172,10 +172,10 @@ export const Bubbles = (props: {
 
     lastSelected = chosen;
 
-    const held = untrack(places);
-    const missing = eligible.filter((terminal) => held[terminal.id] === undefined);
-    const visible = eligible.filter((terminal) => held[terminal.id] && !held[terminal.id]!.min);
-    const next = { ...held };
+    const prior = untrack(places);
+    const missing = eligible.filter((terminal) => prior[terminal.id] === undefined);
+    const visible = eligible.filter((terminal) => prior[terminal.id] && !prior[terminal.id]!.min);
+    const next = { ...prior };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
     for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
@@ -184,7 +184,7 @@ export const Bubbles = (props: {
 
     if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
-    if (JSON.stringify(next) === JSON.stringify(held)) return;
+    if (JSON.stringify(next) === JSON.stringify(prior)) return;
     setPlaces(next);
     persistPlaces(next);
   });
@@ -239,10 +239,10 @@ export const Bubbles = (props: {
     }
 
     const listed = new Set(rail.terminals().map((terminal) => terminal.id));
-    const held = untrack(places);
-    const kept = Object.fromEntries(Object.entries(held).filter(([id]) => listed.has(id)));
+    const prior = untrack(places);
+    const kept = Object.fromEntries(Object.entries(prior).filter(([id]) => listed.has(id)));
 
-    if (Object.keys(kept).length !== Object.keys(held).length) {
+    if (Object.keys(kept).length !== Object.keys(prior).length) {
       setPlaces(kept);
       persistPlaces(kept);
     }
@@ -262,17 +262,17 @@ export const Bubbles = (props: {
 
       const corner = host.getBoundingClientRect();
 
-      setOrigin((held) => (held.left === corner.left && held.top === corner.top && held.width === corner.width && held.height === corner.height ? held : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
+      setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
       setMeasured(true);
     };
 
     const watched = new ResizeObserver(() => {
       sync();
 
-      const held = untrack(places);
-      const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
+      const prior = untrack(places);
+      const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(held)) return;
+      if (JSON.stringify(next) === JSON.stringify(prior)) return;
 
       setPlaces(next);
       persistPlaces(next);
@@ -354,7 +354,7 @@ export const Bubbles = (props: {
 
       setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
-      setFailure(held => held?.terminal === null ? null : held);
+      setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
       show(opened.terminal_id);
 
@@ -547,7 +547,7 @@ export const Bubbles = (props: {
     });
   });
 
-  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
+  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a pressed key repeats nothing.
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
@@ -731,7 +731,7 @@ export const Bubbles = (props: {
     createEffect(on(() => props.recovery, selected => { if (selected) start(selected); }));
 
     createEffect(() => {
-      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held?.id === id ? null : held);
+      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(prior => prior?.id === id ? null : prior);
     });
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);

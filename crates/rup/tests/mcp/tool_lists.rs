@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 92] = [
+pub const TOOL_METHODS: [&str; 90] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -62,7 +62,6 @@ pub const TOOL_METHODS: [&str; 92] = [
     // E2, O4, F3
     "agent.context",
     "agent.instructions",
-    "agent.actionHistory",
     "agent.setOrder",
     "agent.run",
     "agent.spawn",
@@ -103,7 +102,6 @@ pub const TOOL_METHODS: [&str; 92] = [
     "terminal.close",
     "terminal.write",
     "terminal.resize",
-    "terminal.resizeHistory",
     "terminal.kill",
 ];
 
@@ -122,7 +120,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 72] = [
+pub const NO_TOOL: [&str; 69] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -152,10 +150,7 @@ pub const NO_TOOL: [&str; 72] = [
     "todo.refs",
     // T25: only the Daemon hands a Todo.
     "todo.hand",
-    "message.deliver",
     "message.drop",
-    "takeover.begin",
-    "takeover.end",
     "terminal.list",
     "terminal.snapshot",
     // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.

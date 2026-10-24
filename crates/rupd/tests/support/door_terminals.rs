@@ -1,4 +1,4 @@
-//! Setup shared by the Takeover tests that drive a Door-spawned child Terminal.
+//! Setup shared by the tests that drive a Door-spawned child Terminal.
 #![allow(dead_code)] // each includer uses its own part of the helpers
 use super::child_run::{BOUND, Run};
 

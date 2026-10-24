@@ -439,10 +439,7 @@ fn offered_tools() -> Vec<Offered> {
             "rail.startDoor",
             "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
         ),
-        offered::<agent::RenameParams>(
-            "rail.rename",
-            "Rename yourself or a node in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
+        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
         offered::<agent::MoveParams>(
             "rail.move",
             "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
@@ -451,17 +448,14 @@ fn offered_tools() -> Vec<Offered> {
             "rail.remove",
             "Remove a node in your Reach, never yourself. Its children move to its parent.",
         ),
-        offered::<agent::NodeId>(
-            "agent.stop",
-            "Stop an Agent in your Reach, never yourself. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
+        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
         offered::<agent::NodeId>(
             "agent.interrupt",
-            "Interrupt the turn of an Agent in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Interrupt the turn of an Agent in your Reach.",
         ),
         offered::<agent::PromptParams>(
             "agent.prompt",
-            "Send a prompt to an Agent in your Reach as the user would. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Send a prompt to an Agent in your Reach as the user would.",
         ),
         offered::<agent::ResumeParams>(
             "agent.resume",
@@ -540,27 +534,19 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Stop a Terminal you or your Reach own and forget it.",
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
-            "Resize a Terminal you or your Reach own to `cols` by `rows`. During Takeover, a durable waiting receipt means accepted, not executed; read terminal_resizeHistory for its outcome.",
-        ),
-        offered::<terminal::TerminalId>(
-            "terminal.resizeHistory",
-            "Read your accepted resize actions and their outcomes, even after the Terminal is gone. Waiting means the user holds Takeover; a dropped reason explains why no retry was made.",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.actionHistory",
-            "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
+            "Stop the program of a Terminal you or your Reach own.",
         ),
         offered::<agent::NodeId>(
             "agent.instructions",
@@ -667,7 +653,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     let unit = contracts::methods::METHODS
         .iter()
         .any(|m| m.name == method && m.result == "null")
-        // A held answer is a receipt; an answer that ran has nothing to return.
+        // A unit answer has nothing to return.
         || method == "decision.answer" && result.is_null();
     if !unit {
         return result.to_string();

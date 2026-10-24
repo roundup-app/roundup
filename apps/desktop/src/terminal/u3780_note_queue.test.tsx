@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { node, info } from "../testing/nodes";
-import { mountSwitcher, openSwitcher, field, press, rows } from "../switcher/switcherFixture";
+import { mountSwitcher, openSwitcher, field, switcherKey, rows } from "../switcher/switcherFixture";
 import { callsTo } from "./paneHarness";
 import { mountNotes, note, rowsOf, sent } from "./noteQueueHarness";
 
@@ -18,7 +18,7 @@ const pick = async (name: string) => {
   await waitFor(() => expect(field()).not.toBeNull());
   fireEvent.input(field()!, { target: { value: name } });
   await waitFor(() => expect(rows()).toEqual([name]));
-  press("Enter", {}, field()!);
+  switcherKey("Enter", {}, field()!);
 };
 
 it("b3563a_direct_input_needs_only_terminal_focus", async () => {
@@ -43,7 +43,7 @@ it("b3563a_direct_input_needs_only_terminal_focus", async () => {
   await pick("Ann");
   await waitFor(() => expect(connected.rail.selected()).toBe("ann"));
   await waitFor(() => expect(document.activeElement?.closest(".pane-screen")?.querySelector('[data-terminal="t-ann"]')).not.toBeNull());
-  expect(press("Enter", { metaKey: true }, document.activeElement!).defaultPrevented).toBe(false);
+  expect(switcherKey("Enter", { metaKey: true }, document.activeElement!).defaultPrevented).toBe(false);
   type("t-ann", "z");
 
   await waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([

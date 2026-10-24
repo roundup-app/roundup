@@ -206,11 +206,11 @@ export const Pads = (props: {
   const pickFails = new Map<string, { message: string | null; show: (message: string | null) => void }>();
 
   const reportAssignmentFailure = (incarnation: string, message: string | null) => {
-    const held = pickFails.get(incarnation);
+    const prior = pickFails.get(incarnation);
 
-    if (!held || !pads().some(pad => pad.incarnation === incarnation)) return;
-    held.message = message;
-    held.show(message);
+    if (!prior || !pads().some(pad => pad.incarnation === incarnation)) return;
+    prior.message = message;
+    prior.show(message);
   };
 
   createEffect(() => {

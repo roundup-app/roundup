@@ -55,7 +55,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   let failedItem: string | null = null;
-  const held = new Map<string, Candidate>();
+  const kept = new Map<string, Candidate>();
   // Entries whose card is closing stay findable until the next push, for the activation that closed them.
   const known = new Map<string, Entry>();
   const displayed = new Set<string>();

@@ -225,7 +225,7 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
-  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
