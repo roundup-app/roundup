@@ -207,13 +207,9 @@ impl Shared {
                 .map(name::from_prompt),
             _ => None,
         };
-        let names_conversation = matches!(&observation, Observation::Signal(payload)
-            if claude_code::conversation_id(payload).is_some());
         // Taken before `runs`, as every other path does, so a rename and a prompt cannot deadlock.
-        let mut rail = (first_prompt.is_some()
-            || names_conversation
-            || matches!(observation, Observation::Exit { .. }))
-        .then(|| self.rail());
+        // U3566c: any Observation may end a turn, and the finish count is saved with its Status.
+        let mut rail = Some(self.rail());
         let (prompt, tick_at) = {
             let mut runs = self.runs();
             // A20: an Observation from an earlier Attempt is ignored, never an error to its sender.
@@ -422,6 +418,7 @@ impl Shared {
             }
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
+        let was_finished = run.adapter.finished();
         let signal = matches!(observation, Observation::Signal(_));
         let changed = run.adapter.observe(observation).or_else(|| {
             if !exited || run.ended {
@@ -458,6 +455,12 @@ impl Shared {
             if let Some(rail) = rail.as_deref_mut() {
                 rail.detach_terminal(id)?;
             }
+        }
+        // U3566c: a counted finish is saved before its Status is published.
+        if run.adapter.finished() != was_finished
+            && let Some(rail) = rail.as_deref_mut()
+        {
+            rail.set_finished(id, run.adapter.finished())?;
         }
         // Announced while `runs` is held, so announcements leave in the order the Status
         // changed; `emit` never blocks.
