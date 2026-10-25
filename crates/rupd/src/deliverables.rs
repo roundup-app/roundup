@@ -60,12 +60,208 @@ impl Publications {
             std::fs::remove_dir_all(&cache)?;
         }
         let db = Connection::open(data.join("project.db"))?;
-        db.pragma_update(None, "synchronous", "EXTRA")?;
-        db.pragma_update(None, "journal_mode", "PERSIST")?;
+        db.pragma_update(None, "synchronous", "FULL")?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
+        #[cfg(target_os = "macos")]
+        db.pragma_update(None, "fullfsync", true)?;
         Ok(Self {
             db: std::sync::Mutex::new(db),
             cache,
         })
+    }
+}
+
+// This is part of the existing publication owner: SQLite alone selects live identities.
+impl Publications {
+    fn directory(&self, create: bool) -> std::io::Result<std::fs::File> {
+        use rustix::fs::{CWD, Mode, OFlags, openat};
+        let parent = openat(
+            CWD,
+            self.cache.parent().expect("Project data"),
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        if create {
+            match rustix::fs::mkdirat(&parent, "publication-files", Mode::from_raw_mode(0o700)) {
+                Ok(()) | Err(rustix::io::Errno::EXIST) => {}
+                Err(e) => return Err(e.into()),
+            }
+            // Also retry a prior failed parent flush; existence alone proves no durability.
+            fault("parent_sync")?;
+            rustix::fs::fsync(&parent)?;
+            observe("parent_synced").map_err(std::io::Error::other)?;
+        }
+        Ok(openat(
+            &parent,
+            "publication-files",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?
+        .into())
+    }
+    fn pending(dir: &std::fs::File) -> std::io::Result<cap_std::fs::Dir> {
+        use rustix::fs::{Mode, OFlags};
+        match rustix::fs::mkdirat(dir, "pending", Mode::from_raw_mode(0o700)) {
+            Ok(()) | Err(rustix::io::Errno::EXIST) => {}
+            Err(e) => return Err(e.into()),
+        }
+        fault("pending_parent_sync")?;
+        rustix::fs::fsync(dir)?;
+        observe("pending_directory_synced").map_err(std::io::Error::other)?;
+        let fd = rustix::fs::openat(
+            dir,
+            "pending",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        Ok(cap_std::fs::Dir::from_std_file(fd.into()))
+    }
+    fn persist(&self, id: &str, bytes: &[u8]) -> std::io::Result<()> {
+        use rustix::fs::OFlags;
+        use std::io::Write;
+        let dir = self.directory(true)?;
+        let pending = Self::pending(&dir)?;
+        use cap_std::fs::OpenOptionsExt;
+        let mut options = cap_std::fs::OpenOptions::new();
+        options
+            .write(true)
+            .create_new(true)
+            .mode(0o400)
+            .custom_flags(
+                OFlags::NOFOLLOW
+                    .bits()
+                    .try_into()
+                    .map_err(std::io::Error::other)?,
+            );
+        let mut file = pending.open_with(id, &options)?.into_std();
+        fault("write")?;
+        file.write_all(bytes)?;
+        observe("before_file_sync").map_err(std::io::Error::other)?;
+        fault("file_sync")?;
+        // Rust uses F_FULLFSYNC on macOS here; directory fsync persists namespace entries.
+        file.sync_all()?;
+        observe("after_file_sync").map_err(std::io::Error::other)?;
+        rustix::fs::fsync(&pending)?;
+        fault("link")?;
+        rustix::fs::linkat(&pending, id, &dir, id, rustix::fs::AtFlags::empty())?;
+        fault("directory_sync")?;
+        rustix::fs::fsync(&dir)?;
+        observe("after_directory_sync").map_err(std::io::Error::other)?;
+        Ok(())
+    }
+    fn read(&self, id: &str) -> std::io::Result<Vec<u8>> {
+        use rustix::fs::{Mode, OFlags};
+        use std::io::Read;
+        allocation_id(id)?;
+        fault("read")?;
+        let dir = self.directory(false)?;
+        let fd = rustix::fs::openat(
+            &dir,
+            id,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?;
+        let mut file = std::fs::File::from(fd);
+        if !file.metadata()?.is_file() {
+            return Err(std::io::Error::other("payload is not a regular file"));
+        }
+        let mut bytes = Vec::new();
+        file.by_ref()
+            .take(MAX_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+    fn recover(&self, db: &Connection) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use rustix::fs::{AtFlags, statat, unlinkat};
+        let dir = match self.directory(false) {
+            Ok(dir) => Some(dir),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e.into()),
+        };
+        if let Some(dir) = &dir {
+            let pending = Self::pending(dir)?;
+            let mut entries = pending.entries()?;
+            if let Some(entry) = entries.next() {
+                let name = entry?.file_name();
+                let id = name.to_str().ok_or("invalid pending identity")?;
+                allocation_id(id)?;
+                if entries.next().is_some() {
+                    return Err("more than one pending allocation".into());
+                }
+                let live: bool = db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM deliverable_files WHERE id=?1)",
+                    [id],
+                    |r| r.get(0),
+                )?;
+                if !live {
+                    // A link collision never authorizes deleting the other inode.
+                    match statat(dir, id, AtFlags::SYMLINK_NOFOLLOW) {
+                        Ok(final_stat) => {
+                            let staged = statat(&pending, id, AtFlags::SYMLINK_NOFOLLOW)?;
+                            if (staged.st_dev, staged.st_ino)
+                                != (final_stat.st_dev, final_stat.st_ino)
+                            {
+                                return Err("pending allocation collides with another file".into());
+                            }
+                            unlinkat(dir, id, AtFlags::empty())?;
+                        }
+                        Err(rustix::io::Errno::NOENT) => {}
+                        Err(e) => return Err(e.into()),
+                    }
+                    rustix::fs::fsync(dir)?;
+                }
+                fault("staging_cleanup")?;
+                unlinkat(&pending, id, AtFlags::empty())?;
+                fault("cleanup_sync")?;
+                rustix::fs::fsync(&pending)?;
+            } else {
+                // A failed unlink flush must be retried even if its entry is already absent.
+                rustix::fs::fsync(&pending)?;
+            }
+        }
+        let mut stmt = db.prepare("SELECT id FROM deliverables WHERE removed=1 AND (id IN (SELECT id FROM deliverable_files) OR id IN (SELECT id FROM deliverable_bytes))")?;
+        let ids = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for id in ids {
+            allocation_id(&id)?;
+            let file: bool = db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM deliverable_files WHERE id=?1)",
+                [&id],
+                |r| r.get(0),
+            )?;
+            if file && let Some(dir) = &dir {
+                fault("unlink")?;
+                match unlinkat(dir, &id, AtFlags::empty()) {
+                    Ok(()) | Err(rustix::io::Errno::NOENT) => {}
+                    Err(e) => return Err(e.into()),
+                }
+                fault("removal_sync")?;
+                rustix::fs::fsync(dir)?;
+            }
+            db.execute("DELETE FROM deliverable_files WHERE id=?1", [&id])?;
+            db.execute("DELETE FROM deliverable_bytes WHERE id=?1", [&id])?;
+        }
+        Ok(())
+    }
+}
+fn allocation_id(id: &str) -> std::io::Result<()> {
+    if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(
+            "invalid publication allocation identity",
+        ))
+    }
+}
+// Faults are opt-in, isolated-process observers like the capture/commit cuts below.
+fn fault(operation: &str) -> std::io::Result<()> {
+    if std::env::var("RUPD_PUBLICATION_FAIL").ok().as_deref() == Some(operation) {
+        Err(std::io::Error::other(format!(
+            "publication {operation} failed"
+        )))
+    } else {
+        Ok(())
     }
 }
 
@@ -84,6 +280,9 @@ impl Daemon {
         let tx = db
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(RpcError::internal)?;
+        if matches!(method, "deliverable.publish" | "deliverable.remove") {
+            self.publications.recover(&tx).map_err(RpcError::internal)?;
+        }
         let maker: Option<(String, Option<String>)> = if conn.actor.kind == ActorKind::Agent {
             Some(
                 tx.query_row(
@@ -137,6 +336,7 @@ impl Daemon {
                 }
                 let mut bytes = None;
                 let mut file_source = None;
+                observe("capture_start")?;
                 let target = match p.target {
                     PublicationTarget::External { url } => {
                         external(&url)?;
@@ -191,6 +391,7 @@ impl Daemon {
                         target
                     }
                 };
+                observe("hashed")?;
                 let id: String = tx
                     .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
                     .map_err(RpcError::internal)?;
@@ -216,10 +417,14 @@ impl Daemon {
                     target,
                 };
                 tx.execute("INSERT INTO deliverables(id,maker,publication_key,request,record,home,file_source) VALUES (?1,?2,?3,?4,?5,?6,?7)",params![record.id,actor_key,p.key,request,serde_json::to_string(&record).map_err(RpcError::internal)?,record.home,file_source]).map_err(RpcError::internal)?;
+                observe("metadata_inserted")?;
                 if let Some(bytes) = bytes {
+                    self.publications
+                        .persist(&record.id, &bytes)
+                        .map_err(RpcError::internal)?;
                     tx.execute(
-                        "INSERT INTO deliverable_bytes VALUES (?1,?2)",
-                        params![record.id, bytes],
+                        "INSERT INTO deliverable_files VALUES (?1,?2)",
+                        params![record.id, bytes.len() as i64],
                     )
                     .map_err(RpcError::internal)?;
                 }
@@ -306,8 +511,6 @@ impl Daemon {
                     [&record.id],
                 )
                 .map_err(RpcError::internal)?;
-                tx.execute("DELETE FROM deliverable_bytes WHERE id=?1", [&record.id])
-                    .map_err(RpcError::internal)?;
                 Value::Null
             }
             "deliverable.get" => {
@@ -318,7 +521,7 @@ impl Daemon {
                 let p: DeliverableId = rpc::params(args)?;
                 let record = get(&tx, &project, &p)?;
                 self.publications.invalidate(&record.id)?;
-                rpc::reply(&resolve(&tx, &self.publications.cache, &record)?)?
+                rpc::reply(&resolve(&tx, &self.publications, &record)?)?
             }
             _ => return Err(RpcError::method_not_found(method)),
         };
@@ -328,6 +531,15 @@ impl Daemon {
         tx.commit().map_err(RpcError::internal)?;
         if method == "deliverable.publish" {
             observe("after_commit")?;
+        }
+        if matches!(method, "deliverable.publish" | "deliverable.remove") {
+            observe("before_cleanup")?;
+            let tx = db
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .map_err(RpcError::internal)?;
+            self.publications.recover(&tx).map_err(RpcError::internal)?;
+            tx.commit().map_err(RpcError::internal)?;
+            observe("before_reply")?;
         }
         Ok(result)
     }
@@ -370,7 +582,7 @@ const QUOTA: i64 = 1024 * 1024 * 1024;
 fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
-            "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
+            "SELECT (SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes) + (SELECT coalesce(sum(length),0) FROM deliverable_files)",
             [],
             |r| r.get(0),
         )
@@ -387,7 +599,11 @@ fn hash(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))
 }
-fn resolve(db: &Connection, cache: &Path, record: &Deliverable) -> Result<Resolution, RpcError> {
+fn resolve(
+    db: &Connection,
+    publications: &Publications,
+    record: &Deliverable,
+) -> Result<Resolution, RpcError> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
     let unavailable = |cause| Ok(Resolution::Unavailable { cause });
@@ -436,21 +652,35 @@ fn resolve(db: &Connection, cache: &Path, record: &Deliverable) -> Result<Resolu
             (*length, sha256)
         }
     };
-    let bytes: Option<Vec<u8>> = db
+    let selected: bool = db
         .query_row(
+            "SELECT EXISTS(SELECT 1 FROM deliverable_files WHERE id=?1)",
+            [&record.id],
+            |r| r.get(0),
+        )
+        .map_err(RpcError::internal)?;
+    let bytes: Option<Vec<u8>> = if selected {
+        match publications.read(&record.id) {
+            Ok(bytes) => Some(bytes),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => return unavailable(UnavailableCause::IntegrityFailure),
+        }
+    } else {
+        db.query_row(
             "SELECT bytes FROM deliverable_bytes WHERE id=?1",
             [&record.id],
             |r| r.get(0),
         )
         .optional()
-        .map_err(RpcError::internal)?;
+        .map_err(RpcError::internal)?
+    };
     let Some(bytes) = bytes else {
         return unavailable(UnavailableCause::MissingRevision);
     };
     if bytes.len() as u64 != length || hash(&bytes) != *sha256 {
         return unavailable(UnavailableCause::IntegrityFailure);
     }
-    let directory = cache.join(&record.id);
+    let directory = publications.cache.join(&record.id);
     let filename = match &record.target {
         PublishedTarget::File { path, .. } => Path::new(path)
             .file_name()
@@ -583,6 +813,23 @@ fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSour
 // Isolated Daemon observer; absent in normal operation. A file acknowledgement, not a sleep,
 // tells the probe exactly which side of the commit/capture it may interrupt.
 fn observe(stage: &str) -> Result<(), RpcError> {
+    if let Some(path) = std::env::var_os("RUPD_PUBLICATION_TRACE") {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(RpcError::internal)?;
+        writeln!(
+            file,
+            "{stage} {}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(RpcError::internal)?
+                .as_nanos()
+        )
+        .map_err(RpcError::internal)?;
+    }
     if std::env::var("RUPD_PUBLICATION_PAUSE").ok().as_deref() != Some(stage) {
         return Ok(());
     }
@@ -608,177 +855,6 @@ mod tests {
     use super::*;
     use serde_json::json;
     #[tokio::test]
-    async fn dv2_append_recovers_wal_without_retaining_a_second_payload_log() {
-        let dir = tempfile::tempdir().unwrap();
-        crate::storage::open(dir.path()).unwrap();
-        let path = dir.path().join("project.db");
-        let old = Connection::open(&path).unwrap();
-        old.pragma_update(None, "journal_mode", "WAL").unwrap();
-        old.set_db_config(
-            rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE,
-            true,
-        )
-        .unwrap();
-        old.execute(
-            "INSERT INTO message_sender_names VALUES ('kept', 'Before restart')",
-            [],
-        )
-        .unwrap();
-        let project: String = old
-            .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
-            .unwrap();
-        drop(old);
-        assert!(dir.path().join("project.db-wal").metadata().unwrap().len() > 0);
-        let daemon = crate::test_daemon(dir.path()).unwrap();
-        let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut conn = Conn {
-            actor: contracts::Actor::user(),
-            peer: None,
-            events,
-            output: None,
-        };
-        let pad = daemon
-            .route(
-                &mut conn,
-                "pad.create",
-                json!({"name":"notes","text":"retained revision"}),
-            )
-            .await
-            .unwrap();
-        let record = daemon.route(&mut conn, "deliverable.publish", json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await.unwrap();
-        assert_eq!(record["project"], project);
-        let db = Connection::open(path).unwrap();
-        assert_eq!(
-            db.query_row(
-                "SELECT name FROM message_sender_names WHERE agent='kept'",
-                [],
-                |r| r.get::<_, String>(0)
-            )
-            .unwrap(),
-            "Before restart"
-        );
-        assert_eq!(
-            daemon
-                .route(&mut conn, "deliverable.list", json!({}))
-                .await
-                .unwrap(),
-            json!([record])
-        );
-        assert!(
-            !dir.path().join("project.db-wal").exists(),
-            "append must retain its payload in the main database only"
-        );
-        assert_eq!(
-            db.query_row("SELECT bytes FROM deliverable_bytes", [], |r| r
-                .get::<_, Vec<u8>>(0))
-                .unwrap(),
-            b"retained revision"
-        );
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn dv2_publication_allows_project_operations_and_owner_reads() {
-        let dir = tempfile::tempdir().unwrap();
-        let daemon = std::sync::Arc::new(
-            crate::test_daemon_with_agents(dir.path(), |agents| agents).unwrap(),
-        );
-        let socket = dir.path().join("rpc.sock");
-        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-        let server = tokio::spawn(crate::serve(listener, daemon.clone()));
-        let client = rpc::Client::connect(&socket).await.unwrap();
-        let mut events = daemon.bus.subscribe();
-        std::fs::write(daemon.project.join("published.bin"), vec![71; 1024 * 1024]).unwrap();
-        let publishing = tokio::spawn(async move {
-            for n in 0..8 {
-                client.request("deliverable.publish", json!({"key":format!("publication-{n}"),"title":"Result","target":{"kind":"file","path":"published.bin"}})).await.unwrap();
-            }
-        });
-        let client = rpc::Client::connect(&socket).await.unwrap();
-        let writing = tokio::spawn(async move {
-            for n in 0..8 {
-                client
-                    .request(
-                        "pad.create",
-                        json!({"name":format!("Pad {n}"),"text":"concurrent revision"}),
-                    )
-                    .await
-                    .unwrap();
-                client
-                    .request("todo.create", json!({"title":format!("Todo {n}")}))
-                    .await
-                    .unwrap();
-            }
-        });
-        let client = rpc::Client::connect(&socket).await.unwrap();
-        let agents = daemon.agents.clone();
-        let reading = tokio::spawn(async move {
-            for _ in 0..32 {
-                client.request("rail.tree", json!({})).await.unwrap();
-                client.request("pad.list", json!({})).await.unwrap();
-                client
-                    .request("project.measurements", json!({}))
-                    .await
-                    .unwrap();
-                agents
-                    .with_terminal_owner("unowned", |owner| {
-                        assert!(owner.is_none());
-                        Ok(())
-                    })
-                    .unwrap();
-            }
-        });
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            publishing.await.unwrap();
-            writing.await.unwrap();
-            reading.await.unwrap();
-        })
-        .await
-        .expect("Project operations finish within their existing bound");
-        let client = rpc::Client::connect(&socket).await.unwrap();
-        assert_eq!(
-            client
-                .request("deliverable.list", json!({}))
-                .await
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .len(),
-            8
-        );
-        assert_eq!(
-            client
-                .request("pad.list", json!({}))
-                .await
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .len(),
-            8
-        );
-        assert_eq!(
-            client
-                .request("todo.list", json!({}))
-                .await
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .len(),
-            8
-        );
-        let mut live = Vec::new();
-        while let Ok(event) = events.try_recv() {
-            live.push(event);
-        }
-        assert!(!live.is_empty());
-        let saved = daemon.bus.saved_after(0).unwrap().0;
-        assert_eq!(
-            serde_json::to_value(&live).unwrap(),
-            serde_json::to_value(&saved).unwrap()
-        );
-        server.abort();
-    }
-
-    #[tokio::test]
     async fn dv2_metadata_only() {
         let dir = tempfile::tempdir().unwrap();
         let daemon = crate::test_daemon(dir.path()).unwrap();
@@ -800,16 +876,21 @@ mod tests {
         let record=daemon.route(&mut conn,"deliverable.publish",json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await.unwrap();
         let denied = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = denied.clone();
-        daemon
-            .publications
-            .db
-            .lock()
-            .unwrap()
-            .authorizer(Some(move |ctx: rusqlite::hooks::AuthContext<'_>| {
+        {
+            let db = daemon.publications.db.lock().unwrap();
+            let settings: (String, i64) = db
+            .query_row(
+                "SELECT journal_mode,synchronous FROM pragma_journal_mode(),pragma_synchronous()",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+            assert_eq!(settings, ("wal".to_owned(), 2));
+            db.authorizer(Some(move |ctx: rusqlite::hooks::AuthContext<'_>| {
                 if matches!(
                     ctx.action,
                     rusqlite::hooks::AuthAction::Read {
-                        table_name: "deliverable_bytes",
+                        table_name: "deliverable_bytes" | "deliverable_files",
                         ..
                     }
                 ) {
@@ -820,6 +901,7 @@ mod tests {
                 }
             }))
             .unwrap();
+        }
         assert_eq!(
             daemon
                 .route(&mut conn, "deliverable.list", json!({}))
