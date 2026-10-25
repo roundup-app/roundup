@@ -72,7 +72,7 @@ exec cat > "$1/input"
                         let answer = if method == "events.subscribe"
                             && refuse.lock().unwrap().is_some()
                         {
-                            json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":*refuse.lock().unwrap(),"message":"subscription refused"}})
+                            json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":*refuse.lock().unwrap(),"message":"subscription refused", "data":{"kind":"events-expired", "oldest":6}}})
                         } else {
                             json!({"jsonrpc":"2.0", "id":request["id"], "result":if method == "events.subscribe" { json!({"head":0}) } else { json!({"pong":true}) }})
                         };
@@ -264,9 +264,16 @@ async fn u3791a_daemon_success_resets_count(fx: &Fixture) {
     .await;
     // Readiness alone is insufficient: rejecting the replacement subscription is failure 2.
     *fx.subscribe_failure.lock().unwrap() = Some(rpc::code::EVENTS_EXPIRED);
+    let expired = fx.subscribe(&path).await.unwrap_err();
+    assert_eq!(expired.code, rpc::code::EVENTS_EXPIRED);
     assert_eq!(
-        fx.subscribe(&path).await.unwrap_err().code,
-        rpc::code::EVENTS_EXPIRED
+        expired.data,
+        Some(contracts::RpcErrorData::EventsExpired { oldest: 6 })
+    );
+    let native = tauri::ipc::InvokeError::from(expired);
+    assert_eq!(
+        native.0,
+        json!({"code": -32009, "message":"subscription refused", "data":{"kind":"events-expired", "oldest":6}})
     );
     assert!(
         fx.app

@@ -179,6 +179,7 @@ Names and App labels use this table (`AGENTS.md` rule 6). Avoid entries govern p
 | Daemon | Daemon | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | Idle evidence | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | Daemon recovery | — |
+| RPC error data (`RpcErrorData`) | none | — |
 | Link (`link.read`) | Link | — |
 | Context menu (`show_context_menu`) | Context menu | — |
 | openTarget | openTarget | — |
