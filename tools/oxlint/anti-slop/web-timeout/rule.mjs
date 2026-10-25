@@ -89,10 +89,14 @@ function registration(source, node, seen = new Set()) {
 
 function objectProperty(source, node, name, seen = new Set()) {
   node = unwrap(node);
-  if (!node || seen.has(node)) return undefined;
+  if (!node) return undefined;
+  if (seen.has(node)) return node;
   seen = new Set(seen).add(node);
-  if (node.type === "Identifier") return objectProperty(source, initializer(source, node), name, seen);
-  if (node.type !== "ObjectExpression") return undefined;
+  if (node.type === "Identifier") {
+    const init = initializer(source, node);
+    return init ? objectProperty(source, init, name, seen) : node;
+  }
+  if (node.type !== "ObjectExpression") return node;
   let result;
   for (const property of node.properties) {
     if (property.type === "SpreadElement") {
