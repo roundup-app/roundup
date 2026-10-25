@@ -191,5 +191,8 @@ export const trackScrollbars = (doc: Document): void => {
   };
 
   observe(doc);
-  doc.defaultView?.addEventListener("resize", flush);
+  doc.defaultView?.addEventListener("resize", () => {
+    discover(doc);
+    flush();
+  });
 };
