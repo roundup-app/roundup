@@ -108,15 +108,61 @@ describe("u1 calls and events", () => {
   it("u1_a_log_older_than_its_window_replays_from_the_oldest_kept_event", async () => {
     const app = createFakeApp();
     const subscribe = app.subscribe;
+    app.head = 6;
+    const retained = [{ ...created(5), seq: 5 }, { ...created(6), seq: 6 }];
     app.subscribe = async (listener, after) => {
-      if (after === 0) throw new RpcError(-32009, "after 0 is older than the log keeps; the oldest kept Event number is 5");
+      const head = await subscribe(listener, after);
 
-      return subscribe(listener, after);
+      if (after === 0) throw new RpcError(-32009, "arbitrary diagnostic", { kind: "events-expired", oldest: 5 });
+      retained.forEach(listener);
+
+      return head;
     };
 
-    await connectEvents(app);
+    const events = await connectEvents(app);
+    const replay: DaemonEvent[] = [];
+    const live: DaemonEvent[] = [];
+    events.subscribe(event => live.push(event));
+    events.subscribe(event => replay.push(event), { replay: true });
+    app.emit({ ...created(7), seq: 7 });
 
-    expect(app.subscribed).toEqual([{ after: 4 }]);
+    expect(app.subscribed).toEqual([{ after: 0 }, { after: 4 }]);
+    expect(replay).toEqual([...retained, { ...created(7), seq: 7 }]);
+    expect(live).toEqual([{ ...created(7), seq: 7 }]);
+  });
+
+  it("u3791b_copy_depends_on_codes_not_messages_for_event_recovery_through_native_adapter", async () => {
+    const diagnostic = "oldest kept Event number is 999";
+
+    const cases = [
+      { code: -32009, message: diagnostic, data: { kind: "events-expired", oldest: 5 }, after: 4 },
+      { code: -32009, message: "unrelated 🦀 diagnostic", data: { kind: "events-expired", oldest: 5 }, after: 4 },
+      { code: -32009, message: diagnostic, data: { kind: "events-expired", oldest: 8 }, after: 7 },
+      { code: -32003, message: diagnostic, data: { kind: "events-expired", oldest: 5 } },
+      ...[undefined, null, { kind: "future", oldest: 5 }, ...[0, -1, 1.5, "5", Number.MAX_SAFE_INTEGER + 1].map(oldest => ({ kind: "events-expired", oldest }))]
+        .map(data => ({ code: -32009, message: diagnostic, data })),
+    ];
+
+    for (const failure of cases) {
+      const requested: unknown[] = [];
+      mockIPC((command, args) => {
+        if (command !== "subscribe" || !args || !("after" in args)) return null;
+        requested.push(args.after);
+
+        if (args.after === 0) throw JSON.parse(JSON.stringify(failure));
+
+        return 10;
+      });
+      const connected = connectEvents(createTauriApp().forProject("/p"));
+
+      if ("after" in failure) {
+        await connected;
+        expect(requested).toEqual([0, failure.after]);
+      } else {
+        await expect(connected).rejects.toMatchObject({ code: failure.code, message: diagnostic });
+        expect(requested).toEqual([0]);
+      }
+    }
   });
 
   it("u1_a_subscriber_that_unsubscribed_hears_nothing_more", async () => {
