@@ -152,6 +152,7 @@ export const AskBar = (props: {
 
   const dialog = createMemo(() => {
     if (!over()) return null;
+
     const [value, dispose] = createRoot(dispose => [useDialog(() => ({
       defaultOpen: true, modal: false, trapFocus: false, preventScroll: false,
       closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: false,
@@ -159,6 +160,7 @@ export const AskBar = (props: {
       initialFocusEl: () => openingFocus.target(() => field),
       onOpenChange: details => { if (!details.open) close(true); },
     })), dispose] as const);
+
     onCleanup(dispose);
 
     return value;
