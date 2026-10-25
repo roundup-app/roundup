@@ -577,6 +577,21 @@
       "file": "apps/desktop/src/todos/u3720_real_daemon_owner.test.tsx",
       "cut": "Duplicate scrollTop appearance assertion in automatic handoff",
       "replacement": "u3311_real_daemon_delegate_board retains focused control, assignment/readback, prompt and reload assertions; rendered observer owns geometry."
+    },
+    {
+      "file": "apps/desktop/src/shelf/u458_lifetime.test.tsx",
+      "cut": "Single-selection toolbar count after refetch",
+      "replacement": "u458_selection_survives_refetch_by_identity retains aria-pressed on the renamed/reordered identity; U3789d rendered single-selection captures own the two-control budget. Multi-selection counts remain in u458_pointer_toggle_and_range_follow_visible_order."
+    },
+    {
+      "file": "apps/desktop/src/app/u3560_browser.test.ts",
+      "cut": "Focus a possibly folded Pad row by display name",
+      "replacement": "Explicitly unfold Unassigned and select fixture-3 before Return. All u3560c clipboard/source-preservation assertions remain unchanged; u3789a_click_selects_without_opening and u3789a_return_and_open_activate_once prove the split gesture."
+    },
+    {
+      "file": "apps/desktop/src/shelf/u458_selection.test.tsx",
+      "cut": "Single-selection bulk Cancel setup",
+      "replacement": "u460_multi_selection_cancel_clears_without_calls retains cancellation and zero deletion calls for the actual bulk toolbar; u458_hidden_rows_and_context_changes_clear_selection and u3789a_selection_keeps_ranges_and_disclosures_plain_click_replaces_selection retain single-selection lifetime."
     }
   ]
 }

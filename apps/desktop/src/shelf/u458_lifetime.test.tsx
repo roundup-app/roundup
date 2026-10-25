@@ -12,7 +12,6 @@ it("u458_selection_survives_refetch_by_identity", async () => {
   app.emit({ actor: USER, name: "todo.updated", data: store.todos[1]! });
   const changed = await screen.findByRole("button", { name: /#2 changed/ });
   expect(changed.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByText("1 selected")).toBeTruthy();
 });
 
 it("u458_hidden_rows_and_context_changes_clear_selection", async () => {

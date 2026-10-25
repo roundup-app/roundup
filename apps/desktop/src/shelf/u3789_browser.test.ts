@@ -191,3 +191,51 @@ it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
   await browser("press", "Escape");
   await wait("!document.querySelector('.drawer[data-open=true]')");
 }, 120_000);
+
+it("u3789d_single_selection_and_retained_rail_failure", async () => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    const stage = base ? "base" : "head";
+    await load("tree-40", base);
+    await overview();
+    await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+    await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
+    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.todo-row-button')");
+    await shot("U3789d", stage, "tree-40-shelf-select");
+    await browser("eval", "document.querySelector('.drawer[data-open=true] .close')?.click()");
+    await wait("!document.querySelector('.drawer[data-open=true]')");
+    await browser("click", "#shelf-tab-pads");
+    await wait("document.querySelector('.pads-tab')");
+    await shot("U3789d", stage, "tree-40-pads-rest");
+    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+    await browser("click", '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name');
+    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.pad-name')");
+    await shot("U3789d", stage, "tree-40-pads-select");
+    await load("conflict", base);
+    await browser("click", "#shelf-tab-pads");
+    await wait("document.querySelector('.pads-tab')");
+    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+    await browser("focus", '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name');
+    await browser("press", "Enter");
+    await wait("document.querySelector('.drawer[data-open=true]')");
+    await shot("U3789d", stage, "conflict-pad");
+  }
+
+  await load("tree-40");
+  await browser("click", '.rail-row[data-id="tokens"]');
+  await browser("press", "F2");
+  await wait("document.activeElement?.getAttribute('aria-label') === 'Name'");
+  await browser("fill", '.rail-row[data-id="tokens"] input', "  exact 日本語 🌱  ");
+  await browser("eval", "window.__fake.failNext(-32003, 'name already taken')");
+  await browser("press", "Enter");
+  await wait("document.querySelector('[role=alert]')?.textContent.includes('name already taken')");
+  await browser("click", '.rail-row[data-id="agent-4"]');
+  await wait("document.activeElement?.closest('[data-id]')?.dataset.id === 'agent-4'");
+  await shot("U3789d", "head", "rail-rename-failure-after-selection");
+  await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
+  await wait("document.activeElement?.matches('.rail-row[data-id=tokens] input')");
+  expect(await read("document.activeElement.value")).toBe("  exact 日本語 🌱  ");
+  await shot("U3789d", "head", "rail-rename-retry");
+}, 180_000);

@@ -19,7 +19,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { agentKindsBelow, ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
+import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
@@ -509,8 +509,11 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
-      failure.clear();
-      rail.clearWorkstreamFailure();
+      if (!failure.retry()) {
+        failure.clear();
+        rail.clearWorkstreamFailure();
+      }
+
       rail.clearStorageFailure();
     };
 
@@ -670,7 +673,7 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onFailure={(message) => failure.show(message, view().node.id)}
+                          onFailure={(message) => failure.show(message, view().node.id, "rail", () => setEditingName(view().node.id))}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
@@ -776,8 +779,12 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
-      <ReservedLine overlay message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+        <Show when={failure.retry()}>{retry => <>
+          <button data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
+          <button data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
+        </>}</Show>
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
