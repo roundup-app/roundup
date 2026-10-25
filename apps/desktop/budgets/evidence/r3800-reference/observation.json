@@ -1,0 +1,31 @@
+{
+  "reference": "bf359ad82603917411a8208317b76aabe060ffa7",
+  "command": "just perf",
+  "exit": 2,
+  "result": "Observer error: machine class linux-7763: no measured baseline for ping_p95_ms",
+  "report": "No target/perf.json emitted; class selection failed before conclude",
+  "host": "Linux runnervmtai0g 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "affinity": "Cpus_allowed_list:\t0-3",
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "hashes": {
+    "perf": "850c19885aa10f517cf9ffd63cccffc27dd7d5dda6d84e4a1a06da705746f9df",
+    "rupd": "662feafe84dcf1f544326cf5ed95804027b2f166396afb5615bdeb50ceb38cea",
+    "rup": "fcc70f4c54419c583edce78e365d17bdacec3a4657b855f62ce4c9ff85c2e91a"
+  },
+  "production_entry": {
+    "file": "assets/index-C_ycAV71.js",
+    "raw": 1717772,
+    "gzip_level_9": 505299,
+    "build_exit": 0
+  },
+  "prerequisite": 3706,
+  "notes": [
+    "No Rust, profile, perf source, workload or budget changed before the reference run.",
+    "The run collected eleven Daemons; its load lines and all eleven startup logs are retained.",
+    "No passing or unskipped regression observation is claimed.",
+    "The import prototype was withdrawn before committing production changes because acceptance needs the unavailable regression observer."
+  ]
+}

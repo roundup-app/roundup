@@ -1,0 +1,26 @@
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { Plugin } from "vite";
+
+/** R3800/C9 share the production bundler's module identities, bound to emitted bytes. */
+export const buildModules = (): Plugin => ({
+  name: "roundup-build-modules",
+  apply: "build",
+  writeBundle: {
+    order: "post",
+    handler(options, bundle) {
+      if (!options.dir) throw new Error("production output directory is missing");
+      const root = resolve(options.dir);
+
+      const files = Object.fromEntries([...Object.keys(bundle), ".vite/manifest.json"].map(file => [
+        file, createHash("sha256").update(readFileSync(resolve(root, file))).digest("hex"),
+      ]));
+
+      const chunks = Object.fromEntries(Object.entries(bundle).flatMap(([file, output]) => output.type === "chunk" ? [[file, Object.keys(output.modules)]] : []));
+
+      mkdirSync(resolve(root, ".vite"), { recursive: true });
+      writeFileSync(resolve(root, ".vite/modules.json"), JSON.stringify({ files, chunks }, null, 2));
+    },
+  },
+});
