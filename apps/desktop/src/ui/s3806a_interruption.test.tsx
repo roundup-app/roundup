@@ -33,7 +33,7 @@ const owners = ["move", ...ZONES.map(zone => zone.name), "pull"];
 const rows = owners.flatMap(owner => ["window-blur", "element-blur", "focus-transfer", "pointercancel", "capture-blur"].flatMap(trigger =>
   (trigger === "capture-blur" ? (owner === "pull" ? [] : ["before"]) : (owner === "move" ? ["before", "moved"] : ["before", "queued", "moved"])).map(phase => ({ owner, trigger, phase }))));
 
-rows.push(...["window-blur", "element-blur", "focus-transfer", "pointercancel", "selection", "replacement", "unmount", "rejection", "release", "held"].map(trigger => ({ owner: "pull-open", trigger, phase: "pending" })));
+rows.push(...["window-blur", "element-blur", "focus-transfer", "pointercancel", "selection", "replacement", "unmount", "rejection", "release", "pressed"].map(trigger => ({ owner: "pull-open", trigger, phase: "pending" })));
 
 const pendingPull = async (trigger: string) => {
   const mounted = await mountBubbles("other");
@@ -52,7 +52,7 @@ const pendingPull = async (trigger: string) => {
   if (trigger === "release") pointer("pointerup", window, 2);
   else if (trigger === "selection" || trigger === "replacement") mounted.connected.rail.select("w");
   else if (trigger === "unmount") cleanup();
-  else if (trigger !== "held") interrupt(trigger === "rejection" ? "window-blur" : trigger, target);
+  else if (trigger !== "pressed") interrupt(trigger === "rejection" ? "window-blur" : trigger, target);
 
   if (trigger === "replacement") {
     pointer("pointerdown", target, 2, 400, 300);
@@ -69,8 +69,8 @@ const pendingPull = async (trigger: string) => {
   await frame();
   await frame();
 
-  if (trigger === "held") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
-  pointer("pointermove", window, 2, trigger === "held" ? 500 : 700, trigger === "held" ? 160 : 500);
+  if (trigger === "pressed") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
+  pointer("pointermove", window, 2, trigger === "pressed" ? 500 : 700, trigger === "pressed" ? 160 : 500);
   pointer("pointerup", window, 2);
   await frame();
   expect(bubbleCalls(mounted.app, "terminal.open")).toHaveLength(1);
@@ -78,7 +78,7 @@ const pendingPull = async (trigger: string) => {
   expect(placesStorage("/p").read()["2"]).toEqual(settled);
 
   if (trigger === "release") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
-  else if (trigger === "held") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 192, y: 160, min: false });
+  else if (trigger === "pressed") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 192, y: 160, min: false });
   else if (trigger === "rejection") expect(document.querySelector('[role="alert"]')).not.toBeNull();
   else expect(placesStorage("/p").read()["9"]?.min).toBe(true);
 
