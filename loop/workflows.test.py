@@ -218,13 +218,13 @@ class Build(unittest.TestCase):
             for setting in ('', '[]', '[124]'):
                 with self.subTest(workflow=workflow, setting=setting):
                     self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': setting}),
-                                     ['ubuntu-latest'])
+                                     ['ubuntu-24.04'])
             self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': '[123]'}),
                              ['self-hosted', 'boxd', f'roundup-{"build" if job == "build" else "fix"}-123-7-2'])
         for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             runner = source.split(f'\n  {workflow}-run:', 1)[1].split('runs-on: ', 1)[1].split('\n', 1)[0]
-            self.assertEqual(runner, 'ubuntu-latest')
+            self.assertEqual(runner, 'ubuntu-24.04')
 
     def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
