@@ -4,14 +4,14 @@ export EVIDENCE
 analysis=$(mktemp -d /tmp/r23-analysis.XXXXXX)
 export analysis
 python3 - <<'PY'
-import os,json,hashlib
+import os,json,hashlib,gzip
 from pathlib import Path
 source=Path(os.environ['EVIDENCE']);out=Path(os.environ['analysis'])
 for f in source.glob('*.parts.json'):
     m=json.loads(f.read_text());h=hashlib.sha256();size=0
     with (out/m['original']).open('wb') as target:
         for part in m['parts']:
-            block=(source/part).read_bytes();target.write(block);h.update(block);size+=len(block)
+            block=gzip.decompress((source/part).read_bytes());target.write(block);h.update(block);size+=len(block)
     assert h.hexdigest()==m['sha256'] and size==m['size']
 PY
 # Restores the exact captured binaries for later symbolization.

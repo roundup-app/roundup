@@ -8,7 +8,9 @@ ceilings; their stdout names every miss. All skipped lists are empty.
 
 Wall seconds include startup, cleanup and recorder drain, including the same
 20 ms /proc association sampler. They are observer overhead controls, not a
-per-write correction or a measurement of a dominant cause. Existing metric
+per-write correction or a measurement of a dominant cause. Retention compression
+of the large V2 attempt overlapped some V3 diagnostics; that background cost
+also prevents treating these controls as an isolated overhead bound. Existing metric
 values remain in each raw report; no new stage percentiles or CPU table is made.
 
 | Invocation / command | Wall s | Loads / CPUs | Exit |
@@ -66,6 +68,7 @@ warnings and any other recorder diagnostics remain in each stderr.
 | [candidate-instrumented-build](candidate-instrumented-build.command) | candidate + initial patch | E0716 temporary labels across select; V2 uses owned labels. | 101 |
 | [collector-attempt1](collector-attempt1.command) | historical unmodified/common | Python could not read root-owned perf.data after successful capture/extraction. Privileged streaming copy retained it. | 1 |
 | [collector-attempt2](collector-attempt2.command) | historical V2/common | Explicit SIGTERM during large-file retention after extraction. Original raw file and extracted output retained with privileged copy and verified recompression. | 143 |
+| [validation-final-lint-web](validation-final-lint-web.command) | evidence packaging | Split binary fragment was treated as text, causing UTF-8 decoding failure. Each part now has a gzip wrapper; original stream hashes remain identical. | 1 |
 | [validation-perf-tests](validation-perf-tests.command) | main checkout | Debug rup/rupd prerequisites had not been built; N7/R20 launches failed. Built both and reran all 98 perf tests successfully. | 100 |
 | [validation-lint-web](validation-lint-web.command) | evidence | Raw kernel comm spellings/hash fragments failed typos; raw text compressed without changing bytes before rerun. | 1 |
 
@@ -173,7 +176,12 @@ elapsed seconds and actual status. Empty streams remain empty files.
 | [reuse-tokio-release](reuse-tokio-release.command) | 0 |
 | [source-identities](source-identities.command) | 0 |
 | [validation-debug-prerequisites](validation-debug-prerequisites.command) | 0 |
+| [validation-final-lint-rust](validation-final-lint-rust.command) | 0 |
+| [validation-final-lint-web-retry](validation-final-lint-web-retry.command) | 0 |
+| [validation-final-lint-web](validation-final-lint-web.command) | 1 |
+| [validation-final-perf-tests](validation-final-perf-tests.command) | 0 |
 | [validation-lint-rust](validation-lint-rust.command) | 0 |
 | [validation-lint-web](validation-lint-web.command) | 1 |
 | [validation-perf-tests-retry](validation-perf-tests-retry.command) | 0 |
 | [validation-perf-tests](validation-perf-tests.command) | 100 |
+| [wrapped-parts-verify](wrapped-parts-verify.command) | 0 |

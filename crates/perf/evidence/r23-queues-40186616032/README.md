@@ -91,7 +91,8 @@ These are identity examples, not clean timings or an attribution result.
 All workload/control/status rows, including failures, are in [controls.md](controls.md).
 Every workload exits 1 against diagnostic scratch ceilings; skipped lists are
 empty. Common/marked controls exist against each identical unmodified and V3
-Daemon. A single control comparison establishes no repeatable overhead bound.
+Daemon. V2 retention compression overlapped some V3 diagnostics. That background cost
+and a single control comparison establish no repeatable isolated overhead bound.
 
 ## Remaining observations and bounds
 
@@ -128,8 +129,8 @@ The first V2/common kernel attempt generated a large observer-feedback recording
 Its raw data and extracted output are preserved as zstd streams split into
 32 MiB parts. Their manifests pin concatenation order, whole compressed SHA-256
 and size; `.uncompressed-sha256` records verify recompression retained every byte.
-The executable archive uses the same splitting convention. No chunk is a
-standalone compressed stream. All other large raw text is losslessly gzip
+The executable archive uses the same splitting convention. Each part has a gzip wrapper; decompress each part before concatenating the
+original compressed stream. A decompressed part alone is not a complete stream. All other large raw text is losslessly gzip
 compressed. `checksums.json.gz` covers every retained file except itself.
 
 R8 pins, R13 load qualification, R15 pacing, R16 ceilings, rule 7 absolute
