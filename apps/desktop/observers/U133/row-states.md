@@ -61,7 +61,7 @@ Fresh isolated headless Chromium 155 captures at 1512×950 in dark pass every
 existing Check on all five named seeds, selected/focused Rail rows and the dense
 failed completion. Its visible recovery text reads “Completion refused. Retry
 after reconnecting.” Space opens the focused owned-items disclosure.
-PNGs and per-seed readings remain under `artifacts/ux/U133/after/integrated-*`.
+PNG files and per-seed readings remain under `artifacts/ux/U133/after/integrated-*`.
 Recording again returns “No frames captured” after ffmpeg installation; no video
 pass is claimed. The original paired row-state evidence above remains applicable.
 
