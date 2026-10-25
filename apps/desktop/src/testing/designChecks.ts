@@ -72,7 +72,7 @@ export function rowCueCheck(doc: Document, rules: CSSStyleRule[]) {
 /** U131: local title offsets and visible Glyph edge against the first-line font baseline. */
 export function rowAlignmentCheck(doc: Document) {
   const view = doc.defaultView!;
-  const names = [...doc.querySelectorAll('.rail-row .name, .shelf-row .shelf-title, .terminal-tab-name')].filter(el => !el.closest('[hidden], [aria-hidden=true]'));
+  const names = [...doc.querySelectorAll('.rail-row .name, .rail-fold-name, .shelf-row .shelf-title, .terminal-tab-name')].filter(el => !el.closest('[hidden], [aria-hidden=true]'));
   const laidOut = names.filter(visible);
 
   if (names.length && !laidOut.length) return result("not measurable", "", false);
@@ -85,10 +85,10 @@ export function rowAlignmentCheck(doc: Document) {
   const readings: Alignment[] = [];
 
   for (const name of laidOut) {
-    const row = name.closest('.rail-row, .shelf-row, .terminal-tab-pair')!;
+    const row = name.closest('.rail-row, .rail-fold, .shelf-row, .terminal-tab-pair')!;
     const style = view.getComputedStyle(name);
     const rowStyle = view.getComputedStyle(row);
-    const rail = row.matches(".rail-row");
+    const rail = row.matches(".rail-row, .rail-fold");
 
     const indent = rail ? parseFloat(rowStyle.gridTemplateColumns) - parseFloat(rowStyle.getPropertyValue("--rail-inset"))
       : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--space-4")) : 0;

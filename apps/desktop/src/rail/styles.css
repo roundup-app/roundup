@@ -77,7 +77,8 @@
   pointer-events: none;
 }
 
-.rail-row .line {
+.rail-row .line,
+.rail-fold > button {
   min-width: 0;
   min-height: inherit;
   display: flex;
@@ -103,7 +104,8 @@
 }
 
 /* U131: reserve the same leading columns on branches and leaves. */
-.rail-row .line > .row-state {
+.rail-row .line > .row-state,
+.rail-fold > button > .glyph {
   margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
 
