@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   rules:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # L89: a failed step leaves the later ones running, so one run reports every failure.
     steps:
       - uses: actions/checkout@v5
