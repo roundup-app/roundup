@@ -353,6 +353,16 @@ encoding cost, calibrate Daemon clocks, or establish a latency repair. The
 previously retained five-span reports remain historical evidence; new reports
 require both additional spans, or exit 2.
 
+The collector also requires every required hop's sample count to equal the
+rendered sample count, with finite, nonnegative, ordered p50/p95 values. Rendered
+samples plus drops must account for the requested measured keys; drops can also
+include warm-up keys. Incomplete or invalid attribution exits 2 and names the
+run and hop/count. A valid distribution with dropped keys still exits 1. The
+no-window `r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict` and
+`r20_missing_measured_keys_cannot_be_silently_skipped` regressions both failed
+before the validation repair. This changes report validation, not the input path
+or any retained native timing.
+
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
 and a calibrated offset. R20 requires those boundaries even when that coarse
