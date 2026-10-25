@@ -5,7 +5,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use contracts::reaction::{Condition, LatePolicy, PreviewParams, Reaction, State};
+use contracts::reaction::{
+    Condition, LatePolicy, ObservationCause as Cause, ObservationHealth as Health, PreviewParams,
+    Reaction, State,
+};
 use rpc::RpcError;
 use rusqlite::params;
 use time::OffsetDateTime;
@@ -158,13 +161,8 @@ impl Timer {
             let now = (self.clock)();
             match judge(at, expires, *late, now) {
                 Verdict::Wait(left) => next = Some(next.map_or(left, |n| n.min(left))),
-                Verdict::Expired => self
-                    .reactions
-                    .mark(&saved.id, "expired: no firing at or after expires_at"),
-                Verdict::Skip => self.reactions.mark(
-                    &saved.id,
-                    "skipped: the instant was missed and the late policy is skip",
-                ),
+                Verdict::Expired => self.reactions.mark(&saved.id, Health::Expired),
+                Verdict::Skip => self.reactions.mark(&saved.id, Health::Skipped),
                 Verdict::Fire { late } => self.fire(&saved, at, now, late).await,
             }
         }
@@ -184,7 +182,7 @@ impl Timer {
             "observed": stamp(now.to_offset(time::UtcOffset::UTC)),
             "late": late,
         });
-        let refuse = |why: RpcError| {
+        let refuse = |cause: Cause, why: RpcError| {
             let db = self
                 .reactions
                 .db
@@ -193,6 +191,9 @@ impl Timer {
             let _ = db.execute(
                 "UPDATE reactions SET record = json_set(record,
                    '$.observation.health', 'acceptance-failed',
+                   '$.observation.health_code', 'acceptance-failed',
+                   '$.observation.cause_code', ?5,
+                   '$.observation.recovery_code', 'retry-acceptance',
                    '$.observation.cause', ?2,
                    '$.observation.recovery', ?3,
                    '$.observation.evidence', ?4) WHERE id = ?1",
@@ -201,11 +202,19 @@ impl Timer {
                     why.message,
                     "remove the acceptance failure; the timer retries on its next wake or Project reopen, applying the saved late policy and expiry",
                     evidence.to_string(),
+                    serde_json::to_value(cause).expect("cause serializes").as_str(),
                 ],
             );
         };
         if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
-            return refuse(why);
+            return refuse(
+                match why.code {
+                    rpc::code::NOT_FOUND => Cause::AgentUnavailable,
+                    rpc::code::FORBIDDEN => Cause::AuthorityRefused,
+                    _ => Cause::Unknown,
+                },
+                why,
+            );
         }
         let fired = self
             .messages
@@ -219,10 +228,15 @@ impl Timer {
             })
             .await;
         match fired {
-            Ok(_) => self
-                .reactions
-                .mark(&saved.id, if late { "fired late" } else { "fired" }),
-            Err(why) => refuse(why),
+            Ok(_) => self.reactions.mark(
+                &saved.id,
+                if late {
+                    Health::FiredLate
+                } else {
+                    Health::Fired
+                },
+            ),
+            Err(why) => refuse(Cause::AcceptanceFailed, why),
         }
     }
 }
@@ -235,8 +249,9 @@ impl Reactions {
             "SELECT record FROM reactions
              WHERE json_extract(record, '$.state') = 'active'
                AND json_extract(record, '$.condition.kind') = 'instant'
-               AND (json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed')
-                    OR json_extract(record, '$.observation.health') LIKE 'refused:%')
+               AND (json_extract(record, '$.observation.health_code') IN ('not-observing', 'waiting', 'acceptance-failed')
+                    OR (json_type(record, '$.observation.health_code') IS NULL
+                        AND json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed')))
                AND NOT EXISTS (SELECT 1 FROM reaction_firings WHERE reaction = reactions.id)",
         ) else {
             return Vec::new();
@@ -252,12 +267,30 @@ impl Reactions {
     }
 
     /// Records why a watch ended, in the saved definition's observation.
-    fn mark(&self, id: &str, health: &str) {
+    fn mark(&self, id: &str, health: Health) {
         let db = self.db.lock().expect("reaction database poisoned");
         let _ = db.execute(
             "UPDATE reactions SET record = json_set(record, '$.observation.health', ?2,
+                '$.observation.health_code', ?3, '$.observation.cause_code', 'unknown',
+                '$.observation.recovery_code', 'unknown',
                 '$.observation.cause', NULL, '$.observation.recovery', NULL) WHERE id = ?1",
-            params![id, health],
+            params![
+                id,
+                match health {
+                    Health::FiredLate => "fired late".to_owned(),
+                    Health::Expired => "expired: no firing at or after expires_at".to_owned(),
+                    Health::Skipped =>
+                        "skipped: the instant was missed and the late policy is skip".to_owned(),
+                    _ => serde_json::to_value(health)
+                        .expect("health serializes")
+                        .as_str()
+                        .expect("health discriminant")
+                        .to_owned(),
+                },
+                serde_json::to_value(health)
+                    .expect("health serializes")
+                    .as_str()
+            ],
         );
     }
 }
