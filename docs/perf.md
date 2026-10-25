@@ -683,6 +683,48 @@ Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
 acceptance, remaining attribution, unchanged-code false-fail evidence and the
 separate later main pass remain open.
 
+### Runtime and store startup phases (#3696)
+
+The retained `open`/`bound` line starts at entry to async `run`, after Tokio
+creates its runtime. `rupd: runtime_ms <number>` measures the default
+multi-thread runtime's creation separately; its worker count and enabled drivers
+are the same as `#[tokio::main]`. No runtime tuning is made.
+
+A `startup: stores <JSON>` record splits `Daemon::open_stores` into adjacent wall
+intervals, in milliseconds:
+
+| Field | Work included |
+|---|---|
+| `storage_ms` | Data-directory creation, fresh image preparation/synchronization, database open and migration check |
+| `base_ms` | Event log, Terminal holder, Touches and Todos |
+| `agents_ms` | Agents open, Rail recovery and timing store |
+| `services_ms` | Checkpoints, Pads, digest/publication/reaction stores and Daemon holders |
+| `messages_ms` | Module registration, Messages, Asks and starting event listeners |
+
+These intervals partition the store-open function; Project path resolution and
+legacy data relocation precede them. They do not partition process creation or
+loader work. The parent cold-start measurement still includes readiness polling
+and the first ping. Subtracting runtime and `bound` from `cold_start_ms` leaves
+all those external costs and diagnostic output, not a pure spawn measurement.
+Plugin materialization and listing-sidecar launch remain deferred and are absent
+from these intervals. Records use standard `Instant`, existing serde_json and
+the already-retained stderr descriptor; no collector or extra program is added.
+Diagnostic formatting/writing occurs after the phase samples and remains part of
+the end-to-end cold-start metric.
+
+`r3696c_cold_start_reports_runtime_and_store_phases` starts an isolated real
+Daemon, waits for the harness's first successful ping and reads the retained
+numeric records. It failed before instrumentation because the phase record was
+absent. The existing harness observer checks ping and cleanup; the perf CLI
+observer separately proves stderr survives a failed startup. Neither proves
+startup attribution.
+
+This supplies attribution for the next Mac observation, not a performance
+repair or full R3696c pass. The latest failing M4 Max A/B at `59cff55cae` predates
+several repairs now on main. Remaining startup/RSS attribution, full same-M4-Max
+acceptance with unchanged budgets, unchanged-code false-fail evidence and the
+separate later main pass remain open. No baseline rebase is justified here.
+
 ### R24 idle App observer
 
 `perf-idle` implements the six-phase release observer; its Linux tests establish
