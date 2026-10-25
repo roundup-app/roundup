@@ -1,0 +1,42 @@
+[
+  {
+    "cls": "rail-leaf",
+    "focus": true,
+    "wash": "none"
+  },
+  {
+    "cls": "shelf-row todo-row",
+    "focus": true,
+    "wash": "none"
+  },
+  {
+    "cls": "rail-leaf",
+    "focus": false,
+    "wash": "none"
+  },
+  {
+    "cls": "shelf-row todo-row",
+    "focus": false,
+    "wash": "none"
+  },
+  {
+    "cls": "rail-leaf",
+    "focus": false,
+    "wash": "none"
+  },
+  {
+    "cls": "shelf-row todo-row",
+    "focus": false,
+    "wash": "none"
+  },
+  {
+    "cls": "rail-leaf",
+    "focus": false,
+    "wash": "none"
+  },
+  {
+    "cls": "shelf-row todo-row",
+    "focus": false,
+    "wash": "none"
+  }
+]
