@@ -45,7 +45,7 @@ tracepoint:sched:sched_switch /@fault[tid].3 && (args.prev_state & 3) && !@block
 }
 kretfunc:filemap_fault /@fault[tid].3/ {
   $f = @fault[tid];
-  if (@blocked[tid] || @samples < 64) {
+  if (@blocked[tid] || @samples < $3) {
     if (!@blocked[tid]) { @samples = @samples + 1; }
     printf("COMPLETED %lu %d %lu %lu %lu %lu %lu %lu %lu %lu %lu %u\n%s\n", $f.0, tid, $f.1, $f.2, $f.3, $f.4, $f.5, $f.6, $f.7, $f.8, nsecs - $f.3, retval, @name[tid]);
   }

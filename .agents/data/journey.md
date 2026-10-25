@@ -55,6 +55,10 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - D3 (#3789, empty groups): an item group with zero items renders nothing; one scoped-list empty line is the only empty state, replaced by add while editing. Empty Rail destinations remain (U3789c).
 - D5 (#3789, row rest): name plus at most one state glyph, failed > blocked > running > done; preserve native attention's non-colour distinction. Secondary facts/actions show on focus or selection, never hover; opacity in reserved space moves no row, with no display swap or !important in row action styles. Actionable failure feedback stays visible (U3789d).
 - F3 (#3789, row budget): a focused/selected row exposes at most two controls including Open, checkbox and disclosure; at rest at most four state marks, with the one-glyph row rule stricter. Keep other actions in the native menu or opened destination (U3789d). These Issue labels do not rename the numbered design Checks.
+- X1 (#3787, U3787a): reversible Todo, Pad, bulk and Rail deletion runs immediately; `Deleted · Undo` and ⌘Z restore the exact chosen work. Confirm only an action whose effects cannot be undone. Undo feedback is action feedback, not routine attention.
+- X2 (#3787, U3787b): every handled command chord appears in the menu bar with its current key and scope; menu and key run one identical action without taking editor or Terminal input.
+- X3 (#3787, U3787c): content-row lists support ↑/↓, Home/End, type-to-select, ⌘A and ⇧/⌘-click; Escape cancels rename, restores the old text and returns focus without a rename call. Form pickers and tabs keep their library semantics.
+- X4 (#3787, U3787d): prompt, path and name editing elements turn spellcheck, autocorrect and autocapitalize off, including conditionally opened fields.
 
 ## Calm screens (#3786)
 
