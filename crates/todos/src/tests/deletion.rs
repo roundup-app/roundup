@@ -4,11 +4,16 @@ use super::*;
 async fn u3787a_undo_restores_original_graph() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
-    made(
-        &h,
-        json!({"title":"first", "body":"retained", "owner":Actor::user(), "estimate_minutes":17}),
+    h.call_as(
+        agent("maker"),
+        "todo.create",
+        json!({"title":"first", "body":"retained", "owner":agent("worker"), "estimate_minutes":17}),
     )
-    .await;
+    .await
+    .unwrap();
+    h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+        .await
+        .unwrap();
     made(&h, json!({"title":"dependent", "blockers":[1]})).await;
     h.call("todo.move", json!({"id":1,"home":"a"}))
         .await
@@ -36,6 +41,12 @@ async fn u3787a_undo_restores_original_graph() {
         .unwrap();
     assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), before);
     assert_eq!(changes(&h, 1).await, history);
+    assert!(
+        h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+            .await
+            .unwrap()
+            .is_null()
+    );
     assert_eq!(
         h.call("todo.comments", json!({"id":1})).await.unwrap(),
         comments
@@ -50,7 +61,7 @@ async fn u3787a_replay_reconciles_only_the_successful_chosen_subset() {
         made(&h, json!({"title":title})).await;
     }
     h.events();
-    let request = json!({"operation":"bulk", "ids":[1,99,1]});
+    let request = json!({"operation":"bulk", "ids":[1,3,1]});
     let first = h.call("todo.delete", request.clone()).await.unwrap();
     made(&h, json!({"title":"arrival"})).await;
     h.events();
@@ -63,7 +74,7 @@ async fn u3787a_replay_reconciles_only_the_successful_chosen_subset() {
     assert_eq!(h.call("todo.delete", request.clone()).await.unwrap(), first);
     assert!(h.events().is_empty());
     assert_eq!(first["deleted"], json!([1]));
-    assert_eq!(first["missing"], json!([99]));
+    assert_eq!(first["missing"], json!([3]));
     h.call("todo.restore", json!({"operation":"bulk"}))
         .await
         .unwrap();
@@ -236,5 +247,46 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
             .await
             .unwrap()["deleted"],
         json!([1, 2])
+    );
+}
+
+#[tokio::test]
+async fn u3787a_coordinated_restore_refusal_rolls_back_every_participant() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    for title in ["survivor", "chosen"] {
+        made(&h, json!({"title":title})).await;
+    }
+    h.call(
+        "todo.delete",
+        json!({"operation":"coordinated-restore", "ids":[2]}),
+    )
+    .await
+    .unwrap();
+    let error = h
+        .todos
+        .restore_with(&Actor::user(), "coordinated-restore", 0, |tx| {
+            tx.execute("UPDATE todos SET title='coordinator change' WHERE id=1", [])
+                .map_err(RpcError::internal)?;
+            Err(RpcError::conflict("coordinator refused"))
+        })
+        .unwrap_err();
+    assert_eq!(error.code, code::CONFLICT);
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "survivor"
+    );
+    assert_eq!(
+        h.call("todo.deletion", json!({"operation":"coordinated-restore"}))
+            .await
+            .unwrap()["state"],
+        "deleted"
+    );
+    h.call("todo.restore", json!({"operation":"coordinated-restore"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":2})).await.unwrap()["title"],
+        "chosen"
     );
 }

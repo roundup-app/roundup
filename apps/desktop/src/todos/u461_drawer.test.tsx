@@ -128,7 +128,7 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
       const { mounted, box, activate } = await doneSurface(surface, input);
       const before = mounted.app.calls.length;
       activate();
-      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { operation: expect.any(String), ids: [1] } }]));
+      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { id: 1 } }]));
       expect(Boolean(mounted.connected.drawer.content())).toBe(surface === "drawer");
       mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
 
