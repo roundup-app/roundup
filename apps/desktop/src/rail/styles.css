@@ -35,8 +35,6 @@
 /* The tree's row is a flex line with its own inset; a Rail row is the indent column and the line. */
 .rail-tree .app-tree {
   padding: 0;
-  /* The selected row is a full-bleed band: its 2 px bar and trailing edge stay square. */
-  --tree-row-radius: 0;
 }
 
 .rail-tree .app-tree .rail-row {
@@ -245,7 +243,7 @@
   font-family: var(--font-ui);
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: calc(var(--space-5) + var(--space-1));
-  /* The leading gap that keeps every glyph clear of the selected row's 2 px bar. */
+  /* The leading gap keeps every glyph clear of the tree's connecting lines. */
   --rail-inset: var(--space-1);
 }
 
@@ -264,10 +262,6 @@
 .rail-tree :is(input, textarea, [role="alert"], .rail-menu) {
   -webkit-user-select: text;
   user-select: text;
-}
-
-.rail-row[data-lifted="true"] {
-  opacity: 0.4;
 }
 
 .drop-line {
@@ -545,15 +539,10 @@
   --button-inline: 0;
 }
 
-/* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
+/* U362: a Todo drop destination keeps one placement wash. */
 .rail-row[data-todo-drop],
 .rail-row[data-todo-drop]:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-.rail-row[data-todo-drop][data-selected="true"],
-.rail-row[data-todo-drop][data-selected="true"]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
 }
 
 /* U466: backgrounds span the Rail; each content row owns its inset. */
@@ -579,23 +568,17 @@
   font-size: var(--text-row);
 }
 
-/* U466: the leaf owns the wash so nesting cannot inset its selection bar. */
+/* U466: the leaf owns the wash so nesting cannot inset its selected ground. */
 .rail-leaf:hover,
 .rail-fold:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
+  color: var(--text);
 }
 
-.rail-leaf:has([data-selected="true"]) {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
+.rail-leaf:is(:has([data-selected="true"]), :focus-within):not(:has([data-dnd-dragging])) {
+  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
-.rail-leaf:has([data-selected="true"]):hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.rail .rail-leaf .shelf-row:is(:hover, [data-selected="true"]) {
+.rail-leaf .shelf-row:is([data-selected="true"], :focus-within, [data-lifted="true"]):not([data-dnd-dragging]) {
   background-image: none;
 }
 
@@ -709,10 +692,6 @@
   background: var(--hover);
 }
 
-.rail-tree [data-dnd-dragging] {
-  border-radius: var(--tree-row-radius);
-}
-
 /* U2556c: reserve actions so hover and selection never move Worktree state. */
 .worktree-chip {
   flex: none;
@@ -722,10 +701,6 @@
   color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
-}
-
-.rail-row[data-selected="true"] .worktree-chip {
-  color: var(--text);
 }
 
 .rail-row .row-name-state {
@@ -767,8 +742,7 @@
     display: none;
   }
 }
-.worktree-chip[data-stale="true"],
-.rail-row[data-selected="true"] .worktree-chip[data-stale="true"] {
+.worktree-chip[data-stale="true"] {
   color: var(--grey);
 }
 .rail-row:has(.row-name-state) .row-icons {

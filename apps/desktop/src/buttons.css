@@ -72,12 +72,12 @@ button {
   color: var(--text);
 }
 
-/* U137: the Add Agent icon and label rest at a stronger grey on the selected wash to keep D5; hover reaches --text. */
-.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+/* U133: Add Agent keeps the same legible ink on a plain or selected row. */
+.rail-row button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row[data-selected="true"] button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--text);
 }
 
@@ -100,8 +100,9 @@ button:hover:not([aria-disabled="true"]),
 
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
 /* Opacity also reaches independently coloured Glyphs and filled controls whose label overrides the pressed ink (U133). */
-button:active:not(:disabled, [aria-disabled="true"], [data-disabled]),
-button[data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+/* Sortable ends the transient press when dragging begins, leaving only the row's selected wash. */
+button:active:not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)),
+button[data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
   opacity: var(--press-opacity);
   transition: none;
@@ -138,8 +139,8 @@ button[aria-disabled="true"] {
   cursor: default;
 }
 
-/* U137: a disabled add keeps one distinct ink with D5 contrast on the selected wash. */
-.rail-row[data-selected="true"] .rail-add[aria-disabled="true"] {
+/* A disabled add keeps its ink when selection or focus changes the row ground. */
+.rail-row .rail-add[aria-disabled="true"] {
   color: var(--grey);
 }
 

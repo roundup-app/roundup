@@ -3,14 +3,15 @@
   margin: 0 !important;
 }
 
-/* A plain Sortable list (rows inside a tree) draws no radius: the lifted row keeps its fill. */
+/* U133: the lifted row retains the selected wash over its original region's
+   opaque ground, including when Feedback promotes it to the top layer. */
 [data-dnd-dragging] {
   background-color: var(--ground);
   background-image: linear-gradient(var(--selected), var(--selected));
 }
 
-[data-dnd-dragging]:not([data-plain] *) {
-  border-radius: var(--radius-row);
+:is(.rail, .shelf) [data-dnd-dragging] {
+  background-color: var(--sunken);
 }
 
 /* The drop line is the only drop marker; the slot keeps the row space the library opens. */

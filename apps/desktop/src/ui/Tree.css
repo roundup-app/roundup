@@ -1,6 +1,6 @@
 .app-tree {
   padding: var(--space-1);
-  --tree-row-radius: var(--radius-row);
+  --tree-row-cue: linear-gradient(var(--selected), var(--selected));
 }
 
 .app-tree [data-part="branch-control"],
@@ -24,7 +24,7 @@
 
 .app-tree [data-part="branch-control"]:hover,
 .app-tree [data-part="item"]:hover {
-  background-color: var(--hover);
+  color: var(--text);
 }
 
 [data-scope="tree-view"][data-part="label"] {
@@ -32,19 +32,9 @@
   font: inherit;
 }
 
-.app-tree [data-part="branch-control"][data-selected],
-.app-tree [data-part="item"][data-selected] {
-  background-color: transparent;
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-position: left top;
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
-  border-radius: var(--tree-row-radius);
-}
-
-.app-tree [data-part="branch-control"][data-selected]:hover,
-.app-tree [data-part="item"][data-selected]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+/* U133: native focus and selection share one cue, including a combined state. */
+.app-tree :is([data-part="branch-control"], [data-part="item"]):is([data-selected], :focus-within) {
+  background-image: var(--tree-row-cue);
 }
 
 .app-tree [data-part="branch"]:hover {
