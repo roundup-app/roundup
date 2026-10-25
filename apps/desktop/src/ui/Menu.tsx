@@ -11,6 +11,15 @@ import "./Menu.css";
 
 const Owner = createContext<{ setElement: (element: HTMLElement) => void; setContent: (element: HTMLElement) => void; request: () => void; returning: () => void }>();
 
+const trackOpening = (element: HTMLElement, request: () => void) => {
+  const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) request(); };
+
+  element.addEventListener("click", request, true);
+  element.addEventListener("contextmenu", request, true);
+  element.addEventListener("keydown", key, true);
+  onCleanup(() => { element.removeEventListener("click", request, true); element.removeEventListener("contextmenu", request, true); element.removeEventListener("keydown", key, true); });
+};
+
 export const Menu = {
   ...ArkMenu,
   Root: (props: ArkMenu.RootProps & { initialFocus?: ReturnType<typeof captureFocus> | undefined }) => {
@@ -32,6 +41,7 @@ export const Menu = {
     const locale = useLocaleContext();
     const environment = useEnvironmentContext();
 
+    // Zag 1.45 focusMenu/focusTrigger: https://github.com/chakra-ui/zag/blob/main/packages/machines/menu/src/menu.machine.ts
     const machine: typeof menu.machine = {
       ...menu.machine,
       implementations: {
@@ -71,13 +81,7 @@ export const Menu = {
 
     return <ArkMenu.Trigger {...props} ref={(element: HTMLButtonElement) => {
       owner?.setElement(element);
-      const request = () => owner?.request();
-      const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) request(); };
-
-      element.addEventListener("click", request, true);
-      element.addEventListener("contextmenu", request, true);
-      element.addEventListener("keydown", key, true);
-      onCleanup(() => { element.removeEventListener("click", request, true); element.removeEventListener("contextmenu", request, true); element.removeEventListener("keydown", key, true); });
+      trackOpening(element, () => owner?.request());
 
       // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
       (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
@@ -88,13 +92,7 @@ export const Menu = {
 
     return <ArkMenu.ContextTrigger {...props} ref={(element: HTMLButtonElement) => {
       owner?.setElement(element);
-      const request = () => owner?.request();
-      const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) request(); };
-
-      element.addEventListener("click", request, true);
-      element.addEventListener("contextmenu", request, true);
-      element.addEventListener("keydown", key, true);
-      onCleanup(() => { element.removeEventListener("click", request, true); element.removeEventListener("contextmenu", request, true); element.removeEventListener("keydown", key, true); });
+      trackOpening(element, () => owner?.request());
 
       // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
       (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
