@@ -26,9 +26,9 @@ impl Daemon {
     ) -> Result<Self, OpenError> {
         let begun = std::time::Instant::now();
         std::fs::create_dir_all(dir)?;
-        storage::open(dir)?;
+        let db = storage::open(dir)?;
         let storage_at = begun.elapsed();
-        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::open(dir)?));
+        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer())
