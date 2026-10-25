@@ -603,7 +603,12 @@ and selected-future polls are not whole-runtime task polls. CPU execution,
 thread runnable delay, physical blocking and unresolved runtime-task delay stay
 separate. Observer-perturbed stages cannot be transferred to clean p95s.
 
-#3983 owns assessment of these records; #3760 and #3720 retain their acceptance.
+[#3983 interval assessment](../crates/perf/evidence/r23-assessment-40190149199/README.md)
+joins all 2200 filtered writes per reference and separates selected-future polls,
+delegated wakes and thread scheduler states. Both dispatch futures return ready
+on their first selected poll for all writes. Producer enqueue, initial dispatch
+scheduling, exact runtime enqueue and observer overhead remain explicitly bounded;
+no dominant cause is established. #3760 and #3720 retain their full acceptance.
 The six original clean observations, #3982's four controls/recordings and #3975's
 offline extraction are reused. No new clean pair, aggregate CPU table, stage p95,
 calibration, baseline, production repair or Mac observation is supplied.
