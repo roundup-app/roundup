@@ -779,7 +779,7 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
-      <ReservedLine overlay message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine overlay class={failure.surface() === "rail" && failure.retry() ? "rail-command-failure" : undefined} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={failure.surface() === "rail" && failure.retry()}>{retry => <>
           <button data-button="quiet" type="button" onClick={() => retry()()}>{copy.retry}</button>

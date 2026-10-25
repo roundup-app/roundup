@@ -850,3 +850,26 @@
 .rail-row[data-worktree="true"] { min-height: calc(var(--space-6) + var(--space-2)); }
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
 .rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }
+
+/* Keep the failed action and cause readable above its recovery actions. */
+.rail-command-failure.reserved-line {
+  block-size: calc(var(--line) * 2);
+  max-block-size: calc(var(--line) * 2);
+}
+
+.rail-command-failure .reserved-content {
+  flex-wrap: wrap;
+}
+
+.rail-command-failure.reserved-line .ink {
+  flex-basis: 100%;
+  flex-shrink: 0;
+}
+
+.rail-command-failure .reserved-actions {
+  margin-inline-start: auto;
+}
+
+.rail:has(.rail-command-failure) .rail-scroll {
+  margin-bottom: var(--line);
+}
