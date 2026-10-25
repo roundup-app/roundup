@@ -3,6 +3,8 @@
 use contracts::message::Delivery;
 
 use super::*;
+
+pub(super) const MAX_BODY_BYTES: usize = 8192;
 use receiver_view::send_status;
 
 const OPEN_BOUND: u32 = 32;
