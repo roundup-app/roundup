@@ -36,6 +36,9 @@ struct Args {
     /// The App built with `VITE_ROUNDUP_PERF_WORKLOAD`: one frame-interval run (U3010e) whose report is written to `--out` and whose exit code is the report's.
     #[arg(long)]
     frames: bool,
+    /// Measure beside a separate run-owned yes Terminal; requires a matching flood build.
+    #[arg(long, conflicts_with = "frames")]
+    flood: bool,
 }
 
 /// The run opens a window over the user's screen and types into it; it starts only when this is `1`, set by someone the user asked to run it.
@@ -51,6 +54,12 @@ async fn collect_report(
     bound: Duration,
     evidence: Option<&Path>,
 ) -> io::Result<Value> {
+    // Frame reports retain every raw interval; keystroke reports need far less space.
+    let text_bound = if marker == "FRAMES " {
+        1_048_576
+    } else {
+        131_072
+    };
     let phase = std::cell::Cell::new("connect");
     let mut connect_error = None;
     let mut printed: BTreeMap<String, (u64, String)> = BTreeMap::new();
@@ -87,19 +96,39 @@ async fn collect_report(
                     ask("terminal.read", serde_json::json!({"id":id,"after":*after})).await?,
                 )
                 .map_err(io::Error::other)?;
-                if *after != 0 && read.from != *after {
+                if *after != 0 && read.from != *after && text.contains(marker) {
                     return Err(failure(format!(
                         "{} Terminal {id} output gap at {after}, resumed at {}",
                         marker.trim(),
                         read.from
                     )));
                 }
-                *after = read.next;
+                if read.from != *after && !text.contains(marker) {
+                    text.clear();
+                }
+                // Keep unrelated unending output bounded without truncating a pending report.
+                if text.len() + read.text.len() > text_bound {
+                    if text.contains(marker) {
+                        return Err(failure(format!(
+                            "report exceeds the {text_bound}-byte collection bound"
+                        )));
+                    }
+                    let mut start = text.len().saturating_sub(marker.len());
+                    while !text.is_char_boundary(start) {
+                        start += 1;
+                    }
+                    text.drain(..start);
+                }
                 text.push_str(&read.text);
+                *after = read.next;
                 if let Some(line) = marked_line(text, marker) {
-                    return serde_json::from_str(line).map_err(|err| {
+                    let report: Value = serde_json::from_str(line).map_err(|err| {
                         failure(format!("the {} line is not JSON: {err}", marker.trim()))
-                    });
+                    })?;
+                    if marker == "PERF " && report["terminal_id"] != id {
+                        return Err(failure("PERF report Terminal identity mismatch"));
+                    }
+                    return Ok(report);
                 }
                 more |= read.truncated;
             }
@@ -136,11 +165,61 @@ async fn collect_report(
     result
 }
 
-/// One fresh App, one report. The App is stopped when this returns, which stops its Daemon (D1).
-async fn one_run(app: &Path, frames: bool, evidence: Option<&Path>) -> io::Result<Value> {
-    let marker = if frames { "FRAMES " } else { "PERF " };
+fn checked_workload(report: &Value, flood: bool) -> io::Result<()> {
+    let expected = if flood { "flood" } else { "idle" };
+    if report["workload"] != expected {
+        return Err(failure(format!(
+            "built workload does not match runner workload {expected}"
+        )));
+    }
+    if flood && report.get("error").is_none() {
+        let evidence = &report["flood"];
+        let samples = evidence["samples"]
+            .as_array()
+            .ok_or_else(|| failure("missing flood activity samples"))?;
+        if evidence["id"].as_str().is_none()
+            || evidence["id"] == report["terminal_id"]
+            || evidence["command"] != "/usr/bin/yes roundup-flood"
+            || evidence["opened"] != true
+            || samples.len() < 2
+            || !samples.windows(2).all(|pair| {
+                pair[0]["bytes"]
+                    .as_u64()
+                    .zip(pair[1]["bytes"].as_u64())
+                    .is_some_and(|(a, b)| b > a)
+                    && pair[0]["at_ms"]
+                        .as_f64()
+                        .zip(pair[1]["at_ms"].as_f64())
+                        .is_some_and(|(a, b)| b > a)
+            })
+            || !samples
+                .iter()
+                .all(|sample| matches!(sample["state"].as_str(), Some("visible" | "folded")))
+            || !evidence["bytes_per_second"]
+                .as_f64()
+                .is_some_and(|rate| rate.is_finite() && rate > 0.0)
+        {
+            return Err(failure(
+                "invalid flood producer activity or Terminal identity",
+            ));
+        }
+    }
+    Ok(())
+}
 
-    one_run_with_report(app, frames, evidence, async |socket| {
+/// One fresh App, one report. The App is stopped when this returns, which stops its Daemon (D1).
+async fn one_run(
+    app: &Path,
+    workload: app::Workload,
+    evidence: Option<&Path>,
+) -> io::Result<Value> {
+    let marker = if workload == app::Workload::Frames {
+        "FRAMES "
+    } else {
+        "PERF "
+    };
+
+    one_run_with_report(app, workload, evidence, async |socket| {
         read_report(socket, marker, evidence).await
     })
     .await
@@ -148,20 +227,13 @@ async fn one_run(app: &Path, frames: bool, evidence: Option<&Path>) -> io::Resul
 
 async fn one_run_with_report(
     app: &Path,
-    frames: bool,
+    workload: app::Workload,
     evidence: Option<&Path>,
     report: impl AsyncFnOnce(&Path) -> io::Result<Value>,
 ) -> io::Result<Value> {
-    app::run(
-        app,
-        if frames {
-            app::Workload::Frames
-        } else {
-            app::Workload::Keystroke
-        },
-        evidence,
-        async |socket, _, _| report(socket).await,
-    )
+    app::run(app, workload, evidence, async |socket, _, _| {
+        report(socket).await
+    })
     .await
 }
 
@@ -217,7 +289,7 @@ async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         .tempdir_in(parent)?
         .keep();
     eprintln!("FRAMES diagnostics: {}", evidence.display());
-    let result = one_run(&args.app, true, Some(&evidence)).await;
+    let result = one_run(&args.app, app::Workload::Frames, Some(&evidence)).await;
     let report = match result {
         Ok(report) => match frame_exit(&report) {
             Ok(_) => report,
@@ -267,8 +339,23 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
             .tempdir_in(parent)?
             .keep();
         eprintln!("run {turn} diagnostics: {}", evidence.display());
-        let report = match one_run(&args.app, false, Some(&evidence)).await {
-            Ok(report) => report,
+        let report = match one_run(
+            &args.app,
+            if args.flood {
+                app::Workload::KeystrokeFlood
+            } else {
+                app::Workload::Keystroke
+            },
+            Some(&evidence),
+        )
+        .await
+        {
+            Ok(mut report) => {
+                if let Err(error) = checked_workload(&report, args.flood) {
+                    report["error"] = error.to_string().into();
+                }
+                report
+            }
             Err(error) => serde_json::json!({"error": error.to_string(), "diagnostics": evidence}),
         };
         diagnostics.push(evidence);
@@ -283,6 +370,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         std::fs::write(
             &args.out,
             serde_json::to_vec_pretty(&serde_json::json!({
+                "workload": if args.flood { "flood" } else { "idle" },
                 "os": std::env::consts::OS,
                 "cpus": std::thread::available_parallelism()?.get(),
                 "loads": loads,
@@ -338,6 +426,10 @@ async fn main() -> ExitCode {
 
 #[cfg(test)]
 mod n7_fixture;
+
+#[cfg(test)]
+#[path = "keystroke_flood_tests.rs"]
+mod flood_tests;
 
 #[cfg(test)]
 mod tests {
@@ -722,7 +814,7 @@ mod tests {
         let fixture = tempfile::tempdir().unwrap();
         let app = n7_fixture::app(fixture.path());
         let mut owned_socket = None;
-        let result = one_run_with_report(&app, false, None, async |socket| {
+        let result = one_run_with_report(&app, app::Workload::Keystroke, None, async |socket| {
             owned_socket = Some(socket.to_path_buf());
             n7_fixture::ready(socket).await?;
             let client = Client::connect(socket).await?;
@@ -784,7 +876,11 @@ mod tests {
             assert_eq!(n7_fixture::snapshot(&seed), before);
             return;
         }
-        for workload in [app::Workload::Keystroke, app::Workload::Idle] {
+        for workload in [
+            app::Workload::Keystroke,
+            app::Workload::KeystrokeFlood,
+            app::Workload::Idle,
+        ] {
             for (success, orphan) in [(true, false), (false, false), (false, true)] {
                 let fixture = tempfile::Builder::new()
                     .prefix("n7-\'$-")
@@ -800,6 +896,7 @@ mod tests {
                 let seeded = fixture.path().join("app-data");
                 let before = n7_fixture::snapshot(&seeded);
                 let mut launched = None;
+                let mut producer = None;
                 let mut owned_socket = None;
                 let result = app::run(&app, workload, None, async |socket, _, _| {
                     let observed = n7_fixture::launched(fixture.path()).await?;
@@ -809,6 +906,49 @@ mod tests {
                         return Err(io::Error::other("the Daemon created no Project data"));
                     }
                     launched = Some(observed);
+                    if workload == app::Workload::KeystrokeFlood {
+                        use base64::Engine;
+                        let client = Client::connect(socket).await?;
+                        let opened = client.request("terminal.open", serde_json::json!({"workstream":null})).await.map_err(io::Error::other)?;
+                        let id = &opened["terminal_id"];
+                        tokio::time::timeout(Duration::from_secs(2), async {
+                            loop {
+                                let read = client.request("terminal.read", serde_json::json!({"id":id,"after":0})).await.map_err(io::Error::other)?;
+                                if read["text"].as_str().is_some_and(|s| s.contains("ready")) { break; }
+                                tokio::task::yield_now().await;
+                            }
+                            client.request("terminal.write", serde_json::json!({"id":id,"data":base64::engine::general_purpose::STANDARD.encode(b"yes roundup-flood\n")})).await.map_err(io::Error::other)?;
+                            loop {
+                                let read = client.request("terminal.read", serde_json::json!({"id":id,"after":0})).await.map_err(io::Error::other)?;
+                                if read["text"].as_str().is_some_and(|s| s.contains("roundup-flood")) { break; }
+                                tokio::task::yield_now().await;
+                            }
+                            Ok::<(), io::Error>(())
+                        }).await.map_err(io::Error::other)??;
+                        let mut system = System::new();
+                        system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                        producer = system.processes().iter().find_map(|(id, child)| {
+                            (child.name() == "yes" && child.parent() == Some(sysinfo::Pid::from_u32(launched.as_ref().unwrap().1))).then_some(id.as_u32())
+                        });
+                        assert!(producer.is_some(), "the run owned no live yes producer");
+                        let measured = client.request("terminal.open", serde_json::json!({"workstream":null})).await.map_err(io::Error::other)?;
+                        let measured = &measured["terminal_id"];
+                        assert_ne!(measured, id);
+                        tokio::time::timeout(Duration::from_secs(2), async {
+                            loop {
+                                let read = client.request("terminal.read", serde_json::json!({"id":measured,"after":0})).await.map_err(io::Error::other)?;
+                                if read["text"].as_str().is_some_and(|s| s.contains("ready")) { break; }
+                                tokio::task::yield_now().await;
+                            }
+                            client.request("terminal.write", serde_json::json!({"id":measured,"data":base64::engine::general_purpose::STANDARD.encode(b"\x1b]777;run-0\x07a")})).await.map_err(io::Error::other)?;
+                            loop {
+                                let read = client.request("terminal.read", serde_json::json!({"id":measured,"after":0})).await.map_err(io::Error::other)?;
+                                if read["text"].as_str().is_some_and(|s| s.ends_with('a')) { break; }
+                                tokio::task::yield_now().await;
+                            }
+                            Ok::<(), io::Error>(())
+                        }).await.map_err(io::Error::other)??;
+                    }
                     if success {
                         Ok(serde_json::json!({"p95": 1}))
                     } else {
@@ -837,6 +977,12 @@ mod tests {
                 assert_ne!(data, seeded);
                 assert!(!data.exists(), "data was not removed: {}", data.display());
                 assert!(n7_fixture::exited(pid), "Daemon survived data removal");
+                if let Some(pid) = producer {
+                    assert!(
+                        n7_fixture::exited(pid),
+                        "flood producer survived data removal"
+                    );
+                }
                 assert_eq!(n7_fixture::snapshot(&seeded), before);
             }
         }
