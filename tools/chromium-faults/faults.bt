@@ -1,7 +1,3 @@
-// Keep fault records bounded despite bpftrace's larger string default. Stack
-// storage also avoids 0.25's undersized preallocated str() scratch buffer.
-config = { max_strlen = 64; on_stack_limit = 128; }
-
 // Root waits on a pipe until BEGIN confirms every probe has attached. Track TIDs so
 // a Chromium fork from any thread belongs to this command, never the host.
 BEGIN {
@@ -12,21 +8,21 @@ BEGIN {
   @live[0] = ((uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint32)0, "");
   printf("READY\n");
 }
-tracepoint:sched:sched_process_fork /has_key(@tree, args.parent_pid)/ {
+tracepoint:sched:sched_process_fork /@tree[args.parent_pid]/ {
   @tree[args.child_pid] = 1;
   if (!@tree[args.child_pid]) { @integrity = 1; }
-  if (has_key(@chrome, args.parent_pid)) {
+  if (@chrome[args.parent_pid]) {
     @chrome[args.child_pid] = 1;
     if (!@chrome[args.child_pid]) { @integrity = 1; }
   }
 }
-tracepoint:sched:sched_process_exec /has_key(@tree, tid)/ {
+tracepoint:sched:sched_process_exec /@tree[tid]/ {
   if (comm == "chrome" || comm == "chromium" || comm == "chromium-browse") {
     @chrome[tid] = 1;
     if (!@chrome[tid]) { @integrity = 1; }
   }
 }
-kfunc:filemap_fault /has_key(@chrome, tid)/ {
+kfunc:filemap_fault /@chrome[tid]/ {
   $v = args.vmf->vma;
   // The explicit BTF cast resolves file's forward declaration on bpftrace 0.20.
   $file = (struct file *)$v->vm_file;
@@ -40,29 +36,29 @@ kfunc:filemap_fault /has_key(@chrome, tid)/ {
 }
 // This is the stack at the actual wait, rather than filemap_fault's caller.
 // Kernel-owned identity survives a stalled or lossy userspace consumer.
-tracepoint:sched:sched_switch /has_key(@fault, tid) && (args.prev_state & 3) && !has_key(@blocked, tid)/ {
+tracepoint:sched:sched_switch /@fault[tid].3 && (args.prev_state & 3) && !@blocked[tid]/ {
   @blocked[tid] = 1;
   $f = @fault[tid];
   @live[tid] = ($f.0, $f.1, $f.2, $f.3, $f.4, $f.5, $f.6, $f.7, $f.8, @name[tid]);
   @stack[tid, $f.3] = kstack(24);
   if (!@blocked[tid] || @live[tid].3 != $f.3) { @integrity = 1; }
 }
-kretfunc:filemap_fault /has_key(@fault, tid)/ {
+kretfunc:filemap_fault /@fault[tid].3/ {
   $f = @fault[tid];
-  if (has_key(@blocked, tid) || @samples < 64) {
-    if (!has_key(@blocked, tid)) { @samples = @samples + 1; }
+  if (@blocked[tid] || @samples < $3) {
+    if (!@blocked[tid]) { @samples = @samples + 1; }
     printf("COMPLETED %lu %d %lu %lu %lu %lu %lu %lu %lu %lu %lu %u\n%s\n", $f.0, tid, $f.1, $f.2, $f.3, $f.4, $f.5, $f.6, $f.7, $f.8, nsecs - $f.3, retval, @name[tid]);
   }
-  if (has_key(@live, tid)) { _ = delete(@stack[tid, @live[tid].3]); _ = delete(@live[tid]); }
-  _ = delete(@fault[tid]); _ = delete(@name[tid]);
-  if (has_key(@blocked, tid)) { _ = delete(@blocked[tid]); }
+  if (@live[tid].3) { delete(@stack[tid, @live[tid].3]); delete(@live[tid]); }
+  delete(@fault[tid]); delete(@name[tid]);
+  if (@blocked[tid]) { delete(@blocked[tid]); }
 }
-tracepoint:sched:sched_process_exit /has_key(@tree, tid)/ {
-  if (has_key(@live, tid)) { _ = delete(@stack[tid, @live[tid].3]); _ = delete(@live[tid]); }
-  _ = delete(@tree[tid]);
-  if (has_key(@chrome, tid)) { _ = delete(@chrome[tid]); }
-  if (has_key(@fault, tid)) { _ = delete(@fault[tid]); _ = delete(@name[tid]); }
-  if (has_key(@blocked, tid)) { _ = delete(@blocked[tid]); }
+tracepoint:sched:sched_process_exit /@tree[tid]/ {
+  if (@live[tid].3) { delete(@stack[tid, @live[tid].3]); delete(@live[tid]); }
+  delete(@tree[tid]);
+  if (@chrome[tid]) { delete(@chrome[tid]); }
+  if (@fault[tid].3) { delete(@fault[tid]); delete(@name[tid]); }
+  if (@blocked[tid]) { delete(@blocked[tid]); }
 }
 // print(map) reads the kernel map in userspace, not an event-stream replica.
 // Require both the envelope and sentinel map, even for an empty live set.
