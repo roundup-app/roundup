@@ -24,6 +24,21 @@ it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () 
   expect(storage.read()).toBeNull();
 });
 
+it("u3791a_local_write_recovers_once", () => {
+  const storage = storedValue("captured", v.object({ text: v.string() }));
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect(storage.write({ text: "  exact 😀\n" })).toBeNull();
+  expect(write.mock.calls).toEqual([["captured", '{"text":"  exact 😀\\n"}'], ["captured", '{"text":"  exact 😀\\n"}']]);
+  expect(storage.read()).toEqual({ text: "  exact 😀\n" });
+});
+
+it("u3791a_read_recovers_once", () => {
+  localStorage.setItem("captured", '"kept"');
+  const read = vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect(storedValue("captured", v.string()).restore()).toEqual({ status: "restored", value: "kept" });
+  expect(read.mock.calls).toEqual([["captured"], ["captured"]]);
+});
+
 it("u2773a_storage_restores_exact_work", () => {
   const drafts = draftStorage("/project/a");
   const value = { text: " \ne\u0301 😀\n ", choices: ["second", "first"], enabled: false };
