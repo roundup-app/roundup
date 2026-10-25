@@ -1,5 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
+import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -805,7 +806,10 @@ export function runChecks(doc: Document = document): Checks {
     try {
       const { ok, value, selector } = BY_ID[id](page);
 
-      return { status: ok ? "pass" : "fail", value, selector };
+      if (!ok) return { status: "fail", value, selector };
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+
+      return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {
       return { status: "fail", value: NOT_MEASURABLE, selector: "" };
     }
