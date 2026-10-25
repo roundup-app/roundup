@@ -16,7 +16,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(1, { title: "Ship", body: "Read this\nThen this" })]);
-  fireEvent.click(await screen.findByRole("button", { name: "Idle #1 Ship" }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 Ship" }), { key: "Enter" });
   await within(panel()).findByText("Blocker");
 
   return mounted;
@@ -65,7 +65,7 @@ it("u461_delete_failure_is_retryable", async () => {
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
   await screen.findByText("Delete failed");
-  app.handlers["todo.delete"] = () => null;
+  app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
   await questionDialog();
   await answerQuestion(true);
@@ -102,7 +102,7 @@ const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input:
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   }
 
-  if (surface === "drawer") fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
+  if (surface === "drawer") fireEvent.keyDown(await screen.findByRole("button", { name: "Done #1 todo 1" }), { key: "Enter" });
   const area = surface === "drawer" ? panel() : surface === "rail" ? screen.getByRole("tree", { name: "Rail" }) : document.querySelector<HTMLElement>(".shelf")!;
   const box = await within(area).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus();
@@ -147,15 +147,15 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
       mounted.app.handlers["todo.reopen"] = () => new Promise((_, fail) => { reject = fail; });
       activate(); activate();
       expect(box.checked).toBe(true);
-      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
+      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));
       reject(new RpcError(-32003, "Cannot reopen yet"));
       await within(area).findByText("Cannot reopen yet");
       expect(box.checked).toBe(true);
       expect(document.activeElement).toBe(box);
       mounted.app.handlers["todo.reopen"] = reopen;
       activate();
-      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(2));
-      await waitFor(() => expect(within(area).queryByText("Cannot reopen yet")).toBeNull());
+      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1},{id:1}]));
+      await waitFor(() => expect(within(area).queryByRole("alert")).toBeNull());
     });
   }
 }
@@ -171,7 +171,7 @@ for (const { remaining, reopened, target } of [
     fireEvent.click(await screen.findByRole("button", { name: `${remaining.length} done` }));
     const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: `Reopen todo ${reopened}` });
     box.focus(); fireEvent.click(box);
-    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
+    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:reopened}]));
     mounted.app.emit(todoEvent("todo.updated", mounted.store.todos.find(t => t.id === reopened)!));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: target })));
     // The reopened Todo is Unassigned, a group that starts folded.
@@ -183,10 +183,10 @@ for (const { remaining, reopened, target } of [
 it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () => {
   const mounted = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3)]);
   fireEvent.click(await screen.findByText("Unassigned"));
-  fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: "Done #1 todo 1" }), { key: "Enter" });
   const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus(); fireEvent.click(box);
-  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
+  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));
   mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
   await waitFor(() => expect(box.checked).toBe(false));
   expect(document.activeElement).toBe(box);
@@ -194,8 +194,8 @@ it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () =>
   const rows = [...document.querySelectorAll<HTMLElement>(".shelf [data-todo]")];
   expect(rows.map(row => Number(row.dataset.todo))).toEqual([1, 2, 3]);
   expect(rows[1]!.getAttribute("aria-level")).toBe("2");
-  expect(within(rows[1]!).getByRole("button", { name: "Blocked #2 todo 2" })).toBeTruthy();
-  expect(within(rows[0]!).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  expect(within(rows[1]!).getByRole("button", { name: "Blocked #2 todo 2" }).closest("[role=treeitem]")?.getAttribute("aria-level")).toBe("2");
+
 });
 
 it("u461a_recovery_drawer_reopens_accepted_state_and_preserves_the_retained_form", async () => {

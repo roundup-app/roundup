@@ -531,130 +531,153 @@ impl Module for Asks {
                 "Ask methods carry a Steer from the user",
             ));
         }
-        let shared = &self.shared;
+        contracts::asks_methods!(rpc::dispatch_methods, self, ctx, method, value)
+    }
+}
 
-        match method {
-            "ask.send" => {
-                let SendParams {
-                    text,
-                    submission,
-                    workstream,
-                } = params(value)?;
-                if submission
-                    .as_ref()
-                    .is_some_and(|id| id.is_empty() || id.len() > 128)
-                {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        "invalid Ask submission identity",
-                    ));
-                }
-                if text.trim().is_empty() || text.len() > 32_768 {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        "Ask text must be non-empty and at most 32768 bytes",
-                    ));
-                }
-                let ask = {
-                    let mut store = shared.store();
-                    if let Some(id) = &submission
-                        && let Some(ask) = store.replay(id, &text, workstream.as_deref())?
-                    {
-                        return reply(&ask);
-                    }
-                    if let Some(id) = &workstream {
-                        let node = shared.agents.shared.node(id)?;
-                        if node.kind != NodeKind::Workstream {
-                            return Err(RpcError::new(
-                                code::INVALID_PARAMS,
-                                "target must be a Workstream",
-                            ));
-                        }
-                    }
-                    store.insert(text, (shared.agents.shared.clock)(), submission, workstream)?
-                };
-                shared.recover(ctx)?;
-                shared.emit(&ask.id)?;
-                shared.enqueue(user_ctx(ctx));
-                reply(&ask)
+impl Asks {
+    async fn rpc_ask_send(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        let shared = &self.shared;
+        {
+            let SendParams {
+                text,
+                submission,
+                workstream,
+            } = params(value)?;
+            if submission
+                .as_ref()
+                .is_some_and(|id| id.is_empty() || id.len() > 128)
+            {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "invalid Ask submission identity",
+                ));
             }
-            "ask.list" => reply(&shared.store().list()?),
-            "ask.pick" => {
-                shared.recover(ctx)?;
-                let PickParams {
-                    id,
-                    part: ord,
-                    target,
-                } = params(value)?;
+            if text.trim().is_empty() || text.len() > 32_768 {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "Ask text must be non-empty and at most 32768 bytes",
+                ));
+            }
+            let ask = {
                 let mut store = shared.store();
-                let ask = store.get(&id)?;
-                let mut part = ask
-                    .parts
-                    .get(ord)
-                    .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "unknown Ask part"))?
-                    .clone();
-                if !matches!(part.state, State::Waiting | State::Failed) {
-                    return Err(RpcError::conflict("Ask part is not waiting or failed"));
+                if let Some(id) = &submission
+                    && let Some(ask) = store.replay(id, &text, workstream.as_deref())?
+                {
+                    return reply(&ask);
                 }
-                let from = part.state;
-                match target {
-                    Target::Drop => part.state = State::Dropped,
-                    Target::Workstream { id } => {
-                        if shared
-                            .agents
-                            .shared
-                            .node(&id)
-                            .map_err(|_| RpcError::new(code::INVALID_PARAMS, "unknown Workstream"))?
-                            .kind
-                            != NodeKind::Workstream
-                        {
-                            return Err(RpcError::new(
-                                code::INVALID_PARAMS,
-                                "target must be a Workstream",
-                            ));
-                        }
-                        part.placement = Place::Routed { workstream: id };
-                        part.state = State::Queued;
-                    }
-                    Target::New { title } => {
-                        let title = title.unwrap_or_else(|| {
-                            part.text
-                                .split_whitespace()
-                                .take(6)
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        });
-                        Order::Work {
-                            title: Some(title.clone()),
-                            ask: part.text.clone(),
-                            done: None,
-                            limits: vec![],
-                        }
-                        .validate_explicit()
-                        .map_err(|err| RpcError::new(code::INVALID_PARAMS, err))?;
-                        part.placement = Place::New {
-                            title,
-                            workstream: None,
-                        };
-                        part.state = State::Queued;
+                if let Some(id) = &workstream {
+                    let node = shared.agents.shared.node(id)?;
+                    if node.kind != NodeKind::Workstream {
+                        return Err(RpcError::new(
+                            code::INVALID_PARAMS,
+                            "target must be a Workstream",
+                        ));
                     }
                 }
-                part.reason = None;
-                store.update(&id, ord, &part, from)?;
-                drop(store);
-                let ask = shared.emit(&id)?;
-                match part.placement {
-                    Place::Routed { workstream } if part.state == State::Queued => {
-                        shared.wake(ctx, &workstream)
-                    }
-                    Place::New { .. } if part.state == State::Queued => {
-                        shared.start_new(ctx, &id, ord)
-                    }
-                    _ => {}
-                }
-                reply(&ask)
+                store.insert(text, (shared.agents.shared.clock)(), submission, workstream)?
+            };
+            shared.recover(ctx)?;
+            shared.emit(&ask.id)?;
+            shared.enqueue(user_ctx(ctx));
+            reply(&ask)
+        }
+    }
+
+    async fn rpc_ask_list(
+        &self,
+        _ctx: &Ctx,
+        _method: &str,
+        _value: Value,
+    ) -> Result<Value, RpcError> {
+        let shared = &self.shared;
+        reply(&shared.store().list()?)
+    }
+
+    async fn rpc_ask_pick(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        let shared = &self.shared;
+        {
+            shared.recover(ctx)?;
+            let PickParams {
+                id,
+                part: ord,
+                target,
+            } = params(value)?;
+            let mut store = shared.store();
+            let ask = store.get(&id)?;
+            let mut part = ask
+                .parts
+                .get(ord)
+                .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "unknown Ask part"))?
+                .clone();
+            if !matches!(part.state, State::Waiting | State::Failed) {
+                return Err(RpcError::conflict("Ask part is not waiting or failed"));
             }
-            _ => Err(RpcError::method_not_found(method)),
+            let from = part.state;
+            match target {
+                Target::Drop => part.state = State::Dropped,
+                Target::Workstream { id } => {
+                    if shared
+                        .agents
+                        .shared
+                        .node(&id)
+                        .map_err(|_| RpcError::new(code::INVALID_PARAMS, "unknown Workstream"))?
+                        .kind
+                        != NodeKind::Workstream
+                    {
+                        return Err(RpcError::new(
+                            code::INVALID_PARAMS,
+                            "target must be a Workstream",
+                        ));
+                    }
+                    part.placement = Place::Routed { workstream: id };
+                    part.state = State::Queued;
+                }
+                Target::New { title } => {
+                    let title = title.unwrap_or_else(|| {
+                        part.text
+                            .split_whitespace()
+                            .take(6)
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    });
+                    Order::Work {
+                        title: Some(title.clone()),
+                        ask: part.text.clone(),
+                        done: None,
+                        limits: vec![],
+                    }
+                    .validate_explicit()
+                    .map_err(|err| RpcError::new(code::INVALID_PARAMS, err))?;
+                    part.placement = Place::New {
+                        title,
+                        workstream: None,
+                    };
+                    part.state = State::Queued;
+                }
+            }
+            part.reason = None;
+            store.update(&id, ord, &part, from)?;
+            drop(store);
+            let ask = shared.emit(&id)?;
+            match part.placement {
+                Place::Routed { workstream } if part.state == State::Queued => {
+                    shared.wake(ctx, &workstream)
+                }
+                Place::New { .. } if part.state == State::Queued => shared.start_new(ctx, &id, ord),
+                _ => {}
+            }
+            reply(&ask)
         }
     }
 }

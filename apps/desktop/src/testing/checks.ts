@@ -1,5 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
+import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
 
@@ -467,7 +468,7 @@ const d7 = (page: Page): Measure => {
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: floating menus and the Terminal's control overlay use the Drawer shadow; their descendants retain all surface checks.
+// D8: floating menus and the Terminal's control overlay use shared elevation; their descendants retain all surface checks.
 const d8 = (page: Page): Measure => {
   return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
@@ -486,21 +487,47 @@ const d8 = (page: Page): Measure => {
 
     // Computed shadows put colour first and expand zero lengths; Tokens put colour last.
     const shadowParts = (value: string) => {
-      const resolved = resolveAt(page, el, value);
-      const colour = resolved.match(/rgba?\([^)]+\)/)?.[0];
+      const nodes = valueParser(resolveAt(page, el, value)).nodes;
+      const layers: { colour: Rgba | null; lengths: (number | string)[] }[] = [{ colour: null, lengths: [] }];
 
-      if (!colour) return "";
+      for (const node of nodes) {
+        if (node.type === "space" || node.type === "comment") continue;
 
-      const lengths = resolved.replace(colour, "").trim().split(/\s+/).map((part) => /^-?[\d.]+(?:px)?$/.test(part) ? Number.parseFloat(part) : part);
+        if (node.type === "div" && node.value === ",") {
+          layers.push({ colour: null, lengths: [] });
+          continue;
+        }
 
-      // Omitted blur and spread lengths compute to zero.
-      while (lengths.length < 4) lengths.push(0);
+        const layer = layers.at(-1)!;
 
-      return JSON.stringify([parseColour(colour), lengths]);
+        if (node.type === "function") {
+          if (layer.colour) return "";
+          layer.colour = parseColour(valueParser.stringify(node));
+
+          if (!layer.colour) return "";
+        } else if (node.type === "word" && /^-?[\d.]+(?:px)?$/.test(node.value)) {
+          layer.lengths.push(Number.parseFloat(node.value));
+        } else if (node.type === "word" && node.value === "inset") {
+          // Keep the inset marker in one position even if CSSOM moves it.
+          layer.lengths.unshift("inset");
+        } else return "";
+      }
+
+      for (const layer of layers) {
+        const inset = layer.lengths[0] === "inset";
+        const count = layer.lengths.length - Number(inset);
+
+        if (!layer.colour || count < 2 || count > 4) return "";
+
+        // Omitted blur and spread lengths compute to zero.
+        while (layer.lengths.length < 4 + Number(inset)) layer.lengths.push(0);
+      }
+
+      return JSON.stringify(layers);
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const surfaceShadow = el.matches(".shelf[data-open=true], .app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--elevation)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 

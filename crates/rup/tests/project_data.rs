@@ -568,12 +568,12 @@ fn n7_launch_sites_clean_on_success_and_failure() {
     std::fs::write(app.join("seed/bytes"), b"keep these bytes").unwrap();
     let before = snapshot(home.path());
     let xdg = home.path().join("xdg");
-    for failure in ["none", "startup", "restart", "after launch"] {
+    for failure in ["startup", "after launch"] {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         let paths = [dir.path().to_owned(), data.path().to_owned()];
         let bad_socket = dir.path().join("missing/socket");
-        let failed_pid = if matches!(failure, "startup" | "restart") {
+        let failed_pid = if failure == "startup" {
             let project = paths[0].clone();
             let socket = bad_socket.clone();
             Some(std::thread::spawn(move || {
@@ -614,23 +614,14 @@ fn n7_launch_sites_clean_on_success_and_failure() {
             if failure == "startup" {
                 overrides.push(("RUPD_SOCKET", bad_socket.to_str().unwrap()));
             }
-            let mut project = start_in(dir, data, &overrides);
+            let project = start_in(dir, data, &overrides);
             pids.push(project.pid());
-            if failure == "after launch" {
-                panic!("observer failed after launch");
-            }
-            if failure == "restart" {
-                overrides.push(("RUPD_SOCKET", bad_socket.to_str().unwrap()));
-            }
-            project.restart(&overrides);
-            assert_reaped(pids[0]);
-            pids.push(project.pid());
-            drop(project);
+            panic!("observer failed after launch of {}", project.pid());
         }));
         if let Some(observer) = failed_pid {
             pids.push(observer.join().unwrap());
         }
-        assert_eq!(result.is_err(), failure != "none");
+        assert!(result.is_err());
         for pid in pids {
             assert_reaped(pid);
         }

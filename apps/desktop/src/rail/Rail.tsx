@@ -1,10 +1,11 @@
+import { outcomeOf } from "../app/seam";
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { createItemFailure } from "./itemFailure";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -18,7 +19,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
+import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
@@ -26,10 +27,9 @@ import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
-import type { RowActions } from "./RowIcons";
+import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
@@ -48,14 +48,23 @@ export const Rail = () => {
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
-  const failure = createItemFailure((id) => rail.nodes.some((node) => node.id === id));
+  const failure = rail.commandFailure;
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
-    rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  }, connected.queue);
+    setEditingName(id);
+  }, connected.queue, node => {
+    const actions = actionsOf(node);
+
+    return [
+      { id: "folder", label: copy.openFolder, run: actions.folder },
+      { id: "editor", label: copy.openInEditor, run: actions.editor },
+      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
+    ];
+  });
 
 
   const clearPrompt = createMemo(() => {
@@ -64,7 +73,7 @@ export const Rail = () => {
     return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
   });
 
-  const [wanted, setWanted] = createSignal<string | null>(null);
+  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
   const [editingName, setEditingName] = createSignal<string | null>(null);
@@ -78,7 +87,7 @@ export const Rail = () => {
 
     if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
 
-    if (surface === "rail-name" && object === editingName()) {
+    if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
       return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
     }
 
@@ -128,6 +137,8 @@ export const Rail = () => {
   };
 
   const openCompose = () => {
+    captureFocus(true);
+
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
   };
@@ -208,6 +219,16 @@ export const Rail = () => {
     });
   });
 
+  const openRow = (id: string) => {
+    const node = rail.nodes.find(each => each.id === id);
+
+    const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
+      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(rail.nodes, each.id).includes(id)) : undefined;
+
+    rail.select(attention?.id ?? id);
+    queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
+  };
+
   const focusRow = (id: string) => rowElement(id)?.focus();
 
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
@@ -243,7 +264,6 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      rail.select(node.id);
       void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
@@ -309,7 +329,7 @@ export const Rail = () => {
 
       if (id === undefined) return;
 
-      rail.select(id);
+      openRow(id);
     };
 
     window.addEventListener("pointerdown", press, { capture: true });
@@ -328,7 +348,10 @@ export const Rail = () => {
 
     liftedRow = null;
 
-    if (back !== null) requestAnimationFrame(() => focusRow(back));
+    if (back !== null) {
+      const focus = captureFocus();
+      requestAnimationFrame(() => focus(() => focusRow(back)));
+    }
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
@@ -362,11 +385,12 @@ export const Rail = () => {
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
+      const focus = captureFocus(true);
       const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
       const spawned = await app.rpc("agent.spawn", params);
 
-      setWanted(spawned.id);
+      setWanted({ id: spawned.id, focus });
 
       if (composing()) endCompose();
     });
@@ -439,6 +463,7 @@ export const Rail = () => {
     if (!revision) return;
     const original = rail.nodes.find((node) => node.id === originalParent);
     const door = prompt !== null && action === "note" ? snapshot.destination.recipient ?? original?.id ?? null : null;
+    const focus = captureFocus(true);
     const slow = setTimeout(() => setAsking(true), 500);
     guarded(async () => {
       let spawned: string | null = null;
@@ -453,11 +478,11 @@ export const Rail = () => {
         retained.settle(revision.revision, "acknowledged");
 
         if (latest) {
-          if (spawned !== null) setWanted(spawned);
+          if (spawned !== null) setWanted({ id: spawned, focus });
           endCompose();
         }
       } catch (error) {
-        retained.settle(revision.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        retained.settle(revision.revision, outcomeOf(error));
         throw error;
       } finally {
         clearTimeout(slow);
@@ -470,8 +495,11 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
-      failure.clear();
-      rail.clearWorkstreamFailure();
+      if (!failure.retry()) {
+        failure.clear();
+        rail.clearWorkstreamFailure();
+      }
+
       rail.clearStorageFailure();
     };
 
@@ -501,10 +529,10 @@ export const Rail = () => {
   );
 
   createEffect(() => {
-    const id = wanted();
+    const request = wanted();
 
-    if (id !== null && rail.nodes.some((node) => node.id === id)) {
-      rail.select(id);
+    if (request !== null && rail.nodes.some((node) => node.id === request.id)) {
+      request.focus(() => rail.select(request.id));
       setWanted(null);
     }
   });
@@ -566,7 +594,7 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) rail.select(id);
+        if (id !== undefined) { rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -625,24 +653,23 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
-                          exit={rail.exitOf(view().node)}
-                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
+                          editing={editingName() === view().node.id}
+                          onOpen={() => openRow(view().node.id)}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onFailure={(message) => failure.show(message, view().node.id)}
+                          onFailure={(message) => {
+                            const id = view().node.id;
+                            failure.show(message, id, "rail", () => setEditingName(id));
+                          }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
                             failure.acknowledge(view().node.id);
                           }}
-                          onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
-                          doorPending={rail.doorPending(view().node.id)}
-                          doorFailure={rail.doorFailure(view().node.id)}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
-                          actions={actionsOf(view().node)}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>
@@ -738,8 +765,12 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
-      <ReservedLine overlay message={failure.message() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+        <Show when={failure.retry()}>{retry => <>
+          <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
+          <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
+        </>}</Show>
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">

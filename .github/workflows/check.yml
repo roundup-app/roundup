@@ -24,6 +24,9 @@ concurrency:
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
 # merges into. An empty base, on every other event, tests everything.
 env:
+  # A new experiment title starts an isolated cache; pushes with the same title restore it.
+  CI3781_CACHE: >-
+    ${{ github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && format('pr{0}-{1}', github.event.pull_request.number, github.event.pull_request.title) || '' }}
   BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
@@ -52,7 +55,9 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: stable
         run: |
-          rust=$(python3 loop/affected.py rust "$BASE")
+          rust_base="$BASE"
+          if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
+          rust=$(python3 loop/affected.py rust "$rust_base")
           web=$(python3 loop/affected.py web "$BASE")
           {
             echo "rust=${rust:+true}"
@@ -87,6 +92,9 @@ jobs:
   rust:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    env:
+      BASE: >-
+        ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && 'HEAD^1' || '' }}
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -98,7 +106,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          # Empty BASE makes the unchanged R26 baseline guard read origin/main.
+          fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
@@ -106,6 +115,10 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: ${{ matrix.partition == 1 }}
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - name: CI4018 experiment cache regression
+        if: matrix.partition == 1
+        run: node --test .github/actions/setup/cache.test.mjs
       - name: E12 network observer dependencies
         run: |
           if ! command -v strace || ! command -v ip || ! command -v setpriv; then
@@ -119,7 +132,9 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
-          python3 tools/e14/observe.py run --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+          observation=()
+          if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
+          python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
       - name: E14 observer regression
         if: ${{ !cancelled() && matrix.partition == 1 }}
         run: python3 tools/e14/observe.test.py
@@ -167,6 +182,10 @@ jobs:
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
+      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above.
+      - name: R24 measurement feature
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: python3 loop/app-data.py cargo nextest run -p desktop --features idle-perf --profile mac -E 'test(/^idle::tests::r24_/)'
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
@@ -251,6 +270,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: T3797a real-tool lint observers
+        run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq

@@ -17,7 +17,7 @@ const USER_ACTOR: Actor = { kind: "user", id: "you", parent: null };
 const line = (id: number, author: Actor, body: string, read = true): Comment => ({ id, author, body, created_at: id * 60_000, read });
 
 const open = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: /^Idle #1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /^Idle #1 / }), { key: "Enter" });
   await within(panel()).findByRole("region", { name: /^Comments · / });
 };
 
@@ -63,7 +63,7 @@ it("u3741_reply_focuses_the_field_and_sends_an_ordinary_comment", async () => {
   const m = await mountTodos([todo(1)]);
   m.store.comments!.set(1, [line(1, AGENT, "which branch?", false)]);
   await open();
-  fireEvent.click(within(panel()).getByRole("button", { name: "Reply" }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: "Reply" }));
   const field = within(panel()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   expect(document.activeElement).toBe(field);
   fireEvent.input(field, { target: { value: "main" } });

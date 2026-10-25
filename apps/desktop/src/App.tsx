@@ -57,8 +57,8 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
-const daemonExitText = ({ code }: DaemonExit): string =>
-  copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
+  recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -72,6 +72,7 @@ const Connection = (props: {
   now: Accessor<number>;
   drafts: ReturnType<typeof createProjectDrafts>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
+  onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
   active: () => boolean;
@@ -86,9 +87,19 @@ const Connection = (props: {
   const { path } = first.project;
   let mine: ConnectedProject | Error | undefined;
 
-  const [connected] = createResource(async () => {
+  const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
+      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
+
+      if (props.tab()?.generation !== generation) {
+        next.stopTerminalScheme();
+
+        return mine;
+      }
+
+      props.onRecovered(path, generation);
+
+      return next;
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -97,7 +108,12 @@ const Connection = (props: {
   });
 
   createEffect(() => {
-    mine = connected();
+    const next = connected.latest;
+
+    // A failed replacement keeps the last valid content while the native owner retries.
+    if (next instanceof Error && props.tab()?.exit) return;
+
+    mine = next;
 
     if (mine) props.onConnected(path, mine);
   });
@@ -162,6 +178,8 @@ export const App = (props: {
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
+  prepareIdle?: ((project: ConnectedProject) => void) | undefined;
+  observeTerminal?: ((project: string | null, id: string | null) => void) | undefined;
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
   /** App-run draft authority; embedding callers may supply the same holder to surface owners. */
@@ -243,8 +261,8 @@ export const App = (props: {
       return next;
     });
 
-  // A reopen replaces the Daemon, so its connection is made whole again under a new key.
-  const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
+  // Keep the last connection visible until its replacement has finished setup.
+  const keys = createMemo(() => projects.tabs().map((tab) => tab.project.path));
 
   const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
   let renameRevision = 0;
@@ -322,6 +340,14 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  createEffect(() => {
+    if (!props.prepareIdle) return;
+
+    const open = activeConnection();
+
+    if (open && !(open instanceof Error)) props.prepareIdle(open);
+  });
+
   createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
@@ -356,7 +382,7 @@ export const App = (props: {
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} viewing={() => projects.active() === key.split("\n")[0] && visible() && focused()} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -400,7 +426,8 @@ export const App = (props: {
         rail={
           <>
             <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
-              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
+              <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
+              <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>
@@ -418,7 +445,7 @@ export const App = (props: {
         centre={
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
-          <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
+          <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
                 const tracked = emulators();
@@ -428,7 +455,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>

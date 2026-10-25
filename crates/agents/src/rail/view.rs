@@ -1,19 +1,29 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
+// R3696c: SQLite evaluates the uncorrelated empty-history check once per read;
+// forty Workstreams otherwise execute 1728 VM instructions (docs/perf-rail-read.md).
+const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
+                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM nodes
+                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources)
+                    OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
+                    AND (workstream=nodes.id OR agent=nodes.id))";
+
 pub(super) fn load_nodes(
     db: &Connection,
     include_preparation: bool,
 ) -> Result<Vec<RailNode>, RpcError> {
-    let mut query = db
-        .prepare_cached(
-            "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto FROM nodes
-                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
-                    AND (workstream=nodes.id OR agent=nodes.id))",
-        )
-        .map_err(sql)?;
+    load_with(db, include_preparation, 0, |node, _| node)
+}
+
+fn load_with<T>(
+    db: &Connection,
+    include_preparation: bool,
+    capacity: usize,
+    mut map: impl FnMut(RailNode, u64) -> T,
+) -> Result<Vec<T>, RpcError> {
+    let mut query = db.prepare_cached(NODES).map_err(sql)?;
     let rows = query
         .query_map([include_preparation], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
@@ -36,7 +46,7 @@ pub(super) fn load_nodes(
                 NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
                 NodeKind::Agent => stored,
             };
-            Ok(RailNode {
+            let node = RailNode {
                 auto: (kind == NodeKind::Workstream)
                     .then(|| row.get(15))
                     .transpose()?,
@@ -68,20 +78,89 @@ pub(super) fn load_nodes(
                 inbox: None,
                 tool_call: None,
                 overview: None,
-            })
+            };
+            Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
         })
         .map_err(sql)?;
-    rows.collect::<Result<_, _>>().map_err(sql)
+    let mut nodes = Vec::with_capacity(capacity);
+    for row in rows {
+        nodes.push(row.map_err(sql)?);
+    }
+    Ok(nodes)
 }
 
 impl Rail {
+    /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
+    pub fn terminal_owner(
+        &mut self,
+        terminal: &str,
+    ) -> Result<Option<(String, Option<String>)>, RpcError> {
+        // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
+        // on the measured 7763 host (r16/owner-read). Reuse compiled SQL, never owner facts:
+        // each query still binds and reads under Rail then Attempts, including negative reads.
+        self.owner_reads.wake();
+        // R16 attribution (#1917, r16/owner-execution): 10 → 8 unowned VM steps.
+        // Rust stops at the second row, so SQL needs no limit counter. IS avoids
+        // a NULL-parameter branch for bound &str; the explicit predicate keeps
+        // the partial covering index and excludes unattached rows.
+        self.db
+            .with_cached_rows(
+                "SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal_id IS NOT NULL",
+                [terminal],
+                |rows| {
+                    let Some(row) = rows.next().map_err(sql)? else {
+                        return Ok(None);
+                    };
+                    let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
+                    let attempt = match row.get::<_, i64>(1).map_err(sql)? {
+                        0 => None,
+                        n => Some(n.to_string()),
+                    };
+                    if rows.next().map_err(sql)?.is_some() {
+                        return Err(RpcError::conflict("Terminal has more than one receiver"));
+                    }
+                    Ok(Some((id, attempt)))
+                },
+            )
+            .map_err(sql)?
+    }
+
     /// Every node, each parent before its children, siblings by `order`.
     pub fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
-        let mut flat = load(&self.db)?;
-        flat.sort_by_key(|node| node.order);
+        self.tree_with(|node, _| Ok(node))
+    }
+
+    /// Present each reachable node with its finish count from the same SQLite read.
+    pub(crate) fn tree_with(
+        &self,
+        mut present: impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
+    ) -> Result<Vec<RailNode>, RpcError> {
+        // R3696c: the separate finish-count query/map made a forty-Workstream
+        // reply allocate 290 times. Keep the count beside its node during traversal.
+        // R3696c: growing this buffer costs 19,968 bytes per forty-node reply.
+        // A previous length reserves space without the count query that regressed timing.
+        let mut flat = load_with(
+            &self.db,
+            false,
+            self.tree_capacity.get(),
+            |node, finished| (node, finished),
+        )?;
+        // Retain no nodes; bound speculative space after a large tree is removed.
+        self.tree_capacity.set(flat.len().min(256));
+        // Sibling orders are unique (A6); equal orders across parents need no stability.
+        // R3696c: avoid the stable sort's scratch copy of these large nodes.
+        flat.sort_unstable_by_key(|(node, _)| node.order);
+        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
+        // for descendants once per node. A flat tree can reuse the loaded buffer.
+        if flat.iter().all(|(node, _)| node.parent.is_none()) {
+            return flat
+                .into_iter()
+                .map(|(node, finished)| present(node, finished))
+                .collect();
+        }
         let mut out = Vec::with_capacity(flat.len());
         let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
-        descend(&mut flat, None, &mut out);
+        descend(&mut flat, None, &mut out, &mut present)?;
         Ok(out)
     }
 
@@ -96,23 +175,6 @@ impl Rail {
             .optional()
             .map(|finished| finished.unwrap_or_default().cast_unsigned())
             .map_err(sql)
-    }
-
-    /// `finished` of every node at once, so a tree read is one query and not one per node.
-    pub(crate) fn finished_all(&self) -> Result<std::collections::HashMap<String, u64>, RpcError> {
-        let mut query = self
-            .db
-            .prepare_cached("SELECT id, finished FROM nodes")
-            .map_err(sql)?;
-        let rows = query
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, i64>(0)?.to_string(),
-                    row.get::<_, i64>(1)?.cast_unsigned(),
-                ))
-            })
-            .map_err(sql)?;
-        rows.collect::<Result<_, _>>().map_err(sql)
     }
 
     pub(crate) fn set_finished(&mut self, id: &str, finished: u64) -> Result<(), RpcError> {
@@ -138,20 +200,60 @@ impl Rail {
 
 // R3696c: a forty-Workstream reply allocated 530 times (181 KB). Move the
 // loaded nodes into traversal order rather than cloning their strings and Orders.
-fn descend(nodes: &mut [Option<RailNode>], parent: Option<&str>, out: &mut Vec<RailNode>) {
+fn descend(
+    nodes: &mut [Option<(RailNode, u64)>],
+    parent: Option<&str>,
+    out: &mut Vec<RailNode>,
+    present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
+) -> Result<(), RpcError> {
     for index in 0..nodes.len() {
         if !nodes[index]
             .as_ref()
-            .is_some_and(|node| node.parent.as_deref() == parent)
+            .is_some_and(|(node, _)| node.parent.as_deref() == parent)
         {
             continue;
         }
-        let mut node = nodes[index].take().expect("selected node");
+        let (node, finished) = nodes[index].take().expect("selected node");
+        let mut node = present(node, finished)?;
         // Keep the id locally during recursion so neither it nor the node is copied.
         let id = std::mem::take(&mut node.id);
         let at = out.len();
         out.push(node);
-        descend(nodes, Some(&id), out);
+        descend(nodes, Some(&id), out, present)?;
         out[at].id = id;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::StatementStatus;
+
+    #[test]
+    fn r3696c_forty_workstreams_avoid_per_node_preparation_queries() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+        for i in 0..40 {
+            rail.insert(NodeKind::Workstream, &format!("workstream-{i}"), None, None)
+                .unwrap();
+        }
+        rail.tree().unwrap();
+        rail.db
+            .prepare_cached(NODES)
+            .unwrap()
+            .reset_status(StatementStatus::VmStep);
+        let tree = rail.tree().unwrap();
+        assert_eq!(tree.len(), 40);
+        let steps = rail
+            .db
+            .prepare_cached(NODES)
+            .unwrap()
+            .get_status(StatementStatus::VmStep);
+        eprintln!("forty Workstreams: {steps} SQLite instructions");
+        assert!(
+            steps <= 1350,
+            "Rail read executed {steps} SQLite instructions for forty Workstreams"
+        );
     }
 }

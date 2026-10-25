@@ -5,10 +5,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use contracts::{
-    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, deliverable,
-    link, message, pad, project, reaction, terminal, todo, workstream,
-};
+use contracts::{Actor, ActorKind, IdentifyParams, agent, checkpoint, terminal, workstream};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -140,7 +137,6 @@ pub(crate) fn door_tools() -> Vec<Offered> {
 /// B53: a Door asks the App to show a Terminal in its Reach; nothing is read and nothing starts.
 fn terminal_show() -> Offered {
     Offered {
-        door_only: true,
         ..offered::<terminal::TerminalId>(
             "terminal.show",
             "Show a Terminal in your Reach to the user, who sees its owner selected. Use it when the user asks to see a child's output; it reads nothing and returns nothing.",
@@ -198,10 +194,6 @@ fn with_own_id<P: JsonSchema>(
     }
     Offered {
         own_id: true,
-        door_only: matches!(
-            method,
-            "workstream.handoff" | "workstream.rewindPlan" | "workstream.rewind"
-        ),
         tool: Tool::new(name, description, schema),
         ..offer(method, "", JsonObject::new(), true)
     }
@@ -230,301 +222,34 @@ pub(crate) fn tools(door: bool) -> Vec<Offered> {
 /// I1, I9: every entry of the one list, the streams included.
 pub(crate) fn commands(door: bool) -> Vec<Offered> {
     let mut list = offered_tools();
-    list.push(offered_without_params(
-        "project.measurements",
-        "Read retained Project measurements and collection coverage.",
-    ));
-    list.push(offered::<contracts::project::MeasurementSummaryParams>(
-        "project.measurementSummary",
-        "Read a Workstream’s consumed tokens and ranked contributors, twenty per page. Later pages require the first page’s revision; reconcile from offset zero after a revision conflict. Unknown coverage is not zero. This does not report money or time.",
-    ));
-    list.extend([
-        agent_digest(),
-        workstream_handoff(),
-        checkpoint_write(),
-        workstream_rewind_plan(),
-        workstream_rewind(),
-        agent_extras(),
-        agent_extras_add(),
-    ]);
-    list.push(events_stream());
     list.retain(|offer| door || !offer.door_only);
     list
 }
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
+macro_rules! push_tool {
+    ($list:ident, $wire:literal, none()) => {};
+    ($list:ident, $wire:literal, all($($tool:tt)*)) => { push_tool!(@offer $list, $wire, false, $($tool)*); };
+    ($list:ident, $wire:literal, door($($tool:tt)*)) => { push_tool!(@offer $list, $wire, true, $($tool)*); };
+    (@offer $list:ident, $wire:literal, $door:expr, schema($schema:ty, $description:expr)) => {
+        $list.push(Offered { door_only: $door, ..offered::<$schema>($wire, $description) });
+    };
+    (@offer $list:ident, $wire:literal, $door:expr, empty($description:expr)) => {
+        $list.push(Offered { door_only: $door, ..offered_without_params($wire, $description) });
+    };
+    (@offer $list:ident, $wire:literal, $door:expr, custom($offer:expr)) => {
+        $list.push(Offered { door_only: $door, ..$offer });
+    };
+}
+macro_rules! declared_tools {
+    ([] $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {{
+        let mut list = Vec::new();
+        $(push_tool!(list, $wire, $role($($tool)*));)*
+        list
+    }};
+}
 fn offered_tools() -> Vec<Offered> {
-    vec![
-        offered::<deliverable::PublishParams>(
-            "deliverable.publish",
-            "Deliberately publish a file, expected Pad incarnation and Revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses.",
-        ),
-        offered::<deliverable::ListParams>(
-            "deliverable.list",
-            "List published results without reading retained payloads.",
-        ),
-        offered::<deliverable::DeliverableId>(
-            "deliverable.get",
-            "Read publication metadata by its Project and identity.",
-        ),
-        offered::<deliverable::DeliverableId>(
-            "deliverable.resolve",
-            "Resolve the recorded revision or exact current external target, or its unavailability cause.",
-        ),
-        offered::<deliverable::MoveParams>(
-            "deliverable.move",
-            "Move a published result; an Agent cannot override user placement.",
-        ),
-        offered::<deliverable::DeliverableId>(
-            "deliverable.remove",
-            "Explicitly remove a publication. User only; the identity and key cannot be reused.",
-        ),
-        offered::<reaction::CreateParams>(
-            "reaction.create",
-            "Save a named instruction that a declared condition (named Agents finished, a PR's checks passed, or one instant) delivers once to a target Agent as a Message. Needs an `operation` retry key, an `expires_at` and a target that is you or in your Reach; the definition is immutable, so to change it stop it and create another. A refusal saves nothing.",
-        ),
-        offered::<reaction::PreviewParams>(
-            "reaction.preview",
-            "Resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant, before creating a time reaction. Saves nothing.",
-        ),
-        offered_without_params("reaction.list", "List the reactions you authorized."),
-        offered::<reaction::ReactionId>("reaction.get", "Read one reaction you authorized."),
-        offered::<reaction::ReactionId>(
-            "reaction.stop",
-            "Stop a reaction you authorized; no later firing is accepted.",
-        ),
-        offered::<reaction::RunParams>(
-            "reaction.run",
-            "Spend one remaining firing of a reaction you authorized now, with an `operation` retry key. Refused while the reaction is stopped.",
-        ),
-        offered::<todo::CreateParams>("todo.create", "Create a Todo."),
-        offered::<todo::AssignParams>(
-            "todo.assign",
-            "Assign a Todo to an owner, or leave it unassigned.",
-        ),
-        offered::<todo::TodoId>("todo.get", "Read one Todo."),
-        offered_without_params("todo.list", "List every Todo."),
-        offered::<todo::UpdateParams>("todo.update", "Change a Todo's title, body or estimate."),
-        offered::<todo::CommentParams>(
-            "todo.comment",
-            "Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here.",
-        ),
-        offered::<todo::RefParams>(
-            "todo.addRef",
-            "Point the user to a Pad or one section of it from a Todo, so they open it from the Todo and read it. Pass the link `roundup://pad/<name>?project=<key>`; a section link ends in `#<heading>`, the heading's text percent-encoded. The Pad and heading must exist. Adding the same link twice keeps one.",
-        ),
-        offered::<todo::RefParams>(
-            "todo.removeRef",
-            "Remove a Pad or Pad-section link from a Todo, by the same link you added; removing one the Todo lacks changes nothing.",
-        ),
-        offered::<todo::TodoId>("todo.complete", "Mark a Todo done."),
-        offered::<todo::TodoId>("todo.reopen", "Reopen a done Todo."),
-        offered::<todo::SetBlockersParams>(
-            "todo.setBlockers",
-            "Replace a Todo's whole blocker list.",
-        ),
-        offered::<pad::CreateParams>("pad.create", "Create a Pad you own."),
-        offered::<pad::PadName>("pad.read", "Read one Pad."),
-        offered::<link::LinkUrl>(
-            "link.read",
-            "Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability.",
-        ),
-        offered::<project::ImportListParams>(
-            "import.list",
-            "Read-only: list this Project's saved and live top-level Claude Code sessions active in the period, once each, with the revision to approve. Starts no import and spends no Model turn.",
-        ),
-        offered_without_params("pad.list", "List every Pad."),
-        offered::<pad::WriteParams>(
-            "pad.write",
-            "Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT.",
-        ),
-        offered::<pad::AppendParams>("pad.append", "Add text to the end of any Pad."),
-        offered::<pad::AppendSectionParams>(
-            "pad.appendSection",
-            "Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since.",
-        ),
-        offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
-        offered::<pad::PadName>("pad.delete", "Delete a Pad."),
-        offered::<message::ProgressParams>(
-            "message.progress",
-            "Inspect retained instructions, reports, acceptance and declared verification without starting work.",
-        ),
-        offered::<message::ReportParams>(
-            "message.report",
-            "Report your own Attempt's result for an exact delivered instruction and published output. This is a claim, not acceptance or verification. Use the same key for retries.",
-        ),
-        offered::<message::AcceptResultParams>(
-            "message.acceptResult",
-            "Record user acceptance of one exact reported result with its evidence; only the user may accept.",
-        ),
-        offered::<message::ResultId>(
-            "message.verifyResult",
-            "Observe a report's declared authoritative condition without a Model call; unavailable or unsupported evidence stays unknown.",
-        ),
-        offered::<message::ResolveResultParams>(
-            "message.resolveResult",
-            "User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect.",
-        ),
-        offered::<message::ProgressParams>(
-            "message.reconcileWork",
-            "Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything.",
-        ),
-        offered::<message::ResumeWorkParams>(
-            "message.resumeWork",
-            "User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program.",
-        ),
-        offered::<message::SendParams>(
-            "message.send",
-            "Send a note or a question to an Agent or the user. You are the sender.",
-        ),
-        offered::<message::MessageId>("message.get", "Read one Message you sent or received."),
-        offered::<message::ListParams>(
-            "message.list",
-            "List the Messages you sent or received, newest last.",
-        ),
-        offered::<todo::MoveParams>(
-            "todo.move",
-            "Move a Todo into a Workstream, or out of every Workstream with a null `home`.",
-        ),
-        offered::<todo::ReorderParams>(
-            "todo.reorder",
-            "Put a Todo before another in the Todo order, or last with a null `before`.",
-        ),
-        offered::<todo::TodoId>("todo.delete", "Delete a Todo."),
-        offered::<pad::ExportParams>(
-            "pad.export",
-            "Write a Pad's text to a file at an absolute path.",
-        ),
-        offered::<pad::SetStorageParams>(
-            "pad.setStorage",
-            "Choose whether the Project mirrors its Pads to files.",
-        ),
-        offered_without_params(
-            "rail.tree",
-            "Read the Rail: every Workstream, Agent and Terminal with its Status.",
-        ),
-        offered::<agent::CreateWorkstreamParams>(
-            "rail.createWorkstream",
-            "Make a Workstream at the Project root, with `parent` null. Start its Door next with `rail_startDoor`. Workstreams never nest.",
-        ),
-        offered::<agent::NodeId>(
-            "rail.startDoor",
-            "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
-        ),
-        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
-        offered::<agent::MoveParams>(
-            "rail.move",
-            "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
-        ),
-        offered::<agent::NodeId>(
-            "rail.remove",
-            "Remove a node in your Reach, never yourself. Its children move to its parent.",
-        ),
-        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
-        offered::<agent::NodeId>(
-            "agent.interrupt",
-            "Interrupt the turn of an Agent in your Reach.",
-        ),
-        offered::<agent::PromptParams>(
-            "agent.prompt",
-            "Send a prompt to an Agent in your Reach as the user would.",
-        ),
-        offered::<agent::ResumeParams>(
-            "agent.resume",
-            "Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.discard",
-            "Discard the Worktree of an Agent in your Reach and its changes.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.land",
-            "Land the Worktree of an Agent in your Reach on the Base branch.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.worktreeState",
-            "Read what a Worktree holds: its changes and whether it can land. Yours or one in your Reach.",
-        ),
-        offered_without_params(
-            "route.list",
-            "List the Routes: who each Agent's questions go to.",
-        ),
-        offered_without_params("project.get", "Read the Project's settings."),
-        offered::<project::Worktrees>(
-            "project.setWorktrees",
-            "Turn Worktrees on or off for the Project and set the command Landing runs.",
-        ),
-        offered::<HistoryParams>(
-            "provenance.history",
-            "List the Touches on one item, such as `todo:3` or `rail:5`.",
-        ),
-        offered::<TouchedParams>("provenance.touched", "List the Touches one Actor made."),
-        offered::<project::OpenParams>(
-            "project.open",
-            "Ask the App to open the Project at an absolute folder path. The answer means asked, not done.",
-        ),
-        offered::<project::RenameParams>(
-            "project.rename",
-            "Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done.",
-        ),
-        offered::<checkpoint::ListParams>(
-            "checkpoint.list",
-            "List the Checkpoints of a Workstream, oldest first.",
-        ),
-        offered::<terminal::TerminalId>(
-            "terminal.screen",
-            "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
-        ),
-        terminal_read(),
-        offered::<terminal::SearchParams>(
-            "terminal.search",
-            "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
-        ),
-        terminal_show(),
-        offered::<message::SetRouteParams>(
-            "route.set",
-            "Set where one Agent's Messages to another go: `auto` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
-        ),
-        offered::<terminal::SpawnParams>(
-            "terminal.spawn",
-            concat!(
-                "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
-                bubble_rule!()
-            ),
-        ),
-        offered::<terminal::OpenParams>(
-            "terminal.open",
-            concat!(
-                "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; `workstream` is required for Agents. The answer holds its `terminal_id`.",
-                bubble_rule!()
-            ),
-        ),
-        offered::<terminal::TerminalId>(
-            "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it.",
-        ),
-        offered::<terminal::WriteParams>(
-            "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, use `agent_prompt`, `agent_interrupt` or `agent_stop`; type keystrokes only when no direct tool does.",
-        ),
-        offered::<terminal::ResizeParams>(
-            "terminal.resize",
-            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
-        ),
-        offered::<terminal::TerminalId>(
-            "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.instructions",
-            "Read exact instruction revisions and Attempt-bound delivery facts for yourself or an Agent in your Reach. Reading sends nothing; submission never proves completion of work.",
-        ),
-        agent_context(),
-        agent_wake(),
-        agent_set_order(),
-        agent_run(),
-        agent_spawn(),
-    ]
+    contracts::all_methods!(declared_tools)
 }
 
 // Resolve before actions: discard removes the node, so a lookup after success loses its name.
@@ -604,9 +329,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     };
     let id = field("id");
     match method {
-        "todo.delete" => format!("deleted Todo {id}"),
         "deliverable.remove" => format!("removed publication {id}"),
-        "pad.delete" => format!("deleted Pad {}", field("name")),
         "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),
         "pad.setStorage" => format!(
             "{} Pad files",
@@ -870,3 +593,6 @@ async fn serve(actor: Actor) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod c4_policy;

@@ -1,4 +1,4 @@
-import { questionDialog, answerQuestion, questionClosed } from "./bulkQuestionHarness";
+import { askToDelete, answerQuestion, questionClosed } from "./bulkQuestionHarness";
 // @vitest-environment jsdom
 import { connect } from "node:net";
 import * as v from "valibot";
@@ -74,8 +74,7 @@ const selectRow = async (name: string | RegExp) => {
 };
 
 const deleteSelected = async (count: number) => {
-  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
-  await questionDialog();
+  await askToDelete(count);
   await answerQuestion(true);
   await questionClosed();
 };
@@ -152,7 +151,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
 
   const failedApp: typeof app = {
     ...app,
-    rpc: (method, params) => method === "todo.delete" && params && "id" in params && params.id === second.id ? Promise.reject(new Error("injected unavailable connection")) : app.rpc(method, params),
+    rpc: (method, params) => method === "todo.delete" && params && "ids" in params && params.ids.some(id => id === second.id) ? Promise.reject(new Error("injected unavailable connection")) : app.rpc(method, params),
     forProject: () => failedApp,
   };
 

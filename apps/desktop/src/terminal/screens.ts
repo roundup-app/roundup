@@ -86,6 +86,7 @@ type Holder = {
   stream: Stream | null;
   complete: boolean;
   shownSize: Size | null;
+  resizeSize: Size | null;
 };
 
 type FailureEntry = { message: string; order: number };
@@ -125,12 +126,28 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (message === null && previous[kind] === null) return current;
 
-      const state: TerminalFailures = {
-        ...previous,
-        [kind]: message === null ? null : { message, order: ++failureOrder },
-      };
+      const state: TerminalFailures = { ...previous };
+
+      if (message !== null && (kind === "live" || kind === "link")) {
+        state.live = null;
+        state.link = null;
+      }
+
+      state[kind] = message === null ? null : { message, order: ++failureOrder };
 
       const next = new Map(current);
+
+      // One Terminal scope per Project: replacing a kind also replaces its owned Terminal.
+      // Acknowledgments still clear only their original id and operation.
+      if (message !== null) for (const [otherId, other] of next) {
+        const replaced = { ...other };
+        const sameKind = kind === "live" || kind === "link" ? ["live", "link"] as const : [kind];
+
+        for (const operation of sameKind) replaced[operation] = null;
+
+        if (FAILURE_KINDS.some(operation => replaced[operation] !== null)) next.set(otherId, replaced);
+        else next.delete(otherId);
+      }
 
       next.delete(id);
 
@@ -140,16 +157,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
   };
 
-  const resize = (id: string, size: Size, changedOnly = false): void => {
+  const resize = (id: string, size: Size, changedOnly = true): void => {
     const holder = holders.get(id);
 
-    if (holder && !holder.ready) return;
+    if (disposed || (holder && !holder.ready)) return;
 
-    if (changedOnly && holder?.shownSize?.cols === size.cols && holder.shownSize.rows === size.rows) return;
+    if (changedOnly && holder?.resizeSize?.cols === size.cols && holder.resizeSize.rows === size.rows) return;
 
-    if (holder?.shownSize) holder.shownSize = size;
+    if (holder) { holder.shownSize = size; holder.resizeSize = size; }
 
-    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size }));
+    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
+      // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+      if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
+    });
   };
 
   const reflow = (id: string, holder: Holder): void => {
@@ -358,6 +378,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     // A callback that outlives its subscription (released, replaced or disposed) reaches nothing.
     if (!stream.open || holder.stream !== stream) return;
 
+    if (!("gap" in message)) holder.emulator.outputArrived?.(message);
+
     if (!stream.placed) {
       stream.early.push(message);
 
@@ -431,15 +453,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
-  const attempt = async (id: string, call: Promise<unknown>): Promise<void> => {
+  const attempt = async (id: string, call: Promise<unknown>): Promise<boolean> => {
     try {
       await call;
 
       setFailure(id, "live", null);
+
+      return true;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(id, "live", thrown.message);
+
+      return false;
     }
   };
 
@@ -475,10 +501,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       try {
         while (typed.length > 0) {
+          const batch = typed;
+
+          emulator.inputEncoding?.(batch);
+
           const data = toBase64(Uint8Array.from(typed));
 
           typed = [];
-          emulator.inputEncoded?.();
+          emulator.inputEncoded?.(batch);
           await attempt(id, app.rpc("terminal.write", { id, data }));
         }
       } finally {
@@ -504,10 +534,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
+    emulator.onResize?.((size) => {
+      if (holder.stream?.open) resize(id, size);
+    });
 
     void emulator.ready?.then(() => {
       if (disposed) return;

@@ -1,12 +1,13 @@
+import { outcomeOf } from "../app/seam";
 import { batch, createSignal } from "solid-js";
 import { copy } from "../copy";
 import * as v from "valibot";
+import type { ImportFailure } from "@contracts/project/ImportFailure";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storedValue, type draftStorage } from "../state/storage";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 
 const PERIODS = ["day", "week", "month"] as const;
 
@@ -59,7 +60,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [pending, setPending] = createSignal(false);
   const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
-  const [failed, setFailed] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const [failed, setFailed] = createSignal<ReadonlyMap<string, ImportFailure>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
   let latest = 0;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -270,7 +271,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       try {
         const { outcomes } = await app.rpc("project.importCommit", { selections });
-        const refused = new Map<string, string>();
+        const refused = new Map<string, ImportFailure>();
         const created: { workstream: string; agent: string | null }[] = [];
 
         for (const outcome of outcomes) {
@@ -278,7 +279,9 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
           else if (outcome.workstream !== null) created.push({ workstream: outcome.workstream, agent: outcome.agent });
         }
 
-        if (submittedRevision) drafts?.settle(submittedRevision, refused.size === 0 ? "acknowledged" : "failed");
+        const uncertain = [...refused.values()].some(failure => failure.outcome !== "failed");
+
+        if (submittedRevision) drafts?.settle(submittedRevision, refused.size === 0 ? "acknowledged" : uncertain ? "unknown" : "failed");
         batch(() => {
           const rest = new Map(selected());
 
@@ -293,11 +296,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         });
         persist();
 
-        if (refused.size > 0) await refresh();
+        if (uncertain) setVerified(false);
+        else if (refused.size > 0) await refresh();
 
         if (created[0] !== undefined) onOpened(created[0].workstream, created[0].agent);
       } catch (error) {
-        if (submittedRevision) drafts?.settle(submittedRevision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        if (submittedRevision) drafts?.settle(submittedRevision, outcomeOf(error));
         setFailure(error instanceof Error ? error.message : String(error));
       } finally {
         setPending(false);

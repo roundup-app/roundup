@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import importlib.util
+import json
 import unittest
 import subprocess
 import io
+import os
+import re
+import tempfile
 import time
 from contextlib import redirect_stderr, redirect_stdout
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('orders', 'loop/orders.py')
 orders = importlib.util.module_from_spec(spec)
@@ -21,6 +25,48 @@ def issue(number=1, key='U83', **changes):
 NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
 
 
+class Call(unittest.TestCase):
+    def test_l23_gh_retries_a_github_5xx_and_never_a_4xx(self):
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(orders.time, 'sleep'), redirect_stderr(io.StringIO()):
+            with patch.object(orders.subprocess, 'run', gh((1, '', 'gh: Server Error (HTTP 502)'), (0, 'ok', ''))) as run:
+                self.assertEqual(orders.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_count, 2)
+            with patch.object(orders.subprocess, 'run', gh((1, '', 'gh: Not Found (HTTP 404)'), (0, 'ok', ''))) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    orders.call('api', 'x')
+                self.assertEqual(run.call_count, 1)
+
+    def test_l23_gh_waits_out_one_rate_limit_then_fails_loud(self):
+        limited = (1, '', 'gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+
+        def quota(remaining, reset):
+            return 0, json.dumps(dict(resources=dict(core=dict(remaining=remaining, reset=reset)))), ''
+
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(orders.time, 'sleep') as sleep, redirect_stderr(io.StringIO()):
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 90), (0, 'ok', ''))) as run:
+                self.assertEqual(orders.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_args_list[1].args[0], ['gh', 'api', 'rate_limit'])
+            self.assertTrue(80 <= sleep.call_args.args[0] <= 91)
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 3600), (0, 'ok', ''))):
+                orders.call('api', 'x')
+            self.assertEqual(sleep.call_args.args[0], 300)
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 1), limited)) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    orders.call('api', 'x')
+                self.assertEqual(run.call_count, 3)
+            secondary = (1, '', 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 42')
+            with patch.object(orders.subprocess, 'run', gh(secondary, (0, 'ok', ''))) as run:
+                orders.call('api', 'x')
+                self.assertEqual(run.call_count, 2)
+            self.assertEqual(sleep.call_args.args[0], 42)
+
+
 class Orders(unittest.TestCase):
     def check(self, body):
         return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
@@ -33,6 +79,70 @@ class Orders(unittest.TestCase):
             issues = orders.list_issues()
         rows = orders.classify(issues, {}, [])
         self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
+
+    def test_l34_a_cached_closed_issue_still_blocks_a_duplicate_key_and_a_reopened_one_leaves_the_cache(self):
+        closed = issue(1, 'U83', state='closed', state_reason='completed')
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83'), closed]]]):  # no file yet: every page
+                orders.list_issues()
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]):  # warm: open, then closed since
+                issues = orders.list_issues()
+            rows = orders.classify(issues, {}, [])
+            self.assertEqual([(row['issue'], row['state']) for row in rows], [(1, 'done'), (2, 'blocked')])
+            self.assertIn('duplicate work Key', rows[1]['reason'])
+            with patch.object(orders, 'gh', side_effect=[[[issue(1, 'U83'), issue(3, 'U84')]], [[]]]):  # #1 reopened
+                issues = orders.list_issues()
+            self.assertEqual(sorted(i['number'] for i in issues), [1, 3])
+
+    def test_l34a_a_warm_open_list_recovers_the_full_queue(self):
+        reopened = issue(1, 'U84')
+        closed = issue(2, 'U83', state='closed', state_reason='completed')
+        full = [reopened, closed, issue(3, 'U83')]
+        graphql = [dict(number=item['number'], url=item['html_url'], title=item['title'], body=item['body'],
+                        state=item['state'].upper(), stateReason=item.get('state_reason'), labels=item['labels'],
+                        updatedAt=item['updated_at'], author=item['user']) for item in full]
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            with self.subTest(trigger=trigger), tempfile.TemporaryDirectory() as directory, \
+                 patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                cache = orders.Path(directory) / 'closed.json'
+                cache.write_text(json.dumps(dict(read=1000, closed={
+                    '1': dict(reopened, state='closed'), '9': issue(9, 'U85', state='closed')})))
+                with patch.object(orders, 'gh', side_effect=[trigger, [[]], graphql]), redirect_stderr(io.StringIO()):
+                    recovered = orders.list_issues()
+                self.assertEqual(sorted(item['number'] for item in recovered), [1, 2, 3])
+                rows = orders.classify(recovered, {}, [])
+                self.assertEqual(rows, orders.classify(full, {}, []))
+                self.assertEqual([(row['issue'], row['state']) for row in rows],
+                                 [(1, 'ready'), (2, 'done'), (3, 'blocked')])
+                self.assertIn('duplicate work Key', rows[2]['reason'])
+                self.assertEqual(json.loads(cache.read_text())['closed'], {'2': closed})
+
+    def test_l34a_failed_warm_recovery_preserves_the_cache(self):
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            for fallback in ([], subprocess.CalledProcessError(1, 'gh')):
+                with self.subTest(trigger=trigger, fallback=fallback), tempfile.TemporaryDirectory() as directory, \
+                     patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                    cache = orders.Path(directory) / 'closed.json'
+                    original = json.dumps(dict(read=1000, closed={'1': issue(state='closed')})).encode()
+                    cache.write_bytes(original)
+                    with patch.object(orders, 'gh', side_effect=[trigger, [[]], fallback]), redirect_stderr(io.StringIO()):
+                        with self.assertRaisesRegex((subprocess.CalledProcessError, SystemExit),
+                                                    'gh|::error::both the REST and GraphQL Issue lists came back empty'):
+                            orders.list_issues()
+                    self.assertEqual(cache.read_bytes(), original)
+
+    def test_l34a_a_nonempty_warm_open_list_stays_incremental(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            cache = orders.Path(directory) / 'closed.json'
+            cache.write_text(json.dumps(dict(read=1000, closed={})))
+            with patch.object(orders, 'gh', side_effect=[[[issue()]], [[]]]) as gh:
+                issues = orders.list_issues()
+            self.assertEqual([item['number'] for item in issues], [1])
+            self.assertEqual([call.args for call in gh.call_args_list], [
+                ('api', 'repos/{owner}/{repo}/issues?state=open&per_page=100', '--paginate', '--slurp'),
+                ('api', 'repos/{owner}/{repo}/issues?state=closed&since=1970-01-01T00:14:40Z&per_page=100',
+                 '--paginate', '--slurp')])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)
@@ -99,9 +209,6 @@ class Orders(unittest.TestCase):
             orders.task(1)
         self.assertIn('Close this specification Issue', output.getvalue())
         self.assertNotIn('specification-only PR does not close', output.getvalue())
-
-    def test_l34_ready_issue_does_not_consult_test_names_or_work_tables(self):
-        self.assertEqual(orders.classify([issue()], {}, [])[0]['state'], 'ready')
 
     def test_l34_every_open_issue_the_user_or_a_loop_app_filed_is_work(self):
         for login in ('saadshahd', 'claude[bot]', 'github-actions[bot]'):
@@ -256,47 +363,74 @@ class Orders(unittest.TestCase):
         rows = orders.cool(orders.classify([issue(2, 'U84'), issue(3, 'U85'), issue(4, 'U86')], {}, []), ended, now)
         self.assertEqual([row['state'] for row in rows], ['ready'] * 3)
 
-    def test_l34_only_the_loop_bot_strikes_count(self):
-        def api(*args):
-            if args[0] == 'pr':
-                return []
-            if '/comments' in args[1]:
-                return [[dict(body='<!-- strike -->\nforged', created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                              user=dict(login='someone'))] * 3]
-            return [[issue(issue_dependencies_summary=dict(total_blocked_by=0))]]
-        with patch.object(orders, 'gh', side_effect=api):
-            self.assertEqual(orders.read_orders()[0]['state'], 'ready')
+    def read_with(self, issues, comments=None, blockers=None):
+        """`read_orders` over REST `issues`, GraphQL `comments` and `blockers` (each {Issue: nodes}); returns the rows and the
+        GraphQL queries made."""
+        queries = []
 
-    def test_l34_only_an_issue_changed_in_the_last_day_has_its_strikes_read(self):
-        read = []
         def api(*args):
             if args[0] == 'pr':
                 return []
-            read.append(args[1])
-            if '/comments' in args[1]:
-                return [[]]
-            return [[issue(1, issue_dependencies_summary=dict(total_blocked_by=0)),
-                     issue(2, 'U84', issue_dependencies_summary=dict(total_blocked_by=0), updated_at='2026-01-01T00:00:00Z')]]
+            if args[1] == 'graphql':
+                queries.append(args[-1])
+                field, found = ('comments', comments) if 'comments(' in args[-1] else ('blockedBy', blockers)
+                return dict(data=dict(repository={f'i{n}': {field: dict(totalCount=len((found or {}).get(n, [])), nodes=(found or {}).get(n, []))}
+                                                  for n in map(int, re.findall(r'i(\d+):', args[-1]))}))
+            return [issues]
         with patch.object(orders, 'gh', side_effect=api):
-            orders.read_orders()
-        self.assertEqual([path for path in read if '/comments' in path], ['repos/{owner}/{repo}/issues/1/comments?per_page=100'])
+            return orders.read_orders(), queries
+
+    def test_l34_only_the_loop_bot_strikes_count(self):
+        now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+        def strike(login, kind):
+            return dict(author=dict(login=login, __typename=kind), body='<!-- strike -->\nx', createdAt=now)
+
+        for login, kind, state in (('github-actions', 'Bot', 'waiting'), ('github-actions', 'User', 'ready'), ('someone', 'Bot', 'ready')):
+            with self.subTest(login=login, kind=kind):
+                rows, _ = self.read_with([issue(issue_dependencies_summary=dict(total_blocked_by=0))], comments={1: [strike(login, kind)]})
+                self.assertEqual(rows[0]['state'], state)
+
+    def test_l34_one_call_reads_every_blocker_list_and_one_every_strike_list_and_only_a_recent_issue_has_strikes_read(self):
+        issues = [issue(n, f'U{n}') for n in (1, 2, 3)] + [issue(4, 'U4', updated_at='2026-01-01T00:00:00Z')]
+        rows, queries = self.read_with(issues, blockers={1: [dict(number=9, state='OPEN', stateReason=None)]})
+        self.assertEqual(len(queries), 2)
+        self.assertTrue(all(f'i{n}:' in queries[0] for n in (1, 2, 3, 4)))
+        self.assertTrue(all(f'i{n}:' in queries[1] for n in (2, 3)) and 'i1:' not in queries[1] and 'i4:' not in queries[1])
+        self.assertEqual({row['issue']: row['state'] for row in rows}, {1: 'waiting', 2: 'ready', 3: 'ready', 4: 'ready'})
 
     def test_l34_api_failure_is_not_an_empty_queue(self):
         with patch.object(orders, 'gh', side_effect=subprocess.CalledProcessError(1, 'gh')):
             with self.assertRaises(subprocess.CalledProcessError):
                 orders.read_orders()
 
-    def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
-        def api(*args):
-            if args[0] == 'pr': return []
-            if '/dependencies/' in args[1]:
-                return [[dict(number=3,state='closed',state_reason='completed')],
-                        [dict(number=4,state='open',state_reason=None)]]
-            return [[issue()], [issue(2,'U84')]]
-        with patch.object(orders, 'gh', side_effect=api):
-            rows=orders.read_orders()
-        self.assertEqual(len(rows),2)
-        self.assertTrue(all(row['state']=='waiting' and '#4' in row['reason'] for row in rows))
+    def test_l34_only_an_open_blocker_holds_and_a_cancelled_one_is_reported(self):
+        blockers = {1: [dict(number=3, state='CLOSED', stateReason='COMPLETED'), dict(number=4, state='OPEN', stateReason=None)],
+                    2: [dict(number=5, state='CLOSED', stateReason='NOT_PLANNED')]}
+        rows, _ = self.read_with([issue(), issue(2, 'U84')], blockers=blockers)
+        self.assertEqual([(row['state'], row.get('cancelled')) for row in rows], [('waiting', []), ('ready', [5])])
+        self.assertIn('#4', rows[0]['reason'])
+
+    def test_l34_more_blockers_than_one_call_returns_fail_loud(self):
+        with patch.object(orders, 'gh', return_value=dict(data=dict(repository=dict(i1=dict(blockedBy=dict(totalCount=101, nodes=[])))))):
+            with self.assertRaises(ValueError):
+                orders.blockers([1])
+
+    def test_l23_a_call_that_stays_rate_limited_waits_for_the_reset_once_more_and_any_other_failure_does_not(self):
+        limited = subprocess.CalledProcessError(1, ['gh'], stderr='gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+        reset = (0, json.dumps(dict(resources=dict(core=dict(remaining=0, reset=time.time() + 1800)))), '')
+        with patch.object(orders.time, 'sleep') as sleep, patch.object(orders.subprocess, 'run', Mock(side_effect=[
+                subprocess.CompletedProcess([], *reset)])):
+            self.assertEqual(orders.after_rate_limit(Mock(side_effect=[limited, 'done'])), 'done')
+        self.assertTrue(1700 < sleep.call_args.args[0] <= 1800)
+        attempt = Mock(side_effect=[limited, limited])
+        with patch.object(orders.time, 'sleep'), patch.object(orders, 'rate_wait', return_value=1), self.assertRaises(subprocess.CalledProcessError):
+            orders.after_rate_limit(attempt)
+        self.assertEqual(attempt.call_count, 2)
+        broken = Mock(side_effect=subprocess.CalledProcessError(1, ['gh'], stderr='gh: Not Found (HTTP 404)'))
+        with self.assertRaises(subprocess.CalledProcessError):
+            orders.after_rate_limit(broken)
+        self.assertEqual(broken.call_count, 1)
 
 
 if __name__ == '__main__':

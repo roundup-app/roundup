@@ -122,6 +122,7 @@ it("u522_file_drop_coexists", async () => {
 
 it("u522_a_press_on_a_button_starts_no_drag", async () => {
   await load();
+  await browser("focus", '.rail-row[data-id="backend"]');
   const chevron = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('[data-id="backend"] .rail-chevron, .rail-chevron').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 
   await mouse("move", chevron.x, chevron.y);

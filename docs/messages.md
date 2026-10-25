@@ -66,8 +66,8 @@ Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
 | New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
 | Route `auto` or `drop` | `Send` makes the Message pending or drops it respectively; readiness bypasses neither Route. `UserDrop` drops a `pending` Message the user sent that has no in-flight record: it leaves the queue as `dropped` (reason `removed`) and nothing is typed (U3782). |
 | Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A newer readiness revision supplies `Idle` again, including when its handler ran before the Busy completion: Rust re-reads authoritative readiness after rollback and retries only at a strictly newer revision of the same Attempt. An unchanged revision does not retry. |
-| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `Exit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. |
-| Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `Exit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
+| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `ReceiverExit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. |
+| Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `ReceiverExit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
 
 A resumed Attempt has a new receiver generation; its predecessor's final Messages
 stay final (B36). Bus-lag reconciliation and fresh send/release scheduling use the
@@ -76,7 +76,7 @@ projections below still apply after this lifecycle classification.
 
 M1 retains the conditional record/at-most-once typing boundary; M4 retains queue
 ranks; M6 retains every pending record on live
-failure and Busy refusal; M7 applies `Exit` to actual ending, not live failure;
+failure and Busy refusal; M7 applies `ReceiverExit` to actual ending, not live failure;
 M10's fair `Idle` progress includes live `error`. Fairness still requires eventual
 accepted delivery: an indefinitely Busy receiver cannot promise progress.
 `LAWS.bend`, predicates and transitions are unchanged. Proofs cover the model,
@@ -142,10 +142,10 @@ uses these operations; that Issue remains open for full A35/U374 acceptance.
 A reservation keeps the logical Message receiver alive while its Terminal is
 replaced. Stop/error, next Attempt, delayed earlier Statuses, lag resync and Daemon
 reopen preserve pending records and never type them. In the pure model,
-`restart_event` projects these temporary Exit/Idle/Restart inputs to Busy; entering
+`restart_event` projects these temporary ReceiverExit/Idle/Restart inputs to Busy; entering
 the window first applies Busy. Final receiver removal without an explicit retirement reservation bypasses this
 projection, ends the restart reservation and follows B9. Outside a reservation,
-actual ending applies Exit and drops pending Messages; a live
+actual ending applies ReceiverExit and drops pending Messages; a live
 StopFailure instead applies Idle under B37.
 
 Release requires a live matching Attempt greater than the reserved Attempt, and
@@ -171,7 +171,7 @@ acknowledgement/replay of the already typed prompt, so the coordinator retries
 recording rather than sending it with `message.send`.
 
 Affected laws: M1 (no second typing or note), M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (final
-ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
+ending remains ReceiverExit, temporary restart is Busy), M9 (durable reservation/note
 replay), M10 (delivery follows coordinator release and fair Idle, including B37
 live error). `model.bend` models the reservation as a schedule projection into the
 unchanged delivery transitions and the already-typed prompt as an idempotent
@@ -208,9 +208,9 @@ manual delivery, including while still on the Rail. Explicit drop retains
 its existing Actor permissions; the operation never drops an archived record automatically.
 
 Stopping Statuses, delayed older Statuses and lag resync still reconcile receiver
-generations. The durable retirement selection projects their automatic Exit/Idle/
+generations. The durable retirement selection projects their automatic ReceiverExit/Idle/
 Restart inputs to Busy and marks the receiver closed; it does not skip resync or
-make a missing receiver live. Ordinary final ending still follows B9's Exit:
+make a missing receiver live. Ordinary final ending still follows B9's ReceiverExit:
 pending Messages are dropped as receiver-gone, even if a retained
 restart had been reserved. A35 retirement instead retains archived pending and
 final records in a permanently ineligible receiver. Completed records have no
@@ -247,6 +247,14 @@ Serves P1 and P3. An Agent asks `agent.wake {ids, any?}` to be told when all, or
 ## Reaction firing (NR3, NR8)
 
 A Reaction firing is accepted by `Messages::fire_reaction` in the one transaction that inserts its Message: the check that the Reaction is active with a firing left, the Message, and the `reaction_firings` row (`project.db`, migration 0009) holding the definition bytes and evidence as accepted. A fault before the commit leaves neither; after it, both, with the ids they were given. A retried `operation` returns the first firing and sends nothing. The Message is from the Daemon, outside B1's open bound like a Wake note, and is otherwise an ordinary Message: B2, B39 and B40 decide whether it is pending, delivered or dropped, and recovery starts no program. `reaction.get` shows the firing's `matched` flag and the Message's status as `outcome`; delivery is not verified work. This adds no delivery state, so M1 and M4 to M10 and `proofs/messages` stand unchanged.
+
+U3791b reaction observation identities travel beside retained diagnostics: `health_code`,
+`cause_code`, `gap_code` and `recovery_code` select App copy. Legacy records default each
+identity to `unknown`; their prose, cursor, evidence and pinned head remain readable, with
+an explicit checking action. Only a live authoritative read supplies a new identity.
+This changes no Message, Route, Held or Takeover contract. M1–M10 are unchanged: the firing
+transaction, deduplication, bound, Reach, delivery and restart rules remain identical.
+Delivery explanations use the existing Message `Reason`, including user removal.
 
 ## Reaction evaluation (NR2, NR4, NR5)
 

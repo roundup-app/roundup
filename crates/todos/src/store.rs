@@ -2,15 +2,15 @@
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::Mutex;
 
 use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
-use rpc::RpcError;
+use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
 
 pub(crate) struct Store {
-    db: Connection,
+    pub(super) db: Connection,
 }
 
 impl Store {
@@ -428,28 +428,6 @@ impl Store {
         self.get(id)
     }
 
-    /// Blockers pointing at `id` go with it (foreign keys cascade).
-    pub(crate) fn delete(&self, id: u32, after_touch: i64, actor: &Actor) -> Result<(), RpcError> {
-        self.get(id)?;
-        let affected: Vec<_> = self
-            .list()?
-            .into_iter()
-            .filter(|todo| todo.blockers.contains(&id))
-            .collect();
-        let tx = self
-            .db
-            .unchecked_transaction()
-            .map_err(RpcError::internal)?;
-        self.db
-            .execute("DELETE FROM todos WHERE id = ?1", [id])
-            .map_err(RpcError::internal)?;
-        for todo in affected {
-            self.record_change(todo.id, Some(values(&todo)), after_touch, actor)?;
-        }
-        tx.commit().map_err(RpcError::internal)?;
-        Ok(())
-    }
-
     /// T20: appends a line to the thread. It is no Change: no field of the Todo moves.
     pub(crate) fn add_comment(&self, id: u32, author: &Actor, body: &str) -> Result<(), RpcError> {
         self.get(id)?;
@@ -577,7 +555,7 @@ impl Store {
         Ok(())
     }
 
-    fn record_change(
+    pub(super) fn record_change(
         &self,
         id: u32,
         before: Option<Values>,
@@ -701,7 +679,7 @@ fn comment_of((id, author, body, created_at, read): CommentRow) -> Result<Commen
     })
 }
 
-fn values(todo: &Todo) -> Values {
+pub(super) fn values(todo: &Todo) -> Values {
     Values {
         title: todo.title.clone(),
         body: todo.body.clone(),
@@ -720,12 +698,32 @@ fn parse_creator(text: &str) -> serde_json::Result<Actor> {
     serde_json::from_str(text)
 }
 
-fn now_ms() -> i64 {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+pub(super) fn now_ms() -> i64 {
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
+}
+
+impl super::Todos {
+    /// `dir` is the Project's data folder (N1).
+    pub(super) fn open_store(dir: &Path) -> Result<Self, OpenError> {
+        Ok(Self {
+            store: Mutex::new(Store::open(&dir.join(
+                if dir.join("project.db").exists() {
+                    "project.db"
+                } else {
+                    "todos.db"
+                },
+            ))?),
+        })
+    }
+
+    pub(super) fn store(&self) -> Result<std::sync::MutexGuard<'_, Store>, RpcError> {
+        self.store
+            .lock()
+            .map_err(|_| RpcError::internal("todo store poisoned"))
+    }
+}
+
+pub(super) fn item(id: u32) -> String {
+    format!("todo:{id}")
 }

@@ -75,7 +75,7 @@ pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSo
 const FILES_SETTING: &str = "files";
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
     settings: &'static str,
 }
 
@@ -137,6 +137,19 @@ impl Store {
              FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.name",
         )?;
         stmt.query_map([], row_to_pad)?.collect()
+    }
+
+    /// Caller holds the immediate write transaction and has checked destination occupancy.
+    pub fn rename(&self, name: &str, new_name: &str) -> rusqlite::Result<()> {
+        self.db.execute(
+            "UPDATE pads SET key = ?2, name = ?3 WHERE key = ?1",
+            params![key(name), key(new_name), new_name],
+        )?;
+        self.db.execute(
+            "UPDATE pad_sources SET pad_key = ?2 WHERE pad_key = ?1",
+            params![key(name), key(new_name)],
+        )?;
+        Ok(())
     }
 
     pub fn set_text(&self, name: &str, text: &str, at: i64) -> rusqlite::Result<bool> {

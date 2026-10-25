@@ -9,7 +9,7 @@
 //!                           next: u32, idle: bool, gone: bool }   // Clone, Debug, PartialEq
 //! impl Default for State   // model.bend's `init`: empty lists, `next` 1, `idle` and `gone` false
 //! #[derive(Clone, Debug)]
-//! pub(crate) enum Event { Send { from_user: bool, route: Delivery }, Idle, Busy, Exit,
+//! pub(crate) enum Event { Send { from_user: bool, route: Delivery }, Idle, Busy, ReceiverExit,
 //!                         UserDrop(u32),
 //!                         Restart { alive: bool } }
 //! pub(crate) enum Effect { Type(u32) }             // Clone, Debug, PartialEq
@@ -53,7 +53,7 @@ fn schedule(rng: &mut Rng) -> Vec<Event> {
             }
             1 => Event::Idle,
             2 => Event::Busy,
-            3 => Event::Exit,
+            3 => Event::ReceiverExit,
             4 => Event::UserDrop(1 + rng.below(MESSAGES) as u32),
             5 => Event::Restart {
                 alive: rng.below(2) == 0,
@@ -300,7 +300,11 @@ fn inv_delivery_examples_preserve_batching_routes_and_exit() {
     ]);
     assert_eq!((s.queue, s.dropped), (vec![], vec![2, 1]));
 
-    let (s, typed) = run(vec![send(false, Delivery::Auto), Event::Exit, Event::Idle]);
+    let (s, typed) = run(vec![
+        send(false, Delivery::Auto),
+        Event::ReceiverExit,
+        Event::Idle,
+    ]);
     assert_eq!((s.dropped, s.gone, typed), (vec![1], true, vec![]));
 }
 
@@ -315,7 +319,7 @@ fn inv_the_daemons_transitions_run_through_step() {
     for event in [
         "Event::Send",
         "Event::Idle",
-        "Event::Exit",
+        "Event::ReceiverExit",
         "Event::UserDrop",
     ] {
         assert!(
@@ -332,7 +336,7 @@ fn a35_reserved_projection_preserves_records_and_never_types() {
             .iter()
             .fold(State::default(), |s, e| step(&s, e.clone()).0);
         for ending in [
-            Event::Exit,
+            Event::ReceiverExit,
             Event::Idle,
             Event::Restart { alive: false },
             Event::Restart { alive: true },
@@ -366,7 +370,7 @@ fn a35_retirement_projection_preserves_records_and_never_types() {
             .iter()
             .fold(State::default(), |s, e| step(&s, e.clone()).0);
         for event in [
-            Event::Exit,
+            Event::ReceiverExit,
             Event::Idle,
             Event::Restart { alive: false },
             Event::Restart { alive: true },

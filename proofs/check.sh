@@ -18,8 +18,11 @@ for law in $(sed -nE 's/^law ([A-Za-z0-9_]+):.*/\1/p' "$dir/LAWS.bend"); do
   grep -qE "^def Laws\.$law\(" "$dir/PROOF.bend" || fail "law $law has no def Laws.$law in PROOF.bend"
 done
 
-out=$("$BEND" "$dir/PROOF.bend" 2>&1) || { printf '%s\n' "$out" >&2; fail "bend exited non-zero"; }
-printf '%s\n' "$out" | grep -qx 'ALL PROOFS CHECK' || { printf '%s\n' "$out" >&2; fail "bend did not print ALL PROOFS CHECK"; }
+out=$("$BEND" "$dir/PROOF.bend" 2>&1) || { printf '%s\n' "$out" >&2; fail "plain Bend check exited non-zero"; }
+printf '%s\n' "$out" | grep -qx 'ALL PROOFS CHECK' || { printf '%s\n' "$out" >&2; fail "plain Bend check did not print ALL PROOFS CHECK"; }
+# The plain check's pass cannot substitute for the kernel's independent pass.
+out=$("$BEND" "$dir/PROOF.bend" --verdict 2>&1) || { printf '%s\n' "$out" >&2; fail "Bend --verdict exited non-zero"; }
+printf '%s\n' "$out" | grep -qx 'ALL PROOFS CHECK' || { printf '%s\n' "$out" >&2; fail "Bend --verdict missing successful kernel result ALL PROOFS CHECK"; }
 [ -x "$dir/mutants/run.sh" ] || fail "missing $dir/mutants/run.sh"
 BEND="$BEND" "$dir/mutants/run.sh" || fail "mutation observer failed"
 echo "ALL PROOFS CHECK"
