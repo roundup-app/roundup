@@ -161,6 +161,10 @@
   min-width: 0;
 }
 
+.pad-inset .shelf-text {
+  position: relative;
+}
+
 .pad-inset .entry-field {
   font: inherit;
 }

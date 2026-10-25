@@ -168,6 +168,28 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await wait("document.querySelector('.todos-tab .entry-field')?.value === ''");
   await shot("U3789b", "head", "submitted");
 
+  await load("tree-40");
+  await overview();
+  await browser("click", '.todos-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+  await browser("click", '.todos-tab [data-todo="1"] .todo-row-button');
+  await shot("U3789d", "head", "plain-todo-selected");
+  await browser("click", "#shelf-tab-pads");
+  await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+  await browser("click", '.pads-tab [data-incarnation="fixture-1"] .pad-name');
+  await shot("U3789d", "head", "plain-pad-selected");
+  await browser("dblclick", '.rail-row[data-id="tokens"] .name');
+  await wait("document.querySelector('.rail-row[data-id=tokens] input')");
+  await browser("fill", '.rail-row[data-id="tokens"] input', "  retained 日本語 🌱  ");
+  await browser("eval", "window.__fake.failNext(-32003, 'name already taken')");
+  await browser("press", "Enter");
+  await wait("document.querySelector('.rail [role=alert]')?.textContent.includes('name already taken')");
+  await browser("click", '.rail-row[data-id="agent-4"] .name');
+  await shot("U3789d", "head", "rail-rename-failure-after-navigation");
+  await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
+  await wait("document.activeElement?.matches('.rail-row[data-id=tokens] input')");
+  expect(await read("document.activeElement.value")).toBe("  retained 日本語 🌱  ");
+  await shot("U3789d", "head", "rail-rename-retry");
+
   if (directoryVideo) await browser("record", "stop");
 }, 300_000);
 
