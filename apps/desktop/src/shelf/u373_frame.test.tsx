@@ -215,14 +215,15 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_the_open_tab_survives_a_restart_per_project", async () => {
     const first = await mountApp();
+    const chosen = tabNamed("Pads").id;
 
     fireEvent.click(tabNamed("Pads"));
-    expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads");
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
 
     cleanup();
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(selectedTab()).toBe("Pads");
+    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {

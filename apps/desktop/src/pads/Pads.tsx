@@ -107,12 +107,12 @@ export const Pads = (props: {
     failure.run(async () => {
       if (!name().trim()) return;
       capture();
-      const submitted = revision ? connected.drafts.submit(revision) : null;
-
-      if (!submitted) return;
       const target = name().trim();
       const targetHome = home;
       const maker = scope.agent();
+      const submitted = revision ? (await connected.drafts.submit(revision)) : null;
+
+      if (!submitted) return;
 
       const timeout = setTimeout(() => {
         connected.drafts.settle(submitted.draft.revision, "unknown");
