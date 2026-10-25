@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { appServer } from "../testing/appServer";
 import type { AppServer } from "../testing/appServer";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 import { chromePath } from "../testing/chromePage";
 
 const execute = promisify(execFile);
@@ -16,7 +17,7 @@ let profile: string;
 
 let origin: string;
 
-const session = `u472-builder-38499215487-${process.pid}`;
+const session = `u472-builder-40151385894-${process.pid}`;
 
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
@@ -35,6 +36,27 @@ const evaluate = async (expression: string) => (await browser("eval", expression
 
 const wait = (expression: string) => browser("wait", "--fn", expression);
 
+const capture = async (id: string, name: string) => {
+  const directory = captureDir(id);
+
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  await browser("set", "media", "dark");
+
+  if (id === "U472") {
+    await writeFile(join(directory, `${name}.observation.json`), JSON.stringify(await evaluate(`(() => { const prompt = document.querySelector("[data-clear-prompt]"); const alert = prompt?.querySelector("[role=alert]"); const r = prompt?.getBoundingClientRect(); return { scrollY, viewport: {width:innerWidth,height:innerHeight,top:visualViewport.offsetTop}, text: alert?.textContent, prompt: r?.toJSON(), style: prompt && {visibility:getComputedStyle(prompt).visibility, display:getComputedStyle(prompt).display}, parent: prompt?.parentElement?.getBoundingClientRect().toJSON()}; })()`), null, 2));
+  }
+
+  await browser("screenshot", join(directory, `${name}.png`));
+  await writeFile(join(directory, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+};
+
+const clickText = (text: string, selector = "button") => evaluate(`(() => {
+  const element = [...document.querySelectorAll(${JSON.stringify(selector)})].find(each => (each.getAttribute('aria-label') ?? each.textContent.trim()) === ${JSON.stringify(text)});
+  if (!element) throw new Error('Missing action: ' + ${JSON.stringify(text)});
+  element.click();
+})()`);
+
 beforeAll(async () => {
   profile = await mkdtemp(join(tmpdir(), "u472-browser-"));
   await writeFile(join(profile, "config.json"), "{}");
@@ -43,15 +65,23 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  try { if (profile) await browser("close"); } finally {
+  try {
+    if (captureDir("U472")) await captureClearFailure();
+
+    if (captureDir("U471")) for (const seed of ["first-run", "agents-10", "tree-40", "door-stopped", "conflict"]) {
+      await load(origin, seed, 1512, "dark");
+      await capture("U471", seed);
+    }
+  } finally {
+    if (profile) await browser("close");
     await server?.close();
 
     if (profile) await rm(profile, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
 const load = async (base: string, seed: string, width: number, scheme: string) => {
-  await browser("set", "viewport", String(width), "800");
+  await browser("set", "viewport", String(width), "950");
   await browser("set", "media", scheme);
   await browser("open", `${base}harness.html?seed=${seed}`);
   await wait("Boolean(window.__fake && document.querySelector('.window'))");
@@ -59,6 +89,22 @@ const load = async (base: string, seed: string, width: number, scheme: string) =
   await browser("reload");
   await wait("Boolean(window.__fake && document.querySelector('.window'))");
   await evaluate("document.fonts.ready.then(() => true)");
+};
+
+// Capture-only observer; main's U471 and U350 tests keep the action and retention proofs.
+const captureClearFailure = async () => {
+  await load(origin, "tree-40", 1512, "light");
+  await browser("click", '.rail-row[data-id="payments"]');
+  await wait("Boolean(document.querySelector('.pane-screen'))");
+  await browser("click", "#shelf-tab-todos");
+  await evaluate("window.__fake.app.handlers['workstream.clear'] = () => ({pending: true})");
+  await evaluate(`document.querySelector('[data-id="payments"] [aria-label="Clear Workstream…"]').click()`);
+  await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
+  await clickText("Clear and keep a summary");
+  await wait("document.body.textContent.includes('The supervisor is writing the summary')");
+  await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.clearFailed', data:{id:'payments', code:-32008, message:'summary refused: keep THIS failure 🧭'}})`);
+  await wait("document.querySelector('[data-clear-prompt] [role=alert]')?.textContent.includes('keep THIS failure')");
+  await capture("U472", "clear-failure");
 };
 
 // App boundary: Help over the overlay Shelf is not covered by the Bubble key proofs.

@@ -1,6 +1,6 @@
 import { parse } from "@babel/parser";
 import { isNode } from "@babel/types";
-                                         
+
 const visit = (node      , ancestors                 , read                                                  ) => {
   read(node, ancestors);
 
@@ -131,4 +131,3 @@ export const candidates = (source        )                                   => 
 
   return found;
 };
-
