@@ -71,6 +71,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
+| `--duration-copy` | `1500ms` | same | local clipboard acknowledgement lifetime (U3010c M8); renews only after success |
 | `--ease-todo` / `--ease-pop` | `cubic-bezier(0.22, 1, 0.36, 1)` / `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | a finishing Todo's tick, strike, bar and count / the ring's overshoot (`docs/motion.md`, U3771) |
 | `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
 | `--duration-ring` | `560ms` | same | the ring pop (U3771) |
