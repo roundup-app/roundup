@@ -53,27 +53,43 @@ const IDENTITIES: [&[u8; 32]; 2] = [
     b"00000000000000000000000000000002",
 ];
 
-/// The image with a new random id where each of `IDENTITIES` stood.
-fn reidentified() -> std::io::Result<Vec<u8>> {
+/// Where each of `IDENTITIES` stands in the image, with the new random id to put there, in file
+/// order. The image is written around these, so a start never copies its 1 MiB to patch 64 bytes.
+fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     let mut random = [0u8; 16 * IDENTITIES.len()];
     getrandom::fill(&mut random).map_err(|e| std::io::Error::other(e.to_string()))?;
-    let mut image = FRESH.to_vec();
+    let mut patches = Vec::new();
     for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
-        let id: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-        let mut found = 0;
-        // Search the immutable template so replacement bytes cannot create another match.
+        let mut id = [0u8; 32];
+        for (pair, byte) in id.chunks_mut(2).zip(bytes) {
+            pair.copy_from_slice(&[HEX[(byte >> 4) as usize], HEX[(byte & 15) as usize]]);
+        }
+        let before = patches.len();
         for &(start, end) in added::ID_REGIONS {
             for offset in memchr::memmem::find_iter(&FRESH[start..end], &placeholder[..]) {
-                let at = start + offset;
-                image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
-                found += 1;
+                patches.push((start + offset, id));
             }
         }
-        if found == 0 {
+        if patches.len() == before {
             return Err(std::io::Error::other("the image holds no placeholder id"));
         }
     }
-    Ok(image)
+    patches.sort_unstable_by_key(|&(at, _)| at);
+    Ok(patches)
+}
+
+const HEX: &[u8; 16] = b"0123456789abcdef";
+
+/// The image with each id in `patches` written over its placeholder.
+fn write_image(file: &mut std::fs::File, patches: &[(usize, [u8; 32])]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut done = 0;
+    for (at, id) in patches {
+        file.write_all(&FRESH[done..*at])?;
+        file.write_all(id)?;
+        done = at + id.len();
+    }
+    file.write_all(&FRESH[done..])
 }
 
 /// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
@@ -86,7 +102,7 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     for leftover in ["db.new-wal", "db.new-shm"] {
         let _ = std::fs::remove_file(path.with_extension(leftover));
     }
-    std::fs::write(&staging, reidentified()?)?;
+    write_image(&mut std::fs::File::create(&staging)?, &reidentified()?)?;
     // One sync makes the image durable before it is linked. Plain `fsync`, as SQLite issues:
     // `File::sync_all` is `F_FULLFSYNC` on macOS, several ms of the Daemon's cold start.
     rustix::fs::fsync(std::fs::File::open(&staging)?)?;
