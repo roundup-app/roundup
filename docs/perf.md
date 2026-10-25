@@ -583,6 +583,31 @@ Release profile measurements: [code generation comparison](perf-release-profile.
 
 [Correlated capture, adapter timings, probe isolation and remaining attribution gaps](perf-r23-writes.md#r23-correlated-write-capture-3976).
 
+### R23 task/queue execution lifetime (#3991)
+
+[Qualified lifetime, raw task/queue/syscall recordings and executable material](../crates/perf/evidence/r23-queues-40186616032/README.md)
+retains both pinned references on Builder 40186616032's exact R16 9V45 host.
+[Reproduction](../crates/perf/evidence/r23-queues-40186616032/reproduce.txt) and
+[controls/statuses](../crates/perf/evidence/r23-queues-40186616032/controls.md)
+include every failed attempt, both prior probe variants against identical
+Daemon executables, separate scheduler-only observations and syscall tracepoints
+that exclude the recorder's own events. Matching executables, raw records,
+PID/TID/FD associations and CLOCK_MONOTONIC task/queue markers are retained.
+
+Each marked capture joins 2200 writes; filtered physical endpoints retain 2200
+one-byte PTY writes and reads per reference. Input acceptance is enqueue
+acknowledgment. Producer input enqueue remains bounded by user-call entry and
+acceptance return; output publication remains bounded by physical PTY read exit
+and forward receive. Delegated wake markers precede logging and original wake,
+and selected-future polls are not whole-runtime task polls. CPU execution,
+thread runnable delay, physical blocking and unresolved runtime-task delay stay
+separate. Observer-perturbed stages cannot be transferred to clean p95s.
+
+#3983 owns assessment of these records; #3760 and #3720 retain their acceptance.
+The six original clean observations, #3982's four controls/recordings and #3975's
+offline extraction are reused. No new clean pair, aggregate CPU table, stage p95,
+calibration, baseline, production repair or Mac observation is supplied.
+
 ### Terminal readiness repair and U3800 Mac handoff (#3841)
 
 The [previous Mac attempt](https://github.com/roundup-app/roundup/pull/3772#issuecomment-6390588594) produced four
