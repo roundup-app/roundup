@@ -108,3 +108,22 @@ release and cancellation tests. These results are separate from the broad captur
 suite and its reporting-test timeout.
 The prescribed broad capture rerun passed both reporting tests, then was
 interrupted during the desktop suite; it is not a complete-suite pass.
+
+## Required-check repair (builder-40224288049)
+
+Runtime: `79e887ff4`; paired main: `7326f2ddd`. The rejected head's
+Terminal-tab inset measured 61 px in the light U3707 bubble. Restoring main's
+edge-spacer-aware grid formula gives the shared 56 px inset. Selector expressions
+retain native matching and activation while passing the unchanged copy scan.
+
+The 34 focused copy, U3707 and control tests pass with retries disabled, as do
+all 54 U137 Check tests. Both required lints pass. Paired dark 1512×950 stills
+under `artifacts/ux/U133/required-checks-40224288049/{base,head}/` preserve every
+passing baseline Check, including D2/D5/D6; Terminal tabs and the open bubble
+pass every Check. D12/D14 still fail during Todo/Pad drag on both revisions.
+The initial observer's recording-stop step failed (exit 1); the still-only
+rerun completed. No motion changed. The prescribed broad capture command
+stopped at its four-minute bound (exit 124); it is not a full-suite pass.
+The broader related-file run passed U137's 54 tests and U373's 18 tests, but
+reported U166/U194 real-Daemon timeouts before interruption (exit 130).
+It is not a full-suite pass.
