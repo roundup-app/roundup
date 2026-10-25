@@ -1,3 +1,4 @@
+import { pressFeedback } from "./ui/pressFeedback";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { applyAppAppearance } from "./settings/preferences";
@@ -203,6 +204,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    onCleanup(pressFeedback(document));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });

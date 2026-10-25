@@ -82,7 +82,7 @@ describe("u137 one module measures the checks", () => {
     expect(after.D6.status).toBe("pass");
     expect(after.D7).toMatchObject({ status: "fail", value: { pressedBackground: true } });
 
-    addSheet(":root { --press-opacity: 0.6; } button:is(:active, [data-key-pressed]) { opacity: var(--press-opacity); }");
+    addSheet(":root { --press-opacity: 0.6; } button[data-pressed=\"true\"] { opacity: var(--press-opacity); transition: none; }");
     expect(runChecks().D4.status).toBe("pass");
   });
 

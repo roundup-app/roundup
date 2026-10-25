@@ -41,7 +41,7 @@
   color: var(--text);
 }
 
-.app-select-trigger:active,
+.app-select-trigger[data-pressed="true"],
 .app-select-trigger[data-state="open"] {
   color: var(--text);
   transition-duration: var(--duration-instant);
@@ -69,7 +69,7 @@
 }
 
 .app-select-item[data-highlighted] {
-  background-color: var(--hover);
+  color: var(--text);
 }
 
 .app-select-item[data-state="checked"] {
@@ -77,5 +77,5 @@
 }
 
 .app-select-item[data-state="checked"][data-highlighted] {
-  background-color: var(--selected-hover);
+  background-color: var(--selected);
 }

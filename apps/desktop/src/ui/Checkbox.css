@@ -50,8 +50,8 @@
   color: var(--grey);
 }
 
-/* The native input owns activation; paint the visible control and label together. */
-.app-checkbox:has(input:is(:active, [data-key-pressed]):not(:disabled)) {
+/* The native input owns activation; feedback belongs to its visible label and mark. */
+.app-checkbox:has(input[data-pressed="true"]:not(:disabled)) {
   opacity: var(--press-opacity);
   transition: none;
 }
