@@ -150,6 +150,7 @@ export const AskBar = (props: {
 
   let openingFocus = captureFocus();
   let selectedPane = false;
+
   const dialog = useDialog(() => ({
     open: over(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
@@ -160,7 +161,9 @@ export const AskBar = (props: {
       return field;
     }),
     finalFocusEl: () => selectedPane
-      ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled), .pane-screen textarea, .rail-row[data-selected="true"]')
+      ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+        ?? document.querySelector<HTMLElement>(".pane-screen textarea")
+        ?? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
       : null,
     onOpenChange: details => { if (!details.open) close(true); },
   }));

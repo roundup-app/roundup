@@ -23,8 +23,11 @@ patchedDependencies:
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
     path: patches/@xterm__addon-fit@0.11.0.patch
+  '@zag-js/dialog@1.45.0':
+    hash: 851f971178c3c90cc82fbd576f682e0d4b740c0f58cd8ba4fc1d1b44d5fc7495
+    path: patches/@zag-js__dialog@1.45.0.patch
   '@zag-js/focus-trap@1.45.0':
-    hash: c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163
+    hash: acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd
     path: patches/@zag-js__focus-trap@1.45.0.patch
   '@zag-js/radio-group@1.45.0':
     hash: 53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91
@@ -5399,14 +5402,14 @@ snapshots:
       '@zag-js/date-input': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/date-picker': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/date-utils': 1.45.0(@internationalized/date@3.12.4)
-      '@zag-js/dialog': 1.45.0
+      '@zag-js/dialog': 1.45.0(patch_hash=851f971178c3c90cc82fbd576f682e0d4b740c0f58cd8ba4fc1d1b44d5fc7495)
       '@zag-js/dom-query': 1.45.0
       '@zag-js/drawer': 1.45.0
       '@zag-js/editable': 1.45.0
       '@zag-js/file-upload': 1.45.0
       '@zag-js/file-utils': 1.45.0
       '@zag-js/floating-panel': 1.45.0
-      '@zag-js/focus-trap': 1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)
+      '@zag-js/focus-trap': 1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)
       '@zag-js/focus-visible': 1.45.0
       '@zag-js/highlight-word': 1.45.0
       '@zag-js/hotkeys': 1.45.0
@@ -7669,14 +7672,14 @@ snapshots:
     dependencies:
       '@internationalized/date': 3.12.4
 
-  '@zag-js/dialog@1.45.0':
+  '@zag-js/dialog@1.45.0(patch_hash=851f971178c3c90cc82fbd576f682e0d4b740c0f58cd8ba4fc1d1b44d5fc7495)':
     dependencies:
       '@zag-js/anatomy': 1.45.0
       '@zag-js/aria-hidden': 1.45.0
       '@zag-js/core': 1.45.0
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/focus-trap': 1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)
+      '@zag-js/focus-trap': 1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)
       '@zag-js/remove-scroll': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -7698,7 +7701,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/focus-trap': 1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)
+      '@zag-js/focus-trap': 1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)
       '@zag-js/remove-scroll': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -7735,7 +7738,7 @@ snapshots:
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
-  '@zag-js/focus-trap@1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)':
+  '@zag-js/focus-trap@1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)':
     dependencies:
       '@zag-js/dom-query': 1.45.0
 
@@ -7859,7 +7862,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/focus-trap': 1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)
+      '@zag-js/focus-trap': 1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)
       '@zag-js/popper': 1.45.0
       '@zag-js/remove-scroll': 1.45.0
       '@zag-js/types': 1.45.0
@@ -8073,7 +8076,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/focus-trap': 1.45.0(patch_hash=c0382160420cf27ab517378bc47b141603d35eb08e0d08444e0101c812e6a163)
+      '@zag-js/focus-trap': 1.45.0(patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd)
       '@zag-js/interact-outside': 1.45.0
       '@zag-js/popper': 1.45.0
       '@zag-js/types': 1.45.0

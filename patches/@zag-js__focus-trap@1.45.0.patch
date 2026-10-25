@@ -1,103 +1,122 @@
 diff --git a/dist/focus-trap.js b/dist/focus-trap.js
-index 2261cfbce98f4cc75052e9b1c2f9e1b0d4e623e2..6a4e5d4cc7186b8fe927a601806bfb131e1b05de 100644
+index 2261cfbce98f4cc75052e9b1c2f9e1b0d4e623e2..ff02bd65dfabedbb6caeaa9f20073e6a59b435d7 100644
 --- a/dist/focus-trap.js
 +++ b/dist/focus-trap.js
-@@ -292,14 +292,12 @@ var FocusTrap = class {
+@@ -292,14 +292,16 @@ var FocusTrap = class {
        const returnFocus = this.getOption(options, "returnFocus", "returnFocusOnDeactivate");
        onDeactivate?.();
        const finishDeactivation = () => {
 -        delay(() => {
--          if (returnFocus && this.isSafeToOverrideFocus()) {
--            const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
--            const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
--            this.tryFocus(returnFocusNode, focusOptions);
--          }
--          onPostDeactivate?.();
++        const finish = () => {
+           if (returnFocus && this.isSafeToOverrideFocus()) {
+             const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+             const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
+             this.tryFocus(returnFocusNode, focusOptions);
+           }
+           onPostDeactivate?.();
 -        });
-+        if (returnFocus && this.isSafeToOverrideFocus()) {
-+          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
-+          const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
-+          this.tryFocus(returnFocusNode, focusOptions);
-+        }
-+        onPostDeactivate?.();
++        };
++        if (this.config.immediate) finish();
++        else delay(finish);
        };
        if (returnFocus && checkCanReturnFocus) {
          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
 diff --git a/dist/focus-trap.mjs b/dist/focus-trap.mjs
-index d6a14c6650abf859bd5c907f3297cad2e7b0838b..2ff9226dc00770cc9f93ee4b41146700f0abab7f 100644
+index d6a14c6650abf859bd5c907f3297cad2e7b0838b..2bfbd2482d22c5f691e6f9537c9da21df33854c0 100644
 --- a/dist/focus-trap.mjs
 +++ b/dist/focus-trap.mjs
-@@ -286,14 +286,12 @@ var FocusTrap = class {
+@@ -286,14 +286,16 @@ var FocusTrap = class {
        const returnFocus = this.getOption(options, "returnFocus", "returnFocusOnDeactivate");
        onDeactivate?.();
        const finishDeactivation = () => {
 -        delay(() => {
--          if (returnFocus && this.isSafeToOverrideFocus()) {
--            const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
--            const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
--            this.tryFocus(returnFocusNode, focusOptions);
--          }
--          onPostDeactivate?.();
++        const finish = () => {
+           if (returnFocus && this.isSafeToOverrideFocus()) {
+             const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+             const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
+             this.tryFocus(returnFocusNode, focusOptions);
+           }
+           onPostDeactivate?.();
 -        });
-+        if (returnFocus && this.isSafeToOverrideFocus()) {
-+          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
-+          const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
-+          this.tryFocus(returnFocusNode, focusOptions);
-+        }
-+        onPostDeactivate?.();
++        };
++        if (this.config.immediate) finish();
++        else delay(finish);
        };
        if (returnFocus && checkCanReturnFocus) {
          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
 diff --git a/dist/index.js b/dist/index.js
-index 8435c37bf017a44902a4991cf3debd90725765e0..254ab8f9de116b611cd955c76fd8ec850ce7cb44 100644
+index 8435c37bf017a44902a4991cf3debd90725765e0..478279504332ca4e2ff7b9695d4e8c08350d1b66 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -28,7 +28,9 @@ var import_dom_query = require("@zag-js/dom-query");
+@@ -28,7 +28,7 @@ var import_dom_query = require("@zag-js/dom-query");
  var import_focus_trap = require("./focus-trap.js");
  function trapFocus(el, options = {}) {
    let trap;
 -  const cleanup = (0, import_dom_query.raf)(() => {
-+  let cancelled = false;
-+  queueMicrotask(() => {
-+    if (cancelled) return;
++  const activate = () => {
      const elements = Array.isArray(el) ? el : [el];
      const resolvedElements = elements.map((e) => typeof e === "function" ? e() : e).filter((e) => e != null);
      if (resolvedElements.length === 0) return;
-@@ -50,7 +52,7 @@ function trapFocus(el, options = {}) {
-   });
+@@ -47,7 +47,10 @@ function trapFocus(el, options = {}) {
+       trap.activate();
+     } catch {
+     }
+-  });
++  };
++  let cancelled = false;
++  const cleanup = options.immediate ? () => { cancelled = true; } : (0, import_dom_query.raf)(activate);
++  if (options.immediate) queueMicrotask(() => { if (!cancelled) activate(); });
    return function destroy() {
      trap?.deactivate();
--    cleanup();
-+    cancelled = true;
-   };
- }
- // Annotate the CommonJS export names for ESM import in node:
+     cleanup();
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 9d36bd2968c52b9f3df0d44f3c6a4b605d619444..ef370d103ffc829419df3c31bfba82a048817b69 100644
+index 9d36bd2968c52b9f3df0d44f3c6a4b605d619444..8e1f8a6e68381c486770087e6fce1c9a7b90bcae 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -1,11 +1,13 @@
- import "./chunk-QZ7TP4HQ.mjs";
- 
- // src/index.ts
--import { getDocument, raf } from "@zag-js/dom-query";
-+import { getDocument } from "@zag-js/dom-query";
+@@ -5,7 +5,7 @@ import { getDocument, raf } from "@zag-js/dom-query";
  import { FocusTrap } from "./focus-trap.mjs";
  function trapFocus(el, options = {}) {
    let trap;
 -  const cleanup = raf(() => {
-+  let cancelled = false;
-+  queueMicrotask(() => {
-+    if (cancelled) return;
++  const activate = () => {
      const elements = Array.isArray(el) ? el : [el];
      const resolvedElements = elements.map((e) => typeof e === "function" ? e() : e).filter((e) => e != null);
      if (resolvedElements.length === 0) return;
-@@ -27,7 +29,7 @@ function trapFocus(el, options = {}) {
-   });
+@@ -24,7 +24,10 @@ function trapFocus(el, options = {}) {
+       trap.activate();
+     } catch {
+     }
+-  });
++  };
++  let cancelled = false;
++  const cleanup = options.immediate ? () => { cancelled = true; } : raf(activate);
++  if (options.immediate) queueMicrotask(() => { if (!cancelled) activate(); });
    return function destroy() {
      trap?.deactivate();
--    cleanup();
-+    cancelled = true;
-   };
- }
- export {
+     cleanup();
+diff --git a/dist/types.d.mts b/dist/types.d.mts
+index 0567be114a046b51112bbe9d8c7b0324cddfe01b..876b1056d0ab9b76c89022ff7fb486b1dead5b07 100644
+--- a/dist/types.d.mts
++++ b/dist/types.d.mts
+@@ -16,6 +16,8 @@ type FocusTargetOrFalse = FocusTargetValueOrFalse | (() => FocusTargetValueOrFal
+ type MouseEventToBoolean = (event: MouseEvent | TouchEvent) => boolean;
+ type KeyboardEventToBoolean = (event: KeyboardEvent) => boolean;
+ interface FocusTrapOptions {
++    /** Activate before paint and restore focus without a timer. */
++    immediate?: boolean;
+     /**
+      * A function that will be called **before** sending focus to the
+      * target element upon activation.
+diff --git a/dist/types.d.ts b/dist/types.d.ts
+index 0567be114a046b51112bbe9d8c7b0324cddfe01b..876b1056d0ab9b76c89022ff7fb486b1dead5b07 100644
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
+@@ -16,6 +16,8 @@ type FocusTargetOrFalse = FocusTargetValueOrFalse | (() => FocusTargetValueOrFal
+ type MouseEventToBoolean = (event: MouseEvent | TouchEvent) => boolean;
+ type KeyboardEventToBoolean = (event: KeyboardEvent) => boolean;
+ interface FocusTrapOptions {
++    /** Activate before paint and restore focus without a timer. */
++    immediate?: boolean;
+     /**
+      * A function that will be called **before** sending focus to the
+      * target element upon activation.
