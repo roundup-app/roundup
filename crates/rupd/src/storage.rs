@@ -102,6 +102,14 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
+        // DV2: 4 KiB pages made 788k writes and spent 9.54 s committing 32 MiB BLOBs.
+        // SQLite repages atomically before store connections open; WAL and FULL sync stay.
+        let page_size: i64 = db.pragma_query_value(None, "page_size", |r| r.get(0))?;
+        if page_size != 65536 {
+            db.pragma_update(None, "journal_mode", "DELETE")?;
+            db.pragma_update(None, "page_size", 65536)?;
+            db.execute_batch("VACUUM")?;
+        }
         db.pragma_update(None, "journal_mode", "WAL")?;
         apply(&mut db, migrations())
     };
