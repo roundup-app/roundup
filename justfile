@@ -16,6 +16,8 @@ lint-rust:
     cargo fmt --check
     just clippy
     cargo machete crates
+    python3 tools/lint/setup.py rust
+    python3 tools/lint/scan.py rust
     spikes/context-injection/e7_report.test.sh
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
@@ -61,6 +63,8 @@ lint-web:
     pnpm tokens:check
     pnpm typecheck
     pnpm slop
+    pnpm lint:boundaries
+    pnpm lint:cycles
     just packages typecheck
 
 # L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty. CI passes vitest a shard.
@@ -175,11 +179,11 @@ perf-frames workload *args:
     cargo build --release -p perf
     ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
 
-# V1: installs the Bend that proofs/BEND_VERSION pins into proofs/.tools/ (checksum checked); a no-op once installed.
+# V1: checksum-checked Bend and Lean v4.34.0 via elan; verify both versions on every setup.
 proofs-setup:
     proofs/setup.sh
 
-# V2: prints ALL PROOFS CHECK from `bend proofs/messages/PROOF.bend` and exits 0 only then. `just check` runs it.
+# V2: ordinary proof, Lean-checked --verdict, and eight mutation refusals. `just check` runs it.
 proofs: proofs-setup
     proofs/proofs.test.sh
     proofs/check.sh

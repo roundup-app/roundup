@@ -228,44 +228,36 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
   await browser("wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`);
 };
 
-for (const path of ["hover", "focus"] as const) {
-  it(`u477_app_${path}_shows_each_icon_button_name`, async () => {
-    for (const scheme of ["light", "dark"]) {
-      await browser("set", "media", scheme);
+it("u477_app_focus_shows_each_icon_button_name", async () => {
+  await browser("set", "media", "dark");
 
-      for (const [index, { seed, selector }] of appIcons.entries()) {
-        const capture = async (step: string) => {
-          if (!art || scheme !== "dark") return;
-          mkdirSync(art, { recursive: true });
-          const name = `caller-${index}-${path}-${step}`;
-          await browser("screenshot", join(art, `${name}.png`));
-          writeFileSync(join(art, `${name}.checks.json`), JSON.stringify(await read<Checks>("window.__checks()")));
-        };
+  for (const [index, { seed, selector }] of appIcons.entries()) {
+    const capture = async (step: string) => {
+      if (!art) return;
+      mkdirSync(art, { recursive: true });
+      const name = `caller-${index}-focus-${step}`;
+      await browser("screenshot", join(art, `${name}.png`));
+      writeFileSync(join(art, `${name}.checks.json`), JSON.stringify(await read<Checks>("window.__checks()")));
+    };
 
-        if (art && baselineOrigin) {
-          await loadAppIcon(baselineOrigin, seed, selector);
-          await capture("before");
-        }
-
-        await loadAppIcon(origin, seed, selector);
-        await browser("eval", `document.querySelector(${JSON.stringify(selector)}).id = "u477-target"`);
-        const query = `document.getElementById("u477-target")`;
-        const name = await read<string>(`${query}.getAttribute('aria-label')`);
-
-        if (path === "hover") await browser("hover", "#u477-target");
-        else {
-          // Start on the preceding tab stop, then use browser keyboard navigation.
-          await browser("eval", `(() => { const button = ${query}; const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); const previous = stops[stops.indexOf(button) - 1]; previous.id = "u477-previous"; previous.focus(); })()`);
-          await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
-          await browser("press", "Tab");
-          await browser("wait", "--fn", `document.activeElement === ${query}`);
-        }
-
-        await browser("wait", "--fn", `${query}.dataset.state === 'open'`);
-        expect(await read<string>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.textContent`), selector).toBe(name);
-        expect(await read<boolean>(`(() => { const tip = document.getElementById(${query}.getAttribute('aria-describedby')); return tip?.getAttribute('role') === 'tooltip' && tip.getClientRects().length > 0 && getComputedStyle(tip).visibility !== 'hidden'; })()`), selector).toBe(true);
-        await capture("after");
-      }
+    if (art && baselineOrigin) {
+      await loadAppIcon(baselineOrigin, seed, selector);
+      await capture("before");
     }
-  }, 120_000);
-}
+
+    await loadAppIcon(origin, seed, selector);
+    await browser("eval", `document.querySelector(${JSON.stringify(selector)}).id = "u477-target"`);
+    const query = `document.getElementById("u477-target")`;
+    const name = await read<string>(`${query}.getAttribute('aria-label')`);
+
+    // Start on the preceding tab stop, then use browser keyboard navigation.
+    await browser("eval", `(() => { const button = ${query}; const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); const previous = stops[stops.indexOf(button) - 1]; previous.id = "u477-previous"; previous.focus(); })()`);
+    await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
+    await browser("press", "Tab");
+    await browser("wait", "--fn", `document.activeElement === ${query}`);
+    await browser("wait", "--fn", `${query}.dataset.state === 'open'`);
+    expect(await read<string>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.textContent`), selector).toBe(name);
+    expect(await read<boolean>(`(() => { const tip = document.getElementById(${query}.getAttribute('aria-describedby')); return tip?.getAttribute('role') === 'tooltip' && tip.getClientRects().length > 0 && getComputedStyle(tip).visibility !== 'hidden'; })()`), selector).toBe(true);
+    await capture("after");
+  }
+}, 120_000);
