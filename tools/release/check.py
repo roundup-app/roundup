@@ -46,7 +46,15 @@ def module_name(identifier):
 
 def check_modules(report, inventory, dist):
     data = json.loads(report.read_text())
-    allowed = json.loads(inventory.read_text())["modules"]
+    registered = json.loads(inventory.read_text())
+    languages, diagrams = registered["languages"], registered["diagrams"]
+    if not isinstance(languages, dict) or not languages or not isinstance(diagrams, dict) or not diagrams:
+        raise ValueError("missing/incomplete language or diagram registrations")
+    if any(not isinstance(value, int) or value < 0 for value in languages.values()) or any(
+            not isinstance(kinds, list) or not kinds or any(not isinstance(kind, str) for kind in kinds)
+            for kinds in diagrams.values()):
+        raise ValueError("invalid language or diagram registrations")
+    allowed = registered["modules"]
     if not isinstance(allowed, list) or not allowed or any(not isinstance(x, str) for x in allowed):
         raise ValueError("missing/incomplete module inventory")
     metas, parts = data["nodeMetas"], data["nodeParts"]
