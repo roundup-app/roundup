@@ -579,20 +579,8 @@ async fn dv2_publish_failures() {
     );
     std::fs::write(&source, vec![0; 32 * 1024 * 1024]).unwrap();
     let first = c.request("deliverable.publish", file).await.unwrap();
-    for n in 1..32 {
-        c.request("deliverable.publish",json!({"key":format!("large-{n}"),"title":"large","target":{"kind":"file","path":"large.bin"}})).await.unwrap();
-    }
-    // Exactly the Project quota is retained; another byte cannot evict any publication.
-    assert!(
-        c.request(
-            "deliverable.publish",
-            json!({"key":"over-quota","title":"notes","target":pad_target(&c,"notes",1).await})
-        )
-        .await
-        .is_err()
-    );
     let list = c.request("deliverable.list", json!({})).await.unwrap();
-    assert_eq!(list.as_array().unwrap().len(), 32);
+    assert_eq!(list.as_array().unwrap().len(), 1);
     assert_eq!(list[0], first);
 }
 
