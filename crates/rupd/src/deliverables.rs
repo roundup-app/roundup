@@ -62,7 +62,7 @@ impl Publications {
         let db = Connection::open(data.join("project.db"))?;
         db.pragma_update(None, "synchronous", "FULL")?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        #[cfg(target_os = "macos")]
+        // SQLite uses the stronger device flush on platforms that support it.
         db.pragma_update(None, "fullfsync", true)?;
         Ok(Self {
             db: std::sync::Mutex::new(db),
