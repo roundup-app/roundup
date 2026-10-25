@@ -62,10 +62,18 @@ runs:
     # restore the entries main's check saved on their OS (L84). CI3781 opt-in PRs use a separate namespace
     # and may save it on Linux; GitHub scopes those entries to the PR merge ref, inaccessible from main.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
+    - if: runner.environment != 'self-hosted' && inputs.rust != 'false' && runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != ''
+      id: experiment
+      shell: bash
+      env:
+        NAMESPACE: ${{ inputs.experiment-cache }}
+      run: |
+        digest=$(printf '%s' "$NAMESPACE" | sha256sum)
+        echo "namespace=${digest%% *}" >>"$GITHUB_OUTPUT"
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: Swatinem/rust-cache@v2
       with:
-        shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', inputs.experiment-cache) || format('check-{0}', runner.os) }}
+        shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
