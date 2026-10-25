@@ -6,6 +6,15 @@ use tokio::net::{UnixListener, UnixStream};
 
 fn main() -> io::Result<()> {
     let begun = std::time::Instant::now();
+    // Collection is opt-in; never enable argument or return-value recording.
+    if std::env::var_os("ROUNDUP_TRACING").is_some_and(|value| value == "1") {
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_ansi(false)
+            .with_writer(io::stderr)
+            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+            .init();
+    }
     // Keep tokio::main's default runtime; its creation precedes the async open timer.
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
