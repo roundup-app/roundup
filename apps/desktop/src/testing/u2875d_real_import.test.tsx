@@ -1,4 +1,4 @@
-import { openProjectPage } from "./menuProbe";
+import { menuProbe, openProjectPage } from "./menuProbe";
 // @vitest-environment jsdom
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -31,9 +31,11 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
       await screen.findByRole("button", { name: /^Overview, Project root/ });
       openProjectPage("import-work", cwd);
+      const panel = await screen.findByRole("region", { name: "Import Claude Code work" });
+
       fireEvent.click(await screen.findByText("Imported 東京 work"));
       fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-      await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
+      await waitFor(() => expect(panel.isConnected).toBe(false));
 
       const created = async () => {
         const tree = await app.rpc("rail.tree", null);
@@ -62,7 +64,10 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
       // Reopening the App shows the Workstream with its closed child offering Resume, and starts nothing.
       render(() => <App app={createServedApp(real.base)} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
-      await waitFor(() => expect(document.querySelector(`[data-id="${again.child?.id}"] button[aria-label=Resume]`)).toBeTruthy());
+      await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${again.child?.id}"]`)).toBeTruthy());
+      fireEvent.contextMenu(document.querySelector(`.rail-row[data-id="${again.child?.id}"]`)!);
+      await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "resume" && item.enabled)).toBe(true));
+      menuProbe.answer?.(null);
       expect(await app.rpc("terminal.list", null)).toEqual([]);
     } finally {
       cleanup();

@@ -138,7 +138,7 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   if (directory) writeFileSync(join(directory, "typing-observation.json"), JSON.stringify(typing) + "\n");
   await browser("eval", "window.__fake.failNext(-32003, 'add busy')");
   await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}))");
-  await wait("document.querySelector('.todos-tab [role=alert]')?.textContent.includes('Add refused')");
+  await wait("document.querySelector('.todos-tab [role=alert]')?.textContent.includes('add busy')");
   await shot("U3789b", "head", "dense-failure");
   await shot("U3789c", "head", "empty-groups-absent");
   await browser("eval", "window.__rowObserver.disconnect()");
@@ -158,9 +158,9 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
   await shot("U3789d", "head", "before-complete");
   await wait("document.activeElement?.matches('.todos-tab [data-todo=\"2\"] .todo-row-button')");
-  await browser("eval", "window.__fake.failNext(-32003, 'completion busy')");
+  await browser("eval", "window.__fake.failNext(-32003, 'locked')");
   await browser("click", '.todos-tab [data-todo="2"] .todo-tick');
-  await wait("document.body.textContent.includes('completion busy')");
+  await wait("document.body.textContent.includes('locked')");
   await shot("U3789d", "head", "dense-complete-failure");
   await browser("click", ".shelf-add");
   await browser("fill", ".todos-tab .entry-field", "accepted title");

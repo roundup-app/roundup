@@ -781,7 +781,7 @@ export const Todos = (props: {
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
-      <ReservedLine overlay message={createFailure() || (todos.failure()) || null} content={typing() && createFailure() ? <>{copy.failed(copy.addTodoTo(scope.label()), "")}<span>{createFailure()}</span></> : undefined} />
+      <ReservedLine message={createFailure() || (todos.failure()) || null} content={typing() && createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>

@@ -417,3 +417,16 @@
 /* Parent-row failures reserve their owned-items control while exposing recovery. */
 .row-control-slot { display: inline-flex; }
 .row-control-slot[inert] { opacity: 0; pointer-events: none; }
+
+/* Creation feedback stays beside its field; retained revisions wrap below it. */
+.todos-tab > .todo-draft-recovery > .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+.todos-tab > .todo-draft-recovery .reserved-content { flex-wrap: wrap; }
+.todos-tab > .todo-draft-recovery .reserved-status { flex-basis: 100%; }
+.todos-tab > .todo-draft-recovery .reserved-actions {
+  flex-wrap: wrap;
+  max-inline-size: 100%;
+}
+.todos-tab > .todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }

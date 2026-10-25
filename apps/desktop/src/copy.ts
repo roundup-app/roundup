@@ -600,6 +600,7 @@ export const copy = {
   assignPadNamed: (name: CopyValue) => `assign ${name}`,
   ownersForPad: (name: CopyValue) => `Owners for ${name}`,
   padOwnerRefused: (cause: CopyValue) => `The Pad was made but stays yours: ${cause}`,
+  addTodo: "Add Todo",
   addTodoTo: (group: CopyValue) => `add todo to ${group}`,
   assignTodoNumber: (id: CopyValue) => `assign #${id}`,
   ownersFor: (id: CopyValue) => `Owners for #${id}`,

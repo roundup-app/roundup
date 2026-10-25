@@ -25,7 +25,6 @@ import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { createItemFailure } from "../itemFailure";
-import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
 import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
@@ -78,28 +77,15 @@ export const PadsControl = (props: { pads: AgentPads }) => {
 
   return (
     <Show when={props.pads.n() > 0}>
-      <Tip text={name()}>
-        {(trigger) => (
-          <button
-            {...trigger({
-              ...ownKeys,
-              onClick: (click: MouseEvent) => {
-                click.stopPropagation();
-                props.pads.toggle();
-              },
-            })}
-            type="button"
-            data-button="row-action"
-            class="word rail-pads-control"
-            data-pads-control
-            {...NO_NATIVE_TITLE}
-            aria-label={name()}
-            aria-expanded={props.pads.shown()}
-          >
-            <Icon name="diamond" />
-          </button>
-        )}
-      </Tip>
+      <IconButton
+        {...ownKeys}
+        class="rail-pads-control"
+        data-pads-control
+        {...NO_NATIVE_TITLE}
+        aria-label={name()}
+        aria-expanded={props.pads.shown()}
+        onClick={click => { click.stopPropagation(); props.pads.toggle(); }}
+      ><Icon name="diamond" /></IconButton>
     </Show>
   );
 };
