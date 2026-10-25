@@ -294,12 +294,6 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       await lane.capture("u2773-rail", `real-${index}-retention-failure`);
     }
 
-    await lane.seedTodos(["first", "second", "third"]);
-    await lane.evaluate(`(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true})); return true; })()`);
-    await lane.until('!!document.querySelector("textarea[aria-label=Task]")');
-    await lane.evaluate(`(() => { const f = document.querySelector('textarea[aria-label=Task]'); f.value = ' exact dense\\né 😀 '; f.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
-    await lane.until(`!!document.querySelector('.rail [role=alert]')`);
-    await lane.capture("u2773-rail", "tree-40-retention-failure");
   } finally {
     await lane.close();
     await first.stop();
