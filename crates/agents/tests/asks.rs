@@ -1,4 +1,6 @@
+#[path = "asks/placement.rs"]
 mod placement;
+#[path = "asks/submission.rs"]
 mod submission;
 
 use agents::{
