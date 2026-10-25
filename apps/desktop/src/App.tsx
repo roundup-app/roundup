@@ -547,7 +547,8 @@ export const App = (props: {
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
 
-                      if (id) screens()?.emulatorFor(id).focus(); }} />
+                      if (id) screens()?.emulatorFor(id).focus();
+                      else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
                   </div>
                 );
               }}

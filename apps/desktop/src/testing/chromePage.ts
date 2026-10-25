@@ -440,9 +440,7 @@ export const openPage = async (
       await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
       loaded.clear();
-      const target = new URL(path, origin);
-
-      const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: target.href }, session);
+      const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
 
       if (navigation.errorText) throw new Error(navigation.errorText);
 

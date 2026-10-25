@@ -91,9 +91,9 @@ export const WindowBar = (props: {
     }}>
       <div class="traffic-lights" aria-hidden="true" />
       <div class="window-actions">{props.children}</div>
-        <Tip text={title()}>
-          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
-        </Tip>
+      <Tip text={title()}>
+        {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
+      </Tip>
       {props.shelf}
     </div>
   );
