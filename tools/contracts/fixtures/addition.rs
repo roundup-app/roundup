@@ -10,7 +10,7 @@ async fn c4_one_declaration_reaches_every_surface() {
     let bus = rpc::Bus::new();
     let todos = Arc::new(todos::Todos::open(dir.path(), bus.clone()).unwrap());
     let ctx = Arc::new(rpc::Ctx {
-        actor: Actor::user(), bus,
+        actor: Actor {kind: ActorKind::Agent, id: "fixture-agent".into(), parent: None}, bus,
         touches: Arc::new(provenance::Touches::in_memory().unwrap()),
     });
     let removed = std::env::var_os("C4_REMOVED").is_some();
@@ -53,7 +53,7 @@ async fn c4_one_declaration_reaches_every_surface() {
     });
     let (client, transport) = tokio::io::duplex(65536);
     let (gone, _) = mpsc::channel(1);
-    let shim = Shim {socket, actor: Actor::user(), tools: tools(false), gone};
+    let shim = Shim {socket, actor: Actor {kind: ActorKind::Agent, id: "fixture-agent".into(), parent: None}, tools: tools(false), gone};
     let service = tokio::spawn(async move { shim.serve(transport).await.unwrap().waiting().await });
     let client = ().serve(client).await.unwrap();
     let outcome = client.call_tool(CallToolRequestParams::new("todo_contractProbe").with_arguments(JsonObject::from_iter([("id".into(), 41.into())]))).await;
