@@ -246,10 +246,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
   const { probe } = recorder;
   const terminal = reportTerminal(recorder.createEmulator);
 
-  const report = async (body: PerfReport, id = terminal.target()) => {
-
-    if (id === null) throw new Error("no Terminal printed the ready line to report through");
-
+  const report = async (body: PerfReport, id: string) => {
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
 
     await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
@@ -290,7 +287,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
       timer_resolution_ms: timerResolution,
       device_pixel_ratio: window.devicePixelRatio,
       user_agent: navigator.userAgent,
-    });
+    }, id);
   };
 
   return {
