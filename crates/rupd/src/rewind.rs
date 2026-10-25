@@ -303,10 +303,8 @@ impl Daemon {
             }
             let key = format!(
                 "rewind:{id}:{checkpoint}:{}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
+                u128::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos())
                     .map_err(RpcError::internal)?
-                    .as_nanos()
             );
             *slot = Some(Progress {
                 checkpoint,
