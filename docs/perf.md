@@ -826,3 +826,17 @@ order/parent, commit counts, focus, click behavior and identical ordered absolut
 from the file drop. This requests no repeat of the separate Pragmatic probe. A compatibility failure fails the candidate;
 missing observations leave qualification incomplete. Quit only this App and retain owned-child cleanup evidence.
 Publish returned results to #3772, its drag work Issue #3540 and #3841; leave failures and unmeasured stages visible.
+
+### Full-chain flood recorder
+
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json`
+selects a separate, App-opened, run-owned `/usr/bin/yes roundup-flood` Terminal
+beside the same 1000-key full-chain observer. The default remains idle typing.
+Reports retain the flood Terminal's visible/folded state, raw byte offsets,
+measured output rate and every run's diagnostics. Missing, exited or silent
+producers and build/runner workload mismatches invalidate the observation.
+See [workload conditions and retained evidence](perf-keystroke-attribution.md#full-chain-output-flood-r20r21-recorder).
+
+The no-window implementation does not measure or repair #3550's 129–136 ms
+flood slowdown. Its native flood observation follows this implementation's
+merge; the valid quiet idle baseline above cannot choose that repair.
