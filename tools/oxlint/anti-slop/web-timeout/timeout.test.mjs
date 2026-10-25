@@ -10,7 +10,7 @@ const plugin = resolve(repo, "tools/oxlint/anti-slop/index.ts");
 
 const exception = {
   file: "fixture.test.tsx", test: "t3779a_real_clock", scenario: "T3779a",
-  process: "real clock", reason: "The fixture stands for a named wall-clock observation.", maximum: 90_000,
+  observer: "real clock", reason: "The fixture stands for a named wall-clock observation.", maximum: 90_000,
 };
 
 const cases = [

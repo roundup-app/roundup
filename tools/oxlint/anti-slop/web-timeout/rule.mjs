@@ -122,7 +122,7 @@ function timeout(source, call) {
 }
 
 function validException(entry) {
-  return ["file", "test", "scenario", "process", "reason"].every(key => typeof entry[key] === "string" && entry[key].trim()) && Number.isFinite(entry.maximum) && entry.maximum > limit;
+  return ["file", "test", "scenario", "observer", "reason"].every(key => typeof entry[key] === "string" && entry[key].trim()) && Number.isFinite(entry.maximum) && entry.maximum > limit;
 }
 
 function isConfig(source, call) {
