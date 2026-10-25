@@ -687,7 +687,7 @@ def failed(pr):
     """The required checks, by name, whose latest result on the PR's head is a failure. A check run counts once no run of
     its workflow is still going on that head, and only if it ended last of its name there: a newer run on the same head
     supersedes an older run's failure (L82). A failed `pre` reads as `check`."""
-    going = running(pr)
+    going = orders.running(pr)
     last = {}
     for check in pr.get('statusCheckRollup') or []:
         name = check.get('name') or check.get('context')
@@ -734,13 +734,6 @@ def review_runs(pr, state, context='review'):
     return [check['targetUrl'].rstrip('/').rsplit('/', 1)[1] for check in pr.get('statusCheckRollup') or []
             if check.get('context') == context and check.get('state') == state]
 
-
-def running(pr):
-    """The workflows with a run that has not ended on the PR's head."""
-    return {check['workflowName'] for check in pr.get('statusCheckRollup') or []
-            if check.get('workflowName') and check.get('status') != 'COMPLETED'}
-
-
 def unreviewed(prs):
     """(pr, run id) for each ready PR whose `review` or `critic` status is pending: its run did no model work. A Dependabot
     PR is left out: its runs get no secrets, so no rerun can do model work."""
@@ -761,19 +754,17 @@ def rerun_review(pr, run):
 
 
 def stranded(prs, now):
-    """(pr, `pre` run id) for each ready same-repository PR whose head passed `pre` at least STRANDED seconds ago and
-    that has no `review` status, or, when it changes `apps/desktop/src/`, no `critic` status, with no run going on the
-    head: its review or critic run died before it posted. Rerunning that `pre` run starts them again; a rerun of the
-    review or critic run itself replays the old event and is skipped."""
+    """(pr, `pre` run id) for each ready same-repository PR, no run going, whose `pre` passed STRANDED+ seconds ago with no
+    `review` status (or `critic`, under `apps/desktop/src/`): rerunning `pre` restarts the dead run, which itself can't rerun."""
     found = []
     for pr in prs:
-        if pr['isDraft'] or pr['isCrossRepository'] or pr['headRefName'].startswith('dependabot/') or running(pr):
+        if pr['isDraft'] or pr['isCrossRepository'] or pr['headRefName'].startswith('dependabot/') or orders.running(pr):
             continue
         checks = pr.get('statusCheckRollup') or []
         passed = [check for check in checks if check.get('name') == 'pre' and check.get('conclusion') == 'SUCCESS'
                   and orders.created(check['completedAt']) <= now - STRANDED]
         contexts = {check['context'] for check in checks if check.get('context')}
-        if passed and ('review' not in contexts or ('critic' not in contexts and touches_desktop(pr['number']))):
+        if passed and ('review' not in contexts or ('critic' not in contexts and orders.touches_desktop(pr['number']))):
             found.append((pr['number'], re.search(r'/runs/(\d+)', passed[0]['detailsUrl'])[1]))
     return found
 
@@ -1092,7 +1083,7 @@ def revive(current, cause):
     Whether it did."""
     pr, head = current['number'], current['headRefOid']
     if orders.marked(pr, REVIVE) or \
-            not approved(pr, head, 'VERDICT:') or (touches_desktop(pr) and not approved(pr, head, 'CRITIC:')):
+            not approved(pr, head, 'VERDICT:') or (orders.touches_desktop(pr) and not approved(pr, head, 'CRITIC:')):
         return False
     comment(pr, f'{REVIVE}\nHead: {head}\n\nThis PR used its {fix_attempts()} fix runs, but review and the design critic '
                 f'approved this head, so it stays open once more: its fix runs count again from here, starting with this '
@@ -1197,7 +1188,7 @@ def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = link(view(pr))
     ended(current, verdict, run_url)
-    if cause in ('review', 'critic') and not current['isDraft'] and not {'pre', 'check'} & running(current):
+    if cause in ('review', 'critic') and not current['isDraft'] and not {'pre', 'check'} & orders.running(current):
         for run in review_runs(current, 'FAILURE', cause):
             call('run', 'rerun', run)
 
@@ -1327,21 +1318,13 @@ CRITIC_CAP = 6000
 # L103: a finding line starting so is polish or an idea; it never blocks.
 POLISH = re.compile(r'(NOTE:|ideas\b)')
 
-
-def touches_desktop(pr):
-    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
-    the 300 files where GitHub refuses `gh pr diff`."""
-    return any(changed['filename'].startswith('apps/desktop/src/') for page in orders.gh(
-        'api', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100', '--paginate', '--slurp') for changed in page)
-
-
 def critic_task(pr, head):
     """The design critic's task (L103), or None when the PR is not open at `head` or is a draft. A PR that changes
     nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run,."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    if not touches_desktop(pr):
+    if not orders.touches_desktop(pr):
         status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
         return None
     if carried(current, 'CRITIC:', 'critic'):
