@@ -118,8 +118,6 @@ jobs:
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: CI4018 experiment cache regression
         if: matrix.partition == 1
-        env:
-          RUST_CACHE_ACTION_PATH: ${{ runner.workspace }}/../_actions/Swatinem/rust-cache/v2
         run: node --test .github/actions/setup/cache.test.mjs
       - name: E12 network observer dependencies
         run: |
