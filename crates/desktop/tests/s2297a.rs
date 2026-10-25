@@ -2,6 +2,8 @@
 
 #[cfg(target_vendor = "apple")]
 mod capture_panel;
+#[cfg(target_vendor = "apple")]
+mod saved_window;
 mod store_durability;
 
 #[cfg(target_vendor = "apple")]
@@ -53,6 +55,8 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
 fn main() {
     let tests: &[(&str, fn())] = &[
         #[cfg(target_vendor = "apple")]
+        ("u3787e_restore_uses_saved_normal_bounds", saved_window::u3787e_restore_uses_saved_normal_bounds),
+        #[cfg(target_vendor = "apple")]
         ("u3787f_panel_uses_invoking_display", capture_panel::u3787f_panel_uses_invoking_display),
         #[cfg(target_vendor = "apple")]
         ("u3787f_panel_does_not_activate_main_window", capture_panel::u3787f_panel_does_not_activate_main_window),
@@ -95,9 +99,11 @@ fn main() {
     let mut failed = false;
     for (name, test) in tests {
         let wanted = args.iter().any(|arg| arg == name)
-            || !args
-                .iter()
-                .any(|arg| arg.starts_with("s2297a_") || arg.starts_with("u3787f_"));
+            || !args.iter().any(|arg| {
+                arg.starts_with("s2297a_")
+                    || arg.starts_with("u3787f_")
+                    || arg.starts_with("u3787e_")
+            });
         if wanted {
             let ok = std::panic::catch_unwind(test).is_ok();
             println!("test {name} ... {}", if ok { "ok" } else { "FAILED" });
