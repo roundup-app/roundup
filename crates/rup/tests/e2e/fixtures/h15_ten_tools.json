@@ -1,0 +1,171 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: H15 exercise ten tools"
+      },
+      "response": {
+        "content": "{\"title\":\"Hook loop\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "H15 exercise ten tools",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_000",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-000.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_000",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_001",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-001.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_001",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_002",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-002.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_002",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_003",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-003.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_003",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_004",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-004.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_004",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_005",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-005.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_005",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_006",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-006.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_006",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_007",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-007.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_007",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_008",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-008.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_008",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h15_009",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"h15-009.txt\", \"offset\": 1, \"limit\": 1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h15_009",
+        "toolResultContains": "H15 hook round"
+      },
+      "response": {
+        "content": "Ten tools finished."
+      }
+    }
+  ]
+}

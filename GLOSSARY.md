@@ -929,3 +929,9 @@ The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies
 
 **Thrown outcome** (`outcomeOf`):
 The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
+
+### Pad restoration
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |

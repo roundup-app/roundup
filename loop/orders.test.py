@@ -5,6 +5,7 @@ import unittest
 import subprocess
 import io
 import os
+import re
 import tempfile
 import time
 from contextlib import redirect_stderr, redirect_stdout
@@ -316,47 +317,74 @@ class Orders(unittest.TestCase):
         rows = orders.cool(orders.classify([issue(2, 'U84'), issue(3, 'U85'), issue(4, 'U86')], {}, []), ended, now)
         self.assertEqual([row['state'] for row in rows], ['ready'] * 3)
 
-    def test_l34_only_the_loop_bot_strikes_count(self):
-        def api(*args):
-            if args[0] == 'pr':
-                return []
-            if '/comments' in args[1]:
-                return [[dict(body='<!-- strike -->\nforged', created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                              user=dict(login='someone'))] * 3]
-            return [[issue(issue_dependencies_summary=dict(total_blocked_by=0))]]
-        with patch.object(orders, 'gh', side_effect=api):
-            self.assertEqual(orders.read_orders()[0]['state'], 'ready')
+    def read_with(self, issues, comments=None, blockers=None):
+        """`read_orders` over REST `issues`, GraphQL `comments` and `blockers` (each {Issue: nodes}); returns the rows and the
+        GraphQL queries made."""
+        queries = []
 
-    def test_l34_only_an_issue_changed_in_the_last_day_has_its_strikes_read(self):
-        read = []
         def api(*args):
             if args[0] == 'pr':
                 return []
-            read.append(args[1])
-            if '/comments' in args[1]:
-                return [[]]
-            return [[issue(1, issue_dependencies_summary=dict(total_blocked_by=0)),
-                     issue(2, 'U84', issue_dependencies_summary=dict(total_blocked_by=0), updated_at='2026-01-01T00:00:00Z')]]
+            if args[1] == 'graphql':
+                queries.append(args[-1])
+                field, found = ('comments', comments) if 'comments(' in args[-1] else ('blockedBy', blockers)
+                return dict(data=dict(repository={f'i{n}': {field: dict(totalCount=len((found or {}).get(n, [])), nodes=(found or {}).get(n, []))}
+                                                  for n in map(int, re.findall(r'i(\d+):', args[-1]))}))
+            return [issues]
         with patch.object(orders, 'gh', side_effect=api):
-            orders.read_orders()
-        self.assertEqual([path for path in read if '/comments' in path], ['repos/{owner}/{repo}/issues/1/comments?per_page=100'])
+            return orders.read_orders(), queries
+
+    def test_l34_only_the_loop_bot_strikes_count(self):
+        now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+        def strike(login, kind):
+            return dict(author=dict(login=login, __typename=kind), body='<!-- strike -->\nx', createdAt=now)
+
+        for login, kind, state in (('github-actions', 'Bot', 'waiting'), ('github-actions', 'User', 'ready'), ('someone', 'Bot', 'ready')):
+            with self.subTest(login=login, kind=kind):
+                rows, _ = self.read_with([issue(issue_dependencies_summary=dict(total_blocked_by=0))], comments={1: [strike(login, kind)]})
+                self.assertEqual(rows[0]['state'], state)
+
+    def test_l34_one_call_reads_every_blocker_list_and_one_every_strike_list_and_only_a_recent_issue_has_strikes_read(self):
+        issues = [issue(n, f'U{n}') for n in (1, 2, 3)] + [issue(4, 'U4', updated_at='2026-01-01T00:00:00Z')]
+        rows, queries = self.read_with(issues, blockers={1: [dict(number=9, state='OPEN', stateReason=None)]})
+        self.assertEqual(len(queries), 2)
+        self.assertTrue(all(f'i{n}:' in queries[0] for n in (1, 2, 3, 4)))
+        self.assertTrue(all(f'i{n}:' in queries[1] for n in (2, 3)) and 'i1:' not in queries[1] and 'i4:' not in queries[1])
+        self.assertEqual({row['issue']: row['state'] for row in rows}, {1: 'waiting', 2: 'ready', 3: 'ready', 4: 'ready'})
 
     def test_l34_api_failure_is_not_an_empty_queue(self):
         with patch.object(orders, 'gh', side_effect=subprocess.CalledProcessError(1, 'gh')):
             with self.assertRaises(subprocess.CalledProcessError):
                 orders.read_orders()
 
-    def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
-        def api(*args):
-            if args[0] == 'pr': return []
-            if '/dependencies/' in args[1]:
-                return [[dict(number=3,state='closed',state_reason='completed')],
-                        [dict(number=4,state='open',state_reason=None)]]
-            return [[issue()], [issue(2,'U84')]]
-        with patch.object(orders, 'gh', side_effect=api):
-            rows=orders.read_orders()
-        self.assertEqual(len(rows),2)
-        self.assertTrue(all(row['state']=='waiting' and '#4' in row['reason'] for row in rows))
+    def test_l34_only_an_open_blocker_holds_and_a_cancelled_one_is_reported(self):
+        blockers = {1: [dict(number=3, state='CLOSED', stateReason='COMPLETED'), dict(number=4, state='OPEN', stateReason=None)],
+                    2: [dict(number=5, state='CLOSED', stateReason='NOT_PLANNED')]}
+        rows, _ = self.read_with([issue(), issue(2, 'U84')], blockers=blockers)
+        self.assertEqual([(row['state'], row.get('cancelled')) for row in rows], [('waiting', []), ('ready', [5])])
+        self.assertIn('#4', rows[0]['reason'])
+
+    def test_l34_more_blockers_than_one_call_returns_fail_loud(self):
+        with patch.object(orders, 'gh', return_value=dict(data=dict(repository=dict(i1=dict(blockedBy=dict(totalCount=101, nodes=[])))))):
+            with self.assertRaises(ValueError):
+                orders.blockers([1])
+
+    def test_l23_a_call_that_stays_rate_limited_waits_for_the_reset_once_more_and_any_other_failure_does_not(self):
+        limited = subprocess.CalledProcessError(1, ['gh'], stderr='gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+        reset = (0, json.dumps(dict(resources=dict(core=dict(remaining=0, reset=time.time() + 1800)))), '')
+        with patch.object(orders.time, 'sleep') as sleep, patch.object(orders.subprocess, 'run', Mock(side_effect=[
+                subprocess.CompletedProcess([], *reset)])):
+            self.assertEqual(orders.after_rate_limit(Mock(side_effect=[limited, 'done'])), 'done')
+        self.assertTrue(1700 < sleep.call_args.args[0] <= 1800)
+        attempt = Mock(side_effect=[limited, limited])
+        with patch.object(orders.time, 'sleep'), patch.object(orders, 'rate_wait', return_value=1), self.assertRaises(subprocess.CalledProcessError):
+            orders.after_rate_limit(attempt)
+        self.assertEqual(attempt.call_count, 2)
+        broken = Mock(side_effect=subprocess.CalledProcessError(1, ['gh'], stderr='gh: Not Found (HTTP 404)'))
+        with self.assertRaises(subprocess.CalledProcessError):
+            orders.after_rate_limit(broken)
+        self.assertEqual(broken.call_count, 1)
 
 
 if __name__ == '__main__':
