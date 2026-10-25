@@ -38,11 +38,11 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
     head = await app.subscribe(onEvent, 0);
   } catch (error) {
     // The log keeps only its last Events: replay from the oldest one it names, so the older span stays unknown.
-    const oldest = error instanceof RpcError && error.code === EVENTS_EXPIRED ? /oldest kept Event number is (\d+)/.exec(error.message)?.[1] : undefined;
+    const oldest = error instanceof RpcError && error.code === EVENTS_EXPIRED && error.data?.kind === "events-expired" ? error.data.oldest : undefined;
 
     if (oldest === undefined) throw error;
 
-    head = await app.subscribe(onEvent, Math.max(0, Number(oldest) - 1));
+    head = await app.subscribe(onEvent, oldest - 1);
   }
 
   return {
