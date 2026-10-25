@@ -293,9 +293,12 @@ now complete #4109: 36 fixed-binary attempts separately measure additional
 recorder variation. Aggregate p95 differences cannot correct individual stages;
 diagnostic configuration, logger and hooks remain confounded.
 
-[The cumulative assessment and native profiler attempts](../crates/perf/evidence/r23-capability-40227127433/README.md)
-replay both assessments exactly and verify all ten executable members. Native
-`schedule_local` probes resolve at both pins; candidate byte-broadcast `send`
+[The cumulative assessment and native profiler attempts from run 40227127433](https://github.com/roundup-app/roundup/actions/runs/40227127433)
+replay both assessments exactly and verify all ten executable members. Raw files
+are retained outside git in artifact `r23-capability-40227127433`,
+[uploaded by fix run 40229755357](https://github.com/roundup-app/roundup/actions/runs/40229755357/artifacts/12612748101).
+The archive SHA-256 is `1a5cec1a9b0cc57f1c5638ab40122499fec4df484bcf01175639ca7398df93b8`.
+Native `schedule_local` probes resolve at both pins; candidate byte-broadcast `send`
 entry/return definitions also resolve, but the broad entry pattern yields two
 addresses and perf exposes no named arguments. These definitions supply no hits,
 exact queue insertion or task identity. The pinned Tokio 1.53.1 contract exposes
