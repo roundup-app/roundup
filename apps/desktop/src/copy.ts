@@ -1,3 +1,4 @@
+import { railDraftCopy } from "./copy/rail";
 import type { Observation } from "@contracts/reaction/Observation";
 import type { ObservationCause } from "@contracts/reaction/ObservationCause";
 import type { ObservationGap } from "@contracts/reaction/ObservationGap";
@@ -80,10 +81,6 @@ const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent at th
 
 const reactionDelivery = new Map([["pending", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
 
-const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
-
-const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
-
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 const importExcludedReasons = new Map<string, string>([
   ["alreadyImported", "Already imported"],
@@ -130,6 +127,7 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  ...railDraftCopy,
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   shortcutKeys: new Map([
     ...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map(letter => [`Key${letter}`, letter]),
@@ -496,21 +494,6 @@ export const copy = {
   copySessionId: "Copy session id",
   copied: "Copied",
   copyFailed: "Copy failed",
-  railDraftTaskTarget: (name: string) => `Work for ${name}`,
-  railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
-  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
-  railDraftBase: (name: string) => `Original name: ${name}`,
-  railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
-  railDrafts: "Unfinished rail work",
-  railDraftConflict: "The original name changed. Your edit is retained; copy or discard it before renaming again.",
-  railDraftUnavailable: "The original target is unavailable. Copy or discard this draft.",
-  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? "Rail drafts"} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
-  railDraftRetry: "Retry storage",
-  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${railDraftStatuses.get(status) ?? "Retained"}`,
-  railDraftMissingTarget: "Unavailable target",
-  railDraftRecovered: "Recovered rail draft",
-  railDraftCopy: "Copy draft",
-  railDraftDiscard: "Discard this revision",
   task: "Task",
   taskHint: "What should the Agent do?",
   orderOf: (value1: CopyValue) => `Order of ${value1}`,
