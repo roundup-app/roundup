@@ -46,9 +46,6 @@ function valueOf(section: string, token: string): string | undefined {
 
 describe("u130 tokens", () => {
 
-
-
-
   it("u130_every_token_has_the_tables_light_value_except_the_named_differences", () => {
     const css = Object.values(import.meta.glob<string>("../tokens.css", { query: "?raw", import: "default", eager: true }))[0] ?? "";
 
@@ -97,10 +94,6 @@ describe("u130 tokens", () => {
 
     expect(shadowed, "tokens.css's values must not be shadowed in styles.css").toEqual([]);
   });
-
-
-
-
 
   it("u130_no_look_literal_outside_tokens_css", () => {
     const sheets = import.meta.glob<string>(["../**/*.css", "!../tokens.css"], { query: "?raw", import: "default", eager: true });
