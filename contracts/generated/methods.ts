@@ -73,7 +73,11 @@ import type { SetRouteParams as message_SetRouteParams } from "./message/SetRout
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
 import type { AppendSectionParams as pad_AppendSectionParams } from "./pad/AppendSectionParams";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
+import type { DeleteParams as pad_DeleteParams } from "./pad/DeleteParams";
+import type { Deletion as pad_Deletion } from "./pad/Deletion";
+import type { DeletionId as pad_DeletionId } from "./pad/DeletionId";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
+import type { GetDeletionParams as pad_GetDeletionParams } from "./pad/GetDeletionParams";
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
@@ -233,7 +237,9 @@ export type RpcMethods = {
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
-  "pad.delete": { params: pad_PadName; result: null };
+  "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
+  "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };
+  "pad.restore": { params: pad_DeletionId; result: pad_Deletion };
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
   "message.send": { params: message_SendParams; result: message_Message };
