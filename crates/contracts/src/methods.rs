@@ -1,332 +1,89 @@
-//! Every RPC method with its parameter and result types, as TypeScript expressions.
-//! Aliases are `<module>_<Type>` and resolve to `contracts/generated/<module>/<Type>.ts`
-//! (or `generated/<Type>.ts` for the `common` module).
+//! Typed metadata for the single RPC declarations.
+#[cfg(feature = "export")]
+pub use crate::declarations::METHODS;
+#[cfg(not(feature = "export"))]
+pub const METHODS: &[Method<'static>] = include!("../../../contracts/generated/methodTypes.rs");
+pub use crate::declarations::owner_namespace;
+use specta::{Format, Type};
+use std::collections::BTreeSet;
 
-pub struct Method {
-    pub name: &'static str,
-    pub params: &'static str,
-    pub result: &'static str,
+#[derive(Clone)]
+pub struct Method<'a> {
+    pub name: &'a str,
+    pub params: &'a str,
+    pub result: &'a str,
 }
 
-const fn m(name: &'static str, params: &'static str, result: &'static str) -> Method {
+pub(crate) struct ExportedMethod {
+    pub name: &'static str,
+    pub params: String,
+    pub result: String,
+    imports: BTreeSet<(String, String)>,
+}
+
+impl ExportedMethod {
+    pub(crate) fn method(&self) -> Method<'_> {
+        Method {
+            name: self.name,
+            params: &self.params,
+            result: &self.result,
+        }
+    }
+}
+
+pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> ExportedMethod {
+    let mut types = specta::Types::default();
+    let params = P::definition(&mut types);
+    let result = R::definition(&mut types);
+    types.iter_mut(|ty| {
+        ty.module_path = ty
+            .module_path
+            .split("::")
+            .nth(1)
+            .unwrap_or("")
+            .to_string()
+            .into();
+        if let Some(dt) = &mut ty.ty {
+            crate::export::defaults(dt);
+        }
+    });
+    let types = specta_serde::Format
+        .map_types(&types)
+        .expect("valid contract metadata")
+        .into_owned();
+    let exporter = specta_typescript::Typescript::default()
+        .layout(specta_typescript::Layout::ModulePrefixedName);
+    let render = |dt| {
+        specta_typescript::primitives::reference(&exporter, &types, dt)
+            .expect("exportable method type")
+    };
+    let ((params, result), references) =
+        specta_typescript::collect_references(|| (render(&params), render(&result)));
+    let imports = references
+        .into_iter()
+        .map(|reference| {
+            let ty = types
+                .get(&reference)
+                .expect("registered contract reference");
+            (ty.module_path.to_string(), ty.name.to_string())
+        })
+        .collect();
+    ExportedMethod {
+        name,
+        params,
+        result,
+        imports,
+    }
+}
+
+#[cfg(test)]
+fn m<'a>(name: &'a str, params: &'a str, result: &'a str) -> Method<'a> {
     Method {
         name,
         params,
         result,
     }
 }
-
-pub const METHODS: &[Method] = &[
-    m("project.measurements", "null", "project_Measurements"),
-    m(
-        "project.measurementSummary",
-        "project_MeasurementSummaryParams",
-        "project_MeasurementSummary",
-    ),
-    m(
-        "deliverable.publish",
-        "deliverable_PublishParams",
-        "deliverable_Deliverable",
-    ),
-    m(
-        "deliverable.list",
-        "deliverable_ListParams",
-        "deliverable_Deliverable[]",
-    ),
-    m(
-        "deliverable.get",
-        "deliverable_DeliverableId",
-        "deliverable_Deliverable",
-    ),
-    m(
-        "deliverable.resolve",
-        "deliverable_DeliverableId",
-        "deliverable_Resolution",
-    ),
-    m(
-        "deliverable.move",
-        "deliverable_MoveParams",
-        "deliverable_Deliverable",
-    ),
-    m("deliverable.remove", "deliverable_DeliverableId", "null"),
-    m("ask.send", "ask_SendParams", "ask_Ask"),
-    m("ask.list", "null", "ask_Ask[]"),
-    m("ask.pick", "ask_PickParams", "ask_Ask"),
-    m(
-        "daemon.ping",
-        "null",
-        "{ pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string } }",
-    ),
-    m("daemon.methods", "null", "string[]"),
-    m("link.read", "link_LinkUrl", "link_LinkContent"),
-    m("daemon.identify", "common_IdentifyParams", "null"),
-    m(
-        "events.subscribe",
-        "common_SubscribeParams | null",
-        "common_SubscribeResult",
-    ),
-    m(
-        "provenance.history",
-        "common_HistoryParams",
-        "common_Touch[]",
-    ),
-    m(
-        "provenance.touched",
-        "common_TouchedParams",
-        "common_Touch[]",
-    ),
-    m(
-        "terminal.spawn",
-        "terminal_SpawnParams",
-        "terminal_TerminalId",
-    ),
-    m("terminal.open", "terminal_OpenParams", "terminal_Opened"),
-    m("terminal.close", "terminal_TerminalId", "null"),
-    m("terminal.write", "terminal_WriteParams", "null"),
-    m("terminal.resize", "terminal_ResizeParams", "null"),
-    m("terminal.kill", "terminal_TerminalId", "null"),
-    m("terminal.scheme", "terminal_SchemeParams", "null"),
-    m("terminal.show", "terminal_TerminalId", "null"),
-    m("terminal.list", "null", "terminal_TerminalInfo[]"),
-    m(
-        "terminal.snapshot",
-        "terminal_TerminalId",
-        "terminal_Snapshot",
-    ),
-    m(
-        "terminal.output",
-        "terminal_TerminalId",
-        "terminal_OutputStarted",
-    ),
-    m("terminal.outputStop", "terminal_TerminalId", "null"),
-    m("terminal.screen", "terminal_TerminalId", "terminal_Screen"),
-    m("terminal.read", "terminal_ReadParams", "terminal_Read"),
-    m(
-        "terminal.search",
-        "terminal_SearchParams",
-        "terminal_Search",
-    ),
-    m("todo.create", "todo_CreateParams", "todo_Todo"),
-    m("todo.get", "todo_TodoId", "todo_Todo"),
-    m("todo.listHanded", "null", "todo_Handed[]"),
-    m("todo.getHistory", "todo_TodoId", "todo_History"),
-    m("todo.readHistory", "todo_ReadHistoryParams", "null"),
-    m("todo.list", "null", "todo_Todo[]"),
-    m("todo.update", "todo_UpdateParams", "todo_Todo"),
-    m("todo.complete", "todo_TodoId", "todo_Todo"),
-    m("todo.reopen", "todo_TodoId", "todo_Todo"),
-    m("todo.setBlockers", "todo_SetBlockersParams", "todo_Todo"),
-    m("todo.assign", "todo_AssignParams", "todo_Todo"),
-    m("todo.hand", "todo_HandParams", "todo_Todo | null"),
-    m("todo.move", "todo_MoveParams", "todo_Todo"),
-    m("todo.reorder", "todo_ReorderParams", "todo_Todo"),
-    m("todo.delete", "todo_DeleteParams", "todo_Deletion"),
-    m(
-        "todo.deletion",
-        "todo_DeletionParams",
-        "todo_Deletion | null",
-    ),
-    m("todo.restore", "todo_DeletionParams", "todo_Deletion"),
-    m("todo.comment", "todo_CommentParams", "todo_Comment"),
-    m("todo.comments", "todo_TodoId", "todo_Comment[]"),
-    m("todo.unread", "null", "todo_UnreadComment[]"),
-    m("todo.markCommentsRead", "todo_TodoId", "null"),
-    m("todo.addRef", "todo_RefParams", "todo_Todo"),
-    m("todo.removeRef", "todo_RefParams", "todo_Todo"),
-    m("todo.refs", "todo_TodoId", "todo_Ref[]"),
-    m("pad.create", "pad_CreateParams", "pad_Pad"),
-    m("pad.read", "pad_PadName", "pad_Pad"),
-    m("pad.list", "null", "pad_Pad[]"),
-    m("pad.rename", "pad_RenameParams", "pad_Pad"),
-    m("pad.write", "pad_WriteParams", "pad_Pad"),
-    m("pad.append", "pad_AppendParams", "pad_Pad"),
-    m("pad.appendSection", "pad_AppendSectionParams", "pad_Pad"),
-    m("pad.setOwner", "pad_SetOwnerParams", "pad_Pad"),
-    m("pad.move", "pad_MoveParams", "pad_Pad"),
-    m("pad.delete", "pad_DeleteParams", "pad_Deletion"),
-    m("pad.getDeletion", "pad_GetDeletionParams", "pad_Deletion"),
-    m("pad.restore", "pad_DeletionId", "pad_Deletion"),
-    m("pad.export", "pad_ExportParams", "null"),
-    m("pad.setStorage", "pad_SetStorageParams", "null"),
-    m("agent.spawn", "agent_SpawnParams", "agent_RailNode"),
-    m("agent.extras", "null", "agent_Extras"),
-    m(
-        "agent.extras_add",
-        "agent_ExtrasAddParams",
-        "agent_RailNode",
-    ),
-    m("agent.stop", "agent_NodeId", "null"),
-    m("agent.prompt", "agent_PromptParams", "null"),
-    m("agent.interrupt", "agent_NodeId", "null"),
-    m("agent.worktreeState", "agent_NodeId", "agent_WorktreeState"),
-    m("agent.changedFiles", "agent_NodeId", "agent_ChangedFiles"),
-    m(
-        "agent.compareFile",
-        "agent_CompareFileParams",
-        "agent_FileComparison",
-    ),
-    m("agent.land", "agent_NodeId", "agent_Landed"),
-    m("agent.discard", "agent_NodeId", "null"),
-    m("agent.context", "agent_NodeId", "agent_Context"),
-    m("agent.brief", "agent_NodeId", "agent_Brief"),
-    m("agent.skills", "agent_NodeId", "agent_Skills"),
-    m("agent.digest", "agent_NodeId", "agent_Digest"),
-    m("agent.wake", "agent_WakeParams", "agent_Woken"),
-    m(
-        "reaction.create",
-        "reaction_CreateParams",
-        "reaction_Reaction",
-    ),
-    m(
-        "reaction.preview",
-        "reaction_PreviewParams",
-        "reaction_Preview",
-    ),
-    m("reaction.list", "null", "reaction_Reaction[]"),
-    m("reaction.get", "reaction_ReactionId", "reaction_Reaction"),
-    m("reaction.stop", "reaction_ReactionId", "reaction_Reaction"),
-    m("reaction.run", "reaction_RunParams", "reaction_Reaction"),
-    m(
-        "agent.spawnPrompt",
-        "agent_NodeId",
-        "{ prompt: string | null }",
-    ),
-    m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
-    m("agent.instructions", "agent_NodeId", "agent_Instructions"),
-    m("agent.channelUp", "agent_NodeId", "null"),
-    m(
-        "agent.signal",
-        "agent_SignalParams",
-        "agent_SignalOutcome | null",
-    ),
-    m("rail.tree", "null", "agent_RailNode[]"),
-    m("rail.list", "null", "agent_RailNode[]"),
-    m("workstream.setAuto", "workstream_AutoParams", "null"),
-    m(
-        "rail.createWorkstream",
-        "agent_CreateWorkstreamParams",
-        "agent_RailNode",
-    ),
-    m("rail.move", "agent_MoveParams", "null"),
-    m("rail.rename", "agent_RenameParams", "agent_RailNode"),
-    m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
-    m("agent.run", "agent_RunParams", "terminal_Opened"),
-    m("project.setWorktrees", "project_Worktrees", "null"),
-    m("project.setMcp", "project_Mcp", "null"),
-    m("project.setPrepared", "project_Prepared", "null"),
-    m("project.getPrepared", "null", "project_Prepared"),
-    m(
-        "project.importDiscover",
-        "project_ImportDiscoverParams",
-        "project_ImportDiscovery",
-    ),
-    m(
-        "import.list",
-        "project_ImportListParams",
-        "project_ImportList",
-    ),
-    m(
-        "project.importCommit",
-        "project_ImportCommitParams",
-        "project_ImportResult",
-    ),
-    m("project.prepareDirectory", "project_PrepareParams", "null"),
-    m("project.get", "null", "project_ProjectSettings"),
-    m("project.setModels", "project_ProjectModels", "null"),
-    m("models.list", "null", "project_ModelList"),
-    m("project.resources", "null", "project_Resources"),
-    m("project.open", "project_OpenParams", "null"),
-    m("project.rename", "project_RenameParams", "null"),
-    m(
-        "attachment.save",
-        "attachment_SaveParams",
-        "attachment_Saved",
-    ),
-    m(
-        "message.progress",
-        "message_ProgressParams",
-        "message_Progress",
-    ),
-    m(
-        "message.report",
-        "message_ReportParams",
-        "message_ResultReport",
-    ),
-    m(
-        "message.acceptResult",
-        "message_AcceptResultParams",
-        "message_ResultAcceptance",
-    ),
-    m(
-        "message.verifyResult",
-        "message_ResultId",
-        "message_ResultObservation",
-    ),
-    m(
-        "message.resolveResult",
-        "message_ResolveResultParams",
-        "message_ResultObservation",
-    ),
-    m(
-        "message.reconcileWork",
-        "message_ProgressParams",
-        "message_Reconciliation",
-    ),
-    m(
-        "message.resumeWork",
-        "message_ResumeWorkParams",
-        "message_ResumeWork",
-    ),
-    m("message.send", "message_SendParams", "message_Message"),
-    m("message.get", "message_MessageId", "message_Message"),
-    m("message.list", "message_ListParams", "message_Message[]"),
-    m("message.drop", "message_MessageId", "message_Message"),
-    m("route.set", "message_SetRouteParams", "message_Route"),
-    m("route.list", "null", "message_Route[]"),
-    m(
-        "checkpoint.write",
-        "checkpoint_WriteParams",
-        "checkpoint_Checkpoint",
-    ),
-    m(
-        "checkpoint.list",
-        "checkpoint_ListParams",
-        "checkpoint_Checkpoint[]",
-    ),
-    m("rail.remove", "agent_NodeId", "agent_Removal | null"),
-    m("agent.resume", "agent_ResumeParams", "agent_RailNode"),
-    m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
-    m(
-        "workstream.clear",
-        "workstream_ClearParams",
-        "workstream_ClearResult",
-    ),
-    m(
-        "workstream.rewindPlan",
-        "workstream_RewindPlanParams",
-        "workstream_RewindPlan",
-    ),
-    m(
-        "workstream.rewind",
-        "workstream_RewindParams",
-        "workstream_Rewind",
-    ),
-    m("workstream.handoff", "workstream_HandoffParams", "null"),
-    m(
-        "todo.startWorkstream",
-        "workstream_StartWorkstreamParams",
-        "agent_RailNode",
-    ),
-    m("workstream.queue", "null", "workstream_QueueState"),
-    m("workstream.dequeue", "workstream_QueuedWorkstream", "null"),
-    m("workstream.queueMove", "workstream_QueueMoveParams", "null"),
-    m(
-        "workstream.startNow",
-        "workstream_QueuedWorkstream",
-        "agent_RailNode",
-    ),
-    m("project.setWorkstreamCap", "workstream_CapParams", "null"),
-];
 
 /// Every method name the Daemon serves, sorted.
 pub fn method_names() -> Vec<&'static str> {
@@ -404,23 +161,15 @@ pub fn render_contract_typescript() -> String {
 }
 
 /// Render `METHODS` as `contracts/generated/methods.ts`.
-pub fn render_typescript() -> String {
-    let mut aliases = std::collections::BTreeSet::new();
-    for method in METHODS {
-        for expr in [method.params, method.result] {
-            for token in expr.split(|c: char| !(c.is_alphanumeric() || c == '_')) {
-                if let Some((module, ty)) = token.split_once('_')
-                    && ty.chars().next().is_some_and(char::is_uppercase)
-                {
-                    aliases.insert((module, ty));
-                }
-            }
-        }
-    }
+pub(crate) fn render_typescript(methods: &[ExportedMethod]) -> String {
+    let aliases: BTreeSet<_> = methods
+        .iter()
+        .flat_map(|method| method.imports.iter().cloned())
+        .collect();
     let mut out = String::from("// Generated from crates/contracts/src/methods.rs. Do not edit.\n");
     for (module, ty) in &aliases {
-        let path = if *module == "common" {
-            (*ty).to_string()
+        let path = if module == "common" {
+            ty.to_string()
         } else {
             format!("{module}/{ty}")
         };
@@ -429,7 +178,7 @@ pub fn render_typescript() -> String {
         ));
     }
     out.push_str("\nexport type RpcMethods = {\n");
-    for method in METHODS {
+    for method in methods {
         out.push_str(&format!(
             "  \"{}\": {{ params: {}; result: {} }};\n",
             method.name, method.params, method.result
@@ -451,29 +200,8 @@ mod tests {
         assert_eq!(names.len(), METHODS.len());
     }
 
-    #[test]
-    fn writes_methods_ts() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../contracts/generated/methods.ts"
-        );
-        std::fs::write(path, render_typescript()).unwrap();
-    }
-
-    #[test]
-    fn writes_contract_ts() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../contracts/generated/contract.ts"
-        );
-        std::fs::write(path, render_contract_typescript()).unwrap();
-    }
-
-    fn copy(methods: &[Method]) -> Vec<Method> {
-        methods
-            .iter()
-            .map(|x| m(x.name, x.params, x.result))
-            .collect()
+    fn copy<'a>(methods: &[Method<'a>]) -> Vec<Method<'a>> {
+        methods.to_vec()
     }
 
     #[test]
@@ -512,100 +240,5 @@ mod tests {
             assert_eq!(lines(&after).difference(&lines(&base)).count(), 1);
             assert!(lines(&base).difference(&lines(&after)).count() <= 1);
         }
-    }
-
-    fn method(name: &str) -> &'static Method {
-        METHODS.iter().find(|m| m.name == name).unwrap()
-    }
-
-    fn generated(path: &str) -> String {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/generated/");
-        std::fs::read_to_string(format!("{root}{path}")).unwrap()
-    }
-
-    #[test]
-    fn g8_project_methods_are_registered() {
-        let set = method("project.setWorktrees");
-        assert_eq!((set.params, set.result), ("project_Worktrees", "null"));
-        let get = method("project.get");
-        assert_eq!(
-            (get.params, get.result),
-            ("null", "project_ProjectSettings")
-        );
-        assert!(generated("project/Worktrees.ts").contains("on: boolean"));
-        assert!(generated("project/Worktrees.ts").contains("check: string | null"));
-        assert!(generated("project/ProjectSettings.ts").contains("worktrees: Worktrees"));
-    }
-
-    #[test]
-    fn g8_worktree_state_and_land_shapes() {
-        let state = method("agent.worktreeState");
-        assert_eq!(
-            (state.params, state.result),
-            ("agent_NodeId", "agent_WorktreeState")
-        );
-        let land = method("agent.land");
-        assert_eq!((land.params, land.result), ("agent_NodeId", "agent_Landed"));
-        assert!(generated("agent/WorktreeState.ts").contains(
-            "{ ahead: number, behind: number, dirty: boolean, ci?: WorktreeCi, pr?: WorktreePr, evidence?: WorktreeEvidence, }"
-        ));
-        assert!(generated("agent/Landed.ts").contains("{ base: string, }"));
-    }
-
-    #[test]
-    fn d8_resources_method_and_types() {
-        let resources = method("project.resources");
-        assert_eq!(
-            (resources.params, resources.result),
-            ("null", "project_Resources")
-        );
-        assert!(generated("project/Resources.ts").contains("agents: Array<AgentResources>"));
-        assert!(generated("project/Resources.ts").contains("total: ResourceTotal"));
-        assert!(generated("project/AgentResources.ts").contains("disk_bytes: number | null"));
-        assert!(generated("project/AgentResources.ts").contains("cpu_percent: number"));
-    }
-
-    #[test]
-    fn g8_discard_is_registered() {
-        let discard = method("agent.discard");
-        assert_eq!((discard.params, discard.result), ("agent_NodeId", "null"));
-    }
-
-    #[test]
-    fn g8_rail_node_worktree_is_required() {
-        assert!(generated("agent/RailNode.ts").contains("worktree: Worktree | null,"));
-        assert!(
-            generated("agent/Worktree.ts")
-                .contains("{ path: string, branch: string, base: string, }")
-        );
-    }
-
-    #[test]
-    fn g8_no_new_rpc_code() {
-        let source = include_str!("../../rpc/src/error.rs");
-        let names: Vec<&str> = source
-            .lines()
-            .filter_map(|l| l.trim().strip_prefix("pub const "))
-            .filter_map(|l| l.split(':').next())
-            .collect();
-        assert_eq!(
-            names,
-            [
-                "PARSE_ERROR",
-                "METHOD_NOT_FOUND",
-                "INVALID_PARAMS",
-                "INTERNAL",
-                "NOT_FOUND",
-                "FORBIDDEN",
-                "CONFLICT",
-                "UNKNOWN_OUTCOME",
-                "BUSY",
-                "NOT_ACCEPTED",
-                "NOT_RUNNING",
-                "NOT_ACKED",
-                "EVENTS_EXPIRED",
-                "INBOX_UNAVAILABLE",
-            ]
-        );
     }
 }

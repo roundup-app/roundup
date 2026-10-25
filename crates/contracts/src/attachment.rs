@@ -2,18 +2,16 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "attachment/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SaveParams {
     pub name: String,
     /// Base64 of the image's bytes.
     pub data: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "attachment/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Saved {
     /// The absolute path of the Attachment file.
     pub path: String,
