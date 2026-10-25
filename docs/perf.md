@@ -988,39 +988,10 @@ Release profile measurements: [code generation comparison](perf-release-profile.
 
 ### R23 correlated write capture (#3976)
 
-[Builder 40175332310 evidence](../crates/perf/evidence/r23-spans-40175332310/README.md)
-adds per-loop/warmup/request/echo timestamps, FD-resolved PTY/socket syscalls and
-scheduler switch/wake records on one exactly qualified 9V45 lifetime for the
-pinned historical `2029ed2c4ee606d26e73c858c4d7c93130df36e0` and candidate
-`50e546c1a3ce74689738b08a3dfe273895f9ae31`. The common and marked probes each run
-against both identical unmodified Daemon executables, with separate unprofiled,
-scheduler-only and syscall/scheduler observations. Exact commands, versions,
-release settings, compatibility diffs, failures/statuses, raw recordings,
-executable hashes/build IDs and matching executable material survive the lifetime.
+[Builder 40175332310](../crates/perf/evidence/r23-spans-40175332310/README.md) retains per-write/loop/warmup identities, monotonic timestamps, FD-resolved PTY/socket timelines, scheduler records and matching executables on one qualified 9V45 lifetime for R23's pinned references. Both common/marked probes run against each identical Daemon, with separate unprofiled, scheduler-only and syscall controls; commands, hashes, versions, failures and raw recordings survive.
 
-The original six clean observations remain the timing evidence. Their historical-
-derived ceilings are 0.0604572 ms request and 0.1230527 ms echo; each candidate
-invocation fits both. This capture reuses those reports and PR #3975's thread
-extraction, without repeating aggregate CPU-table analysis or claiming a repair.
+Historical extraction/offset insertion/deserialization/broadcast jointly take 3.024 µs median / 4.257 µs p95; native takes 2.824 / 3.986 µs. All 2200 spans per reference are on CPU. Separate decoding and per-loop/warmup results are retained. These bounds include clocks/wakers, establish no Daemon cause, and are never subtracted from clean p95s. Syscall tracing substantially changes latency and establishes correlation only.
 
-In the marked scheduler-only observations, historical Value extraction, offset
-insertion, deserialization and broadcast jointly take 3.024 µs median / 4.257 µs
-p95; native extraction/deserialization/broadcast take 2.824 / 3.986 µs. All 2200
-synchronous spans per reference fall wholly inside that TID's recorded on-CPU
-intervals. Historical JSON envelope decoding is separately 1.031 / 1.543 µs;
-native is 0.631 / 1.012 µs. These bounds include clock/waker work. They isolate
-observed probe operations, not an inferred Daemon cost. No stage percentiles
-are added or subtracted from clean write p95s. The syscall tracer substantially
-increases latency, so its spans establish correlation only; overhead controls
-are retained rather than applied as a numerical correction.
+Dispatch/task scheduling, input/reply queue acceptance and output publication/queueing remain bounded by request-read/reply-send and PTY-read/output-send. [Investigation #3983](https://github.com/roundup-app/roundup/issues/3983) natively blocks #3760 on the missing in-process/task markers. User-write completion acknowledges enqueue, not physical PTY completion; reply and echo overlap.
 
-Request completion acknowledges user input enqueue, not physical PTY completion.
-Reply and output delivery overlap. Exact dispatch/task scheduling, input/reply
-queue acceptance and output publication/queueing remain bounded by the retained
-request-read/reply-send and PTY-read/output-send intervals. Kernel thread events
-cannot identify which Tokio task was runnable or parked on that thread.
-[Scoped investigation #3983](https://github.com/roundup-app/roundup/issues/3983)
-natively blocks #3760 on those specific missing in-process markers. #3760 stays
-open until its full acceptance holds; #3720 retains regression work. No baseline,
-calibration, production repair, absolute limit, load/pacing policy or macOS
-behavior changes, and no Mac observation is required.
+The six original clean observations and PR #3975's extraction are reused: all three candidate invocations fit the historical-derived 0.0604572 ms request and 0.1230527 ms echo ceilings. #3760 stays open until its full acceptance holds; #3720 retains regression work. No baseline, calibration, production repair, limit, load/pacing policy or macOS behavior changes. No Mac observation is required.
