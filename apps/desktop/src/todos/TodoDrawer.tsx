@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { deleteTodos } from "./deleteTodos";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
@@ -17,7 +18,7 @@ import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
-import { doesClearTodoFailure, failureOf, outcomeOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { BlockerMenu } from "./BlockerMenu";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
