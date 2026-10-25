@@ -11,7 +11,7 @@ export const syncTerminalScheme = async (app: AppSeam) => {
 
   const send = (): Promise<null> => {
     const dark = appDark();
-    const theme = terminalThemeFor(dark);
+    const theme = terminalThemeFor();
 
     return app.rpc("terminal.scheme", { scheme: dark ? "dark" : "light", background: theme.background, foreground: theme.foreground });
   };
