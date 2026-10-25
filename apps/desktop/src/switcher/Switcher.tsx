@@ -57,7 +57,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
     closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: true,
-    initialFocusEl: () => input ?? null,
+    onRequestDismiss: event => event.preventDefault(),
+    initialFocusEl: () => openingFocus.target(() => input),
     finalFocusEl: () => restore() || !(document.activeElement instanceof HTMLElement) ? null : document.activeElement,
     onOpenChange: details => { if (!details.open) close(true); },
   }));
@@ -205,7 +206,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   return (
     <Dialog.RootProvider value={dialog}>
     <Show when={open()}>
-      <section {...dialog().getContentProps()} class="switcher" ref={element => { panel = element; }}>
+      <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
         <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
