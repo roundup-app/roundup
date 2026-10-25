@@ -65,6 +65,6 @@
     "lint_rust": "passed; ALL PROOFS CHECK",
     "merge_loss": "passed",
     "vocab": "passed",
-    "lint_web": "all commands completed without reported diagnostics; final isolated confirmation pending"
+    "lint_web": "passed"
   }
 }
