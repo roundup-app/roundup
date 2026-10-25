@@ -1,0 +1,153 @@
+--- a/crates/rupd/src/builtin.rs
++++ b/crates/rupd/src/builtin.rs
+@@ -4,7 +4,7 @@
+ use rpc::{RpcError, params, reply};
+ use serde_json::{Value, json};
+ 
+-use crate::{Conn, Daemon};
++use crate::{Conn, Daemon, r23_mark, r23_poll};
+ 
+ /// `None` means the namespace is not the Daemon's; route it to a module.
+ pub(crate) fn call(
+@@ -43,12 +43,17 @@
+ fn subscribe(daemon: &Daemon, conn: &Conn) {
+     let mut events = daemon.bus.subscribe();
+     let frames = conn.events.clone();
++    let r23_queue = format!("{:p}", &conn.events);
+     tokio::spawn(async move {
+         loop {
+-            match events.recv().await {
++            match r23_poll(format!("forward queue={r23_queue}"), events.recv()).await {
+                 Ok(event) => {
++                    r23_mark("output_forward_receive", format_args!("queue={r23_queue} event={event:?}"));
+                     let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
+-                    if frames.send(frame).is_err() {
++                    r23_mark("output_send_enter", format_args!("queue={r23_queue} frame={frame}"));
++                    let sent = frames.send(frame);
++                    r23_mark("output_send_exit", format_args!("queue={r23_queue} ok={}", sent.is_ok()));
++                    if sent.is_err() {
+                         return;
+                     }
+                 }
+--- a/crates/rupd/src/lib.rs
++++ b/crates/rupd/src/lib.rs
+@@ -68,10 +68,15 @@
+                 &RpcError::new(code::PARSE_ERROR, "parse error"),
+             ));
+         };
++        r23_mark("dispatch_prologue", format_args!("request={request}"));
+         let id = request.get("id").cloned();
+         let method = request["method"].as_str().unwrap_or_default();
+         let params = request.get("params").cloned().unwrap_or(Value::Null);
++        let r23_write = method == "terminal.write";
++        let r23_detail = format!("request={id:?} params={params}");
++        if r23_write { r23_mark("dispatch_enter", format_args!("{r23_detail}")); }
+         let outcome = self.route(conn, method, params).await;
++        if r23_write { r23_mark("dispatch_exit", format_args!("{r23_detail} ok={}", outcome.is_ok())); }
+         let id = id?;
+         Some(match outcome {
+             Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+@@ -88,9 +93,12 @@
+             .modules
+             .get(namespace)
+             .ok_or_else(|| RpcError::method_not_found(method))?;
+-        module
+-            .call(&self.ctx(conn.actor.clone()), method, params)
+-            .await
++        let r23_write = method == "terminal.write";
++        let detail = params.to_string();
++        if r23_write { r23_mark("user_write_call", format_args!("params={detail}")); }
++        let result = module.call(&self.ctx(conn.actor.clone()), method, params).await;
++        if r23_write { r23_mark("user_write_accept_return", format_args!("params={detail} ok={}", result.is_ok())); }
++        result
+     }
+ 
+     fn ctx(&self, actor: Actor) -> Ctx {
+@@ -168,10 +176,14 @@
+ }
+ 
+ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
++    use std::os::fd::AsRawFd;
++    let r23_conn = stream.as_raw_fd();
++    r23_mark("connection", format_args!("fd={r23_conn}"));
+     let (read, mut write) = stream.into_split();
+     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
+     let writer = tokio::spawn(async move {
+-        while let Some(frame) = outbox.recv().await {
++        while let Some(frame) = r23_poll(format!("writer fd={r23_conn}"), outbox.recv()).await {
++            r23_mark("queue_dequeue", format_args!("fd={r23_conn} frame={frame}"));
+             write.write_all(format!("{frame}\n").as_bytes()).await?;
+         }
+         io::Result::Ok(())
+@@ -182,8 +194,11 @@
+     };
+     let mut lines = BufReader::new(read).lines();
+     while let Some(line) = lines.next_line().await? {
+-        if let Some(reply) = daemon.dispatch(&mut conn, &line).await {
+-            let _ = frames.send(reply);
++        r23_mark("request_received", format_args!("fd={r23_conn} line={line}"));
++        if let Some(reply) = r23_poll(format!("dispatch fd={r23_conn} line={line}"), daemon.dispatch(&mut conn, &line)).await {
++            r23_mark("reply_send_enter", format_args!("fd={r23_conn} frame={reply}"));
++            let sent = frames.send(reply);
++            r23_mark("reply_send_exit", format_args!("fd={r23_conn} ok={}", sent.is_ok()));
+         }
+     }
+     drop(conn);
+@@ -315,3 +330,35 @@
+         assert_eq!(reply["error"]["code"], code::PARSE_ERROR);
+     }
+ }
++
++// Temporary R23 diagnostic only. Instant debug values are Linux CLOCK_MONOTONIC.
++pub fn r23_mark(stage: &str, detail: std::fmt::Arguments<'_>) {
++    let _ = (stage, detail); // Diagnostic hooks remain; synchronous marker output is disabled.
++}
++
++async fn r23_poll<T>(label: String, future: impl std::future::Future<Output = T>) -> T {
++    let mut future = std::pin::pin!(future);
++    std::future::poll_fn(|cx| {
++        r23_mark("poll_enter", format_args!("label={label}"));
++        let waker = std::task::Waker::from(std::sync::Arc::new(R23Wake {
++            original: cx.waker().clone(), label: label.clone(), target: format!("{:?}", tokio::task::try_id()),
++        }));
++        let mut observed = std::task::Context::from_waker(&waker);
++        let result = future.as_mut().poll(&mut observed);
++        r23_mark("poll_exit", format_args!("label={label} pending={}", result.is_pending()));
++        result
++    }).await
++}
++
++struct R23Wake {
++    original: std::task::Waker,
++    label: String,
++    target: String,
++}
++impl std::task::Wake for R23Wake {
++    fn wake(self: std::sync::Arc<Self>) { self.wake_by_ref(); }
++    fn wake_by_ref(self: &std::sync::Arc<Self>) {
++        r23_mark("task_wake", format_args!("target={} label={}", self.target, self.label));
++        self.original.wake_by_ref();
++    }
++}
+--- a/crates/rupd/src/main.rs
++++ b/crates/rupd/src/main.rs
+@@ -4,8 +4,17 @@
+ 
+ use tokio::net::{UnixListener, UnixStream};
+ 
+-#[tokio::main]
+-async fn main() -> io::Result<()> {
++fn main() -> io::Result<()> {
++    let runtime = tokio::runtime::Builder::new_multi_thread()
++        .enable_all()
++        .on_task_spawn(|meta| rupd::r23_mark("runtime_spawn", format_args!("target={:?}", meta.id())))
++        .on_before_task_poll(|meta| rupd::r23_mark("runtime_poll_enter", format_args!("target={:?}", meta.id())))
++        .on_after_task_poll(|meta| rupd::r23_mark("runtime_poll_exit", format_args!("target={:?}", meta.id())))
++        .build()?;
++    runtime.block_on(r23_main())
++}
++
++async fn r23_main() -> io::Result<()> {
+     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
+     let attached = args.iter().any(|arg| arg == "--attached");
+     args.retain(|arg| arg != "--attached");
