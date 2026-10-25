@@ -47,6 +47,12 @@ One accepted delivery of a Reaction's instruction, written in the same Project-d
 
 **NR5 observation failure and history gaps.** Given source disconnection, failed reads or expired history, inspection shows source, last evidence/cursor, gap and recovery action; no unknown fact matches. Restored authoritative current Agent state or fresh complete pinned-head checks may reconcile state conditions, with the gap still recorded. An occurrence-only source without retained occurrence evidence must remain unmatched and explain missing evidence; no generic current-state fallback is allowed. Unsupported occurrence-only definitions are refused before activation. A reported Agent result proves only that report, never external success. Planned test: `nr5_gaps_require_condition_specific_evidence`, using expired history with both sufficient and insufficient current evidence, interrupted reads and reconnect/replay.
 
+Definition (relocated from GLOSSARY.md): **Reaction observation identity** (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`):
+Typed facts emitted where a Reaction's observation succeeds or fails. The Observation and retained Watch
+keep `cause_code`, `gap_code`, `recovery_code` and `health_code` separately from diagnostic prose,
+cursor, pinned head and evidence. `unknown`, including absent legacy identity, grants no authority
+and offers a current check; historical prose never supplies identity or a successful match.
+
 **NR6 declared time.** Given a resolved date/time/offset preview, acceptance retains that exact instant and zone/offset. Ambiguous or nonexistent local time without an explicit offset, unsupported calendar recurrence, unparseable input and missing missed-time policy refuse. Once activated, later time-zone/DST changes do not reinterpret the stored instant. Wall-clock adjustments cannot accept before that UTC instant; waking/reopening or a forward clock step after it applies the declared late policy once before expiry, otherwise expires without a firing. A backward step never duplicates accepted work. Recheck wall time when a Tokio deadline wakes, on resume and before acceptance; re-arm a deadline if early. Planned test: `nr6_resolved_time_clock_changes_and_missed_policy`, with deterministic clock, sleep, restart, expiry and no backlog; `nr6_preview_requires_unambiguous_time` checks preview/activation identity.
 
 Definition (relocated): **Preview** (`reaction.preview`; user label: Time preview):
