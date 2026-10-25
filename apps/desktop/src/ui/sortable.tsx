@@ -7,7 +7,7 @@ import { effect } from "@dnd-kit/state";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { createSignal, mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
+import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -142,7 +142,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let stopTracking: (() => void) | undefined;
   let restoreSource: (() => void) | undefined;
   let closingSlot: HTMLDivElement | null = null;
-  const [overlay, setOverlay] = createSignal({ text: "", width: 0 });
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
   let keyboard: { slot: number; depth: number } | null = null;
@@ -221,8 +220,16 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     if (animate && ending?.isConnected && ending.dataset.keyboard !== "true" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
       closingSlot = ending;
+      const styles = getComputedStyle(ending);
+      const opacity = styles.opacity;
+      const duration = Number.parseFloat(styles.getPropertyValue("--duration-crossfade"));
+      const easing = styles.getPropertyValue("--easing-out").trim();
+
+      for (const animation of ending.getAnimations()) animation.cancel();
       ending.dataset.ending = "true";
-      void Promise.allSettled(ending.getAnimations().map(animation => animation.finished)).then(() => {
+      const exit = ending.animate([{ opacity }, { opacity: 0 }], { duration, easing });
+
+      void Promise.allSettled([exit.finished]).then(() => {
         remove();
 
         if (closingSlot === ending) closingSlot = null;
@@ -245,14 +252,25 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       sourceRow = source.element;
       const box = sourceRow.getBoundingClientRect();
       sourceRow.classList.add("sortable-source");
-      setOverlay({ text: sourceRow.innerText, width: Math.min(box.width, list?.clientWidth ?? box.width) });
+      const keyboardLift = event.operation.activatorEvent instanceof KeyboardEvent;
+      const styles = getComputedStyle(sourceRow);
+      const duration = keyboardLift ? 0 : Number.parseFloat(styles.getPropertyValue("--duration-crossfade"));
+      const easing = styles.getPropertyValue("--easing-out").trim();
+
+      // Sortable owns sibling transforms; the real source must stay at its original position.
+      for (const draggable of source.manager?.registry.draggables ?? []) {
+        if (isSortable(draggable)) draggable.sortable.transition = { duration: draggable === source ? 0 : duration, easing };
+      }
       slot = document.createElement("div");
       slot.className = "sortable-slot";
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
-      slot.dataset.keyboard = String(event.operation.activatorEvent instanceof KeyboardEvent);
+      slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
+
+      // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
+      if (!keyboardLift && !matchMedia("(prefers-reduced-motion: reduce)").matches) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
       if (isSortable(source)) {
@@ -379,7 +397,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(index ?? source.initialIndex, 0, moved);
     local.onOrderChange?.(order);
-  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null} style={{ "max-width": `${overlay().width}px` }}><span>{overlay().text}</span></DragOverlay></DragDropProvider>;
+  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
