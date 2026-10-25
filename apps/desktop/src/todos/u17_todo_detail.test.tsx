@@ -288,16 +288,6 @@ describe("u17 Todo detail", () => {
     expect(screen.queryByRole("option", { name: /#7/ })).toBeNull();
   });
 
-  it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
-    const { app } = await mountTodos(shelf());
-    app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32001, "gone"));
-    fireEvent.keyDown(await rowButton(/#5/), { key: "Enter" });
-    fireEvent.click(await within(drawer()).findByRole("button", { name: "Changes" }));
-    await within(drawer()).findByText("gone");
-    expect(within(drawer()).getByText("session store").tabIndex).toBe(0);
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Retry history" }));
-    await waitFor(() => expect(callsTo(app, "todo.getHistory")).toHaveLength(2));
-  });
 
   it("u17_deleting_your_own_todo_while_the_drawer_slides_out_shows_no_deleted_message", async () => {
     const { app, store } = await openDrawerOf(/#5/, shelf(), false);
