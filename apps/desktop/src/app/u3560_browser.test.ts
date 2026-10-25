@@ -27,8 +27,9 @@ const field = async (kind: string, initial = "alpha bravo charlie") => {
     await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
     await browser("click", '[data-id="payments"] .name');
     await browser("click", "#shelf-tab-pads");
-    await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
-    await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await read("document.querySelector('.pads-tab [data-incarnation=fixture-3]')?.closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]')?.click()");
+    await wait("document.querySelector('.pads-tab [data-incarnation=fixture-3] .pad-name')?.checkVisibility()");
+    await browser("click", ".pads-tab [data-incarnation=fixture-3] .pad-name");
     await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
     await wait(`document.querySelector('.ProseMirror[contenteditable=true]')?.textContent === ${JSON.stringify(initial)}`);
