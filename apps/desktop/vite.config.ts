@@ -59,9 +59,11 @@ export default defineConfig({
             const rule = postcss.rule({ selector: ":root" });
 
             const motionTokens = new Set<string>();
+
             root.walkDecls(/^--(?:duration|delay)-/, declaration => { motionTokens.add(declaration.prop); });
 
             for (const prop of motionTokens) rule.append(postcss.decl({ prop, value: "0s" }));
+
             if (motionTokens.size === 0) return;
 
             reduced.append(rule);
