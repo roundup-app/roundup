@@ -886,3 +886,6 @@ The typed reason discovery or listing excludes a source; `reason` retains diagno
 **Import failure** (`ImportFailure`, `ImportOutcome.error`):
 A per-source import error retaining the original RPC `code` and diagnostic `message`.
 Its **Import disposition** (`ImportDisposition`, `outcome`) is `failed` only for a proven refusal code; `unknown` retains submitted revisions when completion is unconfirmed. This is an import result, not a thrown-value classifier.
+
+**Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
+The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
