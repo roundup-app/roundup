@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createFrameRun } from "./frame_run";
-import { createKeystrokeRun, reportTerminal, terminalReady, SETUP_BOUND_MS } from "./run";
+import { createKeystrokeRun, reportTerminal, terminalReady, startFlood, SETUP_BOUND_MS } from "./run";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { createComponent } from "solid-js";
@@ -42,14 +42,21 @@ it.each(["idle", "flood"] as const)("r20_the_real_app_setup_reaches_the_ready_sh
   app.handlers["terminal.open"] = () => {
     const shell = info(`shell-${terminals.length}`, { owner: "w" });
 
-    terminals.push(shell);
+    terminals = [...terminals, shell];
 
     return { terminal_id: shell.id };
   };
 
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-  app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: "ready\n", truncated: false });
+  let producing = false;
+  app.handlers["terminal.write"] = () => {
+    producing = true;
+
+    return null;
+  };
+
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: producing ? "roundup-flood\n" : "ready\n", truncated: false });
 
   const terminal = reportTerminal((id: string) => {
     const emulator = emulators.factory(id);
@@ -68,10 +75,14 @@ it.each(["idle", "flood"] as const)("r20_the_real_app_setup_reaches_the_ready_sh
   render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
   await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
   const opened: string[] = [];
+
   const input = await terminalReady(app, terminal, workload === "flood" ? async (flood) => {
+    await startFlood(app, flood);
+    producing = false;
     opened.push(flood.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!);
     expect(terminal.target()).toBeNull();
   } : undefined);
+
   expect(terminal.target()).toBe(workload === "flood" ? "shell-2" : "shell-1");
   expect(opened).toEqual(workload === "flood" ? ["shell-1"] : []);
   expect(input).toBe(document.activeElement);
@@ -313,3 +324,62 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
     expect(fixture.rpc.mock.calls.every(([method, params]) => method === "terminal.read" && params !== null && "id" in params && params.id === "shell")).toBe(true);
   },
 );
+
+it("r20_flood_counts_only_its_opened_terminal_over_the_typing_interval", async () => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+  document.body.innerHTML = '<section data-bubble="flood"><textarea></textarea></section>';
+  let producing = false;
+  let offset = 100;
+
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 20, text: producing ? "roundup-flood\n" : "ready\n", truncated: false });
+  app.handlers["terminal.write"] = ({ id, data }) => {
+    expect(id).toBe("flood");
+    expect(new TextDecoder().decode(fromBase64(data))).toBe("yes roundup-flood\n");
+    producing = true;
+
+    return null;
+  };
+
+  app.handlers["terminal.list"] = () => [info("flood")];
+  app.handlers["terminal.snapshot"] = ({ id }) => {
+    expect(id).toBe("flood");
+
+    return { cols: 80, rows: 24, after: offset, data: "" };
+  };
+
+  const flood = await startFlood(app, document.querySelector("textarea")!);
+  await flood.sample();
+  document.querySelector<HTMLElement>("section")!.hidden = true;
+  offset += 64000;
+  await vi.advanceTimersByTimeAsync(1000);
+  await flood.poll();
+  expect(flood.evidence).toMatchObject({ id: "flood", command: "/usr/bin/yes roundup-flood", bytes: 64000, interval_ms: 1000, bytes_per_second: 64000, samples: [{ bytes: 100, state: "visible" }, { bytes: 64100, state: "folded" }] });
+  await vi.advanceTimersByTimeAsync(1000);
+  await expect(flood.poll()).rejects.toThrow("producer is silent");
+});
+
+it.each(["missing", "exited", "pending", "silent"])("r20_inactive_flood_is_a_named_invalid_observation (%s)", async (kind) => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+  document.body.innerHTML = '<section data-bubble="flood"><textarea></textarea></section>';
+  let producing = false;
+
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 20, text: producing && kind !== "silent" ? "roundup-flood\n" : "ready\n", truncated: false });
+  app.handlers["terminal.write"] = () => {
+    producing = true;
+
+    return null;
+  };
+
+  app.handlers["terminal.list"] = () => kind === "pending" ? new Promise<never>(() => {}) : kind === "missing" ? [] : [info("flood", { running: false })];
+  let retained: unknown;
+  const done = startFlood(app, document.querySelector("textarea")!, evidence => { retained = evidence; }).then(flood => flood.sample()).catch(error => error);
+  await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
+  expect(await done).toMatchObject({ message: expect.stringContaining(kind === "pending" ? "liveness" : kind === "silent" ? "active output" : "missing or exited") });
+  expect(retained).toMatchObject({ id: "flood", opened: true, command: "/usr/bin/yes roundup-flood" });
+  expect(app.calls.some(call => call.method === "terminal.measure")).toBe(false);
+  const reads = app.calls.length;
+  await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
+  expect(app.calls).toHaveLength(reads);
+});
