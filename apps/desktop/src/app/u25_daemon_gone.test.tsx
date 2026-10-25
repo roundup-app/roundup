@@ -19,10 +19,12 @@ const openApp = async () => {
 
 afterEach(cleanup);
 
-describe("u25 the Daemon is gone", () => {
+describe("u25 disconnected protections after U3791a recovery exhaustion", () => {
   it("u25_the_header_names_the_exit_code_in_ink_after_the_project", async () => {
     const { app, header } = await openApp();
 
+    app.exitDaemon({ code: 1, recovery: "waiting" });
+    expect(within(header).queryByText("Service exited 1")).toBeNull();
     app.exitDaemon({ code: 1 });
 
     expect(within(header).getByText("Service exited 1")).toBeTruthy();
@@ -32,17 +34,11 @@ describe("u25 the Daemon is gone", () => {
   it("u25_a_signal_exit_reads_by_signal", async () => {
     const { app, header } = await openApp();
 
+    app.exitDaemon({ code: null, recovery: "waiting" });
+    expect(within(header).queryByText("Service exited by signal")).toBeNull();
     app.exitDaemon({ code: null });
 
     expect(within(header).getByText("Service exited by signal").className).toBe("ink");
-  });
-
-  it("u25_the_exit_shows_in_the_header_only", async () => {
-    const { app } = await openApp();
-
-    app.exitDaemon({ code: 1 });
-
-    expect(screen.getAllByText("Service exited 1")).toHaveLength(1);
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {
