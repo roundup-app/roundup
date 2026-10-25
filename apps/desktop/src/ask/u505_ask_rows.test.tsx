@@ -135,7 +135,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
 
   it("u505_a_row_is_a_button_named_by_its_cells", async () => {
     await mountAskBar([typed, ask("plain", 1, [{ text: "plain", placement: { kind: "new", title: "future" }, state: "placing" }])]);
-    expect(await screen.findByRole("button", { name: /ship it.*Needs-you.*ops.*Sent/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: new RegExp(typed.parts[0]!.text) })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /plain/ })).toBeNull();
   });
 

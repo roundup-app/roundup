@@ -80,7 +80,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   app.handlers["agent.worktreeState"] = () => new Promise((resolve) => { finish = resolve; });
   setNow(100_000_000_000_000);
   const count = app.calls.filter((call) => call.method === "agent.worktreeState").length;
-  fireEvent.click(await screen.findByRole("button", { name: "topic" }));
+  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
   await screen.findByLabelText("11 ahead of Base");
@@ -107,7 +107,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
   render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
   setNow(100_000_000_000_000);
-  fireEvent.click(await screen.findByRole("button", { name: "topic" }));
+  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
 
   expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead of Base");
   const unavailable = await screen.findByRole("img", { name: "Worktree state unavailable" });
@@ -133,7 +133,7 @@ it("u2556b_unavailable_and_stale_are_explained", async () => {
   connected.rail.select("a");
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
   render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-  fireEvent.click(await screen.findByRole("button", { name: "topic" }));
+  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   await screen.findByText("CI unavailable");
   await screen.findByText("PR unavailable");
   await connected.worktrees.refresh("a");
