@@ -1,6 +1,6 @@
 # T3797a lint boundaries
 
-`just lint-web` runs the tracked-file cap, ast-grep, typos, Ruff and madge in addition to the existing checks. `just lint-rust` adds `cargo deny check` and preserves machete. `check.yml` runs the real-tool fixtures once per head, and requires their result in `check`. The existing `pre` jobs invoke these recipes without a hook or workflow change.
+`just lint-web` runs the tracked-file cap, ast-grep, typos, Ruff and madge in addition to the existing checks. `just lint-rust` adds `cargo deny check` and preserves machete. `check.yml` runs the real-tool fixtures in the existing Chromium lane, whose result is required by `check`. The existing `pre` jobs invoke these recipes without a hook or workflow change.
 
 ```text
 real tools → current inventory = exact recorded debt
