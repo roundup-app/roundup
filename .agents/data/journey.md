@@ -50,6 +50,10 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Actions sit on their row. A row's text actions sit on the baseline of the row's first line, within 1 px.
 - A modal's centre sits at the window's centre within 1 px on both axes; only `ui/Dialog.tsx` positions a modal (#3083).
 
+- X1 (#3787, U3787a): reversible Todo, Pad, bulk and Rail deletion runs immediately; `Deleted · Undo` and ⌘Z restore the exact chosen work. Confirm only an action whose effects cannot be undone. Undo feedback is action feedback, not routine attention.
+- X2 (#3787, U3787b): every handled command chord appears in the menu bar with its current key and scope; menu and key run one identical action without taking editor or Terminal input.
+- X3 (#3787, U3787c): content-row lists support ↑/↓, Home/End, type-to-select, ⌘A and ⇧/⌘-click; Escape cancels rename, restores the old text and returns focus without a rename call. Form pickers and tabs keep their library semantics.
+- X4 (#3787, U3787d): prompt, path and name editing elements turn spellcheck, autocorrect and autocapitalize off, including conditionally opened fields.
 
 ## Calm screens (#3786)
 
