@@ -14,7 +14,7 @@ class Freshness(unittest.TestCase):
             checkout = Path(directory) / "checkout"
             subprocess.run(["git", "worktree", "add", "--detach", str(checkout), "HEAD"], cwd=ROOT, check=True, capture_output=True)
             try:
-                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target")}
+                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target/c4-fresh")}
 
                 def run():
                     result = subprocess.run(["just", "contracts-fresh"], cwd=checkout, env=env, text=True, capture_output=True)

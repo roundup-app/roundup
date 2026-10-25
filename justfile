@@ -87,9 +87,9 @@ web-durations run:
     done | loop/web-durations.py > apps/desktop/src/testing/shardDurations.json.new
     mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
 
-# Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
+# Regenerate every contract surface from its declarations and type metadata.
 contracts:
-    cargo run --quiet -p contracts --features export --bin contracts
+    cargo run --quiet -p contracts --features export --bin contracts -- contracts/generated
 
 contracts-test:
     python3 -m unittest discover -s tools/contracts
