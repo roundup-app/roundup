@@ -258,9 +258,19 @@
   z-index: var(--layer-menu);
 }
 
-/* Glyph-only Todo rows share the external-blocker title column (D12). */
-.shelf-row.todo-inset {
-  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+/* U131: reserve tick and blocker slots even when absent; the row's padding
+   and column gap are included in the shared title inset. */
+.shelf-row:is(.todo-inset, .pad-inset) {
+  grid-template-columns: calc(var(--row-text-inset) - 2 * var(--space-2)) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+
+.todo-inset > .shelf-glyph {
+  margin-inline-start: var(--space-2);
+}
+
+.pad-inset > .shelf-glyph {
+  justify-content: flex-end;
 }
 
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
@@ -361,9 +371,10 @@
 }
 .todo-row .row-head > [data-group-toggle] {
   position: absolute;
+  z-index: 1;
   width: var(--space-4);
   min-width: var(--space-4);
-  transform: translateX(calc(-1 * (var(--space-5) + var(--space-4))));
+  transform: translateX(calc(-1 * var(--row-text-inset)));
 }
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
