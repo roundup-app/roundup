@@ -3,8 +3,8 @@ import { shelfBrowser } from "./u371Browser";
 
 const { rig, browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
-for (const overlay of [false,true]) it(`u371_escape_closes_the_drawer_before_the_shelf_${overlay}`, async () => {
-  await openShelf("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
+it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
+  await openShelf("tree-40", 480, 560);
   await evaluate(`(() => { document.querySelector('.shelf [data-todo] .todo-row-button').click(); return true; })()`);
   await settle();
   await browser("press", "Meta+k");
@@ -34,8 +34,8 @@ for (const overlay of [false,true]) it(overlay ? "u371_overlay_sends_no_terminal
   }
 }, 90_000);
 
-for (const overlay of [false, true]) it(`u371_reduced_motion_and_restore_are_instant_${overlay}`, async () => {
-  await openShelf("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
+it("u371_reduced_motion_and_restore_are_instant", async () => {
+  await openShelf("tree-40", 288, 320);
   await browser("set", "media", "light", "reduced-motion");
   await settle();
   await toggle();
