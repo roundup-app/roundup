@@ -23,12 +23,12 @@ fn main() {
         }
     }
     names.sort_unstable_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
-    fresh_image(&root, &dir, &names); // IMAGE-CALL
+    let regions = fresh_image(&root, &dir, &names); // IMAGE-CALL
     let mut out = String::from("pub(crate) const ADDED: &[&str] = &[\n");
     for name in names {
         out += &format!("    include_str!({:?}),\n", dir.join(name));
     }
-    out += "];\n";
+    out += &format!("];\npub(crate) const ID_REGIONS: &[(usize, usize)] = &{regions:?};\n");
     fs::write(
         PathBuf::from(env::var("OUT_DIR").unwrap()).join("added_migrations.rs"),
         out,
@@ -61,7 +61,7 @@ const IDENTITIES: [&str; 2] = [
 ];
 
 /// R3696c: a fresh `project.db` is copied from this migrated image, not replayed through every migration.
-fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
+fn fresh_image(root: &Path, dir: &Path, added: &[String]) -> Vec<(usize, usize)> {
     let mut sources = Vec::new();
     for path in HEAD
         .iter()
@@ -77,6 +77,8 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
         let _ = fs::remove_file(f);
     }
     let mut db = Connection::open(&work).unwrap();
+    // DV2: 16 KiB pages cut publication write calls fourfold; build them here to avoid runtime VACUUM.
+    db.pragma_update(None, "page_size", 16384).unwrap();
     let migrations: Vec<M> = sources.iter().map(|s| M::up(s)).collect();
     Migrations::new(migrations).to_latest(&mut db).unwrap();
     // Placeholders `storage.rs` replaces with each Project's own ids, in the bytes of the copy.
@@ -90,6 +92,22 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     db.execute("VACUUM INTO ?1", [image.to_str().unwrap()])
         .unwrap();
     // The WAL mode is kept in the file, so `storage::open` finds it set and writes nothing.
-    let image = Connection::open(&image).unwrap();
-    image.pragma_update(None, "journal_mode", "WAL").unwrap();
+    let image_db = Connection::open(&image).unwrap();
+    image_db.pragma_update(None, "journal_mode", "WAL").unwrap();
+    drop(image_db);
+    // R3696c: scanning the larger image on every fresh open costs more than its SQLite open.
+    // These byte regions bound the existing literal search, without interpreting SQLite's format.
+    let bytes = fs::read(&image).unwrap();
+    let mut regions = Vec::new();
+    for id in IDENTITIES {
+        for (at, window) in bytes.windows(id.len()).enumerate() {
+            if window == id.as_bytes() {
+                let start = at / 4096 * 4096;
+                regions.push((start, (start + 4096 + id.len() - 1).min(bytes.len())));
+            }
+        }
+    }
+    regions.sort_unstable();
+    regions.dedup();
+    regions
 }
