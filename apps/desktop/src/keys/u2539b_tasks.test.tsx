@@ -74,15 +74,18 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
 
 it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
+
   if (view === "resources") {
     expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(false);
     connected().rail.select("a0");
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
+
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBe(view));
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBeNull());
+
   if (view === "resources") fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   expect(document.querySelector(".ask-input")).not.toBeNull();
 });

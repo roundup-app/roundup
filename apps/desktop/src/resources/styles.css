@@ -127,3 +127,13 @@
   align-items: center;
   gap: var(--space-3);
 }
+
+.resource-inspection .resource-stale {
+  grid-column: auto;
+  grid-row: auto;
+  inline-size: auto;
+}
+
+.resource-inspection button {
+  justify-self: end;
+}

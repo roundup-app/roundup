@@ -1,3 +1,4 @@
+import { renderTabs, path, tab, projectTabs } from "../header/stripFixture";
 import { notesFor } from "./notes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
@@ -138,7 +139,9 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
 
 
 it("u2773b_changes_late_failure_stays_with_original_project", async () => {
-  const { renderTabs, path, tab, projectTabs } = await import("../header/stripFixture");
+  const submitted = "submitted A";
+  const newer = "newer A";
+  const other = "Project B exact 🐝";
   const { agent } = await import("../testing/nodes");
   const { WORKTREE, STATE } = await import("./harness");
   const { app } = renderTabs({ api: [agent("a", "working", "building", { worktree: WORKTREE })], web: [agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b" } })] });
@@ -153,31 +156,39 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
   fireEvent.click(tab("api"));
   fireEvent.click(await screen.findByText("a", { selector: ".name" }));
+  await screen.findByRole("heading", { name: "a", level: 2 });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
-  await saveNote("submitted A");
+  await saveNote(submitted);
   const original = app.of(path("api"));
   let refuse!: (error: Error) => void;
   original.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
   await waitFor(() => expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer A" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
+  await screen.findByRole("heading", { name: "b", level: 2 });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
-  await saveNote("Project B exact 🐝");
+  await saveNote(other);
   refuse(new RpcError(-32003, "original Project refused"));
   fireEvent.click(tab("api"));
+
+  await screen.findByRole("heading", { name: "a", level: 2 });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByText("original Project refused");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("newer A");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted A");
+  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(newer);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(tab("web"));
+
+  await screen.findByRole("heading", { name: "b", level: 2 });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("Project B exact 🐝");
+  fireEvent.click(await screen.findByRole("button", { name: "Edit note 1" }));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(other);
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 });
