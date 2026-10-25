@@ -91,3 +91,12 @@ Baseline: main `a284e11af`, isolated headless U26 App at 1512×950 on 2026-10-24
 For `migrate-db` at the root on `tree-40`, the same needs-you fact appears in five presentations: its Rail row, backend's rollup, the Project-root count, the overview heading and its overview attention entry. The Project tab shows Error on this seed and is not a sixth needs-you presentation. At a selected Agent the root overview is absent. A settled open Inbox also counts toward the limit, including its section count and Agent entry; opening it must suppress redundant background presentations if necessary. The implementing observer must enumerate presentations by Agent and include aggregates, not count literal text occurrences or all Agents as one fact.
 
 Understand/Intervene/Review remain the journey: submit an Ask, reach its requesting Terminal, inspect the resulting changes, close the optional surfaces, reopen the Project and recover the same work. Use U2539b's real-Daemon and rendered observers before claiming completion. Keep drag (#3540) and calm Todo/Pad/Rail row behavior in their existing work orders.
+
+### Design-system pass taste (U130–U137)
+
+Specification policy for the implementation in `scenarios/ui-visual.md`, “Design-system pass acceptance (U130–U137)”; these extend the existing Check numbers without retiring their current clauses.
+
+- D4: an enabled control changes Token colour, opacity or scale by the first frame after a press. No new background on an unfilled control, including hover.
+- D7: selected, focused and dragged rows differ from plain by exactly one cue, text colour or one selected ground. Combined states share it; no outline, shadow, weight or geometry cue.
+- D8: Rail, Todo, Pad and Terminal-tab first text shares one row-local inset after tree indentation; name and Glyph optical baselines differ by at most 1 CSS px.
+- D9: Stylelint rejects `!important`, raw px/ms/s/colours outside `tokens.css`, selectors over two compounds and child combinators. Importance and selector rules include `tokens.css`; fix all existing hits without allowlists.
