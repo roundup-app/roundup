@@ -1,4 +1,5 @@
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
+import { usePadList } from "../rail/pads/padList";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import type { Actor } from "@contracts/Actor";
@@ -66,6 +67,8 @@ export const deferred = <T,>(): Deferred<T> => {
   return { promise, resolve, reject };
 };
 
+const reloaded = new WeakMap<FakeApp, () => Promise<void>>();
+
 /** The Shelf and the Drawer over a fake Daemon whose Pads are `state.pads`, with `AGENT` off the Rail unless `onRail`; `state.history` answers `provenance.history`. */
 export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p") => {
   if (!keepDrafts) localStorage.removeItem(`roundup:drafts:${project}`);
@@ -103,12 +106,17 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
 
   await showEverything(connected);
 
-  render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+  const Content = () => {
+    const list = usePadList();
+    reloaded.set(app, list.settled);
+
+    return <>
       <div class="shelf"><Pads /></div>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-    </ConnectedProjectContext.Provider>
-  ));
+    </>;
+  };
+
+  render(() => <ConnectedProjectContext.Provider value={connected}><Content /></ConnectedProjectContext.Provider>);
 
   await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
@@ -152,7 +160,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
 
   if (recovery) {
     const { connected, pads, revision } = recovery;
-    connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+    connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
   } else fireEvent.click(await screen.findByText(name));
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
@@ -184,13 +192,14 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
   return root as HTMLTextAreaElement;
 };
 
-/** `pad.list` is refetched on every `pad.changed`, so a test waits for that count to pass `atLeast` rather than for a specific call index. */
-export const waitForReload = (app: FakeApp, atLeast = 1) =>
-  waitFor(() =>
-    expect(
-      app.calls.filter((call) => call.method === "pad.list").length,
-    ).toBeGreaterThan(atLeast),
-  );
+/** Join the owning list's read; observing dispatch alone races its result and conflict effects. */
+export const waitForReload = async (app: FakeApp, atLeast = 1) => {
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list").length).toBeGreaterThan(atLeast));
+  const settled = reloaded.get(app);
+
+  if (!settled) throw new Error("No mounted Pad list owns this read");
+  await settled();
+};
 
 /** A resolved `pad.write` reply reaches `write`'s `adopt` call (PadDrawer.tsx) one microtask after a test's own `await` on the reply: `rpc` (fakeApp.ts) is itself `async`, so unwrapping the handler's promise takes one more turn than the test's direct `await` on that same promise. A test awaits this, after resolving a deferred `pad.write` reply, before the next input that depends on `adopt` having run. */
 export const writeAdopted = () => Promise.resolve();

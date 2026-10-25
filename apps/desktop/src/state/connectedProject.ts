@@ -183,6 +183,8 @@ export const connectProject = async (
 ): Promise<ConnectedProject> => {
   const original = app;
 
+  notesFor(original, project.path, drafts);
+
   const rpc: AppSeam["rpc"] = (method, params) => {
     if (!reads.has(method)) return original.rpc(method, params);
 

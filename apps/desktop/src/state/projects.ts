@@ -126,7 +126,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     loaded,
     tabs,
     active,
-    failure: () => failure() ?? readFailure(),
+    failure: () => readFailure() ?? failure(),
     readFailure,
     reload,
     reopening,

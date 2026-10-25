@@ -60,13 +60,6 @@ it("u3791c_rejected_actions_reach_their_owner_scheme", async () => {
   let refused = true;
 
 
-
-
-
-
-
-
-
   app.handlers["terminal.scheme"] = () => {
     if (refused) throw new Error("scheme unavailable");
 
