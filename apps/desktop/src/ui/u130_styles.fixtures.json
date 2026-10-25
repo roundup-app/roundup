@@ -6,7 +6,7 @@
     "column": 1
   },
   {
-    "code": "@container rail (width < query-token(--query-rail-compact)) { .a { margin: 0; } }",
+    "code": "@container rail (width < env(--query-rail-compact)) { .a { margin: 0; } }",
     "path": "spec-fixture.css",
     "rule": null,
     "column": null
@@ -61,6 +61,48 @@
   },
   {
     "code": ".a { width: var(--space-1); margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { color: #fff; }",
+    "path": "spec-fixture.css",
+    "rule": "color-no-hex",
+    "column": 13
+  },
+  {
+    "code": ".a { color: red; }",
+    "path": "spec-fixture.css",
+    "rule": "color-named",
+    "column": 13
+  },
+  {
+    "code": ".a { color: rgb(1 2 3); }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
+  },
+  {
+    "code": ".a .b .c { margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": "selector-max-compound-selectors",
+    "column": 1
+  },
+  {
+    "code": ".a > .b { margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": "selector-combinator-disallowed-list",
+    "column": 4
+  },
+  {
+    "code": ".a > .b { margin: 0; }",
+    "path": "tokens.css",
+    "rule": "selector-combinator-disallowed-list",
+    "column": 4
+  },
+  {
+    "code": ".a .b { color: var(--text); width: var(--space-1); margin: 0; }",
     "path": "spec-fixture.css",
     "rule": null,
     "column": null
