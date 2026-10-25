@@ -49,7 +49,7 @@
   padding: var(--space-1);
   border: 0;
   border-bottom: var(--hairline-width) solid var(--hairline);
-  background: transparent;
+  background: var(--transparent);
   color: var(--text);
   font: inherit;
   resize: none;

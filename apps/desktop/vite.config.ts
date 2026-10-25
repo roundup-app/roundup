@@ -8,11 +8,9 @@ import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 const queryTokens = new Map<string, string>();
-const motionTokens = new Set<string>();
 
 postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(declaration => {
   if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
-  if (/^--(?:duration|delay)-/.test(declaration.prop)) motionTokens.add(declaration.prop);
 });
 
 const served = realDaemonFromEnv(process.env);
@@ -57,12 +55,15 @@ export default defineConfig({
         {
           postcssPlugin: "roundup-query-tokens",
           Once(root) {
-            if (!root.source?.input.file?.endsWith("/src/tokens.css")) return;
-
             const reduced = postcss.atRule({ name: "media", params: "(prefers-reduced-motion: reduce)" });
             const rule = postcss.rule({ selector: ":root" });
 
+            const motionTokens = new Set<string>();
+            root.walkDecls(/^--(?:duration|delay)-/, declaration => { motionTokens.add(declaration.prop); });
+
             for (const prop of motionTokens) rule.append(postcss.decl({ prop, value: "0s" }));
+            if (motionTokens.size === 0) return;
+
             reduced.append(rule);
             root.append(reduced);
           },

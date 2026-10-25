@@ -63,7 +63,7 @@
   min-height: var(--space-5);
   border: 0;
   padding: var(--space-1) 0;
-  background: transparent;
+  background: var(--transparent);
   color: var(--text);
   font: inherit;
 }
