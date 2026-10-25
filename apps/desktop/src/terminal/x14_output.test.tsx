@@ -92,6 +92,7 @@ describe("x14 the App's output subscription", () => {
 
     app.emitOutput("t-a", "A1");
     app.emitOutput("t-b", "B1");
+    await vi.waitFor(() => expect([written("t-a"), written("t-b")]).toEqual([["A1"], ["B1"]]));
     screens.hide("t-a");
 
     expect([a?.released, b?.released]).toEqual([true, false]);

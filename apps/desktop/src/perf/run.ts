@@ -214,7 +214,8 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
 
       tail = text.slice(-(READY.length + 2));
 
-      if (read.next <= after || !read.truncated) return terminal.printed;
+      // A folded bubble may not parse live output yet; keep checking the log until readiness or the outer bound.
+      if (read.next <= after || !read.truncated) await sleep(50);
       after = read.next;
     }
   };

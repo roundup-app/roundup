@@ -1,6 +1,9 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
+import { createFakeApp } from "../testing/fakeApp";
+import { connectProject } from "../state/connectedProject";
+import { watchProject } from "./watch";
 import { agent, event, USER } from "../testing/nodes";
 import { TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
 
@@ -43,6 +46,27 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
     return mounted;
   };
 
+  it("u3791c_replacement_keeps_failure_ownership", async () => {
+    const mounted = await fail();
+    const draft = mounted.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "a" }, { text: " retained 🌿 " }, null, "ordinary").draft;
+    mounted.app.handlers["pad.list"] = () => [pad("p2", USER)];
+    mounted.app.emit(by(AGENT, owner.changed("2")));
+    await settle();
+    mounted.app.handlers["pad.list"] = () => [];
+    fireEvent.click(screen.getByRole("button", { name: owner.label }));
+    await settle();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    mounted.app.emit(by(USER, owner.saved("1", USER)));
+    mounted.app.emit(by(USER, owner.deleted("1")));
+    await settle();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(mounted.connected.drafts.list()).toContainEqual(draft);
+    mounted.app.emit(by(USER, owner.deleted("2")));
+    await settle();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(mounted.connected.drafts.list()).toContainEqual(draft);
+  });
+
   it("deleting the item clears its failure; another item's deletion does not", async () => {
     const { app } = await fail();
 
@@ -84,4 +108,31 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
     await settle();
     expect(alert()).toContain("gone");
   });
+});
+
+
+it("u3791c_same_scope_failure_replaces_only_in_original_project", async () => {
+  const first = await mountToasts(tree(), { todos: [] });
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = tree;
+  const second = await connectProject(app, { path: "/other", name: "other" }, () => true, () => 0);
+  const stop = watchProject(second, first.queue.push, () => {}, () => true, first.queue.settle);
+
+  try {
+    first.app.emit(by(AGENT, { name: "todo.updated", data: todo(1, USER, "first") }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /Changed Todo.*first/ }));
+    await settle();
+    app.emit(by(AGENT, { name: "todo.updated", data: todo(1, USER, "second") }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /Changed Todo.*second/ }));
+    await settle();
+    expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(2);
+    first.app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
+    await settle();
+    expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(1);
+    app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
+    await settle();
+    expect(screen.queryByRole("alert", { hidden: true })).toBeNull();
+  } finally { stop(); second.stopTerminalScheme(); }
 });
