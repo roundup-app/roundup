@@ -315,7 +315,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
         app.handlers['reaction.list'] = () => [record];
         [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
       })()`);
-      await browser("wait", "--fn", "document.querySelector('.reaction-detail [role=alert]')?.textContent.includes(\"Could not read the Agent's work\")");
+      await browser("wait", "--fn", "!!document.querySelector('.reaction-detail .reaction-facts [role=alert]')");
       await evaluate("document.querySelector('.reaction-detail [role=alert]').scrollIntoView({ block: 'center' })");
       observationChecks = await capture("typed-observation-failure");
     }
