@@ -574,12 +574,17 @@
   color: var(--text);
 }
 
-.rail-leaf:is(:has([data-selected="true"]), :focus-within):not(:has([data-dnd-dragging])) {
+.rail-leaf:has([data-selected="true"]):not(:has([data-dnd-dragging])) {
   background-image: linear-gradient(var(--selected), var(--selected));
 }
 
-.rail-leaf .shelf-row:is([data-selected="true"], :focus-within, [data-lifted="true"]):not([data-dnd-dragging]) {
+.rail-leaf .shelf-row:is([data-selected="true"], [data-lifted="true"]):not([data-dnd-dragging]) {
   background-image: none;
+}
+
+
+.rail-leaf:has(:focus-visible):not(:has([data-selected="true"], [data-dnd-dragging])) .rail-pad > span {
+  color: var(--accent);
 }
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */

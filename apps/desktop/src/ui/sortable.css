@@ -22,3 +22,8 @@
 [data-dnd-placeholder] > * {
   visibility: hidden;
 }
+
+/* U133: a lifted Rail row must not mask the neighbouring name as it crosses it. */
+.rail [data-dnd-dragging] {
+  background-color: transparent;
+}
