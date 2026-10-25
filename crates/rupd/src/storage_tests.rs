@@ -52,6 +52,8 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let mut historical = migrations();
     historical.pop();
     apply(&mut db, historical).unwrap();
+    assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
+    db.prepare("SELECT operation FROM rail_deletions").unwrap();
     let version = |d: &Connection| {
         d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap()
