@@ -625,6 +625,22 @@ fails on the original path and passes on the repair. The existing
 regression. No test in this file repeats either proof or is removed. Existing
 A6 Rail tests cover ordering and moves.
 
+Release probe: replace the allocation observer's measured call/assertions with
+seven batches of 10,000 awaited `Module::call_reply("rail.tree", null)` calls,
+black-boxing each reply and retaining the instrumented allocator. Build both
+revisions before measuring. Three alternating before/after invocations with
+builds and tests stopped produced median batch means (microseconds per reply):
+
+| Pair | Stable sort | In-place sort |
+|---|---:|---:|
+| 1 | 51.856 | 51.729 |
+| 2 | 51.524 | 51.555 |
+| 3 | 51.700 | 51.744 |
+
+One-minute load at invocation start ranged from 3.80 to 4.81 on four CPUs.
+These timings show no material speed change; the measured saving is allocation.
+They include presentation/JSON and exclude socket transport.
+
 This is temporary request allocation, not idle RSS attribution or a Mac timing
 pass. Budgets remain unchanged. Full same-M4-Max acceptance, remaining
 startup/RSS attribution, unchanged-code false-fail evidence and the separate
