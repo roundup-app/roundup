@@ -49,5 +49,6 @@
 
 .app-segment:has(input:active:not(:disabled)),
 .app-segment:has(input:focus-visible:not(:disabled)):has([data-part="item-control"][data-active]) {
+  color: var(--text);
   opacity: var(--press-opacity);
 }

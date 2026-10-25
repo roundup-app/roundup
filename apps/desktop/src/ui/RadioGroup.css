@@ -58,5 +58,6 @@
 
 .app-radio:has(input:active:not(:disabled)),
 .app-radio:has(input:focus-visible:not(:disabled)):has([data-part="item-control"][data-active]) {
+  color: var(--text);
   opacity: var(--press-opacity);
 }
