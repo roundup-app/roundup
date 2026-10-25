@@ -118,8 +118,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
     if (props.notes.problem()) return;
     setFailures(previous => new Map([...previous].filter(([key]) => keys.has(key))));
   });
-  let trigger: HTMLButtonElement | undefined;
-  const close = () => { props.onOpenChange(false); setEditing(undefined); trigger?.focus(); };
+  const close = () => { props.onOpenChange(false); setEditing(undefined); };
 
   const copyValue = async (value: string, key: string) => {
     try { await writeText(app, value); clear(key); }
@@ -132,7 +131,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   createEffect(() => { if (!props.notes.entries().length && !props.notes.problem()) props.onOpenChange(false); });
 
   return <Show when={any() || props.open}><Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open: next }) => { if (next) props.onOpenChange(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
-    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { trigger = element; }} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
+    <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
     <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
       <ReservedLine message={props.notes.problem()} />
