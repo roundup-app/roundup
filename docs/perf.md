@@ -208,6 +208,36 @@ R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured ca
 
 [Host attempts, qualified observations and reproduction instructions](perf-r23-execution.md).
 
+### R23 retained thread attribution (#3971)
+
+[Timestamped extraction and bounded conclusion](../crates/perf/evidence/r23-attribution-40174335770/README.md)
+separate the retained CPU recordings by original PID/TID. Echo-terminal creation
+to Daemon teardown bounds both write loops together: 10.479362 s historical,
+10.566470 s candidate, including warmups/setup/cleanup. Probe CPU samples within
+that window are 740/749, Daemon 1045/1102 and `cat` 109/158. Of the candidate's
+net 1164 additional whole-recording samples, 1049 fall outside that window;
+whole-recording decoding/allocation totals cannot assign write p95.
+
+The probe's user `terminal.write` acknowledges input enqueue, while the physical
+PTY write/read and output delivery run separately. Reply and echo completion
+can overlap. CPU samples identify executing threads; they cannot measure sleep
+or queue delay. The raw recordings contain no boundary between the two loops,
+per-write markers or scheduler wake/switch events. Historical Event adaptation
+is known from the common probe's exact patch but its cost is not isolated.
+The extraction retains original identities, commands, versions, statuses and
+the unsupported-option failure; it runs no new workload or profile.
+
+[Scoped capture #3976](https://github.com/roundup-app/roundup/issues/3976) requires
+correlated stage spans and same-binary probe isolation, with matching executable
+material or resolved phase stacks retained before that qualified 9V45 lifetime
+ends. [#3760](https://github.com/roundup-app/roundup/issues/3760) stays open;
+[#3720](https://github.com/roundup-app/roundup/issues/3720) owns remaining
+regression work. Both write metrics fit their historical-derived ceilings in
+all three clean candidate invocations. This measures the complete compatible
+observer and establishes no Daemon-only cause, repair, baseline, calibration
+or full R16 pass. R8, R13, R15,
+R16 and all absolute limits remain unchanged.
+
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
 No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.

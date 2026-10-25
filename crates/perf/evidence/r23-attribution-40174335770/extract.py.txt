@@ -4,6 +4,8 @@ root = Path('/tmp/roundup-r23')
 old = root / 'crates/perf/evidence/r23-host-40170055163'
 out = root / 'crates/perf/evidence/r23-attribution-40174335770'
 scratch = Path('/tmp/r23-raw')
+scratch.mkdir(parents=True, exist_ok=True)
+out.mkdir(parents=True, exist_ok=True)
 statuses = []
 def run(name, argv):
     result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=root)
@@ -37,6 +39,7 @@ for ref in ['historical','candidate']:
     probe = next(r[1] for r in records if 'PERF_RECORD_COMM exec: compatible-perf:' in r[4])
     start = next(r[3] for r in records if r[1] == daemon and r[4].startswith('PERF_RECORD_COMM: terminal-11:'))
     end = min(r[3] for r in records if r[1] == daemon and r[4].startswith('PERF_RECORD_EXIT'))
+    run(ref+'-window-report',['perf','report','-i',str(path),'--stdio','--time',f'{start:.6f},{end:.6f}','--sort','pid,comm','--show-nr-samples','--no-children','--percent-limit','0','--call-graph','none'])
     samples = [r for r in records if r[4].startswith('cpu-clock:')]
     counts = collections.Counter()
     for comm,pid,tid,time,detail in samples:
@@ -49,9 +52,11 @@ for ref in ['historical','candidate']:
     grouped = collections.Counter()
     for key,count in counts.items(): grouped[key[0],key[1]] += count
     relevant = [r for r in records if r[4].startswith('PERF_RECORD_COMM') and (r[1] in (daemon,probe) or 'exec: cat:' in r[4]) or r[1]==daemon and r[4].startswith('PERF_RECORD_EXIT')]
-    (out/(ref+'-boundaries.txt.gz')).write_bytes(gzip.compress(('\n'.join(f'{t:.6f} {pid}/{tid} {comm} {detail}' for comm,pid,tid,t,detail in relevant)+'\n').encode(), mtime=0))
+    with gzip.GzipFile(filename=str(out/(ref+'-boundaries.txt.gz')),mode='wb',mtime=0) as stream:
+        stream.write(('\n'.join(f'{t:.6f} {pid}/{tid} {comm} {detail}' for comm,pid,tid,t,detail in relevant)+'\n').encode())
     summary[ref]={'probe_pid':probe,'daemon_pid':daemon,'echo_thread_comm_time':start,'first_daemon_thread_exit_time':end,'window_seconds':end-start,'total_samples':len(samples),'samples':{window+':'+role:n for (window,role),n in grouped.items()},'record_types':dict(collections.Counter(re.split(r'[:(]', r[4].split()[0])[0] for r in records))}
 (out/'input-hashes.json').write_text(json.dumps(identities,indent=2)+'\n')
 (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
 (out/'statuses.json').write_text(json.dumps(statuses,indent=2)+'\n')
-shutil.copyfile('/tmp/r23-extract.py',out/'extract.py.txt')
+if Path(__file__).resolve() != (out/'extract.py.txt').resolve():
+    shutil.copyfile(__file__,out/'extract.py.txt')
