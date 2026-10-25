@@ -155,9 +155,16 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
     const shell = terminal.createEmulator("shell");
     let retained = initial;
 
-    fixture.app.handlers["terminal.read"] = ({ after }) => ({ from: after, next: retained.length, text: retained.slice(after), truncated: false });
+    fixture.app.handlers["terminal.read"] = ({ after }) => ({ from: after ?? 0, next: retained.length, text: retained.slice(after ?? 0), truncated: false });
+
     const workload = vi.fn();
-    const done = terminalReady(fixture.app, terminal).then((input) => { workload(input); return input; });
+
+    const done = terminalReady(fixture.app, terminal).then((input) => {
+      workload(input);
+
+      return input;
+    });
+
     // Drain terminalReady's DOM promises and its first retained read, without parsing a write.
     await vi.advanceTimersByTimeAsync(0);
     expect(fixture.rpc.mock.calls).toEqual([["terminal.read", { id: "shell", after: 0, reader: null, max: null }]]);
@@ -167,7 +174,7 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
 
     retained += rest;
     shell.write(bytes(rest + ending));
-    // Observe incomplete readiness across non-truncated reads; the emulator callback stays held.
+    // Observe incomplete readiness across non-truncated reads; the emulator callback stays deferred.
     await vi.advanceTimersByTimeAsync(100);
     expect(workload).not.toHaveBeenCalled();
     expect(terminal.target()).toBeNull();
@@ -180,6 +187,7 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
     expect(document.activeElement).toBe(terminal.input());
     expect(document.querySelectorAll('[data-bubble="shell"]')).toHaveLength(1);
     // A later parse of the same sole emission cannot continue the workload again.
+
     for (const callback of parsed) callback();
     await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
     expect(workload).toHaveBeenCalledTimes(1);
