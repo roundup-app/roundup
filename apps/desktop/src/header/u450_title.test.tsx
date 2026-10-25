@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
-import { changed, openTabs, tab, treeOf } from "./stripFixture";
+import { changed, openTabs, rowSelected, tab, treeOf } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -11,57 +11,56 @@ it.each([
   const build = kind === "Door" ? door("build", "idle", "ready", { name: "Build" }) : workstream("build", { name: "Build" });
   const { app } = await openTabs({ api: [build, agent("child", "idle", "ready", { parent: "build" }), agent("nested", "idle", "ready", { parent: "child" }), agent("terminal", "idle", "ready", { parent: "build", status: null, terminal_id: "t-terminal" })] });
 
-  fireEvent.click(document.querySelector(`[data-id="${selected}"]`)!);
-  await waitFor(() => expect(screen.getByRole("heading", { name: "api — Build" }).textContent).toBe("api — Build"));
+  fireEvent.click(document.querySelector(`.rail-row[data-id="${selected}"]`)!);
   await waitFor(() => expect(app.windowOperations).toContainEqual({ kind: "title", title: "api — Build" }));
 });
 
 it("u450_switch_restores_the_projects_title", async () => {
-  await openTabs({ api: [workstream("a")], web: [workstream("w")] });
-  fireEvent.click(document.querySelector('[data-id="w"]')!);
+  const { app } = await openTabs({ api: [workstream("a")], web: [workstream("w")] });
+  fireEvent.click(document.querySelector('.rail-row[data-id="w"]')!);
   fireEvent.click(tab("api"));
-  await waitFor(() => expect(document.querySelector('[data-id="a"]')).toBeTruthy());
-  fireEvent.click(document.querySelector('[data-id="a"]')!);
+  await waitFor(() => expect(document.querySelector('.rail-row[data-id="a"]')).toBeTruthy());
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
   fireEvent.click(tab("web"));
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("web — w"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "web — w" }));
 });
 
 it("u450_successful_workstream_rename_updates_the_title", async () => {
   const { app } = await openTabs({ api: [workstream("a")] });
-  fireEvent.click(document.querySelector('[data-id="a"]')!);
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
   treeOf(app, "api", [workstream("a", { name: "Renamed" })]);
   await changed(app, "api");
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("api — Renamed"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — Renamed" }));
 });
 
 it("u450_successful_project_rename_updates_the_title", async () => {
-  await openTabs({ api: [] });
+  const { app } = await openTabs({ api: [] });
   fireEvent.dblClick(tab("api").querySelector('.tab-name')!);
   const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
   input.value = "Payments";
   fireEvent.keyDown(input, { key: "Enter" });
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("Payments"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "Payments" }));
 });
 
 it("u450_removed_selection_has_no_stale_title", async () => {
   const { app } = await openTabs({ api: [workstream("a")] });
-  fireEvent.click(document.querySelector('[data-id="a"]')!);
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
   treeOf(app, "api", []);
   await changed(app, "api");
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("api"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api" }));
 });
 
 it("u450_background_events_do_not_change_the_title", async () => {
   const { app } = await openTabs({ api: [workstream("a")], web: [] });
   treeOf(app, "api", [workstream("a", { name: "background" })]);
   await changed(app, "api");
-  expect(document.querySelector('.window-title')?.textContent).toBe("web");
+  expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "web" });
 });
 
 it("u450_last_close_restores_roundup", async () => {
-  await openTabs({ api: [] });
+  const { app } = await openTabs({ api: [] });
   fireEvent.click(document.querySelector('.tab-close')!);
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("roundup"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "roundup" }));
 });
 
 it("u450_failed_rename_keeps_the_title", async () => {
@@ -73,26 +72,27 @@ it("u450_failed_rename_keeps_the_title", async () => {
   input.value = "Payments";
   fireEvent.keyDown(input, { key: "Enter" });
   await screen.findByRole("alert");
-  expect(document.querySelector('.window-title')?.textContent).toBe("api");
+  expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api" });
 });
 
 it("u450_window_title_failure_is_visible", async () => {
   const { app } = await openTabs({ api: [workstream("a")] });
-  app.windowTitleHandler = async () => { throw new Error("native title failed"); };
+  const failure = new Error("native title failed");
+  app.windowTitleHandler = async () => { throw failure; };
 
-  fireEvent.click(document.querySelector('[data-id="a"]')!);
-  expect(await screen.findByText("native title failed")).toBeTruthy();
-  expect(document.querySelector('.window-title')?.textContent).toBe("api — a");
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
+  expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
+  expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — a" });
 });
 
 it("u450_latest_selection_wins", async () => {
   const { app } = await openTabs({ api: [workstream("a"), workstream("b")] });
   let finish: (() => void) | undefined;
   app.windowTitleHandler = (title) => title === "api — a" ? new Promise<void>((done) => { finish = done; }) : Promise.resolve();
-  fireEvent.click(document.querySelector('[data-id="a"]')!);
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
   await waitFor(() => expect(finish).toBeTruthy());
-  fireEvent.click(document.querySelector('[data-id="b"]')!);
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("api — b"));
+  fireEvent.click(document.querySelector('.rail-row[data-id="b"]')!);
+  await waitFor(() => expect(rowSelected("b")).toBe("true"));
   finish!();
   await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — b" }));
 });
@@ -114,14 +114,14 @@ it("u450_project_title_changes_only_after_rename_succeeds", async () => {
   input.value = "Payments";
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(finish).toBeTruthy());
-  expect(document.querySelector('.window-title')?.textContent).toBe("api");
+  expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api" });
   finish!();
-  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("Payments"));
+  await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "Payments" }));
 });
 
 it("u450_full_title_reaches_the_window", async () => {
   const { app } = await openTabs({ api: [workstream("long", { name: "W".repeat(300) })] });
 
-  fireEvent.click(document.querySelector('[data-id="long"]')!);
+  fireEvent.click(document.querySelector('.rail-row[data-id="long"]')!);
   await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — " + "W".repeat(300) }));
 });

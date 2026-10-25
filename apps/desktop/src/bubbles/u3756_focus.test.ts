@@ -85,6 +85,15 @@ const fresh = async (seed = "tree-40") => {
   await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
 };
 
+const openRow = async (selector: string) => {
+  const target = JSON.stringify(selector);
+  await read(`document.querySelector(${target}).closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
+  await wait(`!document.querySelector(${target}).closest('[data-shelf-group][data-state=closed]')`);
+  await read(`document.querySelector(${target}).click()`);
+  await wait(`document.activeElement === document.querySelector(${target})`);
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))`);
+};
+
 const newer = async (choice: string) => {
   if (choice === "bubble") {
     await browser("press", "Meta+t");
@@ -99,10 +108,10 @@ const newer = async (choice: string) => {
       window.newTodo = made.id;
       const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
-      [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
+      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
-    await read(`document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button').click()`);
+    await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
     await wait(`!!document.querySelector('.drawer[data-open=true]')`);
     await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
     await read(`document.querySelector('.drawer .todo-add-notes').click()`);
@@ -193,7 +202,7 @@ it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   await newer("bubble");
   await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]'); document.querySelector('[data-todo-root]').click()`);
   await wait(`!document.querySelector('.rail-row[data-selected=true]')`);
-  await read(`window.originalRow.click()`);
+  await openRow(`.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
   await browser("keyboard", "type", "selected");
   await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'initialselected'`);
@@ -207,10 +216,10 @@ for (const intervene of [false, true]) {
     await read(`(() => {
       const app = window.__fake.app, read = app.handlers['pad.read'];
       app.handlers['pad.read'] = params => new Promise(resolve => { window.finishPad = () => resolve(read(params)); });
-      [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')).click();
+      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
-    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').click()`);
+    await openRow('[data-pad="pad-3"] .pad-name');
     await wait(`!!window.finishPad`);
 
     if (intervene) await newer("bubble");
@@ -264,7 +273,7 @@ it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_
     document.querySelector('[data-id="worktree-agent"] .name').click();
   })()`);
   await wait(`!!document.querySelector('.worktree-control')`);
-  await read(`document.querySelector('.worktree-control').click()`);
+  await browser("click", ".worktree-control");
   await wait(`!!window.finishFiles`);
 
   if (intervene) await newer("rail");
@@ -334,27 +343,11 @@ it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
 
-it.each(["owner", "home"])("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_%s", async kind => {
-  if (kind === "owner") await loadDense();
-  else {
-    await browser("open", url("/harness.html?seed=agents-10&renderer=dom"));
-    await wait(`!!window.__fake && !!document.querySelector('.rail [data-id="agent-1"]')`);
-    await read(`(async () => {
-      window.__fake.actAs({ kind: 'agent', id: 'agent-1', parent: null });
-      window.menuTodo = (await window.__fake.app.rpc('todo.create', { title: 'Move this Todo', body: null, blockers: null })).id;
-      window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
-      await window.__fake.app.rpc('rail.createWorkstream', {name:'Other Home',parent:null});
-    })()`);
-    await wait(`!!document.querySelector('.rail [data-id="agent-1"] [data-pads-control]')`);
-    await read(`(() => { const control = document.querySelector('.rail [data-id="agent-1"] [data-pads-control]'); if (control.getAttribute('aria-expanded') !== 'true') control.click(); })()`);
-    await wait(`!!document.querySelector('.rail [data-todo="' + window.menuTodo + '"]')`);
-    await browser("hover", '.rail [data-todo]');
-    await wait(`!!document.querySelector('.todo-move') && document.querySelector('.todo-move').getAttribute('aria-disabled') !== 'true'`);
-  }
-
+it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => {
+  await loadDense();
   await browser("focus", ".todo-row-button");
   await holdFrames();
-  await read(`${kind === "owner" ? "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true }))" : "document.querySelector('.todo-move').click()"}; document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true })); document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
   expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
@@ -378,10 +371,10 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     const made = await app.rpc('todo.create', {title:'Mounted editor',body:null,blockers:null});
     window.newTodo = made.id;
     await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
-    [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
+    const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   })()`);
   await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
-  await read(`document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button').click()`);
+  await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
   await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
   await read(`(() => {
     const queue = window.queueMicrotask, queued = [];

@@ -191,7 +191,7 @@ run('u2716a Project overview band', () => {
   const open = async () => {
     await page.load('/harness.html?seed=tree-40');
     await page.until(`() => Boolean(document.querySelector('${band}')) && Boolean(window.__fake)`);
-    await page.call(`() => document.querySelector('[role="treeitem"]').click()`);
+    await page.call(`() => document.querySelector('.rail-row').click()`);
     await page.until(`() => document.querySelector('${band}').getAttribute('aria-pressed') === 'false'`);
   };
 
