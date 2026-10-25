@@ -115,20 +115,42 @@ impl Todos {
     }
 
     pub(super) fn restore(&self, ctx: &Ctx, p: DeletionParams) -> Result<Value, RpcError> {
+        let (result, events) = self.restore_with(
+            &ctx.actor,
+            &p.operation,
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            |_| Ok(()),
+        )?;
+        publish(ctx, events)?;
+        reply(&result)
+    }
+
+    /// Restore data and a coordinator's graph changes in the same Project transaction.
+    /// The coordinator uses only the supplied transaction, never a nested Todo call.
+    /// Equal replay skips coordination. On conflict/error all participants roll back;
+    /// only a committed result returns events for the caller to publish and Touch.
+    pub fn restore_with(
+        &self,
+        actor: &Actor,
+        operation: &str,
+        after_touch: i64,
+        coordinate: impl FnOnce(&Transaction<'_>) -> Result<(), RpcError>,
+    ) -> Result<(Deletion, Vec<EventData>), RpcError> {
         let store = self.store()?;
         let tx = store
             .db
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
-        let mut result = receipt(&tx, &ctx.actor, &p.operation)?
-            .ok_or_else(|| RpcError::not_found("deletion"))?;
+        let mut result =
+            receipt(&tx, actor, operation)?.ok_or_else(|| RpcError::not_found("deletion"))?;
         if result.state == DeletionState::Restored {
-            return reply(&result);
+            return Ok((result, Vec::new()));
         }
+        coordinate(&tx)?;
         let before = store.list()?;
         // Plain INSERT refuses collisions; the transaction rolls every insertion back.
         for (live, retained, columns) in TABLES {
-            tx.execute(&format!("INSERT INTO {live} ({columns}) SELECT {columns} FROM {retained} WHERE operation = ?"), [&p.operation])
+            tx.execute(&format!("INSERT INTO {live} ({columns}) SELECT {columns} FROM {retained} WHERE operation = ?"), [operation])
                 .map_err(|e| RpcError::conflict(format!("cannot restore {live}: {e}")))?;
         }
         let edges = store.edges()?;
@@ -148,8 +170,8 @@ impl Todos {
                 store.record_change(
                     todo.id,
                     Some(crate::store::values(&todo)),
-                    ctx.touches.sequence().map_err(RpcError::internal)?,
-                    &ctx.actor,
+                    after_touch,
+                    actor,
                 )?;
                 restored.push(after);
             }
@@ -159,24 +181,23 @@ impl Todos {
             "UPDATE todo_deletions SET result = ? WHERE operation = ?",
             params![
                 serde_json::to_string(&result).map_err(RpcError::internal)?,
-                p.operation
+                operation
             ],
         )
         .map_err(RpcError::internal)?;
         for (_, retained, _) in TABLES {
             tx.execute(
                 &format!("DELETE FROM {retained} WHERE operation = ?"),
-                [&p.operation],
+                [operation],
             )
             .map_err(RpcError::internal)?;
         }
         tx.commit().map_err(RpcError::internal)?;
-        // Restoration refreshes readers without replaying external effects.
-        for todo in restored {
-            ctx.touch(Verb::Wrote, &item(todo.id))?;
-            ctx.emit(EventData::TodoRestored(todo.into()));
-        }
-        reply(&result)
+        let events = restored
+            .into_iter()
+            .map(|todo| EventData::TodoRestored(todo.into()))
+            .collect();
+        Ok((result, events))
     }
 }
 
@@ -271,7 +292,7 @@ fn retain(
         json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
         ?2, ?3, ?4 FROM todos t
         WHERE t.id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=t.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,after_touch,actor_json,crate::store::now_ms()]).map_err(RpcError::internal)?;
-    let unblocked: Vec<u32> = db.prepare("SELECT DISTINCT b.todo FROM blockers b JOIN todos t ON t.id=b.blocker WHERE t.done=0 AND b.blocker IN (SELECT value FROM json_each(?1)) AND b.todo NOT IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM blockers x JOIN todos y ON y.id=x.blocker WHERE x.todo=b.todo AND y.done=0 AND x.blocker NOT IN (SELECT value FROM json_each(?1)))")
+    let unblocked: Vec<u32> = db.prepare("SELECT DISTINCT b.todo FROM blockers b JOIN todos t ON t.id=b.blocker WHERE t.done=0 AND b.blocker IN (SELECT value FROM json_each(?1)) AND b.todo NOT IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM blockers x JOIN todos y ON y.id=x.blocker WHERE x.todo=b.todo AND y.done=0 AND x.blocker NOT IN (SELECT value FROM json_each(?1))) ORDER BY b.todo")
         .and_then(|mut q| q.query_map([&selected], |r| r.get(0))?.collect()).map_err(RpcError::internal)?;
     db.execute(
         "DELETE FROM todos WHERE id IN (SELECT value FROM json_each(?))",
@@ -303,8 +324,10 @@ fn retain(
 
 fn publish(ctx: &Ctx, events: Vec<EventData>) -> Result<(), RpcError> {
     for event in events {
-        if let EventData::TodoDeleted(id) = &event {
-            ctx.touch(Verb::Wrote, &item(id.id))?;
+        match &event {
+            EventData::TodoDeleted(id) => ctx.touch(Verb::Wrote, &item(id.id))?,
+            EventData::TodoRestored(todo) => ctx.touch(Verb::Wrote, &item(todo.id))?,
+            _ => {}
         }
         ctx.emit(event);
     }
