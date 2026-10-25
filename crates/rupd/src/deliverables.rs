@@ -59,8 +59,11 @@ impl Publications {
         if cache.exists() {
             std::fs::remove_dir_all(&cache)?;
         }
+        let db = Connection::open(data.join("project.db"))?;
+        db.pragma_update(None, "synchronous", "EXTRA")?;
+        db.pragma_update(None, "journal_mode", "PERSIST")?;
         Ok(Self {
-            db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
+            db: std::sync::Mutex::new(db),
             cache,
         })
     }
@@ -671,6 +674,108 @@ mod tests {
                 .unwrap(),
             b"retained revision"
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn dv2_publication_allows_project_operations_and_owner_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = std::sync::Arc::new(
+            crate::Daemon::open_stores(dir.path(), dir.path(), |agents| agents).unwrap(),
+        );
+        let socket = dir.path().join("rpc.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let server = tokio::spawn(crate::serve(listener, daemon.clone()));
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        let mut events = daemon.bus.subscribe();
+        std::fs::write(daemon.project.join("published.bin"), vec![71; 1024 * 1024]).unwrap();
+        let publishing = tokio::spawn(async move {
+            for n in 0..8 {
+                client.request("deliverable.publish", json!({"key":format!("publication-{n}"),"title":"Result","target":{"kind":"file","path":"published.bin"}})).await.unwrap();
+            }
+        });
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        let writing = tokio::spawn(async move {
+            for n in 0..8 {
+                client
+                    .request(
+                        "pad.create",
+                        json!({"name":format!("Pad {n}"),"text":"concurrent revision"}),
+                    )
+                    .await
+                    .unwrap();
+                client
+                    .request("todo.create", json!({"title":format!("Todo {n}")}))
+                    .await
+                    .unwrap();
+            }
+        });
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        let agents = daemon.agents.clone();
+        let reading = tokio::spawn(async move {
+            for _ in 0..32 {
+                client.request("rail.tree", json!({})).await.unwrap();
+                client.request("pad.list", json!({})).await.unwrap();
+                client
+                    .request("project.measurements", json!({}))
+                    .await
+                    .unwrap();
+                agents
+                    .with_terminal_owner("unowned", |owner| {
+                        assert!(owner.is_none());
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            publishing.await.unwrap();
+            writing.await.unwrap();
+            reading.await.unwrap();
+        })
+        .await
+        .expect("Project operations finish within their existing bound");
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        assert_eq!(
+            client
+                .request("deliverable.list", json!({}))
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            8
+        );
+        assert_eq!(
+            client
+                .request("pad.list", json!({}))
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            8
+        );
+        assert_eq!(
+            client
+                .request("todo.list", json!({}))
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            8
+        );
+        let mut live = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            live.push(event);
+        }
+        assert!(!live.is_empty());
+        let saved = daemon.bus.saved_after(0).unwrap().0;
+        assert_eq!(
+            serde_json::to_value(&live).unwrap(),
+            serde_json::to_value(&saved).unwrap()
+        );
+        server.abort();
     }
 
     #[tokio::test]

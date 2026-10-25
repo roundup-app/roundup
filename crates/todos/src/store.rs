@@ -18,7 +18,6 @@ impl Store {
     pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut db = Connection::open(path)?;
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
-        db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "foreign_keys", true)?;
         crate::schema::open(&mut db, path)?;
         Ok(Self { db })

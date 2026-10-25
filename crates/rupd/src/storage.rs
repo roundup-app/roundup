@@ -105,7 +105,9 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
-        db.pragma_update(None, "journal_mode", "WAL")?;
+        // Recover existing WAL before any store can hold a connection (ADR 0004).
+        db.pragma_update(None, "synchronous", "EXTRA")?;
+        db.pragma_update(None, "journal_mode", "PERSIST")?;
         apply(&mut db, migrations())
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
@@ -596,7 +598,10 @@ mod tests {
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter(|name| name.ends_with(".db-wal") || name.ends_with(".db-shm"))
             .count();
-        assert_eq!(companions, 2);
+        assert_eq!(
+            companions, 0,
+            "Project owners must not reopen a WAL payload log"
+        );
         let db = Connection::open(&main_files[0]).unwrap();
         let mut expected = std::collections::BTreeMap::new();
         for name in STORES {
