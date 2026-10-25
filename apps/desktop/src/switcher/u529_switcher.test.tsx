@@ -15,7 +15,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
 
-    expect(document.activeElement).toBe(field());
+    await waitFor(() => expect(document.activeElement).toBe(field()));
     // error, then needs-you, then Rail order; the Terminal last with its Workstream's name.
     expect(rows()).toEqual(["Cy", "Bob", "lead", "Ann", "ops", "Dee", "build shell ops"]);
 
