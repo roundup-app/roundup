@@ -1,4 +1,4 @@
-//! N20: current standalone stores still write and reopen; no historical fixtures.
+//! N20 standalone reopen and B3563e historical Project upgrade observers.
 use std::{path::Path, sync::Arc};
 
 use contracts::{Actor, ActorKind, Verb};
@@ -242,12 +242,53 @@ fn action_rows(db: &rusqlite::Connection) -> Vec<(i64, String, Vec<String>)> {
 #[tokio::test]
 async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
-    drop(rupd::Daemon::open(dir.path()).unwrap());
-
-    // Version 37 precedes 0024-remove-bubbling.sql and deferred-action removal.
-    // Pin that historical boundary rather than counting back from the current schema.
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.pragma_update(None, "user_version", 37_i64).unwrap();
+    let mut db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    // Freeze version 37 before bubbling/deferred-action removal. Building from the latest
+    // schema would leave future objects behind and replay their creation on upgrade.
+    let shipped = [
+        include_str!("../migrations/001/up.sql"),
+        include_str!("../../agents/migrations/003/up.sql"),
+        include_str!("../migrations/003/up.sql"),
+        include_str!("../../agents/migrations/004/up.sql"),
+        include_str!("../migrations/005/up.sql"),
+        include_str!("../../pads/migrations/002/up.sql"),
+        include_str!("../migrations/006/up.sql"),
+        include_str!("../../agents/migrations/005/up.sql"),
+        include_str!("../../messages/migrations/002/up.sql"),
+        include_str!("../../messages/migrations/003/up.sql"),
+        include_str!("../migrations/project/0001-prepared.sql"),
+        include_str!("../migrations/project/0002-message-sender-names.sql"),
+        include_str!("../migrations/project/0003-pad-sources.sql"),
+        include_str!("../migrations/project/0004-deliverables.sql"),
+        include_str!("../migrations/project/0005-ask-submissions.sql"),
+        include_str!("../migrations/project/0006-closed-sources.sql"),
+        include_str!("../migrations/project/0007-todo-owner.sql"),
+        include_str!("../migrations/project/0008-reactions.sql"),
+        include_str!("../migrations/project/0009-reaction-firings.sql"),
+        include_str!("../migrations/project/0010-reaction-watch.sql"),
+        include_str!("../migrations/project/0011-measurements.sql"),
+        include_str!("../migrations/project/0012-instruction-revisions.sql"),
+        include_str!("../migrations/project/0013-instruction-messages.sql"),
+        include_str!("../migrations/project/0014-reaction-firing-identities.sql"),
+        include_str!("../migrations/project/0015-message-results.sql"),
+        include_str!("../migrations/project/0015-todo-change-actor.sql"),
+        include_str!("../migrations/project/0016-todo-change-time.sql"),
+        include_str!("../migrations/project/0017-todo-comments.sql"),
+        include_str!("../migrations/project/0018-todo-handed.sql"),
+        include_str!("../migrations/project/0019-workstream-queue.sql"),
+        include_str!("../migrations/project/0020-continuations.sql"),
+        include_str!("../migrations/project/0020-todo-refs.sql"),
+        include_str!("../migrations/project/0021-todo-estimate.sql"),
+        include_str!("../migrations/project/0022-workstream-auto.sql"),
+        include_str!("../migrations/project/0023-agent-finished.sql"),
+        include_str!("../migrations/project/0023-measurement-no-tokens-or-money.sql"),
+        include_str!("../migrations/project/0023-remove-decisions.sql"),
+    ];
+    rusqlite_migration::Migrations::new(
+        shipped.into_iter().map(rusqlite_migration::M::up).collect(),
+    )
+    .to_latest(&mut db)
+    .unwrap();
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,

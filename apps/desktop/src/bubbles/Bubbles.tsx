@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -123,7 +124,8 @@ export const Bubbles = (props: {
     if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
   });
   const [opening, setOpening] = createSignal(false);
-  const [wanted, setWanted] = createSignal<string | null>(null);
+  const [openingSelection, setOpeningSelection] = createSignal<string | null>();
+  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const [measured, setMeasured] = createSignal(false);
@@ -178,7 +180,7 @@ export const Bubbles = (props: {
     const next = { ...prior };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
-    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
+    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: (opening() && chosen === openingSelection()) || terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
 
@@ -227,7 +229,8 @@ export const Bubbles = (props: {
   const openRecovery = () => {
     show(null);
     // Let the Terminal's dismissable layer close before the recovery layer takes focus.
-    setTimeout(() => recover(true));
+    const focus = captureFocus(true);
+    setTimeout(() => focus(() => recover(true)));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -314,12 +317,18 @@ export const Bubbles = (props: {
     return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
   };
 
+  let generation = 0;
+
   const toggleMinimised = (id: string, wasMin = placeOf(id).min): void => {
+    const focus = captureFocus(true);
     const place = { ...placeOf(id), min: wasMin };
 
     if (place.min) show(id);
     else setPlace(id, { ...place, min: true });
-    queueMicrotask(() => focusItem(id));
+    const revision = generation;
+
+    // A later pointer press supersedes the focus queued by this tab.
+    queueMicrotask(() => { if (generation === revision) focus(() => focusItem(id)); });
   };
 
   const closeFocused = (focus: Element | null): void => {
@@ -327,36 +336,53 @@ export const Bubbles = (props: {
 
     if (id === null) return;
 
+    const focusReturn = captureFocus();
     const back = before;
     const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
       if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
-      if (back instanceof HTMLElement && back.isConnected) back.focus();
-      else focusPane();
+      focusReturn(() => {
+        if (back instanceof HTMLElement && back.isConnected) back.focus();
+        else focusPane();
+      });
     });
   };
 
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
-  const openTerminal = async (): Promise<string | null> => {
+  const openTerminal = async (current = () => true, focus = true): Promise<string | null> => {
     // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
     const workstream = terminalOwner();
+    const selection = rail.selected();
 
     if (opening() || readOnly()) return null;
 
+    const focusReturn = captureFocus(true);
+    setOpeningSelection(selection);
     setOpening(true);
 
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
-      setFromRoot(rail.selected() === null ? opened.terminal_id : null);
-      setWanted(opened.terminal_id);
+      const available = () => current() && rail.selected() === selection;
+
+      if (available()) {
+        setFromRoot(selection === null ? opened.terminal_id : null);
+
+        if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
+      } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
-      show(opened.terminal_id);
+
+      if (available()) {
+        if (!focus) show(opened.terminal_id);
+      } else {
+        setWanted(prior => prior?.id === opened.terminal_id ? null : prior);
+        setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
+      }
 
       return opened.terminal_id;
     } catch (thrown) {
@@ -368,7 +394,7 @@ export const Bubbles = (props: {
     } finally {
       setOpening(false);
 
-      if (failure() !== null && shown().length === 0) document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -404,6 +430,11 @@ export const Bubbles = (props: {
     let frame: number | null = null;
     let swallowMenu = false;
     let swallowUp = false;
+    let selection: string | null = null;
+    let target: EventTarget | null = null;
+    let pointerId: number | undefined;
+    let disposed = false;
+    let openedId: string | null = null;
 
     const apply = (): void => {
       frame = null;
@@ -425,6 +456,23 @@ export const Bubbles = (props: {
       active = false;
     };
 
+    const cancel = (): void => {
+      if (press === null) return;
+      generation += 1;
+
+      if (active) {
+        swallowMenu = true;
+        swallowUp = true;
+      }
+
+      end();
+      id = null;
+      openedId = null;
+    };
+
+    onCleanup(() => { disposed = true; cancel(); });
+    createEffect(on(() => rail.selected(), () => { generation += 1; cancel(); }, { defer: true }));
+
     const blocked = (): boolean =>
       resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || document.querySelector('[role="menu"], .switcher') !== null;
 
@@ -441,27 +489,41 @@ export const Bubbles = (props: {
       }
 
       id = null;
-      void openTerminal().then((opened) => {
-        if (opened === null) return;
+      const request = generation;
+      const selected = selection;
+      const current = () => !disposed && generation === request && rail.selected() === selected;
 
-        // The pointer may have moved or let go while the call was in flight: the bubble goes to where it is now.
-        requestAnimationFrame(() => holdAt(opened, pointer));
+      void openTerminal(current, false).then((opened) => {
+        if (opened === null || !current()) return;
+
+        id = opened;
+        // Release retains its final pointer, cancellation invalidates this request.
+        holdAt(opened, pointer);
+
+        if (press === null) focusItem(opened);
+        else openedId = opened;
       });
     };
 
     const down = (event: PointerEvent): void => {
+      cancel();
+      generation += 1;
+      openedId = null;
       swallowMenu = false;
       swallowUp = false;
       press = null;
 
       if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || textTarget(event.target) || blocked()) return;
 
+      selection = rail.selected();
+      target = event.target;
+      pointerId = event.pointerId;
       press = { x: event.clientX, y: event.clientY };
       pointer = press;
     };
 
     const move = (event: PointerEvent): void => {
-      if (press === null) return;
+      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
 
       pointer = { x: event.clientX, y: event.clientY };
 
@@ -478,7 +540,7 @@ export const Bubbles = (props: {
     };
 
     const up = (event: PointerEvent): void => {
-      if (press === null) return;
+      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
 
       if (active) {
         event.stopPropagation();
@@ -487,6 +549,9 @@ export const Bubbles = (props: {
       }
 
       end();
+
+      if (openedId !== null) focusItem(openedId);
+      openedId = null;
     };
 
     const swallow = (event: Event): void => {
@@ -516,7 +581,9 @@ export const Bubbles = (props: {
     listen("pointerdown", down);
     listen("pointermove", move);
     listen("pointerup", up);
-    listen("pointercancel", end);
+    listen("pointercancel", event => { if (event.pointerId === undefined || event.pointerId === pointerId) cancel(); });
+    listen("blur", event => { if (event.target === event.currentTarget) cancel(); });
+    listen("focusin", event => { if (press !== null && event.target !== target) cancel(); });
     listen("mousemove", swallow);
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
@@ -525,7 +592,7 @@ export const Bubbles = (props: {
       when: () => active,
       run: () => {
         swallowMenu = true;
-        end();
+        cancel();
       },
     }]);
   };
@@ -534,16 +601,17 @@ export const Bubbles = (props: {
 
   // The bubble the user opened takes the keys, whether its Terminal is listed before or after `terminal.open` answers.
   createEffect(() => {
-    const id = wanted();
+    const request = wanted();
 
-    if (id === null || !shown().some((terminal) => terminal.id === id)) return;
+    if (request === null || !shown().some((terminal) => terminal.id === request.id)) return;
+    const { id, focus } = request;
 
     queueMicrotask(() => {
-      if (bubbleElement(id) === null) return;
+      if (wanted() !== request || bubbleElement(id) === null) return;
 
-      show(id);
-      focusItem(id);
-      setWanted(null);
+      if (!focus(() => { show(id); focusItem(id); })) setPlace(id, { ...placeOf(id), min: true });
+
+      if (wanted() === request) setWanted(null);
     });
   });
 
@@ -588,11 +656,12 @@ export const Bubbles = (props: {
           show(null);
           props.screens.emulatorFor(main!).focus();
         } else {
+          const permission = captureFocus(true);
           show(target);
           // The manual popover becomes focusable when Solid commits this turn's visibility change.
-          queueMicrotask(() => {
+          queueMicrotask(() => permission(() => {
             if (focus?.isConnected && !readOnly() && rail.selected() === selected && mainTerminal() === main && shown().some((terminal) => terminal.id === target) && !closing().has(target!) && !placeOf(target!).min) props.screens.emulatorFor(target!).focus();
-          });
+          }));
         }
       },
     };
@@ -649,8 +718,9 @@ export const Bubbles = (props: {
 
     if (id === null || !shown().some((terminal) => terminal.id === id)) return;
 
+    const focus = captureFocus(true);
     show(id);
-    queueMicrotask(() => focusItem(id));
+    queueMicrotask(() => focus(() => focusItem(id)));
   };
 
   window.addEventListener(REVEAL_BUBBLE, onReveal);
@@ -756,7 +826,7 @@ export const Bubbles = (props: {
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}
-                onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) start(); }}>
+                onDblClick={() => start()}>
                 <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
                 <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
               </button>
@@ -801,11 +871,12 @@ export const Bubbles = (props: {
                 onInput={event => { change(true); capture(event.currentTarget); }}
                 onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
                 // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
-                onMount(() => requestAnimationFrame(() => { if (!input.isConnected) return;
+                const permission = captureFocus();
+                onMount(() => requestAnimationFrame(() => permission(() => { if (!input.isConnected) return;
                   input.focus({ preventScroll: true });
 
                   if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
-                  else input.select(); }));
+                  else input.select(); })));
               }} /></Editable.Area>
             </Editable.Root>
             <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>

@@ -1,4 +1,4 @@
-import { questionDialog, answerQuestion, questionClosed } from "./bulkQuestionHarness";
+import { askToDelete, answerQuestion, questionClosed } from "./bulkQuestionHarness";
 // @vitest-environment jsdom
 import { connect } from "node:net";
 import * as v from "valibot";
@@ -74,8 +74,7 @@ const selectRow = async (name: string | RegExp) => {
 };
 
 const deleteSelected = async (count: number) => {
-  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
-  await questionDialog();
+  await askToDelete(count);
   await answerQuestion(true);
   await questionClosed();
 };

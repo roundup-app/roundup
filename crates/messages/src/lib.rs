@@ -3,6 +3,7 @@
 //! writes it to the receiving Agent's Claude inbox.
 
 pub mod continuation;
+mod contract_handlers;
 mod delivery;
 pub mod digest;
 #[doc(hidden)]
@@ -32,7 +33,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::RailNode;
@@ -47,12 +47,12 @@ use delivery::{
     Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
     load_rail_nodes, reconcile, sender_name, start_listener,
 };
-use dispatch::{is_receiver, item, require_user};
+use dispatch::{is_receiver, item, require_user, send_params};
 use flight::confirm_ids;
 pub use inbox::NoteInbox;
 use receiver_view::{gone_drops, idle_batch};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
-use runtime::{Inner, guarded, lock, log_failure, now, trip};
+use runtime::{Inner, guarded, lock, log_failure, trip};
 use send::MAX_BODY_BYTES;
 use serde_json::Value;
 use step::Event;

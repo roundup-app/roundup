@@ -1,7 +1,8 @@
+import { outcomeOf } from "../app/seam";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -105,10 +106,10 @@ const OrderContent = (props: OrderInput) => {
 
   let editButton: HTMLButtonElement | undefined;
 
-  const close = () => {
+  const close = (focus = captureFocus()) => {
     setEditing(false);
     setFailure(null);
-    queueMicrotask(() => editButton?.focus());
+    queueMicrotask(() => focus(() => editButton?.focus()));
   };
 
   const destination = () => ({ surface: "orders", object: props.id, recipient: props.id });
@@ -203,6 +204,7 @@ const OrderContent = (props: OrderInput) => {
 
   /** Capture the revision and original recipient before crossing the RPC boundary. */
   const save = async () => {
+    const focus = captureFocus();
     const draft = selectedDraft();
     const parsed = formValue();
     const captured = base();
@@ -241,13 +243,13 @@ const OrderContent = (props: OrderInput) => {
         setFailure(null);
       }
 
-      if (!disposed && selected() === draft.revision) close();
+      if (!disposed && selected() === draft.revision) close(focus);
     } catch (thrown) {
-      drafts.settle(draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
+      drafts.settle(draft.revision, outcomeOf(thrown));
 
       if (!disposed && node() && sequence >= shownSequence) {
         shownSequence = sequence;
-        setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+        setFailure((thrown instanceof Error ? thrown.message : null) || copy.theOrderCouldNotBeSaved);
       }
     }
   };
@@ -305,7 +307,7 @@ const OrderContent = (props: OrderInput) => {
 
             if (parsed.success && parsed.output.field === item.name) {
               if (draft?.selection) field.setSelectionRange(draft.selection.start, draft.selection.end, draft.selection.direction);
-              queueMicrotask(() => { if (field.isConnected) field.focus(); });
+              queueFocus(() => { if (field.isConnected) field.focus(); });
             }
 
             sizeField(field);
@@ -335,7 +337,7 @@ const OrderContent = (props: OrderInput) => {
         <Tip disabled={!saveBlocked()} text={conflict() ? copy.orderChanged : selectedDraft() ? copy.draftStatus[selectedDraft()!.status] : undefined}>{(trigger) =>
           <button {...trigger()} data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
         }</Tip>
-        <button data-button="quiet" type="button" onClick={close}>{copy.cancel}</button>
+        <button data-button="quiet" type="button" onClick={() => close()}>{copy.cancel}</button>
       </div>
     </form>
   );

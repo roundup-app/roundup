@@ -1,3 +1,4 @@
+import { noSwallowedCatchRule } from "./rules/no-swallowed-catch.ts";
 import { auditWebAssertionsRule, noNewWebAssertionsRule } from "./web-assertions/rule.mjs";
 import { boundedTestTimeoutRule } from "./web-timeout/rule.mjs";
 import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirmation.ts";
@@ -27,6 +28,7 @@ import { requireSafetyCommentForTypeAssertionRule } from "./rules/require-safety
 const antiSlopPlugin = eslintCompatPlugin({
 	meta: { name: "anti-slop" },
 	rules: {
+        "no-swallowed-catch": noSwallowedCatchRule,
         "bounded-test-timeout": boundedTestTimeoutRule,
         "audit-web-assertions": auditWebAssertionsRule,
         "no-new-web-assertions": noNewWebAssertionsRule,

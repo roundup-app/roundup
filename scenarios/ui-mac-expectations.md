@@ -70,7 +70,7 @@ These numbered checks cite existing holders on `origin/main`; planned `u3787*` t
 | 2 | `PRINCIPLES.md`, P6 and P11 Gate/Observer; `apps/desktop/src/state/storage.ts`, `draftStorage`; `scenarios/product-continuity.md`, Unfinished input | Does a changed path lose original Home/Project/recipient or exact drafts, or does restoration submit/start a program? |
 | 3 | `scenarios/ui-shelf-delete.md`, U458–U460; `scenarios/todos.md`, T6; `scenarios/pads.md`, P9 | Does deletion affect unchosen targets, widen scope/permissions, or does undo lose blocker edges or original Pad identity/ownership? |
 | 4 | `crates/desktop/src/menu.rs`, `u2694a_no_item_carries_an_accelerator`, `app_menu`; `scenarios/ui-shortcuts.md`, U2238–U2241 | Does a context menu gain an accelerator, or does a menu-bar command bypass its key’s target/scope or run twice? |
-| 5 | `docs/design-system.md`, The checks (D2, D5, D6, D9); `docs/motion.md`, Accepted triggers | Does a moved Check fail, a baseline-passing Check regress, a visual value bypass Tokens, or feedback delay an action? |
+| 5 | `docs/design-system.md`, The checks (D2, D5, D6, D9); `docs/motion.md`, Accepted effects | Does a moved Check fail, a baseline-passing Check regress, a visual value bypass Tokens, or feedback delay an action? |
 | 6 | `scenarios/ui-window.md`, U452/U453; `crates/desktop/tests/window.rs`, `u452_window_width_is_at_least_1280` | Does restoration violate the minimum width or supported layout, or discard valid saved normal bounds? |
 | 7 | `PRINCIPLES.md`, P9 and P14 Gate/Observer; `scenarios/ui-modal-surfaces.md`, U3512a | Does a path start an Agent automatically, log prohibited usage data, or destroy chosen work without undo or prior consent? |
 

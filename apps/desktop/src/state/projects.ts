@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
-import { RpcError } from "../app/seam";
+import { outcomeOf, retryRead, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { storedValue } from "./storage";
 
@@ -22,8 +22,10 @@ export type ProjectsState = {
   tabs: Accessor<OpenTab[]>;
   /** The path of the Project on screen, or `null` with none open. */
   active: Accessor<string | null>;
-  /** The last failure of a call the user made on the strip, or of `projects` itself; a success of the next call clears it. */
+  /** Command and Project-list read failures recover independently. */
   failure: Accessor<string | null>;
+  readFailure: Accessor<string | null>;
+  reload(): Promise<void>;
   select(path: string): void;
   /** Asks the macOS chooser for a folder and opens it as a tab; a cancel changes nothing. */
   choose(): Promise<void>;
@@ -56,6 +58,8 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
   const [tabs, setTabs] = createSignal<OpenTab[]>([]);
   const [active, setActive] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [readFailure, setReadFailure] = createSignal<string | null>(null);
+  let reading = false;
   const [reopening, setReopening] = createSignal(false);
 
   let renameRevision = 0;
@@ -69,26 +73,37 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     if (path !== null) void saved.write(path);
   };
 
-  void (async () => {
+  const reload = async () => {
+    if (reading) return;
+    reading = true;
+
     try {
-      const listed = await app.projects();
+      const listed = await retryRead(() => app.projects());
 
       setTabs(
-        listed.map(({ name, path, running }) => ({ project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 })),
+        listed.map(({ name, path, running }) => {
+          const known = tabs().find(tab => tab.project.path === path);
+
+          return known ?? { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
+        }),
       );
 
-      const last = saved.read();
+      const last = active() ?? saved.read();
+      setReadFailure(null);
 
       setActive(listed.some((entry) => entry.path === last) ? last : (listed.at(-1)?.path ?? null));
     } catch (error) {
       // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
       if (!(error instanceof Error)) throw error;
 
-      setFailure(error.message);
+      setReadFailure(error.message);
+    } finally {
+      reading = false;
+      setLoaded(true);
     }
+  };
 
-    setLoaded(true);
-  })();
+  void reload();
 
   void app.onDaemonExited(({ path, ...exit }) => update(path, (tab) => ({
     ...tab, exit, reopenFailure: null,
@@ -111,7 +126,9 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     loaded,
     tabs,
     active,
-    failure,
+    failure: () => readFailure() ?? failure(),
+    readFailure,
+    reload,
     reopening,
     connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { ...tab, exit: null, reopenFailure: null } : tab),
     select: (path) => {
@@ -245,7 +262,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
           setFailure(`${error.message}; ${readError.message}`);
         }
 
-        return { ...submission, status: error instanceof RpcError && error.code === -32003 ? "failed" : "unknown", error: error.message };
+        return { ...submission, status: outcomeOf(error), error: error.message };
       } finally {
         holder.remaining--;
 

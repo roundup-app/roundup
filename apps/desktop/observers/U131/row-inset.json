@@ -1,0 +1,951 @@
+{
+  "base": "6caf136e5e939f4694f436e40e9331c4727af1e4",
+  "runtime_head": "7d39388229d29a44935e2879c4118775438c761e",
+  "integrated_main": "eb0a1f86751a0864e4af46411083b477b663584f",
+  "renderer": "Headless Chromium 156",
+  "viewport": [
+    1512,
+    950
+  ],
+  "device_scale": 1,
+  "scheme": "dark",
+  "regressed": [],
+  "offsets": {
+    "base": {
+      "todos": [
+        {
+          "blocked": false,
+          "id": "1",
+          "level": "1",
+          "offset": 32,
+          "text": "todo 1"
+        },
+        {
+          "blocked": false,
+          "id": "2",
+          "level": "1",
+          "offset": 32,
+          "text": "todo 2"
+        },
+        {
+          "blocked": false,
+          "id": "3",
+          "level": "1",
+          "offset": 32,
+          "text": "a very long todo title that goes on and on past the width of the shelf column"
+        },
+        {
+          "blocked": true,
+          "id": "4",
+          "level": "2",
+          "offset": 72,
+          "text": "todo 4"
+        },
+        {
+          "blocked": false,
+          "id": "5",
+          "level": "1",
+          "offset": 32,
+          "text": "todo 5"
+        },
+        {
+          "blocked": false,
+          "id": "6",
+          "level": "1",
+          "offset": 32,
+          "text": "todo 6"
+        },
+        {
+          "blocked": false,
+          "id": "8",
+          "level": "1",
+          "offset": 32,
+          "text": "todo 8"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "1 done"
+        }
+      ],
+      "pads": [
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 32,
+          "text": "a-pad-with-a-very-long-name-here"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 32,
+          "text": "pad-3"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 32,
+          "text": "pad-0"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 32,
+          "text": "pad-2"
+        }
+      ],
+      "terminal-tabs": [
+        {
+          "blocked": false,
+          "id": "101",
+          "level": null,
+          "offset": 21,
+          "text": "cargo test"
+        },
+        {
+          "blocked": false,
+          "id": "102",
+          "level": null,
+          "offset": 21,
+          "text": "tail -f build.log"
+        },
+        {
+          "blocked": false,
+          "id": "103",
+          "level": null,
+          "offset": 21,
+          "text": "zsh"
+        }
+      ]
+    },
+    "head": {
+      "todos": [
+        {
+          "blocked": false,
+          "id": "1",
+          "level": "1",
+          "offset": 56,
+          "text": "todo 1"
+        },
+        {
+          "blocked": false,
+          "id": "2",
+          "level": "1",
+          "offset": 56,
+          "text": "todo 2"
+        },
+        {
+          "blocked": false,
+          "id": "3",
+          "level": "1",
+          "offset": 56,
+          "text": "a very long todo title that goes on and on past the width of the shelf column"
+        },
+        {
+          "blocked": true,
+          "id": "4",
+          "level": "2",
+          "offset": 72,
+          "text": "todo 4"
+        },
+        {
+          "blocked": false,
+          "id": "5",
+          "level": "1",
+          "offset": 56,
+          "text": "todo 5"
+        },
+        {
+          "blocked": false,
+          "id": "6",
+          "level": "1",
+          "offset": 56,
+          "text": "todo 6"
+        },
+        {
+          "blocked": false,
+          "id": "8",
+          "level": "1",
+          "offset": 56,
+          "text": "todo 8"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "1 done"
+        }
+      ],
+      "pads": [
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "a-pad-with-a-very-long-name-here"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "pad-3"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "pad-0"
+        },
+        {
+          "blocked": false,
+          "id": "entry",
+          "level": null,
+          "offset": 56,
+          "text": "pad-2"
+        }
+      ],
+      "terminal-tabs": [
+        {
+          "blocked": false,
+          "id": "101",
+          "level": null,
+          "offset": 56,
+          "text": "cargo test"
+        },
+        {
+          "blocked": false,
+          "id": "102",
+          "level": null,
+          "offset": 56,
+          "text": "tail -f build.log"
+        },
+        {
+          "blocked": false,
+          "id": "103",
+          "level": null,
+          "offset": 56,
+          "text": "zsh"
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "state": "agents-10",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "conflict",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "daemon-exits",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "dense-failure",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "first-run",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "pad-drag-after-drop",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 32
+          }
+        },
+        "head": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 56
+          }
+        }
+      }
+    },
+    {
+      "state": "pad-keyboard-focus",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 32
+          }
+        },
+        "head": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 56
+          }
+        }
+      }
+    },
+    {
+      "state": "pad-selected",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 32
+          }
+        },
+        "head": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 56
+          }
+        }
+      }
+    },
+    {
+      "state": "pads",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 32
+          }
+        },
+        "head": {
+          "D12": {
+            "selector": "div.shelf-row",
+            "status": "fail",
+            "value": 56
+          }
+        }
+      }
+    },
+    {
+      "state": "terminal-rename",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "terminal-tabs",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "todo-drag-after-drop",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "todo-drawer",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "todo-keyboard-focus",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "todos-dense",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    },
+    {
+      "state": "tree-40",
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "failures": {
+        "base": {},
+        "head": {}
+      }
+    }
+  ],
+  "rename_offsets": {
+    "base": 9,
+    "head": 56
+  }
+}

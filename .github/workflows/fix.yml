@@ -221,8 +221,15 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      # L34: the hour's closed-Issue cache `build.yml` saves, so this job's queue read fetches what changed, not every page.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-restore
+          restore-keys: closed-issues-
       - env:
           GH_TOKEN: ${{ github.token }}
+          ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
           PR: ${{ needs.task.outputs.pr }}
           CAUSE: ${{ needs.task.outputs.cause }}
           RAN: ${{ needs.fix-run.outputs.ran || 'false' }}

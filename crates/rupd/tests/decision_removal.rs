@@ -7,6 +7,11 @@ use rusqlite::Connection;
 use serde_json::{Value, json};
 use tokio::net::UnixListener;
 
+#[allow(dead_code)]
+mod storage {
+    include!("support/store_migrations.rs");
+}
+
 fn legacy_decision_event(name: &str) -> String {
     json!({"actor": {"kind": "user", "id": "user", "parent": null}, "name": name, "data": {"id": "d1"}})
         .to_string()
@@ -15,32 +20,20 @@ fn legacy_decision_event(name: &str) -> String {
 #[tokio::test]
 async fn a3564d_existing_project_opens_without_custom_question_authority() {
     let dir = tempfile::tempdir().unwrap();
-    {
-        let daemon = Arc::new(rupd::Daemon::open(dir.path()).unwrap());
-        let socket = dir.path().join("first.sock");
-        let server = tokio::spawn(rupd::serve(
-            UnixListener::bind(&socket).unwrap(),
-            Arc::clone(&daemon),
-        ));
-        let client = Client::connect(&socket).await.unwrap();
-        client
-            .request("rail.createWorkstream", json!({"name": "kept"}))
-            .await
-            .unwrap();
-        server.abort();
-        let _ = server.await;
-    }
-
-    // Version 36 precedes 0023-remove-decisions.sql. Later migrations must not
-    // move this fixture past the authority-removal boundary it exercises.
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    db.pragma_update(None, "user_version", 36_i64).unwrap();
-    db.execute_batch(
-        "CREATE TABLE decision_answers (seq INTEGER PRIMARY KEY, decision TEXT NOT NULL UNIQUE,
-            agent TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0, record TEXT NOT NULL);
-         INSERT INTO decision_answers(decision, agent, record) VALUES('d1', '1', '{}');",
+    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+    rusqlite_migration::Migrations::new(
+        storage::PROJECT_V36
+            .into_iter()
+            .map(rusqlite_migration::M::up)
+            .collect(),
     )
+    .to_latest(&mut db)
     .unwrap();
+    db.execute_batch(
+        r#"INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','kept',0);
+         INSERT INTO events(event) VALUES('{"actor":{"kind":"user","id":"you","parent":null},"name":"rail.changed","data":null}');
+         INSERT INTO decision_answers(decision,agent,record) VALUES('d1','2','{}');"#,
+    ).unwrap();
     for name in ["decision.opened", "decision.cleared"] {
         db.execute(
             "INSERT INTO events(event) VALUES (?1)",
@@ -61,6 +54,16 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
         )
         .unwrap();
     }
+    db.execute_batch(
+        r#"INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'agent','Kept Agent',1,0);
+           INSERT INTO todos(id,title,body,created_at,home) VALUES(1,'Kept Todo','todo body',42,'1');
+           INSERT INTO pads(key,name,owner,text,updated_at,home)
+             VALUES('kept','Kept Pad','{"kind":"user","id":"you","parent":null}','pad body',42,'1');
+           INSERT INTO routes(from_id,to_id,delivery,set_by) VALUES('2','1','drop','user');
+           INSERT INTO messages(id,from_actor,to_id,kind,body,status,at,passed_from)
+             VALUES(1,'{"kind":"user","id":"you","parent":null}','2','note','final body','delivered',42,NULL),
+                   (2,'{"kind":"agent","id":"2","parent":"1"}','1','note','old question','pending',43,2);"#,
+    ).unwrap();
     drop(db);
 
     let daemon = Arc::new(rupd::Daemon::open(dir.path()).unwrap());
@@ -97,6 +100,56 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
         .collect::<Result<_, _>>()
         .unwrap();
     assert_eq!(kept, ["kept"]);
+
+    let tree = client.request("rail.tree", Value::Null).await.unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["id"] == "2" && node["name"] == "Kept Agent")
+    );
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    assert_eq!(todos[0]["id"], 1);
+    assert_eq!(todos[0]["title"], "Kept Todo");
+    assert_eq!(todos[0]["body"], "todo body");
+    assert_eq!(todos[0]["home"], "1");
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    assert_eq!(pads[0]["name"], "Kept Pad");
+    assert_eq!(pads[0]["text"], "pad body");
+    assert_eq!(pads[0]["incarnation"], "1");
+    assert_eq!(pads[0]["home"], "1");
+    let routes = client.request("route.list", Value::Null).await.unwrap();
+    assert!(
+        routes
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|route| route["from"] == "2" && route["to"] == "1" && route["delivery"] == "drop")
+    );
+    let messages = client.request("message.list", json!({})).await.unwrap();
+    let messages = messages.as_array().unwrap();
+    assert_eq!(messages.len(), 2, "no forwarded question");
+    let final_message = messages.iter().find(|message| message["id"] == 1).unwrap();
+    assert_eq!(
+        final_message,
+        &json!({
+            "id": 1, "from": {"kind": "user", "id": "you", "parent": null},
+            "to": "2", "kind": "note", "body": "final body", "replyTo": null,
+            "status": "delivered", "reason": null, "at": 42
+        })
+    );
+    let hop = messages.iter().find(|message| message["id"] == 2).unwrap();
+    assert_eq!(hop["body"], "old question");
+    assert_eq!(hop["status"], "dropped");
+    assert!(
+        hop["reason"]
+            .as_str()
+            .is_some_and(|reason| !reason.is_empty())
+    );
+    assert_eq!(
+        client.request("terminal.list", json!({})).await.unwrap(),
+        json!([])
+    );
 
     for method in [
         "decision.list",

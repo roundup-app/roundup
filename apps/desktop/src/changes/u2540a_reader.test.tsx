@@ -63,10 +63,14 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
 });
 
 it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async action => {
-  const { app } = await openDiff();
-  await saveNote("  unrelated note e\u0301\n🐝  ");
+  const { app, connected } = await openDiff();
+  const retainedNote = "  unrelated note e\u0301\n🐝  ";
+
+  await saveNote(retainedNote);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
+  const retained = connected.drafts.list();
+
   app.handlers["agent.compareFile"] = () => { throw new Error("comparison refused; retry loading this diff"); };
 
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -81,7 +85,7 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async a
 
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  unrelated note e\u0301\n🐝  ");
-  expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 3 : 2 }, () => ({ id: "a", path: "src/a.ts" })));
+  expect(connected.drafts.list()).toEqual(retained);
+  expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 4 : 3 }, () => ({ id: "a", path: "src/a.ts" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

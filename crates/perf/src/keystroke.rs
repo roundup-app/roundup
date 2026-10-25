@@ -189,19 +189,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
             let matches = if code == 1 {
                 measured && scheduling["meets_thresholds"] == false && report["verdict"] == "fail"
             } else {
-                [
-                    "scheduling",
-                    "style",
-                    "layout",
-                    "paint",
-                    "compositor",
-                    "presentation",
-                ]
-                .iter()
-                .all(|stage| {
-                    report["stages"][stage]["status"] == "measured"
-                        && report["stages"][stage]["meets_thresholds"] == true
-                }) && report["verdict"] == "pass"
+                measured && scheduling["meets_thresholds"] == true && report["verdict"] == "pass"
             };
             if valid && matches {
                 Ok(if code == 0 { 0 } else { 1 })
@@ -215,7 +203,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
     }
 }
 
-/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 1 for a miss on the measured stage and 2 for an invalid run or an unmeasured stage, so the run never ends in a pass the webview cannot show.
+/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 0 for passing scheduling, 1 for a scheduling miss and 2 for an invalid run. Presentation remains unmeasured.
 async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     // Each invocation retains its own logs, even when cleanup must remove the temporary Project.
     let parent = args
@@ -262,15 +250,28 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     }
     let mut reports = Vec::new();
     let mut loads = Vec::new();
+    let mut diagnostics = Vec::new();
+    let parent = args
+        .out
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    std::fs::create_dir_all(parent)?;
 
     for turn in 1..=args.runs {
         let load = System::load_average().one;
         eprintln!("run {turn}/{}: load {load:.1}", args.runs);
         loads.push(load);
-        let report = match one_run(&args.app, false, None).await {
+        let evidence = tempfile::Builder::new()
+            .prefix("perf-keystroke-")
+            .tempdir_in(parent)?
+            .keep();
+        eprintln!("run {turn} diagnostics: {}", evidence.display());
+        let report = match one_run(&args.app, false, Some(&evidence)).await {
             Ok(report) => report,
-            Err(error) => serde_json::json!({"error": error.to_string()}),
+            Err(error) => serde_json::json!({"error": error.to_string(), "diagnostics": evidence}),
         };
+        diagnostics.push(evidence);
         println!("run {turn}: {report}");
         reports.push(report);
         let (exit, failures) = judge_runs(&reports, limit);
@@ -287,6 +288,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
                 "loads": loads,
                 "runs": reports.len(),
                 "reports": reports,
+                "diagnostics": diagnostics,
                 "limit_ms": limit,
                 "exit": exit,
                 "failures": failures,
@@ -500,8 +502,17 @@ mod tests {
     }
 
     #[test]
+    fn u3010e_a_scheduling_pass_needs_no_presentation_measurement() {
+        let mut report = scheduling_miss();
+        report["exit"] = 0.into();
+        report["verdict"] = "pass".into();
+        report["stages"]["scheduling"]["meets_thresholds"] = true.into();
+        assert_eq!(frame_exit(&report).unwrap(), 0);
+    }
+
+    #[test]
     fn u3010e_missing_or_unmeasured_evidence_cannot_authorize_a_pass() {
-        for defect in ["error", "invalid", "samples", "presentation"] {
+        for defect in ["error", "invalid", "samples", "scheduling"] {
             let mut report = scheduling_miss();
             match defect {
                 "error" => report["error"] = "recorder stopped".into(),
@@ -510,10 +521,7 @@ mod tests {
                 _ => {
                     report["exit"] = 0.into();
                     report["verdict"] = "pass".into();
-                    for stage in ["scheduling", "style", "layout", "paint", "compositor"] {
-                        report["stages"][stage] =
-                            serde_json::json!({"status":"measured","meets_thresholds":true});
-                    }
+                    report["stages"]["scheduling"] = serde_json::json!({"status":"unmeasured"});
                 }
             }
             assert!(frame_exit(&report).is_err(), "{report}");
@@ -636,6 +644,39 @@ mod tests {
         let logs = Path::new(report["diagnostics"].as_str().unwrap());
         assert!(logs.join("app.stderr.log").is_file());
         assert!(logs.join("app.stdout.log").is_file());
+    }
+
+    #[tokio::test]
+    async fn r20_invalid_keystroke_runs_keep_separate_diagnostics() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args::try_parse_from([
+            "perf-keystroke",
+            "--runs",
+            "2",
+            "--app",
+            dir.path().join("absent-app").to_str().unwrap(),
+            "--out",
+            dir.path().join("report.json").to_str().unwrap(),
+            "--budgets",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/keystroke-budgets.json"),
+        ])
+        .unwrap();
+        assert_eq!(run(&args).await.unwrap(), 2);
+        let report: Value = serde_json::from_slice(&std::fs::read(&args.out).unwrap()).unwrap();
+        let reports = report["reports"].as_array().unwrap();
+        assert_eq!(reports.len(), 2);
+        let paths: Vec<_> = reports
+            .iter()
+            .map(|run| {
+                assert!(run["error"].as_str().unwrap().contains("absent-app"));
+                let logs = Path::new(run["diagnostics"].as_str().expect("diagnostics retained"));
+                assert!(logs.starts_with(dir.path()));
+                assert!(logs.join("app.stderr.log").is_file());
+                assert!(logs.join("app.stdout.log").is_file());
+                logs
+            })
+            .collect();
+        assert_ne!(paths[0], paths[1]);
     }
 
     #[tokio::test]

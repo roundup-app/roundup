@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
@@ -28,7 +29,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
+export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -63,7 +64,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     const action = view() === "timeline" ? timelineAction : dashboardAction;
 
     setView(null);
-    queueMicrotask(() => action?.focus());
+    queueFocus(() => action?.focus());
   };
 
   createEffect(on(rail.selected, () => setView(null), { defer: true }));
@@ -87,8 +88,26 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   createEffect(() => props.observeTerminal?.(dashboard() ? null : terminalId()));
   onCleanup(() => props.observeTerminal?.(null));
+
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
+  const notice = createMemo(() => {
+    if (props.notice != null) return { kind: "notice" as const, message: props.notice };
+
+    if (rail.commandFailure.surface() === "pane") return { kind: "command" as const, message: rail.commandFailure.message() };
+
+    const stored = storageFailure();
+
+    if (stored !== null) return { kind: "storage" as const, message: stored };
+
+    const scheme = connected.terminalScheme.failure();
+
+    if (scheme !== null) return { kind: "scheme" as const, message: scheme };
+
+    const terminal = screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId());
+
+    return terminal === null ? null : { kind: "terminal" as const, message: terminal };
+  });
+
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
@@ -134,9 +153,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored());
+      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
 
-      screens.resize(id, size);
+      if (rail.restored() || !rail.terminalFocus()(() => show(true))) show(false);
     });
   });
 
@@ -187,7 +206,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
   const dismissFailure = (): (() => void) | null => {
-    if (props.notice != null || storageFailure() !== null) return null;
+    if (notice()?.kind !== "terminal") return null;
 
     const id = terminalId();
 
@@ -290,7 +309,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected() === null && notice() === null}>
+        <Show when={selected() === null && (notice() === null || notice()?.kind === "command")}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">
               <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
@@ -304,7 +323,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             </div>
           </Show>
         </Show>
-        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && notice() === null}>
+        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
         </Show>
         <Show when={closedAgent()}>
@@ -330,7 +349,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
-        <ReservedLine message={notice() ?? rail.workstreamFailure()}>
+        <ReservedLine message={notice()?.message}>
+          <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
+          <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
       </div>

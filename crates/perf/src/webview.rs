@@ -6,12 +6,18 @@ use serde_json::Value;
 const FRAME_LIMIT_MS: f64 = 25.0;
 
 /// Required hop attribution, including the retained coarse input-to-dispatch span (`apps/desktop/src/perf/keystrokes.ts`, `hops`).
-pub const HOPS: [&str; 7] = [
+pub const HOPS: [&str; 13] = [
     "keydown_to_input",
     "input_to_dispatch",
     "input_to_encoded",
+    "input_to_encoding",
+    "encoding_to_encoded",
     "encoded_to_dispatch",
     "dispatch_to_echo_event",
+    "dispatch_to_daemon",
+    "daemon_to_write",
+    "write_to_echo_read",
+    "echo_read_to_event",
     "echo_event_to_parsed",
     "parsed_to_frame",
 ];
@@ -67,6 +73,8 @@ pub fn checked(report: &Value) -> io::Result<()> {
         )));
     }
 
+    let uncertainty = calibration(report)?;
+
     // R20: a report without every hop's p50/p95 cannot choose a repair.
     for hop in HOPS {
         let measured = &report["hops"][hop];
@@ -75,11 +83,16 @@ pub fn checked(report: &Value) -> io::Result<()> {
                 .as_f64()
                 .zip(measured["p95"].as_f64())
                 .is_some_and(|(p50, p95)| {
-                    p50.is_finite() && p95.is_finite() && p50 >= 0.0 && p95 >= p50
+                    let minimum = if matches!(hop, "dispatch_to_daemon" | "echo_read_to_event") {
+                        -uncertainty
+                    } else {
+                        0.0
+                    };
+                    p50.is_finite() && p95.is_finite() && p50 >= minimum && p95 >= p50
                 })
         {
             return Err(failure(format!(
-                "invalid hop attribution for {hop}: expected {samples} samples with finite 0 <= p50 <= p95"
+                "invalid hop attribution for {hop}: expected {samples} samples with finite ordered p50/p95 within clock uncertainty"
             )));
         }
     }
@@ -120,4 +133,44 @@ pub fn judge_runs(reports: &[Value], limit_ms: f64) -> (u8, Vec<String>) {
         }
     }
     (exit, failures)
+}
+
+/// Recompute causal clock bounds from the retained exchanges, never from timer resolution alone.
+fn calibration(report: &Value) -> io::Result<f64> {
+    let invalid = || failure("invalid clock calibration evidence");
+    let calibration = &report["calibration"];
+    let number = |value: &Value| value.as_f64().filter(|n| n.is_finite()).ok_or_else(invalid);
+    let resolution = number(&calibration["resolution_ms"])?;
+    if resolution <= 0.0 || number(&report["timer_resolution_ms"])? != resolution {
+        return Err(invalid());
+    }
+    let exchanges = calibration["exchanges"].as_array().ok_or_else(invalid)?;
+    if exchanges.len() < 2 {
+        return Err(invalid());
+    }
+    let mut low = f64::NEG_INFINITY;
+    let mut high = f64::INFINITY;
+    let mut previous = f64::NEG_INFINITY;
+    for exchange in exchanges {
+        let sent = number(&exchange["sent"])?;
+        let daemon = number(&exchange["daemon"])?;
+        let received = number(&exchange["received"])?;
+        if sent < previous || received < sent {
+            return Err(invalid());
+        }
+        previous = received;
+        low = low.max(daemon - received - resolution);
+        high = high.min(daemon - sent + resolution);
+    }
+    let offset = number(&calibration["offset_ms"])?;
+    let uncertainty = number(&calibration["uncertainty_ms"])?;
+    if low > high
+        || uncertainty < 0.0
+        || (offset - (low + high) / 2.0).abs() > 1e-6
+        || (uncertainty - (high - low) / 2.0).abs() > 1e-6
+        || (number(&report["hop_uncertainty_ms"])? - uncertainty).abs() > 1e-6
+    {
+        return Err(invalid());
+    }
+    Ok(uncertainty)
 }

@@ -34,6 +34,7 @@ pub fn build<R: Runtime>(
     #[cfg(feature = "idle-perf")]
     let builder = builder.plugin(idle::plugin());
     builder
+        .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window::plugin())

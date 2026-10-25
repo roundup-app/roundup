@@ -52,10 +52,15 @@ run("u59 on the real Daemon", () => {
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
 
+    await page.call(`async () => { window.__u59Menu = (await import('/src/testing/menuProbe.ts')).menuProbe; }`);
+
     for (let count = 1; count <= 10; count += 1) {
-      await page.until(`() => [...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent")?.getAttribute("aria-disabled") !== "true" && Boolean([...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent"))`);
-      await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent").click()`);
-      await page.until(`() => document.querySelectorAll('.rail [role="treeitem"]:not([data-button])').length >= ${count + 1}`);
+      await page.until(`() => document.querySelector('.rail-actions button')?.getAttribute('aria-disabled') !== 'true'`);
+      await page.call(`() => { window.__u59Menu.shown = null; document.querySelector('.rail-row').focus(); }`);
+      await page.press("F10", "F10", 8);
+      await page.until(`() => window.__u59Menu.shown?.some(item => item.id === 'add' && item.enabled)`);
+      await page.call(`() => window.__u59Menu.answer('add')`);
+      await page.until(`() => document.querySelectorAll('.rail-row').length >= ${count + 1}`);
     }
 
     await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);

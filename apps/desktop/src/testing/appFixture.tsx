@@ -53,7 +53,7 @@ export const mountApp = async (prepare: (app: FakeApp) => void = () => {}, clock
 };
 
 export const select = (name: string) => {
-  const row = screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((each) => each.textContent?.includes(name));
+  const row = [...document.querySelectorAll(".rail-row[data-id]")].find(each => each.textContent?.includes(name));
 
   if (!row) throw new Error(`no row for ${name}`);
 
