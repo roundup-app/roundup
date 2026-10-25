@@ -1,5 +1,7 @@
 # R20 hop attribution
 
+Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) precede this recorder and do not establish full-chain Mac timing.
+
 The opt-in report carries every hop's p50/p95 and sample count. Webview marks
 use `performance.now()`; receipt (before decoding), physical `write_all` plus
 `flush` completion and raw PTY read use one Daemon monotonic clock.
