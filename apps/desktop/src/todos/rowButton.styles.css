@@ -65,10 +65,10 @@
 .todo-tick:not(:checked)::after {
   content: "";
   position: absolute;
-  top: calc(var(--space-1) + var(--stroke-hairline));
-  bottom: calc(var(--space-1) + var(--stroke-hairline));
-  left: var(--stroke-hairline);
-  right: calc(var(--space-2) + var(--stroke-hairline));
+  top: calc(var(--space-1) + var(--hairline-width));
+  bottom: calc(var(--space-1) + var(--hairline-width));
+  left: var(--hairline-width);
+  right: calc(var(--space-2) + var(--hairline-width));
   border-radius: var(--space-1);
   background-color: var(--sunken);
 }

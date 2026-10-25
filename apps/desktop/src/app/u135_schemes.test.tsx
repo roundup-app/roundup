@@ -2,9 +2,9 @@ import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { underSettings } from "../testing/media";
+import { resolveToken, tokensOf } from "../testing/contrast";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
-import { resolveToken, tokensOf } from "../testing/contrast";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
@@ -39,9 +39,10 @@ const mount = async (settings: Setting[]) => {
   tokens.dataset.viteDevId = "/src/tokens.css";
   tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
-  // jsdom leaves custom properties unresolved; expand the instant Token before its duration cascade is observed.
+  // jsdom leaves duration references unresolved; use the existing resolver on the shipped Tokens.
+  const values = tokensOf(tokenCss);
   sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings)
-    .replaceAll("var(--duration-instant)", resolveToken("var(--duration-instant)", tokensOf(underSettings(tokenCss, settings))));
+    .replace(/var\(--duration-[\w-]+\)/g, value => resolveToken(value, values));
   matchMedia = window.matchMedia;
 
   const feature = { dark: "prefers-color-scheme: dark", "more-contrast": "prefers-contrast: more", "reduced-transparency": "prefers-reduced-transparency: reduce", "reduced-motion": "prefers-reduced-motion: reduce" };

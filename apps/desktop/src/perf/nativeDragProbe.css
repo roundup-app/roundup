@@ -32,7 +32,7 @@
 .native-probe-rows > div {
   min-height: var(--space-6);
   box-sizing: border-box;
-  border-block: var(--stroke-hairline) solid transparent;
+  border-block: var(--hairline-width) solid transparent;
 }
 
 .native-probe-rows [data-probe-child] {
@@ -40,11 +40,11 @@
 }
 
 .native-probe-rows [data-probe-dragging] {
-  border-block: var(--stroke-hairline) solid var(--accent);
+  border-block: var(--hairline-width) solid var(--accent);
 }
 
 .native-probe-rows [data-probe-target] {
-  border-block: var(--stroke-hairline) dashed var(--accent);
+  border-block: var(--hairline-width) dashed var(--accent);
 }
 
 .native-drag-probe dd {

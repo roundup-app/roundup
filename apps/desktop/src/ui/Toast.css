@@ -1,7 +1,7 @@
 /* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). Ark sets --index, --y, --scale and --opacity per card: folded, each card behind is 5% smaller and one gap higher; fanned out, each rests at its own offset. */
 .app-toasts[data-scope="toast"] {
   position: absolute !important;
-  inset: auto var(--space-3) calc(var(--space-3) + var(--toast-lift, calc(0 * var(--space-1)))) auto !important;
+  inset: auto var(--space-3) calc(var(--space-3) + var(--toast-lift, var(--length-zero))) auto !important;
   width: 0;
   height: 0;
   z-index: var(--layer-toast) !important;
@@ -16,7 +16,7 @@
   border-radius: var(--radius-control);
   overflow: hidden;
   /* Ark measures every card as 0 px tall, so the fanned cards would stay piled; the provider measures them and sets --stack-y. */
-  --offset: var(--stack-y, calc(0 * var(--space-1))) !important;
+  --offset: var(--stack-y, var(--length-zero)) !important;
   translate: var(--x) var(--y);
   scale: var(--scale, 1);
   transform-origin: bottom center;
@@ -54,7 +54,7 @@
 .app-toast-bar {
   position: absolute;
   inset: auto 0 0;
-  height: var(--stroke-strong);
+  height: var(--stroke-width);
   background-color: var(--grey);
   transform-origin: left center;
   animation: app-toast-drain var(--toast-time) linear forwards;

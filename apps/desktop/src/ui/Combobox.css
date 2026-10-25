@@ -1,8 +1,8 @@
 /* U529: the field has no outline of its own (U3528 keeps only its caret), a row has no hover box, and the highlighted row is a filled --sunken row (D6, D7). */
 .app-combobox-label {
   position: absolute;
-  width: var(--stroke-hairline);
-  height: var(--stroke-hairline);
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
 }

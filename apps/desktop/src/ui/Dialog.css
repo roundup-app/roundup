@@ -48,7 +48,7 @@
   margin: 0;
   padding: var(--space-1);
   border: 0;
-  border-bottom: var(--stroke-hairline) solid var(--hairline);
+  border-bottom: var(--hairline-width) solid var(--hairline);
   background: transparent;
   color: var(--text);
   font: inherit;

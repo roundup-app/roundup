@@ -78,23 +78,22 @@
   /* U131: title geometry, including empty leading slots; not a space step. */
   --row-text-inset: 56px;
   --flat-tab-edge: 1px;
-  --stroke-hairline: 1px;
-  --stroke-strong: 2px;
-  --stroke-check: 1.5px;
-  --resize-mark-inset: 3px;
-  --terminal-scrollbar-size: 6px;
-  /* The user set the window bar to 38 px (2026-10-17). */
-  --header-height: 38px;
-  /* U391: shared Rail footer and Terminal tab height. */
-  --rail-actions-height: 40px;
-  --rail-name-min-width: 132px;
-  --rail-name-max-width: 252px;
-  --dialog-min-width: 360px;
-  --pad-preview-height: 360px;
-  --picker-width: 480px;
+  /* U130: typed zero lengths remain valid in max(), gradients and fallbacks. */
+  --length-zero: 0px;
+  --hairline-width: 1px;
+  --stroke-width: 2px;
+  --tick-border-width: 1.5px;
+  --scrollbar-thumb-width: 6px;
+  --window-header-height: 38px;
   --drawer-min-width: 560px;
+  --rail-menu-min-width: 132px;
+  --rail-menu-max-width: 252px;
   --ask-width: 640px;
-  --ask-menu-max-width: 320px;
+  --ask-menu-width: 320px;
+  --pad-editor-height: 360px;
+  --switcher-width: 480px;
+  --capture-width: 480px;
+  --dialog-min-width: 360px;
 
   --radius-chip: 4px;
   --key-chip-padding: 5px;
