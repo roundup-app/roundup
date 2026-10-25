@@ -134,3 +134,8 @@ with this directory. Gzip container times may differ. Exit 0 asserts counts,
 endpoint order, dispatch poll count and scheduler partition arithmetic, not
 performance acceptance. Original capture reproduction and all failed attempts
 remain in its [reproduction record](../r23-queues-40186616032/reproduce.txt).
+
+The scheduler text grammar and intersection approach reuse the retained
+[#3982 calculation](../r23-spans-40175332310/cpu.py.txt); this assessment adds
+sorted sleep/runnable state transitions and task-marker joins. CSV, JSON and gzip
+decoding use the installed Python platform. Workspace dependencies remain unchanged.
