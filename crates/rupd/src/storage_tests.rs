@@ -525,6 +525,11 @@ async fn n16_all_stores_share_one_project_database() {
     resize_schema
         .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
         .unwrap();
+    resize_schema
+        .execute_batch(include_str!(
+            "../migrations/project/0028-deliverable-files.sql"
+        ))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
     resize_schema
         .execute_batch(include_str!("../migrations/project/0008-reactions.sql"))
