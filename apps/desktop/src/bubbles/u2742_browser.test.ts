@@ -351,6 +351,7 @@ it.each(["rail", "ask"])("u4011_new_workstream_selection_preserves_newer_focus_%
         await browser("press", "Escape");
         await wait(`!document.querySelector('.ask-bar')`);
       }
+
       await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
       await browser("press", "Meta+t");
       await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
