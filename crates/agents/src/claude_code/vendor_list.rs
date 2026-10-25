@@ -14,6 +14,8 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 use tokio::time::Instant;
 
+use contracts::project::ImportExclusionCause;
+
 use super::discovery::{ImportExclusion, io_error, source_revision};
 use super::{Launcher, is_uuid};
 use crate::worktree::canonical_path;
@@ -547,6 +549,7 @@ impl Launcher {
                 listing.candidates.retain(|c| c.source != source);
                 listing.excluded.push(ImportExclusion {
                     source,
+                    cause: ImportExclusionCause::SdkUnreadable,
                     reason: "the SDK cannot read this session".into(),
                     modified_ms: None,
                 });
@@ -580,9 +583,10 @@ fn assemble(
         if !seen.insert(source.clone()) || !is_uuid(&source) {
             continue;
         }
-        let exclude = |out: &mut Listing, reason: &str| {
+        let exclude = |out: &mut Listing, cause: ImportExclusionCause, reason: &str| {
             out.excluded.push(ImportExclusion {
                 source: source.clone(),
+                cause,
                 reason: reason.into(),
                 modified_ms: Some(row.last_modified),
             });
@@ -593,12 +597,20 @@ fn assemble(
             [] => {
                 // A session the SDK read from elsewhere than local files cannot be retained.
                 if scoped {
-                    exclude(&mut out, "saved records not found");
+                    exclude(
+                        &mut out,
+                        ImportExclusionCause::RecordsMissing,
+                        "saved records not found",
+                    );
                 }
                 continue;
             }
             _ => {
-                exclude(&mut out, "duplicate source identity");
+                exclude(
+                    &mut out,
+                    ImportExclusionCause::DuplicateSource,
+                    "duplicate source identity",
+                );
                 continue;
             }
         };
@@ -648,16 +660,28 @@ fn assemble(
         }
         let Some(relative) = relative else {
             if internal {
-                exclude(&mut out, "inside roundup's own folder");
+                exclude(
+                    &mut out,
+                    ImportExclusionCause::InsideRoundup,
+                    "inside roundup's own folder",
+                );
             }
             continue;
         };
         if sidechain {
-            exclude(&mut out, "subagent record");
+            exclude(
+                &mut out,
+                ImportExclusionCause::SubagentRecord,
+                "subagent record",
+            );
             continue;
         }
         if foreign_identity {
-            exclude(&mut out, "identity does not match source");
+            exclude(
+                &mut out,
+                ImportExclusionCause::ForeignIdentity,
+                "identity does not match source",
+            );
             continue;
         }
         if !scoped {
@@ -681,6 +705,7 @@ fn assemble(
     for (source, _) in live {
         out.excluded.push(ImportExclusion {
             source,
+            cause: ImportExclusionCause::LiveWithoutRecords,
             reason: "live session has no saved records yet".into(),
             modified_ms: None,
         });
