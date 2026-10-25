@@ -89,7 +89,6 @@
 {"file":"apps/desktop/src/bubbles/u511a_rename.test.tsx","test":"u511a_escape_then_blur_keeps_the_previous_name","identity":"d0c07d5f56f46a324529a4cbf7b92a26fbe7cb4288cf30406546c39e3164e102"}
 {"file":"apps/desktop/src/bubbles/u511a_rename.test.tsx","test":"u2773c_bubbles_external_change_keeps_original","identity":"3c07699129adb38f6edbf31eab475f94643c2e28103ee02fb008c839aba9e1e0"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_control_shows_the_branch_and_its_state","identity":"bbef3bc5f77e9315a9edd16914a78beadc34eca257946acca5fb0218ad9f9f56"}
-{"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_no_worktree_shows_no_control","identity":"cc9856567460203ab81063b0b155592f34825c207a7d6ce92453258a17614e9f"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_tree_lists_each_file_with_its_status","identity":"682c7fc1802f239ab90a4eb78258a8683918785ee79382e9dcd6aeb1b9c84fca"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_tree_lists_each_file_with_its_status","identity":"3dfee3be87b722ef299a8bc93a54a20a3ddfb4338e6197c90c7b432785bdddb3"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_tree_lists_each_file_with_its_status","identity":"aeeb3f0d788e0e881a0904bfccf67e88419591e4680bfca47fccd1f7cb43d515"}
@@ -98,11 +97,6 @@
 {"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_failed_open_shows_one_failure_line","identity":"f312a1999c0d803f768123957fbcee5f81d89df5da030be2dbb8b00652764e5f"}
 {"file":"apps/desktop/src/changes/u2540_rendered.test.ts","test":"u2540b_pointer_and_keyboard_select_lines","identity":"69e854e870334db5e35df322d421acdaf75a35b94b88982968c0afba0bc6b835"}
 {"file":"apps/desktop/src/changes/u2540_rendered.test.ts","test":"u2540b_pointer_and_keyboard_select_lines","identity":"20b43105b1d1244daeefd4db50e07de69cfb4483b8cc3281e1f8611e03fb8f85"}
-{"file":"apps/desktop/src/changes/u2540a_reader.test.tsx","test":"u2540a_late_content_cannot_cross_agents","identity":"01ca71b014f1efedcfdf96b426aceae262d6b12652f6619a078bbd5c8c888b44"}
-{"file":"apps/desktop/src/changes/u2540a_reader.test.tsx","test":"u2540a_late_content_cannot_cross_agents","identity":"54f346c6c155519e8193dacf3d50b69a950fdc82b72a6fa64424c6a00e7537ec"}
-{"file":"apps/desktop/src/changes/u2540a_reader.test.tsx","test":"u2540a_nontext_empty_and_failed_reads_remain_navigable","identity":"41fe8c32cdf64210299892f7fbdb04d09beb63e371d2819deee8385a5da735d0"}
-{"file":"apps/desktop/src/changes/u2540a_reader.test.tsx","test":"u2540a_nontext_empty_and_failed_reads_remain_navigable","identity":"2de5dfe329e7419ba82a85b985fa0787527eed3b2db4861a672db2f941d8095b"}
-{"file":"apps/desktop/src/changes/u2540a_reader.test.tsx","test":"u2540a_nontext_empty_and_failed_reads_remain_navigable","identity":"22ba26035e8930372bcdeca29e261d9a7a089031c76e1a494e2f6bd9a3896e5f"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_save_cancel_and_invalid_ranges","identity":"e4e1ad3ecf400f63d5a4b628b46fdc5b5798f6f17fb8f27bb7cded62c6941568"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_save_cancel_and_invalid_ranges","identity":"33b881f39ab2bf18d96a003543db4a064e1a6803d8d48562f953bb2552875b69"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"7a21a0b5c840c76fe2dca79348cdf1c585f8fbef94d091d97040c78a97cbfcd3"}
@@ -120,9 +114,6 @@
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2540c_rejection_and_unknown_acceptance_preserve_notes","identity":"72f4cc0cfb09ba9ea28a0b14ba20ad4d7997f5e6f57b4bab7c665aca05abe6e1"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2540c_rejection_and_unknown_acceptance_preserve_notes","identity":"0529015c1638e49cf4d48275a2558b55f68215aed0a0b6a2faeb02df0e6e36ad"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_pending_reload_reconciles_without_resending","identity":"32f3b7b94871c72c99da6105f14654170da873e75ef1c595f7b8285fdf14ff68"}
-{"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_late_failure_stays_with_original_project","identity":"955726be47ffa84bfb79a0f1a6962d976e78e32babc2551e31d071a8614965f0"}
-{"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_late_failure_stays_with_original_project","identity":"07f124357f47d2ff27106e6b6d5d3562102395cab9900286f4663e7b57903f7c"}
-{"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_late_failure_stays_with_original_project","identity":"3cc0287e2855950b301000b5520bf0b4c1c240454e1d0376bbccc30568dc16c9"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"d143057537b3410d11aa7963c9625dd390678457ca52e3fab3bb8c2b59e070af"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"d964b11f75587cfa84c95056fe4e301b86060a4c43734ae4aa849035487f4d4a"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"fc81f1d7d5f5ba0a76436a679647b9c15eca5534ccec494102357ccb40b61aeb"}
@@ -719,8 +710,6 @@
 {"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3728_changes_wait_behind_one_line","identity":"d8a140fe5fdc2c0ab0ef88b092588b4d6051b719056858717068505760c34190"}
 {"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3365_an_estimate_only_change_renders_one_line_%j","identity":"cfc0554e3ab8eb0b3e2ec2402afd413007afb904db10df7e99a5f5768610b4a1"}
 {"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3365_an_estimate_change_keeps_the_other_fields_lines","identity":"3c89630a7011f6c7865ea9132dd59da9871ee88c54e2e5c4a2dc6a512511291b"}
-{"file":"apps/desktop/src/ui/u3295_callers.test.tsx","test":"u3295b_modal_dismissal_keeps_unsubmitted_work: %s","identity":"3112b1cdd680aee2326dacd4a69c26dc28b245e1b5d93f093cbf6700537ab9d2"}
-{"file":"apps/desktop/src/ui/u3295_callers.test.tsx","test":"u3295b_modal_dismissal_keeps_unsubmitted_work: %s","identity":"d4039af2b27cb0c96a0c135aa6ab620303c28cda0a568ba2fbdfb83637ef46a3"}
 {"file":"apps/desktop/src/ui/u3295_callers.test.tsx","test":"u3295b_dialog_owned_controls_still_work: Start-after Todo picker","identity":"7eba41e0a8c69bdc3dddb677159a62d9574cf7cbfc627eded78aabbecf34b53f"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"ba592a6ef196511f10abc240904ce4b47c3188c507a4c352d7b633cdb963147e"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"72e1d99f1487dc646db43a9b1f157a362678a8eed8baed9e5853130e19632cbb"}

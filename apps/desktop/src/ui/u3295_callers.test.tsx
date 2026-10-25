@@ -90,9 +90,9 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   const change = modal();
 
   await change(true);
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull());
   await change(false);
-  expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull();
 
   if (kind === "worktree") {
     fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
