@@ -94,6 +94,29 @@ class Orders(unittest.TestCase):
                 issues = orders.list_issues()
             self.assertEqual(sorted(i['number'] for i in issues), [1, 3])
 
+    def test_l34a_a_warm_open_list_recovers_the_full_queue(self):
+        reopened = issue(1, 'U84')
+        closed = issue(2, 'U83', state='closed', state_reason='completed')
+        full = [reopened, closed, issue(3, 'U83')]
+        graphql = [dict(number=item['number'], url=item['html_url'], title=item['title'], body=item['body'],
+                        state=item['state'].upper(), stateReason=item.get('state_reason'), labels=item['labels'],
+                        updatedAt=item['updated_at'], author=item['user']) for item in full]
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            with self.subTest(trigger=trigger), tempfile.TemporaryDirectory() as directory, \
+                 patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                cache = orders.Path(directory) / 'closed.json'
+                cache.write_text(json.dumps(dict(read=1000, closed={
+                    '1': dict(reopened, state='closed'), '9': issue(9, 'U85', state='closed')})))
+                with patch.object(orders, 'gh', side_effect=[trigger, [[]], graphql]), redirect_stderr(io.StringIO()):
+                    recovered = orders.list_issues()
+                self.assertEqual(sorted(item['number'] for item in recovered), [1, 2, 3])
+                rows = orders.classify(recovered, {}, [])
+                self.assertEqual(rows, orders.classify(full, {}, []))
+                self.assertEqual([(row['issue'], row['state']) for row in rows],
+                                 [(1, 'ready'), (2, 'done'), (3, 'blocked')])
+                self.assertIn('duplicate work Key', rows[2]['reason'])
+                self.assertEqual(json.loads(cache.read_text())['closed'], {'2': closed})
+
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)
         self.assertEqual(result.returncode, 2)
@@ -159,9 +182,6 @@ class Orders(unittest.TestCase):
             orders.task(1)
         self.assertIn('Close this specification Issue', output.getvalue())
         self.assertNotIn('specification-only PR does not close', output.getvalue())
-
-    def test_l34_ready_issue_does_not_consult_test_names_or_work_tables(self):
-        self.assertEqual(orders.classify([issue()], {}, [])[0]['state'], 'ready')
 
     def test_l34_every_open_issue_the_user_or_a_loop_app_filed_is_work(self):
         for login in ('saadshahd', 'claude[bot]', 'github-actions[bot]'):
