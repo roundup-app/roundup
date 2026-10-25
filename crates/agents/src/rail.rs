@@ -91,14 +91,12 @@ impl Rail {
         terminal_id: Option<&str>,
         work: Option<&Order>,
     ) -> Result<RailNode, RpcError> {
-        let work = match (work, kind) {
-            (Some(order), _) => Some(order.clone()),
-            (None, NodeKind::Workstream) => Some(workstream_order()),
-            (None, NodeKind::Agent) => None,
-        }
-        .map(|order| serde_json::to_string(&order))
-        .transpose()
-        .map_err(RpcError::internal)?;
+        // NULL already materializes O3's Workstream default in the loader. Persisting
+        // that implicit Order adds 40 allocations per forty-node read (R3696c).
+        let work = work
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(RpcError::internal)?;
         let tx = self.db.transaction().map_err(sql)?;
         let nodes = load(&tx)?;
         check_parent(&nodes, kind, parent)?;
