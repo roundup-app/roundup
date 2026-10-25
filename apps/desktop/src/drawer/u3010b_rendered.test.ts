@@ -141,6 +141,7 @@ it("z3742c_cancelling_the_current_exit_releases_its_content", { retry: 0 }, asyn
   await mountDrawer();
   await browser("click", "#drawer-trigger");
   await waitForDrawer();
+
   const result = await evaluate(`(async () => {
     const o = window.__drawerObserver;
     o.drawer.close();
