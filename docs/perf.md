@@ -565,3 +565,251 @@ in the Mac's RSS rise. The saving is heap allocation on Linux, not a measured
 Mac RSS saving. No baseline changes or full R3696c pass are claimed. Startup,
 Rail, same-M4-Max observations, unchanged-code false-fail evidence and the
 separate later main pass remain outstanding.
+
+
+### Finish counts in the Rail read (#3696)
+
+The ordinary forty-Workstream reply still read `nodes` twice: once for the
+nodes and once for their finish counts, constructing an id-keyed map for the
+second read. PR #3864 selects `finished` with the node and carries it through
+the existing traversal. Presentation visits only reachable nodes, in the same
+order as before; no result is cached. The public Rail and RPC replies stay the
+same. The callback is internal to the existing Rail module.
+
+The existing no-process allocation observer,
+`r3696c_forty_workstreams_avoid_temporary_node_copies`, measures 290 allocations /
+176,266 bytes on `a1d2169e3` and 245 allocations / 172,230 bytes after this
+repair. Its cap is tightened from 400 to 260: it fails on the original path
+and passes on the repair. This file holds only that observer, so no redundant
+test is removed. Existing Rail ordering and
+`u3566c_finish_count_survives_attempts_and_reopen` cover the returned facts.
+
+Release probe: Linux x86_64, AMD EPYC 9V74, four available CPUs, rustc 1.99.0.
+Use the allocation observer's fixture and instrumented system allocator, then
+replace its measured call/assertion with seven batches of 10,000 awaited
+`Module::call_reply("rail.tree", null)` calls, black-boxing every reply and
+reporting elapsed time per call. Build both revisions before measuring. With
+builds and tests stopped, three alternating before/after invocations gave
+these median batch means (microseconds per reply):
+
+| Pair | Separate finish map | Combined read |
+|---|---:|---:|
+| 1 | 77.023 | 67.238 |
+| 2 | 78.204 | 67.546 |
+| 3 | 76.847 | 67.110 |
+
+One-minute load at invocation start ranged from 3.77 to 5.57 (0.94–1.39 per CPU).
+This is about 13% less local reply work, including live presentation and JSON
+serialization under the allocation observer. It excludes the Daemon's socket
+transport and is not the end-to-end Mac metric or evidence of idle RSS savings.
+Budgets are unchanged. The latest nine-pair M4 Max A/B at `59cff55cae` remains
+the failing acceptance evidence; remaining startup/RSS attribution, full
+same-M4-Max gate, unchanged-code false-fail evidence and the separate later
+main pass remain open. This repair justifies no baseline rebase.
+
+### Rail sort scratch space (#3696)
+
+The stable sort in `Rail::tree_with` allocates scratch space for the loaded
+`RailNode` values. A6 requires sibling orders to be unique; ties between
+nodes with different parents do not affect parent-first traversal. Rust's
+standard `sort_unstable_by_key` therefore preserves the reply order without
+that scratch allocation. No traversal, cache or sorting implementation is
+added.
+
+On Linux x86_64 (AMD EPYC 9V45, four available CPUs, rustc 1.99.0), the existing
+`r3696c_forty_workstreams_avoid_temporary_node_copies` observer measures 245
+allocations / 172,230 allocated bytes on `f32419986`, and 244 / 132,294 after
+this repair: 39,936 fewer temporary bytes per reply. Its new 150,000-byte cap
+fails on the original path and passes on the repair. The existing
+260-allocation cap remains because it catches the separate finish-map
+regression. No test in this file repeats either proof or is removed. Existing
+A6 Rail tests cover ordering and moves.
+
+Release probe: replace the allocation observer's measured call/assertions with
+seven batches of 10,000 awaited `Module::call_reply("rail.tree", null)` calls,
+black-boxing each reply and retaining the instrumented allocator. Build both
+revisions before measuring. Three alternating before/after invocations with
+builds and tests stopped produced median batch means (microseconds per reply):
+
+| Pair | Stable sort | In-place sort |
+|---|---:|---:|
+| 1 | 51.856 | 51.729 |
+| 2 | 51.524 | 51.555 |
+| 3 | 51.700 | 51.744 |
+
+One-minute load at invocation start ranged from 3.80 to 4.81 on four CPUs.
+These timings show no material speed change; the measured saving is allocation.
+They include presentation/JSON and exclude socket transport.
+
+This is temporary request allocation, not idle RSS attribution or a Mac timing
+pass. Budgets remain unchanged. Full same-M4-Max acceptance, remaining
+startup/RSS attribution, unchanged-code false-fail evidence and the separate
+later main pass remain open; this repair justifies no baseline rebase.
+
+### Deferred Terminal-owner worker (#3696)
+
+Opening `Agents` created a `Terminal owner reads` thread even when no Terminal
+ownership lookup followed. `Rail::terminal_owner` now initializes that same
+helper on its first lookup, using standard `Option::get_or_insert_with` under
+its existing exclusive borrow. The helper's bounded channel, read lease,
+query and active deadline remain unchanged. Its channel's `recv_timeout`
+replaces the lease sleep, allowing disconnection to release it at shutdown.
+The retired sleep's exact lint-debt entry is removed, with no new exception. Its database path is retained
+as a `PathBuf`, including for non-UTF-8 paths.
+
+The Linux kernel observer
+`r3696c_opening_agents_starts_no_owner_worker` counts `/proc/self/task`
+entries around the public `Agents::open_with` call. On `e65989178`, startup
+increased the count from two threads to three and failed; after the repair
+the count stays unchanged and passes. It runs in a separate integration-test
+binary without a Tokio runtime, child program or clock, so other test workers
+do not contaminate the count. Existing Terminal-owner tests cover lookup
+freshness and serialization with the helper active. No existing test was
+removed: the new file contains only this startup observer.
+
+This removes one thread creation from unused Project startup and idle life;
+it does not measure milliseconds saved or resident stack pages. It is not
+attribution of the entire Mac startup/RSS gap. No listing-sidecar change or
+baseline rebase is involved. Budgets remain unchanged. The latest nine-pair
+Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
+acceptance, remaining attribution, unchanged-code false-fail evidence and the
+separate later main pass remain open.
+
+### R24 idle App observer
+
+`perf-idle` implements the six-phase release observer; its Linux tests establish
+parsing and comparison only. **No native idle measurement or calibration is
+recorded here.** Existing budgets and ADR 0001's WKWebView remain unchanged.
+#3777 delivered release-profile acceptance; its implementation #3807 must merge
+before a real calibration. Apply #3792's host-split policy when it lands.
+
+```text
+Linux: recorded samples → protocol/membership/accounting/limits/report tests
+Mac:   isolated release App → ten: focused → unfocused → hidden
+                              one: focused → unfocused → hidden
+       → Activity Monitor cross-check → cursor attribution → calibration
+```
+
+An authorized local agent checks out the implementation commit named in the
+separate measurement work order, installs the frozen dependencies, and verifies
+#3807 is on that checkout. Stop other builds/tests for the observation. Never use
+personal App data, a real vendor executable, sudo, App Nap overrides or the
+keystroke/frame workload. `ROUNDUP_ALLOW_WINDOW` must be exactly `1`; both the
+recipe and direct executable refuse missing authorization before building,
+launching or changing focus, and refuse a non-macOS host even with opt-in.
+Linux/CI agents never set it.
+
+Before the round, create `target/perf-idle-host.json` with this schema, replacing
+all descriptions with actual host facts (this example is **not evidence**):
+
+```json
+{
+  "display_power": "display model, resolution, scale and Hz; AC/battery; Low Power Mode; keep fixed for all six phases",
+  "release": "source profile settings, toolchain and build configuration after #3807; same binaries for both counts",
+  "accounting_verified": "macOS version; verify local top -c d IDLEW interval counts and one-core %CPU; verify footprint -f bytes auxiliary phys_footprint ledger; retain commands/output and tool versions",
+  "cursor_enabled": true
+}
+```
+
+Verify the host's local `man top` and `man footprint` against those commands and
+retain that verification beside the report. The observer refuses unknown formats,
+missing metrics and denied commands; never interpret them as zero. Platform
+`top` uses `-c d` for interval event counts and one-core CPU; the initial block
+has invalid since-launch accounting and is discarded. `-F -R` avoids framework
+and memory-map traversal during CPU sampling. All included PIDs are selected by
+repeated `-pid PID`; each block must contain all of them. Receipt timestamps
+supply elapsed intervals, including nonuniform ones; gaps above 2.5 s invalidate
+the phase. At least 60 s of subsequent intervals is required. Only after top is
+stopped does `footprint -p PID -f bytes` acquire each per-process auxiliary
+`phys_footprint` ledger. Its `phys_footprint_peak`, RSS and derived totals are not
+accepted. Formatted K/M/G values use binary units; reports use decimal MB.
+
+Exact release commands (the recipe runs these after its guards):
+
+```sh
+pnpm install --frozen-lockfile
+VITE_ROUNDUP_IDLE_PERF=1 pnpm --filter desktop exec vite build --outDir "$PWD/target/perf-idle-dist" --emptyOutDir
+TAURI_CONFIG="$(jq -nc --arg dist "$PWD/target/perf-idle-dist" '{build: {frontendDist: $dist}}')" \
+  cargo build --release -p rupd -p rup -p desktop \
+    --features desktop/custom-protocol,desktop/idle-perf --target-dir target/perf-idle-app
+cargo build --release -p perf --bin perf-idle
+ROUNDUP_ALLOW_WINDOW=1 just perf-idle --host target/perf-idle-host.json
+# Or reuse that exact build without rebuilding:
+ROUNDUP_ALLOW_WINDOW=1 target/release/perf-idle --host target/perf-idle-host.json
+```
+
+The commands above are a **needs-mac handoff**, never instructions for a Linux
+Builder. Allow roughly ten minutes plus state changes. Each console prompt names
+the Agent count and requested state. Focus the selected Terminal with its normal
+blinking cursor; for unfocused, focus another window while leaving roundup fully
+visible; for hidden, use native App hide. Do not type into the workload. The
+observer waits for actual native/webview evidence, then settles at least five
+seconds and samples. It retains transitions, output and non-idle Status as errors.
+After ten Agents it removes nine, retaining the same selected Agent/Terminal.
+Renderer, CSS/physical dimensions, scale, executable hashes and declared
+configuration must agree. Hidden `document.visibilityState` is recorded as
+observed: an AppKit hide receipt does not imply a hidden webview document.
+After the final sample, unhide, wait five seconds and quit only this run's App
+normally within the prompted deadline; the final renderer checkpoint must drain
+before exit. A kill, timeout, partial journal or missing checkpoint is exit 2.
+
+Process discovery uses installed sysinfo inventories/start identities and a
+read-only libSystem responsibility query through Python's standard `ctypes`.
+The [same platform lookup is used by Chromium](https://chromium.googlesource.com/chromium/src/+/refs/tags/134.0.6998.28/base/process/process_info_mac.mm).
+It admits roundup, its owned rupd and every associated WebKit WebContent/GPU/
+Networking helper once, including XPC helpers parented by launchd. Vendor/shell
+children and unrelated helpers are excluded. Shared responsible ancestors cannot
+prove ownership: when a direct executable launch inherits a terminal's
+responsibility and a reparented helper has that same ancestor, collection refuses
+with unresolved ownership rather than counting another App's helpers. A missing
+platform symbol also refuses. Retain that failed round; repair an unsupported
+host association in a scoped observer Issue rather than using sudo or guessing.
+Absent helper roles have explicit inventory evidence; PID loss/reuse or changed
+membership invalidates the observation. Each top block also checks the complete
+WebKit start-identity inventory, so a helper born during sampling cannot be hidden
+by the fixed PID selection; any change, including an unrelated helper, conservatively
+invalidates the phase and retains the inventory.
+
+Recipe build failures retain command traces, stdout/stderr, actual build status
+and an exit-2 report under `target/perf-idle-build.XXXXXX/`.
+Each attempt needs a fresh destination, for example
+`--out target/perf-idle-round-2.json`. Never delete or overwrite a failed round.
+The default report is `target/perf-idle.json`; its exclusive sibling directory
+`target/perf-idle.evidence/` holds:
+
+| Raw evidence | Meaning |
+|---|---|
+| `host.json`, `command-NNNN.{json,stdout,stderr}` | Declared settings; exact command/args, monotonic acquisition start/end, actual status or spawn/deadline error, unmodified output |
+| `app-idle.jsonl`, App/Daemon stdout/stderr, `lifecycle.json` | #3862's sequenced native/application/webview records, completion checkpoint and run-owned cleanup outcome |
+| `fake-launches.jsonl`, `setup-COUNT-TERMINAL.json` | Fake launch evidence and pre-sample Terminal setup output (including blinking-block cursor sequence) |
+| `inventory-N.json` | Complete process inventory, starts and responsibility results; excluded PIDs retained |
+| `COUNT-STATE-top.{json,jsonl,events.jsonl,stderr}` | Exact delta-mode argv/status, each raw line with observer receipt time, sequenced Daemon events and stderr |
+| `COUNT-STATE-timing.json`, `COUNT-STATE.json`, output reads | Stable interval bounds, measured phase and output cursors; footprint commands have per-PID acquisition bounds |
+
+Observer time is monotonic seconds from before App launch. Producer `at_us` and
+renderer `at_ms` have separate origins; the first App receipt bounds the native
+origin and renderer time is bounded by launch and receipt. Any invalid event whose
+possible time overlaps the stable interval invalidates it, even if delivered
+only after unhide. No convenient endpoint can erase a transient change.
+
+Stdout and the JSON report retain all six phase slots, values, raw paths, limits,
+source commit, executable SHA256 hashes, release/host/tool facts and every failure.
+Incomplete or invalid observations take exit 2 precedence over numeric misses,
+which remain listed. Valid unfocused/hidden phases require tree CPU strictly below
+0.5% of one core and each PID at most one idle wake-up/s. Focused figures have no
+invented numeric ceiling. Paired states report ten/one ledger bytes and
+`(ten - one) / 9`, including negative results. Provisional memory aims are strictly
+below 300,000,000 ten-Agent bytes and 10,000,000 extra bytes per Agent in every
+state; a valid miss exits 1 and never rewrites a budget. Numeric success exits 0
+with native validation/calibration explicitly pending.
+
+[Mac measurement #3939](https://github.com/roundup-app/roundup/issues/3939)
+requires the same-run, same-PID Activity Monitor
+Memory and Energy cross-check with units, refresh intervals and timestamps;
+explain rounding/timing differences, and leave unexplained disagreement incomplete.
+Energy Impact is neither CPU percentage nor wake-up count. Use Web Inspector
+Timelines or Instruments with cursor enabled/disabled to attribute focused wakes.
+Retain all six release reports and repeats, then confirm or reset the initial
+memory aims here with justification. File measured repairs in their owning
+modules with same-observer/same-Mac before/after evidence; #3802 consumes these
+measurements and this observer selects no allocator.

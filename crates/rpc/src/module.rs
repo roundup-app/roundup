@@ -107,12 +107,13 @@ impl Bus {
         };
         let (oldest, highest) = log.bounds()?;
         if after + 1 < oldest {
-            return Err(RpcError::new(
-                crate::error::code::EVENTS_EXPIRED,
-                format!(
+            return Err(RpcError {
+                code: crate::error::code::EVENTS_EXPIRED,
+                data: Some(contracts::RpcErrorData::EventsExpired { oldest }),
+                message: format!(
                     "after {after} is older than the log keeps; the oldest kept Event number is {oldest}"
                 ),
-            ));
+            });
         }
         let mut events = Vec::new();
         let mut last = after;
@@ -144,13 +145,14 @@ impl Bus {
                     ));
                 }
                 Some(after) if after + 1 < oldest => {
-                    return Err(RpcError::new(
-                        crate::error::code::EVENTS_EXPIRED,
-                        format!(
+                    return Err(RpcError {
+                        code: crate::error::code::EVENTS_EXPIRED,
+                        data: Some(contracts::RpcErrorData::EventsExpired { oldest }),
+                        message: format!(
                             "after {after} is older than the log keeps; the oldest kept Event number is {oldest}: start without `--after`, or pass `--after {}`",
                             oldest - 1
                         ),
-                    ));
+                    });
                 }
                 Some(after) => after,
                 None => highest,

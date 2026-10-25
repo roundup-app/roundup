@@ -26,6 +26,7 @@ const emptyReads: Handlers = {
   "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),
   "terminal.scheme": () => null,
   "todo.list": () => [],
+  "todo.deletion": () => null,
   "todo.listHanded": () => [],
   "message.list": () => [],
   "pad.list": () => [],
@@ -63,7 +64,7 @@ export type FakeApp = AppSeam & {
   emitOutput(id: string, text: string): number;
   /** The live subscription of `id` was not given `from..to`; the stream resumes at `to`. */
   emitGap(id: string, from: number, to: number): void;
-  /** Ends the Daemon of `path`, the open Project's by default; the webview hears `daemon-exited` with its path. */
+  /** Delivers the native owner's recovery state for `path` (the first Project by default). An omitted `recovery` represents exhausted retries, not the initial unexpected exit. */
   exitDaemon(exit: DaemonExit, path?: string): void;
   /** Every path `close_project` was called for, in order. */
   closed: string[];
@@ -202,7 +203,8 @@ export const createFakeApp = (): FakeApp => {
     exitDaemon: (exit, path) => {
       const named = path ?? open[0]?.path ?? "";
 
-      exited.add(named);
+      if (exit.recovery === "connecting") exited.delete(named);
+      else exited.add(named);
 
       for (const listener of exitListeners) listener({ path: named, ...exit });
     },
