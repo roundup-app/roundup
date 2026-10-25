@@ -4,7 +4,7 @@ use perf::webview::{checked, judge_runs, perf_line};
 use serde_json::json;
 
 fn hops() -> serde_json::Value {
-    let hop = json!({ "n": 1000, "p50": 1.0, "p95": 2.0 });
+    let hop = json!({ "n": 1000, "p50": 0.0, "p95": 0.0 });
     let mut all = serde_json::Map::new();
     for name in perf::webview::HOPS {
         all.insert(name.into(), hop.clone());
@@ -73,7 +73,7 @@ fn r21_invalid_observation_never_has_a_latency_verdict() {
         json!({"error": "missing PERF line"}),
         report(25.1, 0),
         json!({"p95": 1}),
-        json!({"frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1, "hops": hops()}),
+        json!({"n": 1000, "frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1, "hops": hops()}),
     ] {
         let (exit, failures) = judge_runs(&[report(16.7, 0), invalid], 16.0);
         assert_eq!(exit, 2);
@@ -153,7 +153,14 @@ fn r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict() {
 
 #[test]
 fn r20_missing_measured_keys_cannot_be_silently_skipped() {
-    for invalid_n in [json!(null), json!(-1), json!(0), json!(999), json!(1001), json!(999.5)] {
+    for invalid_n in [
+        json!(null),
+        json!(-1),
+        json!(0),
+        json!(999),
+        json!(1001),
+        json!(999.5),
+    ] {
         let mut invalid_report = report(16.7, 0);
         invalid_report["n"] = invalid_n;
         let (exit, failures) = judge_runs(&[invalid_report], 16.0);
