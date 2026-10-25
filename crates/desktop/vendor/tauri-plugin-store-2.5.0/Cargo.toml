@@ -84,8 +84,8 @@ features = [
     "macros",
 ]
 
-[dependencies.tracing]
-version = "0.1"
+[dependencies.tempfile]
+version = "3.27"
 
 [dev-dependencies.tauri]
 version = "2.12"
