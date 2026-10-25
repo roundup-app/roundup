@@ -4,7 +4,7 @@ mod config;
 mod daemon;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
-#[cfg(all(any(test, feature = "idle-perf"), target_os = "macos"))]
+#[cfg(all(any(test, feature = "idle-perf"), target_vendor = "apple"))]
 mod idle_macos;
 mod menu;
 mod open;
