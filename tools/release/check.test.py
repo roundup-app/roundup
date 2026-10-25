@@ -1,11 +1,18 @@
 """C9 artifact gates exercise the command CI calls, using sparse exact-byte fixtures."""
 import pathlib
-import subprocess
+import contextlib
+import importlib.util
+import io
+from types import SimpleNamespace
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
 
 CHECK = pathlib.Path(__file__).with_name("check.py")
+spec = importlib.util.spec_from_file_location("release_check", CHECK)
+checker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checker)
 
 
 class Release(unittest.TestCase):
@@ -14,8 +21,12 @@ class Release(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = pathlib.Path(self.temp.name)
 
-    def run_check(self, kind, path):
-        return subprocess.run([sys.executable, str(CHECK), kind, str(path)], capture_output=True, text=True)
+    def run_check(self, kind, path, *options):
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(sys, "argv", [str(CHECK), kind, str(path), *map(str, options)]), \
+                contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = checker.main()
+        return SimpleNamespace(returncode=code, stdout=stdout.getvalue(), stderr=stderr.getvalue())
 
     def file(self, name, size):
         path = self.root / name
@@ -101,9 +112,7 @@ class Release(unittest.TestCase):
                 import shutil
                 shutil.rmtree(self.root / "dist", ignore_errors=True)
                 report, inventory = self.modules(module, chunk)
-                result = subprocess.run([sys.executable, str(CHECK), "modules", str(report),
-                                         "--inventory", str(inventory), "--dist", str(self.root / "dist")],
-                                        capture_output=True, text=True)
+                result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
                 self.assertEqual(result.returncode, code, result.stderr)
                 if code:
                     self.assertIn(module, result.stdout)
@@ -119,9 +128,25 @@ class Release(unittest.TestCase):
                     report.unlink(missing_ok=True)
                 else:
                     report.write_text(json.dumps(invalid))
-                result = subprocess.run([sys.executable, str(CHECK), "modules", str(report),
-                                         "--inventory", str(inventory), "--dist", str(self.root / "dist")],
-                                        capture_output=True, text=True)
+                result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
+                self.assertEqual(result.returncode, 2, result.stdout)
+
+    def test_c9d_incomplete_metadata_is_an_observer_error(self):
+        import json
+        for missing in ["inventory", "part", "module", "chunk"]:
+            with self.subTest(missing=missing):
+                report, inventory = self.modules("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs")
+                data = json.loads(report.read_text())
+                if missing == "inventory":
+                    inventory.unlink()
+                elif missing == "part":
+                    data["nodeParts"].clear()
+                elif missing == "module":
+                    data["nodeMetas"].clear()
+                else:
+                    self.file("dist/assets/omitted.js", 1)
+                report.write_text(json.dumps(data))
+                result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
                 self.assertEqual(result.returncode, 2, result.stdout)
 
     @unittest.skipIf(__import__("os").geteuid() == 0, "root bypasses file permissions")

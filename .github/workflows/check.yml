@@ -265,6 +265,7 @@ jobs:
         if: matrix.partition == 1
         run: |
           pnpm --filter desktop build
+          python3 tools/release/check.py modules target/release-modules.json --inventory tools/release/inventory.json --dist apps/desktop/dist
           mkdir -p target/release-evidence
           git rev-parse HEAD > target/release-evidence/commit.txt
           python3 tools/release/check.py dist apps/desktop/dist | tee target/release-evidence/dist.json
