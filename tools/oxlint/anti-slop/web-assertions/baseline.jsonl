@@ -294,11 +294,7 @@
 {"file":"apps/desktop/src/header/u475_browser.test.ts","test":"u2773e_header_recovery_opens_after_selected_tab_grows","identity":"fd4a7419c23efa75796c26ddafcd44a1731af33671a37bf4e09ad3c23720e0e5"}
 {"file":"apps/desktop/src/header/u475_browser.test.ts","test":"p3557c_header_rendered_failure_before_and_after_clearing","identity":"8fa8e8f93d62b6e1301bec1eaa404eb8a279a757229204c34991ecd7f55a5e66"}
 {"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u2875d_rejected_call_keeps_period_and_selection (%s)","identity":"386a0ecb7cfb4445839dac4bd81fd74d9577e378f0bd4b42fd9895987c6b9b3f"}
-{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u2875a_discovery_exclusions_remain_visible_after_partial_failure","identity":"a01523394251e074e3a5352bf16c3a01fda44e612e76b4a2b16d65dd15816b7b"}
-{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u2875a_discovery_exclusions_remain_visible_after_partial_failure","identity":"382621bbb9bc2689f9e1b7ccf6c0f26054cbdbfb0a65f895b8301de438de8691"}
 {"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u3815_cancel_keeps_the_exact_current_choices (empty: %s)","identity":"1fe9355d072debdb0570f08bbc9c1d1bb6f0fbdb50f40f97a705ce83a2b44a3b"}
-{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u3083b_excluded_rows_absent_until_the_disclosure_opens","identity":"2a933b0cf66568b3fd7d05e87e0fb49946260ba592df452f511c1e2a7e9de403"}
-{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u3083b_excluded_rows_absent_until_the_disclosure_opens","identity":"9699d37759e2b42139d2252ce73d64eb7714557d02e238f8af66d288c1cd6e8b"}
 {"file":"apps/desktop/src/inbox/u3742_inbox.test.tsx","test":"u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened","identity":"3b9f347af3d1e8aadb676e0526346de8e6a98de765e5eef14682b31f189f2a89"}
 {"file":"apps/desktop/src/inbox/u3770_inbox.test.tsx","test":"u3770a_sections_hold_their_agents_in_order_with_counts","identity":"aa8f5fd2aba03b8b5925a2482291f988827477153a3549563e561e49097e8f8c"}
 {"file":"apps/desktop/src/inbox/u3770_inbox.test.tsx","test":"u3770a_sections_hold_their_agents_in_order_with_counts","identity":"721eb28348e17793f2ec8a4b73f412995f211676b01b78292e89ec4f6701f957"}
@@ -605,9 +601,6 @@
 {"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773a_rail_pending_clear_hides_without_discard_or_retry","identity":"e8b09a2674f52eaf05f1de847d2b053bf3edfb4bc8260ff648aa70c226610b7b"}
 {"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry","identity":"f1be4e11eda21a38c3910bd83b770ea84bd4046a25165bad53ea8dc40f22c8d5"}
 {"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry","identity":"fb7dd63f829339af0e2fa0450ff1ef07976c0b26ccdc82f195a91999db6e8cf1"}
-{"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_keyboard_pointer_and_recovery","identity":"a33ca8fa3ee0007929ab0ce90ef752e002817c8ac50c8dde94ecaf5f338d9652"}
-{"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_keyboard_pointer_and_recovery","identity":"773e8f10ed9e2d8a1389713509be57918b1d68fb26f80584cc045a94cd79be90"}
-{"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_keyboard_pointer_and_recovery","identity":"f2c166b28aafcfdb260b99eaca20279fe4639b0315caeaf65e84f29a1faff56a"}
 {"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_late_acknowledgement_preserves_newer_selection_across_project_close_and_reopen","identity":"3486c17e370cd9cb82320113f0657be9d97fe00cc90d3f07c17d31006feed0fc"}
 {"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_late_acknowledgement_preserves_newer_selection_across_project_close_and_reopen","identity":"f56f83bf6ef7c84e90fea82c928d89907645614dcc7431e2b76ca30ed85a912d"}
 {"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u2875d_retention_failure_warns_and_keeps_selection_across_navigation","identity":"310fb145491720a3873cbe3d6e9dd200b28fd1d40d4818a4921c29b0414c27a6"}
@@ -670,7 +663,6 @@
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"nr9_can_select_the_existing_supervisor_without_starting_it","identity":"ed4e4b613c51c2b9ad5b52ecf315723e4d9a09ded5d0ae4af4a71f1a3b94a682"}
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_list_%s","identity":"b2af25f38e4fec6e8f80051f791dc470542cf6dedb3071e2d249a2111e3a85ff"}
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_list_%s","identity":"593f1a5d5fdd43aa17cbc93a7a45cee66985ba3faa0aba407299044b58a59444"}
-{"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_action_identity_%s","identity":"7f6b05b54706e9ae5ce4aa713f4ab5e7b1b6ecc5996f75ff9c3964e39205aa2b"}
 {"file":"apps/desktop/src/resize/u389_resize.test.tsx","test":"u390 the Shelf's width is the user's > u390_closed_has_no_edge","identity":"4df631818835327746ed92ea0f55f2eb0596343903beb2b52622f8cc94f7b491"}
 {"file":"apps/desktop/src/resources/u408_strip.test.tsx","test":"u408 the Resource strip > u408_only_the_selected_agents_values_ignore_project_totals","identity":"0db214bdd291761c706aac16210f874a7afc15678ef2ac720d6b8ba5948614be"}
 {"file":"apps/desktop/src/resources/u408_strip.test.tsx","test":"u408 the Resource strip > u408_only_the_selected_agents_values_ignore_project_totals","identity":"844d89a8b33350fcffef87af76f2893dc0ca6289d5528e98cb0c42689fd87601"}
