@@ -79,7 +79,7 @@
   font: inherit;
   color: var(--text);
   background-color: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
   resize: none;
   max-height: var(--order-field-max-height);
@@ -132,7 +132,7 @@
 .overview-session > p { margin: 0 0 var(--space-2); }
 .overview-session > h2 { margin-bottom: 0; }
 .overview-id {
-  display: block; min-height: 24px; padding: 0; margin: 0 0 var(--space-2); border: 0; background: none; cursor: pointer;
+  display: block; min-height: var(--space-5); padding: 0; margin: 0 0 var(--space-2); border: 0; background: none; cursor: pointer;
   font: inherit; font-family: var(--font-mono); color: var(--grey); text-align: left; user-select: text;
 }
 .overview-card p { margin: 0; }
@@ -164,12 +164,12 @@
 .context-line { display: flex; justify-content: space-between; gap: var(--space-2); }
 .context-percent { color: var(--text); }
 .context-bar { display: flex; height: var(--space-2); background: var(--hairline); overflow: hidden; }
-.context-part { min-width: 2px; flex: none; transition: width var(--duration-drawer) var(--easing-out), opacity var(--duration-crossfade); }
+.context-part { min-width: var(--stroke-width); flex: none; transition: width var(--duration-drawer) var(--easing-out), opacity var(--duration-crossfade); }
 .context-part[data-kind="used"], .context-swatch[data-kind="used"] { background: var(--grey); }
 .context-part[data-kind="system"], .context-swatch[data-kind="system"] { background: var(--text); }
 .context-part[data-kind="tools"], .context-swatch[data-kind="tools"] { background: var(--accent); }
-.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: var(--accent); background-image: repeating-linear-gradient(45deg, var(--grey) 0 2px, transparent 2px 4px); }
-.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: var(--grey); background-image: repeating-linear-gradient(45deg, var(--text) 0 2px, transparent 2px 4px); }
+.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: var(--accent); background-image: repeating-linear-gradient(45deg, var(--grey) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1)); }
+.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: var(--grey); background-image: repeating-linear-gradient(45deg, var(--text) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1)); }
 .context-part[data-kind="other"], .context-swatch[data-kind="other"] { background: var(--hairline); }
 .context-part[data-dim], .context-list li[data-dim] { opacity: 0.4; }
 .order-overview .context-list { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; }
@@ -182,7 +182,7 @@
   .context-part, .context-list li { transition: none; }
 }
 
-.overview-id-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.overview-id-note { position: absolute; width: var(--hairline-width); height: var(--hairline-width); overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .progress-section {
   display: flex;
