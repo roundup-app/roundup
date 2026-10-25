@@ -117,7 +117,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 64] = [
+pub const NO_TOOL: [&str; 65] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -196,6 +196,8 @@ pub const NO_TOOL: [&str; 64] = [
     "show_context_menu",
     // U3813: native commands act on the user’s selected tab.
     "select_project_menu",
+    // R24: the measurement-only producer has no Agent tool or execution authority.
+    "record_idle_evidence",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
@@ -233,6 +235,10 @@ pub fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 pub fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
     let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    registered.extend(quoted_after(
+        "crates/desktop/src/idle.rs",
+        "generate_handler![",
+    ));
     for command in &mut registered {
         if let Some((_, name)) = command.rsplit_once("::") {
             *command = name.to_owned();
