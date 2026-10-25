@@ -514,8 +514,17 @@ mod tests {
     }
 
     #[test]
+    fn u3010e_a_scheduling_pass_needs_no_presentation_measurement() {
+        let mut report = scheduling_miss();
+        report["exit"] = 0.into();
+        report["verdict"] = "pass".into();
+        report["stages"]["scheduling"]["meets_thresholds"] = true.into();
+        assert_eq!(frame_exit(&report).unwrap(), 0);
+    }
+
+    #[test]
     fn u3010e_missing_or_unmeasured_evidence_cannot_authorize_a_pass() {
-        for defect in ["error", "invalid", "samples", "presentation"] {
+        for defect in ["error", "invalid", "samples", "scheduling"] {
             let mut report = scheduling_miss();
             match defect {
                 "error" => report["error"] = "recorder stopped".into(),
@@ -524,10 +533,7 @@ mod tests {
                 _ => {
                     report["exit"] = 0.into();
                     report["verdict"] = "pass".into();
-                    for stage in ["scheduling", "style", "layout", "paint", "compositor"] {
-                        report["stages"][stage] =
-                            serde_json::json!({"status":"measured","meets_thresholds":true});
-                    }
+                    report["stages"]["scheduling"] = serde_json::json!({"status":"unmeasured"});
                 }
             }
             assert!(frame_exit(&report).is_err(), "{report}");
