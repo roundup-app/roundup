@@ -889,5 +889,12 @@ The original RPC error of one imported source, with its `code`, diagnostic `mess
 **Import disposition** (`ImportDisposition`, `outcome`):
 Whether a per-source result proves refusal (`failed`) or leaves completion unconfirmed (`unknown`).
 
+**Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`):
+The opt-in R24 App producer's run-owned native and webview observation journal.
+Native notifications and document events are separate observed facts; requested window
+states are never observations. The measurement-only App command accepts typed renderer
+records, writes only the startup-selected bounded file, and grants no execution authority.
+It is absent without the `idle-perf` Cargo feature.
+
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.

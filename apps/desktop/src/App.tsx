@@ -178,6 +178,8 @@ export const App = (props: {
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
+  prepareIdle?: ((project: ConnectedProject) => void) | undefined;
+  observeTerminal?: ((project: string | null, id: string | null) => void) | undefined;
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
   /** App-run draft authority; embedding callers may supply the same holder to surface owners. */
@@ -338,6 +340,14 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  createEffect(() => {
+    if (!props.prepareIdle) return;
+
+    const open = activeConnection();
+
+    if (open && !(open instanceof Error)) props.prepareIdle(open);
+  });
+
   createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
@@ -444,7 +454,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
