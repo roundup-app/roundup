@@ -19,10 +19,10 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   fireEvent.click(screen.getByRole("button", { name: /#1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "1 done" }));
-  expect(screen.queryByText("1 selected")).toBeNull();
+  expect(screen.getByRole("button", { name: /#1 /, hidden: true }).getAttribute("aria-pressed")).toBe("false");
   fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
   connected.rail.select("scope-row");
-  await waitFor(() => expect(screen.queryByText("1 selected")).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: /#2 /, pressed: true })).toBeNull());
 });
 
 it("u458_tick_blocker_and_drag_keep_their_actions", async () => {
