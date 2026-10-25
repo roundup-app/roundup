@@ -1,4 +1,4 @@
-//! N20: current standalone stores still write and reopen; no historical fixtures.
+//! N20 standalone reopen and B3563e historical Project upgrade observers.
 use std::{path::Path, sync::Arc};
 
 use contracts::{Actor, ActorKind, Verb};
