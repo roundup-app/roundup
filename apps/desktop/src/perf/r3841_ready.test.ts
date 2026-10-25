@@ -70,7 +70,23 @@ it("r20_setup_failure_without_a_ready_target_reports_its_named_step", async () =
 
   expect(line.startsWith("PERF ")).toBe(true);
   expect(JSON.parse(line.slice(5))).toMatchObject({ error: "the new Workstream button did not appear within 10000 ms" });
+  expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null }]);
   expect(app.calls.filter(call => call.method === "rail.startDoor" || call.method === "terminal.measure")).toEqual([]);
+});
+
+it.each(["silent", "pending"])("r20_a_diagnostic_shell_without_readiness_stops_without_writing (%s)", async (output) => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+
+  app.handlers["terminal.open"] = () => info("diagnostic");
+  app.handlers["terminal.read"] = () => output === "pending"
+    ? new Promise<never>(() => {})
+    : { from: 0, next: 0, text: "", truncated: false };
+  const outcome = createKeystrokeRun(app).start().catch(error => error);
+
+  await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS * 2);
+  expect(await outcome).toMatchObject({ message: expect.stringContaining("diagnostic Terminal") });
+  expect(app.calls.filter(call => call.method === "terminal.write" || call.method === "terminal.measure")).toEqual([]);
 });
 
 it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_opening_shell (%s)", async (kind) => {
