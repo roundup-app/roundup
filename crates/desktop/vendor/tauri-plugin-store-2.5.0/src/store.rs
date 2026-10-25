@@ -7,6 +7,7 @@ use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
     fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
@@ -79,7 +80,7 @@ impl<R: Runtime> StoreBuilder<R> {
             defaults: None,
             serialize_fn,
             deserialize_fn,
-            auto_save: Some(Duration::from_millis(100)),
+            auto_save: None,
             create_new: false,
             override_defaults: false,
         }
@@ -230,10 +231,19 @@ impl<R: Runtime> StoreBuilder<R> {
         );
 
         if !self.create_new {
-            if self.override_defaults {
-                let _ = store_inner.load_ignore_defaults();
+            let result = if self.override_defaults {
+                store_inner.load_ignore_defaults()
             } else {
-                let _ = store_inner.load();
+                store_inner.load()
+            };
+            match result {
+                // Only absence means a new store. A broken symlink is an existing
+                // unreadable file, not permission to replace it with defaults.
+                Err(crate::Error::Storage { source, .. })
+                    if source.kind() == io::ErrorKind::NotFound
+                        && matches!(fs::symlink_metadata(&self.path), Err(e) if e.kind() == io::ErrorKind::NotFound) =>
+                    {}
+                other => other?,
             }
         }
 
@@ -304,30 +314,68 @@ impl<R: Runtime> StoreInner<R> {
 
     /// Saves the store to disk at the store's `path`.
     pub fn save(&self) -> crate::Result<()> {
-        fs::create_dir_all(self.path.parent().expect("invalid store path"))?;
-
         let bytes = (self.serialize_fn)(&self.cache).map_err(crate::Error::Serialize)?;
-        fs::write(&self.path, bytes)?;
-
+        let parent = self
+            .path
+            .parent()
+            .expect("resolved store path has a parent");
+        let storage_error = |operation, source| crate::Error::Storage {
+            operation,
+            path: self.path.clone(),
+            source,
+        };
+        fs::create_dir_all(parent).map_err(|e| storage_error("create directory for", e))?;
+        let mut pending = tempfile::NamedTempFile::new_in(parent)
+            .map_err(|e| storage_error("stage save of", e))?;
+        pending
+            .write_all(&bytes)
+            .map_err(|e| storage_error("write", e))?;
+        pending
+            .as_file()
+            .sync_all()
+            .map_err(|e| storage_error("sync", e))?;
+        pending
+            .persist(&self.path)
+            .map_err(|e| storage_error("commit", e.error))?;
+        // The replacement is already committed from here onward. A sync/readback
+        // failure refuses acknowledgement; retry must retain these valid records.
+        #[cfg(unix)]
+        fs::File::open(parent)
+            .and_then(|dir| dir.sync_all())
+            .map_err(|e| storage_error("sync directory for", e))?;
+        let committed = fs::read(&self.path).map_err(|e| storage_error("read back", e))?;
+        if committed != bytes {
+            return Err(storage_error(
+                "verify",
+                io::Error::other("committed bytes differ"),
+            ));
+        }
         Ok(())
     }
 
-    /// Update the store from the on-disk state
-    ///
-    /// Note: This method loads the data and merges it with the current store
+    fn read(&self) -> crate::Result<HashMap<String, JsonValue>> {
+        let bytes = fs::read(&self.path).map_err(|source| crate::Error::Storage {
+            operation: "load",
+            path: self.path.clone(),
+            source,
+        })?;
+        (self.deserialize_fn)(&bytes).map_err(|error| crate::Error::Storage {
+            operation: "load (deserialize)",
+            path: self.path.clone(),
+            source: io::Error::other(error),
+        })
+    }
+
+    /// Update the store from the on-disk state, retaining memory on read/parse failure.
     pub fn load(&mut self) -> crate::Result<()> {
-        let bytes = fs::read(&self.path)?;
-
-        self.cache
-            .extend((self.deserialize_fn)(&bytes).map_err(crate::Error::Deserialize)?);
-
+        let records = self.read()?;
+        self.cache.extend(records);
         Ok(())
     }
 
-    /// Load the store from the on-disk state, ignoring defaults
+    /// Load the store from the on-disk state, ignoring defaults.
     pub fn load_ignore_defaults(&mut self) -> crate::Result<()> {
-        let bytes = fs::read(&self.path)?;
-        self.cache = (self.deserialize_fn)(&bytes).map_err(crate::Error::Deserialize)?;
+        self.cache = self.read()?;
         Ok(())
     }
 

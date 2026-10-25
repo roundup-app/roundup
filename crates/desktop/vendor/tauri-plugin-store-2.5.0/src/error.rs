@@ -17,6 +17,14 @@ pub enum Error {
     /// The store contents could not be deserialized by the configured [`DeserializeFn`](crate::DeserializeFn).
     #[error("Failed to deserialize store. {0}")]
     Deserialize(Box<dyn std::error::Error + Send + Sync>),
+    /// Filesystem operation and cause, without record contents.
+    #[error("{operation} store {path}: {source}")]
+    Storage {
+        operation: &'static str,
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     /// JSON error.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
