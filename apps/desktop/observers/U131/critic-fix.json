@@ -533,5 +533,25 @@
         }
       }
     ]
+  },
+  "runtime_source": "e66f1e52b6510c8be607fd52915805b7a189bf70",
+  "validation": {
+    "numTotalTests": 4070,
+    "numPassedTests": 4011,
+    "numFailedTests": 2,
+    "numPendingTests": 57,
+    "full_run_timeouts": [
+      "n5_fixture_data_is_private_and_survives_restart",
+      "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard"
+    ],
+    "isolated_retry_zero": {
+      "n5_real_daemon": 3,
+      "u463_real_daemon": 6,
+      "u511a_rename": 44
+    },
+    "lint_web": "pass",
+    "lint_rust": "pass",
+    "tokens": "pass",
+    "merge_loss": "pass"
   }
 }

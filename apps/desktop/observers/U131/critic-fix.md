@@ -30,3 +30,13 @@ observer, with no appearance assertions added to unit tests.
 This repair changes no design-system acceptance. Optical baseline, extended
 press/state observers, strict lint, native material and remaining U130–U137
 work stay on #3824.
+
+## Validation
+
+Runtime source: `e66f1e52b6510c8be607fd52915805b7a189bf70`.
+Both required lints, Token ownership and merge-loss pass. The prescribed
+`just capture U130,U131,U132,U133,U134,U135,U136,U137` run reports 4,011 passed,
+57 skipped and two failed tests: N5's first fixture startup timed out at
+120 seconds; U463's first-run journey timed out at 180 seconds. These fixture
+files pass separately with retries disabled (3 and 6 tests). All 44 rename
+checks also pass in the full run. The broad run is not recorded as green.
