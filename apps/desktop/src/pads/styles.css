@@ -47,8 +47,8 @@
   resize: none;
 }
 
-.pad-rich-editor > div:not(.reserved-line),
-.pad-rich-editor .milkdown {
+.pad-rich-editor div:not(.reserved-line),
+.pad-rich-editor {
   min-height: 100%;
 }
 
@@ -82,7 +82,7 @@
   display: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar {
+.pad-rich-editor {
   background: var(--ground);
   border-bottom: var(--hairline-width) solid var(--hairline);
   padding: 0 var(--space-1);
@@ -90,43 +90,43 @@
 }
 
 /* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */
-.pad-rich-editor .milkdown .milkdown-top-bar,
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-inner {
+.pad-rich-editor .milkdown-top-bar,
+.pad-rich-editor .top-bar-inner {
   flex-wrap: nowrap;
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-selector {
+.pad-rich-editor .top-bar-heading-selector {
   padding: 0;
   margin: var(--space-1) 0;
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-button {
+.pad-rich-editor .top-bar-heading-button {
   height: var(--space-5);
   padding: 0 0 0 var(--space-1);
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item {
+.pad-rich-editor .top-bar-item {
   width: var(--space-5);
   height: var(--space-5);
   margin: var(--space-1) 0;
   padding: 0;
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item svg {
+.top-bar-item svg {
   width: var(--space-4);
   height: var(--space-4);
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-divider {
+.pad-rich-editor .top-bar-divider {
   height: var(--space-4);
   margin: 0 var(--space-1);
 }
 
-.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-label {
+.pad-rich-editor .top-bar-heading-label {
   display: none;
 }
 
-.pad-rich-editor .milkdown .ProseMirror {
+.pad-rich-editor {
   min-height: 100%;
   padding: var(--space-4);
   font-family: var(--font-ui);
@@ -134,19 +134,19 @@
   line-height: 1.55;
 }
 
-.pad-rich-editor .milkdown .ProseMirror h1 {
+.pad-rich-editor h1 {
   font-size: var(--text-pad-heading);
   font-weight: 600;
   line-height: 1.3;
 }
 
-.pad-rich-editor .milkdown .ProseMirror h2 {
+.pad-rich-editor h2 {
   font-size: var(--text-pad-subheading);
   font-weight: 600;
   line-height: 1.35;
 }
 
-.pad-rich-editor .milkdown .ProseMirror :is(h3, h4, h5, h6) {
+.pad-rich-editor :is(h3, h4, h5, h6) {
   font-size: var(--text-title);
   font-weight: 600;
   line-height: 1.35;
@@ -231,19 +231,19 @@
   --pad-block-radius: 0;
 }
 
-.pad-rich-editor .milkdown .ProseMirror {
+.pad-rich-editor {
   margin-left: var(--space-5);
   padding-left: var(--space-6);
 }
 
-.pad-rich-editor .milkdown .milkdown-block-handle {
+.milkdown-block-handle {
   gap: 0;
   transition: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item,
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item:hover,
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item.active {
+.operation-item,
+.operation-item:hover,
+.operation-item.active {
   width: var(--space-5);
   height: var(--space-5);
   padding: var(--space-1);
@@ -251,34 +251,34 @@
   background: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item svg {
+.operation-item svg {
   width: var(--space-4);
   height: var(--space-4);
 }
 
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item:hover svg,
-.pad-rich-editor .milkdown .milkdown-block-handle .operation-item.active svg {
+.operation-item:hover svg,
+.operation-item.active svg {
   fill: var(--text);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu {
+.milkdown-slash-menu {
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu li {
+.milkdown-slash-menu li {
   border-radius: var(--pad-block-radius);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group {
+.milkdown-slash-menu .tab-group {
   padding: var(--space-2);
   border-color: var(--hairline);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul {
+.milkdown-slash-menu .tab-group {
   padding: 0;
   gap: var(--space-2);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li {
+.tab-group li {
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-body);
   line-height: var(--line-menu);
@@ -286,23 +286,23 @@
   color: var(--grey);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li.selected,
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li:hover {
+.tab-group li.selected,
+.tab-group li:hover {
   color: var(--text);
   background: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups {
+.milkdown-slash-menu .menu-groups {
   padding: 0 var(--space-2) var(--space-2);
   max-height: var(--pad-menu-max-height);
   scroll-behavior: auto;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group h6 {
+.milkdown-slash-menu h6 {
   display: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li {
+.milkdown-slash-menu li {
   padding: var(--space-2);
   gap: var(--space-3);
   min-width: var(--pad-menu-min-width);
@@ -310,24 +310,24 @@
   color: var(--grey);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.hover,
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.active {
+.milkdown-slash-menu li.hover,
+.milkdown-slash-menu li.active {
   color: var(--text);
   background: none;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li[aria-selected="true"] svg {
+li[aria-selected="true"] svg {
   color: var(--accent);
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li svg {
+.milkdown-slash-menu svg {
   width: var(--space-4);
   height: var(--space-4);
   fill: currentcolor;
   color: inherit;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li > span {
+.milkdown-slash-menu span {
   font-size: var(--text-body);
   font-weight: 400;
 }
@@ -338,7 +338,7 @@
   pointer-events: none;
 }
 
-.pad-block-menu > .milkdown {
+.pad-block-menu .milkdown {
   background: none;
 }
 
@@ -346,7 +346,7 @@
   pointer-events: auto;
 }
 
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group + .menu-group::before {
+.milkdown-slash-menu+.menu-group::before {
   margin: 0 var(--space-2);
   background: var(--hairline);
 }
@@ -387,14 +387,14 @@
 
 /* Reserved controls keep the Pad name width stable on focus and selection. */
 .pad-row-head { display: flex; align-items: center; min-width: 0; }
-.pad-row-head > .pad-name { flex: 1; }
+.pad-row-head .pad-name { flex: 1; }
 
 
 /* Crepe's reset overrides native text selection with its object-selection wash. */
-.pad-rich-editor .milkdown .ProseMirror::selection,
-.pad-rich-editor .milkdown .ProseMirror *::selection,
-.pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode::selection,
-.pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode *::selection {
+.pad-rich-editor .ProseMirror::selection,
+.pad-rich-editor *::selection,
+.pad-rich-editor .ProseMirror-selectednode::selection,
+.ProseMirror-selectednode *::selection {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
 }

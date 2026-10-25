@@ -12,7 +12,7 @@
   font-size: var(--text-body);
 }
 
-.shelf :is(.todo-row-button .shelf-title, .todo-inset .entry-field) {
+.todo-row-button .shelf-title, .todo-inset .entry-field {
   font-weight: 400;
 }
 
@@ -103,7 +103,7 @@
   stroke-dashoffset: 1;
 }
 
-.todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
+.todo-tick-mark[data-checked="true"] path { stroke-dashoffset: 0; }
 
 /* U3769: a separate decorative layer strikes each wrapped line without painting behind the readable title (D5). */
 .todo-row .shelf-title { position: relative; }
@@ -130,35 +130,35 @@
 @keyframes todo-strike-clear { from { background-size: 100% var(--strike-thickness); } to { background-size: 0 var(--strike-thickness); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-motion="play"] .todo-tick::before {
+ .todo-row[data-motion="play"] .todo-tick::before {
     animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
+ .todo-tick-mark[data-motion="play"][data-checked="true"] path {
     animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
   }
 }
 
-.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark {
+.todo-tick-mark[data-motion="play"][data-checked="false"] {
   stroke: var(--text);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
+ .todo-tick-mark[data-motion="play"][data-checked="false"] path {
     animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
+ .todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
     animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
+ .todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
     animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
   }
 }
@@ -172,7 +172,7 @@
 }
 .todo-tick:hover:not(:disabled)::before { background-color: currentColor; }
 
-.shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
+.shelf-row.todo-inset:has( .shelf-head) .shelf-glyph {
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: start;
@@ -181,19 +181,19 @@
   height: var(--space-5);
 }
 
-.shelf-row.todo-inset > .shelf-text {
+.shelf-row.todo-inset .shelf-text {
   grid-column: 2;
   grid-row: 1;
 }
 
 /* DOM order is row, tick box, blockers; drawing order keeps the Glyph first. */
-.shelf-row.todo-inset > .shelf-head {
+.shelf-row.todo-inset .shelf-head {
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
 }
 
-.shelf-row.todo-inset:has(> .shelf-head) > .shelf-text {
+.shelf-row.todo-inset:has( .shelf-head) .shelf-text {
   grid-row: 2;
 }
 
@@ -204,7 +204,7 @@
   align-items: center;
 }
 
-.todo-inset :is([data-todo-waits], [data-todo-also-waits]) > span:first-child {
+:is([data-todo-waits], [data-todo-also-waits]) span:first-child {
   flex: none;
   white-space: pre;
 }
@@ -218,7 +218,7 @@
   white-space: nowrap;
 }
 
-.todo-inset .todo-blockers > span { flex: none; white-space: pre; }
+.todo-blockers span { flex: none; white-space: pre; }
 .todo-inset .todo-blocker:last-child:not(:first-child) { flex-shrink: 0; max-width: 50%; }
 
 .todo-inset .todo-blocker {
@@ -231,7 +231,7 @@
 }
 
 .todo-row .row-head { min-width: 0; display: flex; align-items: start; }
-.todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
+.todo-row .todo-row-button { flex: 1; min-width: 0; }
 
 .todo-tooltip {
   box-sizing: border-box;
@@ -256,11 +256,11 @@
   column-gap: var(--space-2);
 }
 
-.todo-inset > .shelf-glyph {
+.todo-inset .shelf-glyph {
   margin-inline-start: var(--space-2);
 }
 
-.pad-inset > .shelf-glyph {
+.pad-inset .shelf-glyph {
   justify-content: flex-end;
 }
 
@@ -297,7 +297,7 @@
 }
 
 @starting-style {
-  .todo-done-fold[data-open="true"] {
+ .todo-done-fold[data-open="true"] {
     grid-template-rows: 0fr;
   }
 }
@@ -309,7 +309,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-done-fold { transition: none; }
+ .todo-done-fold { transition: none; }
 }
 
 .todo-row-notice {
@@ -335,28 +335,28 @@
 @keyframes todo-count-roll { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .app-progress[data-motion="play"] .todo-progress-count {
+ .app-progress[data-motion="play"] .todo-progress-count {
     animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
   }
 }
 
 /* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
 .todo-list .todo-dependency { cursor: auto; margin-block: 0; }
-.todo-list .todo-dependency > [data-part="branch-content"] { padding-inline-start: 0; }
-.todo-list .todo-dependency > [data-part="branch-content"] {
+.todo-dependency [data-part="branch-content"] { padding-inline-start: 0; }
+.todo-dependency [data-part="branch-content"] {
   display: grid;
   grid-template-rows: 1fr;
   transition-property: grid-template-rows;
   transition-duration: var(--duration-instant);
   transition-timing-function: var(--easing-out);
 }
-.todo-list .todo-dependency[data-structural-motion="true"] > [data-part="branch-content"] {
+.todo-dependency[data-structural-motion="true"] [data-part="branch-content"] {
   transition: grid-template-rows var(--duration-todo) var(--easing-out);
 }
-.todo-list .todo-dependency > [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
+.todo-dependency [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
 .todo-group-content { min-height: 0; overflow: hidden; }
 
-.todo-row .row-head > [data-group-toggle] {
+.todo-row [data-group-toggle] {
   position: absolute;
   z-index: 1;
   width: var(--space-4);
@@ -367,19 +367,19 @@
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
 .todo-now { color: var(--accent); font-size: var(--text-small); }
 
-.todo-list [role="tree"] > .todo-dependency:not(:first-child) { margin-top: 0; }
+.todo-list .todo-dependency[data-depth="1"]:not(:first-child) { margin-top: 0; }
 
-.shelf .todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
+.todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
 .todo-row-button .todo-now { flex: none; }
 .todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
+ .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
     animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
+ .todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
     animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
   }
 }
@@ -420,14 +420,14 @@
 .row-control-slot[inert] { opacity: 0; pointer-events: none; }
 
 /* Creation feedback stays beside its field; retained revisions wrap below it. */
-.todos-tab > .todo-draft-recovery > .reserved-line {
+.todo-draft-recovery .reserved-line {
   block-size: auto;
   max-block-size: none;
 }
-.todos-tab > .todo-draft-recovery .reserved-content { flex-wrap: wrap; }
-.todos-tab > .todo-draft-recovery .reserved-status { flex-basis: 100%; }
-.todos-tab > .todo-draft-recovery .reserved-actions {
+.todo-draft-recovery .reserved-content { flex-wrap: wrap; }
+.todo-draft-recovery .reserved-status { flex-basis: 100%; }
+.todo-draft-recovery .reserved-actions {
   flex-wrap: wrap;
   max-inline-size: 100%;
 }
-.todos-tab > .todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }
+.todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }

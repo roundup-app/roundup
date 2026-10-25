@@ -29,7 +29,7 @@
   margin: var(--space-2) var(--space-3) 0;
 }
 
-.capture-recovery > .ink {
+.capture-recovery .ink {
   display: block;
 }
 
@@ -50,19 +50,19 @@
   font: inherit;
 }
 
-.capture-target > span {
+.capture-target span {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.capture-target > :first-child {
+.capture-target :first-child {
   flex: 0 1 auto;
   max-width: 50%;
 }
 
-.capture-target > :last-child {
+.capture-target :last-child {
   flex: 1 1 0;
 }
 

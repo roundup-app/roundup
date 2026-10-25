@@ -8,9 +8,11 @@ import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 const queryTokens = new Map<string, string>();
+const motionTokens = new Set<string>();
 
-postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(/^--query-/, declaration => {
-  queryTokens.set(declaration.prop, declaration.value);
+postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(declaration => {
+  if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
+  if (/^--(?:duration|delay)-/.test(declaration.prop)) motionTokens.add(declaration.prop);
 });
 
 const served = realDaemonFromEnv(process.env);
@@ -54,12 +56,22 @@ export default defineConfig({
       plugins: [
         {
           postcssPlugin: "roundup-query-tokens",
+          Once(root) {
+            if (!root.source?.input.file?.endsWith("/src/tokens.css")) return;
+
+            const reduced = postcss.atRule({ name: "media", params: "(prefers-reduced-motion: reduce)" });
+            const rule = postcss.rule({ selector: ":root" });
+
+            for (const prop of motionTokens) rule.append(postcss.decl({ prop, value: "0s" }));
+            reduced.append(rule);
+            root.append(reduced);
+          },
           AtRule: {
             container(query) {
               const params = valueParser(query.params);
 
               params.walk(node => {
-                if (node.type !== "function" || node.value !== "query-token") return;
+                if (node.type !== "function" || node.value !== "env") return;
 
                 const name = valueParser.stringify(node.nodes).trim();
                 const value = queryTokens.get(name);

@@ -80,7 +80,24 @@ const containerTokenThreshold = stylelint.createPlugin(containerRule, () => asyn
 
 export default {
   plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation, containerTokenThreshold],
+  overrides: [{ files: ['**/tokens.css'], rules: {
+    'unit-disallowed-list': null,
+    'color-no-hex': null,
+    'color-named': null,
+    'declaration-property-value-disallowed-list': null,
+    [containerRule]: null,
+  } }],
   rules: {
+    'declaration-no-important': true,
+    'unit-disallowed-list': ['px', 'ms', 's'],
+    'selector-max-compound-selectors': 2,
+    'selector-combinator-disallowed-list': ['>'],
+    'color-no-hex': true,
+    'color-named': 'never',
+    'declaration-property-value-disallowed-list': {
+      '/.*/': [/(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^;]*?[\s,(/][+-]?(?:\d|\.\d)/i],
+    },
+    [containerRule]: true,
     [focusRingRule]: true,
     [elevationRule]: true,
     'declaration-property-value-allowed-list': {

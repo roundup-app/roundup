@@ -29,7 +29,7 @@
   margin-block: var(--space-3);
 }
 
-.native-probe-rows > div {
+.native-probe-rows div {
   min-height: var(--space-6);
   box-sizing: border-box;
   border-block: var(--hairline-width) solid transparent;

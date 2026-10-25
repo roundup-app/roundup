@@ -51,7 +51,7 @@
   min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule) + var(--space-3) + var(--space-1));
 }
 
-.tab-name-button > .unread-dot {
+.tab-name-button .unread-dot {
   align-self: center;
 }
 
@@ -184,7 +184,7 @@
 }
 
 .traffic-lights { grid-column: 1; height: 100%; }
-.window-bar > .strip { grid-column: 2; overflow: clip; }
+.window-bar .strip { grid-column: 2; overflow: clip; }
 .window-title {
   justify-self: center;
   max-width: 100%;
@@ -238,7 +238,7 @@
 
 /* The native request's failure replaces the originating strip until retry or cancel. */
 .strip { position: relative; }
-.strip > .native-alert-failure {
+.strip .native-alert-failure {
   position: absolute;
   inset: 0;
   z-index: 1;
