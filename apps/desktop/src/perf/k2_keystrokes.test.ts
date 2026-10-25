@@ -76,6 +76,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     document.body.innerHTML = `<div class="bubble" data-bubble="door"><textarea class="xterm-helper-textarea"></textarea></div>
       <div class="bubble" data-bubble="shell"><textarea class="xterm-helper-textarea"></textarea></div>`;
     const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    run.select("shell");
     const door = run.createEmulator("door");
     const shell = run.createEmulator("shell");
     const received: string[] = [];
@@ -96,6 +97,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       for (let split = 1; split < line.length; split += 1) {
         const parsed: (() => void)[] = [];
         const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, done?: () => void) => { if (done) parsed.push(done); } }));
+        run.select("shell");
         const shell = run.createEmulator("shell");
         const agent = run.createEmulator("agent");
 
@@ -115,6 +117,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("r20_only_a_complete_ready_line_selects_the_report_terminal", async () => {
     const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    run.select("shell");
     const agent = run.createEmulator("agent");
     const shell = run.createEmulator("shell");
 

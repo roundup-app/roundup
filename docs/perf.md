@@ -214,57 +214,11 @@ R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured ca
 
 ### R23 paired write conclusions (#3760)
 
-The [retained 9V45 lifetime](../crates/perf/evidence/r23-host-40170055163/README.md)
-compares historical `2029ed2c4ee606d26e73c858c4d7c93130df36e0` with candidate
-`50e546c1a3ce74689738b08a3dfe273895f9ae31` using one compatible probe.
-Three ordered pairs each contain eleven fresh Daemons, with median load/CPU
-0.6325–1.3150 and neither write metric skipped. Values below are invocation
-medians in milliseconds; ratios use the unrounded reports.
-
-| Pair | Historical write | Candidate write | Ratio | Historical output | Candidate output | Ratio |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | 0.054052 | 0.055794 | 1.032228 | 0.112005 | 0.110897 | 0.990108 |
-| 2 | 0.053530 | 0.056035 | 1.046796 | 0.110526 | 0.111509 | 1.008894 |
-| 3 | 0.054162 | 0.053080 | 0.980023 | 0.110957 | 0.111127 | 1.001532 |
-
-`terminal_write_p95_ms`: historical median 0.054052; ceiling
-0.054052 × 1.10 + 0.001 = **0.0604572 ms**. All three candidates fit.
-`write_to_output_p95_ms`: historical median 0.110957; ceiling
-0.110957 × 1.10 + 0.001 = **0.1230527 ms**. All three candidates fit,
-and all six invocation medians are below the unchanged 16 ms absolute limit.
-Cold start and extra RSS invocation medians also stay below 300 ms and 150 MB.
-These are complete-observer comparisons; they establish no Daemon-only repair.
-The older diagnosis below measures a different candidate and incompatible probes.
-
-All six exits remain 1: each misses the explicitly diagnostic copied-boxd
-ceilings for ping, RSS and write-to-output. Their raw values, ceilings, statuses,
-startup logs and all failed attempts remain retained. No copied value becomes
-a 9V45 baseline. H15 is excluded after the writes for both references, so this
-supplies no full perf pass, calibration or relaxation of R16 step 3.
-
-[Compatibility assessment, calculation command and profile analysis](../crates/perf/evidence/r23-host-40170055163/assessment.md)
-explain the unresolved attribution. Historical Events require probe-side output
-adaptation; its cost was not isolated. Separate perf/strace recordings include
-RPC, PTY and delivery work, but combine setup, Rail, ping and write phases.
-Their CPU samples show JSON decoding, allocation and scheduling work; overlapping
-syscall wall times cannot assign per-write waiting. Whole-invocation profiling
-overhead is +8.4% historical / +9.5% candidate; profiles never count as timing pairs.
-
-[Reproduction commands](../crates/perf/evidence/r23-host-40170055163/reproduce.txt)
-require a newly qualified 9V45 lifetime; this assessment collected no substitute
-measurements on its 9V74 host. **Attribution remains incomplete**:
-[#3971](https://github.com/roundup-app/roundup/issues/3971) blocks #3760 to isolate
-adapter cost and request/reply, PTY and output-delivery stages, linked under
-[#3720](https://github.com/roundup-app/roundup/issues/3720). #3760 stays open;
-R8 pins, R13 qualification, R15 pacing, R16 ceilings and macOS behavior are unchanged.
+[Paired measurements, reference commits, ceilings, compatibility failures and profile qualifications](perf-r23-writes.md#r23-paired-write-conclusions-3760).
 
 ### R23 retained thread attribution (#3971)
 
-[Timestamped extraction and bounded conclusion](../crates/perf/evidence/r23-attribution-40174335770/README.md) separate retained CPU recordings by original PID/TID. Echo-terminal creation to Daemon teardown bounds both write loops, including setup/warmups/cleanup: historical/candidate 10.479362/10.566470 s; probe CPU samples 740/749, Daemon 1045/1102, `cat` 109/158. Of the candidate's net 1164 additional whole-recording samples, 1049 fall outside that window. Whole-recording decoding/allocation totals cannot assign write p95.
-
-The probe's user `terminal.write` acknowledges input enqueue; physical PTY write/read and output delivery run separately, and reply/echo completion can overlap. CPU samples identify executing threads, not sleep or queue delay. Recordings lack loop boundaries, per-write markers and scheduler wake/switch events. The common probe's exact patch identifies historical Event adaptation but does not isolate its cost. Extraction retains original identities, commands, versions, statuses and the unsupported-option failure; it runs no new workload/profile.
-
-[Scoped capture #3976](https://github.com/roundup-app/roundup/issues/3976) requires correlated stage spans, same-binary probe isolation and matching executables or resolved phase stacks retained before the qualified 9V45 lifetime ends. [#3760](https://github.com/roundup-app/roundup/issues/3760) stays open; [#3720](https://github.com/roundup-app/roundup/issues/3720) owns remaining regression work. Both write metrics fit historical-derived ceilings in all three clean candidate invocations, measuring the complete compatible observer without establishing a Daemon-only cause, repair, baseline, calibration or full R16 pass. R8, R13, R15, R16 and all absolute limits remain unchanged.
+[Retained thread attribution, unresolved boundaries and scoped capture requirements](perf-r23-writes.md#r23-retained-thread-attribution-3971).
 
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
@@ -656,10 +610,86 @@ Release profile measurements: [code generation comparison](perf-release-profile.
 
 ### R23 correlated write capture (#3976)
 
-[Builder 40175332310](../crates/perf/evidence/r23-spans-40175332310/README.md) retains per-write/loop/warmup identities, monotonic timestamps, FD-resolved PTY/socket timelines, scheduler records and matching executables on one qualified 9V45 lifetime for R23's pinned references. Both common/marked probes run against each identical Daemon, with separate unprofiled, scheduler-only and syscall controls; commands, hashes, versions, failures and raw recordings survive.
+[Correlated capture, adapter timings, probe isolation and remaining attribution gaps](perf-r23-writes.md#r23-correlated-write-capture-3976).
 
-Historical extraction/offset insertion/deserialization/broadcast jointly take 3.024 µs median / 4.257 µs p95; native takes 2.824 / 3.986 µs. All 2200 spans per reference are on CPU. Separate decoding and per-loop/warmup results are retained. These bounds include clocks/wakers, establish no Daemon cause, and are never subtracted from clean p95s. Syscall tracing substantially changes latency and establishes correlation only.
+### Terminal readiness repair and U3800 Mac handoff (#3841)
 
-Dispatch/task scheduling, input/reply queue acceptance and output publication/queueing remain bounded by request-read/reply-send and PTY-read/output-send. [Investigation #3983](https://github.com/roundup-app/roundup/issues/3983) natively blocks #3760 on the missing in-process/task markers. User-write completion acknowledges enqueue, not physical PTY completion; reply and echo overlap.
+The [previous Mac attempt](https://github.com/roundup-app/roundup/pull/3772#issuecomment-6390588594) produced four
+exit-2 observations: three setup failures and one reverted diagnostic. No drag setup/actions, three-pair comparison or App
+compatibility qualification completed. Those failures remain evidence; readiness fixtures supply no native timing pass.
 
-The six original clean observations and PR #3975's extraction are reused: all three candidate invocations fit the historical-derived 0.0604572 ms request and 0.1230527 ms echo ceilings. #3760 stays open until its full acceptance holds; #3720 retains regression work. No baseline, calibration, production repair, limit, load/pacing policy or macOS behavior changes. No Mac observation is required.
+`terminalReady` now owns Workstream creation → Agent input → one shell-open → shell input → complete shell readiness.
+Keystroke and all frame workloads, including the native compatibility probe, call it; idle observation drives no Terminal.
+The selected bubble supplies the shell id. Parsed output and retained `terminal.read` independently recognize complete lines,
+so a late screen snapshot need not contain `ready`. Agent output and live/read overlap cannot select another report target.
+Each setup step retains its 10 s bound; missing readiness performs no measurement. Without a report target, the failed step
+rejects rather than replacing it with a generic reporting error; collection still exits 2 with raw output and launch logs.
+R3841 fixtures cover delayed Agent input at both entry points, both readiness orders, paginated retained output, shell identity
+and missing Agent/input/line. The unique R20 split/parsed-output and key-routing proofs remain. They replace the duplicated
+`u3010e_the_report_target_is_the_terminal_that_printed_ready` proof. P9's observer remains the fake-vendor sentinel; no Model
+turn, production Terminal/drag behavior, build opt-in, isolation, timing budget or collection bound changes.
+
+Mac request: qualify the current #3772 candidate below, superseding the earlier **unmeasured** `3e6a9bd91` attempt. Use the
+same M4 Max, dense drag fixture, 64 KiB/s stream, fixed display refresh, AC/Low Power Mode off and load policy from the
+[native runbook](motion-native-runbook.md). Keep the screen awake/uncovered and stop builds before sampling. Posting CGEvents
+is already authorized on this Mac; use them to perform sibling, nested, outdent and Escape actions, retaining counts and outcomes.
+
+| Identity | Full SHA |
+|---|---|
+| Base source (#3772's merged-main parent) | `3d224def071626e2ed1528a11d9d6e2f6303d2b3` |
+| Candidate source (#3772 head) | `2863633ddd508bd7a6f227286ca5f3b32c242258` |
+| Readiness observer revision | `a575c56c44e189b2808dae540b272199f69f8496` |
+
+From a repository containing these commits, prepare fresh, separate checkouts. The frame driver copied to base is measurement
+setup/action accounting only; never copy candidate production drag files. Retain that transfer separately from readiness:
+
+```sh
+base=3d224def071626e2ed1528a11d9d6e2f6303d2b3
+head=2863633ddd508bd7a6f227286ca5f3b32c242258
+repair=a575c56c44e189b2808dae540b272199f69f8496
+qualification=$(mktemp -d /tmp/roundup-u3800.XXXXXX)
+git worktree add --detach "$qualification/base" "$base"
+git worktree add --detach "$qualification/head" "$head"
+git show "$head":apps/desktop/src/perf/frame_run.ts > "$qualification/base/apps/desktop/src/perf/frame_run.ts"
+git -C "$qualification/base" diff -- apps/desktop/src/perf/frame_run.ts > "$qualification/base-driver.patch"
+git diff "$repair~2" "$repair" -- apps/desktop/src/perf/run.ts apps/desktop/src/perf/frame_run.ts > "$qualification/readiness.patch"
+for side in base head; do
+  git -C "$qualification/$side" apply --check "$qualification/readiness.patch"
+  git -C "$qualification/$side" apply "$qualification/readiness.patch"
+  (cd "$qualification/$side" && pnpm install --frozen-lockfile)
+done
+```
+
+Linux verified the patch applies to both sources and yields identical observer files. Readiness patch SHA256:
+`65c8dd82ff042e72b0837dbe83d81bbf3e82a648a5f85ab2642985586877c124`.
+Both checkouts' `run.ts` SHA256 is `17db62ae0c3735553c1b5dc0d7b9efc7d3f556c612dd4c24629c2731f8343873`;
+`frame_run.ts` is `017cae7dee289546cf8a1ee110ff6b988fde3edb70b938dc12f528de6c9c4d30`.
+Record source SHAs **plus these patches**, dirty status, toolchain/OS/WebKit, display/power/load and executable hashes.
+
+Build each checkout once with `ROUNDUP_ALLOW_WINDOW=1 just perf-frames drag`; retain these calibration attempts too.
+Then stop builds and run three alternating base/head pairs. In each checkout, for each uniquely named attempt:
+`ROUNDUP_ALLOW_WINDOW=1 target/release/perf-keystroke --frames --out target/u3800-pair-1-base.json` (substitute pair/side).
+This uses the exact build from `just perf-frames drag` without rebuilding during sampling. Keep 10 s warmup, 60 s sample,
+30 s idle and existing action cadence/bounds. Retain every report, evidence directory, command, stdout/stderr, exit and repeat.
+Missing setup or completed native actions invalidates the sample. Compare scheduling p95 ≤1.5P, p99 ≤3P, >1.5P rate ≤5%,
+max ≤50 ms and head/base regression ≤10%. A measured miss fails (1); absent/invalid stages remain incomplete (2).
+Do not substitute scheduling for presentation; retain native stage evidence per the runbook or mark it unmeasured.
+
+For actual App compatibility, build the candidate checkout **without perf flags** into a separate target/dist:
+
+```sh
+cd "$qualification/head"
+pnpm --filter desktop exec vite build --outDir "$PWD/target/u3800-app-dist" --emptyOutDir
+TAURI_CONFIG=$(jq -nc --arg dist "$PWD/target/u3800-app-dist" '{build:{frontendDist:$dist}}') \
+  cargo build --release -p desktop -p rupd -p rup --features desktop/custom-protocol --target-dir target/u3800-app
+mkdir -p "$qualification/app-data" "$qualification/project"
+ROUNDUP_DATA_DIR="$qualification/app-data" ROUNDUP_CLAUDE_BIN="$PWD/crates/rup/tests/e2e/fake_claude.py" \
+  target/u3800-app/release/roundup "$qualification/project"
+```
+
+Use only this temporary Project/fake vendor. Keep Tauri file-drop enabled. In the actual App, test Rail, Todo and Pad drag,
+nested drop, Escape, travel <4 px (click), keyboard reorder and two real files dropped into a Terminal. Record resulting
+order/parent, commit counts, focus, click behavior and identical ordered absolute paths delivered once, with no row reorder
+from the file drop. This requests no repeat of the separate Pragmatic probe. A compatibility failure fails the candidate;
+missing observations leave qualification incomplete. Quit only this App and retain owned-child cleanup evidence.
+Publish returned results to #3772, its drag work Issue #3540 and #3841; leave failures and unmeasured stages visible.
