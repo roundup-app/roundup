@@ -556,5 +556,20 @@
   "node": "v22.23.3",
   "os": "linux",
   "architecture": "x64",
-  "note": "Artifact observer slice only. Both runtime outputs are byte-identical. No runtime startup, first-use, rendered or performance acceptance is claimed."
+  "note": "Artifact observer slice only. Both runtime outputs are byte-identical. No runtime startup, first-use, rendered or performance acceptance is claimed.",
+  "afterMainMerge": {
+    "source": "b53b17f157589e155db5d33727165c084ed4f07c",
+    "buildExit": 0,
+    "checker": {
+      "exit": 1,
+      "entry": "assets/index-wjb4nVPL.js",
+      "files": [
+        "assets/index-wjb4nVPL.js"
+      ],
+      "raw": 1769240,
+      "gzip": 522479,
+      "ceiling": 400000,
+      "diagnostic": "assets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+state@0.5.1/node_modules/@dnd-kit/state/dist/index.mjs\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+geometry@0.5.1/node_modules/@dnd-kit/geometry/dist/index.mjs\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/index.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2/node_modules/@dnd-kit/dom/utilities.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+collision@0.5.1/node_modules/@dnd-kit/collision/dist/index.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2/node_modules/@dnd-kit/dom/index.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/modifiers.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2/node_modules/@dnd-kit/dom/modifiers.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2/node_modules/@dnd-kit/dom/sortable.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/index.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/hooks.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/sortable.js\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@xterm+addon-fit@0.11.0_patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272/node_modules/@xterm/addon-fit/lib/addon-fit.mjs\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@xterm+addon-unicode11@0.9.0/node_modules/@xterm/addon-unicode11/lib/addon-unicode11.mjs\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@xterm+addon-webgl@0.19.0/node_modules/@xterm/addon-webgl/lib/addon-webgl.mjs\nassets/index-wjb4nVPL.js: eager runtime module /tmp/roundup-startup/node_modules/.pnpm/@xterm+xterm@6.0.0/node_modules/@xterm/xterm/lib/xterm.mjs\n522479 gzip bytes is at or above 400000"
+    }
+  }
 }
