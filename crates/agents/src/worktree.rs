@@ -7,7 +7,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use contracts::agent::WorktreeState;
@@ -46,7 +46,7 @@ pub struct Git {
     /// Resolves the `git` binary. A test prepends a wrapper's directory, with the real `PATH`
     /// after it, so every command the wrapper does not fake still reaches the real `git`.
     path: OsString,
-    lock: Arc<Mutex<()>>,
+    lock: Arc<(Mutex<bool>, Condvar)>,
     /// G2542: canonical paths of enrolled directories; removal and recovery retain them.
     enrolled: Arc<RwLock<Vec<PathBuf>>>,
     /// G2542c: directories a preparation is running in.
@@ -62,7 +62,7 @@ impl Git {
     pub fn with_path(path: impl Into<OsString>) -> Self {
         Self {
             path: path.into(),
-            lock: Arc::new(Mutex::new(())),
+            lock: Arc::new((Mutex::new(false), Condvar::new())),
             enrolled: Arc::new(RwLock::new(Vec::new())),
             busy: Arc::new(Mutex::new(Vec::new())),
             deadline: None,
