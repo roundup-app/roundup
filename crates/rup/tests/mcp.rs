@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::Served;
+use contracts::pad::DeleteParams;
 use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb, message, pad, todo};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
@@ -356,7 +357,7 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             "pad_setOwner",
             derived(schemars::schema_for!(pad::SetOwnerParams)),
         ),
-        ("pad_delete", derived(schemars::schema_for!(pad::PadName))),
+        ("pad_delete", derived(schemars::schema_for!(DeleteParams))),
         (
             "message_send",
             derived(schemars::schema_for!(message::SendParams)),
@@ -857,7 +858,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"project":"project-a","id":"published-42"}),
                 "removed publication published-42",
             ),
-            "pad.delete" => (json!({"name":"notes"}), "deleted Pad notes"),
             "pad.export" => (
                 json!({"name":"notes","path":"/tmp/notes.md"}),
                 "exported Pad notes to /tmp/notes.md",
