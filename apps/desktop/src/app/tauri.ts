@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { projectPageSchema } from "./seam";
+import { captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -10,7 +10,7 @@ import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
-import type { App, OutputMessage } from "./seam";
+import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -83,7 +83,25 @@ export const createTauriApp = (): App => {
   // The live subscription of each Terminal: a replaced or released one is no longer the current, so its late messages and its late stop are inert.
   const selections = new Map<string, object>();
 
+  type CaptureRequest =
+    | { kind: "configure"; chord: string | null }
+    | { kind: "show" | "dismiss" }
+    | { kind: "publish"; snapshot: CaptureState }
+    | { kind: "act"; action: CaptureAction };
+
+  const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
+
   const app: App = {
+    capture: /mac/i.test(navigator.platform) ? {
+      configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
+      show: () => captureControl({ kind: "show" }),
+      dismiss: () => captureControl({ kind: "dismiss" }),
+      publish: snapshot => captureControl({ kind: "publish", snapshot }),
+      act: action => captureControl({ kind: "act", action }),
+      onRequested: listener => guarded(() => listen("capture-requested", listener)),
+      onAction: listener => guarded(() => listen("capture-action", event => listener(v.parse(captureActionSchema, event.payload)))),
+      onState: listener => guarded(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload)))),
+    } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
     ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),

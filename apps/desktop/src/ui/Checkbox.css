@@ -49,3 +49,9 @@
   opacity: 1;
   color: var(--grey);
 }
+
+/* The native input owns activation; feedback belongs to its visible label and mark. */
+.app-checkbox:has(input[data-pressed="true"]:not(:disabled)) {
+  opacity: var(--press-opacity);
+  transition: none;
+}
