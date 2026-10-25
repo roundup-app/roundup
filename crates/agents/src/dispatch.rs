@@ -693,7 +693,12 @@ impl Agents {
     ) -> Result<Value, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let contracts::agent::RemoveParams { id, operation } = params(value)?;
+            if operation.is_some() {
+                return Err(RpcError::forbidden(
+                    "reversible removal requires the Project Daemon",
+                ));
+            }
             shared.guard_reach(&ctx.actor, &id, false)?;
             if shared.rail().node(&id)?.kind == NodeKind::Workstream {
                 let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;
