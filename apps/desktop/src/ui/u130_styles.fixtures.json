@@ -130,5 +130,11 @@
     "path": "spec-fixture.css",
     "rule": "declaration-property-value-disallowed-list",
     "column": 13
+  },
+  {
+    "code": ".a { color: var(--transparent); }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
   }
 ]
