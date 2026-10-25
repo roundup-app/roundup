@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-exclude = ["vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
+exclude = ["crates/desktop/vendor/tauri-plugin-store-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
 
 [workspace.package]
 edition = "2024"
