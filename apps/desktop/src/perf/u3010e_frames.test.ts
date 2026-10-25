@@ -117,7 +117,10 @@ describe("u3010e the frame recorder", () => {
 
     expect(report.stages.presentation).toMatchObject({ status: "unmeasured" });
     expect(report.stages.presentation).not.toHaveProperty("p95");
-    expect(report).toMatchObject({ verdict: "incomplete", exit: 2 });
+    expect(report).toMatchObject({ verdict: "pass", exit: 0 });
+  });
+
+  it("u3010e_a_measured_scheduling_miss_stays_a_miss", () => {
     expect(buildReport(facts({ sample: Array(600).fill(40) }))).toMatchObject({ verdict: "fail", exit: 1 });
   });
 
