@@ -573,7 +573,7 @@ export const Bubbles = (props: {
     listen("pointermove", move);
     listen("pointerup", up);
     listen("pointercancel", event => { if (event.pointerId === undefined || event.pointerId === pointerId) cancel(); });
-    listen("blur", cancel);
+    listen("blur", event => { if (event.target === event.currentTarget) cancel(); });
     listen("focusin", event => { if (press !== null && event.target !== target) cancel(); });
     listen("mousemove", swallow);
     listen("mouseup", swallowRelease);

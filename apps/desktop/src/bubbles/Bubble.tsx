@@ -146,7 +146,7 @@ export const Bubble = (props: {
     window.addEventListener("pointermove", move, options);
     window.addEventListener("pointerup", up, options);
     window.addEventListener("pointercancel", cancelled, options);
-    window.addEventListener("blur", cancel, { ...options, capture: true });
+    window.addEventListener("blur", event => { if (event.target === event.currentTarget) cancel(); }, { ...options, capture: true });
     window.addEventListener("focusin", focus, options);
     restoreResize = cancel;
 
