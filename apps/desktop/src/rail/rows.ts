@@ -7,3 +7,11 @@ export const ownKeys = { onKeyDown: (press: KeyboardEvent) => press.stopPropagat
 /** The id of the row a key press targets; `undefined` when its target is anything but a row, such as a button or the rename field inside one. */
 export const focusedRowId = (press: KeyboardEvent): string | undefined =>
   press.target instanceof HTMLElement && press.target.matches(ROW) ? press.target.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+
+export type RowActions = {
+  folder: () => void;
+  editor: () => void;
+} & (
+  | { kind: "workstream"; add: { disabled: boolean; shortcut?: boolean; run: () => void }; clear?: () => void }
+  | { kind: "agent"; stop?: () => void; resume?: () => void }
+);

@@ -22,7 +22,7 @@ it("u460_agent_owned_pads_warn_and_delete_without_stopping_agents", async () => 
 it("u460_open_pad_drawer_observes_bulk_delete", async () => {
   const { app, connected } = await openShelf([padOf("notes", USER, "body")]);
   const row = await screen.findByRole("button", { name: "notes" });
-  fireEvent.click(row);
+  fireEvent.keyDown(row, { key: "Enter" });
   await screen.findByRole("button", { name: "Delete" });
   fireEvent.click(row, { metaKey: true });
   await askToDelete(1);

@@ -75,7 +75,10 @@ const mount = async () => {
   return shelf;
 };
 
-const assignWord = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"] [aria-label="assign ${pad}"]`)!;
+const assignMenu = async (app: { pickMenu(label: string): Promise<void> }, pad: string) => {
+  fireEvent.contextMenu(row(pad));
+  await app.pickMenu("Assign");
+};
 
 const row = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"]`)!;
 
@@ -87,7 +90,7 @@ it("u3732_pads_group_by_owner_once_each", async () => {
   expect([own("me"), own(AGENT.id), own("unassigned")]).toEqual([["mine"], ["theirs"], ["lost"]]);
 });
 
-it("u3732_o_and_the_assign_word_open_the_owner_list_and_return_focus", async () => {
+it("u3732_o_and_assign_menu_open_the_owner_list_and_return_focus", async () => {
   const { app } = await mount();
   const button = within(row("theirs")).getByRole("button", { name: "theirs" });
 
@@ -102,8 +105,9 @@ it("u3732_o_and_the_assign_word_open_the_owner_list_and_return_focus", async () 
   await waitFor(() => expect(document.querySelector('[data-shelf-group="me"] [data-pad="theirs"]')).toBeTruthy());
   await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("theirs"));
 
-  fireEvent.click(assignWord("mine"));
-  expect(await screen.findByRole("menu", { name: "Owners for mine" })).toBeTruthy();
+  await assignMenu(app, "mine");
+  const owners = await screen.findByRole("menu", { name: "Owners for mine" });
+  expect(owners.contains(document.activeElement)).toBe(true);
 });
 
 it("u3732_a_refused_reassign_keeps_the_row_and_shows_its_cause", async () => {
@@ -111,7 +115,7 @@ it("u3732_a_refused_reassign_keeps_the_row_and_shows_its_cause", async () => {
 
   app.handlers["pad.setOwner"] = () => { throw new RpcError(-32004, "no such owner"); };
 
-  fireEvent.click(assignWord("theirs"));
+  await assignMenu(app, "theirs");
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
 
   expect(await screen.findByText(/no such owner/)).toBeTruthy();
@@ -121,7 +125,7 @@ it("u3732_a_refused_reassign_keeps_the_row_and_shows_its_cause", async () => {
 it("u3732_home_is_unchanged_by_an_owner_change", async () => {
   const { app } = await mount();
 
-  fireEvent.click(assignWord("theirs"));
+  await assignMenu(app, "theirs");
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
   await waitFor(() => expect(calls(app, "pad.setOwner")).toHaveLength(1));
 

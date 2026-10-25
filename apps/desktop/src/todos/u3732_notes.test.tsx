@@ -9,7 +9,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 const open = async (body: string, done = false) => {
   const mounted = await mountTodos([todo(1, { title: "Ship", body, done })]);
   fireEvent.click(await screen.findByText("Unassigned").catch(() => screen.findByRole("button", { name: "1 done" })));
-  fireEvent.click(await screen.findByRole("button", { name: /Ship/ }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /Ship/ }), { key: "Enter" });
   await within(panel()).findByText("Blocker");
 
   return mounted;

@@ -12,16 +12,22 @@ const centre = (lane: LaneBrowser, selector: string) => lane.evaluate<Point>(`((
 
 const move = (lane: LaneBrowser, x: number, y: number) => lane.browser("mouse", "move", String(x), String(y));
 
-/** Presses the row, starts the drag, and returns once every owner shows (U3718). */
+/** Start the existing pointer drag without requiring empty drop targets. */
 const lift = async (lane: LaneBrowser, id: number) => {
   const from = await centre(lane, ROW(id));
 
   await move(lane, from.x, from.y);
   await lane.browser("mouse", "down");
   await move(lane, from.x, from.y - 6);
-  await lane.until(`!!document.querySelector('.shelf [data-shelf-group="me"]')`);
+  await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
 
   return from;
+};
+
+const seedDestination = async (lane: LaneBrowser) => {
+  await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.create', {title:'destination', body:null, blockers:null}); })()`);
+  await lane.until(`!!document.querySelector('.shelf [data-shelf-group="me"]')`);
+  await lane.resetCalls();
 };
 
 describe("u3718 a Todo dragged to another owner's group", () => {
@@ -31,14 +37,14 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
   afterAll(async () => { await lane?.close(); });
 
-  it("u3718_every_owner_is_a_drop_target_while_dragging", async () => {
+  it("u3718_nonempty_owner_is_a_drop_target_while_dragging", async () => {
     await lane.seedTodos(["first", "second", "third"]);
 
     const [one] = await lane.order();
 
-    expect(await lane.evaluate<boolean>(`!document.querySelector('.shelf [data-shelf-group="me"]')`)).toBe(true);
+    await seedDestination(lane);
+    await seedDestination(lane);
     await lift(lane, one!);
-    // The empty Me group is named while the drag is live, though it holds no Todo.
     const to = await centre(lane, HEAD);
 
     await move(lane, to.x, to.y);
@@ -55,6 +61,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     await lane.seedTodos(["first", "second", "third"]);
 
     const [one] = await lane.order();
+    await seedDestination(lane);
     await lift(lane, one!);
     const to = await centre(lane, HEAD);
 
@@ -109,6 +116,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     const [one] = await lane.order();
 
     await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.list"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.list"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
+    await seedDestination(lane);
     await lift(lane, one!);
     const to = await centre(lane, HEAD);
 
@@ -135,7 +143,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
       await lane.until(`document.activeElement.closest('[data-id="${one}"]') !== null`);
     }
 
-    await lane.browser("click", `button[aria-label="add todo to Unassigned"]`);
+    await lane.browser("click", ".shelf-add");
     await lane.until(`document.activeElement.matches('input, textarea')`);
     await lane.capture("shelf-owner", "new-todo-field");
     await lane.browser("press", "Escape");

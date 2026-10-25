@@ -48,7 +48,7 @@ describe("u133 click targets", () => {
   it("u133_export_md_is_a_button", async () => {
     await mount("tree-40");
     showShelfTab("Pads");
-    fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
+    fireEvent.keyDown(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")), { key: "Enter" });
     const exportMd = await exportButton();
     const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
 

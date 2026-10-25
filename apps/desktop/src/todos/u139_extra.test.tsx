@@ -9,13 +9,14 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 describe("u139 a non-Enter key on the focused text does not start editing", () => {
   it("u139_a_non_enter_key_on_the_title_does_not_start_editing", async () => {
     await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
-    fireEvent.click(await screen.findByRole("button", { name: /#5 / }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: /#5 / }), { key: "Enter" });
     await within(drawer()).findByText("Blocker");
     const title = within(drawer()).getByText("session store");
 
+    const fields = within(drawer()).queryAllByRole("textbox");
     title.focus();
     fireEvent.keyDown(title, { key: "a" });
 
-    expect(within(drawer()).queryByLabelText("title")).toBeNull();
+    expect(within(drawer()).queryAllByRole("textbox")).toEqual(fields);
   });
 });
