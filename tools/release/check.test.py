@@ -38,6 +38,17 @@ class Release(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn(str(path), result.stderr)
 
+    def test_c9b_invalid_binary_is_an_observer_error(self):
+        directory = self.root / "directory"
+        directory.mkdir()
+        linked = self.root / "linked"
+        linked.symlink_to(self.file("real", 1))
+        for path in [directory, linked, self.file("empty", 0)]:
+            with self.subTest(path=path):
+                result = self.run_check("binary", path)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(str(path), result.stderr)
+
     def test_c9c_dist_size_boundary(self):
         for size, code in [(9_999_999, 0), (10_000_000, 1), (10_000_001, 1)]:
             with self.subTest(size=size):
