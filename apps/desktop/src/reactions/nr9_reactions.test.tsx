@@ -537,3 +537,19 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   expect(screen.getByRole("alert", { name: "No required-check results are available. Refresh to check again." })).toBeTruthy();
   expect(connected.drafts.list()).toEqual(retained);
 });
+
+it.each([
+  { code: "head-moved", text: "The PR has new commits. Create a new reaction for the current version." },
+  { code: "unsupported", text: "This source cannot be watched. Stop this reaction and choose a supported condition." },
+  { code: undefined, text: "Observation details could not be explained. Refresh to check again." },
+] as const)("u3791b_copy_depends_on_codes_not_messages_reactions_$code", async ({ code, text }) => {
+  for (const diagnostic of ["the PR head moved from a to b", "unsupported /private/diagnostic"]) {
+    const record = saved({ observation: { health: "unavailable", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause: diagnostic, cause_code: code, recovery_code: "check" } });
+    const { app } = await mount(() => [record]);
+    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+    await screen.findByText(text);
+    expect(screen.queryByText("Refresh to check current observation.") !== null).toBe(code !== "unsupported");
+    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
+    cleanup();
+  }
+});
