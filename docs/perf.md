@@ -816,6 +816,8 @@ Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
 acceptance, remaining attribution, unchanged-code false-fail evidence and the
 separate later main pass remain open.
 
+[Migration/Event-log connection handoff: measured repair and evidence](perf-sqlite-handoff.md).
+
 ### Runtime and store startup phases (#3696)
 
 The retained `open`/`bound` line starts at entry to async `run`, after Tokio
