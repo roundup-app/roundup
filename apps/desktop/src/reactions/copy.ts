@@ -6,6 +6,7 @@ import type { ObservationGap } from "@contracts/reaction/ObservationGap";
 import type { ObservationRecovery } from "@contracts/reaction/ObservationRecovery";
 import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
 import type { Reason } from "@contracts/message/Reason";
+
 const checkObservation = "Refresh to check current observation.";
 
 const activityUnreadable = "Agent activity could not be read. No condition was met during that gap.";

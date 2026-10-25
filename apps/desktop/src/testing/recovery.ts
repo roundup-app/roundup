@@ -2,7 +2,7 @@ import { fireEvent, screen } from "@solidjs/testing-library";
 import type { MenuItem } from "../app/seam";
 import { menuProbe } from "./menuProbe";
 
-const PREFIX = "Recover unfinished work";
+const PREFIX = "Unfinished work";
 
 /** U3289c: right-clicks the Overview row; the recovery item's label, or null while nothing qualifies. The menu is left open. */
 const askOverview = async (): Promise<MenuItem | null> => {
@@ -22,7 +22,7 @@ export const recoveryLabel = async (): Promise<string | null> => {
   return item?.label ?? null;
 };
 
-/** Chooses "Recover unfinished work" in the Overview menu, which opens the panel. */
+/** Chooses "Unfinished work" in the Overview menu, which opens the panel. */
 export const openRecovery = async (): Promise<void> => {
   let item = await askOverview();
 
