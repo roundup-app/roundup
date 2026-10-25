@@ -631,6 +631,15 @@ calibration, baseline, production repair or Mac observation is supplied.
 
 ### R23 producer/dispatch continuation (#4032)
 
+[Builder 40204505975](../crates/perf/evidence/r23-host-40204505975/README.md)
+retains another unchanged qualification miss: AMD EPYC 7763, exit 2, with
+matching before/after boot IDs and actual command statuses. Runner inventory
+again returned HTTP 403 (exit 1); available job metadata and existing launch
+inputs identify no accessible qualified lifetime. No build or collection ran.
+This host-only report leaves producer/initial-dispatch attempts, isolated
+repeated controls and their assessment incomplete; it supplies no overhead bound.
+
+
 [Builder 40200071512's retained qualification](../crates/perf/evidence/r23-producer-40200071512/README.md)
 passed on an exact 9V45 host, but its build job ended with failure at
 2026-10-25T14:24:52Z without retaining producer/initial-dispatch capture,
