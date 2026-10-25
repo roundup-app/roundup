@@ -1,0 +1,44 @@
+{
+  "head_source": "a40be14713ba5b15d429a151cb7b0fee2cb7e1ef",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "command": "pnpm --filter desktop exec vite build --manifest --outDir /tmp/roundup-ranking-{base,head}-dist",
+  "gzip": "Python gzip.compress level=9 mtime=0, each file counted/compressed once, manifest imports recursively, dynamic-only chunks excluded",
+  "report": [
+    {
+      "phase": "base",
+      "files": [
+        {
+          "file": "assets/index-C3aNtkUg.js",
+          "raw": 1724320,
+          "gzip": 505738
+        }
+      ],
+      "raw": 1724320,
+      "gzip_bytes": 505738,
+      "wasm": [],
+      "build_exit": 0
+    },
+    {
+      "phase": "head",
+      "files": [
+        {
+          "file": "assets/index-jTTIp9-d.js",
+          "raw": 1732992,
+          "gzip": 509606
+        }
+      ],
+      "raw": 1732992,
+      "gzip_bytes": 509606,
+      "wasm": [],
+      "build_exit": 0
+    }
+  ],
+  "delta": 3868,
+  "result": "blocked: both references exceed the ceiling; adding ranking also enlarges entry JS; no entry-budget or performance pass claimed",
+  "manifests": "Committed manifests contain the entry/static-import closure. Full manifests remain with run artifacts. No static chunk imports occur in either build.",
+  "vite": "8.3.5",
+  "reuse": "Installed Vite --manifest records graph edges; Python json/gzip supplies measurement. No parser or checker machinery added.",
+  "reference_source": "20cd2082a4e4164fafcfa800721fe242e29ee299"
+}
