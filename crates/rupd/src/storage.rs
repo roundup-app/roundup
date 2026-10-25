@@ -187,9 +187,9 @@ mod tests {
         let before = dump(&db);
         use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
         db.authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
-            AuthAction::CreateTrigger {
-                trigger_name: "deliverable_blob_identity",
-                ..
+            AuthAction::Pragma {
+                pragma_name: "user_version",
+                pragma_value: Some(_),
             } => Authorization::Deny,
             _ => Authorization::Allow,
         }))
