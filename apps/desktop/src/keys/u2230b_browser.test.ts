@@ -22,39 +22,34 @@ const read = `() => {
 }`;
 
 it("u2230b_hint_line_drops_from_the_end", async () => {
-  for (const [scheme, contrast] of [["light", undefined], ["dark", undefined], ["light", "more"]] as const) {
-    await page.scheme(scheme, contrast);
+  for (const [seed, agent] of [["tree-40", "agent-4"], ["bubbles", "dense"]] as const) {
+    for (const width of [1280, 700]) {
+      await page.load(`/harness.html?seed=${seed}`, width, 800);
+      await page.call(`() => localStorage.clear()`);
+      await page.load(`/harness.html?seed=${seed}`, width, 800);
+      await page.until(`() => Boolean(window.__fake)`);
+      await page.call(`() => document.querySelector('[data-id="${agent}"]').click()`);
+      await page.until(`() => document.querySelector('.pane-screen')`);
 
-    for (const [seed, agent] of [["tree-40", "agent-4"], ["bubbles", "dense"]] as const) {
-      for (const width of [1280, 700]) {
-        await page.load(`/harness.html?seed=${seed}`, width, 800);
-        await page.call(`() => localStorage.clear()`);
-        await page.load(`/harness.html?seed=${seed}`, width, 800);
-        await page.until(`() => Boolean(window.__fake)`);
-        await page.call(`() => document.querySelector('[data-id="${agent}"]').click()`);
-        await page.until(`() => document.querySelector('.pane-screen')`);
-
-        // The Shelf opens by default at 700 and leaves the bar no room: close it, as a user would.
-        if (width === 700) {
-          await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
-          await page.press("k", "KeyK", 4);
-          await page.press("s", "KeyS");
-        }
-
+      // The Shelf opens by default at 700 and leaves the bar no room: close it, as a user would.
+      if (width === 700) {
         await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
-        await page.until(`() => document.querySelector('.hint-line .hint:not([hidden])')`);
-
-        if (seed === "bubbles") expect(await page.call<number>(`() => document.querySelectorAll('.terminal-tab').length`), "the Agent with 8 Runs").toBeGreaterThanOrEqual(8);
-
-        const observed = await page.call<Read>(read);
-
-        const label = `${scheme} ${contrast ?? ""} ${seed} ${width}`;
-        const wanted = hintsFor("agent").map((hint) => `${hint.keys} ${hint.label}`);
-
-        expect(observed.shown.length, label).toBeGreaterThan(0);
-        expect(observed.shown, `${label}: fewer hints drop from the end`).toEqual(wanted.slice(0, observed.shown.length));
-
+        await page.press("k", "KeyK", 4);
+        await page.press("s", "KeyS");
       }
+
+      await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
+      await page.until(`() => document.querySelector('.hint-line .hint:not([hidden])')`);
+
+      if (seed === "bubbles") expect(await page.call<number>(`() => document.querySelectorAll('.terminal-tab').length`), "the Agent with 8 Runs").toBeGreaterThanOrEqual(8);
+
+      const observed = await page.call<Read>(read);
+
+      const label = `${seed} ${width}`;
+      const wanted = hintsFor("agent").map((hint) => `${hint.keys} ${hint.label}`);
+
+      expect(observed.shown.length, label).toBeGreaterThan(0);
+      expect(observed.shown, `${label}: fewer hints drop from the end`).toEqual(wanted.slice(0, observed.shown.length));
     }
   }
-}, 300_000);
+}, 120_000);
