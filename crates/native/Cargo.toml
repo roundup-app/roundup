@@ -1,0 +1,27 @@
+[package]
+name = "native"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+harness = false
+
+[features]
+idle-perf = []
+
+[dependencies]
+tauri = { version = "2", default-features = false, features = ["wry"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["block2"] }
+block2 = "0.6"
+
+# The sole repository-owned native FFI owner. Other crates inherit workspace forbid.
+[lints.rust]
+unsafe_code = "allow"
+unused = { level = "deny", priority = -1 }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
