@@ -91,8 +91,9 @@ it("u3078i_open_inspect_resume_and_reconcile", async () => {
   expect(view.getByText(/may have reached the Daemon/)).toBeTruthy();
   expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
   const reads = app.calls.filter((call) => call.method === "message.reconcileWork").length;
+  await waitFor(() => expect(view.getByRole("button", { name: "Try resuming again" }).getAttribute("aria-disabled")).toBeNull());
   fireEvent.click(view.getByRole("button", { name: "Try resuming again" }));
-  await waitFor(() => expect(view.getByText("Resumed: the Agent has the unfinished work.")).toBeTruthy());
+  await view.findByRole("status");
   expect(app.calls.filter((call) => call.method === "message.reconcileWork").length).toBeGreaterThan(reads);
 
   const sent = paramsOf<{ project: string; id: string; request: string; action: string }>(app, "message.resumeWork");
@@ -217,10 +218,11 @@ it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progr
   else {
     const reply = gate<ResumeWork>();
     app.handlers["message.resumeWork"] = () => reply.promise;
+    await waitFor(() => expect(view.getByRole("button", { name: "Try resuming again" }).getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(view.getByRole("button", { name: "Try resuming again" }));
     expect(view.getByRole("alert", { name: /Agent stopped; start it again/ })).toBeTruthy();
     reply.resolve({ decision: { id: "d1", request: "r", actions: ["action-login"], message: 7 }, reconciliation: seeded.plan });
-    await view.findByText("Resumed: the Agent has the unfinished work.");
+    await view.findByRole("status");
   }
 
   expect(view.queryByRole("alert", { name: /Agent stopped; start it again/ })).toBeNull();

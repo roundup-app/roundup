@@ -17,9 +17,9 @@ const refuse = () => { throw new Error(REFUSED); };
 const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name}`, name, owner: { kind: "agent", id: by, parent: null }, text: "old", updated_at: 0, revision: 1, home: null });
 
 /** Row `a` fails to remove; the Rail's line is the failure. */
-const failedRemove = async () => {
+const failedRemove = async (pane = false) => {
   let tree = [agent("a", "idle", "x"), agent("b", "idle", "x", { order: 1 })];
-  const mounted = await mountRail(tree);
+  const mounted = await mountRail(tree, pane ? { pane: true } : {});
   mounted.app.handlers["rail.tree"] = () => tree;
   mounted.app.handlers["rail.remove"] = refuse;
   mounted.rail.select("a");
@@ -33,7 +33,7 @@ const failedRemove = async () => {
 
 describe("p3557c an item failure in the Rail goes with its item", () => {
   it("u3791c_same_scope_failure_replaces_across_command_sources", async () => {
-    const { app, rail, drop, connected } = await failedRemove();
+    const { app, rail, drop, connected } = await failedRemove(true);
     const original = rail.commandFailure.message();
     const draft = connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "b" }, { text: " unfinished 🌿 " }, null, "ordinary").draft;
     app.handlers["rail.createWorkstream"] = () => { throw new Error("new command failure"); };
