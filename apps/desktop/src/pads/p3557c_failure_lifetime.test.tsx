@@ -65,7 +65,7 @@ it.each(["open", "closed", "other", "recreated"])("p3557c_failure_lifetime_ackno
 
   fireEvent.input(field, { target: { value: "submitted" } });
   fireEvent.focusOut(field);
-  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+  await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
   fireEvent.input(field, { target: { value: "newer\n  exact ☕  " } });
 
   const newer = connected.drafts.list().at(-1)!;
@@ -99,9 +99,9 @@ it.each(["failed", "closed-failed", "unknown", "mapping", "discard"])("p3557c_fa
   fireEvent.focusOut(field);
 
   if (mode === "mapping") {
-    expect(app.calls.filter(call => call.method === "pad.write")).toEqual([]);
+    expect(app.calls.filter(call => /pad.write/.test(call.method))).toEqual([]);
   } else {
-    expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+    await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
 
     if (mode === "closed-failed") connected.drawer.close("key");
     reply.reject(mode !== "unknown" ? new RpcError(mode === "discard" ? -32003 : -32000, "Write refused") : new Error("Reply lost"));
@@ -112,7 +112,7 @@ it.each(["failed", "closed-failed", "unknown", "mapping", "discard"])("p3557c_fa
     if (mode === "unknown") {
       app.handlers["pad.read"] = () => ({ ...original, text: "submitted" });
       fireEvent.click(screen.getByText("Resume"));
-      await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read")).toHaveLength(2));
+      await waitFor(() => { if (app.calls.filter(call => /pad.read/.test(call.method)).length !== 2) throw new Error("Pad request has not arrived"); });
       await writeAdopted();
     }
 
@@ -132,7 +132,7 @@ it.each([false, true])("p3557c_failure_lifetime_recovery_acknowledges_only_resum
   app.handlers["pad.write"] = () => reply.promise;
   expect(acknowledged).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("Resume"));
-  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+  await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
 
   if (close) connected.drawer.close("key");
   reply.resolve({ ...original, text: "retained", revision: 2 });

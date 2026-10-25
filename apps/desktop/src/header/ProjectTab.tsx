@@ -173,7 +173,7 @@ export const ProjectTab = (props: {
           { id: "close", label: copy.close, run: () => props.onClose() },
         ], x, y));
       }}>
-      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
+      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
         setEditing(null);
 
         if (refocus) button?.focus();
@@ -187,14 +187,15 @@ export const ProjectTab = (props: {
         if (saved !== null) {
           const submitted = revision;
           const failure = copyFailure();
+          const expected = base;
 
-          if (submitted && !drafts?.submit(submitted)) {
+          if (submitted && !(await drafts?.submit(submitted))) {
             recover(true);
 
             return;
           }
 
-          void props.onRename(saved, base).then(outcome => {
+          void props.onRename(saved, expected).then(outcome => {
             if (submitted) drafts?.settle(submitted, outcome.status);
 
             if (outcome.status === "acknowledged" && copyFailure() === failure) failCopy(null);

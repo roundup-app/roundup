@@ -218,7 +218,7 @@ const OrderContent = (props: OrderInput) => {
     }
 
     if (!parsed.success || !captured) return;
-    const snapshot = drafts.submit(draft.revision);
+    const snapshot = (await drafts.submit(draft.revision));
 
     if (!snapshot) return;
     const sequence = ++saveSequence;

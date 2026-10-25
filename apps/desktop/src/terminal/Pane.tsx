@@ -189,7 +189,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    setStorageFailure(zoomed ? storage.write(next) : storage.clear());
+    void (zoomed ? storage.write(next) : storage.clear()).then(setStorageFailure);
     refitNextFrame();
   };
 

@@ -15,7 +15,7 @@ it("u3517d_settings_and_project_zoom_share_the_default", async () => {
   connected.rail.select("a");
   await waitFor(() => expect(emulators.has("t-a")).toBe(true));
   const first = emulators.get("t-a")!;
-  saveAppSettings({ fontSize: 17 });
+  await saveAppSettings({ fontSize: 17 });
   await waitFor(() => expect(first.fontSize).toBe(17));
   connected.rail.select("b");
   expect(emulators.get("t-b")!.fontSize).toBe(17);
@@ -27,11 +27,11 @@ it("u3517d_saved_absolute_zoom_survives_default_changes_and_reset", async () => 
   const { connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
   await waitFor(() => expect(emulators.has("t-a")).toBe(true));
-  saveAppSettings({ fontSize: 16 });
+  await saveAppSettings({ fontSize: 16 });
   expect(emulators.get("t-a")!.fontSize).toBe(19);
   fireEvent.keyDown(container.querySelector("[data-terminal]")!, { key: "0", code: "Digit0", metaKey: true });
   expect(emulators.get("t-a")!.fontSize).toBe(16);
-  saveAppSettings({ fontSize: 18 });
+  await saveAppSettings({ fontSize: 18 });
   await waitFor(() => expect(emulators.get("t-a")!.fontSize).toBe(18));
   cleanup();
   const reopened = await mountPane([terminal("a")], [info("t-a")]);
@@ -45,7 +45,7 @@ it("u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
   const first = factory("first");
   const instance = spy.mock.instances[0]!;
   await new Promise<void>(resolve => first.write(new TextEncoder().encode(`kept output\r\n${"c".repeat(70)}`), resolve));
-  saveAppSettings({ fontFamily: "Menlo" });
+  await saveAppSettings({ fontFamily: "Menlo" });
   await waitFor(() => expect(instance.options.fontFamily).toBe("Menlo"));
   vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => instance.resize(60, 24));
   first.fit();
@@ -53,7 +53,7 @@ it("u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
   const second = factory("second");
   await waitFor(() => expect(spy.mock.instances[1]!.options.fontFamily).toBe("Menlo"));
   expect(instance.buffer.active.getLine(0)?.translateToString(true)).toBe("kept output");
-  saveAppSettings({ fontFamily: "" });
+  await saveAppSettings({ fontFamily: "" });
   await waitFor(() => expect(instance.options.fontFamily).toContain("monospace"));
   first.dispose();
   second.dispose();
@@ -67,21 +67,21 @@ it("u3805_dark_and_light_override_the_system_scheme", async () => {
 
  return dispose; });
 
-  saveAppSettings({ mode: "dark" });
+  await saveAppSettings({ mode: "dark" });
   await waitFor(() => expect(document.documentElement.style.colorScheme).toBe("dark"));
   expect(appDark()).toBe(true);
   dark = true;
-  saveAppSettings({ mode: "light" });
+  await saveAppSettings({ mode: "light" });
   await waitFor(() => expect(document.documentElement.style.colorScheme).toBe("light"));
   expect(appDark()).toBe(false);
   dispose();
 });
 
-it("u3805_system_follows_a_change_of_the_media_query", () => {
+it("u3805_system_follows_a_change_of_the_media_query", async () => {
   const query = new EventTarget();
   Object.assign(query, { matches: false });
   vi.stubGlobal("matchMedia", () => query);
-  saveAppSettings({ mode: "system" });
+  await saveAppSettings({ mode: "system" });
   const observed: boolean[] = [];
   const stop = followAppAppearance(() => observed.push(appDark()));
   Object.assign(query, { matches: true });
