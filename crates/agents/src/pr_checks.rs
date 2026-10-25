@@ -209,16 +209,18 @@ fn non_github_remote(dir: &Path) -> bool {
     else {
         return false;
     };
-    let url = String::from_utf8_lossy(&out.stdout);
-    let url = url.trim();
-    let host = url
-        .split_once("://")
-        .map(|(_, rest)| rest.split('/').next().unwrap_or(""))
-        .or_else(|| {
-            url.split_once('@')
-                .map(|(_, rest)| rest.split(':').next().unwrap_or(""))
-        })
-        .map(|h| h.rsplit('@').next().unwrap_or(h));
+    let remote = String::from_utf8_lossy(&out.stdout);
+    let remote = remote.trim();
+    let parsed = url::Url::parse(remote);
+    let host = if remote.contains("://") {
+        parsed.as_ref().ok().and_then(url::Url::host_str)
+    } else {
+        // url rejects SCP syntax; retain its classification (Z3742o capability record on #3742).
+        remote
+            .split_once('@')
+            .map(|(_, rest)| rest.split(':').next().unwrap_or(""))
+            .map(|h| h.rsplit('@').next().unwrap_or(h))
+    };
     out.status.success() && host.is_some_and(|h| !h.is_empty() && h != "github.com")
 }
 
