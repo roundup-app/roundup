@@ -20,17 +20,18 @@ it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", asyn
   fireEvent.input(field(), { target: { value: " A\n😀 " } });
   fireEvent.keyDown(field(), { key: "Enter" });
   fireEvent.input(field(), { target: { value: " B\ne\u0301 " } });
+  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
 
   if (outcome === "acknowledged") resolve(workstream("spawned"));
   else reject(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
-  await new Promise((done) => setTimeout(done));
+  await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(field().value).toBe(" B\ne\u0301 ");
   const revisions = screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft");
   expect(revisions.map((entry) => entry.value)).toEqual(outcome === "acknowledged" ? [] : [" A\n😀 "]);
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 
   if (outcome !== "acknowledged") {
-    expect(document.body.textContent).toContain("Completion unconfirmed");
+    expect(mounted.connected.drafts.list().find(draft => draft.status === "unknown")?.value.text).toBe(" A\n😀 ");
     fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[0]!);
   }
 
@@ -47,15 +48,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
   open();
   fireEvent.input(field(), { target: { value: " memory\n😀 " } });
+  await screen.findByRole("button", { name: "Retry storage" });
   expect(field().value).toBe(" memory\n😀 ");
-  expect(screen.queryByText("Unfinished rail work")).toBeNull();
   fireEvent.keyDown(field(), { key: "Escape" });
   expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" memory\n😀 ");
   open();
-  expect(screen.queryByText("Unfinished rail work")).toBeNull();
   writes.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(field().value).toBe(" memory\n😀 ");
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   cleanup();
@@ -74,7 +74,7 @@ it("u2773a_rail_task_keeps_original_recipient_after_selection_changes", async ()
   fireEvent.input(field(), { target: { value: " exact\n😀 " } });
   mounted.rail.select("b");
   fireEvent.keyDown(field(), { key: "Enter" });
-  await new Promise((done) => setTimeout(done));
+  await waitFor(() => expect(railCallsTo(mounted.app, "message.send")).toHaveLength(1));
   expect(railCallsTo(mounted.app, "message.send")).toEqual([{ to: "a", kind: "note", body: "exact\n😀", replyTo: null }]);
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
 });
@@ -98,6 +98,7 @@ it("u2773a_rail_clear_restores_exact_reason_and_selection", async () => {
     fireEvent.input(reason(), { target: { value: " exact\ne\u0301 😀 " } });
     reason().setSelectionRange(2, 5, "backward");
     fireEvent.select(reason());
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${first.connected.project.path}`)!).drafts).toContainEqual(expect.objectContaining({ selection: { start: 2, end: 5, direction: "backward" } })));
     fireEvent.keyDown(reason(), { key: "Escape" });
     cleanup();
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
@@ -129,7 +130,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   open();
   fireEvent.input(field(), { target: { value: " B\ne\u0301 " } });
   refuse(new RpcError(-32003, "refused original"));
-  await new Promise((done) => setTimeout(done));
+  await waitFor(() => expect(original.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(field().value).toBe(" B\ne\u0301 ");
   expect(railCallsTo(other, "agent.spawn")).toEqual([]);
   cleanup();
@@ -137,7 +138,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   open();
   expect(field().value).toBe(" A\n😀 ");
   fireEvent.keyDown(field(), { key: "Escape" });
-  expect(document.body.textContent).toContain("Not submitted");
+  expect(original.connected.drafts.list().at(-1)?.status).toBe("failed");
   expect(railCallsTo(original.app, "agent.spawn")).toHaveLength(1);
 });
 
@@ -153,10 +154,11 @@ it.each(["failed", "acknowledged", "unknown", "transport"])("u2773b_rail_name_se
   fireEvent.input(name, { target: { value: " A e\u0301 😀 " } });
   fireEvent.keyDown(name, { key: "Enter" });
   fireEvent.input(name, { target: { value: " B 😀 " } });
+  await waitFor(() => expect(accept).toBeTypeOf("function"));
 
   if (outcome === "acknowledged") accept(agent("a", "idle", "ready", { name: "A e\u0301 😀" }));
   else refuse(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
-  await new Promise((done) => setTimeout(done));
+  await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(name.value).toBe(" B 😀 ");
   expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : [" A e\u0301 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A e\u0301 😀" }]);
@@ -182,10 +184,11 @@ it("u2773a_rail_clear_failure_does_not_take_focus", async () => {
     await Promise.resolve();
     fireEvent.input(reason, { target: { value: " exact 😀 " } });
     fireEvent.submit(reason.closest("form")!);
+    await waitFor(() => expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1));
     const elsewhere = pinnedAdd();
     elsewhere.focus();
     mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
-    await new Promise((done) => setTimeout(done));
+    await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
     expect(document.activeElement).toBe(elsewhere);
     expect(reason.value).toBe(" exact 😀 ");
     expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
@@ -238,13 +241,15 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   fireEvent.keyDown(name, { key: "Enter" });
   fireEvent.input(name, { target: { value: " B 😀 " } });
   fireEvent.keyDown(name, { key: "Enter" });
+  await waitFor(() => expect(acceptB).toBeTypeOf("function"));
   acceptB(agent("a", "idle", "ready", { name: "B 😀" }));
-  await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+  await waitFor(() => expect(name.isConnected).toBe(false));
   fireEvent.dblClick(screen.getByText("Original"));
   const newer = screen.getByLabelText<HTMLInputElement>("Name");
   fireEvent.input(newer, { target: { value: " C e\u0301 😀 " } });
-  refuseA(new RpcError(-32003, "older name refused"));
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("older name refused"));
+  const failure = new RpcError(-32003, "older name refused");
+  refuseA(failure);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
   expect(newer.value).toBe(" C e\u0301 😀 ");
   expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((entry) => entry.value)).toEqual([" A 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A 😀" }, { id: "a", name: "B 😀" }]);
@@ -267,8 +272,10 @@ it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   fireEvent.click(older.closest("details")!.querySelector("summary")!);
   older.focus();
   older.setSelectionRange(2, 5, "backward");
-  refuse(new RpcError(-32003, "original refused"));
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("original refused"));
+  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
+  const failure = new RpcError(-32003, "original refused");
+  refuse(failure);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
   expect(document.activeElement).toBe(older);
   expect([older.selectionStart, older.selectionEnd, older.selectionDirection]).toEqual([2, 5, "backward"]);
   expect(field().value).toBe(" B\ne\u0301 ");

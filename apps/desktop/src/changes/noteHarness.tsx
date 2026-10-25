@@ -30,4 +30,5 @@ export const saveNote = async (text: string) => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
 };

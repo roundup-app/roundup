@@ -45,7 +45,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
-  const lifetime = createSlideLifetime();
+  const lifetime = createSlideLifetime(() => [panel()]);
 
   createEffect(() => setDrawerSliding(lifetime.sliding()));
   onCleanup(() => setDrawerSliding(false));
@@ -104,10 +104,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         transform: isOpen() ? "translateX(0)" : "translateX(100%)",
         transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
-      onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget || (event.propertyName && event.propertyName !== "transform")) return;
-        lifetime.settle();
-      }}
+
     >
       <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
         <Icon name="x" />

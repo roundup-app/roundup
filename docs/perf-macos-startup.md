@@ -371,3 +371,5 @@ Thirty alternating old/new pairs (`docs/perf-startup-store-pairs.json`, raw samp
 ms, `open` 10.40 against 10.14 ms. About 0.3 ms saved on Linux; the Mac may differ. Not
 attributed: the 0.9 ms WAL setup and 14 connections at 0.6 ms (about 8 ms), which a later
 change must measure per store. No budget changed; R3696c's same-M4-Max gate stays on #3696.
+
+[Four idle Project connections: measured repair and regression observer (#4052)](perf-startup-connections.md).

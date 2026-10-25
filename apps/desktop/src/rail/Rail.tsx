@@ -459,7 +459,7 @@ export const Rail = (props: { requested?: boolean }) => {
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const submitPrompt = (prompt: string | null) => {
+  const submitPrompt = async (prompt: string | null) => {
     const snapshot = task() ?? keepDraft(draft());
 
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -472,7 +472,7 @@ export const Rail = (props: { requested?: boolean }) => {
       return;
     }
 
-    const revision = retained.submit(snapshot.revision);
+    const revision = (await retained.submit(snapshot.revision));
 
     if (!revision) return;
     const original = rail.nodes.find((node) => node.id === originalParent);
