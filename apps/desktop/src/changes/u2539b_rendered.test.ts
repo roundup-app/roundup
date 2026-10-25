@@ -3,12 +3,18 @@ import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath } from "../testing/chromePage";
-import { startAppServer } from "../testing/appServer";
+import { appServer, startAppServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
+let baseline: Awaited<ReturnType<typeof startAppServer>> | undefined;
+
+beforeAll(async () => {
+  if (process.env.ROUNDUP_BASELINE_ROOT) baseline = await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT });
+}, 120_000);
+afterAll(async () => { await baseline?.close(); });
 
 it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539b_rendered_landing_navigation_and_changed_files: %s", async seed => {
   const profile = mkdtempSync(join(tmpdir(), "u2539b-profile-"));
@@ -18,8 +24,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
   // SAFETY: agent-browser serializes the JSON value returned by each page expression.
   const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
   const until = (source: string) => browser("wait", "--fn", source);
-  const server = await startAppServer();
-  let baseline: Awaited<ReturnType<typeof startAppServer>> | undefined;
+  const server = await appServer();
 
   const capture = async (lane: string, step: string) => {
     const directory = captureDir("U2539b");
@@ -33,8 +38,6 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
   try {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-
-    if (process.env.ROUNDUP_BASELINE_ROOT) baseline = await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT });
 
     for (const [lane, served] of [["base", baseline], ["head", server]] as const) {
       if (!served) continue;
@@ -103,7 +106,6 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
     }
   } finally {
     await browser("close");
-    await baseline?.close();
     await server.close();
     rmSync(profile, { recursive: true, force: true });
   }
