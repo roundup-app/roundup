@@ -20,7 +20,7 @@ export const showScrollbars = (element: HTMLElement): void => {
 
 /** U3530: retain each native viewport and its handlers, including textareas and shadow-root scrollers. */
 export const trackScrollbars = (doc: Document): void => {
-  const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; left: number; top: number; width: number; height: number }>();
+  const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
   const pending = new Set<ParentNode>();
   let frame = 0;
@@ -110,26 +110,12 @@ export const trackScrollbars = (doc: Document): void => {
       slot.className = "scrollbar-slot";
       slot.setAttribute("aria-hidden", "true");
       element.parentNode?.appendChild(slot);
-      slot.addEventListener("pointerdown", () => {
-        slot.setAttribute("data-scroll-drag", "");
-        showScrollbars(slot);
-      }, true);
-
-      const endDrag = () => {
-        slot.removeAttribute("data-scroll-drag");
-        showScrollbars(slot);
-      };
-
-      slot.addEventListener("pointerup", endDrag);
-      slot.addEventListener("pointercancel", endDrag);
-      slot.addEventListener("lostpointercapture", endDrag);
-
       const bars = OverlayScrollbars({ target: element, elements: { viewport: element }, scrollbars: { slot } }, {
         overflow: { x: x ? "scroll" : "hidden", y: y ? "scroll" : "hidden" },
-        scrollbars: { theme: "app-scrollbar", autoHide: "never", autoHideSuspend: false, dragScroll: true, clickScroll: false },
+        scrollbars: { theme: "app-scrollbar", autoHide: "scroll", autoHideDelay: IDLE_MS, autoHideSuspend: false, dragScroll: true, clickScroll: false },
       });
 
-      entries.set(element, { bars, slot, left: element.scrollLeft, top: element.scrollTop, width: element.scrollWidth, height: element.scrollHeight });
+      entries.set(element, { bars, slot, width: element.scrollWidth, height: element.scrollHeight });
       resize.observe(element);
       place(element, slot);
     }
@@ -202,17 +188,7 @@ export const trackScrollbars = (doc: Document): void => {
     };
 
     root.addEventListener("input", updateField, true);
-    root.addEventListener("scroll", (event) => {
-      const target = event.target;
-      const entry = target instanceof HTMLElement ? entries.get(target) : undefined;
-
-      if (entry && target instanceof HTMLElement && (entry.left !== target.scrollLeft || entry.top !== target.scrollTop)) {
-        entry.left = target.scrollLeft;
-        entry.top = target.scrollTop;
-        updateField(event);
-        showScrollbars(entry.slot);
-      }
-
+    root.addEventListener("scroll", () => {
       for (const [element, { slot }] of entries) place(element, slot);
     }, true);
     schedule(root);
