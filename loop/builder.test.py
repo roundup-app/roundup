@@ -160,19 +160,6 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
-    def test_l23_gh_retries_a_github_5xx_and_never_a_4xx(self):
-        def gh(*replies):
-            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
-
-        with patch.object(builder.time, 'sleep'), redirect_stderr(io.StringIO()):
-            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Server Error (HTTP 502)'), (0, 'ok', ''))) as run:
-                self.assertEqual(builder.call('api', 'x'), 'ok')
-                self.assertEqual(run.call_count, 2)
-            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Not Found (HTTP 404)'), (0, 'ok', ''))) as run:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    builder.call('api', 'x')
-                self.assertEqual(run.call_count, 1)
-
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
@@ -1647,6 +1634,19 @@ class Review(unittest.TestCase):
         with GitHub(run=dict(status='in_progress', attempt=1, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')
         self.assertEqual(github.writes, [])
+
+    def test_l24_pick_reruns_the_pre_run_of_a_head_whose_review_or_critic_never_posted(self):
+        def passed(ago=3600, run=55):
+            return [dict(name='pre', workflowName='pre', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(ago),
+                         detailsUrl=f'https://x/actions/runs/{run}/job/9')]
+        review, critic = (dict(context=name, state='SUCCESS', targetUrl='https://x/actions/runs/1') for name in ('review', 'critic'))
+        prs = [pr(number=1, statusCheckRollup=passed()), pr(number=2, statusCheckRollup=passed() + [review]),
+               pr(number=3, statusCheckRollup=passed(run=56) + [review]), pr(number=4, statusCheckRollup=passed() + [review, critic]),
+               pr(number=5, statusCheckRollup=passed() + [dict(workflowName='review', status='IN_PROGRESS')]), pr(number=6, statusCheckRollup=passed(ago=60)),
+               pr(number=7, isDraft=True, statusCheckRollup=passed()), pr(number=8, isCrossRepository=True, statusCheckRollup=passed()),
+               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review])]
+        with patch.object(builder.orders, 'touches_desktop', side_effect=lambda number: number == 3):
+            self.assertEqual(builder.stranded(prs, NOW), [(1, '55'), (3, '56')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:

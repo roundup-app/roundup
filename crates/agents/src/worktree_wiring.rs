@@ -460,7 +460,7 @@ fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use contracts::project::ImportExclusionCause::AlreadyImported;
     fn git(project: &Path, args: &[&str]) -> String {
         let output = std::process::Command::new("git")
             .current_dir(project)
@@ -889,7 +889,7 @@ mod tests {
         )
         .unwrap();
         assert!(again.candidates.is_empty());
-        assert_eq!(again.excluded[0].reason, "already in this Project");
+        assert_eq!(again.excluded[0].cause, AlreadyImported);
         let stale = agents
             .call(
                 &user,
@@ -898,7 +898,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(stale["outcomes"][0]["error"].is_string());
+        assert_eq!(stale["outcomes"][0]["error"]["code"], rpc::code::CONFLICT);
     }
 
     #[tokio::test]

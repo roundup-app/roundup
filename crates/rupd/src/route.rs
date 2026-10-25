@@ -53,7 +53,10 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
-                "message.progress"
+                "todo.delete"
+                    | "todo.deletion"
+                    | "todo.restore"
+                    | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
                     | "message.verifyResult"
@@ -179,6 +182,20 @@ impl Daemon {
         }
         if method == "link.read" {
             return self.link_read(conn, params).await;
+        }
+        if method == "todo.restore" {
+            let p: contracts::todo::DeletionParams = rpc::params(params.clone())?;
+            if conn.actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden("only the user restores deleted Todos"));
+            }
+            for target in self.todos.restore_targets(&conn.actor, &p.operation)? {
+                self.require_owner(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
+            for target in self.todos.restore_homes(&conn.actor, &p.operation)? {
+                self.require_workstream(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
         }
         if method == "todo.refs" {
             return self.todo_refs(params);
