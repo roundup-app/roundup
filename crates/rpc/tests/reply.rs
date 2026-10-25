@@ -288,13 +288,7 @@ async fn r16_client_keeps_recursion_limit_and_duplicate_keys_across_object_growt
         .iter()
         .map(|(key, value)| (key.clone(), value.as_u64().unwrap()))
         .collect();
-    assert_eq!(values.len(), 20);
-    assert_eq!(values[0], ("k0".to_owned(), 99));
-    assert_eq!(values[19], ("k19".to_owned(), 100));
-    for (i, (key, value)) in values.iter().enumerate().take(19).skip(1) {
-        assert_eq!(key, &format!("k{i}"));
-        assert_eq!(*value, u64::try_from(i).unwrap());
-    }
+    insta::assert_debug_snapshot!(values);
     server.join().unwrap();
 }
 

@@ -1,18 +1,18 @@
 # Native motion run: the owner's Mac runbook
 
-For U3010d (#3013). One command per workload, one paste back. This document claims no result.
+For U3010d (#3013). One command per workload, one paste back. This document claims no result. Acceptance uses scheduling evidence only; presentation stays unmeasured with no displayed-frame claim.
 
 ## Build
 
 Base and head are the two commits U3010d compares; build and run each in its own checkout, alternating base, head, base, head, base, head. The recorder (U3010e) must be in both: for a base before it, cherry-pick `apps/desktop/src/perf/` and the `perf-frames` recipe onto it.
 
-## Next owner observation for #3013
+## Before another native request
 
-After this scheduling-verdict repair merges, run the remaining `layers`, `todos`, `glyphs` sequence once on measurement revision `95e2219df28a5483a869415f72ed64c557fa555b`. Use a fresh checkout (`git worktree add --detach /tmp/roundup-motion-3013 95e2219df28a5483a869415f72ed64c557fa555b`), `cd /tmp/roundup-motion-3013` and `pnpm install --frozen-lockfile`, then the Run command below for each workload in order. Keep each build attempt and its diagnostics. Stop concurrent builds before sampling; the recipe finishes its build before opening its window. Retain the report and complete `target/perf-frames-*` evidence directories after each attempt, including failures, before rebuilding another workload. Stop on an invalid run and return its diagnostics; a scheduling miss is retained for diagnosis, never tuned away.
+Keep returned reports, raw arrays, diagnostics, hardware and load observations, and any recomputation on #3013. Retain every attempt, including failures; do not rewrite an original verdict or repeat a completed request. Evaluate full acceptance against `docs/motion.md`, **Native performance protocol**: three alternating immutable baseline/head pairs, paired median regression, the final dense fixture, reserved/overlay variants and live reduced-motion cases. Record viewport, fixture/action hashes, stream byte/batch receipts and separate style/layout/paint observations; percentile summaries cannot supply them.
 
-The earlier valid `layers` observation at `ce9c8f2f7` remains in [the owner’s report](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6383793231), with raw files in `/tmp/p3013-out3`. The later attempt at `1f1b9a991` had a locked screen and no samples (`/tmp/p3013-out4`); retain it as invalid. Do not rewrite either report’s original verdict.
+The existing `apps/desktop/src/perf/frame_run.ts`, function `prepare`, seeds four flat Todos for Layers/Todos; `layersCycle` reverses after a fixed 90 ms rather than observed 50% displacement. It has no reserved/overlay or live reduced-motion run selection. Qualify those observers against the final protocol before requesting full native acceptance. Prove fixture/action/report validity through existing fake App/clock tests without starting a window; retain rendered calibration separately. Diagnose a measured regression before choosing an optimisation.
 
-This next observation checks the repaired verdict and remaining workloads; it does not replace the required three alternating baseline/head pairs, reserved/overlay and reduced-motion observations, or same-machine regression comparison. The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`; it predates the recorder. Do not treat this repair’s parent as a replacement performance baseline. Qualify any recorder-only backport against that source before asking for paired collection; retain the patch and hashes, preserving production code and fixture identity. #3013 remains open until the full protocol has evidence.
+Before a paired Mac request, retain the exact final implementation head, its pre-implementation baseline and a qualified identical observer-only overlay on both. The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`; neither this verdict repair's parent nor a newer convenient commit replaces it. Preserve source production code, fixture identity, patch and binary hashes, existing timing/load rules and every failed run. The final Motion migration's comparison must identify its own pre-implementation source explicitly. Request only the remaining protocol once preparation is complete; no further presentation collection or native permission is required.
 
 ## Before you run
 
