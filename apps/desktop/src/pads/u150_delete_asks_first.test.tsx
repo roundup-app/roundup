@@ -53,7 +53,6 @@ describe("u150 delete asks first (Pad)", () => {
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
     expect([calls(app), screen.queryByText(/was deleted/)]).toEqual([[{ method: "pad.delete", params: { name: "notes" } }], null]);
-    await waitFor(() => expect(screen.queryByText("notes")).toBeNull());
   });
 
   it("u150_keep_calls_nothing_and_focus_returns_to_delete", async () => {

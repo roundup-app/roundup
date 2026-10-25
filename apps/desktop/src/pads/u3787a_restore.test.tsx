@@ -1,22 +1,27 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { createServedApp } from "../testing/realSeam";
-import { startRealDaemon } from "../testing/realDaemonFixture";
+import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { padHandlers } from "../testing/stores";
 import { openPad } from "./padsFixture";
+
+let real: StartedDaemon;
+
+beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
+
+afterAll(async () => { await real?.stop(); });
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting_recovered_input_%s", async (kind) => {
-  const real = kind === "real" ? await startRealDaemon({}) : null;
   const fake = createFakeApp();
   Object.assign(fake.handlers, padHandlers({ pads: [], history: [] }, () => {}));
-  const app: AppSeam = real ? createServedApp(real.base) : fake;
-  const connected = await connectProject(app, { name: "restore", path: real?.dir ?? "/restore" }, () => true, () => 0);
+  const app: AppSeam = kind === "real" ? createServedApp(real.base) : fake;
+  const connected = await connectProject(app, { name: "restore", path: kind === "real" ? real.dir : "/restore" }, () => true, () => 0);
 
   try {
     const pad = await app.rpc("pad.create", { name: "notes", text: "original" });
@@ -32,12 +37,10 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);
-    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     await waitFor(async () => expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(text));
   } finally {
     cleanup();
     connected.stopTerminalScheme();
-    await real?.stop();
   }
 }, 120_000);

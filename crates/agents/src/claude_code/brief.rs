@@ -104,7 +104,18 @@ const TOOLS: &[(&str, &str)] = &[
         "add text at the end of the section under a Markdown heading of any Pad",
     ),
     ("pad_setOwner", "give a Pad to another Actor"),
-    ("pad_delete", "delete a Pad you no longer need"),
+    (
+        "pad_delete",
+        "delete a Pad you no longer need; supply an operation and expectedIncarnation to reconcile an unknown reply",
+    ),
+    (
+        "pad_getDeletion",
+        "read your retained deletion operation on its original Project before retrying an unknown deletion",
+    ),
+    (
+        "pad_restore",
+        "restore your deletion operation in its original Project once, keeping its original Pad creation",
+    ),
     (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
