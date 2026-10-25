@@ -9,6 +9,11 @@ use serde_json::{Value, json};
 use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
 
+#[allow(dead_code)]
+mod storage {
+    include!("../../../rupd/tests/support/store_migrations.rs");
+}
+
 fn definition(target: &str, instruction: &str) -> Value {
     json!({
         "operation": "op-1",
@@ -922,23 +927,6 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         s.project.crash();
         {
             let db = project_db(&s.project);
-            // Recreate the pre-upgrade database with the accepted row's original bytes and ids.
-            db.execute_batch("ALTER TABLE reaction_firings RENAME TO accepted_firings;")
-                .unwrap();
-            db.execute_batch(super::REACTION_FIRINGS_V1).unwrap();
-            db.execute_batch(
-                "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
-                DROP TABLE accepted_firings;
-                DROP TABLE continuation_actions; DROP TABLE continuation_decisions;
-                DROP TABLE message_result_facts; DROP TABLE message_results;
-                ALTER TABLE changes DROP COLUMN changed_at;
-                ALTER TABLE changes DROP COLUMN actor;
-                ALTER TABLE changes DROP COLUMN handed; ALTER TABLE todos DROP COLUMN estimate_minutes;
-                DROP TABLE workstream_queue; DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;
-                ALTER TABLE settings DROP COLUMN workstream_cap; ALTER TABLE nodes DROP COLUMN auto; ALTER TABLE nodes DROP COLUMN finished;
-                PRAGMA user_version = 23;",
-            )
-            .unwrap();
             if !manual_first {
                 // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
                 db.execute(
@@ -948,6 +936,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
                 .unwrap();
             }
         }
+        storage::retain_project(&s.project.data_dir(), 23);
         s.project.restart(&[]);
         s.user = s.project.client().await;
         start_again(&s.user, &s.w).await;
