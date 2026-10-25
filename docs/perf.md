@@ -645,3 +645,30 @@ This is temporary request allocation, not idle RSS attribution or a Mac timing
 pass. Budgets remain unchanged. Full same-M4-Max acceptance, remaining
 startup/RSS attribution, unchanged-code false-fail evidence and the separate
 later main pass remain open; this repair justifies no baseline rebase.
+
+### Deferred Terminal-owner worker (#3696)
+
+Opening `Agents` created a `Terminal owner reads` thread even when no Terminal
+ownership lookup followed. `Rail::terminal_owner` now initializes that same
+helper on its first lookup, using standard `Option::get_or_insert_with` under
+its existing exclusive borrow. The helper's bounded channel, read lease,
+query, deadline and shutdown remain unchanged. Its database path is retained
+as a `PathBuf`, including for non-UTF-8 paths.
+
+The Linux kernel observer
+`r3696c_opening_agents_starts_no_owner_worker` counts `/proc/self/task`
+entries around the public `Agents::open_with` call. On `e65989178`, startup
+increased the count from two threads to three and failed; after the repair
+the count stays unchanged and passes. It runs in a separate integration-test
+binary without a Tokio runtime, child program or clock, so other test workers
+do not contaminate the count. Existing Terminal-owner tests cover lookup
+freshness and serialization with the helper active. No existing test was
+removed: the new file contains only this startup observer.
+
+This removes one thread creation from unused Project startup and idle life;
+it does not measure milliseconds saved or resident stack pages. It is not
+attribution of the entire Mac startup/RSS gap. No listing-sidecar change or
+baseline rebase is involved. Budgets remain unchanged. The latest nine-pair
+Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
+acceptance, remaining attribution, unchanged-code false-fail evidence and the
+separate later main pass remain open.
