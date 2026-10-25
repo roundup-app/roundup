@@ -147,3 +147,59 @@ Its allocation bound is 100,000 bytes, down from main's 150,000; the unmerged
 90,000-byte bound required the slower reservation. Removing flat presentation
 still fails the retained bound at 132,294 bytes. Neither comparison is the Mac
 gate, a startup/RSS attribution or grounds for changing a budget.
+
+
+## Reservation without a count query (#3696)
+
+The read iterator gives `Vec` no row-count hint. Growing its large node buffer
+allocates 99,334 bytes per forty-Workstream reply. The existing allocation
+observer fails with the stricter 80,000-byte cap before implementation, and
+passes at 79,366 bytes after it; the allocation count remains 243. This file
+holds only that unique allocation observer, so no redundant test is removed.
+
+`Rail` remembers only the last loaded length, capped at 256, and uses standard
+`Vec::with_capacity` on the next read. It retains no nodes or SQLite facts and
+adds no SQL query. Reads still load all current rows, grow normally when needed
+and replace the hint after a successful load. Only one integer persists; a
+large tree cannot reserve more than 256 nodes on its next read after removal.
+The earlier rejected count-query candidate remains recorded above.
+
+Before adding this field, the file-size rule required a separate structural
+commit: imported-conversation reservation/publication moves to `rail/closed.rs`,
+Project settings to `rail/settings.rs`, and Terminal ownership reads to the
+existing `rail/view.rs`. Inherent methods keep their callers and visibility.
+No migration, RPC or acceptance condition changes.
+
+The [raw alternating report](perf-rail-capacity-pairs.json) retains both source
+references, executable and source hashes, the temporary observer patch, exact
+commands, all batch values/stdout/stderr/exits, loads and physical host identity.
+The same seven-batch observer runs on both binaries, with nine pairs reversing
+order. Builds and checks are stopped during measurement. These are median batch
+means including SQLite, presentation, JSON serialization and the instrumented
+System allocator; they exclude Daemon startup and socket transport and are not
+request p95s or idle RSS.
+
+Reproduce with the report's `observer_patch` temporarily applied to each
+reference's `crates/agents/tests/perf.rs`, using the release build and
+`RAIL_PROBE=1` commands above. No timing code is committed.
+
+Budgets remain unchanged. This repair establishes no Mac gate pass, startup
+saving or baseline rebase. The latest M4 Max failure at `477a3ce93` remains:
+cold start 9.543 / 8.110 ms, Rail 40 0.164 / 0.149 ms, with writes and RSS passing.
+Full same-M4-Max acceptance, remaining startup attribution, unchanged-code
+false-fail evidence and the separate later main pass remain on #3696.
+
+| Pair | Unreserved, µs/reply | Previous-length reservation, µs/reply |
+|---|---:|---:|
+| 1 | 82.505 | 75.863 |
+| 2 | 83.995 | 76.094 |
+| 3 | 82.045 | 77.109 |
+| 4 | 82.437 | 75.649 |
+| 5 | 83.107 | 77.875 |
+| 6 | 83.616 | 76.304 |
+| 7 | 82.247 | 76.784 |
+| 8 | 82.865 | 75.831 |
+| 9 | 82.904 | 75.879 |
+| Median of pair medians | 82.865 | 76.094 |
+
+All nine pairs improve, a 8.2% median reduction. Host: AMD EPYC 7763 64-Core Processor, Linux x86_64, 4 affinity CPUs, rustc 1.99.0 (b940084d7 2026-09-28); one-minute load 1.179–1.885 (0.295–0.471/CPU). Session `builder-40190498547-2026-10-25`. Before `60ab27fec6f1666c202d288ee79948aec4894f44`; after isolated repair `01cc5b281cab14df5b5a142d7acd509095753807`.
