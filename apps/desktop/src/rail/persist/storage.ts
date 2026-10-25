@@ -1,17 +1,17 @@
 import type { draftStorage } from "../../state/storage";
 import * as v from "valibot";
-import { storedValue } from "../../state/storage";
+import { storageSchema, storedValue } from "../../state/storage";
 
-const layoutSchema = v.object({
+const layoutSchema = storageSchema("roundup:rail", v.object({
   selected: v.nullable(v.string()),
   collapsed: v.array(v.string()),
-});
+}));
 
 type SavedLayout = v.InferOutput<typeof layoutSchema>;
 
 export type RailStorage = {
   read(): SavedLayout | null;
-  write(layout: SavedLayout): string | null;
+  write(layout: SavedLayout): Promise<string | null>;
 };
 
 export const railStorage = (path: string): RailStorage => storedValue(`roundup:rail:${path}`, layoutSchema);
@@ -27,8 +27,8 @@ export const draftsOf = (storage: Drafts) => {
 
       return result.draft;
     },
-    submit: (revision: string) => {
-      const result = storage.submit(revision);
+    submit: async (revision: string) => {
+      const result = await storage.submit(revision);
 
       return result?.draft ?? null;
     },
