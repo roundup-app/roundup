@@ -129,7 +129,7 @@ export const TodoHistory = (props: { id: number; saved?: () => number; onCapture
     if ((event.name === "todo.updated" || event.name === "todo.unblocked") && event.data.id === props.id) void refresh();
 
     // Deleting a blocker changes surviving Todos' history without changing their own fields in this Event.
-    if (event.name === "todo.deleted" && event.data.id !== props.id) void refresh();
+    if ((event.name === "todo.restored" || event.name === "todo.deleted") && event.data.id !== props.id) void refresh();
   }));
   onCleanup(() => { alive = false; latest++; });
 
