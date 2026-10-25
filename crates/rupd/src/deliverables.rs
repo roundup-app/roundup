@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct Publications {
     db: std::sync::Mutex<Connection>,
     cache: PathBuf,
+    quota: i64,
 }
 
 impl Publications {
@@ -19,6 +20,7 @@ impl Publications {
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
+            quota: QUOTA,
         }
     }
 
@@ -62,6 +64,7 @@ impl Publications {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
             cache,
+            quota: QUOTA,
         })
     }
 }
@@ -155,7 +158,7 @@ impl Daemon {
                             return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
                             incarnation: source.pad.incarnation,
@@ -178,7 +181,7 @@ impl Daemon {
                         )?;
                         file_source =
                             Some(serde_json::to_string(&source).map_err(RpcError::internal)?);
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::File {
                             path,
                             length: content.len() as u64,
@@ -364,7 +367,7 @@ fn external(url: &str) -> Result<(), RpcError> {
 
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 const QUOTA: i64 = 1024 * 1024 * 1024;
-fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
+fn bounded(db: &Connection, bytes: &[u8], quota: i64) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
             "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
@@ -372,7 +375,7 @@ fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > QUOTA {
+    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > quota {
         return Err(RpcError::new(
             code::INVALID_PARAMS,
             "publication exceeds 32 MiB or Project's 1 GiB retained quota",
@@ -604,6 +607,65 @@ fn observe(stage: &str) -> Result<(), RpcError> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[tokio::test]
+    async fn dv2_a_quota_refusal_leaves_the_listing_and_retained_bytes_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut daemon = crate::test_daemon(dir.path()).unwrap();
+        daemon.publications.quota = 25;
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = Conn {
+            actor: contracts::Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        async fn publish(
+            daemon: &Daemon,
+            conn: &mut Conn,
+            name: &str,
+            text: &str,
+        ) -> Result<Value, RpcError> {
+            let pad = daemon
+                .route(conn, "pad.create", json!({"name":name,"text":text}))
+                .await
+                .unwrap();
+            daemon.route(conn, "deliverable.publish", json!({"key":name,"title":name,"target":{"kind":"pad","name":name,"incarnation":pad["incarnation"],"revision":1}})).await
+        }
+        publish(&daemon, &mut conn, "a", "0123456789")
+            .await
+            .unwrap();
+        // Quota equality fits.
+        publish(&daemon, &mut conn, "b", "0123456789abcde")
+            .await
+            .unwrap();
+        let retained = |daemon: &Daemon| {
+            daemon
+                .publications
+                .db
+                .lock()
+                .unwrap()
+                .query_row(
+                    "SELECT count(*), sum(length(bytes)) FROM deliverable_bytes",
+                    [],
+                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+                )
+                .unwrap()
+        };
+        assert_eq!(retained(&daemon), (2, 25));
+        let before = daemon
+            .route(&mut conn, "deliverable.list", json!({}))
+            .await
+            .unwrap();
+        assert!(publish(&daemon, &mut conn, "c", "x").await.is_err());
+        assert_eq!(
+            daemon
+                .route(&mut conn, "deliverable.list", json!({}))
+                .await
+                .unwrap(),
+            before
+        );
+        assert_eq!(retained(&daemon), (2, 25));
+    }
     #[tokio::test]
     async fn dv2_metadata_only() {
         let dir = tempfile::tempdir().unwrap();

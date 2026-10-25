@@ -275,15 +275,3 @@ fn n6_h18_cleans_data_after_stop_and_failure() {
         cleanup_case(fail);
     }
 }
-
-#[test]
-fn n7_launch_sites_use_owned_data_h18() {
-    data_case();
-}
-
-#[test]
-fn n7_launch_sites_clean_on_success_and_failure_h18() {
-    for fail in [false, true] {
-        cleanup_case(fail);
-    }
-}
