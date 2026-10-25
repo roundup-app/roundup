@@ -84,9 +84,8 @@ class Orders(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
             with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83'), closed]]]):  # no file yet: every page
                 orders.list_issues()
-            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]) as gh:  # warm: open, then closed since
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]):  # warm: open, then closed since
                 issues = orders.list_issues()
-            self.assertEqual(gh.call_count, 2)
             rows = orders.classify(issues, {}, [])
             self.assertEqual([(row['issue'], row['state']) for row in rows], [(1, 'done'), (2, 'blocked')])
             self.assertIn('duplicate work Key', rows[1]['reason'])
@@ -116,6 +115,33 @@ class Orders(unittest.TestCase):
                                  [(1, 'ready'), (2, 'done'), (3, 'blocked')])
                 self.assertIn('duplicate work Key', rows[2]['reason'])
                 self.assertEqual(json.loads(cache.read_text())['closed'], {'2': closed})
+
+    def test_l34a_failed_warm_recovery_preserves_the_cache(self):
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            for fallback in ([], subprocess.CalledProcessError(1, 'gh')):
+                with self.subTest(trigger=trigger, fallback=fallback), tempfile.TemporaryDirectory() as directory, \
+                     patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                    cache = orders.Path(directory) / 'closed.json'
+                    original = json.dumps(dict(read=1000, closed={'1': issue(state='closed')})).encode()
+                    cache.write_bytes(original)
+                    with patch.object(orders, 'gh', side_effect=[trigger, [[]], fallback]), redirect_stderr(io.StringIO()):
+                        with self.assertRaisesRegex((subprocess.CalledProcessError, SystemExit),
+                                                    'gh|::error::both the REST and GraphQL Issue lists came back empty'):
+                            orders.list_issues()
+                    self.assertEqual(cache.read_bytes(), original)
+
+    def test_l34a_a_nonempty_warm_open_list_stays_incremental(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            cache = orders.Path(directory) / 'closed.json'
+            cache.write_text(json.dumps(dict(read=1000, closed={})))
+            with patch.object(orders, 'gh', side_effect=[[[issue()]], [[]]]) as gh:
+                issues = orders.list_issues()
+            self.assertEqual([item['number'] for item in issues], [1])
+            self.assertEqual([call.args for call in gh.call_args_list], [
+                ('api', 'repos/{owner}/{repo}/issues?state=open&per_page=100', '--paginate', '--slurp'),
+                ('api', 'repos/{owner}/{repo}/issues?state=closed&since=1970-01-01T00:14:40Z&per_page=100',
+                 '--paginate', '--slurp')])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)
