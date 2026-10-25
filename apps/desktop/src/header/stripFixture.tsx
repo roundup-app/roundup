@@ -1,3 +1,4 @@
+import { useBrowserStorage } from "../state/storage";
 import { render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { expect } from "vitest";
@@ -11,6 +12,7 @@ export const path = (name: string): string => `/Users/me/${name}`;
 /** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
 export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false) => {
   if (!keepStorage) window.localStorage.clear();
+  useBrowserStorage(window.localStorage);
 
   const app = createFakeApp();
   const names = Object.keys(trees);
