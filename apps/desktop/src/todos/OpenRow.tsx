@@ -1,5 +1,5 @@
 import { NameField } from "../ui/Editable";
-import type { JSX } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { IconButton } from "../ui/IconButton";
@@ -7,15 +7,15 @@ import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
-import { Icon } from "../ink/Icon";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
+import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
-import { doesClearTodoFailure, failureOf } from "./failureOf";
+import { doesClearTodoFailure } from "./failureOf";
 import { kindOf } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
@@ -55,7 +55,7 @@ export const OpenRow = (props: {
   /** U3720: opens the owner list for this row. */
   onAssign?: (todo: Todo, anchor: HTMLElement) => void;
   /** U3720: a failure the owner list reports for this row. */
-  failWith?: (show: (message: string | null) => void) => void;
+  failWith?: (show: (message: string | null) => void, message: Accessor<string | null>) => void;
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
   /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
@@ -79,7 +79,10 @@ export const OpenRow = (props: {
   const [editing, setEditing] = createSignal(false);
   const [picked, setPicked] = createSignal(false);
   let rowButton: HTMLButtonElement | undefined;
-  const closeName = () => { setEditing(false); queueMicrotask(() => rowButton?.focus()); };
+
+  const closeName = (restore = true) => { setEditing(false);
+
+ if (restore) queueMicrotask(() => rowButton?.focus()); };
 
   const [failedAction, setFailedAction] = createSignal<string | null>(null);
   const [actionFailure, setFailure] = createSignal<string | null>(null);
@@ -116,7 +119,7 @@ export const OpenRow = (props: {
   const reportAction = (message: string | null) => { if (message === null) clearFailure(); else setFailure(message); };
 
   sorted?.fail(reportMove);
-  props.failWith?.(reportAction);
+  props.failWith?.(reportAction, failure);
 
   const titleCut = createCutTitle(() => props.todo.title);
 
@@ -199,7 +202,7 @@ export const OpenRow = (props: {
     >
       <Show when={props.nested}>{head}</Show>
       <div class="row-secondary">{props.groupProgress}</div>
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined}><IconButton aria-label={copy.dismissFailure} data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}><Icon name="x" /></IconButton></ReservedLine></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
   );
 };

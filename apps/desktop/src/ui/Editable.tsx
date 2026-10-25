@@ -20,7 +20,7 @@ export const NameField = (props: {
   name: string;
   version: () => Promise<string | null>;
   commit: (text: string, base: string, version: string | null) => Promise<void>;
-  close: () => void;
+  close: (restore?: boolean) => void;
   fail: (message: string | null) => void;
 }) => {
   const { drafts, project } = useConnectedProject();
@@ -96,7 +96,7 @@ export const NameField = (props: {
  if (!event.repeat) void submit(event.currentTarget); }
 
       if (event.key === "Escape") { event.preventDefault(); props.close(); }
-    }} onBlur={props.close} />
+    }} onBlur={() => props.close(false)} />
     <ReservedLine overlay message={conflict() ? copy.railDraftConflict : null} />
   </Editable.Root>;
 };

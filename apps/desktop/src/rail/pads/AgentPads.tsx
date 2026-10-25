@@ -167,6 +167,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     else props.pads.failure.show(message, item);
   };
 
+  const todoFailures = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
+
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     const homes = homesToOffer(connected.rail.nodes, todo.home);
@@ -176,6 +178,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) }));
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      ...(todoFailures.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => todoFailures.get(todo.id)?.show(null) }] : []),
       move,
       { id: "move-up", label: copy.moveUp, run: () => props.pads.reorder.step(todo.id, -1) },
       { id: "move-down", label: copy.moveDown, run: () => props.pads.reorder.step(todo.id, 1) },
@@ -234,6 +237,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                     <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo onContextMenu={(event) => todoMenu(todo, event)}>
                       <OpenRow
                         nested
+                        failWith={(show, message) => todoFailures.set(todo.id, { show, message })}
                         todo={todo}
                         pressed={todoSelection.selected().includes(todo.id)}
                         onPick={(item, event) => todoSelection.click(item.id, event)}
@@ -283,7 +287,9 @@ const OwnedPad = (props: {
 
   const rename = () => { if (props.pad.owner.kind === "user") setEditing(true); else props.fail(copy.renamePadOwnership); };
 
-  const close = () => { setEditing(false); queueMicrotask(() => button?.focus()); };
+  const close = (restore = true) => { setEditing(false);
+
+ if (restore) queueMicrotask(() => button?.focus()); };
 
   return <div class="pad-row-head" data-incarnation={props.pad.incarnation} data-selected={props.selected ? "true" : undefined} onContextMenu={props.menu}
     onClick={event => { if (!editing() && event.target instanceof Element && !event.target.closest("button,input")) props.pick(event); }}

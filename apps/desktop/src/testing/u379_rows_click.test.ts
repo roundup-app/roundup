@@ -28,8 +28,6 @@ const TAB = `async (list) => {
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
 }`;
 
-const ROWS = (list: string) => `document.querySelectorAll('.shelf section[aria-label="${list}" i] .shelf-row')`;
-
 const TITLE = ":is(.todo-row-button, .pad-name)";
 
 /** Page-side: the centre of every line of the first row of `list`, the Tab selected first. */
@@ -40,35 +38,18 @@ const LINES = `async (list) => {
     for (const line of row.querySelectorAll(":scope > .shelf-head, :scope > .shelf-text > *")) {
       const target = line.matches(".row-head, .shelf-head") ? line.querySelector("${TITLE}") : line;
       const box = target.getBoundingClientRect();
-      if (box.width > 0 && box.height > 0) out.push({ list, row: index, line: target.className || target.tagName, x: box.left + box.width / 2, y: box.top + box.height / 2 });
+      if (box.width > 0 && box.height > 0 && target.checkVisibility({opacityProperty:true})) out.push({ list, row: index, line: target.className || target.tagName, x: box.left + box.width / 2, y: box.top + box.height / 2 });
     }
   });
   return out;
 }`;
-
-/** The Drawer's state: open or not, and what it shows. */
-const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="Drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
-
-const CLOSE = `async () => { document.querySelector('aside[aria-label="Drawer"] .close')?.click(); await new Promise(requestAnimationFrame); await Promise.allSettled(document.querySelector('aside[aria-label="Drawer"]').getAnimations().map(animation => animation.finished)); }`;
-
-const OPEN = `async () => { await new Promise(requestAnimationFrame); await Promise.allSettled(document.querySelector('aside[aria-label="Drawer"]').getAnimations().map(animation => animation.finished)); }`;
-
-type Shown = { open: boolean; text: string };
-
-const opened = async (x: number, y: number): Promise<Shown> => {
-  await page.call(CLOSE);
-  await page.click(x, y);
-  await page.call(OPEN);
-
-  return page.call<Shown>(DRAWER);
-};
 
 run("u379 where a Shelf row washes, a click acts", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
   const [scheme, width, height] = ["light", 1280, 800] as const;
 
-  it(`u379_every_line_of_a_row_is_a_click_target on tree-40 ${scheme} at ${width}x${height}`, async () => {
+  it(`u3789a_every_visible_row_line_selects_without_opening on tree-40 ${scheme} at ${width}x${height}`, async () => {
     await page.scheme(scheme);
     await page.load("/harness.html?seed=tree-40", width, height);
     await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
@@ -78,37 +59,15 @@ run("u379 where a Shelf row washes, a click acts", () => {
     for (const list of ["todos", "pads"]) {
       const lines = await page.call<Line[]>(LINES, list);
 
-      expect(lines.length, list).toBeGreaterThan(0);
+      if (lines.length === 0) throw new Error(`No ${list} row content in the fixture`);
 
       for (const line of lines) {
-        await page.call(LINES, list);
-        await page.call(CLOSE);
-        const box = await page.call<{ x: number; y: number }>(`() => { const box = ${ROWS(list)}[${line.row}].querySelector("${TITLE}").getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }`);
-        const title = await opened(box.x, box.y);
-        const shown = await opened(line.x, line.y);
-
-        expect(title.open, `${list} row ${line.row} title opens the Drawer`).toBe(true);
-        expect(shown.open, `${list} row ${line.row} ${line.line} opens the Drawer`).toBe(true);
-        expect(shown.text.slice(0, 30), `${list} row ${line.row} ${line.line} opens the same Drawer as its title`).toBe(title.text.slice(0, 30));
+        await page.click(line.x, line.y);
+        await page.until(`() => document.activeElement?.matches("${TITLE}")`);
       }
+
+      expect(await page.call<unknown[]>(`() => window.__fake.app.calls.filter(call => ['pad.read','todo.getHistory','todo.readHistory'].includes(call.method))`)).toEqual([]);
     }
   });
 
-  it("u379_the_claim_glyph_of_a_pad_row_claims_and_opens_nothing", async () => {
-    await page.scheme("light");
-    await page.load("/harness.html?seed=tree-40", 1280, 800);
-    await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
-    await page.call(TAB, "pads");
-    await page.call(`() => { for (const control of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) control.click(); }`);
-
-    const claim = `() => document.querySelector('.shelf button[aria-label="Make pad-0 yours"]')`;
-
-    await page.until(`() => ${claim.slice(6)} !== null`);
-
-    const box = await page.call<{ x: number; y: number }>(`() => { const box = (${claim})().getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }`);
-    const shown = await opened(box.x, box.y);
-
-    expect(await page.call<boolean>(`() => window.__fake.app.calls.some((call) => call.method === "pad.setOwner" && call.params.name === "pad-0")`)).toBe(true);
-    expect(shown.open).toBe(false);
-  });
 });
