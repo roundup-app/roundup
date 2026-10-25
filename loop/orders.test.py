@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import importlib.util
+import json
 import unittest
 import subprocess
 import io
+import os
+import tempfile
 import time
 from contextlib import redirect_stderr, redirect_stdout
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('orders', 'loop/orders.py')
 orders = importlib.util.module_from_spec(spec)
@@ -21,6 +24,48 @@ def issue(number=1, key='U83', **changes):
 NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
 
 
+class Call(unittest.TestCase):
+    def test_l23_gh_retries_a_github_5xx_and_never_a_4xx(self):
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(orders.time, 'sleep'), redirect_stderr(io.StringIO()):
+            with patch.object(orders.subprocess, 'run', gh((1, '', 'gh: Server Error (HTTP 502)'), (0, 'ok', ''))) as run:
+                self.assertEqual(orders.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_count, 2)
+            with patch.object(orders.subprocess, 'run', gh((1, '', 'gh: Not Found (HTTP 404)'), (0, 'ok', ''))) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    orders.call('api', 'x')
+                self.assertEqual(run.call_count, 1)
+
+    def test_l23_gh_waits_out_one_rate_limit_then_fails_loud(self):
+        limited = (1, '', 'gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+
+        def quota(remaining, reset):
+            return 0, json.dumps(dict(resources=dict(core=dict(remaining=remaining, reset=reset)))), ''
+
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(orders.time, 'sleep') as sleep, redirect_stderr(io.StringIO()):
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 90), (0, 'ok', ''))) as run:
+                self.assertEqual(orders.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_args_list[1].args[0], ['gh', 'api', 'rate_limit'])
+            self.assertTrue(80 <= sleep.call_args.args[0] <= 91)
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 3600), (0, 'ok', ''))):
+                orders.call('api', 'x')
+            self.assertEqual(sleep.call_args.args[0], 300)
+            with patch.object(orders.subprocess, 'run', gh(limited, quota(0, time.time() + 1), limited)) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    orders.call('api', 'x')
+                self.assertEqual(run.call_count, 3)
+            secondary = (1, '', 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 42')
+            with patch.object(orders.subprocess, 'run', gh(secondary, (0, 'ok', ''))) as run:
+                orders.call('api', 'x')
+                self.assertEqual(run.call_count, 2)
+            self.assertEqual(sleep.call_args.args[0], 42)
+
+
 class Orders(unittest.TestCase):
     def check(self, body):
         return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
@@ -33,6 +78,21 @@ class Orders(unittest.TestCase):
             issues = orders.list_issues()
         rows = orders.classify(issues, {}, [])
         self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
+
+    def test_l34_a_cached_closed_issue_still_blocks_a_duplicate_key_and_a_reopened_one_leaves_the_cache(self):
+        closed = issue(1, 'U83', state='closed', state_reason='completed')
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83'), closed]]]):  # no file yet: every page
+                orders.list_issues()
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]) as gh:  # warm: open, then closed since
+                issues = orders.list_issues()
+            self.assertEqual(gh.call_count, 2)
+            rows = orders.classify(issues, {}, [])
+            self.assertEqual([(row['issue'], row['state']) for row in rows], [(1, 'done'), (2, 'blocked')])
+            self.assertIn('duplicate work Key', rows[1]['reason'])
+            with patch.object(orders, 'gh', side_effect=[[[issue(1, 'U83'), issue(3, 'U84')]], [[]]]):  # #1 reopened
+                issues = orders.list_issues()
+            self.assertEqual(sorted(i['number'] for i in issues), [1, 3])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)

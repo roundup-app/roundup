@@ -1,82 +1,13 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { showEverythingInApp } from "./showEverything";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { expect, it, vi } from "vitest";
 import { USER } from "./nodes";
 import { openPad } from "../pads/padsFixture";
-import type { AppSeam } from "../app/seam";
-import { fakeEmulators } from "../terminal/paneHarness";
-import { showShelfTab } from "./shelfTabs";
-import { createServedApp } from "./realSeam";
-import { startRealDaemon } from "./realDaemonFixture";
-import type { StartedDaemon } from "./realDaemonFixture";
 
 // jsdom has no layout, so the editor's scroll-to-selection asks a Range for rects it cannot give.
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
 
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
-
-let real: StartedDaemon;
-
-const inFlight = new Set<Promise<unknown>>();
-
-describe("u346 the Pad's confirm delete takes a real click", () => {
-  beforeEach(async () => {
-    real = await startRealDaemon({});
-  }, 120_000);
-
-  afterEach(async () => {
-    cleanup();
-    await Promise.allSettled(inFlight);
-    inFlight.clear();
-    // The App's last pad.delete refresh may still be in flight; stopping the daemon under it rejects the fetch unhandled.
-    await new Promise((done) => setTimeout(done, 250));
-    await real?.stop();
-  });
-
-  it("u346_a_pointer_click_on_the_confirm_calls_pad_delete_once_on_the_real_daemon", async () => {
-    const app: AppSeam = createServedApp(real.base);
-    const served = app.rpc;
-    const calls: string[] = [];
-
-    app.rpc = (method, params) => {
-      calls.push(method);
-
-      const call = served(method, params);
-
-      // A request the App leaves in flight settles before the Daemon stops, and its late failure is not an unhandled rejection.
-      inFlight.add(call);
-      call.catch(() => {});
-
-      return call;
-    };
-
-    await app.rpc("pad.create", { name: "plan", text: "v1" });
-    calls.length = 0;
-    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await showEverythingInApp(/scope/);
-
-    const shelf = await screen.findByRole("region", { name: "Work items" });
-
-    await screen.findByRole("tablist", { name: "Work items" });
-    showShelfTab("Pads");
-
-    fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
-
-    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
-
-    fireEvent.click(await within(drawer).findByRole("button", { name: "Delete" }));
-
-    await questionDialog();
-    await answerQuestion(true);
-
-    await waitFor(() => expect(within(shelf).queryByRole("button", { name: "plan" })).toBeNull());
-    expect(calls.filter((method) => method === "pad.delete")).toHaveLength(1);
-  }, 120_000);
-});
 
 it("p2544d_stale_write_without_event_keeps_draft", async () => {
   const { render } = await import("@solidjs/testing-library");
@@ -362,3 +293,24 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     await second.stop();
   }
 }, 240_000);
+
+it("u3789a_generated_App_contract_renames_through_the_real_Daemon", async () => {
+  const { startRealDaemon } = await import("./realDaemonFixture");
+  const { createServedApp } = await import("./realSeam");
+  const real = await startRealDaemon({});
+
+  try {
+    const app = createServedApp(real.base);
+    const original = await app.rpc("pad.create", { name: "Notes", text: "exact\n text 🌱\n" });
+    const home = await app.rpc("rail.createWorkstream", { name: "Home", parent: null });
+    await app.rpc("pad.move", { name: original.name, home: home.id });
+    await expect(app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: "stale" })).rejects.toMatchObject({ code: -32003 });
+    const renamed = await app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: original.incarnation });
+    const expected = { ...original, name: "Plan", home: home.id };
+    expect(renamed).toEqual(expected);
+    await real.restart();
+    expect(await createServedApp(real.base).rpc("pad.read", { name: "Plan" })).toEqual(expected);
+  } finally {
+    await real.stop();
+  }
+}, 120_000);

@@ -159,6 +159,12 @@ An Agent's saved ask to be told, once, when all or any of named Agents finish (`
 **Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
 A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant; a PR's checks pin the head observed at activation and match only complete fresh `agent.worktreeState` evidence for it, a moved head ending the reaction as `invalidated`), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
 
+**Reaction observation identity** (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`):
+Typed facts emitted where a Reaction's observation succeeds or fails. The Observation and retained Watch
+keep `cause_code`, `gap_code`, `recovery_code` and `health_code` separately from diagnostic prose,
+cursor, pinned head and evidence. `unknown`, including absent legacy identity, grants no authority
+and offers a current check; historical prose never supplies identity or a successful match.
+
 **Preview** (`reaction.preview`; user label: Time preview):
 The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
 
@@ -332,6 +338,13 @@ One creation of a Pad, identified by a Project-scoped never-reused **incarnation
 
 **Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`):
 The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
+
+**Pad rename** (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`):
+An owner-authorized name change of the same Pad incarnation in its original Project,
+guarded by its exact original name and incarnation. `newName` is the accepted spelling,
+unique under the existing Unicode/case-folding rules. Text, Revision, owner, Home and
+content timestamp stay the same. `PadRenamed` records the incarnation and its original
+and accepted names. Renaming creates no alias or redirect for existing name-based Refs.
 
 **Pad source state** (`PadSourceState`, `source_state`):
 The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
@@ -879,3 +892,28 @@ A user-requested system confirmation containing its title, complete consequences
 
 **Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
 The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
+
+**Import exclusion cause** (`ImportExclusionCause`, `ImportExclusion.cause`):
+Why a saved conversation cannot be selected for import, distinct from its diagnostic details. Known causes name folder availability and Project membership, source identity, activity, record availability and validity, size limits, reader availability and live sources without saved records. An unknown cause is unrecognized.
+
+**Import failure** (`ImportFailure`, `ImportOutcome.error`):
+The original RPC error of one imported source, with its `code`, diagnostic `message` and Import disposition.
+
+**Import disposition** (`ImportDisposition`, `outcome`):
+Whether a per-source result proves refusal (`failed`) or leaves completion unconfirmed (`unknown`).
+
+**Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`):
+The opt-in R24 App producer's run-owned native and webview observation journal.
+Native notifications and document events are separate observed facts; requested window
+states are never observations. The measurement-only App command accepts typed renderer
+records, writes only the startup-selected bounded file, and grants no execution authority.
+It is absent without the `idle-perf` Cargo feature.
+
+**Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
+The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**Todo deletion** (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`):
+One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
+
+**RPC error data** (`RpcErrorData`):
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.

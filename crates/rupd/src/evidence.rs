@@ -370,8 +370,8 @@ impl Daemon {
                         };
                         ResultObservation::Passed { revision }
                     }
-                    crate::reaction_checks::Verdict::Invalidate(cause)
-                    | crate::reaction_checks::Verdict::Wait(cause) => unknown(cause),
+                    crate::reaction_checks::Verdict::Invalidate(_, cause)
+                    | crate::reaction_checks::Verdict::Wait(_, cause) => unknown(cause),
                 }
             }
             ResultCheck::Unsupported { source } => {

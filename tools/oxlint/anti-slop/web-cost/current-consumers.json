@@ -1,0 +1,469 @@
+{
+  "toolRevision": "7c2a83f42479fa1fe035faae9184853d85652e80",
+  "toolModified": false,
+  "sourceRevision": "7c2a83f42479fa1fe035faae9184853d85652e80",
+  "sourceModified": false,
+  "roots": [
+    "testing/realDaemonFixture.ts",
+    "testing/realDaemonPlugin.ts"
+  ],
+  "consumers": [
+    {
+      "file": "ask/dv5_real_daemon.test.tsx",
+      "tests": [
+        "dv5_discover_open_retained_and_current_targets_after_reopen",
+        "dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoked_cached_targets",
+        "u2773b_lost_ask_acknowledgement_reconciles_after_daemon_restart_without_duplicate_intake",
+        "u2773a_ask_restores_original_projects_through_App_reopen",
+        "u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen",
+        "dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_revision",
+        "dv6_bound_share_refuses_foreign_wrong_removed_and_revoked_identities_without_substitution",
+        "dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery"
+      ],
+      "path": [
+        "ask/dv5_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "ask/dv5_rendered.test.ts",
+      "tests": [
+        "dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project",
+        "u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen",
+        "u3021c_ask_selected_revision_browser_focus",
+        "dv6_bound_share_pointer_and_keyboard_keep_identity_on_the_dense_failure_screen"
+      ],
+      "path": [
+        "ask/dv5_rendered.test.ts",
+        "testing/realDaemonPlugin.ts"
+      ]
+    },
+    {
+      "file": "bubbles/u511a_browser.test.ts",
+      "tests": [
+        "u511a_click_away_commits_without_swallowing_the_click",
+        "u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery"
+      ],
+      "path": [
+        "bubbles/u511a_browser.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "changes/u2540_rendered.test.ts",
+      "tests": [
+        "u2540b_pointer_and_keyboard_select_lines",
+        "u2540d_review_stage_rendered_observer",
+        "u2773a_changes_browser_reload_restores_exact_work",
+        "u2773e_changes_rendered_retention_failure_is_actionable",
+        "p3557c_failure_lifetime_changes_rendered"
+      ],
+      "path": [
+        "changes/u2540_rendered.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "changes/u2540b_notes.test.tsx",
+      "tests": [
+        "u2540b_save_cancel_and_invalid_ranges",
+        "u2540b_close_and_reopen_keep_unsent_notes",
+        "u2540b_edit_remove_and_batch_across_files",
+        "u2773a_changes_agent_switch_restores_form",
+        "u2540b_refresh_keeps_original_context",
+        "u2773a_changes_restores_exact_work",
+        "u2773a_changes_project_switch_restores_caret_without_background_focus",
+        "u2773e_recovery_actions_keep_surface_draft",
+        "u2773e_changes_restore_failure_keeps_memory_%s",
+        "u2773c_changes_external_change_keeps_original",
+        "u2773c_changes_worktree_loss_and_return_keep_original_form",
+        "u2773c_changes_unavailable_original_keeps_recovery",
+        "u2773e_changes_retry_read_keeps_older_work_separate",
+        "u2773a_changes_recovery_switch_keeps_single_editor",
+        "u2773e_changes_connection_replacement_keeps_memory",
+        "u3474e_mutation_keeps_the_next_key_live",
+        "u3474e_saving_a_note_returns_to_a_live_control",
+        "u3474e_sending_the_batch_returns_to_a_live_control",
+        "p3557c_failure_lifetime_note_recovery: $scope $action",
+        "p3557c_failure_lifetime_note_recovery_form: %s"
+      ],
+      "path": [
+        "changes/u2540b_notes.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "header/u184_close.test.tsx",
+      "tests": [
+        "u184_no_agents_closes_at_once",
+        "u184_the_dialog_names_up_to_three_running_agents",
+        "u184_one_agent_reads_in_the_singular_and_focus_starts_on_cancel",
+        "u184_cancel_and_esc_close_nothing",
+        "u184_stop_and_close_ends_the_project",
+        "u184_closing_the_open_tab_opens_the_left_one",
+        "u184_closing_the_first_opens_the_new_first",
+        "u184_closing_the_last_shows_first_run",
+        "u184_a_failed_close_keeps_the_tab",
+        "u184_the_close_mark_is_hover_only_and_keeps_its_place",
+        "u184_the_order_never_changes",
+        "u184_a_hidden_tab_with_a_mark_shows_an_edge_line",
+        "u184_the_open_tab_is_scrolled_into_view_when_the_strip_first_has_a_width",
+        "u184_the_edge_line_scrolls_and_does_not_switch",
+        "u184_a_hidden_tab_with_a_mark_on_the_left_shows_the_left_edge_line",
+        "u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end",
+        "u184_with_nothing_hidden_no_edge_line_shows",
+        "u2773a_header_restores_exact_work_real_reload",
+        "u3512a_pending_confirmation_is_single",
+        "u3512a_unavailable_alert_does_not_authorize_action"
+      ],
+      "path": [
+        "header/u184_close.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "orders/q2_surfaces.test.tsx",
+      "tests": [
+        "q3_the_surfaces_wrap_and_meet_d2_d5 at %i",
+        "u2773a_orders_restores_exact_work_across_projects_and_reload",
+        "u2773c_orders_external_change_keeps_original",
+        "u2773b_orders_acknowledgement_reaches_original_once",
+        "u2773c_orders_removed_original_keeps_form_in_project_recovery",
+        "u2773b_orders_late_failure_stays_in_original_project",
+        "u3021c_orders_selected_open_uses_original_real_project_and_refuses_removed_node",
+        "u2773a_orders_project_reopen_keeps_memory_after_retention_failure"
+      ],
+      "path": [
+        "orders/q2_surfaces.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "pads/u3732_real_daemon_agent_owner.test.tsx",
+      "tests": [
+        "u3732_real_daemon_agent_owner"
+      ],
+      "path": [
+        "pads/u3732_real_daemon_agent_owner.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "reactions/nr9_rendered.test.ts",
+      "tests": [
+        "nr9_cli_mcp_and_app_share_authority",
+        "p3557c_failure_lifetime_reactions_rendered"
+      ],
+      "path": [
+        "reactions/nr9_rendered.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "shelf/u460_real_daemon.test.tsx",
+      "tests": [
+        "u460_bulk_todo_delete_preserves_t6_across_homes",
+        "u460_deleted_pad_updates_do_not_recreate_it files=${files}",
+        "u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker",
+        "u460_deleted_rows_stay_absent_after_reopening_the_project"
+      ],
+      "path": [
+        "shelf/u460_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "terminal/u3016_browser.test.ts",
+      "tests": [
+        "u3016f_real_collection_to_dashboard_survives_reopen"
+      ],
+      "path": [
+        "terminal/u3016_browser.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "terminal/u59_real_daemon.test.ts",
+      "tests": [
+        "u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean",
+        "u2680a_u2680b_real_zsh_webgl_selection_observer",
+        "u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once"
+      ],
+      "path": [
+        "terminal/u59_real_daemon.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/a33_blocked_real_daemon.test.tsx",
+      "tests": [
+        "a33_the_row_reads_blocked_with_its_waits_on_line_then_idle_when_the_blocker_completes"
+      ],
+      "path": [
+        "testing/a33_blocked_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/n5_real_daemon.test.ts",
+      "tests": [
+        "n5_fixture_data_is_private_and_survives_restart",
+        "n5_fixture_rejects_data_redirection",
+        "n5_fixture_cleans_data_after_stop_and_failed_start"
+      ],
+      "path": [
+        "testing/n5_real_daemon.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u144_real_daemon.test.tsx",
+      "tests": [
+        "u144_a_workstream_made_and_started_by_pointer_comes_from_the_daemon",
+        "u144_the_choosers_answer_null_and_the_dock_badge_does_nothing",
+        "u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message",
+        "u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app",
+        "u144_it_listens_on_loopback_only_and_refuses_a_foreign_host",
+        "u144_vite_build_leaves_the_daemon_route_out_of_dist",
+        "u144_seed_behaves_as_today_beside_the_daemon_route",
+        "u144_closing_the_socket_fires_daemon_exited_and_the_header_says_so",
+        "u2540a_tree_and_diff_use_only_the_selected_agents_worktree",
+        "u2540c_real_message_respects_existing_delivery",
+        "u2540d_landing_is_independent_of_diff_and_notes",
+        "u2773c_pads_external_change_keeps_original",
+        "u2773e_recovery_actions_keep_surface_draft",
+        "u2773h_shared_authority_survives_project_lifecycle",
+        "u2773h_retention_failure_preserves_closed_project_memory_%s",
+        "u2773h_settlement_keeps_other_revisions",
+        "u2773h_unavailable_original_remains_recoverable",
+        "u2773f_dead_vendor_is_not_reconstructed"
+      ],
+      "path": [
+        "testing/u144_real_daemon.test.tsx",
+        "testing/realDaemonPlugin.ts"
+      ]
+    },
+    {
+      "file": "testing/u149_real_daemon.test.tsx",
+      "tests": [
+        "u149_a_stored_drawing_renders_in_the_open_drawer_and_reads_back_byte_exact"
+      ],
+      "path": [
+        "testing/u149_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u166_door_permission.test.tsx",
+      "tests": [
+        "u166_a_door_needing_you_leaves_the_other_workstream_and_its_message_delivered"
+      ],
+      "path": [
+        "testing/u166_door_permission.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u176_agent_names.test.tsx",
+      "tests": [
+        "u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail",
+        "u2773a_rail_restores_exact_work_on_project_agent_switch_and_events",
+        "u2773b_rail_settlement_preserves_other_revisions_late_%s",
+        "u2773c_rail_external_change_keeps_original_removed_parent",
+        "u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen",
+        "u2773b_rail_real_acknowledgement_consumes_only_submitted_revision",
+        "u2773c_rail_real_external_rename_and_removal_keep_original_edit",
+        "u2773a_rail_real_names_keep_original_project_and_object_on_reopen"
+      ],
+      "path": [
+        "testing/u176_agent_names.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u177_restarted_door.test.tsx",
+      "tests": [
+        "u177_start_door_after_a_daemon_restart_shows_the_door_idle_with_both_messages_delivered"
+      ],
+      "path": [
+        "testing/u177_restarted_door.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u178_workstream_todos.test.tsx",
+      "tests": [
+        "u2773a_todos_restores_exact_work_across_real_projects_and_reload",
+        "u2773c_todos_external_change_keeps_original_at_real_daemon",
+        "u2773c_todos_unavailable_original_keeps_project_local_recovery",
+        "u2773a_todos_creation_restores_original_project_without_delivery",
+        "u2773e_todos_failed_retention_survives_real_project_reopen",
+        "u2773a_todos_real_browser_reload_restores_without_creation",
+        "u2773b_todos_acknowledgement_consumes_only_submitted_revision_once",
+        "u2773b_todos_browser_discards_hidden_revision_without_delivery"
+      ],
+      "path": [
+        "testing/u178_workstream_todos.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u194_real_daemon.test.tsx",
+      "tests": [
+        "a3564a_attention_opens_the_requesting_terminal"
+      ],
+      "path": [
+        "testing/u194_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u198_real_daemon.test.ts",
+      "tests": [
+        "u198_the_list_holds_the_fixture_skills_and_no_banned_command"
+      ],
+      "path": [
+        "testing/u198_real_daemon.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u2875d_real_import.test.tsx",
+      "tests": [
+        "u2875d_real_import_reopen_and_resume"
+      ],
+      "path": [
+        "testing/u2875d_real_import.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u3078i_real_daemon.test.tsx",
+      "tests": [
+        "u3078i_real_daemon_reopen_and_resume",
+        "u3078i_real_daemon_document_work_resumes_the_same_way",
+        "u3078i_real_daemon_failed_resume_stays_actionable"
+      ],
+      "path": [
+        "testing/u3078i_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u346_pad_confirm.test.tsx",
+      "tests": [
+        "p2544d_stale_write_without_event_keeps_draft",
+        "p2544e_reopen_saved_agent_work",
+        "u2773a_pads_restores_exact_work_through_App_and_real_Daemon"
+      ],
+      "path": [
+        "testing/u346_pad_confirm.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u375_real_daemon.test.tsx",
+      "tests": [
+        "u2773a_queries_keep_original_project_through_switch_events_and_reopen",
+        "u2773a_queries_browser_reload_retains_caret_without_execution"
+      ],
+      "path": [
+        "testing/u375_real_daemon.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/u463_real_daemon.test.ts",
+      "tests": [
+        "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}",
+        "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} keyboard",
+        "u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} keyboard",
+        "u2773g_journey_retains_unfinished_work",
+        "u2773a_changes_real_project_reopen_and_reload_restore_exact_form",
+        "u2875d_real_import_reopen_and_resume"
+      ],
+      "path": [
+        "testing/u463_real_daemon.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "testing/x14_output_relay.test.ts",
+      "tests": [
+        "x14_harness_output_relay_selects_exact_bytes",
+        "x14_harness_output_relay_is_bounded_without_blocking_control",
+        "x14_harness_output_relay_cancellation_is_isolated",
+        "u2773a_harness_page_lifecycle_releases_and_restores_streams",
+        "u2773a_harness_output_reconnect_keeps_offsets_across_page_restore"
+      ],
+      "path": [
+        "testing/x14_output_relay.test.ts",
+        "testing/realDaemonPlugin.ts"
+      ]
+    },
+    {
+      "file": "todos/u3720_real_daemon_owner.test.tsx",
+      "tests": [
+        "u3720_real_daemon_owner_assign",
+        "u3311_real_daemon_delegate_board"
+      ],
+      "path": [
+        "todos/u3720_real_daemon_owner.test.tsx",
+        "testing/realDaemonFixture.ts"
+      ]
+    },
+    {
+      "file": "todos/u461_rendered.test.ts",
+      "tests": [
+        "u461_drawer_rendered_hierarchy",
+        "u461a_reopen_rendered",
+        "u461a_each_surface_reopens_by_pointer_and_space",
+        "u461a_real_daemon_user_and_agent_reopen extends u462_real_daemon_history_and_reads",
+        "u3728_drawer_rendered",
+        "u461b_fresh_profile_uses_requested_emulation %s",
+        "u461b_capture_requires_observed_emulation",
+        "u3021c_open_restores_exact_revision_without_rpc_todo_browser_focus"
+      ],
+      "path": [
+        "todos/u461_rendered.test.ts",
+        "testing/realDaemonFixture.ts"
+      ]
+    }
+  ],
+  "evidence": [
+    "ask/dv5_real_daemon.test.tsx",
+    "ask/dv5_rendered.test.ts",
+    "bubbles/u511a_browser.test.ts",
+    "changes/u2540_rendered.test.ts",
+    "changes/u2540b_notes.test.tsx",
+    "header/u184_close.test.tsx",
+    "orders/q2_surfaces.test.tsx",
+    "pads/u3732_real_daemon_agent_owner.test.tsx",
+    "reactions/nr9_rendered.test.ts",
+    "shelf/u460_real_daemon.test.tsx",
+    "terminal/u3016_browser.test.ts",
+    "terminal/u59_real_daemon.test.ts",
+    "testing/a33_blocked_real_daemon.test.tsx",
+    "testing/n5_real_daemon.test.ts",
+    "testing/realDaemonFixture.ts",
+    "testing/realDaemonPlugin.ts",
+    "testing/u144_real_daemon.test.tsx",
+    "testing/u149_real_daemon.test.tsx",
+    "testing/u166_door_permission.test.tsx",
+    "testing/u176_agent_names.test.tsx",
+    "testing/u177_restarted_door.test.tsx",
+    "testing/u178_workstream_todos.test.tsx",
+    "testing/u194_real_daemon.test.tsx",
+    "testing/u198_real_daemon.test.ts",
+    "testing/u2875d_real_import.test.tsx",
+    "testing/u3078i_real_daemon.test.tsx",
+    "testing/u346_pad_confirm.test.tsx",
+    "testing/u375_real_daemon.test.tsx",
+    "testing/u463_real_daemon.test.ts",
+    "testing/x14_output_relay.test.ts",
+    "todos/u3720_real_daemon_owner.test.tsx",
+    "todos/u461_rendered.test.ts"
+  ],
+  "sourceHash": "d531ef54ff7beaa5e331bf665a5d69d12e87f972f36884f542d75b7f47629935",
+  "parsedFiles": 797
+}

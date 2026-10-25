@@ -18,7 +18,7 @@ import "./inbox.styles.css";
 /** The Todo's Drawer, with the shared list the Shelf reads (U15); it lives while the Drawer does. */
 const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
 
-const STALE = new Set(["todo.commented", "todo.commentsRead", "todo.deleted"]);
+const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "todo.deleted"]);
 
 const sectionTitle = (title: string, count: () => number, live = false, ref?: (element: HTMLHeadingElement) => void) => <div class="inbox-group-head">
   <h3 ref={ref} tabindex={ref ? -1 : undefined}>{title}</h3>

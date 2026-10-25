@@ -47,3 +47,13 @@ opt-level = 3
 # and its tests remain unoptimised and keep the two-second preview budget.
 [profile.dev.package.serde_json]
 opt-level = 3
+
+# DV2's 32 real 32 MiB publications took 27.339 s with unoptimised SHA-256.
+# Optimise the installed hash implementation to keep that quota observer under 5 s.
+[profile.dev.package.sha2]
+opt-level = 3
+
+# With SHA-256 optimised, DV2 still took 5.25 s; SQLite's WAL checksum
+# consumed 27.8% of sampled user CPU. Keep the real quota commits within 5 s.
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3

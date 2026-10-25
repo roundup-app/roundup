@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as v from "valibot";
+import { rpcFailureSchema } from "../app/seam.ts";
 import type { Plugin } from "vite";
 
 /** What the dev server serves of one running `rupd` (U144). */
@@ -54,14 +55,14 @@ const lines = (socket: Socket, onLine: (line: string) => void, onEnd: () => void
   socket.on("error", () => socket.destroy());
 };
 
-type Outcome = { result: unknown } | { error: { code: number; message: string } };
+type Outcome = { result: unknown } | { error: v.InferOutput<typeof rpcFailureSchema> };
 
 const replySchema = v.object({
   id: v.optional(v.unknown()),
   method: v.optional(v.unknown()),
   params: v.optional(v.unknown()),
   result: v.optional(v.unknown()),
-  error: v.optional(v.object({ code: v.number(), message: v.string() })),
+  error: v.optional(rpcFailureSchema),
 });
 
 type Params = v.InferOutput<typeof paramsSchema>;
