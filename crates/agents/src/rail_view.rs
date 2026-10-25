@@ -167,17 +167,10 @@ impl Shared {
         self.presented_tree(&self.rail())
     }
 
-    /// Every node of `rail` as `tree` presents it, its finish counts read in one query.
+    /// Every node of `rail` as `tree` presents it, its finish count read with the node.
     pub(super) fn presented_tree(&self, rail: &rail::Rail) -> Result<Vec<RailNode>, RpcError> {
         let runs = self.runs();
-        let finished = rail.finished_all()?;
-        rail.tree()?
-            .into_iter()
-            .map(|node| {
-                let count = finished.get(&node.id).copied().unwrap_or_default();
-                self.present(node, &runs, rail, count)
-            })
-            .collect()
+        rail.tree_with(|node, finished| self.present(node, &runs, rail, finished))
     }
 }
 
