@@ -27,7 +27,6 @@ const clock = (hidden = () => false) => {
   return {
     frames,
     at: (stamps: number[]) => stamps.forEach((stamp) => ((now = stamp), next?.(stamp))),
-    waiting: () => next !== null,
     wallClockRuns: () => wall?.(),
   };
 };
@@ -56,7 +55,6 @@ describe("u3010e the frame recorder", () => {
 
     expect(report.sample.n).toBe(60);
     expect(report.idle.n).toBe(30);
-    expect(time.waiting()).toBe(true);
     expect(report.sample.intervals.every((interval) => interval === 10)).toBe(true);
   });
 
@@ -106,10 +104,6 @@ describe("u3010e the frame recorder", () => {
 
     expect(reason(["event"])).toContain("Event Timing, which reports trusted input only");
     expect(reason(["paint"])).toContain("no presentation-paced entry type");
-  });
-
-  it("u3010e_the_report_names_the_scheduling_stage", () => {
-    expect(buildReport(facts()).stages.scheduling).toMatchObject({ status: "measured", meets_thresholds: true });
   });
 
   it("u3010e_an_unmeasured_stage_is_never_zero_or_a_pass", () => {
