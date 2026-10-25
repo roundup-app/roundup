@@ -157,3 +157,8 @@ exit 0 (103 tests passed). `just test-web-since origin/main` exits 0: 31 files
 passed, 160 tests passed and 13 existing conditional skips. Commands and combined
 stdout/stderr logs remain under `validation-*`. These tests validate the checkout;
 they supply no R23 timing observations or missing profiling capability.
+
+Main advanced with #4116/#4117 during tests. Its clean merge required no manual
+resolutions; `merge-loss` and `git diff --check` pass, and both post-merge lints
+exit 0. `validation-postmerge-*` retains their logs. No main-side source line is
+dropped or changed by this evidence PR.
