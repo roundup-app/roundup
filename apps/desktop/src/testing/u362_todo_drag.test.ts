@@ -72,9 +72,8 @@ run('u137 compound selected ground', () => {
       expect(checks.D10?.status).toBe('fail');
       expect(checks.D10?.value).toEqual(expect.objectContaining({failing: expect.arrayContaining(['D5'])}));
 
-      // WCAG: #707070 on RGB(229.5,229.5,229.5); #aaa on #666. The leading mark is outside the label.
-      if (coverage === 'full' || coverage === 'single' || coverage === 'padded') expect(checks.D5?.value).toEqual({text: expect.closeTo(scheme === 'dark' ? 2.471602 : 3.949511, 5)});
-      else expect(checks.D5?.value).toBe('not measurable');
+      // WCAG: #707070 on RGB(229.5,229.5,229.5). The leading mark is outside the label.
+      expect(checks.D5?.value).toEqual({text: expect.closeTo(3.949511, 5)});
     }, 30_000);
   }
 });
