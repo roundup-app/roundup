@@ -18,20 +18,18 @@
   --os-handle-perpendicular-size: 75%;
   --os-handle-perpendicular-size-hover: 75%;
   --os-handle-perpendicular-size-active: 75%;
-  opacity: 0 !important;
-  visibility: hidden !important;
   transition: opacity var(--duration-scrollbar) var(--easing-out), visibility var(--duration-scrollbar);
+}
+
+/* Library interaction styling keeps a hovered thumb visible after auto-hide.
+   Only an active drag may outlast the scroll idle delay (U3530b). */
+.app-scrollbar.os-scrollbar-auto-hide-hidden:not(:active) {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .app-scrollbar .os-scrollbar-handle {
   transition: none;
-}
-
-/* Activity belongs to the viewport, never the pointer or a hovered handle. */
-.scrollbar-slot[data-scroll-active] > .app-scrollbar.os-scrollbar-visible,
-.scrollbar-slot[data-scroll-drag] > .app-scrollbar.os-scrollbar-visible {
-  opacity: 1 !important;
-  visibility: visible !important;
 }
 
 /* xterm owns its scrollbar and scrollback; hover never overrides no-overflow. */
