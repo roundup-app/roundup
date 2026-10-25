@@ -184,6 +184,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     Object.defineProperties(adapted, { target: { value: event.target }, currentTarget: { value: event.currentTarget } });
     // SAFETY: the normalized event retains the original element targets above.
     const normalized = adapted as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
+
     if (handler) {
       if (0 in handler) handler[0](handler[1], normalized);
       else handler(normalized);
