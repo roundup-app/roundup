@@ -239,7 +239,9 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                     eprintln!("{error}");
                 }
                 #[cfg(target_vendor = "apple")]
-                super::idle_macos::watch(window);
+                if let Err(error) = native::watch(window, application) {
+                    eprintln!("desktop: could not observe application visibility: {error}");
+                }
             }
         })
         .on_event(|app, event| {

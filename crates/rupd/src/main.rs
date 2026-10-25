@@ -4,8 +4,17 @@ use std::sync::Arc;
 
 use tokio::net::{UnixListener, UnixStream};
 
-#[tokio::main]
-async fn main() -> io::Result<()> {
+fn main() -> io::Result<()> {
+    let begun = std::time::Instant::now();
+    // Keep tokio::main's default runtime; its creation precedes the async open timer.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    let runtime_ms = begun.elapsed().as_secs_f64() * 1e3;
+    runtime.block_on(run(runtime_ms))
+}
+
+async fn run(runtime_ms: f64) -> io::Result<()> {
     let begun = std::time::Instant::now();
     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
     let attached = args.iter().any(|arg| arg == "--attached");
@@ -34,9 +43,9 @@ async fn main() -> io::Result<()> {
         std::fs::remove_file(&path)?;
     }
     let listener = UnixListener::bind(&path)?;
-    // Per-phase start time from `main`, so a slow start can be split into store open and bind.
+    // Keep open/bound relative to async entry so existing startup logs stay comparable.
     eprintln!(
-        "rupd: serving {} on {} (open {:.2} ms, bound {:.2} ms)",
+        "rupd: runtime_ms {runtime_ms:.6}\nrupd: serving {} on {} (open {:.2} ms, bound {:.2} ms)",
         project.display(),
         path.display(),
         opened_at.as_secs_f64() * 1e3,
