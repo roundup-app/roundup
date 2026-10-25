@@ -305,7 +305,7 @@ const OrderContent = (props: OrderInput) => {
       </ReservedLine>
       <div class="order-edit-actions order-edit-recovery">
         <Show when={recovery()}>
-          <For each={["title", "ask", "done"]}>{(name) => <CopyButton app={app} text={String(selectedDraft()?.value[name] ?? "")} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copyField(name)}</CopyButton>}</For>
+          <For each={["title", "ask", "done"]}>{(name) => <CopyButton app={app} identity={selectedDraft()?.revision} text={String(selectedDraft()?.value[name] ?? "")} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copyField(name)}</CopyButton>}</For>
           <button data-button="quiet" type="button" onClick={() => {
             const draft = selectedDraft();
 
