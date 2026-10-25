@@ -347,6 +347,7 @@ it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => 
   await loadDense();
   await read(`document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
   await wait(`!document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')`);
+  await wait(`document.querySelector('.todo-row-button').getBoundingClientRect().height > 0`);
   await browser("focus", ".todo-row-button");
   await wait(`document.activeElement?.matches('.todo-row-button')`);
   await holdFrames();

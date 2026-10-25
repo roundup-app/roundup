@@ -128,8 +128,9 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     }).toBe(true);
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
+    // The Attempt's span grows at the observer's cadence, so a wait that ended after its last sample counts once the next lands.
+    await expect.poll(async () => BigInt((await app.rpc("project.measurementSummary",{home:home.id,offset:0,revision:null})).time.coordination_ns) > 0n, { timeout: 10_000 }).toBe(true);
     const timed=await app.rpc("project.measurementSummary",{home:home.id,offset:0,revision:null});
-    expect(BigInt(timed.time.coordination_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.execution_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
     await capture("measured-waits");
