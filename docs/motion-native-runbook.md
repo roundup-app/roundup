@@ -6,13 +6,42 @@ For U3010d (#3013). One command per workload, one paste back. This document clai
 
 Base and head are the two commits U3010d compares; build and run each in its own checkout, alternating base, head, base, head, base, head. The recorder (U3010e) must be in both: for a base before it, cherry-pick `apps/desktop/src/perf/` and the `perf-frames` recipe onto it.
 
-## Next owner observation for #3013
+## Returned owner observation for #3013 (2026-10-25)
 
-After this scheduling-verdict repair merges, run the remaining `layers`, `todos`, `glyphs` sequence once on measurement revision `95e2219df28a5483a869415f72ed64c557fa555b`. Use a fresh checkout (`git worktree add --detach /tmp/roundup-motion-3013 95e2219df28a5483a869415f72ed64c557fa555b`), `cd /tmp/roundup-motion-3013` and `pnpm install --frozen-lockfile`, then the Run command below for each workload in order. Keep each build attempt and its diagnostics. Stop concurrent builds before sampling; the recipe finishes its build before opening its window. Retain the report and complete `target/perf-frames-*` evidence directories after each attempt, including failures, before rebuilding another workload. Stop on an invalid run and return its diagnostics; a scheduling miss is retained for diagnosis, never tuned away.
+The requested sequence is complete. [The owner returned all three scheduling reports](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399603127) from measurement revision `95e2219df28a5483a869415f72ed64c557fa555b`, following this runbook at `9b005c00230c2f43989f78b534cac0851574147f` (PR #4035). That PR already retired the presentation-only acceptance clauses and repaired scheduling verdicts. Do not repeat this request or reinterpret the older `incomplete` verdicts as scheduling failures.
 
-The earlier valid `layers` observation at `ce9c8f2f7` remains in [the owner’s report](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6383793231), with raw files in `/tmp/p3013-out3`. The later attempt at `1f1b9a991` had a locked screen and no samples (`/tmp/p3013-out4`); retain it as invalid. Do not rewrite either report’s original verdict.
+| Scheduling, milliseconds unless noted | Layers | Todos | Glyphs |
+| --- | --- | --- | --- |
+| Sample count | 7160 | 7199 | 7200 |
+| p50 / p95 / p99 | 8 / 11 / 12 | 8 / 10 / 11 | 8 / 10 / 11 |
+| Maximum | 26 | 14 | 15 |
+| Intervals >12.5 ms | 61 (0.852%) | 7 (0.097%) | 1 (0.014%) |
+| Idle p95 / maximum | 10 / 11 | 10 / 11 | 10 / 14 |
+| Recorder exit / verdict | 0 / pass | 0 / pass | 0 / pass |
 
-This next observation checks the repaired verdict and remaining workloads; it does not replace the required three alternating baseline/head pairs, reserved/overlay and reduced-motion observations, or same-machine regression comparison. The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`; it predates the recorder. Do not treat this repair’s parent as a replacement performance baseline. Qualify any recorder-only backport against that source before asking for paired collection; retain the patch and hashes, preserving production code and fixture identity. #3013 remains open until the full protocol has evidence.
+Recomputation from the posted raw interval arrays agrees with every sample/idle count, nearest-rank percentile, maximum and long-interval rate. All three reports have empty `invalid` lists and meet the absolute scheduling thresholds at recorded 120 Hz (P=8.333 ms): p95 ≤12.5 ms, p99 ≤25 ms, long rate ≤5%, maximum ≤50 ms. These are recorder results, not full protocol acceptance. Presentation, style, layout, paint and compositor remain explicitly unmeasured; `update` measures aggregate main-thread update cost only. No displayed-frame claim follows.
+
+The owner reports release builds on a MacBook Pro Mac16,6, M4 Max, 16 CPUs, 64 GB, macOS 26.0.1 (25A362), system WebKit `21622.1.22.11.15` (UA `AppleWebKit/605.1.15`), built-in Retina display, AC power and Low Power Mode off. Each command was `caffeinate -dis env ROUNDUP_ALLOW_WINDOW=1 just perf-frames <workload>`, sequentially after a fresh frozen-lockfile install, with the screen unlocked and no user input. Starting loads were 5.46, 3.00 and 2.22. The viewport was not recorded; the reports' 120 Hz is not an independent fixed-display-setting record. Another job may have briefly started `pnpm install` near the Glyphs sample/idle boundary; retain that attempt as possibly disturbed, not clean comparison evidence.
+
+Raw reports and diagnostics remain on the Issue and Mac:
+
+| Workload | Raw report | Report SHA-256, as supplied by owner | Mac diagnostics |
+| --- | --- | --- | --- |
+| Layers | [JSON](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399603386) | `82311d7b4ae021f941db0ba9ee5480ddc9630c2c579735406fa5ee2aeec6b4b7` | `target/perf-frames-zFqLPu` |
+| Todos | [JSON](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399603640) | `81e3697b0c55bdcbcb3b2ed490f810fc8ba1f4ef67342b3fdb000df0c3e09198` | `target/perf-frames-dCMjJQ` |
+| Glyphs | [JSON part 1](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399603901), [part 2](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399604138) | `fe082cc1827e4738183456a9b4a351f30ba79767b069ad8411ec5fd649921a3a` | `target/perf-frames-7bIDOP` |
+
+The report JSON was reformatted for comments; the listed hashes identify the original files and matching diagnostics `report.json`, not the comment text. Complete report arrays were posted (concatenate the two Glyphs JSON blocks). Diagnostics comments for [Layers](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399604401), [Todos](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399604659) and [Glyphs](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6399604922) truncate large collection files and build logs; keep the full originals in `/tmp/roundup-motion-3013` and logs `/tmp/perf-3013-{layers,todos,glyphs}.log`. Reported collection errors are null and App stdout/stderr empty; the lifecycle files record cleanup initiation/status, not an independently verified zero-survivor inventory.
+
+Keep earlier valid and failed attempts too: the `ce9c8f2f7` Layers scheduling result and `/tmp/p3013-out3`, the locked-screen `1f1b9a991` failure in `/tmp/p3013-out4`, and the historical presentation investigations below. None is overwritten by this sequence.
+
+## Before another native request
+
+#3013 stays open. The returned sequence supplies no three alternating immutable baseline/head pairs or paired median regression result. It also does not establish the final dense fixture, reserved/overlay variants or live reduced-motion cases required by `docs/motion.md`, **Native performance protocol**. Missing viewport, fixture/action hashes, stream byte/batch receipts and separate style/layout/paint records cannot be recovered from percentile summaries.
+
+The existing `apps/desktop/src/perf/frame_run.ts`, function `prepare`, seeds four flat Todos for Layers/Todos; `layersCycle` reverses after a fixed 90 ms rather than observed 50% displacement. It has no reserved/overlay or live reduced-motion run selection. These are observer coverage gaps, not demonstrated production motion-budget failures. [#3821](https://github.com/roundup-app/roundup/issues/3821) already owns U3010a–d's final Motion implementation and performance observers; finish and qualify those observers there before requesting full native acceptance. Prove fixture/action/report validity through existing fake App/clock tests without starting a window; retain rendered calibration separately. Do not invent an optimisation from these passing samples.
+
+Before a paired Mac request, retain the exact final implementation head, its pre-implementation baseline and a qualified identical observer-only overlay on both. The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`; neither this verdict repair's parent nor a newer convenient commit replaces it. Preserve source production code, fixture identity, patch and binary hashes, existing timing/load rules and every failed run. The final Motion migration's comparison must identify its own pre-implementation source explicitly. Request only the remaining protocol once preparation is complete; no further presentation collection or native permission is required.
 
 ## Before you run
 
