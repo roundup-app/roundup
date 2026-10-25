@@ -1,13 +1,17 @@
-# U427 Clear placement
+# U427 clear prompt
 
-Clear preserves selection and opens beside its Workstream row, without a border.
+Issue #3882, main baseline `b2d337467`, isolated headless agent-browser with a fresh profile, dark `tree-40`, 1512×950.
 
-| Capture | Placement |
-|---|---|
-| [Reason](unselected-workstream-reason.png) | Below auth-refactor at 1280×800, light |
-| [Flipped light](clear-flipped-light.png), [dark](clear-flipped-dark.png) | Above payments at 1440×400 |
-| [Clamped](unselected-workstream-reason-clamped.png) | Fully visible at 700×260 |
+| Failure state | Before | After |
+| --- | --- | --- |
+| Prompt | relative, y=1308..1524 | fixed, y=358..574 |
+| Reason | below viewport | `  Keep payments  `, y=389..414 |
+| Cause | below viewport | `Summary timed out.`, y=478..502 |
+| Actions | below viewport | normal clear, clear without a summary, Keep, y=506..562 |
+| Checks | all pass | all pass, including D2/D5/D6 |
 
-`u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting` asserts the row anchor, focus, unchanged selection, no premature RPC, viewport clamp and reattachment after resize. `u427_clear_flips_above_its_row_near_the_viewport_bottom` asserts the upper anchor in both themes. Their D1, D2, D5, D6 and D8 readings pass. Rail captures compared with `origin/main` (`848e92e9`) show no Check regression.
+`failure.png` shows the rejected clear with its reason and next actions together. `prompt.png` and `pending.png` show the preceding states. Their adjacent JSON files record bounds and Checks; bounds are observations, never test assertions. Images stay uncommitted for the workflow to attach.
 
-Captures: `just capture U426,U427,U428,U429`. Observer: isolated headless Chromium on a fresh profile.
+`u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting` drives pointer actions through the real rendered prompt. It selects payments, opens auth's prompt without changing selection or clearing, keeps auth, then opens payments, submits, emits NOT_ACKED for payments, retains the exact reason, chooses clear without a summary and keeps the rejected prompt. Before the repair, Keep cannot dismiss the offscreen prompt; after it, the pointer path completes. `rail/u350_clear.test.tsx` remains the action and identity proof.
+
+Retired `u426_the_stopped_door_keeps_a_readable_control_beside_the_group`: its label/icon assertions measured appearance. The start/retry action is proved by `u9_actions.test.tsx`; this capture adds no layout assertion. Existing historical captures are unchanged.

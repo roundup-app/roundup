@@ -29,6 +29,9 @@ pub enum EventData {
     TodoCreated(Box<todo::Todo>),
     #[serde(rename = "todo.updated")]
     TodoUpdated(Box<todo::Todo>),
+    /// Data restoration only: consumers must not replay creation or external effects.
+    #[serde(rename = "todo.restored")]
+    TodoRestored(Box<todo::Todo>),
     #[serde(rename = "todo.unblocked")]
     TodoUnblocked(todo::TodoId),
     #[serde(rename = "todo.deleted")]
@@ -47,6 +50,13 @@ pub enum EventData {
     TodoRefRemoved(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
+    /// Accepted name change; the original incarnation remains authoritative.
+    #[serde(rename = "pad.renamed")]
+    PadRenamed {
+        incarnation: String,
+        name: String,
+        previous_name: String,
+    },
     #[serde(rename = "pad.deleted")]
     PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]

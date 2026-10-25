@@ -167,6 +167,10 @@ jobs:
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
+      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above.
+      - name: R24 measurement feature
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: python3 loop/app-data.py cargo nextest run -p desktop --features idle-perf --profile mac -E 'test(/^idle::tests::r24_/)'
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
@@ -251,6 +255,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: T3797a real-tool lint observers
+        run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq

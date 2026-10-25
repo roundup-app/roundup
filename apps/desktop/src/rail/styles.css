@@ -485,7 +485,11 @@
   border: 0;
   width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
-  max-height: calc(100vh - 2 * var(--space-4));
+}
+
+/* OverlayScrollbars makes its viewport relative; the placed prompt must stay fixed. */
+.rail-clear > .clear-prompt {
+  max-height: calc(100vh - 2 * var(--space-4) - 2 * var(--space-3));
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -539,11 +543,6 @@
   gap: var(--space-1);
   white-space: nowrap;
   --button-inline: 0;
-}
-
-.rail p.ink[role="alert"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */

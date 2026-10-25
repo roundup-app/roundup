@@ -167,7 +167,7 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
 it("u2744a_shelf_scope_empty_pad_groups_are_omitted", async () => {
   const { connected, app } = await mount();
   connected.rail.select("v");
-  await app.rpc("todo.delete", { id: 3 });
+  await app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [3] });
   await app.rpc("pad.delete", { name: "pad-3" });
   await tab("Pads");
   await waitFor(() => expect(groupIds()).toEqual([]));

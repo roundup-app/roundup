@@ -226,14 +226,17 @@ async fn u3126b_first_import_requires_its_original() {
         .await;
         let outcome = &refused["result"]["outcomes"][0];
         assert!(
-            outcome["error"]
+            outcome["error"]["message"]
                 .as_str()
                 .unwrap()
                 .contains("changed since preview"),
             "{refused}"
         );
         assert!(
-            outcome["error"].as_str().unwrap().contains("Refresh"),
+            outcome["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("Refresh"),
             "{refused}"
         );
         assert!(outcome["workstream"].is_null());
@@ -414,7 +417,9 @@ async fn refused_import_revision(change: &str) {
         json!({"selections":[selection]}),
     )
     .await;
-    let error = refused["result"]["outcomes"][0]["error"].as_str().unwrap();
+    let error = refused["result"]["outcomes"][0]["error"]["message"]
+        .as_str()
+        .unwrap();
     assert!(
         error.contains("changed since preview") && error.contains("Refresh"),
         "{refused}"
@@ -549,7 +554,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
     )
     .await;
     assert!(
-        refused["result"]["outcomes"][0]["error"]
+        refused["result"]["outcomes"][0]["error"]["message"]
             .as_str()
             .unwrap()
             .contains("changed since preview")
@@ -564,7 +569,10 @@ async fn u3037b_commit_reads_only_selected_contents() {
         json!({"selections":[selection]}),
     )
     .await;
-    assert!(refused["result"]["outcomes"][0]["error"].is_string());
+    assert_eq!(
+        refused["result"]["outcomes"][0]["error"]["code"],
+        rpc::code::CONFLICT
+    );
     assert!(opened.lock().unwrap().is_empty());
 }
 
@@ -858,4 +866,46 @@ async fn large_storage_discovery(owner_storage: bool) {
         json!([])
     );
     service.abort();
+}
+
+#[tokio::test]
+async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    std::fs::create_dir(&project).unwrap();
+    let config = root.path().join("config");
+    let at = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    import_source(&config, &project, 1, &at);
+    let launcher = agents::claude_code::Launcher::new(
+        "unused-claude",
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    );
+    let daemon = import_daemon(&project, launcher);
+    let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"day"})).await;
+    let source = &found["result"]["candidates"][0]["source"];
+    let revision = &found["result"]["candidates"][0]["revision"];
+    assert!(revision.is_string(), "{found}");
+    std::fs::remove_dir_all(config.join("projects")).unwrap();
+    let reply = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[{"source":source,"revision":revision}]}),
+    )
+    .await;
+    let outcome = &reply["result"]["outcomes"][0];
+    assert_eq!(&outcome["source"], source);
+    assert_eq!(outcome["error"]["code"], rpc::code::INTERNAL);
+    assert_eq!(outcome["error"]["outcome"], "unknown");
+    assert!(
+        outcome["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("projects")
+    );
+    assert!(outcome["workstream"].is_null());
+    assert!(outcome["agent"].is_null());
 }
