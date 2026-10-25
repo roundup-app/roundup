@@ -97,15 +97,22 @@ impl Rail {
     ) -> Result<Vec<RailNode>, RpcError> {
         // R3696c: the separate finish-count query/map made a forty-Workstream
         // reply allocate 290 times. Keep the count beside its node during traversal.
-        let flat = load_with(&self.db, false, |node, finished| (node, finished))?;
+        let mut flat = load_with(&self.db, false, |node, finished| (node, finished))?;
+        // Sibling orders are unique (A6); equal orders across parents need no stability.
+        // R3696c: avoid the stable sort's scratch copy of these large nodes.
+        flat.sort_unstable_by_key(|(node, _)| node.order);
+        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
+        // for descendants once per node. A flat tree can reuse the loaded buffer.
+        if flat.iter().all(|(node, _)| node.parent.is_none()) {
+            return flat
+                .into_iter()
+                .map(|(node, finished)| present(node, finished))
+                .collect();
+        }
+        let mut out = Vec::with_capacity(flat.len());
         let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
-        let mut next = 0;
-        descend(&mut flat, None, &mut next, &mut present)?;
-        flat.truncate(next);
-        Ok(flat
-            .into_iter()
-            .map(|entry| entry.expect("visited node").0)
-            .collect())
+        descend(&mut flat, None, &mut out, &mut present)?;
+        Ok(out)
     }
 
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
@@ -142,33 +149,29 @@ impl Rail {
     }
 }
 
-// R3696c: keep traversal output in the loaded buffer rather than allocating a
-// second vector of large RailNodes (132,294 temporary bytes for forty Workstreams).
+// R3696c: a forty-Workstream reply allocated 530 times (181 KB). Move the
+// loaded nodes into traversal order rather than cloning their strings and Orders.
 fn descend(
     nodes: &mut [Option<(RailNode, u64)>],
     parent: Option<&str>,
-    next: &mut usize,
+    out: &mut Vec<RailNode>,
     present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
 ) -> Result<(), RpcError> {
-    // A6 gives each sibling a unique order. Selecting it before swapping keeps
-    // large nodes from shifting across every sibling when a child is visited.
-    while let Some(index) = nodes[*next..]
-        .iter()
-        .enumerate()
-        .filter_map(|(index, entry)| {
-            let (node, _) = entry.as_ref()?;
-            (node.parent.as_deref() == parent).then_some((index, node.order))
-        })
-        .min_by_key(|(_, order)| *order)
-        .map(|(index, _)| *next + index)
-    {
-        nodes.swap(*next, index);
-        let at = *next;
-        *next += 1;
-        let (node, finished) = nodes[at].take().expect("selected node");
-        let node = present(node, finished)?;
-        descend(nodes, Some(&node.id), next, present)?;
-        nodes[at] = Some((node, finished));
+    for index in 0..nodes.len() {
+        if !nodes[index]
+            .as_ref()
+            .is_some_and(|(node, _)| node.parent.as_deref() == parent)
+        {
+            continue;
+        }
+        let (node, finished) = nodes[index].take().expect("selected node");
+        let mut node = present(node, finished)?;
+        // Keep the id locally during recursion so neither it nor the node is copied.
+        let id = std::mem::take(&mut node.id);
+        let at = out.len();
+        out.push(node);
+        descend(nodes, Some(&id), out, present)?;
+        out[at].id = id;
     }
     Ok(())
 }
