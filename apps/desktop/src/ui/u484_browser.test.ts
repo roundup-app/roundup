@@ -201,6 +201,10 @@ it("u3800a_one_drag_fixture", async () => {
     expect(await read<string[]>(`[...document.querySelectorAll('[data-drop=hover]')].map(row => row.dataset.id)`)).toEqual([id]);
   }
 
+  // Rail hover can open its target after U348's hold; leave it and choose the starting pane explicitly.
+  await feed("leave");
+  await browser("click", ".rail-row[data-id=tokens] .name");
+  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'tokens'");
   await feed("over");
   await browser("wait", "--fn", "!!document.querySelector('.pane-body.drop-over')");
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(1);
