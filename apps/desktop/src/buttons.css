@@ -99,11 +99,12 @@ button:hover:not([aria-disabled="true"]),
 }
 
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not([aria-disabled="true"]),
-button[data-pressed="true"]:not([aria-disabled="true"]) {
+/* Opacity also reaches independently coloured Glyphs and filled controls whose label overrides the pressed ink (U133). */
+button:active:not(:disabled, [aria-disabled="true"], [data-disabled]),
+button[data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  opacity: var(--press-opacity);
+  transition: none;
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
@@ -239,6 +240,14 @@ button[aria-disabled="true"] {
 
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--text);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--button-accent-ink);
 }
 
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="icon"] {

@@ -103,11 +103,105 @@ pub enum State {
     Invalidated,
 }
 
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationCause {
+    HeadMoved,
+    AgentUnavailable,
+    AuthorityRefused,
+    ChecksFailed,
+    ChecksPending,
+    ChecksUnavailable,
+    WorktreeReadFailed,
+    PrMissing,
+    EvidenceMissing,
+    EvidenceStale,
+    ForgeReadFailed,
+    HeadMissing,
+    RepositoryMismatch,
+    Unsupported,
+    FiringsReadFailed,
+    CursorMissing,
+    AcceptanceFailed,
+    ObservationSaveFailed,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationGap {
+    HistoryExpired,
+    AgentReadFailed,
+    EventsReadFailed,
+    FiringsReadFailed,
+    CursorMissing,
+    AgentUnavailable,
+    AuthorityRefused,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationRecovery {
+    Check,
+    Reconciled,
+    ReplaceAgent,
+    ReplaceTarget,
+    RestoreEvidence,
+    RetryAcceptance,
+    RetryStorage,
+    Reconcile,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationHealth {
+    Fired,
+    FiredLate,
+    Expired,
+    Skipped,
+    Observing,
+    NotObserving,
+    Unavailable,
+    Waiting,
+    Matched,
+    Invalidated,
+    AcceptanceFailed,
+    WriteFailed,
+    ObservationSaveFailed,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
 /// Whether the condition's source is being watched: `not-observing` until a source is, then
 /// `observing`, or `unavailable` while a read failed or a named identity is gone (NR5). A gap, once
 /// recorded, stays recorded after the state is reconciled.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Observation {
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub health_code: ObservationHealth,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub cause_code: ObservationCause,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub gap_code: ObservationGap,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub recovery_code: ObservationRecovery,
     pub health: String,
     #[specta(type = Option<specta_typescript::Number>)]
     pub cursor: Option<u64>,
@@ -165,4 +259,37 @@ pub struct Reaction {
     pub state: State,
     pub observation: Observation,
     pub firings: Vec<Firing>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u3791b_legacy_reaction_diagnostics_never_supply_identity() {
+        let original = serde_json::json!({
+            "health": "fired late", "cursor": 91,
+            "cause": "the PR head moved from original to replacement",
+            "gap": "the Event history after 90 expired",
+            "recovery": "the recorded source gap remains; authoritative current Agent state reconciled observation",
+            "evidence": "original source bytes", "pinned_head": "original"
+        });
+        let observation: Observation = serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(observation.health_code, ObservationHealth::Unknown);
+        assert_eq!(observation.cause_code, ObservationCause::Unknown);
+        assert_eq!(observation.gap_code, ObservationGap::Unknown);
+        assert_eq!(observation.recovery_code, ObservationRecovery::Unknown);
+        let retained = serde_json::to_value(observation).unwrap();
+        for field in [
+            "health",
+            "cursor",
+            "cause",
+            "gap",
+            "recovery",
+            "evidence",
+            "pinned_head",
+        ] {
+            assert_eq!(retained[field], original[field], "{field}");
+        }
+    }
 }

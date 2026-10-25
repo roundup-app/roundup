@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 #[test]
 fn c4_declarations_preserve_mcp_policy() {
-    // Captured from main e9485a975: descriptions, names, schemas, reshaping, injection and role sets.
+    // Captured from main 09f5f6611: descriptions, names, schemas, reshaping, injection and role sets.
     let before: Value = serde_json::from_str(include_str!("fixtures/c4-before.json")).unwrap();
     for _ in 0..2 {
         let rows: BTreeMap<_, _> = commands(true)

@@ -165,3 +165,14 @@ impl Type for Pong {
         specta::datatype::DataType::Reference(specta_typescript::define("true"))
     }
 }
+
+/// Structured JSON-RPC error data for operation-specific Event replay recovery.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum RpcErrorData {
+    EventsExpired {
+        /// The oldest Event number the authoritative log still retains.
+        #[specta(type = specta_typescript::Number)]
+        oldest: u64,
+    },
+}
