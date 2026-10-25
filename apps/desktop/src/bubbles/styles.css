@@ -193,7 +193,7 @@
 .terminal-tab {
   --button-inline: var(--space-1);
   display: inline-grid;
-  grid-template-columns: calc(var(--row-text-inset) - var(--space-3) - var(--flat-tab-edge)) auto var(--space-3);
+  grid-template-columns: calc(var(--row-text-inset) - 2 * var(--space-1)) auto var(--space-3);
   align-items: center;
   gap: var(--space-1);
   min-width: var(--space-5);

@@ -255,7 +255,7 @@ button[aria-disabled="true"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:hover {
   background-color: var(--button-surface);
 }
 
