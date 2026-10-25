@@ -1,7 +1,8 @@
 import { writeText } from "../app/clipboard";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
-import { Editable } from "../ui/Editable";
+import { IconButton } from "../ui/IconButton";
+import { NameField, Editable } from "../ui/Editable";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
@@ -166,16 +167,18 @@ export const Pads = (props: {
 
   const shown = shownPads(connected, list);
 
-  const selection = createSelection(() => shown().map((pad) => pad.name), () => connected.rail.selected() ?? "overview", name => rowButtonOf(name));
+  const selection = createSelection(() => shown().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
     app: connected.app,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
-    targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
+    targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    remove: (incarnation) => failureOf(async () => { const pad = pads().find(pad => pad.incarnation === incarnation);
+
+ if (pad) await connected.app.rpc("pad.delete", { name: pad.name }); }),
     reload: async () => {
       await list.reload();
 
@@ -185,10 +188,11 @@ export const Pads = (props: {
 
   shelfRowKeys({
     focused: selection.focused,
-    exportPad: async name => {
-      const pad = pads().find(pad => pad.name === name);
+    exportPad: async incarnation => {
+      const pad = pads().find(pad => pad.incarnation === incarnation);
 
       if (!pad) return;
+      const name = pad.name;
 
       const message = await failureOf(async () => {
         const path = await connected.app.chooseSavePath([name, ".md"].join(""));
@@ -425,6 +429,18 @@ const ownersToOffer = (connected: ConnectedProject, current: Actor) => ownersOnR
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
+  const useList = usePadList();
+  const [editing, setEditing] = createSignal(false);
+  let row: HTMLButtonElement | undefined;
+  const closeName = () => { setEditing(false); queueMicrotask(() => document.querySelector<HTMLElement>(`[data-incarnation="${CSS.escape(pad.incarnation)}"] .pad-name`)?.focus()); };
+
+  const open = (source: "key" | "pointer") => {
+    const name = pad.name;
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source);
+  };
+
+  const rename = () => { if (pad.owner.kind === "user") setEditing(true); else props.onItemFailure(pad, copy.renamePadOwnership); };
+
   const nameCut = createCutTitle(() => pad.name);
   const [failed, setFailed] = createSignal<string | null>(null);
 
@@ -434,67 +450,59 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
           <ShelfRow
             ref={props.parts.ref}
             data-pad={pad.name}
-            data-selected={props.selection.selected().includes(pad.name) ? "true" : undefined}
+            data-incarnation={pad.incarnation}
+            data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+              { id: "assign", label: copy.assign, enabled: ownersToOffer(connected, pad.owner).length > 0, run: () => { if (row) props.onAssign(pad.name, row); } },
+              ...(pad.owner.kind === "user" ? [] : [{ id: "make-yours", label: copy.makeYours, run: () => props.onMakeYours(pad.name) }]),
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message)),
-              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.name]); props.bulk.ask(); } },
+              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
             ], x, y))}
             class="pad-inset"
-            glyph={
-              <Show
-                when={pad.owner.kind === "user"}
-                fallback={
-                  <button data-button="icon"
-                    type="button"
-                    class="word"
-                    aria-label={copy.makePadYours(pad.name)}
-                    onClick={() => props.onMakeYours(pad.name)}
-                  >
-                    <OwnerMark owner={pad.owner} />
-                  </button>
-                }
-              >
-                <span class="light">
-                  <OwnerMark owner={pad.owner} />
-                </span>
-              </Show>
-            }
+            glyph={null}
           >
             <div class="pad-row-head">
+            <Show when={!editing()} fallback={<NameField object={`pad:${pad.incarnation}`} name={pad.name}
+              version={async () => pad.incarnation} commit={async (text, base, version) => {
+                await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! });
+                await useList.reload();
+              }} close={closeName} fail={message => props.onItemFailure(pad, message)} />}>
             <button
               type="button"
               class="pad-name"
-              aria-pressed={props.selection.selected().includes(pad.name)}
-              ref={(row) => {
-                props.selection.register(pad.name, row);
-                props.parts.handleRef(row ?? undefined);
+              aria-pressed={props.selection.selected().includes(pad.incarnation)}
+              ref={(element) => {
+                row = element;
+                props.selection.register(pad.incarnation, element);
+                props.parts.handleRef(element ?? undefined);
 
-                if (row) props.rowButtons.set(pad.name, row);
+                if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
               }}
               on:keydown={(event) => {
                 props.bulk.key(event);
 
-                if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.name, event);
+                if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
               }}
-              onClick={(event) => !props.bulk.pending() && props.selection.click(pad.name, event, () =>
-                connected.drawer.open(() => (
-                  <PadDrawer
-                    name={pad.name}
-                    pads={props.pads}
-                    onLateFailure={message => props.onItemFailure(pad, message)}
-                    onFailureCleared={() => props.onItemFailure(pad, null)}
-                  />
-                ), activationSource(event)))
-              }
+              onKeyDown={event => {
+                if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+
+                if (event.key === "Enter") { event.preventDefault();
+
+ if (!event.repeat) open("key"); }
+
+                if (event.key === "F2") { event.preventDefault(); rename(); }
+              }}
+              onDblClick={rename}
+              onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
+
             >
               <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
-              {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
-              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} aria-disabled={ownersToOffer(connected, pad.owner).length === 0 || undefined} title={ownersToOffer(connected, pad.owner).length === 0 ? copy.noOtherOwners : undefined} onClick={(event) => { if (ownersToOffer(connected, pad.owner).length > 0) props.onAssign(pad.name, event.currentTarget); }}>{copy.assign}</button>
+            </Show>
+            <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={event => open(activationSource(event))}><Icon name="right" /></IconButton></span>
             </div>
-            <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>
   );

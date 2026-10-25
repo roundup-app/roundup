@@ -18,7 +18,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
+import { agentKindsBelow, ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
@@ -26,7 +26,7 @@ import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
-import type { RowActions } from "./RowIcons";
+import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
@@ -54,8 +54,17 @@ export const Rail = () => {
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
-    rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  }, connected.queue);
+    setEditingName(id);
+  }, connected.queue, node => {
+    const actions = actionsOf(node);
+
+    return [
+      { id: "folder", label: copy.openFolder, run: actions.folder },
+      { id: "editor", label: copy.openInEditor, run: actions.editor },
+      ...(actions.kind === "workstream" ? [...(node.attempt === null && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
+        ...(rail.exitOf(node) !== null ? [{ id: "start", label: copy.startDoor, run: () => { void rail.startDoor(node.id); } }] : [])] : []),
+    ];
+  });
 
 
   const clearPrompt = createMemo(() => {
@@ -208,6 +217,16 @@ export const Rail = () => {
     });
   });
 
+  const openRow = (id: string) => {
+    const node = rail.nodes.find(each => each.id === id);
+
+    const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
+      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(rail.nodes, each.id).includes(id)) : undefined;
+
+    rail.select(attention?.id ?? id);
+    queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
+  };
+
   const focusRow = (id: string) => rowElement(id)?.focus();
 
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
@@ -311,7 +330,7 @@ export const Rail = () => {
 
       if (id === undefined) return;
 
-      rail.select(id);
+      openRow(id);
     };
 
     window.addEventListener("pointerdown", press, { capture: true });
@@ -580,7 +599,7 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) rail.select(id);
+        if (id !== undefined) { rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -639,8 +658,8 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
-                          exit={rail.exitOf(view().node)}
-                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
+                          editing={editingName() === view().node.id}
+                          onOpen={() => openRow(view().node.id)}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
@@ -651,12 +670,8 @@ export const Rail = () => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
                             failure.acknowledge(view().node.id);
                           }}
-                          onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
-                          doorPending={rail.doorPending(view().node.id)}
-                          doorFailure={rail.doorFailure(view().node.id)}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
-                          actions={actionsOf(view().node)}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>

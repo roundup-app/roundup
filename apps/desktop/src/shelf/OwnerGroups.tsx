@@ -1,9 +1,8 @@
-import { createEffect, createMemo, createSignal, For, on, Show, type Accessor, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, type Accessor, type JSX } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
-import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { OwnerGroup } from "./scope";
 
@@ -36,12 +35,12 @@ export const OwnerGroups = <T,>(props: {
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
-  const [closed, setClosed] = createSignal(props.unfold?.() ? [] : ["unassigned"]);
+  const [closed, setClosed] = createSignal<string[]>(!props.unfold?.() && props.groups().some(group => group.id === "unassigned" && group.items.length > 0) ? ["unassigned"] : []);
 
   createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
-    const groups = props.groups().filter(group => group.items.length > 0 || props.showEmpty?.(group) || props.dragging() || props.adding() === group.id);
+    const groups = props.groups().filter(group => group.items.length > 0);
 
     if (!props.dragging()) return groups;
 
@@ -56,9 +55,9 @@ export const OwnerGroups = <T,>(props: {
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
-  createEffect(on([props.adding, props.reveal, () => props.arrivals?.() ?? []], ([adding, reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== adding && each !== reveal && !arrivals.includes(each)))));
+  createEffect(on([props.reveal, () => props.arrivals?.() ?? []], ([reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== reveal && !arrivals.includes(each)))));
 
-  createEffect(on(() => props.unfold?.(), () => setClosed(kept => kept.filter(each => each !== "unassigned")), { defer: true }));
+
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {
@@ -79,7 +78,7 @@ export const OwnerGroups = <T,>(props: {
               <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : group().items.length}</span>
             </TreeView.BranchControl>
             {props.mark?.(group())}
-            <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
+
           </div>
           {props.detail?.(group())}
           <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>

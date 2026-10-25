@@ -32,7 +32,7 @@ const rowButton = async (title: RegExp): Promise<HTMLElement> => {
 
 const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true) => {
   const mounted = await mountTodos(todos, reducedMotion);
-  fireEvent.click(await rowButton(title));
+  fireEvent.keyDown(await rowButton(title), { key: "Enter" });
   await within(drawer()).findByText("Blocker");
 
   return mounted;
@@ -290,11 +290,12 @@ describe("u17 Todo detail", () => {
   it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
     const { app } = await mountTodos(shelf());
     app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32001, "gone"));
-    fireEvent.click(await rowButton(/#5/));
+    fireEvent.keyDown(await rowButton(/#5/), { key: "Enter" });
     fireEvent.click(await within(drawer()).findByRole("button", { name: "Changes" }));
     await within(drawer()).findByText("gone");
     expect(within(drawer()).getByText("session store").tabIndex).toBe(0);
-    expect(within(drawer()).getByRole("button", { name: "Retry history" })).toBeTruthy();
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Retry history" }));
+    await waitFor(() => expect(callsTo(app, "todo.getHistory")).toHaveLength(2));
   });
 
   it("u17_deleting_your_own_todo_while_the_drawer_slides_out_shows_no_deleted_message", async () => {

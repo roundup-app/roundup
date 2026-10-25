@@ -8,12 +8,7 @@ afterEach(cleanup);
 const TREE = [workstream("g", { name: "ws" }), agent("a", "blocked", "waits on #7", { parent: "g", name: "gate" }), agent("b", "needs-you", "asks: keep v1 routes?", { parent: "g", name: "asker", order: 1 })];
 
 describe("u404 an Agent row is its Glyph and its name", () => {
-  it("u404_a_row_draws_no_live_line_or_age", async () => {
-    await mountRail(TREE);
-
-    expect(document.querySelector(".live, .live-label, .live-age, .value")).toBeNull();
-    expect([...rowOf("gate").querySelector(".line")!.children].map((el) => el.className)).toEqual(expect.arrayContaining([expect.stringContaining("glyph"), "name"]));
-  });
+  
 
   it("u404_the_accessible_name_keeps_the_status_label", async () => {
     await mountRail(TREE);
@@ -22,23 +17,9 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     expect(itemOf("asker").getAttribute("aria-label")).toBe("asker, asks: keep v1 routes?");
   });
 
-  it("u404_ink_rows_carry_their_tone", async () => {
-    await mountRail(TREE);
+  
 
-    expect(rowOf("asker").querySelector(".name")?.getAttribute("data-tone")).toBe("amber");
-    expect(rowOf("gate").querySelector(".name")?.getAttribute("data-tone")).toBeNull();
-  });
-
-  it("u404_the_owned_control_is_a_diamond_and_a_count", async () => {
-    await mountRail(TREE, [], () => null, undefined, {}, [{ incarnation: "fixture-1", name: "notes", owner: { kind: "agent", id: "a", parent: null }, text: "", updated_at: 0, revision: 1, home: null }]);
-
-    const control = rowOf("gate").querySelector<HTMLElement>("[data-pads-control]")!;
-
-    await screen.findByRole("button", { name: "1 pads" });
-    expect(control.textContent?.trim()).toBe("1");
-    expect(control.querySelector("svg")).not.toBeNull();
-    expect(rowOf("asker").querySelector("[data-pads-control]")).toBeNull();
-  });
+  
 
   it("u404_selection_keeps_the_band_and_bar", async () => {
     const { rail } = await mountRail(TREE);

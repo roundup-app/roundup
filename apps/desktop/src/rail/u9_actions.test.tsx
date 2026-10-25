@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
-import { chord, rowGlyph as glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
+import { chooseAction, chord, rowGlyph as glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -31,7 +31,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    await chooseAction(mounted.app, "g", "Add Agent");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
@@ -41,7 +41,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    await chooseAction(mounted.app, "lead", "Add Agent");
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
@@ -134,7 +134,7 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText(/^start supervisor$/i));
+    await chooseAction(mounted.app, "g", "Start supervisor");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -184,7 +184,7 @@ describe("u9 actions", () => {
 
     fireEvent.click(glyphOf("g"));
 
-    expect(screen.queryByText("boom")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("u9_the_failure_line_clears_on_a_click_on_promote", async () => {
@@ -199,9 +199,9 @@ describe("u9 actions", () => {
     await screen.findByText("boom");
     fireEvent.mouseEnter(rowOf("g"));
 
-    fireEvent.click(screen.getByText(/^start supervisor$/i));
+    await chooseAction(mounted.app, "g", "Start supervisor");
 
-    expect(screen.queryByText("boom")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("u9_the_failure_line_clears_on_a_click_outside_the_rail", async () => {
@@ -215,7 +215,7 @@ describe("u9 actions", () => {
 
     fireEvent.click(document.body);
 
-    expect(screen.queryByText("boom")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("u9_promote_is_not_shown_on_a_door", async () => {
@@ -232,7 +232,7 @@ describe("u9 actions", () => {
     fireEvent.click(glyphOf("g"));
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText(/^start supervisor$/i));
+    await chooseAction(mounted.app, "g", "Start supervisor");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -243,13 +243,10 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    const button = screen.getByLabelText("Add Agent");
-
-    fireEvent.click(button);
-    fireEvent.click(button);
+    await chooseAction(mounted.app, "g", "Add Agent");
+    await chooseAction(mounted.app, "g", "Add Agent");
     finish(SPAWNED);
-
-    await waitFor(() => expect(button.matches('[aria-disabled="true"]')).toBe(false));
+    await mounted.rail.settled();
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
   });
 
@@ -349,7 +346,7 @@ it("a24_a_start_the_daemon_never_answers_fails_within_the_bound", async () => {
     mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
     mounted.rail.select("closed");
 
-    fireEvent.click(screen.getByText(/^start supervisor$/i));
+    await chooseAction(mounted.app, "g", "Start supervisor");
     await vi.advanceTimersByTimeAsync(10_000);
 
     await waitFor(() => expect(mounted.rail.doorFailure("closed")).not.toBeNull());

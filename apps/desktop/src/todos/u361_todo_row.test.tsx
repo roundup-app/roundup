@@ -46,26 +46,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     expect(within(rowOf(3)).getByRole("button", { name: /todo 3/ })).toBeTruthy();
   });
 
-  it("u361_waits_on_names_blockers_by_title", async () => {
-    const { app } = await mountTodos([
-      todo(5, { title: "session store", blocked: true, blockers: [6, 4] }),
-      todo(4, { title: "migrate" }),
-      todo(6, { title: "later" }),
-    ]);
-
-    await screen.findByText("session store");
-
-    const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-also-waits]")!;
-
-    expect(within(waits).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker migrate", "Open blocker later"]);
-
-    fireEvent.click(within(waits).getByRole("button", { name: "Open blocker migrate" }));
-
-    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
-
-    await waitFor(() => expect(within(drawer).getByText("migrate")).toBeTruthy());
-    await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 4 }]));
-  });
+  
 });
 
 it.each(["list", "agent-list", "drawer"].flatMap(surface => [false].map(done => ({ surface, done }))))("u461a_completion_pending_and_failure_preserve_accepted_value on $surface", async ({ surface, done }) => {

@@ -15,7 +15,7 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
-  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
   await within(drawer()).findByText("Blocker");
 
   return mounted;
@@ -43,7 +43,7 @@ describe("u150 delete asks first (Todo)", () => {
     await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    await waitFor(() => expect(connected.drawer.content()).toBeNull());
+    await waitFor(() => expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(true));
     expect([callsTo(app, "todo.delete"), screen.queryByText(/was deleted/)]).toEqual([[{ method: "todo.delete", params: { id: 5 } }], null]);
   });
 
@@ -55,7 +55,7 @@ describe("u150 delete asks first (Todo)", () => {
       return null;
     };
 
-    fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
     await within(drawer()).findByText("Blocker");
     await ask();
     await answerQuestion(true);

@@ -23,11 +23,11 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Open folder", "Open in editor", "Add Agent", "Send to Agent", "Copy Link", "Remove"]);
     expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -91,7 +91,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual(["Remove"]);
+    expect(app.menuLabels()).toEqual(["Open folder", "Open in editor", "Clear…", "Add Agent", "Start supervisor", "Remove"]);
   });
 
   it.each([
@@ -125,7 +125,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Open folder", "Open in editor", "Add Agent", ...(!running ? ["Start supervisor"] : []), "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u3515b_only_send_is_disabled_in_an_exhausted_row_menu", async () => {
@@ -384,7 +384,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
     } },
     { name: "blocker: only the Todo itself", run: async () => {
       const { app } = await mountTodos([todo(1)]);
-      fireEvent.click(await screen.findByRole("button", { name: /Idle #1 / }));
+      fireEvent.keyDown(await screen.findByRole("button", { name: /Idle #1 / }), { key: "Enter" });
       const trigger = await within(await screen.findByRole("complementary", { name: "Drawer" })).findByRole<HTMLButtonElement>("button", { name: /Blocker/ });
       expect(trigger.disabled).toBe(false);
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
@@ -448,7 +448,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(screen.queryByRole("menu")).toBeNull();
       fireEvent.keyDown(button, { key: "a", code: "KeyA" });
       const menu = await screen.findByRole("menu");
-      expect(within(menu).queryByRole("menuitem", { name: "Me" })).toBeNull();
+      expect(within(menu).getAllByRole("menuitem").map(item => item.getAttribute("data-value"))).not.toContain("me");
       expect(within(menu).getByRole("menuitem", { name: "New Workstream…" }).getAttribute("aria-disabled")).not.toBe("true");
       expect(actionCalls(app)).toEqual([]);
     } },

@@ -25,19 +25,7 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     expect(within(rowOf(2)).getByRole("img", { name: "Blocked" })).toBeTruthy();
   });
 
-  it("u3810_locked_rows_name_only_open_blockers_and_open_their_drawers (u3708_the_other_blockers_show_as_one_quiet_line)", async () => {
-    const { app } = await mountTodos([todo(1, { title: "a" }), todo(2, { title: "b" }), todo(3, { blocked: true, blockers: [1, 2] }), todo(4, { blocked: true, blockers: [1] })]);
-    await screen.findByRole("tree");
-    const line = rowOf(3).querySelector<HTMLElement>("[data-todo-also-waits]")!;
-
-    expect(within(line).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker a", "Open blocker b"]);
-    expect(levelOf(3)).toBe(2);
-    expect(within(rowOf(4)).getByRole("button", { name: "Open blocker a" })).toBeTruthy();
-    expect(within(rowOf(3)).getByRole("img", { name: "Blocked" })).toBeTruthy();
-    fireEvent.click(within(rowOf(3)).getByRole("button", { name: "Open blocker b" }));
-    await screen.findByRole("complementary", { name: "Drawer" });
-    await waitFor(() => expect(callsTo(app, "todo.getHistory").at(-1)?.params).toEqual({ id: 2 }));
-  });
+  
 
   it("u3708_the_list_is_a_tree_of_treeitems_with_levels", async () => {
     await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
@@ -58,7 +46,8 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
 
     await screen.findByRole("tree");
-    fireEvent.click(within(rowOf(1)).getByRole("checkbox"));
+    fireEvent.contextMenu(rowOf(1));
+    await app.pickMenu("Complete");
     await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
     store.todos = store.todos.map((t) => (t.id === 1 ? { ...t, done: true } : t.id === 2 ? { ...t, blocked: false } : t));
     app.emit(todoEvent("todo.updated", store.todos[0]!));

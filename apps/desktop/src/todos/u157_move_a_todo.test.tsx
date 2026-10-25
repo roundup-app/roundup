@@ -9,7 +9,7 @@ afterEach(cleanup);
 it.each([null, "r1"])("u157_the_drawer_has_no_move_or_home_%s", async (home) => {
   const { app } = await mountTodos([todo(2, { home })], true, [workstream("r1", { name: "alpha" })]);
 
-  fireEvent.click(await screen.findByRole("button", { name: /#2/ }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#2/ }), { key: "Enter" });
   const panel = within(screen.getByRole("complementary", { name: "Drawer" }));
   await panel.findByText("Blocker");
 
@@ -22,7 +22,7 @@ it("u157_a_done_todo_drawer_has_no_move", async () => {
   await mountTodos([todo(2, { done: true })]);
 
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
-  fireEvent.click(await screen.findByRole("button", { name: /Done #2/ }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /Done #2/ }), { key: "Enter" });
   const panel = within(screen.getByRole("complementary", { name: "Drawer" }));
   await panel.findByText("Blocker");
 

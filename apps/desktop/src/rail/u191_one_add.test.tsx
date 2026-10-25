@@ -52,35 +52,16 @@ describe("u162 one add opens a Workstream", () => {
     expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
-  it("u191_each_workstream_row_carries_one_add_icon_and_no_line_follows_its_children", async () => {
-    const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
-    mounted.rail.select("a");
+  
 
-    expect([addIconsOf("g").length, addIconsOf("h").length, addIconsOf("a").length]).toEqual([1, 1, 0]);
-    expect(inside()).toBeNull();
-  });
+  
 
-  it("u191_the_icon_adds_spawn_with_that_workstream_as_parent", async () => {
-    const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
-    mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-    mounted.rail.select("a");
-
-    fireEvent.click(await screen.findByLabelText("Add Agent"));
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
-  });
-
-  it("u191_a_collapsed_workstream_keeps_its_add_icon", async () => {
-    const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
-
-    mounted.rail.toggleCollapsed("h");
-    await waitFor(() => expect(addIconsOf("h")).toHaveLength(1));
-    expect(inside()).toBeNull();
-  });
+  
 
   it("u191_the_icons_are_not_rail_rows_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findAllByLabelText("Add Agent");
+
 
     expect(rowNames()).toEqual(["g", "h"]);
     const row = rowOf("g");

@@ -243,27 +243,12 @@
 .todo-row .row-head { min-width: 0; display: flex; align-items: start; }
 .todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
 
-/* Keep the Menu trigger connected while Ark returns focus from its portal. */
-.todo-row .row-head > [data-button="row-action"] {
-  position: relative;
-  z-index: 1;
-  display: none;
-}
-.todo-row[data-actions-open="true"] .row-head > [data-button="row-action"] {
-  display: inline-flex;
-}
-
 .todo-tooltip {
   box-sizing: border-box;
   max-width: calc(100vw - var(--space-6));
   overflow-wrap: anywhere;
   white-space: normal;
 }
-
-.todo-row [data-dnd-dragging] .todo-row-actions, .todo-row[data-dnd-dragging] .todo-row-actions { display: none !important; }
-.todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
-.todo-row:hover .todo-row-actions,
-.todo-row:focus-within .todo-row-actions { display: flex; }
 
 /* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
 .owner-picker {
@@ -397,3 +382,24 @@
 .todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
   animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
 }
+
+.row-controls {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  opacity: 0;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+:is(.shelf-row, .rail-row, .rail-leaf):focus-within .row-controls,
+:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head)[data-selected="true"] .row-controls { opacity: 1; pointer-events: auto; }
+.todo-row [data-group-toggle] { opacity: 0; pointer-events: none; }
+.todo-row:focus-within [data-group-toggle],
+.todo-row[data-selected="true"] [data-group-toggle] { opacity: 1; pointer-events: auto; }
+.row-name-editor { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.row-name-editor input { width: 100%; font: inherit; color: var(--text); background: var(--sunken); }
+
+.row-secondary { opacity: 0; pointer-events: none; }
+:is(.shelf-row, .rail-row):focus-within .row-secondary,
+:is(.shelf-row, .rail-row)[data-selected="true"] .row-secondary { opacity: 1; }

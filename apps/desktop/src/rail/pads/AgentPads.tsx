@@ -8,10 +8,15 @@ import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Icon } from "../../ink/Icon";
+import { IconButton } from "../../ui/IconButton";
+import { NameField } from "../../ui/Editable";
+import type { Pad } from "@contracts/pad/Pad";
+import { createSelection } from "../../shelf/selection";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
 import { OpenRow } from "../../todos/OpenRow";
+import { homesToOffer } from "../../todos/homes";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createSortedList } from "../../todos/sortedList";
@@ -90,7 +95,7 @@ export const PadsControl = (props: { pads: AgentPads }) => {
             aria-label={name()}
             aria-expanded={props.pads.shown()}
           >
-            <Icon name="diamond" />{props.pads.n()}
+            <Icon name="diamond" />
           </button>
         )}
       </Tip>
@@ -117,8 +122,10 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
   const list = usePadList();
-  const [selected, setSelected] = createSignal<readonly string[]>([]);
-  const clear = () => setSelected([]);
+  const selection = createSelection(() => props.pads.owned().map(pad => pad.name), () => connected.rail.selected() ?? "overview");
+  const selected = selection.selected;
+  const setSelected = selection.replace;
+  const clear = selection.clear;
 
   const bulk = createBulkDelete({
     app: connected.app,
@@ -134,8 +141,10 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     },
   });
 
-  const [selectedTodos, setSelectedTodos] = createSignal<readonly number[]>([]);
-  const clearTodos = () => setSelectedTodos([]);
+  const todoSelection = createSelection(() => props.pads.ownedTodos().map(todo => todo.id), () => connected.rail.selected() ?? "overview");
+  const selectedTodos = todoSelection.selected;
+  const setSelectedTodos = todoSelection.replace;
+  const clearTodos = todoSelection.clear;
 
   const todoBulk = createBulkDelete({
     app: connected.app,
@@ -160,6 +169,10 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name,
+        run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) })) },
+      { id: "move-up", label: copy.moveUp, run: () => props.pads.reorder.step(todo.id, -1) },
+      { id: "move-down", label: copy.moveDown, run: () => props.pads.reorder.step(todo.id, 1) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`)),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
@@ -198,22 +211,10 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           <For each={props.pads.owned()}>
             {(pad, at) => (
               <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
-                <Tip text={pad.name}>
-                  {(trigger) => (
-                    <button
-                      {...trigger({
-                        onClick: (event) => openPad(pad.name, event),
-                        onContextMenu: (event: MouseEvent) => padMenu(pad.name, event),
-                      })}
-                      type="button"
-                      data-button="quiet"
-                      class="rail-pad"
-                    >
-                      <Icon name="diamond" />
-                      <span style={cutName}>{pad.name}</span>
-                    </button>
-                  )}
-                </Tip>
+                <OwnedPad pad={pad} pads={props.pads.all} selected={selection.selected().includes(pad.name)}
+                  register={row => selection.register(pad.name, row)} pick={event => selection.click(pad.name, event)}
+                  key={event => selection.key(pad.name, event)} open={event => openPad(pad.name, event)} menu={event => padMenu(pad.name, event)}
+                  fail={message => showOutcome(`pad:${pad.incarnation}`, message)} />
               </Leaf>
             )}
           </For>
@@ -228,6 +229,10 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                       <OpenRow
                         nested
                         todo={todo}
+                        pressed={todoSelection.selected().includes(todo.id)}
+                        onPick={(item, event) => todoSelection.click(item.id, event)}
+                        onSelectionKey={(item, event) => todoSelection.key(item.id, event)}
+                        registerRow={todoSelection.register}
                         known={props.pads.todos.byId()}
                         onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
@@ -253,4 +258,43 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       <todoBulk.Bar />
     </>
   );
+};
+
+const OwnedPad = (props: {
+  pad: Pad; pads: Accessor<readonly Pad[]>; selected: boolean;
+  register: (row: HTMLButtonElement) => void; pick: (event: MouseEvent) => void; key: (event: KeyboardEvent) => void;
+  open: (event: MouseEvent) => void; menu: (event: MouseEvent) => void; fail: (message: string | null) => void;
+}) => {
+  const connected = useConnectedProject();
+  const list = usePadList();
+  const [editing, setEditing] = createSignal(false);
+  let button: HTMLButtonElement | undefined;
+
+  const open = () => {
+    const name = props.pad.name;
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.fail(message)} />, "key");
+  };
+
+  const rename = () => { if (props.pad.owner.kind === "user") setEditing(true); else props.fail(copy.renamePadOwnership); };
+
+  const close = () => { setEditing(false); queueMicrotask(() => button?.focus()); };
+
+  return <div class="pad-row-head" data-incarnation={props.pad.incarnation} data-selected={props.selected ? "true" : undefined} onContextMenu={props.menu}>
+    <Show when={!editing()} fallback={<NameField object={`pad:${props.pad.incarnation}`} name={props.pad.name} version={async () => props.pad.incarnation}
+      commit={async (text, base, version) => { await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }); await list.reload(); }} close={close} fail={props.fail} />}>
+      <button type="button" data-button="quiet" class="rail-pad" aria-pressed={props.selected} ref={row => { button = row; props.register(row); }}
+        onClick={props.pick} onDblClick={rename} onKeyDown={event => {
+          props.key(event);
+
+          if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+
+          if (event.key === "Enter") { event.preventDefault();
+
+ if (!event.repeat) open(); }
+
+          if (event.key === "F2") { event.preventDefault(); rename(); }
+        }}><span style={cutName}>{props.pad.name}</span></button>
+    </Show>
+    <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={props.open}><Icon name="right" /></IconButton></span>
+  </div>;
 };

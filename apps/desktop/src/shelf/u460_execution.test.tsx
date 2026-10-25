@@ -183,7 +183,7 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   await askToDelete(2);
   await confirmDeletion();
   await screen.findByText("Could not delete todo 1 #1: denied");
-  fireEvent.click(screen.getByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(screen.getByRole("button", { name: /#1 / }), { key: "Enter" });
   expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
 });
