@@ -56,7 +56,7 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('cannot delete')");
     await read(lane, "bulk-failure");
     expect(await lane.order()).toEqual([first, initial[2]]);
-    expect((await lane.calls("todo.delete")).map(call => call.params)).toEqual([{ id: second }]);
+    expect((await lane.calls("todo.delete")).map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [second] }]);
 
     // Tabs and the Home menu of an Agent's own Todo.
     await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-pads"]');
