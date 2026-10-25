@@ -67,6 +67,32 @@ The existing scheduler/syscall recorder from #4110 is held fixed across states:
 syscall `--exclude-perf`. Existing recorder controls remain conditional evidence,
 not a universal overhead bound for these additional configurations.
 
+## Observed transitions
+
+[Write metrics](table.md) and [all eight metrics](all-metrics.md) retain ranges
+and each adjacent-state paired difference. The artifact's `assessment.json`
+also retains every per-repeat value and ratio. All 48 invocations are qualified,
+loads 1.46–4.00 on four CPUs, with no skipped metrics or busy repeats. All return
+1 against the labelled diagnostic sentinels. Cold start is 12.418899–51.433453 ms,
+output p95 0.255790–0.507042 ms and extra RSS 2.398438–3.386719 MB, below their
+unchanged absolute limits. No latency comparison is a clean R16 verdict.
+
+Configuration-only effects have mixed signs across groups. Hooks and markers
+each increase both write p95s in all three paired repetitions of all four
+groups here. Caller allocations/runtime construction and formatting/lock/write
+remain the separate coupled transitions described above. These observations
+cannot assign useful-task CPU. [Every nonzero command](failures.md) includes the
+scratch misses and unsupported attempts; `setup-attempts.md` in the artifact
+retains the preliminary setup/syntax failures and their actual statuses.
+
+The final verifier confirms fixed hashes and event lists, one fresh Daemon in
+each invocation, no diagnostic markers in the three non-marker states, and both
+1100-turn external marked loops in every marked invocation. All 144 corrected
+decoder commands return 0; no decoded LOST record appears. This is absence of
+reported loss, not a universal loss-free guarantee. `integrity-summary.json`
+records the boot and recorder events; detailed per-invocation identities and
+counts remain with profiles in the artifact.
+
 ## Interpretation
 
 Each transition is assessed per metric and repetition. Invocation p95 deltas
@@ -101,6 +127,15 @@ and `all-state-hashes.json` against the retained executables before replay.
 Restore executable files under `/tmp/r23-queue-bins` for symbolization. Restore
 source archives to their recorded `/tmp/r23-historical` and `/tmp/r23-candidate`
 paths only in a dedicated scratch environment.
+
+The recorded decoder uses sudo perf and expects root-owned `.data` files.
+After extraction, restore that ownership before decoding (or use the reader's
+force option); return ownership to the run user before packing. The first decoder
+set rejected runner-owned files with exit 255; its commands/statuses are retained
+as `decode-v1-*`. The first verifier omitted the optional Terminal field in the
+external marker syntax, failed with exit 1, and is retained as `verify-v1.*`; the
+repair preserves both 1100-turn loops rather than dropping records. Setup failures
+and the inherited-main lint failure are also retained, separately from controls.
 
 For a fresh collection, adapt only output/job paths in retained setup scripts,
 restore existing executable bytes, build both new states at both pins with the
