@@ -34,6 +34,7 @@ it("u3791b_rendered_failure_keeps_explicit_recovery", async () => {
 
   const baseline = process.env.ROUNDUP_BASELINE_ROOT;
   const server = await appServer(baseline ? { root: baseline } : {});
+
   const capture = async (name: string) => {
     const captureRoot = captureDir("U3791b");
     const dir = captureRoot ? join(captureRoot, baseline ? "base" : "head") : null;
