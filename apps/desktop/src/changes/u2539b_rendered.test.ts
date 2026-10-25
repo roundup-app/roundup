@@ -51,7 +51,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           await browser("click", ".overview-entry");
           await until("!!document.querySelector('.pane-identity [data-state]')");
           await capture(lane, "agents-10-selected-agent");
-          await browser("click", '[aria-label="Back to Ask"]');
+          await browser("click", ".pane-navigation button");
           await until("!!document.querySelector('.ask-input')");
         }
 
