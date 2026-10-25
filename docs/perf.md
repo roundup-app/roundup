@@ -416,6 +416,24 @@ Daemon stamps, echo identity, calibration bounds, retained hops and window-free
 proofs. The native observations above are unchanged; #3550 still owns full-chain
 native evidence and the production repair.
 
+The [2026-10-25 full-chain attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6396746360)
+at `477a3ce93f937cb734b4a69d6a0cb710ebfd3293` exited 2: all three quiet-Mac
+runs timed out collecting a complete PERF line. Its complete report and console
+output are retained in [the observations](perf-keystroke-mac-observations.json).
+No hop timings or latency verdict can be derived from it.
+
+Keystroke runs now retain a separate `perf-keystroke-*` diagnostics directory
+beside `--out` for every run, listed in the saved report's `diagnostics` array.
+It holds App stdout/stderr, Daemon stderr, collection phase and raw Terminal
+output, and lifecycle/cleanup results; a failed launch still keeps its logs.
+Temporary App data is still removed. A setup failure before a ready Bubble
+opens a Project-owned diagnostic shell, waits for its raw-tty ready line, and
+prints the original named setup error through it. This shell starts no Agent.
+Failure to open or ready that shell still exits 2 with collector diagnostics.
+Successful measurements continue to report through their measured shell.
+These are recorder repairs; #3550 remains open for full-chain observations,
+the measured production repair, shared Agent/shell input proof and idle/flood acceptance.
+
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).
