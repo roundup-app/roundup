@@ -1,6 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
@@ -33,12 +32,11 @@ it("u2539b_real_daemon_ask_attention_and_review_use_requested_surfaces", async (
     await waitFor(async () => expect((await app.rpc("ask.list", null))[0]?.text).toBe("@Work inspect the result"));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find(node => node.id === home.id)?.status?.kind).toBe("idle"));
     const maker = (await app.rpc("rail.tree", null)).find(node => node.id === home.id)!;
-    // The fake vendor speaks the same public hook command as its settings file.
-    // This creates real Daemon native attention, rather than a fake webview event.
-    execFileSync(resolve("../../target/debug/rup"), ["signal", maker.id], {
-      input: JSON.stringify({ hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "inspect result.txt" } }),
-      env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock"), ROUNDUP_ATTEMPT: maker.attempt! },
-      timeout: 5_000,
+    // The hook's public RPC creates real Daemon attention, not a fake webview event.
+    await app.rpc("agent.signal", {
+      id: maker.id,
+      attempt: maker.attempt!,
+      payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "inspect result.txt" } },
     });
     await waitFor(() => expect(document.querySelectorAll(".overview-entry")).toHaveLength(1));
     fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
