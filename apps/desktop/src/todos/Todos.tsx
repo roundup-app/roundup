@@ -1,3 +1,5 @@
+import { outcomeOf } from "../app/seam";
+import { deleteTodos } from "./deleteTodos";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
@@ -29,7 +31,7 @@ import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf, outcomeOf } from "./failureOf";
+import { failureOf } from "./failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
@@ -192,7 +194,7 @@ export const Todos = (props: {
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    remove: (id) => failureOf(() => connected.app.rpc("todo.delete", { id })),
+    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
     reload: async () => {
       await todos.reload();
 

@@ -2,21 +2,20 @@
 //! one and creating another is how it changes.
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
 use crate::Actor;
 
 /// What a reaction waits for. `agents` combines Agent ids only; a PR's checks and one instant are
 /// separate conditions.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-#[ts(export, export_to = "reaction/")]
 pub enum Condition {
     /// One to twenty distinct Agents finished: every one, or with `any` the first.
     Agents {
         ids: Vec<String>,
         #[serde(default)]
-        #[ts(optional)]
+        #[specta(optional, type = bool)]
         any: Option<bool>,
     },
     /// The required checks of a named PR's head passed. `repository` is `host/owner/name`; the PR is the
@@ -27,9 +26,8 @@ pub enum Condition {
 }
 
 /// NR6: what a missed instant does once, before expiry.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "reaction/")]
 pub enum LatePolicy {
     OnceBeforeExpiry,
     Skip,
@@ -37,9 +35,8 @@ pub enum LatePolicy {
 
 /// NR6 `reaction.preview`: a civil date, time and UTC offset the user typed. There is no zone name: an
 /// offset is the only form with no ambiguous or nonexistent local time.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "reaction/")]
 pub struct PreviewParams {
     /// `YYYY-MM-DD`.
     pub date: String,
@@ -51,8 +48,7 @@ pub struct PreviewParams {
 
 /// What activation keeps: `at` is the exact `Condition::Instant` text to submit, `utc` the instant it
 /// resolves to.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "reaction/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Preview {
     pub at: String,
     pub utc: String,
@@ -60,9 +56,8 @@ pub struct Preview {
 }
 
 /// `reaction.create`: the caller's Actor comes from its connection, never from here.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "reaction/")]
 pub struct CreateParams {
     /// The caller's retry key: the same operation and payload answer with the first definition.
     pub operation: String,
@@ -75,35 +70,32 @@ pub struct CreateParams {
     pub condition: Condition,
     /// Finite and positive; the default is one. Above one needs `rearm` on an Agents condition.
     #[serde(default)]
-    #[ts(optional)]
+    #[specta(optional, type = u32)]
     pub max_firings: Option<u32>,
     /// Re-arm after a firing; only an Agents condition may.
     #[serde(default)]
-    #[ts(optional)]
+    #[specta(optional, type = bool)]
     pub rearm: Option<bool>,
     /// RFC 3339 with its UTC offset, later than now.
     pub expires_at: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "reaction/")]
 pub struct ReactionId {
     pub id: String,
 }
 
 /// `reaction.run`: spends one remaining firing; `operation` makes a retry return the first result.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "reaction/")]
 pub struct RunParams {
     pub id: String,
     pub operation: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "reaction/")]
 pub enum State {
     Active,
     Stopped,
@@ -111,14 +103,107 @@ pub enum State {
     Invalidated,
 }
 
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationCause {
+    HeadMoved,
+    AgentUnavailable,
+    AuthorityRefused,
+    ChecksFailed,
+    ChecksPending,
+    ChecksUnavailable,
+    WorktreeReadFailed,
+    PrMissing,
+    EvidenceMissing,
+    EvidenceStale,
+    ForgeReadFailed,
+    HeadMissing,
+    RepositoryMismatch,
+    Unsupported,
+    FiringsReadFailed,
+    CursorMissing,
+    AcceptanceFailed,
+    ObservationSaveFailed,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationGap {
+    HistoryExpired,
+    AgentReadFailed,
+    EventsReadFailed,
+    FiringsReadFailed,
+    CursorMissing,
+    AgentUnavailable,
+    AuthorityRefused,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationRecovery {
+    Check,
+    Reconciled,
+    ReplaceAgent,
+    ReplaceTarget,
+    RestoreEvidence,
+    RetryAcceptance,
+    RetryStorage,
+    Reconcile,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
+/// Typed reaction observation identity; diagnostics never supply this fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ObservationHealth {
+    Fired,
+    FiredLate,
+    Expired,
+    Skipped,
+    Observing,
+    NotObserving,
+    Unavailable,
+    Waiting,
+    Matched,
+    Invalidated,
+    AcceptanceFailed,
+    WriteFailed,
+    ObservationSaveFailed,
+    #[default]
+    #[serde(other)]
+    Unknown,
+}
+
 /// Whether the condition's source is being watched: `not-observing` until a source is, then
 /// `observing`, or `unavailable` while a read failed or a named identity is gone (NR5). A gap, once
 /// recorded, stays recorded after the state is reconciled.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "reaction/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Observation {
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub health_code: ObservationHealth,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub cause_code: ObservationCause,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub gap_code: ObservationGap,
+    /// Absent in legacy records: explicitly unknown, never inferred from prose.
+    #[serde(default)]
+    pub recovery_code: ObservationRecovery,
     pub health: String,
-    #[ts(type = "number | null")]
+    #[specta(type = Option<specta_typescript::Number>)]
     pub cursor: Option<u64>,
     /// What was not observed, and since where.
     pub gap: Option<String>,
@@ -128,19 +213,18 @@ pub struct Observation {
     pub evidence: Option<String>,
     /// NR7: the PR head a PrChecks reaction is pinned to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub pinned_head: Option<String>,
     /// NR7: why the condition cannot match now, or why it was invalidated; absent while it can.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub cause: Option<String>,
 }
 
 /// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition was met; an
 /// explicit run claims none. `outcome` is the Message's status in the history, and a delivered Message
 /// is not verified work.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "reaction/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Firing {
     pub id: String,
     pub ordinal: u32,
@@ -154,8 +238,7 @@ pub struct Firing {
     pub outcome: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "reaction/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Reaction {
     pub project: String,
     pub id: String,
@@ -176,4 +259,37 @@ pub struct Reaction {
     pub state: State,
     pub observation: Observation,
     pub firings: Vec<Firing>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u3791b_legacy_reaction_diagnostics_never_supply_identity() {
+        let original = serde_json::json!({
+            "health": "fired late", "cursor": 91,
+            "cause": "the PR head moved from original to replacement",
+            "gap": "the Event history after 90 expired",
+            "recovery": "the recorded source gap remains; authoritative current Agent state reconciled observation",
+            "evidence": "original source bytes", "pinned_head": "original"
+        });
+        let observation: Observation = serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(observation.health_code, ObservationHealth::Unknown);
+        assert_eq!(observation.cause_code, ObservationCause::Unknown);
+        assert_eq!(observation.gap_code, ObservationGap::Unknown);
+        assert_eq!(observation.recovery_code, ObservationRecovery::Unknown);
+        let retained = serde_json::to_value(observation).unwrap();
+        for field in [
+            "health",
+            "cursor",
+            "cause",
+            "gap",
+            "recovery",
+            "evidence",
+            "pinned_head",
+        ] {
+            assert_eq!(retained[field], original[field], "{field}");
+        }
+    }
 }

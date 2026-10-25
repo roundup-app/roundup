@@ -119,6 +119,22 @@ async fn r16_client_preserves_complete_results_for_concurrent_replies() {
 async fn r16_client_preserves_error_replies_including_malformed_error_fallback() {
     for (error, expected) in [
         (
+            json!({"code": -32009, "message":"oldest kept Event number is 6", "data":{"kind":"future", "oldest":6}}),
+            rpc::RpcError::new(rpc::code::EVENTS_EXPIRED, "oldest kept Event number is 6"),
+        ),
+        (
+            json!({"code": -32009, "message":"oldest kept Event number is 6", "data":{"kind":"events-expired", "oldest":"6"}}),
+            rpc::RpcError::new(rpc::code::EVENTS_EXPIRED, "oldest kept Event number is 6"),
+        ),
+        (
+            json!({"code": -32009, "message": "arbitrary diagnostic", "data": {"kind":"events-expired", "oldest":6}}),
+            rpc::RpcError {
+                code: rpc::code::EVENTS_EXPIRED,
+                message: "arbitrary diagnostic".into(),
+                data: Some(contracts::RpcErrorData::EventsExpired { oldest: 6 }),
+            },
+        ),
+        (
             json!({"code": -32004, "message": "the Daemon may have run 🦀"}),
             rpc::RpcError::unknown_outcome("the Daemon may have run 🦀"),
         ),

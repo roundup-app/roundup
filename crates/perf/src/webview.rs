@@ -6,10 +6,12 @@ use serde_json::Value;
 const FRAME_LIMIT_MS: f64 = 25.0;
 
 /// Required hop attribution, including the retained coarse input-to-dispatch span (`apps/desktop/src/perf/keystrokes.ts`, `hops`).
-pub const HOPS: [&str; 7] = [
+pub const HOPS: [&str; 9] = [
     "keydown_to_input",
     "input_to_dispatch",
     "input_to_encoded",
+    "input_to_encoding",
+    "encoding_to_encoded",
     "encoded_to_dispatch",
     "dispatch_to_echo_event",
     "echo_event_to_parsed",
@@ -51,22 +53,35 @@ pub fn checked(report: &Value) -> io::Result<()> {
             return Err(failure(format!("the report has invalid {name}: {value}")));
         }
     }
-    if report["keys"].as_u64().is_none_or(|keys| keys == 0) || report["dropped"].as_u64().is_none()
-    {
+    let (Some(keys), Some(dropped), Some(samples)) = (
+        report["keys"].as_u64(),
+        report["dropped"].as_u64(),
+        report["n"].as_u64(),
+    ) else {
         return Err(failure(
-            "keys and dropped must be integer counts, with keys above zero",
+            "invalid sample count: keys, dropped and n must be integers",
         ));
+    };
+    // Drops include warm-up keys, so they may exceed the missing measured samples.
+    if samples == 0 || samples > keys || samples.saturating_add(dropped) < keys {
+        return Err(failure(format!(
+            "invalid sample count: {samples} rendered samples and {dropped} dropped keys do not account for {keys} measured keys"
+        )));
     }
 
     // R20: a report without every hop's p50/p95 cannot choose a repair.
     for hop in HOPS {
         let measured = &report["hops"][hop];
-        if measured["n"].as_u64().is_none_or(|n| n == 0)
-            || measured["p50"].as_f64().is_none()
-            || measured["p95"].as_f64().is_none()
+        if measured["n"].as_u64() != Some(samples)
+            || !measured["p50"]
+                .as_f64()
+                .zip(measured["p95"].as_f64())
+                .is_some_and(|(p50, p95)| {
+                    p50.is_finite() && p95.is_finite() && p50 >= 0.0 && p95 >= p50
+                })
         {
             return Err(failure(format!(
-                "the report has no hop attribution for {hop}"
+                "invalid hop attribution for {hop}: expected {samples} samples with finite 0 <= p50 <= p95"
             )));
         }
     }

@@ -140,7 +140,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
       await questionDialog();
       await answerQuestion(true);
-      await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 2 } }]));
+      await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
       await waitFor(() => expect(document.querySelector('[data-id="2"]')).toBeNull());

@@ -123,7 +123,10 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                 || m.starts_with("reaction.")
                 || matches!(
                     m,
-                    "message.progress"
+                    "todo.delete"
+                        | "todo.deletion"
+                        | "todo.restore"
+                        | "message.progress"
                         | "message.report"
                         | "message.acceptResult"
                         | "message.verifyResult"

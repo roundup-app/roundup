@@ -28,7 +28,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -84,12 +84,13 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
+
+  createEffect(() => props.observeTerminal?.(dashboard() ? null : terminalId()));
+  onCleanup(() => props.observeTerminal?.(null));
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
-
-  let windowResized = false;
 
   const refit = () => {
     pendingFrame = null;
@@ -98,9 +99,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (resizeDragging() || drawerSliding() || shelfSliding()) return;
 
-    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
-
-    windowResized = false;
+    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), true);
   };
 
   const refitNextFrame = () => {
@@ -108,7 +107,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   const onWindowResize = () => {
-    windowResized = true;
     refitNextFrame();
   };
 

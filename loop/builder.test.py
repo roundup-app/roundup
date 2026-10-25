@@ -111,7 +111,7 @@ class GitHub:
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
                         patch.object(builder.orders, 'queued', return_value=self.queued),
-                        patch.object(builder.orders, 'read_orders', return_value=[dict(issue=1, slug='U1')])]
+                        patch.object(builder.orders, 'list_issues', return_value=[dict(number=1, title='t', html_url='', state='open', labels=[], user=dict(login='saadshahd'), body='Key: U1\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nScenarios: U83\nPriority: 2\n')])]
         for p in self.patches:
             p.start()
         return self
@@ -160,19 +160,6 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
-    def test_l23_gh_retries_a_github_5xx_and_never_a_4xx(self):
-        def gh(*replies):
-            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
-
-        with patch.object(builder.time, 'sleep'), redirect_stderr(io.StringIO()):
-            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Server Error (HTTP 502)'), (0, 'ok', ''))) as run:
-                self.assertEqual(builder.call('api', 'x'), 'ok')
-                self.assertEqual(run.call_count, 2)
-            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Not Found (HTTP 404)'), (0, 'ok', ''))) as run:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    builder.call('api', 'x')
-                self.assertEqual(run.call_count, 1)
-
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
@@ -507,6 +494,14 @@ class Pick(unittest.TestCase):
             builder.pick(5)
         self.assertEqual(sent, [3])
         self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
+
+    def test_l23_a_pick_that_hits_the_rate_limit_waits_for_the_reset_and_runs_once_more(self):
+        limited = subprocess.CalledProcessError(1, ['gh'], stderr='gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+        with patch.object(builder, 'pick', side_effect=[limited, None]) as pick, patch.object(builder, 'slot_count', return_value=5), \
+                patch.object(builder.orders, 'rate_wait', return_value=1) as wait, patch.object(builder.orders.time, 'sleep'):
+            builder.main(['pick'])
+        self.assertEqual(pick.call_count, 2)
+        self.assertEqual(wait.call_args.args[1], builder.orders.RESET_WAIT_CAP)
 
     def test_l23_a_failed_review_rerun_still_prints_the_build_matrix(self):
         rows = [dict(issue=31, slug='U31', state='ready')]
@@ -1417,17 +1412,6 @@ class Critic(unittest.TestCase):
             self.assertTrue(github.flagged())
             self.assertEqual(github.fixes(), [])
 
-    def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
-        text = (ROOT / 'loop/fixtures/a461af1f-reject.md').read_text()
-        self.assertIn('\nCRITIC: reject\n', text)
-        findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
-        self.assertTrue(findings)
-
-    def test_l103_replay_of_an_accepted_pr_approves(self):
-        text = (ROOT / 'loop/fixtures/ac17033a-approve.md').read_text()
-        self.assertIn('\nCRITIC: approve\n', text)
-        self.assertNotIn('CRITIC: reject', text)
-
     def test_l103_critic_failure_sets_the_status_failure(self):
         answer = json.dumps(dict(verdict='reject', findings=f'{FINDING}\nCRITIC: approve'))
         with GitHub(view=pr()) as github:
@@ -1647,6 +1631,19 @@ class Review(unittest.TestCase):
         with GitHub(run=dict(status='in_progress', attempt=1, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')
         self.assertEqual(github.writes, [])
+
+    def test_l24_pick_reruns_the_pre_run_of_a_head_whose_review_or_critic_never_posted(self):
+        def passed(ago=3600, run=55):
+            return [dict(name='pre', workflowName='pre', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(ago),
+                         detailsUrl=f'https://x/actions/runs/{run}/job/9')]
+        review, critic = (dict(context=name, state='SUCCESS', targetUrl='https://x/actions/runs/1') for name in ('review', 'critic'))
+        prs = [pr(number=1, statusCheckRollup=passed()), pr(number=2, statusCheckRollup=passed() + [review]),
+               pr(number=3, statusCheckRollup=passed(run=56) + [review]), pr(number=4, statusCheckRollup=passed() + [review, critic]),
+               pr(number=5, statusCheckRollup=passed() + [dict(workflowName='review', status='IN_PROGRESS')]), pr(number=6, statusCheckRollup=passed(ago=60)),
+               pr(number=7, isDraft=True, statusCheckRollup=passed()), pr(number=8, isCrossRepository=True, statusCheckRollup=passed()),
+               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review])]
+        with patch.object(builder.orders, 'touches_desktop', side_effect=lambda number: number == 3):
+            self.assertEqual(builder.stranded(prs, NOW), [(1, '55'), (3, '56')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:

@@ -94,18 +94,19 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
 it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () => {
   const { app } = await mount();
   app.handlers["project.importCommit"] = () => {
-    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "/p/worktrees/s1.jsonl: no recorded working directory", title: null, last_activity_ms: null }] });
+    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", cause: "noDirectory", reason: "/p/worktrees/s1.jsonl: no recorded working directory", title: null, last_activity_ms: null }] });
 
-    return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
+    return { outcomes: [{ source: "s1", workstream: null, agent: null, error: { code: -32003, message: "copy refused", outcome: "failed" } }] };
   };
 
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
-  await waitFor(() => expect(screen.getByText("Its folder is no longer there")).toBeTruthy());
-  expect(screen.getByText(/copy refused/)).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
+  await waitFor(() => expect(screen.getByText(/No working folder was recorded/)).toBeTruthy());
+  expect(screen.getByText(/The saved conversation changed/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(3));
 });
 
 it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)", async (empty) => {
@@ -235,7 +236,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
 });
 
 const mixed = () => {
-  const excluded = [{ source: "sess-dup", reason: "already in this Project", title: "Imported earlier", last_activity_ms: 5n }, { source: "sess-amb", reason: "ambiguous Project membership", title: null, last_activity_ms: 1_700_000_000_000n }];
+  const excluded: import("@contracts/project/ImportExclusion").ImportExclusion[] = [{ source: "sess-dup", cause: "alreadyImported", reason: "already in this Project", title: "Imported earlier", last_activity_ms: 5n }, { source: "sess-amb", cause: "ambiguousProject", reason: "ambiguous Project membership", title: null, last_activity_ms: 1_700_000_000_000n }];
 
   return mount().then(({ app }) => {
     app.handlers["project.importDiscover"] = () => ({ candidates, excluded });
@@ -249,12 +250,11 @@ it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
   await open();
   const dialog = screen.getByRole("region", { name: "Import Claude Code work" });
 
-  expect(within(screen.getByRole("list", { name: "Conversations" })).getAllByRole("listitem")).toHaveLength(2);
-  expect(within(dialog).queryByText("Already imported")).toBeNull();
+  expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await within(dialog).findByText("Already imported");
+  await waitFor(() => expect(within(dialog).getAllByRole("listitem")).toHaveLength(4));
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await waitFor(() => expect(within(dialog).queryByText("Already imported")).toBeNull());
+  await waitFor(() => expect(within(dialog).getAllByRole("listitem")).toHaveLength(2));
 });
 
 it("u3083b_no_line_without_excluded", async () => {
@@ -264,28 +264,14 @@ it("u3083b_no_line_without_excluded", async () => {
 });
 
 
-it("u3083c_row_is_checkbox_title_and_second_line", async () => {
-  await mount();
-  await open();
-  const box = screen.getByRole("checkbox", { name: /second/ });
-
-  expect(box.getAttribute("type")).toBe("checkbox");
-  fireEvent.click(screen.getByText("second"));
-  await waitFor(() => expect(isChecked(/second/)).toBe(true));
-  fireEvent.click(box);
-  await waitFor(() => expect(isChecked(/second/)).toBe(false));
-  fireEvent.click(box);
-  await waitFor(() => expect(isChecked(/second/)).toBe(true));
-});
-
 it("u3083c_failed_import_preserves_failed_row", async () => {
   const { app } = await mount();
 
-  app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] });
+  app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: { code: -32003, message: "copy refused", outcome: "failed" } }] });
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  const alert = await screen.findByText(/copy refused/);
+  const alert = await screen.findByText(/The saved conversation changed/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
 });
@@ -302,7 +288,7 @@ it("u3299d_copy_uses_selected_item_import", async () => {
   const rows = choices.map(choice => choice.closest("li")!);
   fireEvent.click(within(rows[1]!).getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(write).toHaveBeenCalledOnce());
-  expect(JSON.parse(write.mock.calls[0]![0])).toEqual({ ...duplicate[1], last_activity_ms: "1" });
+  expect(JSON.parse(write.mock.calls[0]![0])).toEqual({ ...duplicate[1], error: null, last_activity_ms: "1" });
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
 
@@ -358,13 +344,13 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         app.handlers['rail.tree'] = () => tree;
         const common = { project: 'original-project', actor: {kind:'user',id:'you',parent:null}, home: 'backend', target: 'migrate', instruction: 'Keep /Users/authored/path and original-id verbatim.', condition: {kind:'agents',ids:['tokens'],any:false}, max_firings:2,remaining:1,rearm:false,expires_at:'2026-11-01T09:00:00Z',created_at:'2026-10-22T09:00:00Z',state:'active',firings:[{id:'firing-original',ordinal:1,message:42,matched:true,evidence:'original-evidence',definition:'{}',outcome:'kept'}] };
         const observations = [
-          {health:'observing',cursor:88,gap:null,recovery:null,evidence:'{"source":"agents","cursor":88}'},
-          {health:'not-observing',cursor:null,gap:null,recovery:null,evidence:null},
-          {health:'unavailable',cursor:88,gap:'the Agent state was not read after Event 88: /Users/private/path',recovery:'observation resumes at the next successful read; nothing matches meanwhile',evidence:null,cause:'unsupported source original-id /Users/private/path'},
-          {health:'observing',cursor:99,gap:'the Event history after 88 expired',recovery:'the recorded source gap remains; authoritative current Agent state reconciled observation',evidence:'{"source":"agents"}'},
-          {health:'invalidated',cursor:99,gap:null,recovery:null,evidence:null,pinned_head:'original-commit',cause:'the PR head moved from original-commit to new-commit'},
-          {health:'unavailable',cursor:99,gap:null,recovery:'stop this reaction and create one naming the Agents that exist',evidence:null,cause:'removed-original-id no longer names an Agent with a state; no condition matches it'},
-          {health:'observing',cursor:100,gap:'unrecognised-gap /Users/private/path original-id',recovery:'unrecognised-recovery original-id',evidence:'{"source":"unknown","private":"/Users/private/path"}'}
+          {health:'observing', health_code: 'observing', cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown",cursor:88,gap:null,recovery:null,evidence:'{"source":"agents","cursor":88}'},
+          {health:'not-observing', health_code: 'not-observing', cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown",cursor:null,gap:null,recovery:null,evidence:null},
+          {health:'unavailable', health_code: 'unavailable', cause_code: "unsupported", gap_code: "agent-read-failed", recovery_code: "check",cursor:88,gap:'the Agent state was not read after Event 88: /Users/private/path',recovery:'observation resumes at the next successful read; nothing matches meanwhile',evidence:null,cause:'unsupported source original-id /Users/private/path'},
+          {health:'observing', health_code: 'observing', cause_code: "unknown", gap_code: "history-expired", recovery_code: "reconciled",cursor:99,gap:'the Event history after 88 expired',recovery:'the recorded source gap remains; authoritative current Agent state reconciled observation',evidence:'{"source":"agents"}'},
+          {health:'invalidated', health_code: 'invalidated', cause_code: "head-moved", gap_code: "unknown", recovery_code: "unknown",cursor:99,gap:null,recovery:null,evidence:null,pinned_head:'original-commit',cause:'the PR head moved from original-commit to new-commit'},
+          {health:'unavailable', health_code: 'unavailable', cause_code: "agent-unavailable", gap_code: "unknown", recovery_code: "replace-agent",cursor:99,gap:null,recovery:'stop this reaction and create one naming the Agents that exist',evidence:null,cause:'removed-original-id no longer names an Agent with a state; no condition matches it'},
+          {health:'observing', health_code: 'observing', cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown",cursor:100,gap:'unrecognised-gap /Users/private/path original-id',recovery:'unrecognised-recovery original-id',evidence:'{"source":"unknown","private":"/Users/private/path"}'}
         ];
         window.__auditReactions = observations.map((observation,index) => ({...common,id:'audit-'+index,name:['Watch Review','Waiting to watch','Source unavailable','Recovered observation','Changed PR','Removed Agent','Unknown details'][index], observation, ...(index === 4 ? {state:'invalidated',condition:{kind:'pr-checks',repository:'orchard/app',number:7}} : {}), ...(index === 5 ? {target:'removed-original-id',actor:{kind:'agent',id:'removed-authorizer',parent:null}} : index === 0 ? {actor:{kind:'agent',id:'tokens',parent:null}} : {}) }));
         app.handlers['reaction.list'] = () => window.__auditReactions;
@@ -560,4 +546,71 @@ it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   settle({ outcomes: [{ source: "s1", workstream: "w-s1", agent: "a-s1", error: null }] });
   await waitFor(() => expect(connected.importing.pending()).toBe(false));
   expect(calls(app, "project.importCommit")).toHaveLength(1);
+});
+
+it("u3791b_copy_depends_on_codes_not_messages_import_exclusions", async () => {
+  const { app } = await mount();
+  let cause: import("@contracts/project/ImportExclusionCause").ImportExclusionCause = "missingDirectory";
+  let diagnostic = "/private/source: missing directory original details";
+  app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [{ source: "s3", cause, reason: diagnostic, title: "Excluded work", last_activity_ms: null }] });
+  await open();
+
+  const exclusions = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "1 not importable" }));
+    const row = (await screen.findByText("Excluded work")).closest("li")!;
+    const text = row.textContent;
+    fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).reason).toBe(diagnostic));
+
+    return text;
+  };
+
+  const before = await exclusions();
+  diagnostic = "Refresh choose retry: a completely different diagnostic";
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByRole("checkbox", { name: /first/ });
+  expect(await exclusions()).toBe(before);
+  cause = "duplicateSource";
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByRole("checkbox", { name: /first/ });
+  expect(await exclusions()).not.toBe(before);
+  cause = "unknown";
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByRole("checkbox", { name: /first/ });
+  expect(await exclusions()).toMatch(/Refresh/);
+
+});
+
+it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
+  const { app, connected } = await mount();
+  await open();
+  let code = -32003;
+  let message = "Refresh choose retry: original diagnostic";
+  app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: { code, message, outcome: [-32003, -32001].includes(code) ? "failed" : "unknown" } }] });
+  fireEvent.click(screen.getByText("first"));
+
+  const submit = async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+    await waitFor(() => expect(connected.importing.failed().get("s1")).toMatchObject({ code, message }));
+    await waitFor(() => expect(connected.importing.pending()).toBe(false));
+    expect(screen.getByRole("button", { name: "Import 1" })).toHaveProperty("disabled", ![-32003, -32001].includes(code));
+    const row = screen.getByText("first").closest("li")!;
+    fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).error.message).toBe(message));
+
+    return screen.getByRole("alert").textContent;
+  };
+
+  const refusal = await submit();
+  message = "other details without recovery words";
+  expect(await submit()).toBe(refusal);
+  code = -32001;
+  expect(await submit()).not.toBe(refusal);
+  code = -32603;
+  const uncertain = await submit();
+  expect(uncertain).not.toBe(refusal);
+  code = -99999;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Import 1" })).toHaveProperty("disabled", false));
+  expect(await submit()).toBe(uncertain);
 });

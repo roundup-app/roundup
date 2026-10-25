@@ -1,3 +1,5 @@
+import { outcomeOf } from "../app/seam";
+import { deleteTodos } from "./deleteTodos";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { NativeAlert } from "../ui/NativeAlert";
@@ -16,7 +18,7 @@ import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
-import { doesClearTodoFailure, failureOf, outcomeOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { BlockerMenu } from "./BlockerMenu";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
@@ -262,7 +264,7 @@ export const TodoDrawer = (props: {
             if (deleting()) return;
             setDeleting(true);
             void attempt(async () => {
-              await app.rpc("todo.delete", { id: props.id });
+              await deleteTodos(app, [props.id]);
               setRemovedByMe(true);
               drawer.close("key");
             }).then(() => setDeleting(false));

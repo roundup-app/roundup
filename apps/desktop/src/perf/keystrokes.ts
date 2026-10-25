@@ -4,14 +4,10 @@ export const PATIENCE_MS = 500;
 /** Keys typed and thrown away first, so the first renders (font load, glyph atlas) do not count. */
 export const WARMUP_KEYS = 100;
 
-export type Summary = {
-  n: number;
-  dropped: number;
-  p50: number;
-  p95: number;
-  p99: number;
-  max: number;
-};
+export type Summary = { n: number; dropped: number } & (
+  | { p50: number; p95: number; p99: number; max: number }
+  | { error: string; p50: null; p95: null; p99: null; max: null }
+);
 
 /** Nearest rank, the same rule as `crates/perf`. */
 const percentile = (sorted: number[], share: number): number => {
@@ -24,7 +20,7 @@ const percentile = (sorted: number[], share: number): number => {
 };
 
 /** The ordered boundaries of one key, all read on the webview's clock so no cross-process subtraction is needed. */
-export const BOUNDARIES = ["keydown", "input", "encoded", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
+export const BOUNDARIES = ["keydown", "input", "encoding", "encoded", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
 
 type Boundary = (typeof BOUNDARIES)[number];
 
@@ -69,6 +65,12 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
       if (id !== target()) return;
 
       if (pending) pending.marks.input ??= now();
+    },
+    /** The previous reply has released this input batch for byte preparation and base64 encoding. */
+    encoding: (id: string) => {
+      if (id !== target()) return;
+
+      if (pending?.marks.input !== undefined) pending.marks.encoding ??= now();
     },
     /** The input queue's current batch has finished base64 encoding; includes any wait for the previous reply. */
     encoded: (id: string) => {
@@ -137,6 +139,8 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
         keydown_to_input: sample("keydown", "input"),
         input_to_dispatch: sample("input", "dispatched"),
         input_to_encoded: sample("input", "encoded"),
+        input_to_encoding: sample("input", "encoding"),
+        encoding_to_encoded: sample("encoding", "encoded"),
         encoded_to_dispatch: sample("encoded", "dispatched"),
         dispatch_to_echo_event: sample("dispatched", "arrived"),
         echo_event_to_parsed: sample("arrived", "parsed"),
@@ -148,15 +152,22 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
     unsent: (count: number) => {
       unsent += count;
     },
-    /** Warm-up latency samples are excluded, but every dropped key fails R21. */
+    /** Warm-up latency samples are excluded, but every dropped key fails R21. An empty sample retains counts alongside an error and null percentiles. */
     summary: (skip: number): Summary => {
       const sorted = latencies
         .flatMap(({ key, ms }) => (key >= skip ? [ms] : []))
         .sort((a, b) => a - b);
 
+      const dropped = droppedKeys.length + unsent;
+
+      if (sorted.length === 0) return {
+        error: "no key was echoed and rendered after the warm-up",
+        n: 0, dropped, p50: null, p95: null, p99: null, max: null,
+      };
+
       return {
         n: sorted.length,
-        dropped: droppedKeys.length + unsent,
+        dropped,
         p50: percentile(sorted, 0.5),
         p95: percentile(sorted, 0.95),
         p99: percentile(sorted, 0.99),
