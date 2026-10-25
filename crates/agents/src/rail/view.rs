@@ -252,7 +252,7 @@ mod tests {
             .get_status(StatementStatus::VmStep);
         eprintln!("forty Workstreams: {steps} SQLite instructions");
         assert!(
-            steps <= 1350,
+            steps <= 1150,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
     }
