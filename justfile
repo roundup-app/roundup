@@ -7,12 +7,14 @@ check base="":
 
 [script('loop/keep-going.sh')]
 check-rust base="":
-    just lint-rust
+    just lint-rust {{quote(base)}}
     just test-rust-since {{quote(base)}}
 
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
-lint-rust:
+lint-rust base="":
+    python3 tools/file-size/guard.test.py
+    python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
     just clippy
     cargo machete crates

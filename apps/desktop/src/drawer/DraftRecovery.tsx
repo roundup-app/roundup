@@ -1,5 +1,5 @@
 import { NameField } from "../ui/Editable";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -49,15 +49,6 @@ const DraftRecoveryPanel = () => {
   });
 
   type Row = ReturnType<typeof work.rows>[number];
-
-  const copyText = async (row: Row) => {
-    try {
-      await writeText(app, typedText(row.draft).join("\n"));
-      clear(row.draft.revision);
-    } catch (error) {
-      setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }));
-    }
-  };
 
   const node = (row: Row) => rail.nodes.find((candidate) => candidate.id === (row.draft.destination.surface === "terminal_selection" ? row.draft.value.source : row.draft.destination.object));
 
@@ -137,7 +128,7 @@ const DraftRecoveryPanel = () => {
           </div>
           <div class="draft-actions">
             <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
-              <button data-button="quiet" type="button" onClick={() => void copyText(row)}>{copy.copyDraft}</button>
+              <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error.message) }))}>{copy.copyDraft}</CopyButton>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>
           </div>

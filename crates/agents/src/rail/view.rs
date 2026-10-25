@@ -1,14 +1,16 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
-// R3696c: SQLite evaluates the uncorrelated empty-history check once per read;
-// forty Workstreams otherwise execute 1728 VM instructions (docs/perf-rail-read.md).
-const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
+// R3696c: the empty-history predicate inside the node loop costs 1292 VM steps
+// for forty Workstreams. CROSS JOIN keeps the visibility gate outside that loop.
+const NODES: &str = "WITH visible AS (
+ SELECT nodes.* FROM (SELECT 1 WHERE ?1 OR NOT EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
+ UNION ALL
+ SELECT nodes.* FROM (SELECT 1 WHERE NOT ?1 AND EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
+ WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
+) SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM nodes
-                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources)
-                    OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
-                    AND (workstream=nodes.id OR agent=nodes.id))";
+                conversation_id, conversation_cwd, auto, finished FROM visible";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -48,7 +50,7 @@ fn load_with<T>(
             };
             let node = RailNode {
                 auto: (kind == NodeKind::Workstream)
-                    .then(|| row.get(15))
+                    .then(|| row.get(16))
                     .transpose()?,
                 id: row.get::<_, i64>(0)?.to_string(),
                 kind,
@@ -63,9 +65,11 @@ fn load_with<T>(
                 },
                 terminal_id: row.get(6)?,
                 worktree,
-                // R16/#1365: 40 per-row conversation queries cost 209 µs in the release
-                // profile. Load availability here; presentation gates it on the live Attempt.
-                can_resume: row.get(14)?,
+                // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
+                // Borrow the fields without copying conversation text; presentation gates
+                // availability on the live Attempt (R16).
+                can_resume: !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null)
+                    && !matches!(row.get_ref(15)?, rusqlite::types::ValueRef::Null),
                 yolo: false,
                 channel: None,
                 stray: Vec::new(),
@@ -79,7 +83,7 @@ fn load_with<T>(
                 tool_call: None,
                 overview: None,
             };
-            Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
+            Ok(map(node, row.get::<_, i64>(17)?.cast_unsigned()))
         })
         .map_err(sql)?;
     let mut nodes = Vec::with_capacity(capacity);
@@ -252,7 +256,7 @@ mod tests {
             .get_status(StatementStatus::VmStep);
         eprintln!("forty Workstreams: {steps} SQLite instructions");
         assert!(
-            steps <= 1350,
+            steps <= 900,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
     }
