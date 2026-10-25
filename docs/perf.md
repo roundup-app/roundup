@@ -230,6 +230,14 @@ Retain comparison mode, both full source SHAs, host/job/boot identity, class/mac
 
 Implementation proof is `cargo nextest run -p perf` using deterministic fixtures through production selection, orchestration, judgment and report seams: R16 names the paired edge, absolute-limit, load, invalid-input, metadata, partial-calibration and calibrated-path observers. Fixtures use temporary Git repositories and injected measurements/build results; no real timing assertion or expensive child build is needed. The calibrated fixture gives opposite stored/pair verdicts and proves no base build occurs. R10 defines exits; R22 continues to govern optional committed calibration evidence, independently of the paired gate.
 
+The paired collector is `crates/perf/src/paired.rs`; its process adapter uses
+Git's detached worktrees, Cargo's locked release builds and the existing sidecar
+bundler. `--pairs N` requests N alternating invocations of each revision; `--runs`
+and `--calls` apply equally to both. The default remains one pair of eleven fresh
+Daemons per side. The gate retains command logs, observer metadata, individual
+invocation reports and startup logs beside the selected output. Temporary source
+worktrees and their build products are removed after collection; reports remain.
+
 Stored calibration still follows R16's historical diagnosis, nine clean calibration invocations and three independent observations. R8 pins and R13 remain unchanged. This work supplies no new stored baseline, calibration or measured perf pass and changes no loop machinery. Tests can complete #4134's implementation acceptance without a calibration campaign.
 
 ### R23 execution lifetime (#3764)
