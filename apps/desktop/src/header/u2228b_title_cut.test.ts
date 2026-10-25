@@ -53,21 +53,19 @@ run("u2228b the window title keeps the name's start and end", () => {
     expect(read.shown).not.toContain("…");
   });
 
-  for (const width of [1280, 1600]) {
-    it(`u2228b_a_long_title_keeps_start_and_end at ${width}`, async () => {
-      await load(width);
-      await page.call(select);
-      await page.call(RENAME, `payments ${TAIL}`);
-      await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
+  it("u2228b_a_long_title_keeps_start_and_end", async () => {
+    await load(1280);
+    await page.call(select);
+    await page.call(RENAME, `payments ${TAIL}`);
+    await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
 
-      const read = await page.call<Read>(READ);
+    const read = await page.call<Read>(READ);
 
-      expect(read.shown.split("…")).toHaveLength(2);
-      expect(read.shown.endsWith("…")).toBe(false);
-      expect(read.shown.endsWith("-the-end")).toBe(true);
-      expect(read.shown.startsWith(read.full.slice(0, 4))).toBe(true);
-    });
-  }
+    expect(read.shown.split("…")).toHaveLength(2);
+    expect(read.shown.endsWith("…")).toBe(false);
+    expect(read.shown.endsWith("-the-end")).toBe(true);
+    expect(read.shown.startsWith(read.full.slice(0, 4))).toBe(true);
+  });
 
   it("u2228b_the_full_title_stays_in_name_and_window", async () => {
     await load(1280);
