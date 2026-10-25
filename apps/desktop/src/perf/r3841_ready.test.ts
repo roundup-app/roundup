@@ -383,3 +383,55 @@ it.each(["missing", "exited", "pending", "silent"])("r20_inactive_flood_is_a_nam
   await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
   expect(app.calls).toHaveLength(reads);
 });
+
+it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", async () => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+  let producing = false;
+  let shells = 0;
+  let bytes = 0;
+  const reports: Uint8Array[] = [];
+  document.body.innerHTML = '<button>Add</button>';
+  const create = document.querySelector("button")!;
+  create.setAttribute("aria-label", "Add Workstream");
+  create.onclick = () => {
+    document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div><textarea class="xterm-helper-textarea"></textarea>');
+  };
+  const open = (event: KeyboardEvent) => {
+    if (event.key !== "t") return;
+    shells += 1;
+    document.body.insertAdjacentHTML("beforeend", `<section class="bubble" data-bubble="shell-${shells}"><textarea class="xterm-helper-textarea"></textarea></section>`);
+  };
+  document.addEventListener("keydown", open);
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    if (!producing) setTimeout(() => callback(performance.now()), 8);
+
+    return 1;
+  });
+  app.handlers["terminal.read"] = ({ id }) => ({ from: 0, next: 20, text: id === "shell-1" && producing ? "roundup-flood\n" : "ready\n", truncated: false });
+  app.handlers["terminal.write"] = ({ id, data }) => {
+    const chunk = fromBase64(data);
+    if (id === "shell-1") {
+      expect(new TextDecoder().decode(chunk)).toBe("yes roundup-flood\n");
+      producing = true;
+    } else reports.push(chunk);
+
+    return null;
+  };
+  app.handlers["terminal.list"] = () => [info("shell-1"), info("shell-2")];
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: bytes += 64000, data: "" });
+  app.handlers["terminal.measure"] = () => ({ at: performance.now(), samples: [] });
+  try {
+    const done = createKeystrokeRun(app, "flood").start();
+    await vi.advanceTimersByTimeAsync(170_000);
+    await done;
+    const line = new TextDecoder().decode(Uint8Array.from(reports.flatMap(chunk => [...chunk])));
+    const report = JSON.parse(line.slice(5));
+
+    expect(report).toMatchObject({ terminal_id: "shell-2", n: 0, dropped: 1100, frame_ms: 8, error: "no key was echoed and rendered after the warm-up", flood: { id: "shell-1", bytes: expect.any(Number) } });
+    expect(report.flood.bytes).toBeGreaterThan(0);
+    expect(report.flood.samples.length).toBeGreaterThan(1);
+  } finally {
+    document.removeEventListener("keydown", open);
+  }
+});
