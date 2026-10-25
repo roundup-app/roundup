@@ -9,7 +9,7 @@ afterEach(cleanup);
 import { parse } from "@babel/parser";
 import { isNode } from "@babel/types";
 import type { Node } from "@babel/types";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "src");
@@ -185,4 +185,9 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }, { id: "w" }]));
   expect(connected.rail.selected()).toBe("w");
   expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
+});
+
+// U471 requires the entry point and every production caller to move together.
+it("u471_copy_modules_belong_to_their_surfaces", () => {
+  expect(existsSync(join(ROOT, "copy.ts"))).toBe(false);
 });
