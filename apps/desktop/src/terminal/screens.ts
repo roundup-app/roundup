@@ -483,6 +483,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       try {
         while (typed.length > 0) {
+          emulator.inputEncoding?.();
+
           const data = toBase64(Uint8Array.from(typed));
 
           typed = [];
