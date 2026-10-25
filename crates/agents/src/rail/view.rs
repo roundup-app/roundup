@@ -1,6 +1,15 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
+// R3696c: SQLite evaluates the uncorrelated empty-history check once per read;
+// forty Workstreams otherwise execute 1728 VM instructions (docs/perf-rail-read.md).
+const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
+                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM nodes
+                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources)
+                    OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
+                    AND (workstream=nodes.id OR agent=nodes.id))";
+
 pub(super) fn load_nodes(
     db: &Connection,
     include_preparation: bool,
@@ -13,15 +22,7 @@ fn load_with<T>(
     include_preparation: bool,
     mut map: impl FnMut(RailNode, u64) -> T,
 ) -> Result<Vec<T>, RpcError> {
-    let mut query = db
-        .prepare_cached(
-            "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM nodes
-                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
-                    AND (workstream=nodes.id OR agent=nodes.id))",
-        )
-        .map_err(sql)?;
+    let mut query = db.prepare_cached(NODES).map_err(sql)?;
     let rows = query
         .query_map([include_preparation], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
@@ -165,4 +166,37 @@ fn descend(
         out[at].id = id;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::StatementStatus;
+
+    #[test]
+    fn r3696c_forty_workstreams_avoid_per_node_preparation_queries() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+        for i in 0..40 {
+            rail.insert(NodeKind::Workstream, &format!("workstream-{i}"), None, None)
+                .unwrap();
+        }
+        rail.tree().unwrap();
+        rail.db
+            .prepare_cached(NODES)
+            .unwrap()
+            .reset_status(StatementStatus::VmStep);
+        let tree = rail.tree().unwrap();
+        assert_eq!(tree.len(), 40);
+        let steps = rail
+            .db
+            .prepare_cached(NODES)
+            .unwrap()
+            .get_status(StatementStatus::VmStep);
+        eprintln!("forty Workstreams: {steps} SQLite instructions");
+        assert!(
+            steps <= 1350,
+            "Rail read executed {steps} SQLite instructions for forty Workstreams"
+        );
+    }
 }
