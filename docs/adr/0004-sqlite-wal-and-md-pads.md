@@ -27,12 +27,26 @@ cannot repair the locking conflict. Moving WAL checkpoints also retains the
 payload's eventual WAL-to-database write. See [SQLite isolation](https://sqlite.org/isolation.html)
 and [WAL mechanics](https://sqlite.org/wal.html).
 
-The selected publication I/O design in `scenarios/test-cost.md`, R3778a–R3778e,
-keeps identity/quota/access metadata in the existing WAL transaction and makes new
-payload files durable before committing their references. Existing BLOBs stay
-readable without startup conversion. This physical representation is **proposed,
-not authorized for implementation**: the user or the ownership authority in #3961 must authorize the
-payload ownership expansion and the corresponding physical-storage amendment to
-DV2 before #3942 implements it. WAL remains the accepted decision; this amendment
-permits neither a second database nor weaker publication atomicity/durability,
-Event guarantees, owner-read leases, quotas or public snapshot observers.
+Amended 2026-10-25 (#3964): [User authorization](https://github.com/roundup-app/roundup/issues/3964#issuecomment-6394909828)
+approves R3778b's physical payload representation and exact implementation file
+set in `scenarios/test-cost.md`. Publish through one public operation and one
+metadata visibility point: make each new local payload's private immutable file
+and its directory entry durable before atomically committing the record and
+payload reference in the existing Project WAL transaction with FULL or stronger
+synchronization. Existing BLOB payloads remain readable and quota-charged in
+place, without startup conversion. SQLite remains the sole authority for
+metadata, identity, access, replay and quota. R3778b–R3778e retain the exact file
+set, file-before-reference power-loss ordering, additive migration, bounded
+pending-file recovery, tombstone-before-unlink cleanup and mixed-format quota
+accounting. #3942 may implement only after this specification amendment merges;
+this specification delivers no implementation acceptance.
+
+WAL remains the accepted decision. This authorization grants no second database,
+dependency, compression/deduplication, contract, product or frozen-loop change,
+and weakens no publication atomicity/durability, Event guarantee, bounded owner
+read, standalone lease, quota or public retained-snapshot observer. R3778a–R3778e
+and DV1–DV4 remain required, including all 32 real 32 MiB publications, exact
+limits, replay/conflict, revocation, pre/post-commit crashes, metadata-only proof,
+migration/recovery, ten alternating baseline/head pairs and unchanged performance
+budgets. #3904 remains open for separate under-five-second and implementation-head
+CI acceptance; #3872/#3809 remeasure the complete repair.
