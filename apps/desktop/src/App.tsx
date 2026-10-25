@@ -5,7 +5,7 @@ import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { applyAppAppearance } from "./settings/preferences";
+import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER } from "./keys/chords";
@@ -255,6 +255,11 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  const capture = props.app.capture;
+  onMount(() => {
+    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+  });
+  onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
@@ -349,6 +354,9 @@ export const App = (props: {
 
     return path === null ? undefined : connections().get(path);
   });
+
+  const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
+  const captureOwner = () => captureConnection() ?? activeConnection();
 
   const storageFailures = createMemo(() => {
     const open = activeConnection();
@@ -584,13 +592,14 @@ export const App = (props: {
                   <Help />
                   <Leader />
                   <InboxKey />
-                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
+                  
                 </>
               )}
             </InProject>
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
+            <InProject open={captureOwner()}>{(open) => <Capture onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Toasts queue={toasts} />
           </>
         }

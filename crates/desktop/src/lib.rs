@@ -30,7 +30,7 @@ pub fn build<R: Runtime>(
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
     #[cfg(target_vendor = "apple")]
-    let builder = builder.plugin(native::plugin());
+    let builder = native::register_capture(builder.plugin(native::plugin()));
     #[cfg(feature = "idle-perf")]
     let builder = builder.plugin(idle::plugin());
     builder
