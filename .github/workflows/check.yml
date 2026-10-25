@@ -8,10 +8,6 @@ on:
   # head, whose `pre` run starts its review (L24).
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  # L46: the merge queue's `merge_group` commit runs every lane; its empty `BASE` tests everything, and `approved` passes
-  # a non-PR event, since `review` and `critic` report on that commit from `merge-group.yml`.
-  merge_group:
-    types: [checks_requested]
   push:
     branches: [main]
 
@@ -21,9 +17,9 @@ concurrency:
   group: check-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: true
 
-# L24: on a PR, the lanes wait for the head's approval. `pre` lints and starts the review; `approved` ends this run
-# `cancelled` until `review` and `critic` both succeed on the head, and the post job of the approval that completes the
-# pair reruns this run, so a reject or an unreviewed head never holds a lane.
+# L24: on a PR, the lanes start with the push, alongside `pre`, the review run and the design critic run. Merge waits for
+# `check`, `rules`, `review` and `critic` all (L46), so no head merges unreviewed; a reject starts a fix run whose push
+# supersedes this run (L82).
 #
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
 # merges into. An empty base, on every other event, tests everything.
@@ -36,34 +32,10 @@ defaults:
     shell: bash
 
 jobs:
-  # L24: a PR head's lanes start only on its approval. Before it, the run is cancelled, so the gate ends `cancelled`
-  # (L82): it blocks merge and starts no fix run. Every other event passes.
-  approved:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-24.04
-    permissions:
-      actions: write
-      statuses: read
-    steps:
-      - env:
-          GH_TOKEN: ${{ github.token }}
-          # The job checks nothing out, so `gh run cancel` finds its repository here.
-          GH_REPO: ${{ github.repository }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          [ "$GITHUB_EVENT_NAME" = pull_request ] || exit 0
-          gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD/status" \
-            | jq -e '[.statuses[] | select(.context == "review" or .context == "critic")] | length == 2 and all(.[]; .state == "success")' >/dev/null && exit 0
-          gh run cancel "$GITHUB_RUN_ID"
-          # The cancel ends this job; a job that outlives it fails rather than let the lanes start.
-          sleep 120
-          exit 1
-
   # L89: on a PR, what the diff reaches decides which lanes run; a lane the diff misses is skipped at job level and
   # holds no runner. `main` pushes have no base, so `affected.py` prints `all` and every lane runs. The runner's own
   # cargo suffices: `affected.py` only reads the manifests, and `stable` keeps rustup from fetching the pinned toolchain.
   plan:
-    needs: approved
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     outputs:
@@ -266,11 +238,34 @@ jobs:
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
+  # L89: the two U26 regression tests that hold Chromium's startup for real seconds. Neither depends on which web tests
+  # run, so they run once here, on their own runner beside the web shards, and not in every shard.
+  chromium:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+          browser: 'true'
+      - name: U26 Linux fault observer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      - name: U26 held cold startup regression
+        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
+      - name: U26 held file-backed fault
+        if: ${{ !cancelled() }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
+
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [plan, rust, mac-clippy, mac, web]
+    needs: [plan, rust, mac-clippy, mac, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -281,11 +276,11 @@ jobs:
           jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
 
   summary:
-    needs: [approved, plan, rust, mac-clippy, mac, web, check]
+    needs: [plan, rust, mac-clippy, mac, web, chromium, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
     with:
       results: ${{ toJSON(needs) }}
       purpose: Check Rust and web behavior
-      next: Success lets the PR merge; a failure blocks merge and starts a fix run on a Builder PR. A PR head not yet approved ends cancelled.
+      next: Success lets the PR merge; a failure blocks merge and starts a fix run on a Builder PR.
