@@ -23,4 +23,3 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   expect(connected.rail.selected()).toBe("w");
   expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
 });
-
