@@ -206,6 +206,7 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   type("  B e\u0301\n ");
 
   await waitFor(() => expect(sent(first.app)).toHaveLength(1));
+
   if (outcome === "acknowledged") accept(ask("accepted", 1, []));
   else reject(outcome === "refused" ? new RpcError(-32003, "refused") : new Error("lost reply"));
   await waitFor(() => expect(first.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
@@ -213,6 +214,8 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   expect(first.connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual(outcome === "acknowledged"
     ? [["  B e\u0301\n ", "draft"]] : [["  A 🌿\n ", outcome === "refused" ? "failed" : "unknown"], ["  B e\u0301\n ", "draft"]]);
   const path = first.connected.project.path;
+  const retained = first.connected.drafts.list();
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts).toEqual(retained));
   first.unmount();
   const reopened = await mountAskBar([], null, undefined, false, path);
   expect(input()!.value).toBe("  B e\u0301\n ");
@@ -222,6 +225,7 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   if (older) {
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts).toHaveLength(1));
   }
 
   reopened.unmount();
@@ -288,6 +292,7 @@ it("u2773b_ask_repeat_enter_cannot_send_an_older_failed_revision", async () => {
   type("pending B");
   press("Enter", {}, input()!);
   press("Enter", { repeat: true }, input()!);
+  await waitFor(() => expect(sent(app)).toHaveLength(2));
   expect(sent(app)).toEqual([{ text: "failed A", submission: expect.any(String) }, { text: "pending B", submission: expect.any(String) }]);
   accept(ask("accepted", 1, []));
 });
@@ -297,6 +302,7 @@ it("u2773a_ask_captures_the_longest_name_case_insensitively", async () => {
   type("@Alpha ");
   type("@aLPHa bETA exact 🌿");
   press("Enter", {}, input()!);
+  await waitFor(() => expect(sent(app)).toHaveLength(1));
   expect(sent(app)).toEqual([{ text: "@aLPHa bETA exact 🌿", submission: expect.any(String), workstream: "long" }]);
 });
 
@@ -332,7 +338,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(input()!.value).toBe(exact);
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    expect(await screen.findByRole("button", { name: "Open" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Open" });
     expect(clipboard).not.toHaveBeenCalled();
     expect(input()!.value).toBe(exact);
     writes.mockRestore();
@@ -345,7 +351,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(input()!.value).toBe(exact);
     // Leaving the Ask bar with its text unsent lists it (U3289a).
     reopened.connected.rail.select("ann");
-    expect(screen.getByRole("button", { name: "Recover unfinished work" })).toBeTruthy();
+    expect(reopened.connected.drafts.recoverable().map(draft => draft.value.text)).toEqual([exact]);
     reopened.connected.rail.select(null);
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
@@ -438,6 +444,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   press("Escape", {}, input()!);
   expect(input()!.value).toBe("B current\n  ");
   const path = connected.project.path;
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts.some((draft: { revision: string; selection: unknown }) => draft.revision === edited.revision && JSON.stringify(draft.selection) === JSON.stringify(edited.selection))).toBe(true));
   mounted.unmount();
   const reopened = await mountAskBar([], null, undefined, false, path);
   expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["B current\n  ", 1, 4, "forward"]);
@@ -449,6 +456,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   let accept!: (value: Ask) => void;
   reopened.app.handlers["ask.send"] = () => new Promise<Ask>(resolve => { accept = resolve; });
   press("Enter", {}, input()!); press("Enter", { repeat: true }, input()!);
+  await waitFor(() => expect(sent(reopened.app)).toHaveLength(1));
   expect(sent(reopened.app)).toEqual([{ text: "@ops A e\u0301 🌿\nedited  ", submission: edited.revision, workstream: "ops" }]);
   accept(ask("accepted", 1, []));
   await waitFor(() => expect(reopened.connected.drafts.list().some(draft => draft.revision === edited.revision)).toBe(false));

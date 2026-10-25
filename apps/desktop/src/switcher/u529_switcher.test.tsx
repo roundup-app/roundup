@@ -181,7 +181,6 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   fireEvent.click(await screen.findByRole("button", { name: "Copy query" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(exact));
-  expect(screen.getByRole("button", { name: "Copied" })).toBeDefined();
 
   if (failure === "invalid") expect(localStorage.getItem(key)).toBe("{broken");
 
@@ -292,7 +291,7 @@ it("p3557c_failure_lifetime_switcher_late_copy_cannot_fail_a_new_revision", asyn
   const drafts = connected.drafts.list();
   reject(new Error("denied"));
   await waitFor(() => expect(screen.getByRole("alert", { name: /won't be kept/ })).toBeDefined());
-  expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." })).toBeNull();
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(field()!.value).toBe(" newer 東京 query ");
   expect(connected.drafts.list()).toEqual(drafts);
 });

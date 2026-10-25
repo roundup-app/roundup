@@ -1,4 +1,4 @@
-import { storageCopy } from "./state/copy";
+import { storageCopy } from "./copy/storage";
 import { ReservedLine } from "./ink/ReservedLine";
 import { initializeStorage } from "./state/storage";
 import { createResource, createRoot, Show } from "solid-js";

@@ -263,10 +263,15 @@ const PadBody = (props: {
       if (text === origin() && !resolveConflict) return;
 
       capture();
+      sent = text;
       const submission = draftRevision ? (await connected.drafts.submit(draftRevision)) : null;
 
-      if (!submission) return;
-      sent = text;
+      if (!submission) {
+        sent = null;
+
+        return;
+      }
+
       setSaved(false);
 
       const timeout = setTimeout(() => {

@@ -1,3 +1,5 @@
+import { parse } from "flatted";
+import { notesFor } from "./notes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import type { AppSeam } from "../app/seam";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -124,8 +126,8 @@ it("u2773a_changes_restores_exact_work", async () => {
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
   await waitFor(() => expect(localStorage.getItem("roundup:drafts:/p")).toContain("unfinished"));
   view.unmount();
-  const { app } = await openDiff();
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(saved);
+  const { app, connected } = await openDiff();
+  expect(notesFor(app, connected.project.path, connected.drafts).list("a").map(note => note.text)).toEqual([saved]);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", unfinished);
   expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
@@ -164,7 +166,8 @@ it("u2773a_changes_project_switch_restores_caret_without_background_focus", asyn
 it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const saved = "older saved note";
   const memory = "  memory 🐝\nnewer  ";
-  const { app, view } = await openDiff();
+  const { app, view, connected } = await openDiff();
+  const retrying = vi.spyOn(notesFor(app, "/p", connected.drafts), "retry");
   await saveNote(saved);
   const before = localStorage.getItem("roundup:drafts:/p");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
@@ -183,6 +186,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   write.mockRestore();
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(within(recovery).queryByRole("alert")).toBeNull());
+  await retrying.mock.results[0]!.value;
   view.unmount();
   const reopened = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -201,11 +205,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovered = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   // The form is first; discard only that draft, keeping the older saved batch note.
+  const discarding = vi.spyOn(notesFor(reopened.app, "/p"), "discardForm");
   fireEvent.click(within(recovered).getAllByRole("button", { name: "Discard this draft" })[0]!);
+  await discarding.mock.results[0]!.value;
   expect(recovered.textContent).not.toContain(memory.trim());
+  await waitFor(() => expect(parse(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.find((draft: { destination: { surface: string } }) => draft.destination.surface === "changes").value.data).forms).toEqual([]));
   reopened.view.unmount();
-  await openDiff();
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(saved);
+  const final = await openDiff();
+  expect(notesFor(final.app, final.connected.project.path, final.connected.drafts).list("a").map(note => note.text)).toEqual([saved]);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);

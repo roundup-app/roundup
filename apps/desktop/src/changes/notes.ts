@@ -253,7 +253,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       setInvalidCount(invalid.size);
 
-      if (!invalid.size) for (const [id, value] of all()) retain(id, value);
+      if (!invalid.size) for (const [id, value] of all()) await retain(id, value);
     },
     invalid: () => { invalidCount();
 
@@ -275,7 +275,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       setInvalidCount(invalid.size);
       setProblem(await storage.discard(revision));
 
-      if (!invalid.size) for (const [id, value] of all()) retain(id, value);
+      if (!invalid.size) for (const [id, value] of all()) await retain(id, value);
     },
     form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find(form => form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
     editForm: (id: string, form: NoteFormDraft) => {
@@ -289,10 +289,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       retain(id, { ...current, forms: [...current.forms.filter(value => value.revision !== form.revision), form] });
     },
-    discardForm: (id: string, revision: string) => {
+    discardForm: async (id: string, revision: string) => {
       const current = recipient(id);
 
-      retain(id, { ...current, forms: current.forms.filter(form => form.revision !== revision) });
+      await retain(id, { ...current, forms: current.forms.filter(form => form.revision !== revision) });
     },
     discardRecovered: (id: string, revision: string) => {
       const current = recipient(id);
