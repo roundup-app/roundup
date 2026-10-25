@@ -32,10 +32,10 @@ describe("u404 an Agent row is its Glyph and its name", () => {
   it("u404_the_owned_control_is_a_diamond_and_a_count", async () => {
     await mountRail(TREE, [], () => null, undefined, {}, [{ incarnation: "fixture-1", name: "notes", owner: { kind: "agent", id: "a", parent: null }, text: "", updated_at: 0, revision: 1, home: null }]);
 
-    const control = rowOf("gate").querySelector<HTMLElement>("[data-pads-control]")!;
-
     await screen.findByRole("button", { name: "1 pads" });
-    expect(control.textContent?.trim()).toBe("1");
+
+    const control = rowOf("gate").querySelector<HTMLElement>("[data-pads-control]")!;
+    expect(screen.getByRole("button", { name: "1 pads" })).toBe(control);
     expect(control.querySelector("svg")).not.toBeNull();
     expect(rowOf("asker").querySelector("[data-pads-control]")).toBeNull();
   });
