@@ -421,3 +421,22 @@ it("u3756b_the_queued_agent_editor_yields_to_the_newer_rail_choice", async () =>
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write')`)).toEqual([]);
 }, 90_000);
+
+it.each(["Engine", "Model"])("u3756d_settings_picker_escape_returns_focus_%s", async label => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  await browser("open", url("/harness.html?seed=tree-40"));
+  await wait("!!window.__fake && !!document.querySelector('.rail-row')");
+  await browser("press", "Meta+Comma");
+  await wait("!!document.querySelector('.settings-view')");
+  await read(`window.pickerTrigger = [...document.querySelectorAll('.app-select-trigger')].find(button => button.textContent.startsWith('${label}'))`);
+  await read("window.pickerTrigger.click()");
+  await wait("document.activeElement?.matches('.app-combobox-input')");
+  await browser("fill", ".app-combobox-input", "One");
+  await capture("U3756d", `${label.toLowerCase()}-open`);
+  await browser("press", "Escape");
+  await wait("!document.querySelector('.app-combobox')");
+  expect(await read("document.activeElement === window.pickerTrigger")).toBe(true);
+  expect(await read("!!document.querySelector('.settings-view')")).toBe(true);
+  await capture("U3756d", `${label.toLowerCase()}-escaped`);
+}, 60_000);
