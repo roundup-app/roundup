@@ -584,7 +584,7 @@ impl Terminals {
             Some(recorder) => recorder
                 .lock()
                 .expect("recorder lock")
-                .receive(bytes, received)?,
+                .receive(bytes, received),
             None => Vec::new(),
         };
         handle.enqueue(id, Input::Bytes(bytes.to_vec(), samples))
@@ -769,9 +769,7 @@ impl Terminals {
             }
             drop(program);
             // portable-pty returns right after SIGKILL; a second kill must already see the program gone.
-            pty::reap(&handle.program)
-                .map(drop)
-                .map_err(RpcError::internal)
+            reap(&handle.program).map(drop).map_err(RpcError::internal)
         })
         .await
         .map_err(RpcError::internal)?
@@ -892,6 +890,17 @@ impl Terminals {
 
 /// Collects what the parser sees that the Daemon acts on: window titles (OSC 0 and 2) and the colour
 /// requests of X17. vt100 stitches sequences split across reads.
+/// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
+fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
+    loop {
+        let status = program.lock().expect("terminal program lock").try_wait()?;
+        match status {
+            Some(status) => return Ok(status),
+            None => std::thread::sleep(REAP_POLL),
+        }
+    }
+}
+
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
 fn check_program(params: &SpawnParams) -> Result<(), RpcError> {
     let argv = params.command.as_deref().unwrap_or_default();

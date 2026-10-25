@@ -34,17 +34,6 @@ pub(super) fn type_queued(
     }
 }
 
-/// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
-pub(super) fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
-    loop {
-        let status = program.lock().expect("terminal program lock").try_wait()?;
-        match status {
-            Some(status) => return Ok(status),
-            None => std::thread::sleep(REAP_POLL),
-        }
-    }
-}
-
 /// Read until the program closes the PTY, publishing each chunk, then report how it ended.
 pub(super) fn pump(
     shared: &Shared,

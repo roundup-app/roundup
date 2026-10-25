@@ -195,9 +195,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
 #[test]
 fn r20_duplicate_echo_is_ambiguous_and_missing_echo_stays_missing() {
     let mut recorder = Recording::new("test").unwrap();
-    recorder
-        .receive(b"a\x1b]777;test-0\x07a\x1b]777;test-1\x07", 1.0)
-        .unwrap();
+    recorder.receive(b"a\x1b]777;test-0\x07a\x1b]777;test-1\x07", 1.0);
     recorder.read(b"noise a\x1b]777;test-0\x07", 2.0);
     recorder.read(b"\x1b]777;test-0\x07", 3.0);
     let samples = recorder.samples();
