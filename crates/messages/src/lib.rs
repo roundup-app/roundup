@@ -3,6 +3,7 @@
 //! writes it to the receiving Agent's Claude inbox.
 
 pub mod continuation;
+mod contract_handlers;
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
@@ -28,7 +29,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::RailNode;
@@ -399,18 +399,9 @@ fn item(id: u32) -> String {
     format!("message:{id}")
 }
 
-fn now() -> SystemTime {
-    SystemTime::now()
-}
-
 fn now_ms() -> i64 {
-    i64::try_from(
-        now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 /// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
@@ -452,15 +443,7 @@ impl Module for Messages {
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
-        match method {
-            "message.send" => self.send(ctx, send_params(value)?).await,
-            "message.get" => self.get(ctx, params(value)?),
-            "message.list" => self.list(ctx, params(value)?),
-            "message.drop" => self.drop_message(ctx, params(value)?).await,
-            "route.set" => self.set_route(ctx, params(value)?).await,
-            "route.list" => self.list_routes(),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::messages_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 

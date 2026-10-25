@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { batch, createSignal } from "solid-js";
 import { copy } from "../copy";
 import * as v from "valibot";
@@ -7,7 +8,6 @@ import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storedValue, type draftStorage } from "../state/storage";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 
 const PERIODS = ["day", "week", "month"] as const;
 
@@ -301,7 +301,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
         if (created[0] !== undefined) onOpened(created[0].workstream, created[0].agent);
       } catch (error) {
-        if (submittedRevision) drafts?.settle(submittedRevision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        if (submittedRevision) drafts?.settle(submittedRevision, outcomeOf(error));
         setFailure(error instanceof Error ? error.message : String(error));
       } finally {
         setPending(false);
