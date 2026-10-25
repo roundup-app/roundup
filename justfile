@@ -191,3 +191,30 @@ proofs: proofs-setup
 # L105: the web tests with the captures of the named ids (comma-separated, as on the PR's `Scenarios:` line) written to artifacts/ux/<id>/ (images and videos stay untracked: attach them to the PR with `gh pr edit --attach`); `just check` writes none.
 capture ids:
     ROUNDUP_CAPTURES={{quote(ids)}} just packages test
+
+# R24: six release idle phases in WKWebView; never run this opt-in from Linux/CI.
+perf-idle *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "${ROUNDUP_ALLOW_WINDOW:-}" = 1 ] || { echo "perf-idle opens a native window and requires focus/hide interaction for six phases; set ROUNDUP_ALLOW_WINDOW=1 only for an authorized Mac round" >&2; exit 2; }
+    [ "$(uname -s)" = Darwin ] || { echo "perf-idle unsupported host: $(uname -s); macos required" >&2; exit 2; }
+    rg -q '^\[profile.release\]' Cargo.toml || { echo "perf-idle: release-profile implementation #3807 must land before native calibration (#3777 delivered its specification)" >&2; exit 2; }
+    mkdir -p target
+    build_log=$(mktemp -d target/perf-idle-build.XXXXXX)
+    set +e
+    (
+        set -ex
+        dist={{quote(justfile_directory())}}/target/perf-idle-dist
+        VITE_ROUNDUP_IDLE_PERF=1 pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
+        TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}}') \
+            cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol,desktop/idle-perf --target-dir target/perf-idle-app
+        cargo build --release -p perf --bin perf-idle
+    ) > >(tee "$build_log/stdout") 2> >(tee "$build_log/stderr" >&2)
+    build_status=$?
+    set -e
+    if [ "$build_status" -ne 0 ]; then
+        jq -n --argjson status "$build_status" --arg raw "$build_log" '{exit: 2, build_status: $status, raw: $raw, native_validation: "not measured", memory_status: "provisional", phases: ["10 focused", "10 unfocused", "10 hidden", "1 focused", "1 unfocused", "1 hidden"], error: "release build failed; command and output retained"}' | tee "$build_log/report.json"
+        [ -e target/perf-idle.json ] || cp "$build_log/report.json" target/perf-idle.json
+        exit 2
+    fi
+    ./target/release/perf-idle {{args}}
