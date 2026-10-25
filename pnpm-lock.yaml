@@ -23,6 +23,9 @@ patchedDependencies:
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
     path: patches/@xterm__addon-fit@0.11.0.patch
+  '@zag-js/radio-group@1.45.0':
+    hash: 53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91
+    path: patches/@zag-js__radio-group@1.45.0.patch
   '@zag-js/splitter@1.45.0':
     hash: cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e
     path: patches/@zag-js__splitter@1.45.0.patch
@@ -5404,7 +5407,7 @@ snapshots:
       '@zag-js/presence': 1.45.0
       '@zag-js/progress': 1.45.0
       '@zag-js/qr-code': 1.45.0
-      '@zag-js/radio-group': 1.45.0
+      '@zag-js/radio-group': 1.45.0(patch_hash=53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91)
       '@zag-js/rating-group': 1.45.0
       '@zag-js/scroll-area': 1.45.0
       '@zag-js/select': 1.45.0
@@ -7869,7 +7872,7 @@ snapshots:
       proxy-memoize: 3.0.1
       uqr: 0.1.3
 
-  '@zag-js/radio-group@1.45.0':
+  '@zag-js/radio-group@1.45.0(patch_hash=53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91)':
     dependencies:
       '@zag-js/anatomy': 1.45.0
       '@zag-js/core': 1.45.0
