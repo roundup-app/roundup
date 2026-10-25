@@ -29,6 +29,7 @@ const rowText = (id: number) => rowOf(id).textContent;
 const openDrawerOf = async (id: number) => {
   fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }));
   await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("region", { name: "Todo history" });
 };
 
 for (const by of ["pointer", "keyboard"] as const) {

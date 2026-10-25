@@ -165,18 +165,19 @@ it("u2567d_before_the_first_tree_shows_no_all_clear", async () => {
 });
 
 it("u2567d_a_failed_refetch_keeps_the_list_and_shows_the_error", async () => {
-  const { app, connected } = await mountAskBar([], null, tree());
+  const { app, connected } = await mountAskBar([], null, tree(), true);
 
   app.handlers["rail.tree"] = () => { throw new Error("offline"); };
 
   await connected.rail.refresh();
 
-  expect(within(overview()).getByRole("alert").textContent).toContain("offline");
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(within(overview()).queryByRole("alert")).toBeNull();
   expectNames(["a Error", "a Error", "b Working", "waiting Needs-you"]);
   expect(input()).not.toBeNull();
 
   app.handlers["rail.tree"] = () => tree();
 
   await connected.rail.refresh();
-  expect(within(overview()).queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

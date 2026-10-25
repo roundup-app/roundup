@@ -200,7 +200,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     const root = document.createElement('div');
     document.querySelector('.window .overlay').append(root);
     render(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
-    const list = { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {} };
+    const list = { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} };
     const show = revision => connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(PadDrawer, { name: pad.name, recovery: { project: connected.project.path, revision, list }, pads: list.pads, onLateFailure: () => {} }); } }), 'key');
     window.__selectedPad = { connected, app, b, show, calls: [...app.calls], retained: connected.drafts.list() };
     show(a.revision);
@@ -238,7 +238,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
   await browser("wait", "--fn", "!document.querySelector('.pad-body')");
   await browser("eval", "window.__selectedPad.show(window.__selectedPad.b.revision)");
   await browser("wait", "[aria-label='Pad body']");
-  expect(await evaluate("document.querySelector('[aria-label=\"Pad body\"]').textContent")).toBe("B 🪁");
+  expect(await evaluate("document.querySelector('[aria-label=\"Pad body\"]').textContent")).toBe(await evaluate("window.__selectedPad.b.value.source"));
   expect(await evaluate("(() => { const p = window.__selectedPad; return [p.app.calls, p.connected.drafts.list()]; })()")).toEqual(
     await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
   );

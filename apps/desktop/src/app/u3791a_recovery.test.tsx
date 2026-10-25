@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
-import { connectProject } from "../state/connectedProject";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { Pane } from "../terminal/Pane";
 import { RpcError } from "./seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, node } from "../testing/nodes";
@@ -79,13 +80,6 @@ it("u3791a_read_recovers_once_without_intermediate_failure", async () => {
   app.opened.project = { name: "project", path: "/p" };
 
 
-
-
-
-
-
-
-
   app.handlers["rail.tree"] = () => {
     if (++calls === 1) throw new TypeError("foreign read failed");
 
@@ -118,13 +112,6 @@ it("u3791a_second_failure_is_actionable", async () => {
   expect(calls).toBe(2);
   expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(screen.getByRole("treeitem", { name: /Last valid work/ })).toBeTruthy();
-
-
-
-
-
-
-
 
 
   app.handlers["rail.tree"] = () => {
@@ -196,4 +183,35 @@ it("u3791a_project_read_exhaustion_keeps_explicit_retry", async () => {
   await screen.findByRole("treeitem", { name: /Recovered Project work/ });
   expect(list).toHaveBeenCalledTimes(5);
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+
+it("u3791c_equal_causes_keep_recovery_with_their_owner", async () => {
+  const app = createFakeApp();
+
+  app.handlers["terminal.scheme"] = () => { throw new Error("same diagnostic"); };
+
+  app.handlers["rail.tree"] = () => { throw new Error("same diagnostic"); };
+
+  const connected = await connectProject(app, { name: "project", path: "/p" }, () => true, () => 0);
+
+  render(() => <ConnectedProjectContext.Provider value={connected}>
+    <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
+  </ConnectedProjectContext.Provider>);
+
+  try {
+    await screen.findByRole("alert");
+    expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(1);
+    app.handlers["rail.tree"] = () => [node("kept", { name: "Recovered work" })];
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(connected.rail.failure()).toBeNull());
+    expect(connected.rail.nodes.map(node => node.id)).toEqual(["kept"]);
+    expect(app.calls.filter(call => call.method === "rail.tree")).toHaveLength(3);
+    expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(1);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    app.handlers["terminal.scheme"] = () => null;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(2);
+  } finally { connected.stopTerminalScheme(); }
 });
