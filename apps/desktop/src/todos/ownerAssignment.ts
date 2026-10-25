@@ -7,9 +7,8 @@ import { ownersOnRail, sameOwner } from "../shelf/scope";
 import type { TodosState } from "./state";
 import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, chordsOf, chordsFor } from "../keys/chords";
+import { chordsFor } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
-import { copy } from "../copy";
 import { failureOf } from "./failureOf";
 
 /** U3720: a hand-off unfolds its destination and restores the moved row's focus after the authoritative refetch. */
@@ -87,7 +86,6 @@ export const createOwnerKeys = (source: {
   active: Accessor<boolean>;
   assign: (id: number, owner: Actor | null) => Promise<void>;
 }) => {
-  const [lifted, setLifted] = createSignal<{ id: number; group: string | null } | null>(null);
   const owners = () => ownersOnRail(source.connected);
 
   const focused = (event: KeyboardEvent) => {
@@ -102,62 +100,13 @@ export const createOwnerKeys = (source: {
   const can = (event: KeyboardEvent) => source.active() && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
-  const drop = (todo: Todo, owner: Actor | null) => {
-    setLifted(null);
-
-    if (!sameOwner(todo.owner, owner)) void source.assign(todo.id, owner);
-  };
-
-  createEffect(on(() => [source.connected.rail.selected(), source.active()], () => setLifted(null), { defer: true }));
   registerKeys(shelfKeyScope, [{
     chords: chordsFor("1–9"), when: can,
     run: event => {
       const todo = focused(event);
       const target = owners().filter(owner => owner.actor?.kind === "agent")[Number(event.key) - 1];
 
-      if (todo && target) drop(todo, target.actor);
+      if (todo && target && !sameOwner(todo.owner, target.actor)) void source.assign(todo.id, target.actor);
     },
-  }, {
-    chords: chordsOf(CHORDS.find(chord => chord.keys === "⏎" && chord.inShelf)), when: can,
-    run: event => {
-      const todo = focused(event)!;
-      const kept = lifted();
-      const target = owners().find(owner => owner.id === kept?.group);
-
-      if (kept?.id === todo.id && target) drop(todo, target.actor);
-      else if (owners().some(owner => !sameOwner(owner.actor, todo.owner))) setLifted({ id: todo.id, group: null });
-    },
-  }, {
-    chords: chordsFor("↑ ↓"), when: event => can(event) && lifted()?.id === focused(event)?.id,
-    run: event => {
-      const kept = lifted()!;
-      const current = focused(event)!.owner;
-      const all = owners();
-      const offered = all.filter(owner => !sameOwner(owner.actor, current));
-      const at = offered.findIndex(owner => owner.id === kept.group);
-      const origin = all.findIndex(owner => sameOwner(owner.actor, current));
-      const from = origin < 0 ? all.length - 1 : origin;
-
-      const target = kept.group === null
-        ? event.key === "ArrowUp"
-          ? all.slice(0, from).findLast(owner => offered.includes(owner)) ?? offered[0]
-          : all.slice(from + 1).find(owner => offered.includes(owner)) ?? offered.at(-1)
-        : offered[Math.min(offered.length - 1, Math.max(0, at + (event.key === "ArrowUp" ? -1 : 1)))];
-
-      if (target) setLifted({ id: kept.id, group: target.id });
-    },
-  }, {
-    chords: chordsFor("Esc"), when: event => can(event) && lifted() !== null,
-    run: () => setLifted(null),
   }]);
-
-  return {
-    lifted,
-    announcement: () => {
-      const kept = lifted();
-      const target = owners().find(owner => owner.id === kept?.group);
-
-      return kept && target ? copy.todoMoveTo(kept.id, target.name) : null;
-    },
-  };
 };

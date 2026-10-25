@@ -58,7 +58,8 @@ describe("u58 an Agent's Pads under it", () => {
   it("u58_the_control_counts_the_agents_pads_and_is_absent_at_zero", async () => {
     await mount(TREE, [padOf("n1", owner("a1")), padOf("n2", owner("a1")), padOf("u", USER)]);
 
-    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("2"));
+    fireEvent.click(await screen.findByRole("button", { name: "2 pads" }));
+    expect(document.querySelectorAll(".rail-leaf[data-leaf=pad]")).toHaveLength(2);
     expect(control(rowOf("docs"))).toBeNull();
   });
 
@@ -83,7 +84,7 @@ describe("u58 an Agent's Pads under it", () => {
   });
 
   it("u58_the_control_does_not_select_the_row_or_reorder_the_agents", async () => {
-    const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
+    const { app, connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
 
@@ -92,14 +93,14 @@ describe("u58 an Agent's Pads under it", () => {
   });
 
   it("u58_a_click_on_a_pad_opens_its_drawer_and_leaves_the_selection", async () => {
-    const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
+    const { app, connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }));
+    fireEvent.keyDown(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }), { key: "Enter" });
 
     const drawer = await screen.findByLabelText("Drawer");
 
-    expect(await within(drawer).findByText("notes")).toBeTruthy();
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "notes" }]));
     expect(connected.rail.selected()).toBeNull();
   });
 
@@ -107,7 +108,7 @@ describe("u58 an Agent's Pads under it", () => {
     const { app } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }));
+    fireEvent.keyDown(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }), { key: "Enter" });
     fireEvent.click(await within(await screen.findByLabelText("Drawer")).findByRole("button", { name: "Make yours" }));
 
     await shelf().findByText("notes");
