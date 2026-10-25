@@ -1,3 +1,4 @@
+import { debounce } from "@solid-primitives/scheduled";
 import { storageCopy } from "./copy/storage";
 import { writeText } from "./app/clipboard";
 import { storageProblems, retainedStorage } from "./state/storage";
@@ -462,8 +463,12 @@ export const App = (props: {
             <span>{storageCopy.retained(retainedStorage().length)}</span>
             <For each={retainedStorage()}>{record => {
               const [copied, setCopied] = createSignal(false);
+              const clearCopied = debounce(() => setCopied(false), 2000);
 
-              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => setCopied(true)).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>{copied() ? copy.copied : storageCopy.recoveryLabel(record.key)}</button>;
+              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => { setCopied(true); clearCopied(); }).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "hidden" : "visible" }} aria-hidden={copied()}>{storageCopy.recoveryLabel(record.key)}</span>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "visible" : "hidden" }} aria-hidden={!copied()}>{storageCopy.recoveryLabel(record.key, true)}</span>
+              </button>;
             }}</For>
           </div></Show>
           <div class="settings-center">

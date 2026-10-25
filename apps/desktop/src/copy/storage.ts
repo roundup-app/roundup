@@ -9,7 +9,7 @@ export const storageCopy = {
   invalid: (key: string) => `Could not restore saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"} because the saved format is invalid. Retry or continue; the original data will be kept for recovery.`,
   continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue without these saved drafts" : "Continue without these settings",
   retained: (count: number) => `Invalid saved data kept for recovery (${count})`,
-  recoveryLabel: (key: string) => `Copy ${labels.get(key.split(":")[1] ?? "") ?? "settings"}`,
+  recoveryLabel: (key: string, copied = false) => `${copied ? "Copied" : "Copy"} ${labels.get(key.split(":")[1] ?? "") ?? "settings"}`,
   recoveryFailure: (key: string, cause: string) => `Could not keep a copy of saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"}: ${cause}`,
   recoveryReadback: "Could not verify the saved recovery copy. Retry restoring saved work.",
   restoreFailure: (cause: string) => `Could not restore saved work: ${cause}`,
