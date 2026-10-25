@@ -25,8 +25,17 @@ The selected futures, delegated wakers, runtime registration and measured
 request/echo workload remain. This state emits no complete task-poll profile;
 absence of markers is never absence of polls. Caller-side `format!`, labels,
 clones, allocations and optimizer effects remain coupled to this transition.
+The hooks transition also includes replacing the macro entry point with an explicit
+runtime builder/block_on wrapper and all original diagnostic dispatch markers.
 The marker transition includes formatting, TLS identity, clock/task lookup,
 stderr locking/writes and resulting scheduling; it isolates no individual part.
+
+This host has no measured five-metric R16 baseline. `configure-scratch.py` adds
+labelled zero sentinels for those metrics to allow the unchanged observer to
+write reports. They are not measured or copied baselines; all resulting scratch
+verdicts remain diagnostic misses. Archived scratch inputs are retained separately.
+Absolute limits, noise and R13 thresholds are unchanged; no 9V45 timings are
+substituted for this 7763 host.
 
 ## Source and executable boundaries
 
@@ -36,7 +45,16 @@ historical `r23_mark` at `0x1301a0`, its TLS closure at `0x13df30`, delegated
 and `0xa0f2f0`. The delegation disassembly calls the marker/TLS path before
 calling the original waker indirectly. The marker source formats a line, locks
 stderr and calls `Write::write_all`; TLS closure disassembly contains the
-`StderrLock` drop path. This locates execution, not duration or CPU attribution.
+`StderrLock` drop path. ELF `readelf -rW` resolves its three indirect calls:
+
+| Operation | Historical target / GOT slot | Candidate target / GOT slot |
+|---|---|---|
+| `alloc::fmt::format::format_inner` | `0x42ef20` / `0x4500b8` | `0x17872b0` / `0x183e478` |
+| `Stderr::lock` | `0x40bc80` / `0x450880` | `0x175f4b0` / `0x18412f0` |
+| `StderrLock::write_all` | `0x420c90` / `0x450888` | `0x1778f40` / `0x18412f8` |
+
+This locates formatting, locking, writing and wake delegation in the measured
+executables; it establishes neither durations nor CPU attribution.
 
 The initial demangled `objdump --disassemble=rupd::r23_mark` exits 0 but emits
 only section headings: unsupported symbol selection, not an empty routine.
@@ -86,7 +104,8 @@ paths only in a dedicated scratch environment.
 
 For a fresh collection, adapt only output/job paths in retained setup scripts,
 restore existing executable bytes, build both new states at both pins with the
-recorded command, finish all builds/lints/compression/offline setup, then run the
+recorded command, run `configure-scratch.py RAW` for the labelled zero sentinels,
+finish all builds/lints/compression/offline setup, then run the
 capture script. For each pin/common-or-marked observer it alternates release →
 configuration → hooks → markers for three cycles. Every invocation uses one
 fresh Daemon, ten login shells, `--runs 1 --calls 1000`, unchanged warmups and R15

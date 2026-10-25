@@ -1,0 +1,207 @@
+--- a/crates/rupd/src/connection.rs
++++ b/crates/rupd/src/connection.rs
+@@ -57,6 +57,9 @@
+         .ok()
+         .and_then(|cred| cred.pid())
+         .and_then(|pid| u32::try_from(pid).ok());
++    use std::os::fd::AsRawFd;
++    let r23_conn = stream.as_raw_fd();
++    r23_mark("connection", format_args!("fd={r23_conn}"));
+     let stream = BufReader::new(stream);
+     let (read, mut write) = tokio::io::split(stream);
+     let (frames, mut outbox) = mpsc::unbounded_channel::<Frame>();
+@@ -70,14 +73,16 @@
+                     outbox.close();
+                     continue;
+                 }
+-                frame = outbox.recv() => match frame {
++                frame = r23_poll(format!("reply_recv fd={r23_conn}"), outbox.recv()) => match frame {
+                     Some(frame) => frame,
+                     None => break,
+                 },
+                 // Behind replies, so a flood of selected output cannot starve them.
+-                Some(frame) = selected_output.recv() => frame,
++                Some(frame) = r23_poll(format!("output_recv fd={r23_conn}"), selected_output.recv()) => frame,
+             };
+-            write.write_all(&frame.into_line()?).await?;
++            let bytes = frame.into_line()?;
++            r23_mark("queue_dequeue", format_args!("fd={r23_conn} frame={}", String::from_utf8_lossy(&bytes)));
++            write.write_all(&bytes).await?;
+         }
+         io::Result::Ok(())
+     });
+@@ -95,6 +100,7 @@
+             Ok(None) => break Ok(()),
+             Err(err) => break Err(err),
+         };
++        r23_mark("request_received", format_args!("fd={r23_conn} line={line}"));
+         let request = serde_json::from_str::<Value>(&line).ok();
+         let method = request
+             .as_ref()
+@@ -153,19 +159,27 @@
+         };
+         let mut request_conn = conn.clone();
+         let daemon = Arc::clone(&daemon);
++        let r23_request = format!("fd={r23_conn} request={request:?}");
++        r23_mark("submit_enter", format_args!("{r23_request}"));
++        let r23_submission = r23_request.clone();
+         ordinary.spawn(async move {
+-            let reply = match request {
++            r23_mark("first_selected_poll", format_args!("{r23_submission}"));
++            let label = format!("dispatch fd={r23_conn} request={request:?}");
++            let reply = r23_poll(label.clone(), async { match request {
+                 Some(request) => {
+                     daemon
+                         .dispatch_parsed(&mut request_conn, request, Some(actor))
+                         .await
+                 }
+                 None => daemon.dispatch(&mut request_conn, &line, Some(actor)).await,
+-            };
++            }}).await;
+             if let Some(reply) = reply {
+-                let _ = request_conn.events.send(reply);
++                r23_mark("reply_send_enter", format_args!("fd={r23_conn} label={label}"));
++                let sent = request_conn.events.send(reply);
++                r23_mark("reply_send_exit", format_args!("fd={r23_conn} label={label} ok={}", sent.is_ok()));
+             }
+         });
++        r23_mark("submit_return", format_args!("{r23_request}"));
+         while let Some(joined) = ordinary.try_join_next() {
+             joined.map_err(io::Error::other)?;
+         }
+--- a/crates/rupd/src/lib.rs
++++ b/crates/rupd/src/lib.rs
+@@ -396,3 +396,35 @@
+     assert!(dir.is_absolute(), "test data directory must be absolute");
+     Daemon::open_stores(dir, dir, configure)
+ }
++
++// Temporary R23 diagnostic only. Instant debug values are Linux CLOCK_MONOTONIC.
++pub fn r23_mark(stage: &str, detail: std::fmt::Arguments<'_>) {
++    let _ = (stage, detail); // Diagnostic hooks remain; synchronous marker output is disabled.
++}
++
++async fn r23_poll<T>(label: String, future: impl std::future::Future<Output = T>) -> T {
++    let mut future = std::pin::pin!(future);
++    std::future::poll_fn(|cx| {
++        r23_mark("poll_enter", format_args!("label={label}"));
++        let waker = std::task::Waker::from(std::sync::Arc::new(R23Wake {
++            original: cx.waker().clone(), label: label.clone(), target: format!("{:?}", tokio::task::try_id()),
++        }));
++        let mut observed = std::task::Context::from_waker(&waker);
++        let result = future.as_mut().poll(&mut observed);
++        r23_mark("poll_exit", format_args!("label={label} pending={}", result.is_pending()));
++        result
++    }).await
++}
++
++struct R23Wake {
++    original: std::task::Waker,
++    label: String,
++    target: String,
++}
++impl std::task::Wake for R23Wake {
++    fn wake(self: std::sync::Arc<Self>) { self.wake_by_ref(); }
++    fn wake_by_ref(self: &std::sync::Arc<Self>) {
++        r23_mark("task_wake", format_args!("target={} label={}", self.target, self.label));
++        self.original.wake_by_ref();
++    }
++}
+--- a/crates/rupd/src/main.rs
++++ b/crates/rupd/src/main.rs
+@@ -4,8 +4,17 @@
+ 
+ use tokio::net::{UnixListener, UnixStream};
+ 
+-#[tokio::main]
+-async fn main() -> io::Result<()> {
++fn main() -> io::Result<()> {
++    let runtime = tokio::runtime::Builder::new_multi_thread()
++        .enable_all()
++        .on_task_spawn(|meta| rupd::r23_mark("runtime_spawn", format_args!("target={:?}", meta.id())))
++        .on_before_task_poll(|meta| rupd::r23_mark("runtime_poll_enter", format_args!("target={:?}", meta.id())))
++        .on_after_task_poll(|meta| rupd::r23_mark("runtime_poll_exit", format_args!("target={:?}", meta.id())))
++        .build()?;
++    runtime.block_on(r23_main())
++}
++
++async fn r23_main() -> io::Result<()> {
+     let begun = std::time::Instant::now();
+     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
+     let attached = args.iter().any(|arg| arg == "--attached");
+--- a/crates/rupd/src/output.rs
++++ b/crates/rupd/src/output.rs
+@@ -12,6 +12,7 @@
+ use serde_json::json;
+ 
+ use crate::connection::Frame;
++use crate::{r23_mark, r23_poll};
+ use terminal::{Output, OutputStream};
+ use tokio::sync::mpsc;
+ use tokio::task::JoinHandle;
+@@ -75,9 +76,10 @@
+     loop {
+         let item = tokio::select! {
+             _ = frames.closed() => return,
+-            item = stream.next() => item,
++            item = r23_poll(format!("forward terminal={id}"), stream.next()) => item,
+         };
+         let Some(item) = item else { return };
++        r23_mark("output_forward_receive", format_args!("terminal={id} item={item:?}"));
+         let frame = match item {
+             Output::Bytes { offset, bytes } => json!({
+                 "jsonrpc": "2.0",
+@@ -90,7 +92,10 @@
+                 "params": OutputGap { id: id.clone(), from, to },
+             }),
+         };
+-        if frames.send(frame.into()).await.is_err() {
++        r23_mark("output_send_enter", format_args!("terminal={id} frame={frame}"));
++        let sent = r23_poll(format!("output_send terminal={id}"), frames.send(frame.into())).await;
++        r23_mark("output_send_exit", format_args!("terminal={id} ok={}", sent.is_ok()));
++        if sent.is_err() {
+             return;
+         }
+     }
+--- a/crates/rupd/src/route.rs
++++ b/crates/rupd/src/route.rs
+@@ -39,6 +39,7 @@
+         request: Value,
+         actor: Option<Actor>,
+     ) -> Option<Frame> {
++        r23_mark("dispatch_prologue", format_args!("request={request}"));
+         let id = request.get("id").cloned();
+         let method = request["method"].as_str().unwrap_or_default();
+         let params = request.get("params").cloned().unwrap_or(Value::Null);
+@@ -78,6 +79,9 @@
+         {
+             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
+         }
++        let r23_write = method == "terminal.write";
++        let r23_detail = format!("request={id:?} params={params}");
++        if r23_write { r23_mark("dispatch_enter", format_args!("{r23_detail}")); }
+         let outcome = if matches!(method, "rail.tree" | "rail.list") {
+             self.rail_reply(conn).await
+         } else if method == "daemon.ping" {
+@@ -91,6 +95,7 @@
+                 .await
+                 .map(rpc::Reply::Value)
+         };
++        if r23_write { r23_mark("dispatch_exit", format_args!("{r23_detail} ok={}", outcome.is_ok())); }
+         let id = id?;
+         Some(match outcome {
+             Ok(rpc::Reply::Value(result)) => {
+@@ -281,9 +286,10 @@
+                     .map_err(|err| {
+                         RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
+                     })?;
+-                self.agents
+-                    .write_terminal(&conn.actor, &write.id, bytes)
+-                    .await?;
++                r23_mark("user_write_call", format_args!("terminal={} data={}", write.id, write.data));
++                let accepted = self.agents.write_terminal(&conn.actor, &write.id, bytes).await;
++                r23_mark("user_write_accept_return", format_args!("terminal={} ok={}", write.id, accepted.is_ok()));
++                accepted?;
+                 return rpc::reply(&());
+             }
+         }
