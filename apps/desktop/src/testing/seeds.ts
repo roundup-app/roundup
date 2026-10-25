@@ -216,7 +216,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   app.handlers["project.importDiscover"] = () => ({
     candidates: structuredClone(candidates.filter((candidate) => !imported.has(candidate.source))),
-    excluded: withImports ? [{ source: "missing", reason: "Source unavailable: recorded folder no longer exists.", title: null, last_activity_ms: 1700000000000n }] : [],
+    excluded: withImports ? [{ source: "missing", cause: "missingDirectory", reason: "Source unavailable: recorded folder no longer exists.", title: null, last_activity_ms: 1700000000000n }] : [],
   });
   app.handlers["project.importCommit"] = ({ selections }) => ({ outcomes: selections.map((selection): ImportOutcome => {
     const previous = imported.get(selection.source);
@@ -224,7 +224,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     if (previous) return previous;
 
     const candidate = candidates.find((each) => each.source === selection.source && each.revision === selection.revision);
-    const error = !candidate ? "Source changed: refresh and choose again." : selection.source === "s0" && refuseFirst ? "Copy refused: source unreadable. Retry." : null;
+    const error = !candidate ? { code: -32003, message: "Source changed: refresh and choose again.", outcome: "failed" as const } : selection.source === "s0" && refuseFirst ? { code: -32003, message: "Copy refused: source unreadable. Retry.", outcome: "failed" as const } : null;
 
     if (error || !candidate) {
       refuseFirst = false;
