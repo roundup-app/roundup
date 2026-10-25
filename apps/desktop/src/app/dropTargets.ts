@@ -9,18 +9,7 @@ type Listener = (drop: FileDrop) => void;
 
 const SELECTOR = { row: ".rail-row[data-id]", tab: ".project-tab[data-path]" } as const;
 
-const inside = (box: DOMRect, x: number, y: number): boolean => x >= box.left && x < box.right && y >= box.top && y < box.bottom;
-
 const centre = (box: DOMRect) => ({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
-
-/** The element of `selector` whose rectangle, clipped to its `container`, holds the point; a row or tab scrolled out of view is none. */
-const under = (selector: string, container: string, x: number, y: number): HTMLElement | null => {
-  const clip = document.querySelector(container)?.getBoundingClientRect();
-
-  if (clip === undefined || !inside(clip, x, y)) return null;
-
-  return [...document.querySelectorAll<HTMLElement>(selector)].find((element) => inside(element.getBoundingClientRect(), x, y)) ?? null;
-};
 
 /**
  * U348: the drag of files over the window. It reads the App seam's `onFileDrop`, shows the drop targets, opens a row or tab hovered for HOLD_MS, and on a drop
@@ -79,7 +68,8 @@ export const createDropTargets = (
     else host.rail()?.select(element.dataset.id ?? null);
   };
 
-  const hit = (x: number, y: number) => under(SELECTOR.row, ".rail", x, y) ?? under(SELECTOR.tab, ".tablist", x, y);
+  // Only the foremost painted element can accept a drop; covers must not expose rows behind them.
+  const hit = (x: number, y: number) => document.elementsFromPoint(x, y)[0]?.closest<HTMLElement>(`${SELECTOR.row}, ${SELECTOR.tab}`) ?? null;
 
   const over = (drop: FileDrop) => {
     if (drop.x < 0 || drop.y < 0 || drop.x >= window.innerWidth || drop.y >= window.innerHeight) return clear();
