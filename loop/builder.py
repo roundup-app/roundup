@@ -100,8 +100,7 @@ RERUNS = 6
 STRANDED = 600
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
 CAUSES = {
-    'check': FAILED,
-    'rules': FAILED,
+    'check': FAILED, 'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below. Never answer by undoing the '
               "PR's whole change: `rules` fails a head with no net change against `main`. If you cannot meet the findings "
               'without dropping the work, leave a draft with a `Stopped:` line naming the finding and push nothing.',
@@ -1256,8 +1255,7 @@ def review_task(pr, head):
     order = orders.gh('issue', 'view', linked[1], '--json', 'title,body') if linked else None
     lines = [f'Review PR #{pr}, head {head}.', *named,
              *([f"\nThe work order:\n\n{order['title']}\n\n{order['body'] or ''}"] if order else []),
-             '\nThe scenarios, as `main` holds them:\n\n' +
-             (clauses(ids) or 'The PR names none.')]
+             '\nThe scenarios, as `main` holds them:\n\n' + (clauses(ids) or 'The PR names none.')]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['\nEarlier verdicts, oldest first. Each finding is a claim to re-derive as Review run step 3 says, '
