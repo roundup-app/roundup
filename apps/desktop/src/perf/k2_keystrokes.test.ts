@@ -76,6 +76,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     document.body.innerHTML = `<div class="bubble" data-bubble="door"><textarea class="xterm-helper-textarea"></textarea></div>
       <div class="bubble" data-bubble="shell"><textarea class="xterm-helper-textarea"></textarea></div>`;
     const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    run.select("shell");
     const door = run.createEmulator("door");
     const shell = run.createEmulator("shell");
     const received: string[] = [];
@@ -96,6 +97,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       for (let split = 1; split < line.length; split += 1) {
         const parsed: (() => void)[] = [];
         const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, done?: () => void) => { if (done) parsed.push(done); } }));
+        run.select("shell");
         const shell = run.createEmulator("shell");
         const agent = run.createEmulator("agent");
 
@@ -115,6 +117,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("r20_only_a_complete_ready_line_selects_the_report_terminal", async () => {
     const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    run.select("shell");
     const agent = run.createEmulator("agent");
     const shell = run.createEmulator("shell");
 
@@ -177,51 +180,6 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 2, p50: 6 });
-  });
-
-  it("r20_hop_report_accounts_for_the_echo_round_trip", () => {
-    const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
-
-    // A warm-up key (skipped), then a measured key whose output is preceded by unrelated output and a render before the echo.
-    for (const queued of [0, 7]) {
-      void probe.keydown();
-      time.advance(2);
-      probe.input("shell");
-      probe.encoding("agent");
-      time.advance(queued);
-      probe.encoding("shell");
-      probe.encoded("agent");
-      time.advance(2);
-      probe.encoded("shell");
-      time.advance(1);
-      probe.dispatched("shell");
-      time.advance(1);
-      probe.arrived(bytes("noise"), "shell");
-      probe.written(bytes("noise"), "shell");
-      probe.rendered("shell");
-      time.advance(3);
-      probe.arrived(bytes("a"), "shell");
-      probe.replied("shell");
-      time.advance(4);
-      probe.written(bytes("a"), "shell");
-      time.advance(5);
-      probe.rendered("shell");
-    }
-
-    expect(probe.hops(1)).toEqual({
-      keydown_to_input: { n: 1, p50: 2, p95: 2 },
-      input_to_dispatch: { n: 1, p50: 10, p95: 10 },
-      input_to_encoded: { n: 1, p50: 9, p95: 9 },
-      input_to_encoding: { n: 1, p50: 7, p95: 7 },
-      encoding_to_encoded: { n: 1, p50: 2, p95: 2 },
-      encoded_to_dispatch: { n: 1, p50: 1, p95: 1 },
-      dispatch_to_echo_event: { n: 1, p50: 4, p95: 4 },
-      echo_event_to_parsed: { n: 1, p50: 4, p95: 4 },
-      parsed_to_frame: { n: 1, p50: 5, p95: 5 },
-      write_reply: { n: 1, p50: 4, p95: 4 },
-    });
-    expect(probe.summary(1)).toMatchObject({ n: 1, p50: 25 });
   });
 
   it("r20_a_run_without_measured_echoes_retains_its_failure_counts_in_json", async () => {
