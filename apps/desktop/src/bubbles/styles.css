@@ -43,7 +43,7 @@
 
 /* The dim ends at the floating Shelf's leading edge. */
 .window[data-shelf="open"][data-shelf-mode="overlay"] .centre-stack::before {
-  right: max(0px, var(--shelf-span));
+  right: max(var(--length-zero), var(--shelf-span));
 }
 
 .bubble[hidden],
@@ -77,7 +77,7 @@
 
 /* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
 .window[data-shelf="open"][data-shelf-mode="overlay"] .bubbles {
-  right: max(0px, calc(var(--shelf-span) - var(--space-4)));
+  right: max(var(--length-zero), calc(var(--shelf-span) - var(--space-4)));
 }
 
 /* U2307c: a macOS panel bar, 28 px: close and minimise dots at the left, the name centred on the bar, a status dot after it. */
@@ -231,7 +231,7 @@
 }
 
 .terminal-tab-name {
-  max-width: min(calc(4 * var(--space-6)), max(0px, calc(100cqw - 2 * var(--space-5) - var(--space-4))));
+  max-width: min(calc(4 * var(--space-6)), max(var(--length-zero), calc(100cqw - 2 * var(--space-5) - var(--space-4))));
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -269,7 +269,7 @@
 
 .terminal-tab-editor [data-part="input"]:active {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 .terminal-tab-editor [data-part="preview"] {
