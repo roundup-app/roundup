@@ -23,8 +23,12 @@ const cases = [
   ["browser object field", 'const result = await read("({ width: document.body.clientWidth })"); expect(result.width).toBe(10);', "appearance"],
   ["browser exact text", 'expect(await read("document.body.textContent")).toBe("Welcome");', "copy-candidate"],
   ["embedded comment is not a read", 'expect(await read("1 /* getComputedStyle(document.body) */")).toBe(1);', null],
-  ["embedded string is not a read", 'expect(await read("\"getComputedStyle(document.body)\"")).toBe("getComputedStyle(document.body)");', null],
+  ["embedded string is not a read", 'expect(await read(`"getComputedStyle(document.body)"`)).toBe("getComputedStyle(document.body)");', null],
   ["style used for action only", 'const size = element.getBoundingClientRect(); await click(size.x, size.y); expect(calls).toHaveLength(1);', null],
+  ["named ancestor is action scope", 'const scope = screen.getByRole("region", { name: "Actions" }); expect(within(scope).getAllByRole("button")).toHaveLength(2);', null],
+  ["role presence without copy", 'expect(screen.getByRole("button")).toBeTruthy();', null],
+  ["snapshot review", 'expect(element).toMatchInlineSnapshot(`Welcome`);', "snapshot-review"],
+  ["unparsed browser review", 'expect(await read("return document.body.scrollWidth")).toBe(10);', "unparsed-browser-script"],
   ["role query locating action", 'const button = screen.getByRole("button", { name: "Save changes" }); button.click(); expect(calls).toHaveLength(1);', null],
   ["role query checking focus", 'expect(screen.getByRole("button", { name: "Save changes" })).toHaveFocus();', null],
   ["accessible name presence", 'expect(element).toHaveAccessibleName();', null],
@@ -32,6 +36,7 @@ const cases = [
   ["call contract", 'expect(rpc).toHaveBeenCalledWith("Save changes");', null],
   ["round trip without literal", 'expect(element.textContent).toBe(userInput);', null],
   ["aliased expect", 'check(element.scrollWidth).toBe(10);', "appearance"],
+  ["wrapped callee", '(expect(element.scrollWidth).toBe)(10);', "appearance"],
   ["shadowed expect", '{ const expect = x => ({ toBe: () => x }); expect(element.scrollWidth).toBe(10); }', null],
 ];
 
@@ -64,3 +69,25 @@ for (const [name, source, kind] of cases) {
     }
   });
 }
+
+test("t3779b_assertion_boundary: Python assertions and scripts are inventoried without execution", () => {
+  const dir = mkdtempSync(resolve(repo, ".python-assertion-fixture-"));
+  try {
+    writeFileSync(resolve(dir, "fixture.test.py"), [
+      'raise RuntimeError("This browser launcher must never execute")',
+      'script = "document.body.getBoundingClientRect().width"',
+      'def capture():',
+      '    result = evaluate(script)',
+      '    assert result > 0, result',
+      '    assert evaluate("document.body.textContent") == "Welcome"',
+    ].join("\n"));
+    const result = spawnSync("python3", [resolve(repo, "tools/oxlint/anti-slop/web-assertions/python-audit.py"), dir], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const rows = result.stdout.trim().split("\n").map(line => JSON.parse(line));
+    assert.deepEqual(rows.map(row => row.assertion), ['assert result > 0, result', 'assert evaluate("document.body.textContent") == "Welcome"']);
+    assert.ok(rows.every(row => row.test === "capture"));
+    assert.ok(rows[0].dependencies.includes('script = "document.body.getBoundingClientRect().width"'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

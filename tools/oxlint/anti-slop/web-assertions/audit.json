@@ -1,0 +1,4 @@
+{
+  "extends": ["../../../../.oxlintrc.json"],
+  "rules": { "anti-slop/audit-web-assertions": "error" }
+}
