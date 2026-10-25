@@ -276,7 +276,7 @@ export const AskBar = (props: {
     </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
-        onFocusIn={(event) => { if (event.target === field && rail.workstreamCreating() && rail.selected() === null) { returnTo = null; setOpening("home-focus"); } }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { returnTo = null; setOpening("home-focus"); } }}
         onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
