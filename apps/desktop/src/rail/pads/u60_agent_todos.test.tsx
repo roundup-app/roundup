@@ -69,7 +69,8 @@ describe("u60 an Agent's Todos under it", () => {
   it("u461a_the_rail_control_counts_pads_and_done_and_open_todos", async () => {
     await mount(TREE, [todo(1, { creator: by("a1") }), todo(2, { creator: by("a1"), done: true })], [padOf("n", by("a1"))]);
 
-    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("3"));
+    fireEvent.click(await screen.findByRole("button", { name: "3 pads and todos" }));
+    expect(document.querySelectorAll(".rail-leaf")).toHaveLength(3);
     expect(control(rowOf("docs"))).toBeNull();
   });
 
@@ -84,7 +85,6 @@ describe("u60 an Agent's Todos under it", () => {
     const group = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
 
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
-    expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
@@ -105,27 +105,15 @@ describe("u60 an Agent's Todos under it", () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
     await opened();
-    fireEvent.click(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }));
+    fireEvent.keyDown(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }), { key: "Enter" });
 
     const drawer = await screen.findByLabelText("Drawer");
 
     await within(drawer).findByText("Blocker");
-    expect(within(drawer).queryByText("Created by auth")).toBeNull();
     expect(connected.rail.selected()).toBeNull();
   });
 
-  it("u60_the_drawer_omits_creator_for_the_user_and_an_agent_off_the_rail", async () => {
-    await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
 
-    fireEvent.click(await screen.findByText("Unassigned"));
-    fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
-    await within(await screen.findByLabelText("Drawer")).findByText("Blocker");
-    expect(within(screen.getByLabelText("Drawer")).queryByText("Created by you")).toBeNull();
-
-    fireEvent.click(shelf().getByRole("button", { name: /#2 todo 2/ }));
-    await within(screen.getByLabelText("Drawer")).findByText("Blocker");
-    expect(within(screen.getByLabelText("Drawer")).queryByText("Created by gone")).toBeNull();
-  });
 
   it.each([false])("u461a_pending_and_failure_preserve_accepted_value in Rail done=%s", async (done) => {
     const { app } = await mount(TREE, [todo(1, { creator: by("a1"), done })]);

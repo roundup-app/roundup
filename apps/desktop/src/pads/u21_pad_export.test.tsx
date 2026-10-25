@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { AGENT, openShelf, padOf, RpcError } from "./padsFixture";
+import { AGENT, openPad, openShelf, padOf, RpcError } from "./padsFixture";
 
 afterEach(cleanup);
 
 const clickExport = async () => {
-  fireEvent.click(await screen.findByText("auth-notes"));
+  await openPad("auth-notes");
   fireEvent.click(await screen.findByRole("button", { name: "Export .md" }));
 };
 

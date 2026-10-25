@@ -124,6 +124,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
       await browser("wait", "[data-shelf-row] .pad-name");
       await browser("click", "[data-shelf-row] .pad-name");
+      await browser("click", '[data-shelf-row] [aria-label="Open"]');
       await browser("wait", ".ProseMirror[role=textbox]");
       // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
       // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.
@@ -154,7 +155,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await openRealPad();
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
-    expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe("Reviewed Agent prose.");
+    expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
     expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, home: home.id });
     const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
 

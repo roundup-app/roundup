@@ -61,6 +61,19 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
     return rects.find(([selector]) => this.matches(selector))?.[1]() ?? new DOMRect(0, 0, 0, 0);
   });
 
+  // jsdom has no paint hit testing. Supply its browser boundary from the same fixture layout.
+  document.elementsFromPoint = (x, y) => {
+    const inside = (element: Element) => {
+      const box = element.getBoundingClientRect();
+
+      return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+    };
+
+    const target = [...document.querySelectorAll(".rail-row, .project-tab")].find(element => inside(element) && inside(element.closest(".rail, .tablist")!));
+
+    return target ? [target] : [];
+  };
+
   return { app, made };
 };
 
