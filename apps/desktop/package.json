@@ -30,6 +30,7 @@
     "@zag-js/focus-visible": "1.45.0",
     "diff": "^9.0.0",
     "flatted": "3.4.4",
+    "fuzzysort": "4.0.2",
     "lucide-solid": "^1.51.0",
     "marked": "16.4.2",
     "mermaid": "^12.1.0",
