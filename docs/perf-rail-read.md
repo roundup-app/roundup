@@ -70,3 +70,31 @@ The latest Mac failure predates #3981's startup connection-handoff repair.
 Budgets remain unchanged. Full same-M4-Max acceptance, the owner's unchanged-code
 false-fail evidence and the separate later main pass remain open on #3696.
 Earlier attribution stays in [the main record](perf-macos-startup.md).
+
+## Rail node storage (#4021)
+
+The same warmed allocation observer on Linux x86_64 isolates two remaining costs:
+geometric growth while collecting rusqlite rows, and a second node vector for
+traversal even when every node is at the root.
+
+| Forty-Workstream reply | Allocations | Allocated bytes |
+|---|---:|---:|
+| Before | 244 | 132,294 |
+| Reserve the stored node count | 244 | 112,326 |
+| Also reuse the sorted vector when every node is a root | 243 | 79,366 |
+
+The installed rusqlite iterator supplies no size hint. A cached `count(*)` read
+provides an upper bound, including nodes the visibility filter excludes; Rust's
+`Vec::with_capacity` reserves it. For an unnested Rail, the standard iterator
+collection reuses that allocation while presenting the nodes. Nested Rails keep
+the existing traversal. Neither SQL results nor live Agent facts are cached.
+
+`cargo test -p agents --test perf -- --nocapture` reproduces the allocation
+counts through `Module::call_reply`. Its existing R3696c observer now caps bytes
+at 90,000: removing either reservation or vector reuse fails the cap. No test is
+removed or duplicated. This measures allocation work, not elapsed time or Mac
+acceptance; #3696 remains open and `crates/perf/budgets.json` is unchanged.
+
+Temporary mutation checks confirm that bound: without reservation, 99,334 bytes;
+without vector reuse, 112,326 bytes. Each test invocation exits 101. Both mutations
+are removed from the final code.
