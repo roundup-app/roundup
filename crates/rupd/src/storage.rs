@@ -979,8 +979,7 @@ mod tests {
         assert!(String::from_utf8_lossy(&bad.stderr).contains("notes.txt"));
     }
 
-    /// N17: a data folder from before `project.db` still holds per-store databases, one of them
-    /// in a column order no current build writes. They are not read, so they cannot block startup.
+    /// N17: obsolete per-store databases, including old column orders, cannot block startup.
     #[test]
     fn n17_old_store_files_never_block_the_open() {
         let dir = tempfile::tempdir().unwrap();
