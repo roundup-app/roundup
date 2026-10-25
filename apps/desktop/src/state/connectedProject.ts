@@ -167,7 +167,7 @@ const reads = new Set<RpcMethodName>([
   "message.progress", "message.reconcileWork", "route.list", "checkpoint.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
-  "workstream.queue", "workstream.rewindPlan",
+  "workstream.queue",
 ]);
 
 export const connectProject = async (

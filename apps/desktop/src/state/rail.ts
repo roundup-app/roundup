@@ -227,7 +227,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
         setDoors(id, "failure", { message: error.message, attempt: node.attempt });
-        commandFailure.show(error.message, id);
+        commandFailure.show(error.message, id, "pane");
       }
     } finally {
       setDoors(id, "pending", false);
@@ -244,7 +244,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      commandFailure.show(error.message);
+      commandFailure.show(error.message, null, "pane");
       setWorkstreamCreating(false);
 
       return;
