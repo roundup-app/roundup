@@ -1,7 +1,7 @@
 import madge from 'madge';
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 try {
   const root = resolve(process.argv[2] ?? '.');
@@ -10,6 +10,10 @@ try {
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
 
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
+
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, dirname(configPath));
+
+  if (parsed.errors.length) throw new Error(ts.flattenDiagnosticMessageText(parsed.errors[0].messageText, '\n'));
 
   const graph = await madge(resolve(root, 'apps/desktop/src'), {
     baseDir: resolve(root, 'apps/desktop/src'),
