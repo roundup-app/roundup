@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { clockTime, copy } from "../copy";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 
@@ -11,11 +11,9 @@ export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) 
 
   if (newest === null) return null;
 
-  const [hours, minutes] = new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
-  }).format(new Date(newest.at)).split(":");
+  const time = clockTime.format(new Date(newest.at));
 
-  return copy.lastTouch(nameOf(newest.actor), newest.verb, hours, minutes);
+  return copy.lastTouch(nameOf(newest.actor), newest.verb, time);
 };
 
 /** U190: `<name> <read|wrote> this Pad at <time>` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
