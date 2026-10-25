@@ -15,7 +15,7 @@ import { join } from "node:path";
 const ROOT = join(process.cwd(), "src");
 
 const sources = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) =>
-  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^copy\.ts$)/.test(file));
+  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|(^|\/)copy\.ts$)/.test(file));
 
 const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancestors: readonly Node[]) => void) => {
   read(node, ancestors);
