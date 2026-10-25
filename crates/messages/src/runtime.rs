@@ -152,39 +152,3 @@ pub(super) async fn guarded<T>(op: &str, fut: impl Future<Output = T> + Send) ->
     }
     result
 }
-
-impl Messages {
-    /// B50: send every Message to an Agent through `inbox`. Set once, before any Message.
-    pub fn set_inbox(&self, inbox: Arc<dyn NoteInbox>) {
-        let _ = self.inner.inbox.set(inbox);
-    }
-
-    /// B50(c): the transcript of `agent` records these Messages' entries, so they are `delivered`.
-    pub fn confirm_inbox(&self, agent: &str, ids: &[u32]) {
-        confirm_ids(&self.inner, agent, ids);
-    }
-
-    /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
-    /// not its mutable display name. Waiting changes compact to the newest entry per id while
-    /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
-    /// queue is discarded. Other refusals are logged with the receiver and retried by Messages,
-    /// so acceptance is successful even when the entry cannot yet be sent.
-    pub async fn push_digest(
-        &self,
-        meta: &str,
-        subagent: &str,
-        entry: &contracts::agent::DigestEntry,
-    ) {
-        pushes::push(&self.inner, meta, subagent, entry).await
-    }
-
-    /// A32: every Message sent to or by `door`, in order, each with its Iteration.
-    pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
-        self.store()?.thread(door)
-    }
-
-    /// A32: the Iteration `door` is in ends here; returns its number.
-    pub fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
-        self.store()?.end_iteration(door)
-    }
-}

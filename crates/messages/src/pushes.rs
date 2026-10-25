@@ -360,3 +360,19 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
     }
     Ok(())
 }
+
+impl Messages {
+    /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
+    /// not its mutable display name. Waiting changes compact to the newest entry per id while
+    /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
+    /// queue is discarded. Other refusals are logged with the receiver and retried by Messages,
+    /// so acceptance is successful even when the entry cannot yet be sent.
+    pub async fn push_digest(
+        &self,
+        meta: &str,
+        subagent: &str,
+        entry: &contracts::agent::DigestEntry,
+    ) {
+        pushes::push(&self.inner, meta, subagent, entry).await
+    }
+}

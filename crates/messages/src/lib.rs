@@ -44,7 +44,7 @@ use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
-    Pick, Typing, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
+    Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
     load_rail_nodes, reconcile, sender_name, start_listener,
 };
 use dispatch::{is_receiver, item, require_user};
