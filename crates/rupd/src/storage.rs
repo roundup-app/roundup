@@ -20,6 +20,7 @@ const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 mod added {
     include!(concat!(env!("OUT_DIR"), "/added_migrations.rs"));
+    include!(concat!(env!("OUT_DIR"), "/fresh_regions.rs"));
 }
 
 /// The frozen head (1 to 10), then every `migrations/project/*.sql` that `build.rs` found.
@@ -60,11 +61,13 @@ fn reidentified() -> std::io::Result<Vec<u8>> {
     for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
         let id: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
         let mut found = 0;
-        // R3696c: the scalar scan of this 508 KB image twice cost ~0.69 ms on Linux.
         // Search the immutable template so replacement bytes cannot create another match.
-        for at in memchr::memmem::find_iter(FRESH, &placeholder[..]) {
-            image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
-            found += 1;
+        for &(start, end) in added::ID_REGIONS {
+            for offset in memchr::memmem::find_iter(&FRESH[start..end], &placeholder[..]) {
+                let at = start + offset;
+                image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
+                found += 1;
+            }
         }
         if found == 0 {
             return Err(std::io::Error::other("the image holds no placeholder id"));

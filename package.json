@@ -5,21 +5,25 @@
   "type": "module",
   "packageManager": "pnpm@10.14.0",
   "scripts": {
-    "lint": "oxlint",
+    "lint": "node tools/oxlint/anti-slop/web-assertions/lint.mjs",
     "typecheck": "tsc",
     "slop": "fallow dead-code && fallow dupes",
     "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs",
     "prepare": "lefthook install --force",
     "test:token-integration": "node --test docs/u478-check-integration.test.mjs",
     "lint:styles": "stylelint \"apps/desktop/src/**/*.css\" --max-warnings 0",
-    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi"
+    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi",
+    "lint:boundaries": "ast-grep --version && python3 tools/lint/setup.py web && python3 tools/lint/scan.py web",
+    "lint:cycles": "node tools/lint/cycles.mjs ."
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.300",
+    "@ast-grep/cli": "0.51.0",
     "@copilotkit/aimock": "1.45.1",
     "@oxlint/plugins": "1.86.0",
     "fallow": "^3.34.0",
     "lefthook": "2.2.2",
+    "mdn-data": "2.27.1",
     "oxlint": "1.86.0",
     "stylelint": "17.16.0",
     "stylelint-declaration-strict-value": "1.12.1",

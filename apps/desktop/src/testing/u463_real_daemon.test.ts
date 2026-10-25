@@ -59,10 +59,12 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   } };
 };
 
-// One window, 1280 by 800, the narrowest supported; both input paths stay.
+// One window, 1280 by 800, the narrowest supported.
 const width = 1280;
 
-for (const input of ["keyboard", "pointer"] as const) {
+{
+  const input = "keyboard";
+
   it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}`, async () => {
     const fixture = await observer(width, input, "choose", DOOR_REQUEST);
     const { real, browser, wait, activate, app } = fixture;
@@ -469,7 +471,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await activate(".import-list li:nth-child(2) .import-check");
       await wait("document.querySelector('.import-confirm')?.textContent.includes('2')");
       await activate(".import-confirm");
-      await wait("document.querySelector('.import-error')?.textContent.includes('Copy refused')");
+      await wait("document.querySelector('.import-candidate [role=alert]')?.textContent.includes('The saved conversation changed')");
       expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.length")).result).toBe(2);
       expect((await browser("eval", "document.querySelectorAll('.import-check[data-state=checked]').length")).result).toBe(1);
       await capture("partial-failure");

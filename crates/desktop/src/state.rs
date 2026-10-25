@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use base64::Engine as _;
@@ -13,7 +14,8 @@ use tauri::async_runtime::JoinHandle;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::process::ChildStdin;
-use tokio::time::timeout;
+use tokio::sync::{oneshot, watch};
+use tokio::time::{Duration, sleep, timeout};
 
 use crate::config::Config;
 use crate::daemon::{self, OwnedSocket};
@@ -37,6 +39,10 @@ pub struct Listed {
 struct DaemonExited {
     path: String,
     code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recovery: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cause: Option<String>,
 }
 
 /// The longest name `rename_project` stores (S10).
@@ -55,6 +61,7 @@ struct Open {
     subscription: Option<JoinHandle<()>>,
     /// X14: one connection and pump per selected Terminal; dropping one releases that selection.
     outputs: HashMap<String, JoinHandle<()>>,
+    connected: Option<oneshot::Sender<Result<(), RpcError>>>,
 }
 
 impl Drop for Open {
@@ -77,12 +84,17 @@ enum Phase {
 struct Entry {
     path: String,
     phase: Phase,
+    failures: u8,
+    lifetime: Arc<()>,
+    // Dropping the entry cancels both its delayed restart and startup future.
+    cancel: watch::Sender<()>,
 }
 
 /// Which Projects are open, in the order they were opened, and the Daemon serving each; the only
 /// state the App holds besides what `Store` keeps.
 pub struct AppState {
     config: Config,
+    closed: AtomicBool,
     store: Store,
     entries: Mutex<Vec<Entry>>,
     /// Counts successful Daemon starts so each gets its own socket path (S5): a reopen must never
@@ -98,6 +110,7 @@ impl AppState {
         let store = Store::new(config.data_dir.clone());
         Self {
             config,
+            closed: AtomicBool::new(false),
             store,
             entries: Mutex::new(Vec::new()),
             runs: Mutex::new(0),
@@ -157,24 +170,96 @@ impl AppState {
         keep_on_failure: bool,
     ) -> Result<Project, RpcError> {
         let key = path.display().to_string();
-        let _starting = self.starting.lock().await;
+        let mut pending = self
+            .entries()
+            .iter()
+            .find(|entry| entry.path == key)
+            .map(|entry| (entry.lifetime.clone(), entry.cancel.subscribe()));
+        let _starting = if let Some((_, cancel)) = &mut pending {
+            tokio::select! {
+                biased;
+                _ = cancel.changed() => return Err(not_open(&key)),
+                starting = self.starting.lock() => starting,
+            }
+        } else {
+            self.starting.lock().await
+        };
+        if self.closed.load(Ordering::SeqCst) {
+            return Err(not_open(&key));
+        }
         if self.is_running(&key) {
             return Ok(self.project_at(&key));
         }
-        let run = *self
-            .runs
-            .lock()
-            .expect("the runs lock is never kept across a panic");
-        match self.start_daemon(app, path, run).await {
-            Ok(project) => {
-                self.save_open();
-                Ok(project)
+        let (lifetime, mut cancel, reopening) = {
+            let mut entries = self.entries();
+            if self.closed.load(Ordering::SeqCst)
+                || pending.as_ref().is_some_and(|(lifetime, _)| {
+                    !entries
+                        .iter()
+                        .any(|entry| Arc::ptr_eq(&entry.lifetime, lifetime))
+                })
+            {
+                return Err(not_open(&key));
             }
-            Err(err) => {
-                if keep_on_failure {
-                    self.keep_exited(&key);
+            let reopening = entries.iter().any(|entry| entry.path == key);
+            if !reopening {
+                let (cancel, _) = watch::channel(());
+                entries.push(Entry {
+                    path: key.clone(),
+                    phase: Phase::Exited,
+                    failures: 0,
+                    lifetime: Arc::new(()),
+                    cancel,
+                });
+            }
+            let entry = entries
+                .iter_mut()
+                .find(|entry| entry.path == key)
+                .expect("inserted above");
+            entry.failures = 0;
+            // Explicit Reopen retires any delayed attempt from the previous recovery.
+            entry.lifetime = Arc::new(());
+            entry.cancel = watch::channel(()).0;
+            (entry.lifetime.clone(), entry.cancel.subscribe(), reopening)
+        };
+        loop {
+            let (connected, answer) = oneshot::channel();
+            let run = *self.runs.lock().expect("runs lock");
+            let result = tokio::select! {
+                biased;
+                _ = cancel.changed() => return Err(not_open(&key)),
+                result = self.start_daemon(app, path, run, &lifetime, reopening.then_some(connected)) => result,
+            };
+            match result {
+                Ok(project) => {
+                    if reopening {
+                        Self::await_connection(app.clone(), key.clone(), run, cancel, answer);
+                    }
+                    self.save_open();
+                    return Ok(project);
                 }
-                Err(err)
+                Err(err) => {
+                    if !reopening {
+                        if keep_on_failure {
+                            self.save_open();
+                        } else {
+                            self.entries()
+                                .retain(|entry| !Arc::ptr_eq(&entry.lifetime, &lifetime));
+                        }
+                        return Err(err);
+                    }
+                    let Some(failure) = self.record_failure(&key, &lifetime) else {
+                        return Err(not_open(&key));
+                    };
+                    if failure == 3 {
+                        return Err(err);
+                    }
+                    tokio::select! {
+                        biased;
+                        _ = cancel.changed() => return Err(not_open(&key)),
+                        _ = sleep(Duration::from_millis(250 * u64::from(failure))) => {}
+                    }
+                }
             }
         }
     }
@@ -192,7 +277,35 @@ impl AppState {
         channel: Channel<Event>,
         after: Option<u64>,
     ) -> Result<u64, RpcError> {
-        let socket = self.open_ref(path, |open| open.socket.path().to_path_buf())?;
+        let (socket, run) =
+            self.open_ref(path, |open| (open.socket.path().to_path_buf(), open.run))?;
+        let result = self.subscribe_run(path, channel, after, socket, run).await;
+        let mut entries = self.entries();
+        if let Some(entry) = entries.iter_mut().find(|entry| entry.path == path)
+            && let Phase::Open(open) = &mut entry.phase
+            && open.run == run
+        {
+            if result.is_ok() {
+                entry.failures = 0;
+            }
+            // D11 retries an expired cursor on this same connection; it is not a failed startup.
+            if !matches!(&result, Err(err) if err.code == code::EVENTS_EXPIRED)
+                && let Some(connected) = open.connected.take()
+            {
+                let _ = connected.send(result.clone().map(|_| ()));
+            }
+        }
+        result
+    }
+
+    async fn subscribe_run(
+        &self,
+        path: &str,
+        channel: Channel<Event>,
+        after: Option<u64>,
+        socket: PathBuf,
+        run: u64,
+    ) -> Result<u64, RpcError> {
         let mut events = Client::connect(&socket).await.map_err(RpcError::internal)?;
         let params = after.map_or(Value::Null, |after| serde_json::json!({ "after": after }));
         let answer = self
@@ -214,7 +327,7 @@ impl AppState {
             Some(Entry {
                 phase: Phase::Open(open),
                 ..
-            }) => {
+            }) if open.run == run => {
                 if let Some(previous) = open.subscription.replace(pump) {
                     previous.abort();
                 }
@@ -365,6 +478,7 @@ impl AppState {
 
     /// Closes every Daemon's stdin (S3).
     pub fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
         self.entries().clear();
     }
 
@@ -402,16 +516,6 @@ impl AppState {
         self.store.set_open(paths);
     }
 
-    fn keep_exited(&self, path: &str) {
-        let mut entries = self.entries();
-        if !entries.iter().any(|entry| entry.path == path) {
-            entries.push(Entry {
-                path: path.to_owned(),
-                phase: Phase::Exited,
-            });
-        }
-    }
-
     /// Commits the run number a successful open used, so the next one gets a fresh socket path (S5).
     fn commit_run(&self, run: u64) {
         let mut runs = self
@@ -426,6 +530,8 @@ impl AppState {
         app: &AppHandle<R>,
         path: &Path,
         run: u64,
+        lifetime: &Arc<()>,
+        connected: Option<oneshot::Sender<Result<(), RpcError>>>,
     ) -> Result<Project, RpcError> {
         if !path.is_absolute() || !path.is_dir() {
             return Err(RpcError::new(
@@ -438,7 +544,6 @@ impl AppState {
             .config
             .socket_for_run(run)
             .map_err(RpcError::internal)?;
-        let reopening = self.entries().iter().any(|entry| entry.path == key);
         let started = daemon::start(&self.config, path, &socket, self.store.dir()).await?;
         let open = Open {
             client: Arc::new(started.client),
@@ -447,50 +552,180 @@ impl AppState {
             run,
             subscription: None,
             outputs: HashMap::new(),
+            connected,
         };
         let mut entries = self.entries();
         match entries.iter_mut().find(|entry| entry.path == key) {
-            Some(entry) => entry.phase = Phase::Open(open),
-            // A reopen whose tab was closed while the Daemon started: the Daemon goes with it.
-            None if reopening => return Err(not_open(&key)),
-            None => entries.push(Entry {
-                path: key.clone(),
-                phase: Phase::Open(open),
-            }),
+            Some(entry) if Arc::ptr_eq(&entry.lifetime, lifetime) => {
+                entry.phase = Phase::Open(open)
+            }
+            _ => return Err(not_open(&key)),
         }
         drop(entries);
         self.commit_run(run);
         let app = app.clone();
         let exited_path = key.clone();
         daemon::watch_exit(started.child, move |code| {
-            if app.state::<AppState>().mark_exited(&exited_path, run)
-                && let Err(err) = app.emit(
-                    "daemon-exited",
-                    DaemonExited {
-                        path: exited_path,
-                        code,
-                    },
-                )
-            {
-                eprintln!("desktop: could not tell the webview the Daemon exited: {err}");
-            }
+            Self::failed(&app, &exited_path, run, code, None);
         });
         Ok(self.project_at(&key))
     }
 
-    /// False when the App closed the Daemon itself, so the webview is not told about an exit it asked for.
-    fn mark_exited(&self, path: &str, run: u64) -> bool {
+    fn record_failure(&self, path: &str, lifetime: &Arc<()>) -> Option<u8> {
         let mut entries = self.entries();
+        let entry = entries
+            .iter_mut()
+            .find(|entry| entry.path == path && Arc::ptr_eq(&entry.lifetime, lifetime))?;
+        entry.failures = (entry.failures + 1).min(3);
+        Some(entry.failures)
+    }
+
+    fn failed<R: Runtime>(
+        app: &AppHandle<R>,
+        path: &str,
+        run: u64,
+        code: Option<i32>,
+        cause: Option<String>,
+    ) {
+        let state = app.state::<AppState>();
+        let mut entries = state.entries();
         let Some(entry) = entries.iter_mut().find(|entry| entry.path == path) else {
-            return false;
+            return;
         };
-        match &entry.phase {
-            Phase::Open(open) if open.run == run => {
-                entry.phase = Phase::Exited;
-                true
-            }
-            Phase::Open(_) | Phase::Exited => false,
+        if !matches!(&entry.phase, Phase::Open(open) if open.run == run) {
+            return;
         }
+        entry.phase = Phase::Exited;
+        entry.failures = (entry.failures + 1).min(3);
+        let failures = entry.failures;
+        let lifetime = entry.lifetime.clone();
+        let cancel = entry.cancel.subscribe();
+        // Emit while holding the entry: close/reopen cannot overtake its exit notification.
+        Self::notify(app, path, code, (failures < 3).then_some("waiting"), cause);
+        drop(entries);
+        if failures < 3 {
+            Self::recover(app.clone(), path.to_owned(), lifetime, cancel, failures);
+        }
+    }
+
+    fn notify<R: Runtime>(
+        app: &AppHandle<R>,
+        path: &str,
+        code: Option<i32>,
+        recovery: Option<&'static str>,
+        cause: Option<String>,
+    ) {
+        if let Err(err) = app.emit(
+            "daemon-exited",
+            DaemonExited {
+                path: path.to_owned(),
+                code,
+                recovery,
+                cause,
+            },
+        ) {
+            eprintln!("desktop: could not report Daemon recovery: {err}");
+        }
+    }
+
+    fn recover<R: Runtime>(
+        app: AppHandle<R>,
+        path: String,
+        lifetime: Arc<()>,
+        mut cancel: watch::Receiver<()>,
+        mut failures: u8,
+    ) {
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = cancel.changed() => return,
+                    _ = sleep(Duration::from_millis(250 * u64::from(failures))) => {}
+                }
+                let state = app.state::<AppState>();
+                let starting = tokio::select! {
+                    biased;
+                    _ = cancel.changed() => return,
+                    starting = state.starting.lock() => starting,
+                };
+                let run = *state.runs.lock().expect("runs lock");
+                let (connected, answer) = oneshot::channel();
+                let result = tokio::select! {
+                    biased;
+                    _ = cancel.changed() => return,
+                    result = state.start_daemon(&app, Path::new(&path), run, &lifetime, Some(connected)) => result,
+                };
+                drop(starting);
+                match result {
+                    Ok(_) => {
+                        {
+                            let entries = state.entries();
+                            if !entries.iter().any(|entry| {
+                                entry.path == path
+                                    && matches!(&entry.phase, Phase::Open(open) if open.run == run)
+                            }) {
+                                return;
+                            }
+                            Self::notify(&app, &path, None, Some("connecting"), None);
+                        }
+                        Self::await_connection(app.clone(), path, run, cancel, answer);
+                        return;
+                    }
+                    Err(err) => {
+                        let Some(count) = state.record_failure(&path, &lifetime) else {
+                            return;
+                        };
+                        failures = count;
+                        let entries = state.entries();
+                        if !entries
+                            .iter()
+                            .any(|entry| Arc::ptr_eq(&entry.lifetime, &lifetime))
+                        {
+                            return;
+                        }
+                        Self::notify(
+                            &app,
+                            &path,
+                            None,
+                            (failures < 3).then_some("waiting"),
+                            Some(err.message),
+                        );
+                        if failures == 3 {
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    fn await_connection<R: Runtime>(
+        app: AppHandle<R>,
+        path: String,
+        run: u64,
+        mut cancel: watch::Receiver<()>,
+        answer: oneshot::Receiver<Result<(), RpcError>>,
+    ) {
+        tauri::async_runtime::spawn(async move {
+            let bound = app.state::<AppState>().config.call_bound;
+            let result = tokio::select! {
+                biased;
+                _ = cancel.changed() => return,
+                result = timeout(bound, answer) => result,
+            };
+            match result {
+                Ok(Ok(Ok(()))) => {}
+                Ok(Ok(Err(err))) => Self::failed(&app, &path, run, None, Some(err.message)),
+                Ok(Err(_)) => {} // The process exit already scheduled recovery.
+                Err(_) => Self::failed(
+                    &app,
+                    &path,
+                    run,
+                    None,
+                    Some("Daemon connection did not become ready".to_owned()),
+                ),
+            }
+        });
     }
 
     /// The guard every read of a Project's Daemon shares: `INTERNAL` once it has exited,

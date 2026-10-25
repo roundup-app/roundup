@@ -38,13 +38,16 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--cache-write` | `#b4b4b9` | `#636368` | Measurement cache-write segment and swatch |
 | `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
+| `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
 | `--accent` | `#0a60d8` | `#4d9bff` | Glyph tone of `working`, the primary action |
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--scrollbar-thumb` | `rgba(0,0,0,.30)` | `rgba(255,255,255,.30)` | the thumb of every scrollbar, shown only while the pointer is over its scrolling element (U3747) |
-| `--shadow-drawer` | `0 2px 8px rgba(0,0,0,.14)` | `0 2px 8px rgba(0,0,0,.24)` | the Drawer, floating menus and the Terminal bubble (U523) |
-| `--shadow-shelf` | `0 0 24px rgba(0,0,0,.10)` | `0 0 24px rgba(0,0,0,.45)` | the open Shelf's leading edge (U371) |
+| `--elevation-contact` | `0 2px 4px 0 rgba(0,0,0,.12)` | `0 2px 4px 0 rgba(0,0,0,.28)` | tight contact shadow on floating surfaces and the Shelf |
+| `--elevation-ambient` | `0 12px 24px 0 rgba(0,0,0,.12)` | `0 12px 24px 0 rgba(0,0,0,.40)` | softer ambient shadow; blur exceeds the contact layer |
+| `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
+| `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
@@ -132,7 +135,7 @@ An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--sele
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--shadow-drawer`, `--shadow-shelf`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--shadow-drawer` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
+The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
 
 Floating layers (U3295a): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number.
 
@@ -155,7 +158,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
 | D6 | every click target except a `textarea` retains hover feedback, keyboard reachability and a hit area at least 24 px high; no focus ring (U3528) | U133, U3528 |
 | D7 | every click target adds no pressed background at `pointerdown`; ink feedback may remain (U3528) | U133 |
-| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer, the Terminal bubble, the Shelf, the Terminal's control overlay (U375) and floating menus have a shadow (menus use `--shadow-drawer` on their surface only), and a list's scroll shadow is `--shadow-scroll`; no `backdrop-filter` element contains another | U134, U371 |
+| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer, the Terminal bubble, the Shelf, the Terminal's control overlay (U375) and floating menus have a shadow (menus use `--elevation` on their surface only), and a list's scroll shadow is `--shadow-scroll`; no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
@@ -244,7 +247,7 @@ Use the current Ark Panel and manual popover top layer. `.bubble-frame::backdrop
 
 ### U3512 shared floating surface
 
-Native confirmations use the system's appearance. Every remaining web modal, anchored panel/menu and Terminal Bubble shares the recipe in `tokens.css`: opaque surface, 12 px radius, one hairline, one `--shadow-drawer`. Screen CSS owns content layout only. D8 allows this depth on `.app-dialog`, `.app-menu`, `.app-popover` and `.app-select-list` as well as its existing floating surfaces. Every `box-shadow` application, including scroll cues and resets, lives in `tokens.css`; Stylelint rejects the property elsewhere.
+Native confirmations use the system's appearance. Every remaining web modal, anchored panel/menu and Terminal Bubble shares the recipe in `tokens.css`: opaque surface, 12 px radius and `--elevation`: a half-pixel edge ring, tight contact shadow and softer ambient shadow. Screen CSS owns content layout only. D8 allows this depth on `.app-dialog`, `.app-menu`, `.app-popover` and `.app-select-list` as well as its existing floating surfaces. Every `box-shadow` application, including scroll cues and resets, lives in `tokens.css`; Stylelint rejects the property elsewhere.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
@@ -278,3 +281,18 @@ replies consume the same columns. Dark uses Ghostty's pinned unconfigured palett
 Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
 Default text and App controls retain D5; reference ANSI cells and program-authored
 colours have U3517c's explicit exception. No colour is brightened to meet a Check.
+
+
+## Design-system pass requirements (U130–U137)
+
+The elevation recipe is implemented; the remaining requirements below are specification policy until their implementation lands. The acceptance in `scenarios/ui-visual.md`, heading “Design-system pass acceptance (U130–U137)”, adds duties to D4, D7, D8, D9 and D10 without removing the existing Checks.
+
+| Check | Additional requirement |
+| --- | --- |
+| D4 | Every enabled control answers a press with Token colour, opacity or scale by the first subsequent frame. A control unfilled at rest gains no hover or pressed ground. |
+| D7 | A selected, focused or dragged item row has exactly one changed cue: text colour or one selected ground; combined states reuse the cue. |
+| D8 | Rail, Todo, Pad and Terminal-tab first text uses one local inset after tree indentation; text and Glyph optical baselines agree within 1 CSS px. |
+| D9 | Stylelint rejects importance, unowned px/ms/s/colours, selectors over two compounds and child combinators; no existing-hit allowlist. Duration and reduced-motion checks remain. |
+| D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the system accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
+
+D10’s edge ring is not a control outline or focus ring. Native material is the sole new transparency exception for Rail/Shelf. No shader or WebGL background. Terminal ANSI remains U3517’s palette. Browser captures prove web rendering only; native material and launch cost require the implementation’s Mac observation. No new Token values, App seam names or native performance claims are established by this policy merge.

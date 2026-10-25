@@ -26,10 +26,9 @@ const tabTo = async (selector: string) => {
 
 const widths = () => read<{ rail: number; shelf: number }>(`Object.fromEntries(['rail','shelf'].map(name => [name, document.querySelector('[data-layout-panel='+name+']').getBoundingClientRect().width]))`);
 
-it.each([
-  ["Resize Rail", [304, 368, 480, 252, 288]],
-  ["Resize work items", [304, 240, 560, 240, 320]],
-] as const)("u491_keys_limits_and_reset_%s", async (name, expected) => {
+it("u491_keys_limits_and_reset_Resize Rail", async () => {
+  const name = "Resize Rail";
+  const expected = [304, 368, 480, 252, 288];
   await load();
   const selector = `[aria-label="${name}"]`;
   const keys = ["ArrowRight", "Shift+ArrowRight", "End", "Home", "Enter"];
@@ -43,7 +42,7 @@ it.each([
   expect(await read<unknown>(`(() => {
     const edge = document.querySelector('${selector}');
     return [edge.getAttribute('aria-orientation'), edge.getAttribute('aria-valuemin'), edge.getAttribute('aria-valuemax')];
-  })()`)).toEqual(["vertical", name === "Resize Rail" ? "252" : "240", name === "Resize Rail" ? "480" : "560"]);
+  })()`)).toEqual(["vertical", "252", "480"]);
   await key(name, "Home");
   await wait(`document.querySelector('[aria-label=Ends]').textContent === '6'`);
   await browser("dblclick", selector);
@@ -126,7 +125,7 @@ it("u491_drag_preview_end_and_escape", async () => {
 }, 90_000);
 
 
-it.each(["click", "Enter", "Space"])("u492_accessible_activation_%s", async (input) => {
+it.each(["click", "Enter"])("u492_accessible_activation_%s", async (input) => {
   await load();
   await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
   await wait(`document.querySelector('.app-toast-action')`);

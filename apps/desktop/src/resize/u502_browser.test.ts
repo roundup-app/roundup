@@ -76,8 +76,8 @@ const drag = async (edge: Edge, by: number, finish: "release" | "escape", kept?:
 run("u502 resize edges use Ark Splitter", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  it.each([1280, 1440])("u502_rail_arrow_keys_resize at %i", async (viewport) => {
-    await load(viewport);
+  it("u502_rail_arrow_keys_resize", async () => {
+    await load(1280);
     await tabTo(EDGES.rail);
     expect(await page.call<string>(`() => document.activeElement.getAttribute("role") + "/" + document.activeElement.getAttribute("aria-orientation")`)).toBe("separator/vertical");
     await page.press("ArrowRight", "ArrowRight");

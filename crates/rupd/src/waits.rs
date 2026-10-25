@@ -30,7 +30,8 @@ pub fn waits(todos: &[Todo]) -> HashMap<String, u32> {
 fn is_todo_event(event: &Event) -> bool {
     matches!(
         event.data,
-        EventData::TodoCreated(_)
+        EventData::TodoRestored(_)
+            | EventData::TodoCreated(_)
             | EventData::TodoUpdated(_)
             | EventData::TodoUnblocked(_)
             | EventData::TodoDeleted(_)

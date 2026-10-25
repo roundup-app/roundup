@@ -45,6 +45,8 @@ export type Emulator = {
   focus(): void;
   /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
+  /** Reports a fit caused by loaded faces or xterm's scale/cell-metric redraw, without sending input. */
+  onResize?: ((listener: (size: Size) => void) => void) | undefined;
   /** Whether the view sits at the newest line; false once the user has scrolled up. */
   isAtBottom(): boolean;
   /** Fires whenever the view's scroll position changes. */
@@ -62,13 +64,14 @@ export const attachRenderer = (
   terminal: Pick<Terminal, "loadAddon">,
   createWebgl: () => RendererAddon,
   warn: (message: string) => void,
+  lost?: () => void,
 ): boolean => {
   try {
     const webgl = createWebgl();
 
     terminal.loadAddon(webgl);
     // Past the webview's context limit the oldest context is lost; its Terminal falls back to the DOM renderer.
-    webgl.onContextLoss(() => webgl.dispose());
+    webgl.onContextLoss(() => { webgl.dispose(); lost?.(); });
 
     return true;
   } catch (failure) {
@@ -136,7 +139,7 @@ export type EchoProbe = {
   arrived(bytes: Uint8Array, id: string): void;
   written(bytes: Uint8Array, id: string): void;
   rendered(id: string): void;
-  renderer(webgl: boolean): void;
+  renderer(webgl: boolean, id: string): void;
 };
 
 /** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
@@ -166,6 +169,8 @@ export const createXtermEmulators = (
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
     const element = document.createElement("div");
+    let resized: (size: Size) => void = () => {};
+
     let opened = false;
     let disposed = false;
     let focusOnShow = true;
@@ -203,6 +208,8 @@ export const createXtermEmulators = (
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
       probe?.rendered(id);
+
+      refit();
     });
     terminal.onScroll(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -286,12 +293,47 @@ export const createXtermEmulators = (
       fontViewport = null;
     };
 
-    const size = (): Size => {
-      if (!fontsReady || disposed) return { cols: terminal.cols, rows: terminal.rows };
+    const rowWidth = (row: number, cols: number): number => {
+      const buffer = terminal.buffer.active;
+      const last = buffer.getLine(row)?.getCell(cols - 1);
+      const next = buffer.getLine(row + 1);
 
+      // xterm pads the last cell when a wide glyph wraps; that padding is not a selected character.
+      return next?.isWrapped && next.getCell(0)?.getWidth() === 2 && last?.getCode() === 0 ? cols - 1 : cols;
+    };
+
+    const size = (): Size => {
+      if (!fontsReady || disposed || element.closest("[hidden]")) return { cols: terminal.cols, rows: terminal.rows };
+
+      const previous = { cols: terminal.cols, rows: terminal.rows };
+      const proposed = fitter.proposeDimensions();
+      const changing = proposed && (proposed.cols !== previous.cols || proposed.rows !== previous.rows);
+
+      if (changing) prepareFontChange();
+
+      // xterm clears selection on resize. Its markers follow reflow, so retain endpoints in their
+      // logical lines rather than anchoring them to physical rows that a new column count replaces.
+      const endpoint = (x: number, y: number) => {
+        const buffer = terminal.buffer.active;
+        let first = y;
+
+        while (first > 0 && buffer.getLine(first)?.isWrapped) first -= 1;
+
+        const marker = terminal.registerMarker(first - buffer.baseY - buffer.cursorY);
+
+        let offset = x;
+
+        for (let row = first; row < y; row += 1) offset += rowWidth(row, previous.cols);
+
+        return { marker, offset };
+      };
+
+      const selection = changing ? terminal.getSelectionPosition() : undefined;
+      const start = selection ? endpoint(selection.start.x, selection.start.y) : null;
+      const end = selection ? endpoint(selection.end.x, selection.end.y) : null;
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
-      // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
+      // Fitting changed metrics must rewrap unfinished output instead of truncating the cursor line.
       if (fontChanged) terminal.options.reflowCursorLine = true;
 
       try {
@@ -305,6 +347,25 @@ export const createXtermEmulators = (
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
         fontChanged = false;
+
+        if (start?.marker && end?.marker && !start.marker.isDisposed && !end.marker.isDisposed) {
+          const position = (line: number, offset: number) => {
+            while (terminal.buffer.active.getLine(line + 1)?.isWrapped && offset >= rowWidth(line, terminal.cols)) {
+              offset -= rowWidth(line, terminal.cols);
+              line += 1;
+            }
+
+            return { line, col: offset };
+          };
+
+          const from = position(start.marker.line, start.offset);
+          const to = position(end.marker.line, end.offset);
+
+          terminal.select(from.col, from.line, (to.line - from.line) * terminal.cols + to.col - from.col);
+        }
+
+        start?.marker?.dispose();
+        end?.marker?.dispose();
       }
 
       if (fontViewport !== null) {
@@ -313,7 +374,20 @@ export const createXtermEmulators = (
         else restoreFontViewport();
       }
 
-      return { cols: terminal.cols, rows: terminal.rows };
+      const fitted = { cols: terminal.cols, rows: terminal.rows };
+
+      if (fitted.cols !== previous.cols || fitted.rows !== previous.rows) resized(fitted);
+
+      return fitted;
+    };
+
+    // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
+    const refit = () => {
+      if (!opened || disposed || !fontsReady || !element.parentElement || element.closest("[hidden]")) return;
+
+      const proposed = fitter.proposeDimensions();
+
+      if (proposed && (proposed.cols !== terminal.cols || proposed.rows !== terminal.rows)) size();
     };
 
     const prepareFontChange = () => {
@@ -352,12 +426,10 @@ export const createXtermEmulators = (
           loadedWebgl = createWebgl();
 
           return loadedWebgl;
-        }, console.warn);
+        }, console.warn, () => probe?.renderer(false, id));
 
-        probe?.renderer(!webglDenied);
+        probe?.renderer(!webglDenied, id);
       }
-
-      if (focusOnShow) terminal.focus();
     };
 
     return {
@@ -389,10 +461,14 @@ export const createXtermEmulators = (
       inputEncoded: probe ? () => probe.encoded(id) : undefined,
       onInput: (listener) => {
         terminal.onData((text) => {
+          refit();
           probe?.input(id);
           listener(encoder.encode(text));
         });
-        terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
+        terminal.onBinary((text) => {
+          refit();
+          listener(Uint8Array.from(text, (char) => char.charCodeAt(0)));
+        });
       },
       onLink: (listener) => {
         linkListener = listener;
@@ -408,9 +484,14 @@ export const createXtermEmulators = (
 
         open();
 
-        return size();
+        const fitted = size();
+
+        if (focusOnShow) terminal.focus();
+
+        return fitted;
       },
       fit: size,
+      onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
       isAtBottom: () => terminal.buffer.active.viewportY === terminal.buffer.active.baseY,
       onScroll: (listener) => terminal.onScroll(() => listener()),

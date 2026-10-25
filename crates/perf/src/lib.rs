@@ -7,3 +7,7 @@ mod launch;
 pub mod machine;
 pub mod measure;
 pub mod webview;
+
+pub mod idle;
+
+pub mod app;

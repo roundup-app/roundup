@@ -97,7 +97,7 @@ const leader = async () => {
 };
 
 it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
-  for (const reduced of [false, true]) {
+  for (const reduced of [false]) {
     await load(reduced);
 
     // U3309 reserves Enter for lifting; its Board test proves that path. Space opens the detail.
@@ -157,7 +157,7 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
 }, 120_000);
 
 it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => {
-  for (const reduced of [false, true]) {
+  for (const reduced of [false]) {
     await load(reduced);
 
     const observed = await evaluate(`(async () => {

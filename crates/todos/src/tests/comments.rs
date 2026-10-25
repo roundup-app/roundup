@@ -110,7 +110,9 @@ async fn t20_delete_removes_the_comments() {
     h.call_as(agent("a"), "todo.comment", json!({"id": 1, "body": "q?"}))
         .await
         .unwrap();
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     assert_eq!(h.call("todo.unread", json!({})).await.unwrap(), json!([]));
     made(&h, json!({"title": "again"})).await;
     // A new Todo never inherits the deleted one's thread.
@@ -223,7 +225,9 @@ async fn t23_unread_persists_and_delete_clears_it() {
     let h = Harness::new(dir.path());
     let unread = h.call("todo.unread", json!({})).await.unwrap();
     assert_eq!(unread.as_array().unwrap().len(), 1);
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     assert_eq!(h.call("todo.unread", json!({})).await.unwrap(), json!([]));
 }
 
