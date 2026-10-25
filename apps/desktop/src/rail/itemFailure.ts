@@ -2,7 +2,7 @@ import { createEffect, createSignal } from "solid-js";
 
 /** P3557c: one failure line about at most one item. It goes when that item is gone, when a later save of it is acknowledged, or when dismissed; a failure with no item stays until `clear`. */
 export const createItemFailure = (exists: (item: string) => boolean) => {
-  const [state, setState] = createSignal<{ message: string; item: string | null } | null>(null);
+  const [state, setState] = createSignal<{ message: string; item: string | null; surface: "rail" | "pane" } | null>(null);
 
   const live = () => {
     const current = state();
@@ -16,9 +16,10 @@ export const createItemFailure = (exists: (item: string) => boolean) => {
 
   return {
     message: () => live()?.message ?? null,
-    show: (message: string, item: string | null = null) => setState({ message, item }),
+    surface: () => live()?.surface ?? null,
+    show: (message: string, item: string | null = null, surface: "rail" | "pane" = "rail") => setState({ message, item, surface }),
     /** An acknowledged save, or any success, of `item` clears only a failure about it. */
-    acknowledge: (item: string) => {
+    acknowledge: (item: string | null) => {
       if (state()?.item === item) setState(null);
     },
     clear: () => setState(null),

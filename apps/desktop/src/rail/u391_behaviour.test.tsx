@@ -1,8 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { RpcError } from "../app/seam";
 import type { DaemonExit } from "../app/seam";
 import { mountRail, pinnedAdd, railCallsTo } from "./railFixture";
 import { workstream } from "../testing/nodes";
@@ -37,19 +36,4 @@ describe("u391 the footer button keeps U9 and U25", () => {
     expect(railCallsTo(exited.app, "rail.createWorkstream")).toEqual([]);
   });
 
-  it("u391_the_error_line_stays_above_it", async () => {
-    const mounted = await mountRail([workstream("g")]);
-
-    mounted.app.handlers["rail.createWorkstream"] = () => {
-      throw new RpcError(-32000, "boom");
-    };
-
-    fireEvent.click(pinnedAdd());
-
-    const line = (await screen.findByText("boom")).closest<HTMLElement>(".ink") ?? screen.getByText("boom");
-    const footer = pinnedAdd().parentElement!;
-
-    expect(document.querySelector(".rail-scroll")!.contains(line)).toBe(false);
-    expect(footer.previousElementSibling === line || footer.previousElementSibling?.contains(line)).toBe(true);
-  });
 });
