@@ -753,7 +753,7 @@ fn s3_when_the_daemon_exits_on_its_own_the_webview_gets_daemon_exited_with_its_c
 
     assert_eq!(
         exited.recv_timeout(WAIT).unwrap(),
-        json!({ "path": fx.project.display().to_string(), "code": 7 })
+        json!({ "path": fx.project.display().to_string(), "code": 7, "recovery": "waiting" })
     );
 }
 
@@ -769,7 +769,7 @@ fn s3_a_daemon_ended_by_a_signal_has_a_null_code() {
 
     assert_eq!(
         exited.recv_timeout(WAIT).unwrap(),
-        json!({ "path": fx.project.display().to_string(), "code": null })
+        json!({ "path": fx.project.display().to_string(), "code": null, "recovery": "waiting" })
     );
 }
 
@@ -974,7 +974,7 @@ fn s5_daemon_exited_fires_again_when_the_reopened_daemon_exits() {
 
     assert_eq!(
         exited.recv_timeout(WAIT).unwrap(),
-        json!({ "path": fx.project.display().to_string(), "code": 0 })
+        json!({ "path": fx.project.display().to_string(), "code": 0, "recovery": "waiting" })
     );
 }
 
@@ -1045,7 +1045,7 @@ fn s5_after_a_failed_reopen_a_different_path_opens_a_second_daemon() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -eq 2 ]; then\n\
+         elif [ \"$n\" -le 4 ]; then\n\
          echo 'boom: reopen failed' >&2\n\
          exit 3\n\
          else\n\
@@ -1079,7 +1079,7 @@ fn s5_after_a_failed_reopen_the_same_path_can_be_retried() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -eq 2 ]; then\n\
+         elif [ \"$n\" -le 4 ]; then\n\
          echo 'boom: reopen failed' >&2\n\
          exit 3\n\
          else\n\
@@ -1248,7 +1248,7 @@ fn s5_a_refused_reopen_does_not_burn_a_run_number() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -eq 4 ]; then\n\
+         elif [ \"$n\" -eq 8 ]; then\n\
          printf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n\
          {link}\n\
          exec cat\n\
@@ -1457,7 +1457,7 @@ fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
 
     assert_eq!(
         exited.recv_timeout(WAIT).unwrap(),
-        json!({ "path": fx.project.display().to_string(), "code": 7 })
+        json!({ "path": fx.project.display().to_string(), "code": 7, "recovery": "waiting" })
     );
     assert_eq!(
         invoke(&webview, "projects", json!({})),
