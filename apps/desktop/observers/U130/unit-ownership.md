@@ -5,7 +5,7 @@ This continues #3948 through merged #4005 and #4013; their row-state repairs
 and shared insets remain intact.
 
 Baseline: main `ab3a3041fbb91b1904296d0383562fbf11e742fd`.
-Runtime: `a41959a5923fb10b057ddd37625293bdde3877ca`.
+Runtime: `d0b24286f3d4c0224ab9c489530dec389cb1ac42`.
 
 An in-process Stylelint audit reads every authored CSS file with
 `unit-disallowed-list: [px, ms, s]`, exempting only `tokens.css`.
@@ -58,8 +58,19 @@ first-frame press, complete interaction-state or performance claim.
 
 Both `just lint-web` and `just lint-rust` pass, including `ALL PROOFS CHECK`.
 Stylelint, Token ownership, merge-loss and `git diff --check` pass.
-The initial broad related-test selection was interrupted after ten passing
-files to run the prescribed full capture suite instead; it is not a full pass.
+The prescribed `just capture U130,U131,U132,U133,U134,U135,U136,U137` run
+completed with 4,014 passed, 57 skipped and two failed tests. It is not recorded
+as green. Both failures were repaired: the U135 jsdom fixture now expands the
+instant Token through the existing Token resolver, retaining its assertions;
+the scrollbar Token is named `--terminal-scrollbar-size` so the existing
+ownership scan does not read its name as a native property declaration.
+Fresh repair checks pass all eight tests with `--retry=0 --maxWorkers=1`
+(U135, U130 and scrollbar ownership).
+
+The broad run passed `p2544d_stale_write_without_event_keeps_draft` on retry.
+Its isolated rerun passes with retries disabled. No timeout was raised.
+The initial related-test selection was interrupted after ten passing files
+in favour of the full capture run; it is not a full pass. CI judges the push.
 
 ## Remaining acceptance
 
