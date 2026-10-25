@@ -958,3 +958,32 @@ work from useful-task CPU. Function entry/return supplies bounds, not
 linearization. Pending-read idle exclusion, overlapping branches and the
 selected-future/full-poll distinction remain. The original six clean observations
 are history only; this investigation creates no clean R16 verdict or baseline.
+
+### R23 diagnostic configuration, hooks and marker output (#4128)
+
+[State separation, executable identities, ELF/source locations and reproduction](../crates/perf/evidence/r23-configuration-40232491081/README.md)
+retain hosted job 40232491081 on one Ubuntu 24.04 EPYC 7763 boot. Existing
+release/complete diagnostic binaries and common/marked observers were restored
+byte-for-byte; unmodified diagnostic configuration and hook-only states were
+built at both R8 pins with identical Rust 1.99.0/debug/unstable settings.
+
+Three alternating four-state cycles per pin/observer produce 48 qualified
+single-Daemon controls with the existing scheduler/syscall recorder fixed.
+Loads are 1.46–4.00 on four CPUs, with no skips or busy repeats. Every invocation
+returns 1 against labelled zero-sentinel diagnostic scratch ceilings, not a clean
+R16 verdict. Cold start spans 12.418899–51.433453 ms, output p95
+0.255790–0.507042 ms and extra RSS 2.398438–3.386719 MB; their absolute limits
+remain unchanged.
+
+[Write-metric variation](../crates/perf/evidence/r23-configuration-40232491081/table.md)
+and all-metric evidence distinguish each transition. Configuration-only deltas
+have mixed signs across groups. Hook-only and complete-marker transitions
+increase both write p95s in every paired repetition here. These conditional
+aggregate differences cannot bound a stage or correct a clean p95. The hook
+state retains delegated wakers/call-site work but emits no complete poll profile.
+Formatting, stderr lock/write, scheduling and recorder execution remain
+inseparable; useful-task attribution stays incomplete for #4031/#3760/#3720.
+Exact queue insertion/publication, overlapping branches, pre-write read idle
+and acceptance-as-physical-completion remain unsupported. The original six
+clean observations remain history only; no baseline, calibration or production
+behavior changes.
