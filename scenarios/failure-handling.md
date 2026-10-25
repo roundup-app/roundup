@@ -22,6 +22,9 @@ Given an open Project whose Daemon unexpectedly exits, then:
 
 Policy: this narrows U25 and U37 (`scenarios/ui.md`) only in automatic recovery and exit-line timing: their disconnected-input protection, retained Rail and whole-connection/refetch behavior remain. Their immediate-exit-text tests are replaced by the third-failure observer, not left asserting the old timing. Other tests affected only by the extra read/storage attempt inject two failures when they intend to exercise an exhausted failure; retain their original identity, mutation-count and draft assertions.
 
+Definition (relocated from GLOSSARY.md): **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
+The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
 **U3791b codes determine copy and outcomes.** Given an error from the Daemon or desktop adapter, then:
 
 - Every integer constant in `rpc::code` has an explicit App copy entry; the table's domain is derived from `crates/rpc/src/error.rs`, never a hand-copied count. Planned `u3791b_every_rpc_code_has_copy` extracts that module's constants and fails for any missing entry, including a newly added constant. Unknown codes have actionable generic copy without being treated as known refusal. Detailed diagnostics stay available without controlling classification.

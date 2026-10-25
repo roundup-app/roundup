@@ -136,6 +136,13 @@ A miss is investigated with Web Inspector Timelines or Instruments to identify t
 
 ## Keystroke-to-render in the App (`apps/desktop`, run by `crates/perf`)
 
+Definition (relocated from GLOSSARY.md): **Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`):
+The opt-in R24 App producer's run-owned native and webview observation journal.
+Native notifications and document events are separate observed facts; requested window
+states are never observations. The measurement-only App command accepts typed renderer
+records, writes only the startup-selected bounded file, and grants no execution authority.
+It is absent without the `idle-perf` Cargo feature.
+
 **K1 opt-in.** Given a normal build, then its bundle holds no trace of the keystroke probe (the string `roundup-keystroke-probe` is absent). A build made with `VITE_ROUNDUP_PERF` carries it. The probe is chosen when the bundle is built, so a normal run pays nothing and no query or flag can switch it on.
 
 **K2 a sample.** The time of a key is from its `keydown` to the first render after the emulator has parsed the typed character itself as output. A render before that echo does not count, and neither does other output of the program. A key whose echo is not rendered within 500 ms is dropped and counted. The first 100 keys are discarded; the rest give `n`, `dropped`, p50, p95, p99 and max by nearest rank.
