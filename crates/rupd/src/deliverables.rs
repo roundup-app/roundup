@@ -42,7 +42,7 @@ impl Publications {
                 .map_err(RpcError::internal)?;
             if let PublishedTarget::Pad { incarnation, .. } = record.target
                 && matches!(
-                    pad_state(&db, &incarnation).map_err(RpcError::internal)?,
+                    pad_state(&db, &incarnation, &record.id).map_err(RpcError::internal)?,
                     pads::PadSourceState::Deleted(pads::PadDeletion::User)
                         | pads::PadSourceState::Unknown
                 )
@@ -71,16 +71,25 @@ impl Publications {
     }
 }
 
+fn open_directory(
+    at: impl std::os::fd::AsFd,
+    name: impl rustix::path::Arg,
+) -> std::io::Result<std::fs::File> {
+    use rustix::fs::{Mode, OFlags};
+    Ok(rustix::fs::openat(
+        at,
+        name,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?
+    .into())
+}
+
 // This is part of the existing publication owner: SQLite alone selects live identities.
 impl Publications {
     fn directory(&self, create: bool) -> std::io::Result<std::fs::File> {
-        use rustix::fs::{CWD, Mode, OFlags, openat};
-        let parent = openat(
-            CWD,
-            self.cache.parent().expect("Project data"),
-            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-            Mode::empty(),
-        )?;
+        use rustix::fs::{CWD, Mode};
+        let parent = open_directory(CWD, self.cache.parent().expect("Project data"))?;
         if create {
             match rustix::fs::mkdirat(&parent, "publication-files", Mode::from_raw_mode(0o700)) {
                 Ok(()) | Err(rustix::io::Errno::EXIST) => {}
@@ -91,16 +100,10 @@ impl Publications {
             rustix::fs::fsync(&parent)?;
             observe("parent_synced").map_err(std::io::Error::other)?;
         }
-        Ok(openat(
-            &parent,
-            "publication-files",
-            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-            Mode::empty(),
-        )?
-        .into())
+        open_directory(&parent, "publication-files")
     }
     fn pending(dir: &std::fs::File) -> std::io::Result<cap_std::fs::Dir> {
-        use rustix::fs::{Mode, OFlags};
+        use rustix::fs::Mode;
         match rustix::fs::mkdirat(dir, "pending", Mode::from_raw_mode(0o700)) {
             Ok(()) | Err(rustix::io::Errno::EXIST) => {}
             Err(e) => return Err(e.into()),
@@ -108,13 +111,9 @@ impl Publications {
         fault("pending_parent_sync")?;
         rustix::fs::fsync(dir)?;
         observe("pending_directory_synced").map_err(std::io::Error::other)?;
-        let fd = rustix::fs::openat(
-            dir,
-            "pending",
-            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-            Mode::empty(),
-        )?;
-        Ok(cap_std::fs::Dir::from_std_file(fd.into()))
+        Ok(cap_std::fs::Dir::from_std_file(open_directory(
+            dir, "pending",
+        )?))
     }
     fn persist(&self, id: &str, bytes: &[u8]) -> std::io::Result<()> {
         use rustix::fs::OFlags;
@@ -621,7 +620,7 @@ fn resolve(
             sha256,
             ..
         } => {
-            match pad_state(db, incarnation).map_err(RpcError::internal)? {
+            match pad_state(db, incarnation, &record.id).map_err(RpcError::internal)? {
                 pads::PadSourceState::Deleted(pads::PadDeletion::User) => {
                     return unavailable(UnavailableCause::AccessRevoked);
                 }
@@ -740,17 +739,8 @@ fn open_source(root: &Path, path: &str) -> Result<std::fs::File, RpcError> {
     let parent = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
     let mut directory = dir.into_std_file();
     for part in parent.components() {
-        directory = rustix::fs::openat(
-            &directory,
-            part.as_os_str(),
-            rustix::fs::OFlags::RDONLY
-                | rustix::fs::OFlags::DIRECTORY
-                | rustix::fs::OFlags::NOFOLLOW
-                | rustix::fs::OFlags::CLOEXEC,
-            rustix::fs::Mode::empty(),
-        )
-        .map_err(|e| RpcError::forbidden(format!("cannot read publication directory: {e}")))?
-        .into();
+        directory = open_directory(&directory, part.as_os_str())
+            .map_err(|e| RpcError::forbidden(format!("cannot read publication directory: {e}")))?;
     }
     let dir = Dir::from_std_file(directory);
     options.custom_flags(
@@ -980,12 +970,28 @@ impl FileSource {
     }
 }
 
-fn pad_state(db: &Connection, incarnation: &str) -> rusqlite::Result<pads::PadSourceState> {
+fn pad_state(
+    db: &Connection,
+    incarnation: &str,
+    publication: &str,
+) -> rusqlite::Result<pads::PadSourceState> {
     let Ok(id) = incarnation.parse::<i64>() else {
         return Ok(pads::PadSourceState::Unknown);
     };
     if id.to_string() != incarnation {
         return Ok(pads::PadSourceState::Unknown);
+    }
+    // Restoring source data never grants access to an explicitly revoked publication.
+    let revoked: bool = db
+        .query_row(
+            "SELECT access_revoked FROM deliverables WHERE id=?1",
+            [publication],
+            |r| r.get(0),
+        )
+        .optional()?
+        .unwrap_or(false);
+    if revoked {
+        return Ok(pads::PadSourceState::Deleted(pads::PadDeletion::User));
     }
     pads::source_state(db, id)
 }
