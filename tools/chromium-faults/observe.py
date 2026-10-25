@@ -341,7 +341,7 @@ def main():
         # timeout from forwarding a second INT: bpftrace treats it as a hard
         # stop and omits END's final evidence. Preserve the tracer's exit status
         # rather than timeout's 124 for an externally requested graceful stop.
-        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--foreground", "--preserve-status", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE")), str(options.samples)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--foreground", "--preserve-status", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "--no-warnings", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE")), str(options.samples)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         readers = [threading.Thread(target=target, daemon=True) for target in (consume, stderr, announce)]
         for reader in readers:
             reader.start()
