@@ -846,7 +846,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
     );
     for method in contracts::methods::METHODS
         .iter()
-        .filter(|m| m.result == "null")
+        .filter(|m| m.result == "()")
     {
         let name = method.name.replace('.', "_");
         if !tools.iter().any(|t| t.name == name) {

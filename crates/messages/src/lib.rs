@@ -3,6 +3,7 @@
 //! writes it to the receiving Agent's Claude inbox.
 
 pub mod continuation;
+mod contract_handlers;
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
@@ -669,15 +670,7 @@ impl Module for Messages {
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
-        match method {
-            "message.send" => self.send(ctx, send_params(value)?).await,
-            "message.get" => self.get(ctx, params(value)?),
-            "message.list" => self.list(ctx, params(value)?),
-            "message.drop" => self.drop_message(ctx, params(value)?).await,
-            "route.set" => self.set_route(ctx, params(value)?).await,
-            "route.list" => self.list_routes(),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::messages_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 

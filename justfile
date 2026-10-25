@@ -88,9 +88,14 @@ web-durations run:
     mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
 
 # Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
+contracts:
+    cargo run --quiet -p contracts --bin contracts
+
+contracts-test:
+    python3 -m unittest discover -s tools/contracts
+
 contracts-fresh:
-    git diff --exit-code -- contracts/generated
-    test -z "$(git ls-files --others --exclude-standard contracts/generated)"
+    python3 tools/contracts/fresh.py
 
 # Runs a script in every pnpm workspace package (apps/*, ext/*), passing it <args>; packages without it are skipped, no packages is a pass.
 packages script *args:

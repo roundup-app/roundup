@@ -8,7 +8,9 @@ version.workspace = true
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true
-ts-rs.workspace = true
+specta.workspace = true
+specta-serde.workspace = true
+specta-typescript.workspace = true
 
 [lints]
 workspace = true
