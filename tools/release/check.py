@@ -71,7 +71,7 @@ def check_modules(report, inventory, dist):
             chunks.add(chunk)
             css_only[chunk] = css_only.get(chunk, True) and name.endswith(".css") and parts[part]["renderedLength"] == 0
             linked.add(part)
-            implementation = (name.startswith(("mermaid@", "@shikijs/langs/", "@shikijs/engine-", "@pierre/highlights/"))
+            implementation = (name.startswith(("mermaid@", "@mermaid-js/parser/", "@shikijs/langs/", "@shikijs/engine-", "@pierre/highlights/"))
                               or "/highlighter/backends/shiki.js" in name)
             if implementation and name not in allowed:
                 failures.append({"module": name, "chunk": chunk, "passed": False})

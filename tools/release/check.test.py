@@ -109,6 +109,7 @@ class Release(unittest.TestCase):
             ("mermaid@12.1.0/dist/chunks/mermaid.core/unknownDiagram-ABC.mjs", "assets/alone.js", 1),
             ("mermaid@12.1.0/dist/chunks/mermaid.core/unknownDiagram-ABC.mjs", "assets/shared.js", 1),
             ("@shikijs/langs/dist/typescript.mjs", "assets/shared.js", 1),
+            ("@mermaid-js/parser/dist/unregistered.js", "assets/shared.js", 1),
         ]:
             with self.subTest(module=module, chunk=chunk):
                 import shutil
