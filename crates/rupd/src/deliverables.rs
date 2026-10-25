@@ -605,6 +605,75 @@ mod tests {
     use super::*;
     use serde_json::json;
     #[tokio::test]
+    async fn dv2_append_recovers_wal_without_retaining_a_second_payload_log() {
+        let dir = tempfile::tempdir().unwrap();
+        crate::storage::open(dir.path()).unwrap();
+        let path = dir.path().join("project.db");
+        let old = Connection::open(&path).unwrap();
+        old.pragma_update(None, "journal_mode", "WAL").unwrap();
+        old.set_db_config(
+            rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE,
+            true,
+        )
+        .unwrap();
+        old.execute(
+            "INSERT INTO message_sender_names VALUES ('kept', 'Before restart')",
+            [],
+        )
+        .unwrap();
+        let project: String = old
+            .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
+            .unwrap();
+        drop(old);
+        assert!(dir.path().join("project.db-wal").metadata().unwrap().len() > 0);
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = Conn {
+            actor: contracts::Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        let pad = daemon
+            .route(
+                &mut conn,
+                "pad.create",
+                json!({"name":"notes","text":"retained revision"}),
+            )
+            .await
+            .unwrap();
+        let record = daemon.route(&mut conn, "deliverable.publish", json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await.unwrap();
+        assert_eq!(record["project"], project);
+        let db = Connection::open(path).unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT name FROM message_sender_names WHERE agent='kept'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "Before restart"
+        );
+        assert_eq!(
+            daemon
+                .route(&mut conn, "deliverable.list", json!({}))
+                .await
+                .unwrap(),
+            json!([record])
+        );
+        assert!(
+            !dir.path().join("project.db-wal").exists(),
+            "append must retain its payload in the main database only"
+        );
+        assert_eq!(
+            db.query_row("SELECT bytes FROM deliverable_bytes", [], |r| r
+                .get::<_, Vec<u8>>(0))
+                .unwrap(),
+            b"retained revision"
+        );
+    }
+
+    #[tokio::test]
     async fn dv2_metadata_only() {
         let dir = tempfile::tempdir().unwrap();
         let daemon = crate::test_daemon(dir.path()).unwrap();
