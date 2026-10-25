@@ -58,7 +58,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     return value.success ? value.output : "";
   };
 
-  const setText = (text: string) => drafts.edit(destination, { text, targetCaptured: true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, input
+  const setText = (text: string) => drafts.edit(destination, { text, targetCaptured: nativeSession || current()?.value.targetCaptured === true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, input
     ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null, "ordinary");
 
   const recovered = () => records().filter(draft => draft.revision !== current()?.revision && draft.status !== "pending");
@@ -115,7 +115,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     if (open()) return;
 
     nativeSession = false;
-    capturedTarget = selectedTarget();
+    capturedTarget = undefined;
     returnTo = document.activeElement;
     setOpen(true);
   };

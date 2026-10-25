@@ -93,7 +93,7 @@ export const createTauriApp = (): App => {
 
   const app: App = {
     capture: /mac/i.test(navigator.platform) ? {
-      configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "Super+").replace("ctrl+", "Control+") ?? null }),
+      configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
       show: () => captureControl({ kind: "show" }),
       dismiss: () => captureControl({ kind: "dismiss" }),
       publish: snapshot => captureControl({ kind: "publish", snapshot }),
