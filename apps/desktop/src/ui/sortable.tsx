@@ -245,6 +245,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
     const source = event.operation.source;
 
+    if (source?.element) {
+      source.element.removeAttribute("data-pressed");
+
+      for (const control of source.element.querySelectorAll("[data-pressed]")) control.removeAttribute("data-pressed");
+    }
+
     previewed = null;
     clearPreview();
 
@@ -289,9 +295,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
+
         list?.setAttribute("data-sortable-index", String(source.index));
 
         if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
+
         track(source, event.operation.position);
       });
     }
@@ -370,11 +378,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const box = list?.getBoundingClientRect();
     const inside = !pointerDrag || (box && point.x >= box.left && point.x < box.right && point.y >= box.top && point.y < box.bottom);
 
+    // The extra gap can leave OptimisticSorting's index on a neighbour after the pointer returns.
+    // Use the library's lift shape to keep that return in the original slot, preserving horizontal depth.
+    const index = isSortable(source) ? pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : source.index : null;
+
     const final = tree && inside && !event.canceled && isSortable(source)
-      ? resolve(tree, String(source.id), source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
+      ? resolve(tree, String(source.id), index ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
       : null;
 
-    const index = isSortable(source) ? source.index : null;
     keyboard = null;
     previewed = null;
     tree?.onPreview(null);

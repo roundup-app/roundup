@@ -77,7 +77,8 @@
   pointer-events: none;
 }
 
-.rail-row .line {
+.rail-row .line,
+.rail-fold > button {
   min-width: 0;
   min-height: inherit;
   display: flex;
@@ -103,7 +104,8 @@
 }
 
 /* U131: reserve the same leading columns on branches and leaves. */
-.rail-row .line > .glyph {
+.rail-row .line > .row-state,
+.rail-fold > button > .glyph {
   margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
 
@@ -633,10 +635,6 @@
   white-space: nowrap;
 }
 
-.rail-tree [data-dnd-dragging] {
-  border-radius: var(--tree-row-radius);
-}
-
 /* U2556c: reserve actions so hover and selection never move Worktree state. */
 .worktree-chip {
   flex: none;
@@ -733,7 +731,7 @@
   color: var(--accent);
 }
 
-.rail-recovery summary:active {
+.rail-recovery summary[data-pressed="true"] {
   color: var(--text);
   transition-duration: var(--duration-instant);
 }
