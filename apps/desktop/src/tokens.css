@@ -438,6 +438,7 @@ button, file-tree-container, diffs-container {
 /* Preference values flow through every consumer, including library props. */
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --duration-vendor: 0s;
     --duration-drawer: 0s;
     --duration-crossfade: 0s;
     --duration-todo: 0s;
