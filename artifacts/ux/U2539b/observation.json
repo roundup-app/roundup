@@ -1,0 +1,21 @@
+{
+  "scenario": "U2539b",
+  "baseline": "b1544163a",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "observer": "isolated agent-browser, fresh profiles",
+  "seeds": [
+    "tree-40",
+    "agents-10",
+    "tabs-8",
+    "empty-project",
+    "resources"
+  ],
+  "changedFiles": [
+    0,
+    1,
+    500
+  ],
+  "checks": "All captured head Checks pass; delta reports no regression.",
+  "captureCommand": "ROUNDUP_BASELINE_ROOT=/tmp/calm-baseline/apps/desktop ROUNDUP_CAPTURES=U2539b pnpm --filter desktop exec vitest run src/changes/u2539b_rendered.test.ts --reporter=verbose"
+}

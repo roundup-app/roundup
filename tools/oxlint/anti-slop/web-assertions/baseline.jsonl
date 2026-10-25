@@ -35,7 +35,6 @@
 {"file":"apps/desktop/src/ask/dv5_real_daemon.test.tsx","test":"u2773a_ask_restores_original_projects_through_App_reopen","identity":"239490d35801964def3f319691d357b9b6d5cc3d92ae38533cf15ed77db844ea"}
 {"file":"apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_ask_bar_send_dismiss_once","identity":"23d711b4e1171b26bfd2b93f0a37ef9054532bea8033d15d0dca297daa7dfe51"}
 {"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567a_entries_follow_rail_order_with_door_status","identity":"a97334f368090fb9323b2d32405b49fa34b2049258c7c4be9376e0cd871e4ffb"}
-{"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567a_root_agents_need_attention_without_workstreams","identity":"0a6bb4a16dda7017b2c298708845b1bd0e0bd4caa573263ca8f1aed3f47613c3"}
 {"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567a_nothing_needs_you","identity":"bd12ac7082a32e71c94583c382adf7ed603342651328dba0f5ebfd7786b35b73"}
 {"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567c_the_shortcut_overlay_has_no_overview","identity":"14ef08d1a31927fa8da9538b8b44293d6e04b62c1c2a7cc2bd79ce9736a5bf42"}
 {"file":"apps/desktop/src/ask/u2749_tooltip_anchor.test.tsx","test":"u2749a_project_root_kind_owns_its_tooltip","identity":"02dbde8c58e832c31f3ea815d02e4270b474b2bdf239a1515e182f22e3c2212d"}

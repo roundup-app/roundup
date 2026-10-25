@@ -66,6 +66,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   const { daemon, connected, store, nodes, shells, emulators } = await mount();
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
+
   const command = (id: string, code: string, options: KeyboardEventInit = {}) => {
     if (source === "native-menu") { presses++; openProjectPage(id, "/p"); }
     else press(code, options);
