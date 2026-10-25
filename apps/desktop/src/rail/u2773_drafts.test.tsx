@@ -30,7 +30,7 @@ it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", asyn
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 
   if (outcome !== "acknowledged") {
-    expect(document.body.textContent).toContain("Completion unconfirmed");
+    expect(document.body.textContent).toContain("Send unconfirmed");
     fireEvent.click(screen.getAllByRole("button", { name: "Discard", hidden: true })[0]!);
   }
 
@@ -137,7 +137,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   open();
   expect(field().value).toBe(" A\n😀 ");
   fireEvent.keyDown(field(), { key: "Escape" });
-  expect(document.body.textContent).toContain("Not submitted");
+  expect(document.body.textContent).toContain("Failed");
   expect(railCallsTo(original.app, "agent.spawn")).toHaveLength(1);
 });
 

@@ -75,7 +75,7 @@ const mount = async () => {
   return shelf;
 };
 
-const assignWord = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"] [aria-label="assign ${pad}"]`)!;
+const assignWord = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"] [aria-label="Assign ${pad}"]`)!;
 
 const row = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"]`)!;
 

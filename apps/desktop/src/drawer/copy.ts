@@ -28,6 +28,6 @@ export const copy = {
   drawer: "Drawer",
   lastTouch: (actor: CopyValue, verb: CopyValue, time: string) => `${actor} ${verb} ${time}`,
   /** @prose */
-  padTouch: (actor: CopyValue, verb: CopyValue, time: CopyValue) => `${actor} has accessed this Pad at ${time} (${verb}).`,
+  padTouch: (actor: CopyValue, verb: CopyValue, time: CopyValue) => `${actor}: This Pad was accessed at ${time} (${verb}).`,
   you: "You",
 } as const;

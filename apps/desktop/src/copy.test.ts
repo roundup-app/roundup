@@ -96,6 +96,18 @@ it("u471_copy_guard_rejects_internal_vocabulary", () => {
   expect(rules(fixture('message: (name: string) => `Open ${name}`', 'copy.message("task Daemon draft")'))).toEqual([]);
 });
 
+it("u471_copy_guard_rejects_internal_vocabulary_in_helpers_and_branches", () => {
+  for (const entries of [
+    'message: () => true ? "Storage" : "Sessions"',
+    'message: { nested: "Revisions" }',
+    'message: () => explain()',
+  ]) {
+    const files = fixture(entries);
+    files["app/copy.ts"] = 'const explain = () => "Daemon"; ' + files["app/copy.ts"];
+    expect(rules(files)).toContain("vocabulary");
+  }
+});
+
 it.each(["draft", "drafts", "retained work", "revision", "unfinished rail work"])("u471_copy_guard_uses_one_recovery_name_%s", text => {
   expect(rules(fixture(`message: () => true ? "Unfinished work" : ${JSON.stringify(text)}`))).toContain("recovery-name");
   expect(rules(fixture('message: "Unfinished work"'))).toEqual([]);
@@ -116,10 +128,11 @@ it("u471_copy_allowlist_only_shrinks", () => {
 it("u471_copy_allowlist_rejects_wildcards_duplicates_and_malformed_rows", () => {
   const files = fixture('message: "Open this selected Agent"');
   const baseline = checkCopy(files).inventory;
-  const errors = (next: unknown) => checkCopy(files, { baseline: next as Violation[], previous: baseline }).diagnostics.map(each => each.rule);
+  const errors = (next: Violation[]) => checkCopy(files, { baseline: next, previous: baseline }).diagnostics.map(each => each.rule);
   expect(errors([{ ...baseline[0]!, identity: "*" }])).toContain("baseline-invalid");
   expect(errors([{ ...baseline[0]!, fingerprint: "*" }])).toContain("baseline-invalid");
-  expect(errors([{ ...baseline[0]!, extra: true }])).toContain("baseline-invalid");
+  const malformed = { ...baseline[0]!, extra: true };
+  expect(errors([malformed])).toContain("baseline-invalid");
   expect(errors([...baseline, ...baseline])).toContain("baseline-duplicate");
 });
 

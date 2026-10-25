@@ -47,7 +47,7 @@ describe("u2694 the Rail's system menu", () => {
       text: "", updated_at: 0, revision: 1, home: null,
     }]);
 
-    fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
+    fireEvent.click(await screen.findByRole("button", { name: "1 Pads" }));
 
     const pad = await screen.findByRole("button", { name: "notes" });
     const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
@@ -72,7 +72,7 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([agent("a", "idle", "ready")], [], undefined, () => true);
     app.handlers["todo.list"] = () => [todo(5, { creator: { kind: "agent", id: "a", parent: null } })];
     app.emit(event({ name: "todo.created", data: todo(5, { creator: { kind: "agent", id: "a", parent: null } }) }));
-    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "1 Todos" }));
     const row = await screen.findByRole("button", { name: /#5 todo 5/ });
     const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
 
@@ -289,7 +289,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       const item = todo(1, { creator: own });
       app.handlers["todo.list"] = () => [item];
       app.emit(event({ name: "todo.created", data: item }));
-      fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+      fireEvent.click(await screen.findByRole("button", { name: "1 Todos" }));
       (await screen.findByRole("button", { name: /#1 todo 1/ })).focus();
       const move = await screen.findByRole<HTMLButtonElement>("button", { name: "Move #1" });
       expect(move.disabled).toBe(false);
@@ -309,7 +309,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
     { name: "Rail Pad link: its only Agent has exited", run: async () => {
       const own = { kind: "agent" as const, id: "a", parent: null };
       const { app } = await mountRail([agent("a", "done", "stopped")], [exitedTerminal("a", 0)], undefined, () => true, {}, [padOf("notes", own)]);
-      fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
+      fireEvent.click(await screen.findByRole("button", { name: "1 Pads" }));
       fireEvent.contextMenu(await screen.findByRole("button", { name: "notes" }));
       expect(entry(app, "Send to Agent").enabled).toBe(false);
       expect(entry(app, "Send to Agent").children).toBeUndefined();
@@ -405,7 +405,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       screen.getByRole("button", { name: "mine" }).focus();
-      const trigger = document.querySelector<HTMLButtonElement>('[aria-label="assign mine"]')!;
+      const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Assign mine"]')!;
       expect(trigger.disabled).toBe(false);
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
       expect(trigger.title).not.toBe("");

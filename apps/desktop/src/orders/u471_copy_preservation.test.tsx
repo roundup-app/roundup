@@ -21,7 +21,7 @@ it("u471_previous_copy_assertions_are_preserved_order_labels_use_sentence_case_a
   const line = await screen.findByRole("button", { name: "Order of lower case Agent" });
   expect(line.textContent).toBe("keep v1 routes? · no limits");
   fireEvent.click(line);
-  const drawer = await screen.findByLabelText("Full order of lower case Agent");
+  const drawer = await screen.findByLabelText("Order: lower case Agent");
   expect(drawer.textContent).toContain("keep v1 routes?");
   expect(drawer.querySelector(".order-done")?.textContent).toBe("routes stay");
   expect(screen.getByRole("img", { name: "Not done" })).toBeTruthy();

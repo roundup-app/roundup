@@ -82,7 +82,7 @@ it("u461_pad_drawer_keeps_its_touch_line", async () => {
 
   await openPad("Notes");
 
-  expect(await screen.findByText(/You wrote this Pad at/)).toBeTruthy();
+  expect(await screen.findByText(/You: This Pad was accessed at/)).toBeTruthy();
 });
 
 const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input: "pointer" | "space") => {
@@ -97,7 +97,7 @@ const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input:
   if (surface === "agent") mounted.connected.rail.select("a");
 
   if (surface === "rail") {
-    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "1 Todos" }));
   } else {
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   }

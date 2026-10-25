@@ -48,7 +48,7 @@ const mount = async (tree: RailNode[], options: { reduced?: boolean; back?: () =
 
 const lanes = () => within(screen.getByRole("list", { name: "Agents" })).getAllByRole("listitem").map((lane) => within(lane).getByRole("group").getAttribute("aria-label"));
 
-const blocks = (lane: string) => within(screen.getByRole("group", { name: `${lane} over the last 30 minutes` })).queryAllByRole("img").filter((each) => each.classList.contains("timeline-block")).map((each) => [each.getAttribute("aria-label"), Number(each.dataset.start), Number(each.dataset.end)]);
+const blocks = (lane: string) => within(screen.getByRole("group", { name: `${lane}: last 30m` })).queryAllByRole("img").filter((each) => each.classList.contains("timeline-block")).map((each) => [each.getAttribute("aria-label"), Number(each.dataset.start), Number(each.dataset.end)]);
 
 beforeEach(() => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"], now: NOW }));
 
@@ -65,7 +65,7 @@ const family = () => [
 it("u3768a_lanes_cover_agents_of_the_workstream", async () => {
   const back = vi.fn();
   await mount(family(), { back });
-  expect(lanes()).toEqual(["Door over the last 30 minutes", "Alpha over the last 30 minutes", "Beta over the last 30 minutes"]);
+  expect(lanes()).toEqual(["Door: last 30m", "Alpha: last 30m", "Beta: last 30m"]);
   fireEvent.keyDown(screen.getByRole("region", { name: "Timeline" }), { key: "Escape" });
   expect(back).toHaveBeenCalledOnce();
 });
@@ -98,7 +98,7 @@ it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => 
   await connected.rail.refresh();
   await show(connected);
   expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), NOW]]);
-  expect(lanes()).toEqual(["Door over the last 30 minutes", "Gone (removed) over the last 30 minutes"]);
+  expect(lanes()).toEqual(["Door: last 30m", "Gone (removed): last 30m"]);
   expect(screen.getByRole("img", { name: "Door started Gone" })).toBeTruthy();
 });
 
@@ -149,7 +149,7 @@ it("u3768c_a_removed_subagent_keeps_its_lane_and_line", async () => {
   const { app, connected } = await mount(family());
   app.handlers["rail.tree"] = () => family().filter((node) => node.id !== "b");
   await connected.rail.refresh();
-  await screen.findByRole("group", { name: "Beta (removed) over the last 30 minutes" });
+  await screen.findByRole("group", { name: "Beta (removed): last 30m" });
   expect(screen.getByRole("img", { name: "Alpha started Beta" })).toBeTruthy();
 });
 

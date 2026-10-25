@@ -234,7 +234,7 @@ it("p3557c_failure_lifetime_changes_rendered", async () => {
   await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
   await click("View diff");
   await wait("!!document.querySelector('.diff-reader button') && !!document.querySelector('diffs-container')");
-  await browser("eval", "[...document.querySelectorAll('button')].find(button => button.textContent === 'Send notes to agent-1').click()");
+  await browser("eval", "[...document.querySelectorAll('button')].find(button => button.textContent === 'Send to agent-1').click()");
   await wait("!!document.querySelector('.note-batch [role=alert]')");
   await observe("changes-submit-failed");
   await click("Dismiss");

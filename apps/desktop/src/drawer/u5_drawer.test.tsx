@@ -109,7 +109,7 @@ describe("u5 Drawer and last touch", () => {
   it("u5_the_last_touch_line_reads_the_newest_touch_in_the_history", () => {
     const history = [touch(USER, "read", at(9, 5)), touch(AGENT, "wrote", at(14, 2)), touch(USER, "read", at(11, 30))];
 
-    expect(lastTouchLine(history, names)).toBe("Last  auth-refactor wrote 14:02");
+    expect(lastTouchLine(history, names)).toBe("auth-refactor wrote 14:02");
   });
 
   it("u5_an_item_nobody_touched_has_no_last_touch_line", () => {
@@ -160,7 +160,7 @@ describe("u5 Drawer and last touch", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect((await screen.findByText(/^Last/)).textContent).toBe("Last  a wrote 08:07");
+    expect((await screen.findByText(/^a wrote/)).textContent).toBe("a wrote 08:07");
   });
 
   it("u190_the_last_touch_line_is_the_newest_read_when_an_older_read_resolves_last", async () => {
@@ -198,12 +198,12 @@ describe("u5 Drawer and last touch", () => {
     await vi.waitFor(() => expect(reads.length).toBe(2));
 
     reads[1]!.resolve([touch(AGENT, "wrote", at(9, 0))]);
-    await screen.findByText(/^Last\s+a wrote 09:00/);
+    await screen.findByText(/^a wrote 09:00/);
     reads[0]!.resolve([touch(USER, "read", at(8, 0))]);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByText(/^Last/).textContent).toBe("Last  a wrote 09:00");
+    expect(screen.getByText(/^a wrote/).textContent).toBe("a wrote 09:00");
   });
 
   it("u5_a_failed_read_shows_its_message_in_the_drawer_and_keeps_the_window", async () => {

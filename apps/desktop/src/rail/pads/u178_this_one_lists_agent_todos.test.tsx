@@ -73,17 +73,17 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
       await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
     };
 
-    await named("a1", "2 pads and todos");
-    await named("a2", "1 todos");
+    await named("a1", "2 work items");
+    await named("a2", "1 Todos");
   });
 
   it("u178_a_pads_only_control_is_named_pads", async () => {
     await mount(TREE, [], [padOf("n", by("a1"))]);
 
-    const button = await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: "1 pads" }));
+    const button = await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: "1 Pads" }));
 
     fireEvent.keyDown(document, { key: "Tab" });
     button.focus();
-    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("1 pads"));
+    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("1 Pads"));
   });
 });

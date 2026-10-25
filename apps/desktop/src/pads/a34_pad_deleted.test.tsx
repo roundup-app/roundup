@@ -72,8 +72,8 @@ it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
 
   app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "plan" } });
 
-  expect((await screen.findByText(/auth-refactor wrote this Pad at/)).textContent)
-    .toContain("auth-refactor wrote this Pad at");
+  expect((await screen.findByText(/auth-refactor: This Pad was accessed at/)).textContent)
+    .toContain("auth-refactor: This Pad was accessed at");
 });
 
 const failedSave = async (close = true) => {
@@ -200,7 +200,7 @@ it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: 
   fireEvent.input(pending, { target: { value: "unfinished" } });
 
   const assign = async () => {
-    fireEvent.click(document.querySelector('[data-pad="failed"] [aria-label="assign failed"]')!);
+    fireEvent.click(document.querySelector('[data-pad="failed"] [aria-label="Assign failed"]')!);
     fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
   };
 

@@ -277,7 +277,7 @@ it("p3557c_failure_lifetime_work_progress_navigation", async () => {
   await screen.findByText("Cannot open alpha; retry");
   select("beta");
   fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
-  await screen.findByLabelText("Full order of beta");
+  await screen.findByLabelText("Order: beta");
   expect(screen.queryByText("Cannot open alpha; retry")).toBeNull();
   expect(drafts("/p").list()).toEqual(before);
   expect(before.map(draft => [draft.destination, draft.value["ask"]])).toEqual([[{ surface: "orders", object: "a", recipient: "a" }, exact]]);

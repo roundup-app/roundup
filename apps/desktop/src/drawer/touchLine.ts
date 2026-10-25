@@ -18,7 +18,7 @@ export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) 
   return copy.lastTouch(nameOf(newest.actor), newest.verb, `${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`);
 };
 
-/** U190: `<name> has accessed this Pad at <time> (<read|wrote>)` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
+/** U190: `<name>: This Pad was accessed at <time> (<read|wrote>)` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
 export const padTouchSentence = (history: readonly Touch[], nameOf: (actor: Actor) => string): string | null => {
   const newest = history.reduce<Touch | null>(
     (best, touch) => (best === null || touch.at >= best.at ? touch : best),

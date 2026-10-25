@@ -37,7 +37,7 @@ export const openDrawer = async (
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return await screen.findByLabelText("Full order of alpha");
+  return await screen.findByLabelText("Order: alpha");
 };
 
 const full: Order = {

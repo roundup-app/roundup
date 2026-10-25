@@ -85,7 +85,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   connected.rail.select("b");
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
@@ -106,7 +106,7 @@ it("u2540b_refresh_keeps_original_context", async () => {
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
   app.handlers["message.send"] = params => message(1, { body: params.body, to: params.to });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   const body = app.calls.find(call => call.method === "message.send")!.params;
   expect(JSON.stringify(body)).toContain("new-revision");
@@ -289,7 +289,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
-      fireEvent.click(screen.getByRole("button", { name: "Send notes to Same name" }));
+      fireEvent.click(screen.getByRole("button", { name: "Send to Same name" }));
       await waitFor(async () => expect(await app.rpc("message.list", { to: target.id, status: null })).toHaveLength(1));
       const accepted = (await app.rpc("message.list", { to: target.id, status: null }))[0]!;
       expect(accepted).toMatchObject({ to: target.id, kind: "note" });
@@ -422,7 +422,7 @@ it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   next.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   await waitFor(() => expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(next.app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
   expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -461,7 +461,7 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const { app } = await openDiff();
   await saveNote("reviewed");
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
-  const send = screen.getByRole("button", { name: /Send notes to/ });
+  const send = screen.getByRole("button", { name: /Send to/ });
   send.focus();
   fireEvent.click(send);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
@@ -514,7 +514,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   await saveNote("unrelated saved note");
   app.handlers["message.send"] = () => { throw new Error("reply lost"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   await screen.findByRole("button", { name: "Check Message history" });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  exact form e\u0301\n🐝  " } });

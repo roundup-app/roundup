@@ -35,7 +35,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     select("alpha");
     await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
     fireEvent.click(document.querySelector(".order-line")!);
-    await screen.findByLabelText("Full order of alpha");
+    await screen.findByLabelText("Order: alpha");
 
     // the test container and portal roots are outside the app's stylesheet and hold no text of their own
     for (const root of document.body.children) root.setAttribute("style", "font-size: var(--text-body)");

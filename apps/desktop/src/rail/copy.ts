@@ -125,8 +125,8 @@ export const copy = {
   /** @prose */
   staysAtTheProjectRoot: (value1: CopyValue) => `${value1} stays at the Project root.`,
   moreAgents: (value1: CopyValue) => `+ ${value1} more`,
-  padCount: (value1: CopyValue) => `${value1} pads`,
-  todoCount: (value1: CopyValue) => `${value1} todos`,
+  padCount: (value1: CopyValue) => `${value1} Pads`,
+  todoCount: (value1: CopyValue) => `${value1} Todos`,
   padsAndTodos: (value1: CopyValue) => `${value1} work items`,
   doneTodos: "done Todos",
   nothing: "Nothing",

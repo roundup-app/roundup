@@ -72,11 +72,11 @@ describe("O6: the order on one line above the Terminal", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByLabelText("Full order of alpha").textContent,
+        screen.getByLabelText("Order: alpha").textContent,
       ).toContain("fix the build"),
     );
     expect(
-      screen.getByLabelText("Full order of alpha").textContent,
+      screen.getByLabelText("Order: alpha").textContent,
     ).not.toContain("skip tests");
   });
 
@@ -92,11 +92,11 @@ describe("O6: the order on one line above the Terminal", () => {
     fireEvent.click(line()!);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Full order of beta").textContent).toContain(
+      expect(screen.getByLabelText("Order: beta").textContent).toContain(
         "which build?",
       ),
     );
-    expect(screen.queryByLabelText("Full order of alpha")).toBeNull();
+    expect(screen.queryByLabelText("Order: alpha")).toBeNull();
   });
   it("o6_an_open_order_drawer_closes_when_the_agent_exits_and_the_order_moves_inline", async () => {
     const { app } = await mount();
@@ -104,7 +104,7 @@ describe("O6: the order on one line above the Terminal", () => {
     select("alpha");
     await waitFor(() => expect(line()).not.toBeNull());
     fireEvent.click(line()!);
-    await screen.findByLabelText("Full order of alpha");
+    await screen.findByLabelText("Order: alpha");
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
 
     await waitFor(() => expect(line()).toBeNull());

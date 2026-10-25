@@ -34,7 +34,7 @@ describe("u404 an Agent row is its Glyph and its name", () => {
 
     const control = rowOf("gate").querySelector<HTMLElement>("[data-pads-control]")!;
 
-    await screen.findByRole("button", { name: "1 pads" });
+    await screen.findByRole("button", { name: "1 Pads" });
     expect(control.textContent?.trim()).toBe("1");
     expect(control.querySelector("svg")).not.toBeNull();
     expect(rowOf("asker").querySelector("[data-pads-control]")).toBeNull();

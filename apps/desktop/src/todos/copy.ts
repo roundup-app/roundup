@@ -74,7 +74,7 @@ export const copy = {
   createNeedsTodo: "Choose a Todo to wait for.",
   startAfterTodoLabel: "Wait for Todo",
   createWorkstream: "Create",
-  assignTodoNumber: (id: CopyValue) => `assign #${id}`,
+  assignTodoNumber: (id: CopyValue) => `Assign #${id}`,
   ownersFor: (id: CopyValue) => `Owners for #${id}`,
   todosDoneBar: "Todos done",
   toggleTodoGroup: (title: CopyValue) => `Toggle ${title} group`,

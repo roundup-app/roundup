@@ -120,7 +120,7 @@ it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () =
 it("u3720_the_assign_word_opens_the_same_list", async () => {
   await mount();
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(await screen.findByRole("button", { name: "assign #3", hidden: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Assign #3", hidden: true }));
 
   expect(await screen.findByRole("menu", { name: "Owners for #3" })).toBeTruthy();
 });
@@ -131,7 +131,7 @@ it("u3720_a_failed_assign_shows_its_cause_and_keeps_the_group", async () => {
   app.handlers["todo.assign"] = () => { throw new RpcError(-32004, "no such owner"); };
 
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(await screen.findByRole("button", { name: "assign #3", hidden: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Assign #3", hidden: true }));
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
 
   expect(await screen.findByText(/no such owner/)).toBeTruthy();
@@ -197,7 +197,7 @@ it("u3719_the_plus_is_keyboard_reachable_with_its_name", async () => {
 it("u3720_choosing_assigns_once_and_returns_focus_to_the_row", async () => {
   const { app } = await mount();
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(await screen.findByRole("button", { name: "assign #3", hidden: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Assign #3", hidden: true }));
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Unassigned"));
 
   await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 3, owner: null }]));
@@ -234,7 +234,7 @@ it("u3720_assigning_into_a_folded_group_unfolds_it_and_focuses_the_row", async (
   await waitFor(() => expect(groups()).toContain("unassigned"));
   unfold("unassigned");
   await waitFor(() => expect(content("unassigned").hasAttribute("hidden")).toBe(true));
-  fireEvent.click(await screen.findByRole("button", { name: "assign #1", hidden: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Assign #1", hidden: true }));
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Unassigned"));
 
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("1"));

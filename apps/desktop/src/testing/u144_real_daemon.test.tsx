@@ -279,7 +279,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
     await saveNote("first exact comment");
     await saveNote("second exact comment");
-    fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to First" }));
     const messages = () => app.rpc("message.list", { to: first.id, status: null });
     await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
     const accepted = (await messages())[0]!;

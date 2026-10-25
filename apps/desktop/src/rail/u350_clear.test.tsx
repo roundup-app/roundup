@@ -45,7 +45,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
     await open(app);
     await waitFor(() => expect(document.activeElement).toBe(reasonField()));
 
-    expect(document.body.textContent).toContain("and stops 1 Subagent; their files stay");
+    expect(document.body.textContent).toContain("and stops 1 Subagent. Their files stay.");
     expect(clearButton().disabled).toBe(true);
 
     type("   ");

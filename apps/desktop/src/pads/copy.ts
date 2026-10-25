@@ -79,7 +79,7 @@ export const copy = {
   invalidDiagram: "Invalid diagram",
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   noOtherOwners: "No other owners",
-  assignPadNamed: (name: CopyValue) => `assign ${name}`,
+  assignPadNamed: (name: CopyValue) => `Assign ${name}`,
   ownersForPad: (name: CopyValue) => `Owners for ${name}`,
   /** @prose */
   padOwnerRefused: (cause: CopyValue) => `The Pad stays yours: ${cause}. Choose another owner.`,

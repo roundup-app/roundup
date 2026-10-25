@@ -41,7 +41,7 @@ Observer: `u431_` in `apps/desktop/src/pads/`; `agent-browser` (headless) captur
 Observer: `u432_` in `apps/desktop/src/pads/` against the fake App; one capture to `artifacts/ux/U432/`. Moves D5 and D6. Scope: `apps/desktop/src/pads/`.
 
 **U433 the Pad Drawer has no ask field, no exchange and no last-read line.** Found by the user's report #1110 ("we don't have to redesign an agent view and shitty input"). Overturns U190 (its input, **Exchange**, **Last touch** sentence and **Rail** clauses), U188, U388 and the `PadAsk` row of `scenarios/plain-text.md` (`q2_pad_reply`); narrows U20 and U5. Given a Pad Drawer for either owner, then:
-- **Gone.** There is no `Ask or edit this pad` field, no `send`, no exchange list and no `You read this Pad at …` line; `pads/PadAsk.tsx` and `pads/scribe.ts` are deleted and the webview never calls `pad.ask`. Asserted in `u433_no_ask_field_no_exchange_no_read_line`.
+- **Gone.** There is no `Ask or edit this pad` field, no `send`, no exchange list and no `You: This Pad was accessed at … (read).` line; `pads/PadAsk.tsx` and `pads/scribe.ts` are deleted and the webview never calls `pad.ask`. Asserted in `u433_no_ask_field_no_exchange_no_read_line`.
 - **Kept.** The Pad body, the user's in-place edit and U36's conflict rules hold for every Actor; the last-touch Touch of a write stays in `provenance.history` (U5's `wrote` line stays; the read-Touch sentence goes). Asserted by U20's and U36's tests unchanged.
 - **Rail.** A Pad from before, bound to a Scribe, loads; its Scribe's Rail row, if any, is removed with the rest (P14). Asserted in `u433_rail_shows_no_scribe_row`.
 
