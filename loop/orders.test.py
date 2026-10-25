@@ -3,6 +3,8 @@ import importlib.util
 import unittest
 import subprocess
 import io
+import os
+import tempfile
 import time
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
@@ -33,6 +35,21 @@ class Orders(unittest.TestCase):
             issues = orders.list_issues()
         rows = orders.classify(issues, {}, [])
         self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
+
+    def test_l34_a_cached_closed_issue_still_blocks_a_duplicate_key_and_a_reopened_one_leaves_the_cache(self):
+        closed = issue(1, 'U83', state='closed', state_reason='completed')
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83'), closed]]]):  # no file yet: every page
+                orders.list_issues()
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]) as gh:  # warm: open, then closed since
+                issues = orders.list_issues()
+            self.assertEqual(gh.call_count, 2)
+            rows = orders.classify(issues, {}, [])
+            self.assertEqual([(row['issue'], row['state']) for row in rows], [(1, 'done'), (2, 'blocked')])
+            self.assertIn('duplicate work Key', rows[1]['reason'])
+            with patch.object(orders, 'gh', side_effect=[[[issue(1, 'U83'), issue(3, 'U84')]], [[]]]):  # #1 reopened
+                issues = orders.list_issues()
+            self.assertEqual(sorted(i['number'] for i in issues), [1, 3])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)
