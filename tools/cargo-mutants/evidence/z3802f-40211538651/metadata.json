@@ -1,0 +1,13 @@
+{
+  "scenario": "Z3802f",
+  "observed_at": "2026-10-25T16:30:33.506987+00:00",
+  "reference_commit": "ef1c1cea1876b662947bd4a6725f347f2db1263b",
+  "pr": 4028,
+  "pr_base": "d74415ac42b3783937b6d707512d1ee15948dff5",
+  "run": "https://github.com/roundup-app/roundup/actions/runs/40211538651",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "cpus": 4,
+  "cache": "Fresh worktree target; existing runner Cargo registry and Rust toolchain; no shared target",
+  "deadline_seconds": 600
+}
