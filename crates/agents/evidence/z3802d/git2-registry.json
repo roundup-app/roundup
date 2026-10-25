@@ -1,0 +1,10 @@
+{
+  "source": "https://crates.io/api/v1/crates/git2",
+  "observed": "2026-10-25",
+  "name": "git2",
+  "downloads": 122383868,
+  "version": "0.21.0",
+  "released": "2026-05-18T16:06:09.315886Z",
+  "license": "MIT OR Apache-2.0",
+  "repository": "https://github.com/rust-lang/git2-rs"
+}
