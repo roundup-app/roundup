@@ -291,7 +291,9 @@ async fn t15_deleted_blocker_is_recorded() {
     let before = changes(&h, 2).await["changes"].clone();
     h.call("todo.complete", json!({"id": 1})).await.unwrap();
     assert_eq!(changes(&h, 2).await["changes"], before);
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     let history = changes(&h, 2).await;
     let last = history["changes"].as_array().unwrap().last().unwrap();
     assert_eq!(last["before"]["blockers"], json!([1]));

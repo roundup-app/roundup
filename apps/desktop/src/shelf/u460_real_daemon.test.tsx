@@ -152,7 +152,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
 
   const failedApp: typeof app = {
     ...app,
-    rpc: (method, params) => method === "todo.delete" && params && "id" in params && params.id === second.id ? Promise.reject(new Error("injected unavailable connection")) : app.rpc(method, params),
+    rpc: (method, params) => method === "todo.delete" && params && "ids" in params && params.ids.some(id => id === second.id) ? Promise.reject(new Error("injected unavailable connection")) : app.rpc(method, params),
     forProject: () => failedApp,
   };
 
