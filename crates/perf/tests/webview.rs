@@ -13,7 +13,10 @@ fn hops() -> serde_json::Value {
 }
 
 fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
-    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
+    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops(),
+        "timer_resolution_ms": 0.001, "hop_uncertainty_ms": 0.501,
+        "calibration": {"offset_ms": 100, "uncertainty_ms": 0.501, "resolution_ms": 0.001,
+        "exchanges": [{"sent": 0, "daemon": 100.5, "received": 1}, {"sent": 1000, "daemon": 1100.5, "received": 1001}]} })
 }
 
 #[test]
@@ -181,11 +184,26 @@ fn r20_missing_measured_keys_cannot_be_silently_skipped() {
 
 #[test]
 fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
-    for calibration in [
+    let valid = report(16.7, 0)["calibration"].clone();
+    let mut cases = vec![
         json!(null),
-        json!({"offset_ms": 10, "uncertainty_ms": -1, "exchanges": []}),
-        json!({"offset_ms": 10, "uncertainty_ms": 0, "exchanges": [{"sent": 1, "daemon": 12, "received": 0}]}),
+        json!({"offset_ms": 10, "uncertainty_ms": 0, "exchanges": []}),
+    ];
+    for field in ["offset_ms", "uncertainty_ms", "resolution_ms"] {
+        let mut forged = valid.clone();
+        forged[field] = json!(99);
+        cases.push(forged);
+    }
+    for exchange in [
+        json!({"sent": 1002, "daemon": 1100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": 9100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": null, "received": 1001}),
     ] {
+        let mut forged = valid.clone();
+        forged["exchanges"][1] = exchange;
+        cases.push(forged);
+    }
+    for calibration in cases {
         let mut invalid = report(16.7, 0);
         invalid["calibration"] = calibration;
         assert_eq!(judge_runs(&[invalid], 16.0).0, 2);

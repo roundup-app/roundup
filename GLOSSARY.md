@@ -926,3 +926,9 @@ One Actor's exact chosen Todo identities in their original Project, bound to a c
 
 **RPC error data** (`RpcErrorData`):
 The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
+
+**Keystroke sample** (`KeystrokeSample`):
+One opt-in R20 input identity in one Terminal. Its raw-echo workload carries an invisible OSC 777 marker (`run` plus key ordinal); receipt, physical write/flush and echo read use the Daemon monotonic clock. A duplicate echo is ambiguous, never evidence for another key. Ordinary input carries no marker.
+
+**Keystroke measurement** (`MeasureParams`, `Measurement`, `terminal.measure`):
+A user-only opt-in recording for one running Terminal and run identity, bounded to 4096 samples and released with that Terminal. Reads return retained samples and one Daemon clock reading for a webview-bracketed calibration exchange. It neither writes input nor changes enqueue acknowledgements. It changes no Message, Route, Held or Takeover law (M1–M10).

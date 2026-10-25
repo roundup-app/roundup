@@ -106,6 +106,8 @@ import type { PreviewParams as reaction_PreviewParams } from "./reaction/Preview
 import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
 import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
 import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
+import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
+import type { Measurement as terminal_Measurement } from "./terminal/Measurement";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
 import type { OutputStarted as terminal_OutputStarted } from "./terminal/OutputStarted";
@@ -245,6 +247,7 @@ export type RpcMethods = {
   "terminal.write": { params: terminal_WriteParams; result: null };
   "terminal.resize": { params: terminal_ResizeParams; result: null };
   "terminal.kill": { params: terminal_TerminalId; result: null };
+  "terminal.measure": { params: terminal_MeasureParams; result: terminal_Measurement };
   "terminal.scheme": { params: terminal_SchemeParams; result: null };
   "terminal.show": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };

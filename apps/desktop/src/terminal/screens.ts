@@ -362,6 +362,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     // A callback that outlives its subscription (released, replaced or disposed) reaches nothing.
     if (!stream.open || holder.stream !== stream) return;
 
+    if (!("gap" in message)) holder.emulator.outputArrived?.(message);
+
     if (!stream.placed) {
       stream.early.push(message);
 
@@ -483,12 +485,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       try {
         while (typed.length > 0) {
-          emulator.inputEncoding?.();
+          const batch = typed;
+
+          emulator.inputEncoding?.(batch);
 
           const data = toBase64(Uint8Array.from(typed));
 
           typed = [];
-          emulator.inputEncoded?.();
+          emulator.inputEncoded?.(batch);
           await attempt(id, app.rpc("terminal.write", { id, data }));
         }
       } finally {

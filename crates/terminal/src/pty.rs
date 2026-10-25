@@ -6,13 +6,23 @@ pub(super) fn type_queued(
     number: u64,
     queued: mpsc::Receiver<Input>,
     mut writer: Box<dyn Write + Send>,
+    clock: Arc<dyn Fn() -> f64 + Send + Sync>,
 ) {
     for input in queued {
         match input {
-            Input::Bytes(bytes) => {
+            Input::Bytes(bytes, samples) => {
                 if let Err(err) = writer.write_all(&bytes).and_then(|()| writer.flush()) {
                     eprintln!("terminal {number}: input stopped: {err}");
                     return;
+                }
+                let written = if samples.is_empty() {
+                    None
+                } else {
+                    Some(clock())
+                };
+                for sample in samples {
+                    let mut sample = sample.lock().expect("sample lock");
+                    sample.written = written;
                 }
             }
             Input::Effect(effect, completed) => {
@@ -40,7 +50,7 @@ pub(super) fn pump(
     shared: &Shared,
     number: u64,
     mut reader: Box<dyn Read + Send>,
-    program: &Program,
+    handle: &Handle,
     screen: &Mutex<ScreenState>,
     output: broadcast::Sender<Chunk>,
     exit_hold: Option<&ExitHold>,
@@ -50,6 +60,13 @@ pub(super) fn pump(
     while let Ok(read) = reader.read(&mut chunk) {
         if read == 0 {
             break;
+        }
+        if let Some(recorder) = handle.recorder.get() {
+            let at = (shared.clock)();
+            recorder
+                .lock()
+                .expect("recorder lock")
+                .read(&chunk[..read], at);
         }
         let seen = {
             let mut state = screen.lock().expect("terminal screen lock");
@@ -89,7 +106,7 @@ pub(super) fn pump(
             .into_iter()
             .for_each(|title| shared.retitle(number, title));
     }
-    let code = match reap(program) {
+    let code = match reap(&handle.program) {
         Ok(status) if status.signal().is_some() => None,
         Ok(status) => Some(i32::try_from(status.exit_code()).unwrap_or(i32::MAX)),
         Err(err) => {
