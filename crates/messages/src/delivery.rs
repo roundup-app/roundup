@@ -297,7 +297,7 @@ pub(super) enum Pick {
 }
 
 /// B2, B13, B37: delivers pending Messages when the receiver is ready for a turn.
-pub(super) async fn nudge(inner: &Arc<Inner>, agent: &str) {
+pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
     let Ok(nodes) = load_rail_nodes(inner).await else {
         return;
     };
