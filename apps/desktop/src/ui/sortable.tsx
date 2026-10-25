@@ -211,6 +211,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
     const source = event.operation.source;
 
+    if (source?.element) {
+      source.element.removeAttribute("data-pressed");
+
+      for (const control of source.element.querySelectorAll("[data-pressed]")) control.removeAttribute("data-pressed");
+    }
+
     previewed = null;
     projectedIndex = tree?.holdPlace && isSortable(source) ? source.index : null;
 

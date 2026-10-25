@@ -12,6 +12,7 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--base", default="http://127.0.0.1:5200")
 parser.add_argument("--head", default="http://127.0.0.1:5199")
 parser.add_argument("--side", choices=("base", "head", "both"), default="both")
+parser.add_argument("--phase", choices=("all", "rows", "controls"), default="all")
 args = parser.parse_args()
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
@@ -56,6 +57,8 @@ def observe(side, origin):
     def capture(name):
         evaluate(SETTLE)
         browser("screenshot", str(directory / f"{name}.png"))
+        alignment = evaluate("(async () => (await import('/src/testing/designChecks.ts')).rowAlignmentCheck(document))()")
+        (directory / f"{name}.alignment.json").write_text(json.dumps(alignment, indent=2) + "\n")
         checks = evaluate("window.__checks()")
         (directory / f"{name}.checks.json").write_text(json.dumps(checks, indent=2) + "\n")
         states = evaluate(f"""(() => {{ const style={STYLE}; return [...document.querySelectorAll('.rail-row,.shelf-row,.terminal-tab-pair')].filter(e=>e.getBoundingClientRect().width).map(e=>({{id:e.dataset.id??e.dataset.bubble,selected:e.dataset.selected,dragged:e.hasAttribute('data-dnd-dragging'),lifted:e.dataset.lifted,focused:e.matches(':focus-visible,:has(:focus-visible)'),style:style(e)}})); }})()""")
@@ -70,8 +73,9 @@ def observe(side, origin):
         wait("!!document.querySelector('.shelf .todo-row[data-todo] .shelf-title')")
         evaluate(SETTLE)
 
-    def press(name, selector, key=None, opening=None):
-        load("/src/ui/u133.html")
+    def press(name, selector, key=None, opening=None, reload=True):
+        if reload:
+            load("/src/ui/u133.html")
         if opening:
             browser("click", opening)
         wait(f"!!document.querySelector({json.dumps(selector)})")
@@ -96,6 +100,7 @@ def observe(side, origin):
         evaluate(SETTLE)
         frames["released"] = evaluate(f"(() => {{ const el=document.querySelector({json.dumps(selector)}); return el?({STYLE})(el.closest('.app-checkbox,.app-radio,.app-segment')??el):null; }})()")
         frames["changed"] = [field for field in ("color", "opacity", "transform") if frames["before"][field] != frames["first"][field]]
+        (directory / f"press-{name}.checks.json").write_text(json.dumps(evaluate("window.__checks()"), indent=2) + "\n")
         (directory / f"press-{name}.frames.json").write_text(json.dumps(frames, indent=2) + "\n")
         print(side, "press", name, frames["changed"], flush=True)
 
@@ -115,73 +120,85 @@ def observe(side, origin):
         browser("set", "viewport", "1512", "950")
         browser("set", "media", "dark")
         evaluate("localStorage.clear()")
-        for seed in ("first-run", "agents-10", "tree-40", "daemon-exits", "conflict"):
-            load(f"/harness.html?seed={seed}")
-            capture(seed)
-        todos()
-        capture("dense-todos")
-        browser("press", "Tab")
-        browser("focus", ".shelf .todo-row[data-todo] .todo-row-button")
-        capture("todo-focused")
-        browser("click", ".shelf .todo-row[data-todo] .todo-row-button")
-        capture("todo-selected")
-        drag(".shelf .todo-row[data-todo] .todo-row-button", "todo-dragged")
-        evaluate("window.__fake.failNext(-32003,'Offline. Reconnect.'); document.querySelector('.shelf input.todo-tick').click()")
-        wait("document.body.textContent.includes('Offline. Reconnect.')")
-        capture("dense-failure")
-        todos()
-        browser("focus", ".shelf .todo-row[data-todo] .todo-row-button")
-        browser("press", "o")
-        wait("!!document.querySelector('[role=menu]')")
-        capture("todo-menu")
-        browser("press", "Escape")
-        evaluate("for(const t of document.querySelectorAll('[role=tab]'))if(t.textContent.startsWith('Pads')&&t.getAttribute('aria-expanded')!=='true')t.click();")
-        wait("!!document.querySelector('.shelf .pad-name')")
-        capture("pads")
-        browser("press", "Tab")
-        browser("focus", ".shelf .pad-name")
-        capture("pad-focused")
-        browser("click", ".shelf .pad-name")
-        capture("pad-selected")
-        drag(".shelf .pad-name", "pad-dragged")
-        load("/harness.html?seed=agents-10")
-        browser("press", "Tab")
-        browser("focus", ".rail-row[data-id=agent-3]")
-        capture("rail-focused")
-        browser("click", ".rail-row[data-id=agent-3] .name")
-        capture("rail-selected")
-        (directory / "rail-drag.webm").unlink(missing_ok=True)
-        browser("record", "start", str(directory / "rail-drag.webm"))
-        browser("set", "media", "dark")
-        browser("set", "viewport", "1512", "950")
-        load("/harness.html?seed=agents-10")
-        browser("click", ".rail-row[data-id=agent-3] .name")
-        drag(".rail-row[data-id=agent-3]", "rail-dragged")
-        browser("record", "stop")
-        load("/harness.html?seed=bubbles")
-        browser("click", ".rail-row[data-id=runner] .name")
-        wait("!!document.querySelector('button.terminal-tab')")
-        capture("terminal-tabs")
-        browser("click", "button.terminal-tab")
-        capture("terminal-open")
-        for name, selector in (
-            ("button", "[data-control=Button] button"), ("toggle", "[data-control=Toggle] button"),
-            ("checkbox", "[data-control=Checkbox] input"), ("switch", "[data-control=Switch] input"),
-            ("radio", ".app-radio input[value=second]"), ("segment", ".app-segment input[value=second]"),
-            ("tab", "[data-control=Tab] button[data-value=second]"),
-            ("primary", "[aria-label='Filled controls'] [data-button=primary]"),
-            ("neutral", "[aria-label='Filled controls'] [data-button=quiet]"),
-            ("menu-trigger", "[data-scope=menu][data-part=trigger]"),
-            ("select-trigger", ".app-select-trigger"),
-            ("disclosure", ".disclosure-trigger"), ("link", "a"), ("summary", "summary"),
-        ):
-            press(name + "-pointer", selector)
-            press(name + "-key", selector, " " if name in ("checkbox", "switch", "radio", "segment") else "Enter")
-        press("menu-item-pointer", "[role=menuitem]", opening="[data-scope=menu][data-part=trigger]")
-        press("select-option-pointer", ".app-select-item:last-child", opening=".app-select-trigger")
-        load("/src/ui/u133.html")
-        browser("click", "[data-scope=menu][data-part=trigger]")
-        capture("floating-menu")
+        if args.phase != "controls":
+            for seed in ("first-run", "agents-10", "tree-40", "daemon-exits", "conflict"):
+                load(f"/harness.html?seed={seed}")
+                capture(seed)
+            todos()
+            capture("dense-todos")
+            browser("press", "Tab")
+            browser("focus", ".shelf .todo-row[data-todo] .todo-row-button")
+            capture("todo-focused")
+            press("todo-pointer", ".shelf .todo-row[data-todo] .todo-row-button", reload=False)
+            press("todo-key", ".shelf .todo-row[data-todo] .todo-row-button", key=" ", reload=False)
+            browser("click", ".shelf .todo-row[data-todo] .todo-row-button")
+            capture("todo-selected")
+            drag(".shelf .todo-row[data-todo] .todo-row-button", "todo-dragged")
+            evaluate("window.__fake.failNext(-32003,'Offline. Reconnect.'); document.querySelector('.shelf input.todo-tick').click()")
+            wait("document.body.textContent.includes('Offline. Reconnect.')")
+            capture("dense-failure")
+            todos()
+            browser("focus", ".shelf .todo-row[data-todo] .todo-row-button")
+            browser("press", "o")
+            wait("!!document.querySelector('[role=menu]')")
+            capture("todo-menu")
+            browser("press", "Escape")
+            evaluate("for(const t of document.querySelectorAll('[role=tab]'))if(t.textContent.startsWith('Pads')&&t.getAttribute('aria-expanded')!=='true')t.click();")
+            wait("!!document.querySelector('.shelf .pad-name')")
+            capture("pads")
+            browser("press", "Tab")
+            browser("focus", ".shelf .pad-name")
+            capture("pad-focused")
+            press("pad-pointer", ".shelf .pad-name", reload=False)
+            press("pad-key", ".shelf .pad-name", key=" ", reload=False)
+            browser("click", ".shelf .pad-name")
+            capture("pad-selected")
+            drag(".shelf .pad-name", "pad-dragged")
+            load("/harness.html?seed=agents-10")
+            browser("press", "Tab")
+            browser("focus", ".rail-row[data-id=agent-3]")
+            capture("rail-focused")
+            press("rail-pointer", ".rail-row[data-id=agent-3]", reload=False)
+            press("rail-key", ".rail-row[data-id=agent-3]", key="Enter", reload=False)
+            load("/harness.html?seed=agents-10")
+            browser("click", ".rail-row[data-id=agent-3] .name")
+            capture("rail-selected")
+            (directory / "rail-drag.webm").unlink(missing_ok=True)
+            browser("record", "start", str(directory / "rail-drag.webm"))
+            browser("set", "media", "dark")
+            browser("set", "viewport", "1512", "950")
+            load("/harness.html?seed=agents-10")
+            browser("click", ".rail-row[data-id=agent-3] .name")
+            drag(".rail-row[data-id=agent-3]", "rail-dragged")
+            browser("record", "stop")
+            load("/harness.html?seed=bubbles")
+            browser("click", ".rail-row[data-id=runner] .name")
+            wait("!!document.querySelector('button.terminal-tab')")
+            capture("terminal-tabs")
+            press("terminal-key", "button.terminal-tab", key=" ", reload=False)
+            if not evaluate("!!document.querySelector('.bubble:not([hidden])')"):
+                browser("click", "button.terminal-tab")
+            wait("!!document.querySelector('.bubble:not([hidden])')")
+            capture("terminal-open")
+        if args.phase != "rows":
+            for name, selector in (
+                ("button", "[data-control=Button] button"), ("toggle", "[data-control=Toggle] button"),
+                ("checkbox", "[data-control=Checkbox] input"), ("switch", "[data-control=Switch] input"),
+                ("radio", ".app-radio input[value=second]"), ("segment", ".app-segment input[value=second]"),
+                ("tab", "[data-control=Tab] button[data-value=second]"),
+                ("primary", "[aria-label='Filled controls'] [data-button=primary]"),
+                ("neutral", "[aria-label='Filled controls'] [data-button=quiet]"),
+                ("menu-trigger", "[data-scope=menu][data-part=trigger]"),
+                ("select-trigger", ".app-select-trigger"),
+                ("disclosure", ".disclosure-trigger"), ("link", "a"), ("summary", "summary"),
+            ):
+                press(name + "-pointer", selector)
+                press(name + "-key", selector, " " if name in ("checkbox", "switch", "radio", "segment") else "Enter")
+            press("menu-item-pointer", "[role=menuitem]", opening="[data-scope=menu][data-part=trigger]")
+            press("select-option-pointer", ".app-select-item:last-child", opening=".app-select-trigger")
+            load("/src/ui/u133.html")
+            browser("click", "[data-scope=menu][data-part=trigger]")
+            capture("floating-menu")
     finally:
         browser("close")
         shutil.rmtree(profile, ignore_errors=True)
