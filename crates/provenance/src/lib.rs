@@ -26,7 +26,10 @@ impl Touches {
     }
 
     fn from_connection(mut db: Connection, path: &Path) -> rusqlite::Result<Self> {
-        db.pragma_update(None, "journal_mode", "WAL")?;
+        // The Daemon initializes Project WAL; repeating the pragma eagerly loads its whole schema.
+        if path.file_name().is_none_or(|name| name != "project.db") {
+            db.pragma_update(None, "journal_mode", "WAL")?;
+        }
         crate::schema::open(&mut db, path)?;
         Ok(Self { db: Mutex::new(db) })
     }
