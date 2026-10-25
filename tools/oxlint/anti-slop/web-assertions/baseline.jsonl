@@ -841,8 +841,6 @@
 {"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"81427cf3da4733e9d34b27f2bfb76eccdba040a4290e5ca65b39f0b638443cd2"}
 {"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"5e4222049e5f8b920318926962c446ceb6b8aaba160927cad5fe1cff0f28ff4c"}
 {"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_document_work_resumes_the_same_way","identity":"bf24897c681ec32d013a265eb5198cec9070c7371af172d9e59ca3335b79d1ad"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_failed_resume_stays_actionable","identity":"e58c651fc55c450b43f6e05673b636753888af2f825d4f7f78b4f6dab5a9bfdd"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_failed_resume_stays_actionable","identity":"7b2f5aead91cb13d8c2c7e3197e54900c10148f67962a3166fdae7f8a8966bed"}
 {"file":"apps/desktop/src/testing/u346_pad_confirm.test.tsx","test":"p2544d_stale_write_without_event_keeps_draft","identity":"e27a559c892f642e4361d8a99b3cb7339abd6772c7cab5b1066641e4687b11b2"}
 {"file":"apps/desktop/src/testing/u346_pad_confirm.test.tsx","test":"p2544e_reopen_saved_agent_work","identity":"a4d1fc576e78e4a2b0182745ce1dddbd2201935d17130fd68472b3b67311c11d"}
 {"file":"apps/desktop/src/testing/u346_pad_confirm.test.tsx","test":"u2773a_pads_restores_exact_work_through_App_and_real_Daemon","identity":"3aaf423bb0d4020e1c1e1a2071090f0c71e71e86de30c6ba1b4a6fdc625d2103"}
