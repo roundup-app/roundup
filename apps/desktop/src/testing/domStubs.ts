@@ -11,7 +11,8 @@ globalThis.IntersectionObserver ??= class { root = null; rootMargin = "0px"; scr
 
 // The harness also starts the scrollbar tracker here; jsdom paints no boxes and
 // cannot adopt the shared styles into its library-owned shadow roots.
-Element.prototype.checkVisibility ??= () => false;
+// Focus traps need native visibility; jsdom cannot measure rendered boxes.
+Element.prototype.checkVisibility ??= () => true;
 
 ShadowRoot.prototype.adoptedStyleSheets ??= [];
 
