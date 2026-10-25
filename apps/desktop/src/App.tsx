@@ -89,7 +89,7 @@ const Connection = (props: {
 
   const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
     try {
-      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
+      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
