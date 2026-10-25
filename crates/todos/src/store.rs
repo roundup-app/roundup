@@ -2,11 +2,12 @@
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
-use rpc::RpcError;
+use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
 
 pub(crate) struct Store {
@@ -728,4 +729,29 @@ fn now_ms() -> i64 {
             .as_millis(),
     )
     .unwrap_or(i64::MAX)
+}
+
+impl super::Todos {
+    /// `dir` is the Project's data folder (N1).
+    pub(super) fn open_store(dir: &Path) -> Result<Self, OpenError> {
+        Ok(Self {
+            store: Mutex::new(Store::open(&dir.join(
+                if dir.join("project.db").exists() {
+                    "project.db"
+                } else {
+                    "todos.db"
+                },
+            ))?),
+        })
+    }
+
+    pub(super) fn store(&self) -> Result<std::sync::MutexGuard<'_, Store>, RpcError> {
+        self.store
+            .lock()
+            .map_err(|_| RpcError::internal("todo store poisoned"))
+    }
+}
+
+pub(super) fn item(id: u32) -> String {
+    format!("todo:{id}")
 }
