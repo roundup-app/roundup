@@ -14,7 +14,7 @@ const saved = (patch: Partial<Reaction> = {}): Reaction => ({
   project: "p", id: "r1", name: "Ship it", actor: { kind: "user", id: "u", parent: null }, home: null, target: "a",
   instruction: "go", condition: { kind: "agents", ids: ["a"], any: false }, max_firings: 1, remaining: 1, rearm: false,
   expires_at: "2026-10-21T09:00:00Z", created_at: "2026-10-20T09:00:00Z", state: "active",
-  observation: { health: "observing", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
+  observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
 });
 
 const mount = async (list: () => Reaction[]) => {
@@ -326,7 +326,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
 });
 
 it("u3299b_copy_keeps_original_facts", async () => {
-  const record = saved({ observation: { health: "observing", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
+  const record = saved({ observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
   const write = vi.fn().mockResolvedValue(undefined);
 
   try {
@@ -504,7 +504,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_ide
 });
 
 it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_reactions_action_identity_%s", async transition => {
-  const record = saved({ observation: { health: "unavailable", cursor: null, gap: null, recovery: null, evidence: null, cause: "no required-check evidence" } });
+  const record = saved({ observation: { health: "unavailable", health_code: "unavailable", cause_code: "evidence-missing", gap_code: "unknown", recovery_code: "check", cursor: null, gap: null, recovery: null, evidence: null, cause: "no required-check evidence" } });
   const second = saved({ id: "r2", name: "Other reaction" });
   const { app, connected } = await mount(() => [record, second]);
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
@@ -534,21 +534,37 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   }
 
   expect(screen.queryByRole("alert", { name: "first reaction refused" }) !== null).toBe(transition !== "dismiss");
-  expect(screen.getByRole("alert", { name: "No required-check results are available. Refresh to check again." })).toBeTruthy();
+  expect(screen.getByRole("alert", { name: /No required-check results are available/ })).toBeTruthy();
   expect(connected.drafts.list()).toEqual(retained);
 });
 
 it.each([
   { code: "head-moved", text: "The PR has new commits. Create a new reaction for the current version." },
   { code: "unsupported", text: "This source cannot be watched. Stop this reaction and choose a supported condition." },
-  { code: undefined, text: "Observation details could not be explained. Refresh to check again." },
+  { code: "unknown", text: "Observation details could not be explained. Refresh to check again." },
 ] as const)("u3791b_copy_depends_on_codes_not_messages_reactions_$code", async ({ code, text }) => {
-  for (const diagnostic of ["the PR head moved from a to b", "unsupported /private/diagnostic"]) {
-    const record = saved({ observation: { health: "unavailable", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause: diagnostic, cause_code: code, recovery_code: "check" } });
+  for (const diagnostic of ["the PR head moved from a to b", "unsupported /private/diagnostic", ""]) {
+    const record = saved({ observation: { health: "unavailable", health_code: "unavailable", cause_code: code, gap_code: "unknown", recovery_code: "check", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause: diagnostic } });
     const { app } = await mount(() => [record]);
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-    await screen.findByText(text);
-    expect(screen.queryByText("Refresh to check current observation.") !== null).toBe(code !== "unsupported");
+    await screen.findByRole("alert", { name: code === "unsupported" ? text : `${text} Refresh to check current observation.` });
+    expect(screen.getByRole("button", { name: copy.refresh })).toBeTruthy();
+    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
+    cleanup();
+  }
+});
+
+it.each([
+  { gap: "history-expired", recovery: "reconciled", gapText: "Earlier activity could not be read. This gap remains in the history.", recoveryText: "Current Agent activity is available again; the earlier gap remains." },
+  { gap: "agent-unavailable", recovery: "replace-agent", gapText: "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one.", recoveryText: "Stop this reaction and create one with an available Agent." },
+  { gap: "unknown", recovery: "unknown", gapText: "Earlier observation details could not be explained. Refresh to check again.", recoveryText: "Refresh to check current observation." },
+] as const)("u3791b_copy_depends_on_codes_not_messages_reaction_gaps_$gap", async ({ gap, recovery, gapText, recoveryText }) => {
+  for (const diagnostic of ["the Event history after 88 expired", "unrecognized /private/history"]) {
+    const record = saved({ observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: gap, recovery_code: recovery, cursor: 99, gap: diagnostic, recovery: diagnostic, evidence: null } });
+    const { app } = await mount(() => [record]);
+    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+    await screen.findByRole("alert", { name: `${gapText} ${recoveryText}` });
+    expect(screen.getByRole("button", { name: copy.refresh })).toBeTruthy();
     expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
     cleanup();
   }

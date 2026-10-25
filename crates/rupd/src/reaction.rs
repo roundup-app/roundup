@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use contracts::reaction::{
-    Condition, CreateParams, Firing, Observation, PreviewParams, Reaction, ReactionId, RunParams,
-    State,
+    Condition, CreateParams, Firing, Observation, ObservationCause as Cause, ObservationGap as Gap,
+    ObservationHealth as Health, ObservationRecovery as Recovery, PreviewParams, Reaction,
+    ReactionId, RunParams, State,
 };
 use contracts::{Actor, ActorKind};
 use rpc::{RpcError, code};
@@ -161,6 +162,14 @@ struct Watch {
     round: u32,
     health: String,
     #[serde(default)]
+    health_code: Health,
+    #[serde(default)]
+    cause_code: Cause,
+    #[serde(default)]
+    gap_code: Gap,
+    #[serde(default)]
+    recovery_code: Recovery,
+    #[serde(default)]
     cause: Option<String>,
     gap: Option<String>,
     recovery: Option<String>,
@@ -194,8 +203,11 @@ impl Watch {
         }
     }
 
-    fn unavailable(&mut self, gap: String, recovery: &str) {
+    fn unavailable(&mut self, code: Gap, recovery_code: Recovery, gap: String, recovery: &str) {
         self.health = "unavailable".into();
+        self.health_code = Health::Unavailable;
+        self.gap_code = code;
+        self.recovery_code = recovery_code;
         self.gap = Some(gap);
         self.recovery = Some(recovery.into());
     }
@@ -264,6 +276,7 @@ impl Evaluator {
             seen: head,
             armed: true,
             health: "observing".into(),
+            health_code: Health::Observing,
             ..Watch::default()
         });
         self.decide(reaction, &mut watch, head, live).await;
@@ -281,6 +294,8 @@ impl Evaluator {
             Ok(firings) => firings,
             Err(err) => {
                 w.unavailable(
+                    Gap::FiringsReadFailed,
+                    Recovery::Check,
                     format!("the accepted firings were not read: {}", err.message),
                     "observation resumes at the next successful read; nothing matches meanwhile",
                 );
@@ -304,6 +319,8 @@ impl Evaluator {
                 .and_then(|e| e["cursor"].as_u64());
             let Some(cursor) = cursor else {
                 w.unavailable(
+                    Gap::CursorMissing,
+                    Recovery::RestoreEvidence,
                     "the accepted Agent firing has no source cursor".into(),
                     "restore its durable source evidence; nothing matches meanwhile",
                 );
@@ -321,6 +338,8 @@ impl Evaluator {
                 Ok(world) => world,
                 Err(err) => {
                     w.unavailable(
+                        Gap::AgentReadFailed,
+                        Recovery::Check,
                     format!("the Agent state was not read after Event {}: {}", w.seen, err.message),
                     "observation resumes at the next successful read; nothing matches meanwhile",
                 );
@@ -331,6 +350,8 @@ impl Evaluator {
         let mut events = match self.bus.saved_after(w.seen) {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => {
+                w.gap_code = Gap::HistoryExpired;
+                w.recovery_code = Recovery::Reconcile;
                 w.gap = Some(format!("the Event history after {} expired", w.seen));
                 w.recovery = Some(
                     "the present state of every named Agent decides; an Agent without one stays unmatched"
@@ -342,6 +363,8 @@ impl Evaluator {
             }
             Err(err) => {
                 w.unavailable(
+                    Gap::EventsReadFailed,
+                    Recovery::Check,
                     format!("the Events after {} were not read: {}", w.seen, err.message),
                     "observation resumes at the next successful read; nothing matches meanwhile",
                 );
@@ -401,6 +424,8 @@ impl Evaluator {
                 )
                 .collect();
             w.unavailable(
+                Gap::AgentUnavailable,
+                Recovery::ReplaceAgent,
                 format!(
                     "{} no longer names an Agent with a state; no condition matches it",
                     names.join(", ")
@@ -411,6 +436,7 @@ impl Evaluator {
         }
         if w.cause.is_none() {
             w.health = "observing".into();
+            w.health_code = Health::Observing;
         }
         let facts: Vec<serde_json::Value> = ids
             .iter()
@@ -437,6 +463,8 @@ impl Evaluator {
         }
         if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
             w.unavailable(
+                Gap::AuthorityRefused,
+                Recovery::ReplaceTarget,
                 format!("authority refused: {}", why.message),
                 "the user may inspect or stop this reaction; create a new one with an authorized target",
             );
@@ -456,7 +484,14 @@ impl Evaluator {
         match fired {
             Ok(_) => {
                 w.health = "observing".into();
+                w.health_code = Health::Observing;
                 w.cause = None;
+                w.cause_code = Cause::Unknown;
+                w.recovery_code = if w.gap.is_some() {
+                    Recovery::Reconciled
+                } else {
+                    Recovery::Unknown
+                };
                 w.recovery = w.gap.as_ref().map(|_| {
                     "the recorded source gap remains; authoritative current Agent state reconciled observation".into()
                 });
@@ -470,6 +505,9 @@ impl Evaluator {
             Err(err) if err.code == code::CONFLICT => {}
             Err(err) => {
                 w.health = "acceptance-failed".into();
+                w.health_code = Health::AcceptanceFailed;
+                w.cause_code = Cause::AcceptanceFailed;
+                w.recovery_code = Recovery::RetryAcceptance;
                 w.cause = Some(err.message);
                 w.recovery = Some(
                     "remove the acceptance failure; the next Agent observation or Project reopen retries within the remaining bound and expiry".into(),
@@ -494,38 +532,6 @@ impl Reactions {
             .map(|record| read(record))
             .filter(|saved| saved.as_ref().map_or(true, |s| s.state == State::Active))
             .collect()
-    }
-
-    /// Records what the observer saw. A reaction stopped meanwhile stays stopped.
-    pub(crate) fn observe(
-        &self,
-        id: &str,
-        health: &str,
-        cause: Option<String>,
-        end: Option<State>,
-    ) {
-        let db = self.db.lock().expect("reaction database poisoned");
-        let saved = db
-            .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
-                r.get::<_, String>(0)
-            })
-            .optional();
-        let Ok(Some(record)) = saved else { return };
-        let Ok(mut saved) = read(&record) else { return };
-        if saved.state != State::Active {
-            return;
-        }
-        saved.observation.health = health.into();
-        saved.observation.cause = cause;
-        if let Some(state) = end {
-            saved.state = state;
-        }
-        if let Ok(record) = serde_json::to_string(&saved) {
-            let _ = db.execute(
-                "UPDATE reactions SET record=?2 WHERE id=?1",
-                params![id, record],
-            );
-        }
     }
 }
 
@@ -608,7 +614,7 @@ fn shape(p: &CreateParams, now: OffsetDateTime) -> Result<(u32, bool), RpcError>
     Ok((max, rearm))
 }
 
-fn read(record: &str) -> Result<Reaction, RpcError> {
+pub(crate) fn read(record: &str) -> Result<Reaction, RpcError> {
     serde_json::from_str(record).map_err(RpcError::internal)
 }
 
@@ -742,6 +748,9 @@ impl Daemon {
         if let Some(mut watch) = self.reactions.watch(&saved.id) {
             if let Some(cause) = watch.write_failure {
                 watch.health = "observation-save-failed".into();
+                watch.health_code = Health::ObservationSaveFailed;
+                watch.cause_code = Cause::ObservationSaveFailed;
+                watch.recovery_code = Recovery::RetryStorage;
                 watch.cause = Some(format!("the Agent observation was not saved: {cause}"));
                 watch.recovery = Some(
                     "remove the storage failure; retry reaction.create with its original operation or allow the next Agent observation to save retained progress; Project reopen replays durable evidence within the remaining bound and expiry".into(),
@@ -749,6 +758,10 @@ impl Daemon {
             }
             saved.observation = Observation {
                 health: watch.health,
+                health_code: watch.health_code,
+                cause_code: watch.cause_code,
+                gap_code: watch.gap_code,
+                recovery_code: watch.recovery_code,
                 cause: watch.cause,
                 cursor: Some(watch.seen),
                 gap: watch.gap,
@@ -880,6 +893,14 @@ impl Daemon {
             created_at: now.format(&Rfc3339).map_err(RpcError::internal)?,
             state: State::Active,
             observation: Observation {
+                health_code: if waiting {
+                    Health::Waiting
+                } else {
+                    Health::NotObserving
+                },
+                cause_code: Cause::Unknown,
+                gap_code: Gap::Unknown,
+                recovery_code: Recovery::Unknown,
                 health: if waiting {
                     "waiting".into()
                 } else {

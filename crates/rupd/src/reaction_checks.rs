@@ -7,11 +7,15 @@ use contracts::Actor;
 use contracts::agent::{
     WorktreeCheckConclusion, WorktreeEvidence, WorktreeEvidenceState, WorktreeState,
 };
-use contracts::reaction::{Condition, Reaction, State};
+use contracts::reaction::{
+    Condition, ObservationCause as Cause, ObservationHealth as Health, Reaction, State,
+};
 use rpc::{Ctx, Module, RpcError};
 use serde_json::{Value, json};
 
-use crate::reaction::Reactions;
+use crate::reaction::{Reactions, read as read_record};
+use contracts::reaction::ObservationRecovery as Recovery;
+use rusqlite::{OptionalExtension, params};
 
 const EVERY: Duration = Duration::from_secs(20);
 
@@ -20,9 +24,9 @@ pub(crate) enum Verdict {
     /// Every required check passed on the pinned head.
     Match,
     /// The head moved: the reaction ends, and a replacement is an explicit new one.
-    Invalidate(String),
+    Invalidate(Cause, String),
     /// No match now, and the cause the user can act on.
-    Wait(String),
+    Wait(Cause, String),
 }
 
 /// A current PR identity, independently of whether its required checks have concluded.
@@ -30,44 +34,65 @@ pub(crate) fn current<'a>(
     state: &'a WorktreeState,
     repository: &str,
     number: u32,
-) -> Result<&'a WorktreeEvidence, String> {
+) -> Result<&'a WorktreeEvidence, (Cause, String)> {
     let Some(pr) = state
         .pr
         .as_ref()
         .filter(|pr| pr.number.get() == u64::from(number))
     else {
-        return Err(format!("the Worktree holds no PR {number}"));
+        return Err((
+            Cause::PrMissing,
+            format!("the Worktree holds no PR {number}"),
+        ));
     };
     let evidence = state
         .evidence
         .as_ref()
-        .ok_or("no required-check evidence")?;
+        .ok_or((Cause::EvidenceMissing, "no required-check evidence".into()))?;
     if pr.stale || evidence.stale {
-        return Err("the evidence is stale; the last refresh failed or is old".into());
+        return Err((
+            Cause::EvidenceStale,
+            "the evidence is stale; the last refresh failed or is old".into(),
+        ));
     }
     match evidence.state {
         WorktreeEvidenceState::Complete | WorktreeEvidenceState::Incomplete => {}
         WorktreeEvidenceState::StaleHead => {
-            return Err("the PR head moved while the checks were read".into());
+            return Err((
+                Cause::HeadMoved,
+                "the PR head moved while the checks were read".into(),
+            ));
         }
         WorktreeEvidenceState::Unknown => {
-            return Err("the forge read failed without a reason".into());
+            return Err((
+                Cause::ForgeReadFailed,
+                "the forge read failed without a reason".into(),
+            ));
         }
         WorktreeEvidenceState::Unavailable => {
-            return Err("no usable gh, login, GitHub remote or answer in time".into());
+            return Err((
+                Cause::ChecksUnavailable,
+                "no usable gh, login, GitHub remote or answer in time".into(),
+            ));
         }
     }
     if evidence.repository.as_deref() != Some(repository) {
-        return Err(format!(
-            "the PR is in {}, not {repository}",
-            evidence
-                .repository
-                .as_deref()
-                .unwrap_or("an unknown repository")
+        return Err((
+            Cause::RepositoryMismatch,
+            format!(
+                "the PR is in {}, not {repository}",
+                evidence
+                    .repository
+                    .as_deref()
+                    .unwrap_or("an unknown repository")
+            ),
         ));
     }
     if evidence.head.as_ref().is_none_or(|head| head.is_empty()) {
-        return Err("the evidence names no current head".into());
+        return Err((
+            Cause::HeadMissing,
+            "the evidence names no current head".into(),
+        ));
     }
     Ok(evidence)
 }
@@ -80,28 +105,42 @@ pub(crate) fn decide(
 ) -> Verdict {
     let state = match read {
         Ok(state) => state,
-        Err(error) => return Verdict::Wait(format!("the Worktree read failed: {}", error.message)),
+        Err(error) => {
+            return Verdict::Wait(
+                Cause::WorktreeReadFailed,
+                format!("the Worktree read failed: {}", error.message),
+            );
+        }
     };
     let evidence = match current(state, repository, number) {
         Ok(evidence) => evidence,
-        Err(cause) => return Verdict::Wait(cause),
+        Err((code, cause)) => return Verdict::Wait(code, cause),
     };
     let head = evidence.head.as_deref().unwrap_or_default();
     if head != pin {
-        return Verdict::Invalidate(format!("the PR head moved from {pin} to {head}"));
+        return Verdict::Invalidate(
+            Cause::HeadMoved,
+            format!("the PR head moved from {pin} to {head}"),
+        );
     }
     if evidence.state != WorktreeEvidenceState::Complete {
-        return Verdict::Wait("a required check is pending, or none is required".into());
+        return Verdict::Wait(
+            Cause::ChecksPending,
+            "a required check is pending, or none is required".into(),
+        );
     }
     if evidence.checks.is_empty() {
-        return Verdict::Wait("no required check concluded".into());
+        return Verdict::Wait(Cause::ChecksPending, "no required check concluded".into());
     }
     if evidence
         .checks
         .iter()
         .any(|check| check.conclusion != WorktreeCheckConclusion::Passed)
     {
-        return Verdict::Wait("a required check did not pass on the pinned head".into());
+        return Verdict::Wait(
+            Cause::ChecksFailed,
+            "a required check did not pass on the pinned head".into(),
+        );
     }
     Verdict::Match
 }
@@ -130,7 +169,8 @@ pub(crate) fn pin(
         )
     };
     let state = read.map_err(|e| refuse(format!("the Worktree read failed: {}", e.message)))?;
-    let evidence = current(&state, repository, number).map_err(refuse)?;
+    let evidence =
+        current(&state, repository, number).map_err(|(_, diagnostic)| refuse(diagnostic))?;
     Ok(evidence.head.clone().unwrap_or_default())
 }
 
@@ -215,7 +255,8 @@ impl Watcher {
                 if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
                     self.reactions.observe(
                         &saved.id,
-                        "unavailable",
+                        Health::Unavailable,
+                        Cause::AuthorityRefused,
                         Some(format!(
                             "authority refused: {}; the user may inspect or stop this reaction",
                             why.message
@@ -243,24 +284,81 @@ impl Watcher {
                     })
                     .await;
                 match fired {
-                    Ok(_) => self.reactions.observe(&saved.id, "matched", None, None),
+                    Ok(_) => self.reactions.observe(
+                        &saved.id,
+                        Health::Matched,
+                        Cause::Unknown,
+                        None,
+                        None,
+                    ),
                     Err(error) => self.reactions.observe(
                         &saved.id,
-                        "write-failed",
+                        Health::WriteFailed,
+                        Cause::AcceptanceFailed,
                         Some(format!("the firing was not accepted: {}", error.message)),
                         None,
                     ),
                 }
             }
-            Verdict::Invalidate(cause) => self.reactions.observe(
+            Verdict::Invalidate(code, cause) => self.reactions.observe(
                 &saved.id,
-                "invalidated",
+                Health::Invalidated,
+                code,
                 Some(cause),
                 Some(State::Invalidated),
             ),
-            Verdict::Wait(cause) => self
-                .reactions
-                .observe(&saved.id, "waiting", Some(cause), None),
+            Verdict::Wait(code, cause) => {
+                self.reactions
+                    .observe(&saved.id, Health::Waiting, code, Some(cause), None)
+            }
+        }
+    }
+}
+
+impl Reactions {
+    /// Records what the observer saw. A reaction stopped meanwhile stays stopped.
+    pub(crate) fn observe(
+        &self,
+        id: &str,
+        health: Health,
+        cause_code: Cause,
+        cause: Option<String>,
+        end: Option<State>,
+    ) {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let saved = db
+            .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional();
+        let Ok(Some(record)) = saved else { return };
+        let Ok(mut saved) = read_record(&record) else {
+            return;
+        };
+        if saved.state != State::Active {
+            return;
+        }
+        saved.observation.health = serde_json::to_value(health)
+            .expect("health serializes")
+            .as_str()
+            .expect("health discriminant")
+            .into();
+        saved.observation.health_code = health;
+        saved.observation.cause_code = cause_code;
+        saved.observation.recovery_code = if cause.is_some() {
+            Recovery::Check
+        } else {
+            Recovery::Unknown
+        };
+        saved.observation.cause = cause;
+        if let Some(state) = end {
+            saved.state = state;
+        }
+        if let Ok(record) = serde_json::to_string(&saved) {
+            let _ = db.execute(
+                "UPDATE reactions SET record=?2 WHERE id=?1",
+                params![id, record],
+            );
         }
     }
 }
@@ -682,49 +780,58 @@ mod tests {
 
         // Each gap exposes its cause and never fires.
         let mut gaps = Vec::new();
-        for kind in [
-            WorktreeEvidenceState::Incomplete,
-            WorktreeEvidenceState::StaleHead,
-            WorktreeEvidenceState::Unknown,
-            WorktreeEvidenceState::Unavailable,
+        for (kind, cause) in [
+            (WorktreeEvidenceState::Incomplete, "checks-pending"),
+            (WorktreeEvidenceState::StaleHead, "head-moved"),
+            (WorktreeEvidenceState::Unknown, "forge-read-failed"),
+            (WorktreeEvidenceState::Unavailable, "checks-unavailable"),
         ] {
-            gaps.push(state(kind, "a", WorktreeCheckConclusion::Passed));
+            gaps.push((state(kind, "a", WorktreeCheckConclusion::Passed), cause));
         }
         for conclusion in [
             WorktreeCheckConclusion::Failed,
             WorktreeCheckConclusion::Skipped,
             WorktreeCheckConclusion::Cancelled,
         ] {
-            gaps.push(state(WorktreeEvidenceState::Complete, "a", conclusion));
+            gaps.push((
+                state(WorktreeEvidenceState::Complete, "a", conclusion),
+                "checks-failed",
+            ));
         }
         let mut stale = passed("a");
         stale.evidence.as_mut().unwrap().stale = true;
-        gaps.push(stale);
+        gaps.push((stale, "evidence-stale"));
         let mut no_ci = passed("a");
         no_ci.evidence.as_mut().unwrap().checks.clear();
-        gaps.push(no_ci);
+        gaps.push((no_ci, "checks-pending"));
         let mut none = passed("a");
         none.evidence = None;
-        gaps.push(none);
-        for gap in gaps {
+        gaps.push((none, "evidence-missing"));
+        for (gap, cause) in gaps {
             *feed.lock().unwrap() = gap;
             run(&watcher, &feed).await;
             let saved = get(&client, &one).await;
             assert_eq!(saved["state"], "active");
             assert_eq!(saved["observation"]["health"], "waiting");
-            assert!(saved["observation"]["cause"].as_str().unwrap().len() > 3);
+            assert_eq!(saved["observation"]["cause_code"], cause);
             assert_eq!(saved["firings"], json!([]));
         }
-        // A failed refresh waits with its cause too.
-        watcher
-            .check_with(|_, _| async { Err(RpcError::internal("offline")) })
-            .await;
-        assert!(
-            get(&client, &one).await["observation"]["cause"]
-                .as_str()
-                .unwrap()
-                .contains("offline")
-        );
+        // Diagnostic wording cannot change a failed refresh's identity or authorize a match.
+        for diagnostic in ["offline", "the PR head moved; unsupported"] {
+            watcher
+                .check_with(|_, _| async { Err(RpcError::internal(diagnostic)) })
+                .await;
+            let seen = get(&client, &one).await;
+            assert_eq!(seen["observation"]["cause_code"], "worktree-read-failed");
+            assert_eq!(seen["observation"]["recovery_code"], "check");
+            assert!(
+                seen["observation"]["cause"]
+                    .as_str()
+                    .unwrap()
+                    .contains(diagnostic)
+            );
+            assert_eq!(seen["firings"], json!([]));
+        }
 
         // Complete passing evidence for the pinned head fires the reaction once, and again for nobody.
         *feed.lock().unwrap() = passed("a");
