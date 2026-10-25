@@ -922,8 +922,9 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         drop(s.user);
         s.project.crash();
         {
-            let db = project_db(&s.project);
+            storage::legacy_reaction(&s.project.data_dir().join("project.db"), storage::PROJECT_V36[18]);
             if !manual_first {
+                let db = project_db(&s.project);
                 // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
                 db.execute(
                     "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
@@ -932,7 +933,6 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
                 .unwrap();
             }
         }
-        storage::retain_project(&s.project.data_dir(), 23);
         s.project.restart(&[]);
         s.user = s.project.client().await;
         start_again(&s.user, &s.w).await;

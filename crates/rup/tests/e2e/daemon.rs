@@ -14,7 +14,7 @@ pub(crate) mod rupd_harness;
 
 #[allow(dead_code)]
 #[path = "../../../rupd/tests/support/store_migrations.rs"]
-pub(super) mod storage;
+pub mod storage;
 
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);

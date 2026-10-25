@@ -131,7 +131,7 @@ const ProgressContent = (props: { id: string }) => {
     const agent = props.id;
     const chosen = open();
 
-    if (phase() === "pending" || daemonExit() !== null || chosen.length === 0) return;
+    if (phase() === "pending" || read.loading || daemonExit() !== null || chosen.length === 0) return;
     const identity = chosen.map((action) => action.id);
     const previous = phase();
 
@@ -252,7 +252,7 @@ const ProgressContent = (props: { id: string }) => {
               <div class="progress-head">
                 <h3>{copy.progress}</h3>
                 <Show when={open().length > 0}>
-                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null ? true : undefined}
+                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || read.loading || daemonExit() !== null ? true : undefined}
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
