@@ -133,7 +133,7 @@ for (const list of [nested, shelf]) {
       expect(after.active).toContain(`#${before.ids[last]} `);
     }, 60_000);
 
-    it("u490a_cancel_and_noop", async () => {
+    it("u490a_cancel_and_noop_escape_cancels", async () => {
       await page.scheme("light");
       await list.setup();
 
@@ -157,6 +157,26 @@ for (const list of [nested, shelf]) {
       await page.pointer("up", origin.x, origin.y);
       await settled();
       expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
+    }, 60_000);
+
+    it("u490a_cancel_and_noop_original_gap_makes_no_call", async () => {
+      await page.scheme("light");
+      await list.setup();
+
+      const before = await state(rows);
+      const last = await centre(rows, before.ids.length - 1);
+
+      await page.pointer("down", last.x, last.y);
+      await page.pointer("move", last.x + 6, last.y);
+      // Sortable keeps the source row in place and draws its drop gap separately (ui/sortable.tsx).
+      await page.until(`() => Boolean(document.querySelector('.sortable-slot:not([data-ending])'))`);
+      const gap = await centre('.sortable-slot:not([data-ending])', 0);
+
+      await page.pointer("move", gap.x, gap.y);
+      await page.until(`() => document.querySelector('[data-sortable-index]')?.getAttribute('data-sortable-index') === "${before.ids.length - 1}"`);
+      await page.pointer("up", gap.x, gap.y);
+      await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
     }, 60_000);
 
     it("u3789a_a_click_selects_the_Todo_without_open_or_drag", async () => {
