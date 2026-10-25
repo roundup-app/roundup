@@ -369,7 +369,7 @@ async fn u2773c_removed_original_is_not_recreated_or_retargeted() {
             .unwrap()["changes"][0]["seq"]
             .clone();
         client
-            .request("todo.delete", json!({"id":1}))
+            .request("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
             .await
             .unwrap();
         let replacement = client
