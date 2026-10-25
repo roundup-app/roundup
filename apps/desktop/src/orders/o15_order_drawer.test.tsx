@@ -271,13 +271,14 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Title"), { target: { value: "  unsaved title 👋  " } });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
-  await screen.findByRole("alert");
+  const editor = within(document.querySelector<HTMLElement>(".order-edit")!);
+  await editor.findByRole("button", { name: "Copy title" });
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
   storage.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(editor.queryByRole("alert")).toBeNull());
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))

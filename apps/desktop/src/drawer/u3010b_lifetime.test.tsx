@@ -31,7 +31,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
     if (action === "retention") {
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
       await store.retry();
-      expect(screen.getAllByRole("alert")).toHaveLength(2);
+      expect(within(panel).getAllByRole("alert")).toHaveLength(2);
     }
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss copy failure" }));
