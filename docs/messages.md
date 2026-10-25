@@ -248,6 +248,14 @@ Serves P1 and P3. An Agent asks `agent.wake {ids, any?}` to be told when all, or
 
 A Reaction firing is accepted by `Messages::fire_reaction` in the one transaction that inserts its Message: the check that the Reaction is active with a firing left, the Message, and the `reaction_firings` row (`project.db`, migration 0009) holding the definition bytes and evidence as accepted. A fault before the commit leaves neither; after it, both, with the ids they were given. A retried `operation` returns the first firing and sends nothing. The Message is from the Daemon, outside B1's open bound like a Wake note, and is otherwise an ordinary Message: B2, B39 and B40 decide whether it is pending, delivered or dropped, and recovery starts no program. `reaction.get` shows the firing's `matched` flag and the Message's status as `outcome`; delivery is not verified work. This adds no delivery state, so M1 and M4 to M10 and `proofs/messages` stand unchanged.
 
+U3791b reaction observation identities travel beside retained diagnostics: `health_code`,
+`cause_code`, `gap_code` and `recovery_code` select App copy. Legacy records default each
+identity to `unknown`; their prose, cursor, evidence and pinned head remain readable, with
+an explicit checking action. Only a live authoritative read supplies a new identity.
+This changes no Message, Route, Held or Takeover contract. M1–M10 are unchanged: the firing
+transaction, deduplication, bound, Reach, delivery and restart rules remain identical.
+Delivery explanations use the existing Message `Reason`, including user removal.
+
 ## Reaction evaluation (NR2, NR4, NR5)
 
 The Daemon decides an Agents Reaction from `agent.status` Events and the Rail's present Kinds, never from a Model or a clock, in the same Kind sense as Wake (B41). It reads the Event head, then the Rail, then replays the Events after the head, and accepts a firing only through `Messages::fire_reaction` with the operation `auto-<n>`, so a crash between acceptance and its saved progress returns the first firing. A repeat-enabled Reaction re-arms only after every named Agent was seen not finished since the last firing. Stop, explicit run and automatic acceptance meet in `fire_reaction`'s one write, which reads the state and the bound. Expired Event history or a failed read records a gap; an Agent with no present state never matches. No delivery state is added, so M1 and M4 to M10 stand unchanged.

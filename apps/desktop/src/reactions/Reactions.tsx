@@ -212,7 +212,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
             return <li>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-name">{reaction().name}</span>
-              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health)}</span>
+              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span>
             </button>
           </li>;
           }}</For>
@@ -251,8 +251,8 @@ const Facts = (props: { reaction: Reaction }) => {
 
   const home = () => r().home;
 
-  const observation = () => r().state !== "active" ? copy.reactionState(r().state, r().observation.health)
-    : (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health);
+  const observation = () => r().state !== "active" ? copy.reactionState(r().state, r().observation.health_code)
+    : (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health_code);
 
   const authority = () => copy.reactionActor(r().actor.kind, rail.nodes.some(node => node.id === r().actor.id) ? nameOf(r().actor.id) : null);
 
@@ -267,7 +267,7 @@ const Facts = (props: { reaction: Reaction }) => {
     <dt>{copy.reactionObservation}</dt>
     <dd>
       <span>{observation()}</span>
-      <ReservedLine message={r().observation.cause ? copy.reactionCause(r().observation.cause!) : r().observation.gap ? copy.reactionGap(r().observation.gap!) : null} status={!r().observation.cause?.includes("unsupported") && r().observation.recovery ? copy.reactionRecovery(r().observation.recovery!) : null} />
+      <ReservedLine message={copy.reactionFeedback(r().observation)} />
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
       const owner = copyOwner();
@@ -288,7 +288,7 @@ const Facts = (props: { reaction: Reaction }) => {
       <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
-        <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
+        <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionReason(value().reason!)}` : ""}</dd>
         <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
           const owner = copyOwner();
           void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))

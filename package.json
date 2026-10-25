@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.14.0",
   "scripts": {
-    "lint": "oxlint",
+    "lint": "node tools/oxlint/anti-slop/web-assertions/lint.mjs",
     "typecheck": "tsc",
     "slop": "fallow dead-code && fallow dupes",
     "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs",

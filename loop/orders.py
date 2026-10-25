@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """L34: open GitHub Issues are the work queue; scenario files describe acceptance."""
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,9 +30,45 @@ AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 GH_TIMEOUT = 120
 
 
+# The longest a rate-limited call waits for the quota to come back.
+RATE_WAIT_CAP = 300
+RATE_LIMITED = re.compile(r'API rate limit exceeded|secondary rate limit', re.I)
+# A secondary limit leaves the hourly quota untouched, so there is no reset to wait for.
+SECONDARY_WAIT = 60
+
+
+def rate_wait(stderr):
+    """Seconds, at most RATE_WAIT_CAP, to wait before a call that `stderr` shows was rate limited: a `Retry-After` hint
+    in it, else the time to the hourly quota's reset (`gh api rate_limit` costs none), else SECONDARY_WAIT when quota remains."""
+    if hint := re.search(r'retry[- ]after:?\s*(\d+)', stderr, re.I):
+        return min(int(hint[1]), RATE_WAIT_CAP)
+    core = json.loads(subprocess.run(['gh', 'api', 'rate_limit'], check=True, text=True, stdout=subprocess.PIPE,
+                                     timeout=60).stdout)['resources']['core']
+    if core['remaining'] > 0:
+        return SECONDARY_WAIT
+    return min(max(core['reset'] - time.time(), 1), RATE_WAIT_CAP)
+
+
+def call(*args, timeout=60):
+    """`gh *args`'s stdout. A GitHub 5xx (`HTTP 5` in stderr) is retried twice after 2 s then 5 s, and a rate limit once
+    after `rate_wait` seconds; any other failure, or a second rate limit, raises at once, stderr re-emitted."""
+    pauses, limited = [2, 5], False
+    while True:
+        run = subprocess.run(['gh', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        if run.returncode == 0:
+            return run.stdout
+        sys.stderr.write(run.stderr)
+        if RATE_LIMITED.search(run.stderr) and not limited:
+            limited = True
+            time.sleep(rate_wait(run.stderr))
+        elif 'HTTP 5' in run.stderr and pauses:
+            time.sleep(pauses.pop(0))
+        else:
+            run.check_returncode()
+
+
 def gh(*args):
-    return json.loads(subprocess.run(['gh', *args], check=True, text=True,
-                                   stdout=subprocess.PIPE, timeout=GH_TIMEOUT).stdout)
+    return json.loads(call(*args, timeout=GH_TIMEOUT))
 
 
 def created(item):
@@ -219,12 +256,25 @@ def graphql_issue(item):
                 user=dict(login=f'{login[4:]}[bot]' if login.startswith('app/') else login))
 
 
-def list_issues():
+# A file holding the closed Issues as of the last read; `list_issues` then fetches only what changed since.
+CLOSED_CACHE = 'ORDERS_CLOSED_CACHE'
+# What `classify` and `read_orders` read of an Issue.
+KEPT = ('number', 'html_url', 'title', 'body', 'state', 'state_reason', 'labels', 'updated_at', 'user')
+# A read starts this long before the last one ended, so an Issue changed while that read ran is fetched again.
+CACHE_OVERLAP = 120
+
+
+def rest_issues(query):
+    """The Issues, no PRs, `repos/{owner}/{repo}/issues?<query>` lists, every page."""
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues?{query}&per_page=100', '--paginate', '--slurp')
+    return [issue for page in pages for issue in page if 'pull_request' not in issue]
+
+
+def all_issues():
     """Every Issue. The REST list came back empty during a GitHub Issues incident (2026-10-22) while GraphQL still
     answered, so an empty or failed REST list falls back to `gh issue list`; both failing raises."""
     try:
-        pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
-        issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
+        issues = rest_issues('state=all')
         if issues:
             return issues
     except subprocess.CalledProcessError as error:
@@ -236,6 +286,30 @@ def list_issues():
     if not issues:
         raise SystemExit('::error::both the REST and GraphQL Issue lists came back empty')
     return issues
+
+
+def list_issues():
+    """Every Issue. With `$ORDERS_CLOSED_CACHE` naming an existing file, the open Issues plus the closed ones that file
+    holds, updated with those changed since its read: two calls once it is warm. With the variable and no file, every
+    page, once, and the file is written; without the variable, every page. The file is rewritten on each read."""
+    path = os.environ.get(CLOSED_CACHE)
+    if not path:
+        return all_issues()
+    file, started = Path(path), time.time()
+    if file.is_file():
+        cache = json.loads(file.read_text())
+        since = datetime.fromtimestamp(cache['read'] - CACHE_OVERLAP, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        opened = rest_issues('state=open')
+        closed = {int(number): issue for number, issue in cache['closed'].items()}
+        closed.update({issue['number']: {key: issue.get(key) for key in KEPT} for issue in rest_issues(f'state=closed&since={since}')})
+        for issue in opened:
+            closed.pop(issue['number'], None)
+    else:
+        everything = all_issues()
+        opened = [issue for issue in everything if issue['state'] != 'closed']
+        closed = {issue['number']: {key: issue.get(key) for key in KEPT} for issue in everything if issue['state'] == 'closed'}
+    file.write_text(json.dumps(dict(read=started, closed=closed)))
+    return opened + list(closed.values())
 
 
 def read_orders():
