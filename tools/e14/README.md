@@ -132,3 +132,132 @@ concurrency and `required_test_prefix` requires B21 evidence. These are report
 references, not launch sites. The observer runs test lanes through
 `loop/app-data.py`, which owns their app-data isolation and cleanup. The manifest
 is included in the observer revision hashes so comparisons cannot mix classifications.
+
+## CI3781 opt-in compilation/link observation
+
+On **hosted Linux only**, add `--build-observation` to the existing Rust `run`
+command in an experiment's permitted `check.yml` settings. Use empty `BASE`;
+the command rejects selected PR runs, web lanes, local and self-hosted runners.
+Do not change tests, nextest profiles, four threads, release settings or the
+selected linker. Ordinary invocations install no proxy and collect no build trace.
+
+```sh
+python3 tools/e14/observe.py run --lane rust1 --base '' \
+  --build-observation --memory-log "$RUNNER_TEMP/e14-memory.jsonl" \
+  --output "$RUNNER_TEMP/e14/rust1" --cache-state 'actual cache preparation and keys'
+```
+
+Repeat for rust2–rust5. Setup's earlier `rupd` build is outside this command:
+retain its Actions logs separately; do not add it to the measured lane's build
+interval or call it cache transfer time. A restored/previously compiled unit is
+not a new compilation sample. For cold package ranking, prepare the empty-cache
+state CI3781 requires before setup and disclose any setup compilation. An empty
+or fully warm command with no unit/link evidence is invalid for link measurement.
+
+```text
+unchanged just test-rust-since '' --profile ciN --test-threads 4
+  cargo build              → --timings + strace (build only)
+  cargo nextest run         → --timings → Cargo test --no-run + strace
+    original tests         → existing E14 wrapper/JUnit, outside strace
+  contracts-fresh          → original Cargo run + --timings + strace
+```
+
+The run-owned Cargo proxy dispatches the installed nextest executable directly
+so its `CARGO` points back to the proxy for compilation. It forwards all other
+arguments and the existing environment, wrappers, target directory and linker
+settings. It never substitutes another build, compiler, linker or scheduler.
+Cargo timing files are copied immediately after each invocation, independently
+of other invocations' reports. Existing test skip/failure/retry records, memory
+sampling, app-data cleanup and exit behavior remain active.
+
+Each `build/cargo-*/` directory retains:
+
+| File | Evidence |
+| --- | --- |
+| `cargo-timing-*.html` | Raw Cargo unit durations, targets, features, profile, build start and duration |
+| `trace.<pid>` | strace exec arguments, descendants, exec errors, signals and real exits; argv bytes use `-xx` hex encoding |
+| `strace.stderr` | Cargo diagnostics and tracer errors |
+| `build.json` | Original/effective commands, command envelope, successful exec intervals and failed exec attempts, collection status |
+
+`build/summary.json` validates the raw records, retains units/profile/features,
+and ranks **all packages by descending summed unit wall seconds** across the
+lane's actual Cargo invocations (package name/version, stable lexical tie break).
+Take its first three `packages` rows for #3985's llvm-lines work. Summed unit
+seconds overlap and are neither elapsed build time nor link time. The raw HTML
+format is Cargo-version-specific; unsupported reports fail rather than yielding
+an invented ranking.
+
+`cargo_intervals` use Cargo's own Build start and DURATION; the end is derived
+from that reported duration, at Cargo's rounding precision. `build.json`'s
+`start`/`end` bracket the whole command, including tracer startup/shutdown and,
+for `cargo run`, execution of the requested program. Use the Cargo intervals
+for compilation and keep that command envelope distinct. Link records bracket
+successful `execve` to process exit in seconds since the Unix epoch; compiler
+drivers and the actual child linker are both retained, identified by executable,
+`-o` output and the owning Cargo profile. Do not sum nested driver/linker
+intervals. Raw traces also retain rustc's effective per-target flags. PATH-search
+exec failures are kept separately with the real errno, not mistaken for a
+successful linker start. A failed linker process retains its real exit/signal
+and invalidates the observation. An incomplete interval, truncated/unsupported
+record, missing report or unretained `@response` file also invalidates it; never
+replace missing measurements with zero. Investigate and repair an unsupported
+invocation before using it in a comparison.
+
+The observer adds Python proxy startup, Cargo HTML generation, ptrace process
+tracing, trace writes and report copying. This overhead is **not calibrated or
+subtracted**. Exec timestamps include loader startup and tracing overhead; they
+are observed process intervals, not CPU time. Use this exact observer revision
+on instrumented baseline and candidate, and retain the overhead in command/job
+measurements. Do not compare an instrumented candidate with an uninstrumented
+baseline. This support supplies no speedup claim.
+
+A build timeout (15 minutes, not a larger lane allowance) or termination kills
+only that proxy's new process group, waits up to five seconds, then escalates
+to SIGKILL and waits again. Raw evidence remains in place; incomplete collection
+or unsuccessful cleanup cannot validate. Output directories must be fresh and
+remain outside the checkout. Do not delete shared caches or kill other runs.
+
+`build/facts.json` retains CPU model/count/topology from `lscpu --json`, toolchain,
+Cargo/nextest/strace versions and Cargo metadata. `settings.json` retains relevant
+compiler/profile/linker environment settings and configuration hashes; raw rustc
+and linker exec records retain the effective arguments. `lane.json` retains
+architecture, CPU model/count, OS/image, memory, source commit, observer content
+hashes, exact lane command, lock hashes and Actions run identity. Use the same
+observer files on both experiment sides, even when measuring older checkouts.
+
+Download E14 artifacts and Actions logs/jobs JSON using the commands above.
+Match source SHA, run id/attempt and lane job URL before combining evidence:
+Actions job start/end supplies full hosted-lane time; setup/cache logs supply
+lookup/miss or download/unpack boundaries, keys, hit/miss and bytes. A whole
+setup-action duration includes installation and other work and is not a pure
+restore interval. A Builder demonstration's command duration is not the full
+`check` lane or an adoption baseline. Preserve every failed/timeout/skipped
+sample and code alongside successes. #3985 owns matching cache states, the
+three-sample medians/ranges, candidate decisions and llvm-lines table.
+
+### Collection reuse
+
+Cargo 1.99.0's installed `--timings` and nextest 0.9.149's forwarding flag were
+probed with a real compilation. [Cargo timings](https://doc.rust-lang.org/cargo/reference/timings.html)
+supply unit reports, but no external linker argv or process exit interval.
+Existing E14 artifacts and Actions logs supply lifecycle, runner memory, job
+and cache facts; they do not contain linker intervals.
+
+- **Selected:** [strace](https://strace.io/), already installed by the hosted E12
+  lane; maintained [v7.3, 2026-10-22](https://github.com/strace/strace/releases/tag/v7.3).
+  Its process tracer supplies actual exec/exit records without replacing the
+  linker. The observer adapts those records and Cargo's reports; it implements
+  no tracer or profiling service. The installed 6.8 is retained in facts.
+- **Rejected:** [BCC v0.37.0, 2026-07-02](https://github.com/iovisor/bcc/releases/tag/v0.37.0).
+  `execsnoop` limits captured arguments and lacks paired process exit status;
+  it cannot supply complete argv/intervals and needs privileged kernel tracing.
+- **Rejected:** [measureme 12.0.3, 2025-07-08](https://github.com/rust-lang/measureme/releases/tag/12.0.3).
+  rustc self-profiling requires compiler instrumentation and does not supply
+  external linker argv/status. Cargo's stable reports already cover unit timing.
+
+Behavioral collection tests run with the existing `observe.test.py` command.
+They compile a tiny fixture through real nextest, retain a real failed linker,
+and reject absent/incomplete reports and intervals. The source-text timeout
+configuration test was removed under rule 10; the existing memory stop/coverage
+observers still prove collector completion and whole-lane coverage. The
+40-minute collector bound and all existing budgets remain unchanged.
