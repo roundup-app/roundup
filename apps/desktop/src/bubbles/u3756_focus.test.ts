@@ -269,11 +269,14 @@ it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_
   await fresh("resources");
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
-    window.__fake.app.handlers['agent.changedFiles'] = () => new Promise(resolve => { window.finishFiles = () => resolve({files:[{path:'src/file.ts',status:'modified',line:1}]}); });
+    window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
     document.querySelector('[data-id="worktree-agent"] .name').click();
   })()`);
   await wait(`!!document.querySelector('.worktree-control')`);
   await browser("click", ".worktree-control");
+  await wait(`!!document.querySelector('file-tree-container')`);
+  await read(`window.__fake.app.handlers['agent.changedFiles'] = () => new Promise(resolve => { window.finishFiles = () => resolve({files:[{path:'src/file.ts',status:'modified',line:1}]}); })`);
+  await read(`window.__fake.setStatus("worktree-agent", "idle", "ready")`);
   await wait(`!!window.finishFiles`);
 
   if (intervene) await newer("rail");

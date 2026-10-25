@@ -114,7 +114,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   if (task === "ask") {
     daemon.handlers["ask.send"] = params => ({ id: "ask", text: params.text, at: 0n, parts: [] });
     command("action:chord:⌘/", "Slash", { metaKey: true });
-    fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: "Do this" } });
+    fireEvent.input(await screen.findByRole("textbox", { name: "Ask" }), { target: { value: "Do this" } });
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
     press("Enter");
     await waitFor(() => expect(daemon.calls.filter(call => call.method === "ask.send")).toHaveLength(1));

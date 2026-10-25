@@ -48,7 +48,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   const own = createMemo(() => {
     const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-    return node?.kind === "agent" ? node.id : null;
+    return node?.kind === "agent" || node?.kind === "workstream" && node.attempt !== null ? node.id : null;
   });
 
   const live = () => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
