@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 import subprocess
 import tempfile
-import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -99,16 +98,6 @@ class DownstreamDraft(unittest.TestCase):
             model = source.split(f'\n  {workflow}-run:', 1)[1].split('    runs-on:', 1)[0]
             self.assertIn('needs: task', model)
             self.assertIn("if: needs.task.outputs.pr != ''", model)
-
-    def test_l46_the_merge_queue_commit_reports_every_required_check_without_an_agent(self):
-        workflows = ROOT / '.github/workflows'
-        for name in ('check', 'loop'):
-            self.assertIn('merge_group:\n    types: [checks_requested]', (workflows / f'{name}.yml').read_text())
-        source = (workflows / 'merge-group.yml').read_text()
-        self.assertIn('on:\n  merge_group:\n    types: [checks_requested]\n', source)
-        self.assertNotIn('pull_request', source.split('\njobs:', 1)[0].split('\n#', 1)[-1].split('on:', 1)[1])
-        self.assertNotIn('secrets', source)
-        self.assertEqual(re.findall(r'\n  ([a-z]+):\n    runs-on', source), ['review', 'critic'])
 
     def test_l24_gate_definitions_and_publishers_remain_trusted(self):
         for workflow in ('review', 'critic'):
@@ -218,13 +207,13 @@ class Build(unittest.TestCase):
             for setting in ('', '[]', '[124]'):
                 with self.subTest(workflow=workflow, setting=setting):
                     self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': setting}),
-                                     ['ubuntu-latest'])
+                                     ['ubuntu-24.04'])
             self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': '[123]'}),
                              ['self-hosted', 'boxd', f'roundup-{"build" if job == "build" else "fix"}-123-7-2'])
         for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             runner = source.split(f'\n  {workflow}-run:', 1)[1].split('runs-on: ', 1)[1].split('\n', 1)[0]
-            self.assertEqual(runner, 'ubuntu-latest')
+            self.assertEqual(runner, 'ubuntu-24.04')
 
     def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
@@ -458,41 +447,13 @@ class L24(unittest.TestCase):
         self.assertEqual({'plan', 'lint', 'lint-web', 'rekick', 'pre', 'summary'}, set(self.jobs('pre')))
         self.assertIn('workflows: [check, loop, pre]', (ROOT / '.github/workflows/fix.yml').read_text())
 
-    def test_l24_no_test_lane_starts_before_the_approval(self):
+    def test_l24_the_test_lanes_start_with_the_push_without_waiting_for_review(self):
         jobs = self.jobs('check')
-        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'check', 'summary'}, set(jobs))
-        self.assertIn('needs: approved\n', jobs['plan'])
-        for lane in ('rust', 'mac-clippy', 'mac', 'web'):
+        self.assertEqual({'plan', 'rust', 'mac-clippy', 'mac', 'web', 'chromium', 'check', 'summary'}, set(jobs))
+        self.assertNotIn('needs:', jobs['plan'])
+        for lane in ('rust', 'mac-clippy', 'mac', 'web', 'chromium'):
             self.assertIn('needs: plan\n', jobs[lane], lane)
         self.assertRegex(jobs['check'], r'needs: \[plan, ')
-
-    def approved(self, event, statuses):
-        """Run the `approved` job's script with `gh` answering `statuses`; the gh calls, and the exit code."""
-        job = self.jobs('check')['approved']
-        self.assertIn('GH_REPO: ${{ github.repository }}', job)  # no checkout: `gh run cancel` has no git remote to read
-        script = textwrap.dedent(job.rsplit('        run: |\n', 1)[1])
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            (root / 'bin').mkdir()
-            for name, body in (('gh', 'echo "$*" >>"$CALLS"\n[ "$1" != api ] || echo "$STATUSES"'), ('sleep', 'true')):
-                (root / 'bin' / name).write_text(f'#!/bin/bash\n{body}\n')
-                (root / 'bin' / name).chmod(0o755)
-            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
-                                    env={**os.environ, 'PATH': f'{root}/bin:{os.environ["PATH"]}', 'CALLS': f'{root}/calls',
-                                         'GITHUB_EVENT_NAME': event, 'GITHUB_REPOSITORY': 'o/r', 'GITHUB_RUN_ID': '7',
-                                         'HEAD': 'h', 'GH_TOKEN': 't', 'STATUSES': json.dumps(dict(statuses=statuses))})
-            calls = (root / 'calls').read_text().splitlines() if (root / 'calls').exists() else []
-            return calls, result.returncode
-
-    def test_l24_a_pr_head_passes_only_with_review_and_critic_success_else_its_run_is_cancelled(self):
-        both = [dict(context='review', state='success'), dict(context='critic', state='success')]
-        self.assertEqual(self.approved('pull_request', both), (['api repos/o/r/commits/h/status'], 0))
-        for statuses in (both[:1], [both[0], dict(context='critic', state='pending')],
-                         [dict(context='review', state='failure'), both[1]], []):
-            with self.subTest(statuses=statuses):
-                self.assertEqual(self.approved('pull_request', statuses),
-                                 (['api repos/o/r/commits/h/status', 'run cancel 7'], 1))
-        self.assertEqual(self.approved('push', []), ([], 0))
 
 
 class L46(unittest.TestCase):

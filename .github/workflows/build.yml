@@ -35,7 +35,7 @@ jobs:
       (github.event.action == 'unlabeled' && contains(fromJSON('["flag:needs-user", "flag:needs-mac"]'), github.event.label.name)) ||
       (contains(fromJSON('["opened", "reopened"]'), github.event.action) &&
        contains(fromJSON('["saadshahd", "claude[bot]", "github-actions[bot]"]'), github.event.issue.user.login)))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: build-pick
       cancel-in-progress: false
