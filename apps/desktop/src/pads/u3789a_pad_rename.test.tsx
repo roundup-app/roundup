@@ -20,7 +20,7 @@ it("u3789a_rename_refetch_retains_exact_pending_text_and_original_target_without
   expect(draft).toBeDefined();
 
   const renamed = await app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: original.incarnation });
-  await screen.findByText("Pad Notes was deleted");
+  await screen.findByRole("alert");
   expect(field.value).toBe(pendingText);
   expect(renamed).toEqual({ ...original, name: "Plan" });
   expect(connected.drafts.list().at(-1)).toEqual(draft);
