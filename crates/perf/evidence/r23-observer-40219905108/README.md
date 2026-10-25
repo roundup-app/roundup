@@ -27,6 +27,23 @@ candidate request 3455 runs in task 3578 on PID 46899. The historical physical
 reader/writer are TIDs 46732/46733, FDs 53/54; candidate 48001/48002, FDs 68/69.
 No pending read's earlier idle interval is attributed to a write.
 
+At the historical pin, input is `Terminals::write` in
+`crates/terminal/src/lib.rs` (`try_send` at line 208), and output is `pump`
+(starting at line 325). At the candidate pin, input is `Terminals::enqueue`
+(`try_send` at line 634), called by `write`, and `pump` starts at line 974 in
+that same file. Neither pin has `crates/terminal/src/pty.rs`. Historical
+publication precedes title parsing; candidate publication follows screen/parser
+and log work. The source ordering is not measured causal attribution.
+
+The historical enqueue-symbol attempt exits 237; source probes subsequently
+supply 11000 input hits. Candidate enqueue entry has 2200 hits. Historical
+publication supplies 6633 probe hits over all Terminals; candidate's exact
+send-line attempt exits 254 for shared optimized addresses, with 2211 hits at
+the next supported location. Eleven `pump` entry hits per pin identify reader
+lifetimes, never individual publications. Registered probes and source mappings
+are in the capture's `*-source-*.command` and corresponding outputs; failed
+attempts are retained in its `failures.md`.
+
 Tokio hooks yield 15522 historical and 21386 candidate complete spawned-task
 poll intervals. They exclude root `block_on` and blocking tasks, include observer
 execution and identify no exact executor enqueue. `runtime-hook-source.stdout.gz`
@@ -71,5 +88,54 @@ Attribution is incomplete. Exact executor enqueue is unsupported by the retained
 hook contract; optimized producer source probes provide bounded observations.
 Incremental source-probe/recorder cost and configuration/logger effects prevent
 unperturbed producer/task cost attribution. #4031 and #3760 remain open under
-#3720 pending a concrete observer-cost prerequisite; no user or Mac decision is
+#3720 blocked by [#4109](https://github.com/roundup-app/roundup/issues/4109); no user or Mac decision is
 needed.
+
+
+The prerequisite holds Daemon bytes, hooks, logger and build settings fixed while
+alternating recorder-off, scheduler/syscall-only and full producer-probe recording
+for both references and probes. This isolates the incremental recorder effect
+missing from the current controls; it does not promise to resolve configuration
+or logger confounding, or supply an exact executor-enqueue timestamp.
+
+## Offline verification
+
+`replay-audit.py.txt.gz` orchestrates the existing archived Python assessors using
+only Python standard-library file, gzip, JSON and subprocess facilities. It adds
+no production probe, parser or timing test. Run it in a scratch environment after
+replacing its `source`, `out` and `scratch` paths with absolute paths; `out` and
+`scratch` must be fresh directories. It copies raw material, verifies every
+uncompressed entry in `raw-sha256.json`, decodes logs and joins physical endpoints,
+then replays the task/thread, producer and control assessors. Source evidence is
+never overwritten. Exact subprocess arguments, output and actual statuses are
+retained as `replay-*.command`, `.stdout`, `.stderr` and `.exit`.
+
+`replay-comparison.json` compares all five derived JSON reports and eight CSVs
+against the capture (CSV comparison decompresses gzip wrappers). New gzip headers
+change compressed input hashes; original raw identities and decompressed contents
+must agree. `raw-verification.json` identifies the verified manifest count;
+`replay-statuses.json` records actual status and wall duration per assessor.
+The retained scripts reproduce observations; they are not new synthetic tests
+or an assertion that attribution is complete.
+
+Inspection-only failures in this assessment run: `ls .../*manifest*` exited 2
+because the capture uses `*.parts.json` names; `cat .../profiler-version.command`
+exited 1 because that filename does not exist. Neither was a profiling attempt
+or supplied measurement evidence. Original collection failures and actual
+statuses remain in the capture's `failures.md` and individual command records.
+
+
+The first integrity wrapper (`audit-v1`, actual exit 1) assumed unsplit perf
+files. Its source and traceback remain retained; the corrected wrapper validates
+split manifests in their recorded order before replay. This failure is distinct
+from the earlier capture's coincident-timestamp assessor failure, which is also
+retained there. `executable-verification.json` records archive members matched to
+the ten hashes in `hashes-before.stdout.gz`; `historical-comparison.json` records
+the six earlier reports' per-metric recalculation, explicitly as history.
+
+
+Decompress `executables-history.py.txt.gz` to `/tmp/r23-verification.py` and run
+`executables-history.command` from the repository root to reproduce executable
+member hashes and historical ceilings. Use a scratch output directory to preserve
+retained results. `executables-history.exit` is the actual status; this is offline
+verification, with no Daemon or profiler process started.
