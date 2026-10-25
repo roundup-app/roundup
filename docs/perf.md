@@ -288,14 +288,28 @@ spawned-task poll hooks from unsupported exact executor enqueue and optimized
 publication timestamps. Thread CPU remains distinct from useful-task CPU.
 
 The 24 controls show substantial instrumentation variation, including one retained
-historical/common echo outlier. Their recorder is off, so they do not bound the
-additional source-probe/perf cost in the profiles. Diagnostic build settings,
-logger and hook effects also remain inseparable. [#4109](https://github.com/roundup-app/roundup/issues/4109)
-blocks #4031 with alternating recorder-off, scheduler/syscall-only and full-probe
-controls against identical archived Daemons under #3760/#3720. Attribution is
-incomplete; #4031 and #3760 remain open. No new clean timing observation, p95
-correction, baseline, calibration or production repair is supplied. The original
-six-report per-metric comparison remains separately labelled history below.
+historical/common echo outlier. [#4110's recorder controls](../crates/perf/evidence/r23-overhead-40221022276/README.md)
+now complete #4109: 36 fixed-binary attempts separately measure additional
+recorder variation. Aggregate p95 differences cannot correct individual stages;
+diagnostic configuration, logger and hooks remain confounded.
+
+[The cumulative assessment and native profiler attempts from run 40227127433](https://github.com/roundup-app/roundup/actions/runs/40227127433)
+replay both assessments exactly and verify all ten executable members. Raw files
+are retained outside git in artifact `r23-capability-40227127433`,
+[uploaded by fix run 40229755357](https://github.com/roundup-app/roundup/actions/runs/40229755357/artifacts/12612748101).
+The archive SHA-256 is `1a5cec1a9b0cc57f1c5638ab40122499fec4df484bcf01175639ca7398df93b8`.
+Native `schedule_local` probes resolve at both pins; candidate byte-broadcast `send`
+entry/return definitions also resolve, but the broad entry pattern yields two
+addresses and perf exposes no named arguments. These definitions supply no hits,
+exact queue insertion or task identity. The pinned Tokio 1.53.1 contract exposes
+no task-identity enqueue hook; aggregate schedule-latency histograms do not supply
+one. [#4120](https://github.com/roundup-app/roundup/issues/4120) blocks #4031 with
+validated native argument/identity recovery, local/remote scheduling and byte-send
+samples plus controls for that probe set, using existing profiler capabilities.
+Attribution remains incomplete; #4031 and #3760 stay open under #3720. No new
+clean timing campaign, p95 correction, baseline, calibration, production repair
+or user/Mac decision is supplied. Each original clean write-metric comparison
+remains separately labelled history below.
 
 ### R23 paired write conclusions (#3760)
 
