@@ -36,7 +36,8 @@ def line(stream):
 
 @contextmanager
 def file_fixture():
-    with tempfile.TemporaryDirectory(prefix="u26-fault-") as directory:
+    # The burst must evict real disk pages; /tmp is tmpfs on Ubuntu 26.04.
+    with tempfile.TemporaryDirectory(prefix="u26-fault-", dir=os.environ.get("RUNNER_TEMP", HERE)) as directory:
         root = Path(directory)
         binary = root / "chrome"
         flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "fuse3"], text=True, timeout=10).split()

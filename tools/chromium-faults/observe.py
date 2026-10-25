@@ -128,6 +128,8 @@ def main():
     snapshot_final = False
     snapshot_valid = False
     kernel_error = False
+    lost_events = 0
+    loss_summary = None
 
     def invalidate(detail, kernel=False):
         nonlocal history_complete, kernel_error, diagnostics
@@ -229,7 +231,7 @@ def main():
             condition.notify_all()
 
     def consume():
-        nonlocal attached, diagnostics, snapshot, snapshot_stacks, snapshot_integrity, snapshot_final, snapshot_valid
+        nonlocal attached, diagnostics, snapshot, snapshot_stacks, snapshot_integrity, snapshot_final, snapshot_valid, lost_events
         try:
             for raw in tracer.stdout:
                 if not raw.strip():
@@ -249,6 +251,8 @@ def main():
                     continue
                 if message.get("type") != "printf":
                     snapshot_valid = False
+                    if message.get("type") == "lost_events":
+                        lost_events += int(message["data"]["events"])
                     invalidate(str(message)[:2048], kernel=message.get("type") != "lost_events")
                     continue
                 data = message["data"]
@@ -284,14 +288,22 @@ def main():
             ready.set()
 
     def stderr():
-        nonlocal kernel_error, history_complete
+        nonlocal kernel_error, history_complete, loss_summary
         for number, raw in enumerate(tracer.stderr):
-            if any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
+            # 0.25 repeats stdout's structured loss count at shutdown. Retain
+            # it as an error and reconcile the total after both readers finish;
+            # a matching history gap does not invalidate independent kernel maps.
+            prefix = "WARNING: Total lost event count: "
+            count = raw.removeprefix(prefix).strip()
+            if raw.startswith(prefix) and count.isdecimal() and loss_summary is None:
+                loss_summary = int(count)
+                history_complete = False
+            elif any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
                 # Even beyond the diagnostic cap, failure invalidates evidence.
                 kernel_error = True
                 history_complete = False
             if number < 16:
-                publish({"status": "error" if kernel_error else "diagnostic", "detail": raw[:2048].strip()})
+                publish({"status": "error" if kernel_error or raw.startswith(prefix) else "diagnostic", "detail": raw[:2048].strip()})
 
     def announce():
         nonlocal reports
@@ -324,7 +336,11 @@ def main():
     signal.signal(signal.SIGINT, interrupted)
     result = 1
     try:
-        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        # sudo already forwards signals to its command's process group. Keep
+        # timeout from forwarding a second INT: bpftrace treats it as a hard
+        # stop and omits END's final evidence. Preserve the tracer's exit status
+        # rather than timeout's 124 for an externally requested graceful stop.
+        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--foreground", "--preserve-status", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         readers = [threading.Thread(target=target, daemon=True) for target in (consume, stderr, announce)]
         for reader in readers:
             reader.start()
@@ -357,6 +373,8 @@ def main():
             condition.notify_all()
         for reader in readers:
             reader.join(timeout=5)
+        if loss_summary is not None and loss_summary != lost_events:
+            invalidate(f"tracer event-loss summary {loss_summary} differs from structured count {lost_events}", kernel=True)
         if tracer:
             if all(not reader.is_alive() for reader in readers):
                 tracer.stdout.close()
