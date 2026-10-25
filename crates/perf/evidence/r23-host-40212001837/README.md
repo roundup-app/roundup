@@ -2,7 +2,7 @@
 
 The unchanged exact-9V45 preflight exited **2** on `AMD EPYC 9V74 80-Core Processor`.
 Ubuntu 24.04 x86_64, four available CPUs, online set and affinity `0-3` match;
-the CPU model does not. No build, producer/dispatch collection or control ran.
+the CPU model does not. No pinned-reference build, producer/dispatch collection or control ran.
 #4032 and #4031 remain incomplete; #3760 stays open under #3720.
 
 | Command record | Result | Actual exit |
@@ -13,7 +13,7 @@ the CPU model does not. No build, producer/dispatch collection or control ran.
 | `active-jobs.command` | Current job/runner identities and labels; no qualified execution endpoint | 0 |
 | `previous-lifetime.command` | Qualified job 121189514795 ended with failure at 2026-10-25T14:24:52Z | 0 |
 | `machine.command` | OS, CPU/count/affinity, toolchain, shell, load and background processes | 0 |
-| `settings.command` | Build overrides and profiler versions; no build performed | 0 |
+| `settings.command` | Build overrides and profiler versions; no pinned-reference build performed | 0 |
 | `boot-before.command`, `boot-after.command` | Identical boot IDs | 0 each |
 
 Each command retains original stdout, stderr and actual status. `metadata.json`
