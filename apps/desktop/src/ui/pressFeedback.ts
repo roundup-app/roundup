@@ -14,7 +14,7 @@ export function clearPress(element: Element): void {
 export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => false): () => void {
   return createRoot(dispose => {
     const effects = new Map<Element, { animation: ReturnType<typeof animate>; restore: () => void }>();
-    let pointerHeld = false;
+    let pointerDown = false;
     const stop = () => { effects.forEach((effect, el) => { effect.animation.cancel(); effect.restore(); releases.delete(el); }); effects.clear(); };
 
     const move = (el: Element, down: boolean) => {
@@ -50,7 +50,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
         effects.delete(el);
         releases.delete(el);
 
-        if (pressing === el) { pointerHeld = false; pressing = null; }
+        if (pressing === el) { pointerDown = false; pressing = null; }
       });
       void animation.then(() => {
         if (effects.get(el) !== effect || down) return;
@@ -63,16 +63,16 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     const clear = () => {
       const el = pressing;
 
-      if (el && pointerHeld) move(el, false);
+      if (el && pointerDown) move(el, false);
       pressing?.removeAttribute("data-pressed"); pressing = null;
-      pointerHeld = false;
+      pointerDown = false;
     };
 
     createEffect(() => {
       if (reduced()) {
         stop();
 
-        if (pressing && pointerHeld) move(pressing, true);
+        if (pressing && pointerDown) move(pressing, true);
       }
     });
 
@@ -94,14 +94,14 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       const el = control(event.composedPath()[0] ?? null);
       clear();
       pressing = el;
-      pointerHeld = el !== null;
+      pointerDown = el !== null;
 
       if (el) move(el, true);
       el?.setAttribute("data-pressed", "true");
     };
 
     const key = (event: KeyboardEvent) => {
-      pointerHeld = false; stop();
+      pointerDown = false; stop();
 
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       const el = control(event.composedPath()[0] ?? null);
@@ -130,7 +130,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       if (target === event.currentTarget || (target instanceof Node && pressing?.contains(target))) clear();
     };
 
-    const drag = () => { pointerHeld = false; clear(); stop(); };
+    const drag = () => { pointerDown = false; clear(); stop(); };
 
     view.addEventListener("dragstart", drag, true);
     view.addEventListener("blur", blur, true);
@@ -139,7 +139,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     for (const name of endings) view.addEventListener(name, clear, true);
 
     return () => {
-      pointerHeld = false; clear(); stop(); dispose();
+      pointerDown = false; clear(); stop(); dispose();
       view.removeEventListener("dragstart", drag, true);
       view.removeEventListener("blur", blur, true);
       doc.removeEventListener("pointerdown", pointer, true);
