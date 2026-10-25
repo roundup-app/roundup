@@ -11,3 +11,4 @@ artifacts/ux/**/*.jpg
 artifacts/ux/**/*.webm
 artifacts/ux/**/*.mp4
 artifacts/ux/**/*.mov
+.closed-issues.json

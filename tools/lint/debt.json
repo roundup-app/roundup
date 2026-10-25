@@ -22,7 +22,7 @@
     {"path": "crates/rupd/tests/b50_note_inbox.rs", "ceiling": 1636, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/terminal/src/lib.rs", "ceiling": 1165, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.py", "ceiling": 1453, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "loop/builder.test.py", "ceiling": 1659, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "loop/builder.test.py", "ceiling": 1656, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "spikes/tauri-latency/src-tauri/gen/schemas/desktop-schema.json", "ceiling": 2291, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "spikes/tauri-latency/src-tauri/gen/schemas/macOS-schema.json", "ceiling": 2291, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
