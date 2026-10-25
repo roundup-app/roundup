@@ -109,18 +109,27 @@ const press = (textarea: HTMLTextAreaElement) => {
   textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true }));
 };
 
-/**
- * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
- * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
- */
+const hasReadyLine = (text: string) => text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`);
+
+/** Binds parsed or retained readiness and the report to the shell selected by terminalReady. */
 export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
   let target: string | null = null;
+  let expected: string | null = null;
+  const ready = new Set<string>();
   let announce: () => void = () => {};
 
   const printed = new Promise<void>((resolve) => (announce = resolve));
 
   return {
     printed,
+    select: (id: string) => {
+      expected = id;
+
+      if (ready.has(id)) { target = id; announce(); }
+    },
+    recovered: (id: string) => {
+      if (id === expected && target === null) { target = id; announce(); }
+    },
     target: () => target,
     /** K3 types into the same Terminal as the report; an Agent can already have an xterm input earlier in the document. */
     input: () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")]
@@ -139,9 +148,10 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
             if (target === null) {
               const text = tail + decoder.decode(bytes, { stream: true });
 
-              if (text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`)) {
-                target = id;
-                announce();
+              if (hasReadyLine(text)) {
+                ready.add(id);
+
+                if (id === expected) { target = id; announce(); }
               }
 
               tail = text.slice(-(READY.length + 2));
@@ -152,6 +162,71 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
       };
     },
   };
+};
+
+/** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
+export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>): Promise<HTMLTextAreaElement> => {
+  const create = await appears(
+    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
+    "the new Workstream button",
+  );
+
+  create.click();
+  await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+  // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
+  await appears(
+    () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
+    "the new Workstream's Agent input",
+  );
+  const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
+
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
+  const input = await appears(
+    () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
+    "the shell Terminal's input",
+  );
+
+  const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
+
+  terminal.select(id);
+  // Read the retained log, not the screen snapshot: READY may already have scrolled off the grid.
+  // Keep this decoder separate from xterm's live decoder so overlapping bytes cannot splice a false line.
+  let reading = true;
+
+  const retained = async () => {
+    let after = 0;
+    let tail = "\n";
+
+    while (reading && terminal.target() === null) {
+      const read = await bounded(app.rpc("terminal.read", { id, after, reader: null, max: null }), SETUP_BOUND_MS, "the shell Terminal's retained output");
+
+      if (!reading) return;
+
+      const text = (read.from === after ? tail : "") + read.text;
+
+      if (hasReadyLine(text)) {
+        terminal.recovered(id);
+
+        return;
+      }
+
+      tail = text.slice(-(READY.length + 2));
+
+      if (read.next <= after || !read.truncated) return terminal.printed;
+      after = read.next;
+    }
+  };
+
+  try {
+    await bounded(Promise.race([terminal.printed, retained()]), SETUP_BOUND_MS, `the shell Terminal's ${READY} line`);
+  } finally {
+    reading = false;
+  }
+
+  input.focus();
+
+  return input;
 };
 
 /**
@@ -185,25 +260,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
   };
 
   const measure = async () => {
-    const create = await appears(
-      () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
-      "the new Workstream button",
-    );
-
-    create.click();
-    await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
-    // The Workstream's Agent Terminal takes focus when it shows, and focus outside a bubble folds it, which pauses xterm's rendering: open the bubble after.
-    await appears(
-      () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
-      "the new Workstream's Agent input",
-    );
-    // U165: ⌘T opens the Terminal in the selected Workstream; its bubble takes the keys.
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
-
-    await bounded(terminal.printed, SETUP_BOUND_MS, `the Terminal's ${READY} line`);
-
-    const textarea = await appears(terminal.input, "the ready Terminal's input");
-    textarea.focus();
+    const textarea = await terminalReady(app, terminal);
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
     const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
@@ -247,6 +304,8 @@ export const createKeystrokeRun = (app: AppSeam) => {
       try {
         await measure();
       } catch (failure) {
+        if (terminal.target() === null) throw failure;
+
         await report({ error: failure instanceof Error ? failure.message : String(failure) });
       }
     },

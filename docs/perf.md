@@ -611,3 +611,85 @@ Release profile measurements: [code generation comparison](perf-release-profile.
 ### R23 correlated write capture (#3976)
 
 [Correlated capture, adapter timings, probe isolation and remaining attribution gaps](perf-r23-writes.md#r23-correlated-write-capture-3976).
+
+### Terminal readiness repair and U3800 Mac handoff (#3841)
+
+The [previous Mac attempt](https://github.com/roundup-app/roundup/pull/3772#issuecomment-6390588594) produced four
+exit-2 observations: three setup failures and one reverted diagnostic. No drag setup/actions, three-pair comparison or App
+compatibility qualification completed. Those failures remain evidence; readiness fixtures supply no native timing pass.
+
+`terminalReady` now owns Workstream creation → Agent input → one shell-open → shell input → complete shell readiness.
+Keystroke and all frame workloads, including the native compatibility probe, call it; idle observation drives no Terminal.
+The selected bubble supplies the shell id. Parsed output and retained `terminal.read` independently recognize complete lines,
+so a late screen snapshot need not contain `ready`. Agent output and live/read overlap cannot select another report target.
+Each setup step retains its 10 s bound; missing readiness performs no measurement. Without a report target, the failed step
+rejects rather than replacing it with a generic reporting error; collection still exits 2 with raw output and launch logs.
+R3841 fixtures cover delayed Agent input at both entry points, both readiness orders, paginated retained output, shell identity
+and missing Agent/input/line. The unique R20 split/parsed-output and key-routing proofs remain. They replace the duplicated
+`u3010e_the_report_target_is_the_terminal_that_printed_ready` proof. P9's observer remains the fake-vendor sentinel; no Model
+turn, production Terminal/drag behavior, build opt-in, isolation, timing budget or collection bound changes.
+
+Mac request: qualify the current #3772 candidate below, superseding the earlier **unmeasured** `3e6a9bd91` attempt. Use the
+same M4 Max, dense drag fixture, 64 KiB/s stream, fixed display refresh, AC/Low Power Mode off and load policy from the
+[native runbook](motion-native-runbook.md). Keep the screen awake/uncovered and stop builds before sampling. Posting CGEvents
+is already authorized on this Mac; use them to perform sibling, nested, outdent and Escape actions, retaining counts and outcomes.
+
+| Identity | Full SHA |
+|---|---|
+| Base source (#3772's merged-main parent) | `3d224def071626e2ed1528a11d9d6e2f6303d2b3` |
+| Candidate source (#3772 head) | `2863633ddd508bd7a6f227286ca5f3b32c242258` |
+| Readiness observer revision | `a575c56c44e189b2808dae540b272199f69f8496` |
+
+From a repository containing these commits, prepare fresh, separate checkouts. The frame driver copied to base is measurement
+setup/action accounting only; never copy candidate production drag files. Retain that transfer separately from readiness:
+
+```sh
+base=3d224def071626e2ed1528a11d9d6e2f6303d2b3
+head=2863633ddd508bd7a6f227286ca5f3b32c242258
+repair=a575c56c44e189b2808dae540b272199f69f8496
+qualification=$(mktemp -d /tmp/roundup-u3800.XXXXXX)
+git worktree add --detach "$qualification/base" "$base"
+git worktree add --detach "$qualification/head" "$head"
+git show "$head":apps/desktop/src/perf/frame_run.ts > "$qualification/base/apps/desktop/src/perf/frame_run.ts"
+git -C "$qualification/base" diff -- apps/desktop/src/perf/frame_run.ts > "$qualification/base-driver.patch"
+git diff "$repair~2" "$repair" -- apps/desktop/src/perf/run.ts apps/desktop/src/perf/frame_run.ts > "$qualification/readiness.patch"
+for side in base head; do
+  git -C "$qualification/$side" apply --check "$qualification/readiness.patch"
+  git -C "$qualification/$side" apply "$qualification/readiness.patch"
+  (cd "$qualification/$side" && pnpm install --frozen-lockfile)
+done
+```
+
+Linux verified the patch applies to both sources and yields identical observer files. Readiness patch SHA256:
+`65c8dd82ff042e72b0837dbe83d81bbf3e82a648a5f85ab2642985586877c124`.
+Both checkouts' `run.ts` SHA256 is `17db62ae0c3735553c1b5dc0d7b9efc7d3f556c612dd4c24629c2731f8343873`;
+`frame_run.ts` is `017cae7dee289546cf8a1ee110ff6b988fde3edb70b938dc12f528de6c9c4d30`.
+Record source SHAs **plus these patches**, dirty status, toolchain/OS/WebKit, display/power/load and executable hashes.
+
+Build each checkout once with `ROUNDUP_ALLOW_WINDOW=1 just perf-frames drag`; retain these calibration attempts too.
+Then stop builds and run three alternating base/head pairs. In each checkout, for each uniquely named attempt:
+`ROUNDUP_ALLOW_WINDOW=1 target/release/perf-keystroke --frames --out target/u3800-pair-1-base.json` (substitute pair/side).
+This uses the exact build from `just perf-frames drag` without rebuilding during sampling. Keep 10 s warmup, 60 s sample,
+30 s idle and existing action cadence/bounds. Retain every report, evidence directory, command, stdout/stderr, exit and repeat.
+Missing setup or completed native actions invalidates the sample. Compare scheduling p95 ≤1.5P, p99 ≤3P, >1.5P rate ≤5%,
+max ≤50 ms and head/base regression ≤10%. A measured miss fails (1); absent/invalid stages remain incomplete (2).
+Do not substitute scheduling for presentation; retain native stage evidence per the runbook or mark it unmeasured.
+
+For actual App compatibility, build the candidate checkout **without perf flags** into a separate target/dist:
+
+```sh
+cd "$qualification/head"
+pnpm --filter desktop exec vite build --outDir "$PWD/target/u3800-app-dist" --emptyOutDir
+TAURI_CONFIG=$(jq -nc --arg dist "$PWD/target/u3800-app-dist" '{build:{frontendDist:$dist}}') \
+  cargo build --release -p desktop -p rupd -p rup --features desktop/custom-protocol --target-dir target/u3800-app
+mkdir -p "$qualification/app-data" "$qualification/project"
+ROUNDUP_DATA_DIR="$qualification/app-data" ROUNDUP_CLAUDE_BIN="$PWD/crates/rup/tests/e2e/fake_claude.py" \
+  target/u3800-app/release/roundup "$qualification/project"
+```
+
+Use only this temporary Project/fake vendor. Keep Tauri file-drop enabled. In the actual App, test Rail, Todo and Pad drag,
+nested drop, Escape, travel <4 px (click), keyboard reorder and two real files dropped into a Terminal. Record resulting
+order/parent, commit counts, focus, click behavior and identical ordered absolute paths delivered once, with no row reorder
+from the file drop. This requests no repeat of the separate Pragmatic probe. A compatibility failure fails the candidate;
+missing observations leave qualification incomplete. Quit only this App and retain owned-child cleanup evidence.
+Publish returned results to #3772, its drag work Issue #3540 and #3841; leave failures and unmeasured stages visible.

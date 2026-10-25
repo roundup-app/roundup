@@ -5,7 +5,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
-import { READY, SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, timerResolutionMs, writeInChunks } from "./run";
+import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -268,16 +268,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   const measure = async () => {
-    const create = await appears(
-      () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
-      "the new Workstream button",
-    );
-
-    create.click();
-    await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
-    await appears(() => document.querySelector("textarea.xterm-helper-textarea"), "the Terminal's input");
-    await Promise.race([terminal.printed, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+    await terminalReady(app, terminal);
 
     if (workload === "drag-compatibility") {
       const { runNativeDragProbe } = await import("./nativeDragProbe");
@@ -312,7 +303,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       try {
         await measure();
       } catch (failure) {
-        if (!(failure instanceof Error)) throw failure;
+        if (!(failure instanceof Error) || terminal.target() === null) throw failure;
 
         await report({ error: failure.message });
       }
