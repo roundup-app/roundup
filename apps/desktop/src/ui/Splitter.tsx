@@ -4,7 +4,9 @@ import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, typ
 import type { Side } from "../resize/widths";
 import "./Splitter.css";
 
-/** Binds U507's host from an edge, leaving grid and absolute panel styles with Layout. */
+/** Z3742b capability exception (Issues #3742/#4094): Ark 5.39.3 with patched
+ * Zag 1.45 forces Shift to 10%, returns percent sizes and supplies flex styles.
+ * Keep the pixel/grid host adapter; Ark owns resizing, bounds and cancellation. */
 export function Splitter(props: { side: Side; class?: string; disabled?: boolean; hidden?: boolean; onDragging?: (dragging: boolean) => void }) {
   let edge!: HTMLDivElement;
   let pointerResize = false;
@@ -149,11 +151,27 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
  return; }
 
-    setStep(event.shiftKey ? 64 : 16);
+    const shiftArrow = event.shiftKey && /^Arrow(?:Left|Right|Up|Down)$/.test(event.key);
+    const reverseBoundary = props.side.direction === -1 && boundaryKeys.includes(event.key);
+
+    setStep(shiftArrow ? 64 : 16);
+
+    const handler = trigger().onKeyDown;
+
+    // Ordinary keys go straight to Ark; only its unsupported modifier/boundary
+    // cases need an adapted event (capability record on #3742 and #4094).
+    if (!shiftArrow && !reverseBoundary) {
+      if (handler) {
+        if (0 in handler) handler[0](handler[1], event);
+        else handler(event);
+      }
+
+      return;
+    }
 
     // Ark's Shift delta is hard-coded to 10%; normalize the modifier while its
     // own key map, limits, direction and keyboard state still perform the action.
-    const key = props.side.direction === -1 && boundaryKeys.includes(event.key)
+    const key = reverseBoundary
       ? boundaryKeys.find((value) => value !== event.key) ?? event.key
       : event.key;
 
@@ -166,7 +184,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     Object.defineProperties(adapted, { target: { value: event.target }, currentTarget: { value: event.currentTarget } });
     // SAFETY: the normalized event retains the original element targets above.
     const normalized = adapted as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
-    const handler = trigger().onKeyDown;
 
     if (handler) {
       if (0 in handler) handler[0](handler[1], normalized);
