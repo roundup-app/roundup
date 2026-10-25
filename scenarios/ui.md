@@ -1,5 +1,6 @@
 # UI
 
+Policy: U3787a (`scenarios/ui-mac-expectations.md`) supersedes U150’s question requirement only for reversible deletion; its exact-target, ownership, failure and draft protections remain.
 Policy amendment — U2539b (`scenarios/ui-worktree-changes.md`, #3786) narrows U38's nothing-selected composition to the Ask/Needs you landing, including an empty open Project. Empty Rail/Shelf text appears only inside those requested surfaces; first-run without a Project keeps its chooser. Preserve first-action, loading, failure and direct-Agent behavior through explicit actions; its landing observers replace only automatic empty-pane/list assertions.
 
 Module: `apps/desktop` (the webview). Ids: every `U` heading in the file.
