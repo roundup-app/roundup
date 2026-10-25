@@ -48,6 +48,8 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
     if (used) return false;
     used = true;
 
+    if (cancellation) revision.pending.delete(cancellation);
+
     if (revision.value !== captured) return false;
     const previous = revision.moving;
     revision.moving = true;
@@ -77,8 +79,10 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
       if (!cancellation) {
         cancellation = new AbortController();
 
-        if (revision.value !== captured) cancellation.abort();
-        else revision.pending.set(cancellation, contains);
+        if (!used) {
+          if (revision.value !== captured) cancellation.abort();
+          else revision.pending.set(cancellation, contains);
+        }
       }
 
       return cancellation.signal;
