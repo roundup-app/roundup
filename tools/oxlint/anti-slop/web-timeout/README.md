@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 190 timeout observations in 79 files require review
+  -> 191 timeout observations in 79 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,8 +20,8 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its source is unchanged from base `c6c6f00e2`;
-the recorded revision also contains the red boundary fixtures. These observations
+file count and each diagnostic. Its source is unchanged from merged base `26b546144`;
+the recorded revision contains the current rule and boundary fixtures. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
 test title, never a line number. Parameterized tests use their static title template.
@@ -31,14 +31,22 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
 Each test verifies that Oxlint analyzed its file and that the expected rule emitted
 its diagnostic. Successful fixtures also reject unexpected timeout diagnostics.
-To recreate the report, set `TIMEOUT_FIXTURE_REPORT` to an empty output file while
-running the fixture test command. Each fixture removes only its own directory.
+Normal `pnpm lint` (and therefore `just lint-web` and CI) also runs this suite,
+alongside the assertion boundary suite. Targeted invocations do not recursively
+run either suite. To recreate the report, set `TIMEOUT_FIXTURE_REPORT` to a new
+output file while running the fixture test command. Each fixture removes only its
+own directory.
 
 The rule reads the installed Vitest APIs: numeric third argument, options timeout,
 import aliases, local aliases/constants/arithmetic, namespace imports, chained and
 parameterized registrations, suite inheritance, `vi.setConfig`, and configured
-`testTimeout`. Unresolved values, zero, negative and nonfinite timeouts fail. A
-configuration-wide over-limit default always fails; file/suite inheritance requires
+`testTimeout`. Unknown file configuration and computed option keys fail at their
+source location. A later explicit timeout overrides an earlier unknown property,
+spread, or inherited file setting. Const options are accepted only while their
+properties stay unchanged: direct writes, writes through local aliases, method
+calls and escapes to unknown functions make their timeout unresolved. Known
+Vitest registrations and `vi.setConfig` consume options without mutating them.
+Unresolved values, zero, negative and nonfinite timeouts fail. A configuration-wide over-limit default always fails; file/suite inheritance requires
 an exact exception for every affected test. Multiple file `vi.setConfig` values are
 checked conservatively for every test without an explicit/suite override; dynamic
 runtime ordering is not inferred. Hooks and polling deadlines are separate APIs.
@@ -50,9 +58,9 @@ that a process-free observer cannot prove it. No production exceptions are grant
 here. In particular, merely starting a Daemon is not a process-need justification.
 
 Before any T3779c cut, #3828 still requires justified timeout exceptions and normal
-lint activation; the T3779b assertion baseline and shrinking enforcement, including
-Python; retained-clause mappings; and equivalent successful base/head CI timings
-with setup and retries distinguished. The earlier consumer/timing audit remains in
+lint activation, retained-clause mappings, and equivalent successful base/head CI
+timings with setup and retries distinguished. Keep T3779b’s baseline and shrinking
+enforcement (including Python), now enabled through normal lint. The earlier consumer/timing audit remains in
 `../web-cost/`. This slice changes no product path or protected observer.
 
 ## Reuse
