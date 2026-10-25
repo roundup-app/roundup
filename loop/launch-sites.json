@@ -805,5 +805,15 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Names rupd only to find and judge the owned process tree; launches delegate to crates/perf/src/app.rs.",
     "kind": "reference"
+  },
+  "apps/desktop/src/pads/u3787a_restore.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/u3787a_pad_restore.rs": {
+    "cleanup": "The tempdir and the served task drop with the test; no child process starts.",
+    "data": "Opens rupd::Daemon in process on a test-owned temporary directory.",
+    "kind": "in-process"
   }
 }
