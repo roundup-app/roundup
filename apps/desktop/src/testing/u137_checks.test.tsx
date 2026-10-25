@@ -226,20 +226,20 @@ rendered("u137 rendered surfaces", () => {
     expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail", "fail"]);
   });
 
-  it.each(["milkdown-slash-menu"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
+  it.each(["milkdown-slash-menu", "app-select-list", "app-menu", "app-popover", "app-dialog"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
       const observed = await page.call<string[]>(`(surface) => {
-        document.body.innerHTML = '<div class="${surface}" ${surface === "app-select-list" ? 'role="listbox" data-scope="select" data-part="content"' : ""} style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+        document.body.innerHTML = '<div class="${surface}" ${({ 'app-select-list': 'role="listbox" data-scope="select" data-part="content"', 'app-menu': 'role="menu" data-scope="menu" data-part="content"', 'app-popover': 'data-scope="popover" data-part="content"', 'app-dialog': 'role="dialog" data-scope="dialog" data-part="content"' }[surface] ?? "")} style="box-shadow:var(--elevation)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         if (surface === 'app-select-list') {
           document.querySelector('.' + surface).removeAttribute('role');
           statuses.push(window.__checks().D8.status);
           document.querySelector('.' + surface).setAttribute('role', 'listbox');
         }
-        document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
+        document.querySelector('.content').style.boxShadow = 'var(--elevation)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
         document.querySelector('.' + surface + ' p').style.boxShadow = '0 2px 5px red';
