@@ -1,3 +1,4 @@
+import { caseFold } from "unicode-case-folding";
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
@@ -214,10 +215,14 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
 });
 
+const ownsPad = (pad: Pad, actor: Actor) => pad.owner.kind === actor.kind && pad.owner.id === actor.id;
+
+const padKey = (name: string) => caseFold(name.normalize("NFD"));
+
 const changePad = (store: PadStore, announce: Announce, name: string, change: (pad: Pad) => Pad): Pad => {
-  const next = change(find(store.pads, (pad) => pad.name === name, `pad ${name}`));
-  store.pads = store.pads.map((pad) => (pad.name === name ? next : pad));
-  announce({ name: "pad.changed", data: { name } });
+  const next = change(find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`));
+  store.pads = store.pads.map((pad) => (padKey(pad.name) === padKey(name) ? next : pad));
+  announce({ name: "pad.changed", data: { name: next.name } });
 
   return { ...next };
 };
@@ -225,11 +230,11 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 /** The Pad methods over `store.pads`, with the Provenance history `store.history`; each write also sends `pad.changed`. */
 export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => ({
   "pad.list": () => store.pads.map((pad) => ({ ...pad })),
-  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => pad.name === name, `pad ${name}`) }),
+  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`) }),
   "pad.create": ({ name, text }) => {
     if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
 
-    if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
+    if (store.pads.some((pad) => padKey(pad.name) === padKey(name))) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
     const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
     store.pads = [...store.pads, created];
@@ -237,13 +242,39 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
     return { ...created };
   },
-  "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 })),
+  "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
+    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rewrite a pad");
+
+    if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
+
+    if (expectedRevision != null && expectedRevision !== pad.revision) throw new RpcError(CONFLICT, "the pad revision changed");
+
+    return text === pad.text ? pad : { ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 };
+  }),
+  "pad.rename": ({ name, newName, expectedIncarnation }) => {
+    const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
+
+    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rename a pad; Make yours first");
+
+    if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
+
+    if (newName === "" || newName.startsWith(".") || /[/\\\0]/.test(newName) || newName.includes("..")) throw new RpcError(INVALID_PARAMS, "invalid pad name");
+
+    if (store.pads.some((entry) => entry.incarnation !== pad.incarnation && padKey(entry.name) === padKey(newName))) throw new RpcError(CONFLICT, "pad exists");
+
+    if (name === newName) return { ...pad };
+
+    const renamed = changePad(store, announce, name, (entry) => ({ ...entry, name: newName }));
+    announce({ name: "pad.renamed", data: { name: newName, previous_name: name, incarnation: pad.incarnation } });
+
+    return renamed;
+  },
   "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
   "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
   "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
   "pad.delete": ({ name }) => {
-    find(store.pads, (pad) => pad.name === name, `pad ${name}`);
-    store.pads = store.pads.filter((pad) => pad.name !== name);
+    find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`);
+    store.pads = store.pads.filter((pad) => padKey(pad.name) !== padKey(name));
     announce({ name: "pad.changed", data: { name } });
 
     return null;

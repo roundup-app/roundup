@@ -1,0 +1,24 @@
+{
+  "sourceRevision": "6feb4407e540ce42aba24820c148e8f2bbab6c24",
+  "sourceModified": false,
+  "toolVersions": {
+    "oxlint": "1.86.0",
+    "plugins": "1.86.0",
+    "babelParser": "7.29.9",
+    "babelTypes": "7.29.8",
+    "python": "Python 3.12.15"
+  },
+  "pythonFiles": 9,
+  "pythonAssertions": 72,
+  "sourceHash": "b20ca1aaefcc0350be78f4b9b56e2f213a2caba50b76efdb77b8ac7b790f68c9",
+  "toolHash": "3f12d8b3a703cc8b227e96b612875b7bbd9c5c6e014b14a0def5c091e5356e85",
+  "command": "pnpm --silent exec oxlint --config tools/oxlint/anti-slop/web-assertions/audit.json --format json apps/desktop/src",
+  "exitCode": 1,
+  "analyzedFiles": 747,
+  "observations": 1222,
+  "files": 228,
+  "note": "Initial exact baseline from unchanged App source on origin/main; audit.mjs reproduces source observations. Creation is subject to independent review before cuts. Later baseline changes may only remove entries.",
+  "implementationBase": "8e7d524fd65126fd6bb3b0a77b132af4d21b5532",
+  "baselineAssertions": 1177,
+  "baselineFiles": 228
+}
