@@ -430,6 +430,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(field, { target: { value: exactDraft } });
   fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(m.connected.drafts.problem()?.revision).toBe(m.connected.drafts.list().at(-1)?.revision));
   const retained = m.connected.drafts.list();
   const problem = m.connected.drafts.problem();
   m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard unavailable; retry"));
