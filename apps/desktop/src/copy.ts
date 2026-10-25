@@ -48,7 +48,7 @@ const importRefusals = new Map<number, string>([
   [-32602, "The import choices were not accepted."],
   [-32001, "The conversation is no longer available."],
   [-32002, "Import is not allowed here."],
-  [-32003, "The conversation changed since preview."],
+  [-32003, "The import conflicts with the current work."],
   [-32005, "The conversation is busy."],
   [-32007, "The conversation is no longer running."],
   [-32009, "The import preview is out of date."],

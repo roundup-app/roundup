@@ -104,7 +104,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
   await waitFor(() => expect(screen.getByText(/No working folder was recorded/)).toBeTruthy());
-  expect(screen.getByText(/The conversation changed since preview/)).toBeTruthy();
+  expect(screen.getByText(/The import conflicts with the current work/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
@@ -271,7 +271,7 @@ it("u3083c_failed_import_preserves_failed_row", async () => {
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  const alert = await screen.findByText(/The conversation changed since preview/);
+  const alert = await screen.findByText(/The import conflicts with the current work/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
 });
