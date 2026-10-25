@@ -137,9 +137,16 @@ describe("u1 calls and events", () => {
     const exits: unknown[] = [];
 
     await createTauriApp().onDaemonExited((exit) => exits.push(exit));
-    await emit("daemon-exited", { path: "/p", code: null });
 
-    expect(exits).toEqual([{ path: "/p", code: null }]);
+    const notifications = [
+      { path: "/p", code: 1, recovery: "waiting" },
+      { path: "/p", code: null, recovery: "connecting" },
+      { path: "/p", code: null, cause: "Daemon did not answer" },
+    ];
+
+    for (const notification of notifications) await emit("daemon-exited", notification);
+
+    expect(exits).toEqual(notifications);
   });
 
   it("u1_the_adapter_stops_listening_once_unsubscribed", async () => {
@@ -261,16 +268,6 @@ describe("u1 calls and events", () => {
     mockIPC(() => [{ name: "p", path: "/p" }]);
 
     await expect(createTauriApp().projects()).rejects.toMatchObject({ name: "RpcError", code: -32603 });
-  });
-
-  it("s8_the_daemon_exited_listener_hears_the_path_and_the_code", async () => {
-    mockIPC(() => null, { shouldMockEvents: true });
-    const exits: unknown[] = [];
-
-    await createTauriApp().onDaemonExited((exit) => exits.push(exit));
-    await emit("daemon-exited", { path: "/p", code: 7 });
-
-    expect(exits).toEqual([{ path: "/p", code: 7 }]);
   });
 
   it("u1_a_daemon_exited_listener_that_cannot_attach_rejects_with_internal_and_the_string", async () => {
