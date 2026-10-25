@@ -129,12 +129,14 @@ class FaultTest(unittest.TestCase):
     def test_u26_consumer_hold_preserves_fault_identity_and_lifecycle(self):
         # Both generations run actual filemap_fault probes. Stop only bpftrace's
         # userspace consumer; its attached kernel programs continue on one CPU.
+        # Give this saturation probe enough ordinary samples to fill the perf
+        # buffer even on fast disks; the default 64 can fit without any loss.
         with file_fixture() as (root, binary, mount):
             with socket.socket(socket.AF_UNIX) as listener, artifact_watch(root / "trace.jsonl") as watch:
                 listener.bind(str(root / "control"))
                 listener.listen(1)
                 listener.settimeout(60)
-                observer = subprocess.Popen(["taskset", "-c", str(min(os.sched_getaffinity(0))), sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control"), str(root / "burst")], stdout=subprocess.DEVNULL)
+                observer = subprocess.Popen(["taskset", "-c", str(min(os.sched_getaffinity(0))), sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--samples", "65536", "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control"), str(root / "burst")], stdout=subprocess.DEVNULL)
                 tracer_pid = None
                 try:
                     connection, _ = listener.accept()
@@ -406,7 +408,7 @@ def snapshot(opening, closing, live, stack):
 if "bpftrace" not in sys.argv:
     arguments = sys.argv[2:] if sys.argv[1] == "-n" else sys.argv[1:]
     os.execvp(arguments[0], arguments)
-tid, entry = int(sys.argv[-2]), time.monotonic_ns()
+tid, entry = int(sys.argv[-3]), time.monotonic_ns()
 done = []
 signal.signal(signal.SIGTERM, lambda *_: done.append(1))
 printf("READY\n")
