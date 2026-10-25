@@ -1,10 +1,11 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
-import { doesClearTodoFailure, outcomeOf } from "./failureOf";
+import { doesClearTodoFailure } from "./failureOf";
 import { ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 
