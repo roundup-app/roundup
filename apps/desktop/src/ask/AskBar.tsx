@@ -178,6 +178,7 @@ export const AskBar = (props: {
 
     if (restore) {
       const row = document.querySelector<HTMLElement>(".rail-row[data-selected=true]");
+
       const target = returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo
         : row?.closest<HTMLElement>(ROW) ?? row?.querySelector<HTMLElement>(ROW);
 
