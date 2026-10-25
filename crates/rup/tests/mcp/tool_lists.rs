@@ -119,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 67] = [
+pub const NO_TOOL: [&str; 69] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -149,6 +149,9 @@ pub const NO_TOOL: [&str; 67] = [
     "todo.refs",
     // T25: only the Daemon hands a Todo.
     "todo.hand",
+    // U3787a: only the original user reconciles or restores a Rail removal.
+    "rail.deletion",
+    "rail.restore",
     "todo.restore",
     "todo.deletion",
     "message.drop",
