@@ -1,30 +1,29 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { inventory as discover } from "./inventory.mjs";
 
-const command = fileURLToPath(new URL("./inventory.mjs", import.meta.url));
-
-function inventory(files) {
+async function inventory(files) {
   const root = mkdtempSync(join(tmpdir(), "web-cost-inventory-"));
+
   try {
     for (const [name, source] of Object.entries(files)) {
       const file = join(root, name);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, source);
     }
-    return JSON.parse(execFileSync(process.execPath, [command, "--source", root], { encoding: "utf8" }));
+
+    return await discover(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
-test("t3779c_real_daemon_inventory_follows_runtime_imports_to_test_consumers", () => {
-  const report = inventory({
-    "testing/realDaemonFixture.ts": "export const start = () => {};",
+test("t3779c_real_daemon_inventory_follows_runtime_imports_to_test_consumers", async () => {
+  const report = await inventory({
+    "testing/realDaemonFixture.ts": 'throw new Error("do not execute fixtures"); export const start = () => {};',
     "testing/realDaemonPlugin.ts": "export const plugin = () => {};",
     "testing/barrel.ts": 'export { start } from "./realDaemonFixture";',
     "testing/lane.ts": 'import { start } from "./barrel.js"; export const lane = start;',
@@ -38,9 +37,17 @@ test("t3779c_real_daemon_inventory_follows_runtime_imports_to_test_consumers", (
     "rail/comment.test.ts": '// startDaemon real_daemon realDaemon\nimport { it } from "vitest"; it("u7_no_launch", () => {});',
     "rail/metadata.json": '{"name":"real_daemon"}',
   });
+
   assert.deepEqual(report.consumers.map(({ file, tests, path }) => ({ file, tests, path })), [
     { file: "rail/dynamic.test.ts", tests: ["u2_dynamic"], path: ["rail/dynamic.test.ts", "testing/realDaemonFixture.ts"] },
     { file: "rail/indirect.test.tsx", tests: ["u1_indirect"], path: ["rail/indirect.test.tsx", "testing/lane.ts", "testing/barrel.ts", "testing/realDaemonFixture.ts"] },
     { file: "rail/plugin.test.ts", tests: ["u3_plugin_%i"], path: ["rail/plugin.test.ts", "testing/realDaemonPlugin.ts"] },
   ]);
+});
+
+test("t3779c_real_daemon_inventory_refuses_an_unresolvable_runtime_dependency", async () => {
+  await assert.rejects(inventory({
+    "testing/realDaemonFixture.ts": "export const start = () => {};",
+    "rail/missing.test.ts": 'import { start } from "../testing/missing"; import { it } from "vitest"; it("u1_missing", () => start());',
+  }), /Unresolved runtime dependency/);
 });
