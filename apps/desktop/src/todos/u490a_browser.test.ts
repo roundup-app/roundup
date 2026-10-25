@@ -137,13 +137,16 @@ for (const list of [nested, shelf]) {
       await page.scheme("light");
       await list.setup();
 
+      const before = await state(rows);
       const first = await centre(rows, 0);
-      const last = await centre(rows, (await state(rows)).ids.length - 1);
+      const last = await centre(rows, before.ids.length - 1);
 
       await drag(last, async () => first, false);
       await page.press("Escape", "Escape");
       await page.pointer("up", first.x, first.y);
       await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+
       // Past the activation distance and back to the row's own place: no move.
       await page.pointer("down", last.x, last.y);
       await page.pointer("move", last.x, last.y - 12);
