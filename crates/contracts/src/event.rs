@@ -29,6 +29,9 @@ pub enum EventData {
     TodoCreated(Box<todo::Todo>),
     #[serde(rename = "todo.updated")]
     TodoUpdated(Box<todo::Todo>),
+    /// Data restoration only: consumers must not replay creation or external effects.
+    #[serde(rename = "todo.restored")]
+    TodoRestored(Box<todo::Todo>),
     #[serde(rename = "todo.unblocked")]
     TodoUnblocked(todo::TodoId),
     #[serde(rename = "todo.deleted")]

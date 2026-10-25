@@ -20,10 +20,10 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   const { app, store } = await mountTodos([todo(1), todo(2)]);
   const kept = deferred<null>();
   app.handlers["todo.delete"] = async (params) => {
-    if (params.id === 1) await kept.promise;
-    store.todos = store.todos.filter((row) => row.id !== params.id);
+    if (params.ids[0] === 1) await kept.promise;
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
 
-    return null;
+    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
   };
 
   await pickTwo();
@@ -33,16 +33,16 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   kept.resolve(null);
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }]);
 });
 
 it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
   const { app, store } = await mountTodos([todo(1, { title: "same" }), todo(2, { title: "same" })]);
   app.handlers["todo.delete"] = (params) => {
-    if (params.id === 2) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.id);
+    if (params.ids[0] === 2) throw new RpcError(-32001, "denied");
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
 
-    return null;
+    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
   };
 
   await pickTwo();
@@ -57,7 +57,7 @@ it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
 it("u460_lost_response_refetches_before_retry", async () => {
   const { app, store } = await mountTodos([todo(1), todo(2)]);
   app.handlers["todo.delete"] = (params) => {
-    store.todos = store.todos.filter((row) => row.id !== params.id);
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
     throw new Error("response lost");
   };
 
@@ -112,10 +112,10 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   const { app, store } = await mountTodos([todo(1), todo(2)]);
   let failed = true;
   app.handlers["todo.delete"] = (params) => {
-    if (params.id === 2 && failed) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.id);
+    if (params.ids[0] === 2 && failed) throw new RpcError(-32001, "denied");
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
 
-    return null;
+    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
   };
 
   await pickTwo();
@@ -126,7 +126,7 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   await askToDelete(1);
   await confirmDeletion();
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }, { id: 2 }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }, { operation: expect.any(String), ids: [2] }]);
 });
 
 it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
@@ -203,7 +203,7 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   const question = await questionDialog();
   expect(question.message).toContain(`todo ${next}`);
   expect(question.message).not.toContain("todo 1");
-  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id }]);
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [id] }]);
 });
 
 it("u460_refresh_shows_only_after_a_failed_readback", async () => {
@@ -316,7 +316,7 @@ for (const owner of ["todos", "pads"] as const) {
     expect(screen.getByText(message("second"))).toBeTruthy();
     expect(row("second")).toBeTruthy();
     expect(row("other")).toBeTruthy();
-    expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { id: 1 } : { name: "first" }] : []);
+    expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { operation: expect.any(String), ids: [1] } : { name: "first" }] : []);
     expect(connected.drafts.list()).toEqual(retained);
     expect(connected.drafts.list().find(item => item.revision === draft.revision)?.value.text).toBe("  unfinished é 🧭\n\nlast  ");
   });

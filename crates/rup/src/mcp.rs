@@ -390,7 +390,10 @@ fn offered_tools() -> Vec<Offered> {
             "todo.reorder",
             "Put a Todo before another in the Todo order, or last with a null `before`.",
         ),
-        offered::<todo::TodoId>("todo.delete", "Delete a Todo."),
+        offered::<todo::DeleteParams>(
+            "todo.delete",
+            "Delete exactly the chosen Todo ids. Capture an operation key before calling; retry the same key and ids after an unknown reply.",
+        ),
         offered::<pad::ExportParams>(
             "pad.export",
             "Write a Pad's text to a file at an absolute path.",
@@ -604,7 +607,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     };
     let id = field("id");
     match method {
-        "todo.delete" => format!("deleted Todo {id}"),
         "deliverable.remove" => format!("removed publication {id}"),
         "pad.delete" => format!("deleted Pad {}", field("name")),
         "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),

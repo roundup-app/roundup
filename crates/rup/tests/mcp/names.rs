@@ -157,10 +157,16 @@ async fn m2706a_non_agent_identifiers_keep_their_meaning() {
         .request("todo.create", json!({"title":"Notes"}))
         .await
         .unwrap();
-    let deleted = door.call("todo_delete", json!({"id":todo["id"]})).await;
+    let deleted = door
+        .call(
+            "todo_delete",
+            json!({"operation": "named-delete", "ids": [todo["id"]]}),
+        )
+        .await;
     assert_eq!(
         deleted.content[0].as_text().unwrap().text,
-        format!("deleted Todo {}", todo["id"])
+        json!({"operation":"named-delete","deleted":[todo["id"]],"missing":[],"state":"deleted"})
+            .to_string()
     );
     let terminal = fx
         .user

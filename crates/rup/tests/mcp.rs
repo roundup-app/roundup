@@ -853,7 +853,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             continue;
         }
         let (args, expected) = match method.name {
-            "todo.delete" => (json!({"id":42}), "deleted Todo 42"),
             "deliverable.remove" => (
                 json!({"project":"project-a","id":"published-42"}),
                 "removed publication published-42",
