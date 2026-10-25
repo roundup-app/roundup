@@ -1,0 +1,56 @@
+{
+  "radio": {
+    "firstFrame": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "opacity": "0.9"
+    },
+    "rest": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "opacity": "1"
+    },
+    "released": {
+      "calls": "0",
+      "opacity": "1"
+    },
+    "keyFrame": {
+      "active": true,
+      "color": "rgb(245, 245, 247)",
+      "opacity": "0.9"
+    },
+    "blurred": {
+      "calls": "0",
+      "opacity": "1",
+      "libraryActive": false
+    },
+    "keyCancelled": "0"
+  },
+  "segment": {
+    "firstFrame": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "opacity": "0.9"
+    },
+    "rest": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "opacity": "1"
+    },
+    "released": {
+      "calls": "0",
+      "opacity": "1"
+    },
+    "keyFrame": {
+      "active": true,
+      "color": "rgb(245, 245, 247)",
+      "opacity": "0.9"
+    },
+    "blurred": {
+      "calls": "0",
+      "opacity": "1",
+      "libraryActive": false
+    },
+    "keyCancelled": "0"
+  }
+}
