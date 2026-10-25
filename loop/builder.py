@@ -808,7 +808,7 @@ def changed_scenarios(pr, head):
     """Ids, in file order, of the scenarios PR `pr`'s diff adds or changes: the heading above each changed line of a
     `scenarios/*.md` file at `head`. A deleted heading is a retired scenario and names none."""
     touched, path, hunk, at = {}, None, False, 0
-    for line in call('pr', 'diff', str(pr)).splitlines():
+    for line in call('pr', 'diff', str(pr), '--allow-escape-sequences').splitlines():
         if line.startswith('diff --git'):
             path, hunk = None, False
         elif found := re.fullmatch(r'\+\+\+ b/(scenarios/[^/]+\.md)', line):
@@ -1214,7 +1214,8 @@ def clauses(ids):
 
 def patch_id(head):
     """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
-    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff')
+    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
+                '--allow-escape-sequences')
     found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
     return found.split()[0] if found else ''
 
