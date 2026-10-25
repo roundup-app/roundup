@@ -11,7 +11,7 @@ export const createIdleRun = (evidence = createIdleEvidence(document, window, ()
     renderer: evidence.renderer,
   });
 
-  Object.defineProperty(window, "__roundupIdleEvidence", { value: () => {
+  Object.defineProperty(window, "__roundupIdleEvidence", { configurable: true, value: () => {
     const checkpoint = evidence.checkpoint();
 
     evidence.stop();

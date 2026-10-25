@@ -38,7 +38,9 @@ pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
         ("NSApplicationDidUnhideNotification", false),
     ] {
         let observed = window.clone();
-        let block = RcBlock::new(move |_notification: NonNull<NSNotification>| super::idle::application(&observed, name, hidden));
+        let block = RcBlock::new(move |_notification: NonNull<NSNotification>| {
+            super::idle::application(&observed, name, hidden)
+        });
         // SAFETY: AppKit delivers these notifications on the main thread; the block owns its window handle.
         let token = unsafe {
             center.addObserverForName_object_queue_usingBlock(

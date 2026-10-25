@@ -8,7 +8,7 @@ import { createIdleEvidence } from "./idle";
 import type { IdleEvidence } from "./idle";
 import { createIdleRun } from "./idle_run";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); Reflect.deleteProperty(window, "__roundupIdleEvidence"); });
 
 it("r24_the_app_keeps_its_selected_terminal_from_ten_agents_to_one_without_spawning_or_typing", async () => {
   const app = createFakeApp();

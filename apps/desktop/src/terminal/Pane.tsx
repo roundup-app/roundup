@@ -28,7 +28,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: (id: string | null) => void }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);

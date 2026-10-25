@@ -325,9 +325,11 @@ export const App = (props: {
   });
 
   createEffect(() => {
+    if (!props.prepareIdle) return;
+
     const open = activeConnection();
 
-    if (open && !(open instanceof Error)) props.prepareIdle?.(open);
+    if (open && !(open instanceof Error)) props.prepareIdle(open);
   });
 
   createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
@@ -436,7 +438,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={id => props.observeTerminal?.(open.project.path, id)} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>

@@ -42,7 +42,8 @@ selects the first Agent with a Terminal once, through production `rail.select`, 
 renders it through the ordinary Pane/Screens/xterm paths. It starts no Agent, writes
 no Terminal input and runs no typing/frame driver, even if their build flags were
 also supplied. Keep this selected Agent alive while reducing ten Agents to one;
-stop the other nine through the existing Daemon contracts. The parent must verify
+stop and remove the other nine through `agent.stop` and `rail.remove`, then
+verify the surviving one-Agent Rail and authoritative idle Status. The parent must verify
 the selected Project/Terminal identity, renderer and dimensions remain equal in
 both counts, and reject any mismatch rather than substituting another Terminal.
 No always-on-top or App Nap override is applied. A normal focused Terminal uses its
