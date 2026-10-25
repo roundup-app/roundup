@@ -46,26 +46,7 @@ pub fn build<R: Runtime>(
         .manage(menu::ProjectMenu::default())
         .menu(menu::app_menu)
         .on_menu_event(|app, event| handle_menu_event(app, &event))
-        .invoke_handler({
-            let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
-                projects,
-                open_project,
-                close_project,
-                rename_project,
-                rpc,
-                subscribe,
-                terminal_output,
-                terminal_output_stop,
-                open_target,
-                open_in_editor,
-                save_pasted_image,
-                menu::select_project_menu,
-                menu::show_context_menu
-            ];
-            #[cfg(feature = "idle-perf")]
-            let handler = idle::with_handler(handler);
-            handler
-        })
+        .invoke_handler(invoke_handler())
         .setup(move |app| {
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
@@ -88,6 +69,27 @@ pub fn build<R: Runtime>(
             }
             Ok(())
         })
+}
+
+fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
+        projects,
+        open_project,
+        close_project,
+        rename_project,
+        rpc,
+        subscribe,
+        terminal_output,
+        terminal_output_stop,
+        open_target,
+        open_in_editor,
+        save_pasted_image,
+        menu::select_project_menu,
+        menu::show_context_menu
+    ];
+    #[cfg(feature = "idle-perf")]
+    let handler = idle::with_handler(handler);
+    handler
 }
 
 /// The Tauri context built from `tauri.conf.json` and `capabilities/`; tests build it on the mock

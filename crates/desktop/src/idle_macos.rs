@@ -57,7 +57,7 @@ pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
             if let Some(previous) = observers.borrow_mut().0[index].replace(token) {
                 // SAFETY: replacement removes exactly the token this center previously returned.
                 unsafe {
-                    center.removeObserver((&*previous).as_ref());
+                    center.removeObserver((*previous).as_ref());
                 }
             }
         });
