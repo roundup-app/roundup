@@ -29,10 +29,12 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** Live output event arrival, before buffering or snapshot recovery; snapshots never call it. */
+  outputArrived?: ((bytes: Uint8Array) => void) | undefined;
   /** K1's optional probe: Screens calls this when the queue releases an input batch for encoding. */
-  inputEncoding?: (() => void) | undefined;
+  inputEncoding?: ((bytes: readonly number[]) => void) | undefined;
   /** K1's optional probe: Screens calls this after encoding its input batch, before dispatch. */
-  inputEncoded?: (() => void) | undefined;
+  inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
@@ -136,9 +138,10 @@ export const xtermOptions: ITerminalOptions = {
 export type EchoProbe = {
   /** xterm's `onData` fired: the key became bytes to send. */
   input(id: string): void;
-  encoding(id: string): void;
-  encoded(id: string): void;
-  /** Output bytes reached the emulator, before they are parsed. */
+  frame?(text: string, id: string): string;
+  encoding(id: string, bytes: readonly number[]): void;
+  encoded(id: string, bytes: readonly number[]): void;
+  /** Live output reached the subscription, before buffering or parsing. */
   arrived(bytes: Uint8Array, id: string): void;
   written(bytes: Uint8Array, id: string): void;
   rendered(id: string): void;
@@ -438,8 +441,6 @@ export const createXtermEmulators = (
     return {
       ready,
       write: (bytes, parsed) => {
-        probe?.arrived(bytes, id);
-
         terminal.write(bytes, () => {
           probe?.written(bytes, id);
           parsed?.();
@@ -461,13 +462,14 @@ export const createXtermEmulators = (
         terminal.options.fontSize = size;
       },
       reset: () => terminal.write("\x1bc"),
-      inputEncoding: probe ? () => probe.encoding(id) : undefined,
-      inputEncoded: probe ? () => probe.encoded(id) : undefined,
+      outputArrived: probe ? (bytes) => probe.arrived(bytes, id) : undefined,
+      inputEncoding: probe ? (bytes) => probe.encoding(id, bytes) : undefined,
+      inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => {
         terminal.onData((text) => {
           refit();
           probe?.input(id);
-          listener(encoder.encode(text));
+          listener(encoder.encode(probe?.frame?.(text, id) ?? text));
         });
         terminal.onBinary((text) => {
           refit();

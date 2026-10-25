@@ -106,6 +106,7 @@ export const CONTRACT = {
     "terminal.close": "1c27c5a6fa7bae68",
     "terminal.kill": "7980d904f9b34556",
     "terminal.list": "cc862b0499041659",
+    "terminal.measure": "88a7e0ef0e5f7d45",
     "terminal.open": "9523b84a87986ece",
     "terminal.output": "2c0e0d7b6302759b",
     "terminal.outputStop": "27a398d5b7de023f",
