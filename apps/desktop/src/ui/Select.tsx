@@ -38,6 +38,7 @@ export const Select = (props: {
 
   // Ark's useSelect fixes the machine and exposes no final-focus hook. Keep Zag's transitions,
   // guards and effects; only the two scheduled focus actions carry the App's permission.
+  // Zag 1.45 setInitialFocus/focusTriggerEl: https://github.com/chakra-ui/zag/blob/main/packages/machines/select/src/select.machine.ts
   const machine: typeof select.machine = {
     ...select.machine,
     implementations: {
