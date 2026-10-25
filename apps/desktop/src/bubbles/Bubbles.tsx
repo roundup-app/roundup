@@ -341,7 +341,7 @@ export const Bubbles = (props: {
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
-  const openTerminal = async (current = () => true): Promise<string | null> => {
+  const openTerminal = async (current = () => true, focus = true): Promise<string | null> => {
     // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
     const workstream = terminalOwner();
     const selection = rail.selected();
@@ -360,9 +360,11 @@ export const Bubbles = (props: {
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
+
       if (available()) {
         show(opened.terminal_id);
-        setWanted(opened.terminal_id);
+
+        if (focus) setWanted(opened.terminal_id);
       } else {
         setWanted(prior => prior === opened.terminal_id ? null : prior);
         setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
@@ -419,6 +421,7 @@ export const Bubbles = (props: {
     let target: EventTarget | null = null;
     let pointerId: number | undefined;
     let disposed = false;
+    let openedId: string | null = null;
 
     const apply = (): void => {
       frame = null;
@@ -443,10 +446,12 @@ export const Bubbles = (props: {
     const cancel = (): void => {
       if (press === null) return;
       generation += 1;
+
       if (active) {
         swallowMenu = true;
         swallowUp = true;
       }
+
       end();
     };
 
@@ -473,18 +478,22 @@ export const Bubbles = (props: {
       const selected = selection;
       const current = () => !disposed && generation === request && rail.selected() === selected;
 
-      void openTerminal(current).then((opened) => {
+      void openTerminal(current, false).then((opened) => {
         if (opened === null || !current()) return;
 
         id = opened;
         // Release retains its final pointer, cancellation invalidates this request.
         holdAt(opened, pointer);
+
+        if (press === null) focusItem(opened);
+        else openedId = opened;
       });
     };
 
     const down = (event: PointerEvent): void => {
       cancel();
       generation += 1;
+      openedId = null;
       swallowMenu = false;
       swallowUp = false;
       press = null;
@@ -525,6 +534,9 @@ export const Bubbles = (props: {
       }
 
       end();
+
+      if (openedId !== null) focusItem(openedId);
+      openedId = null;
     };
 
     const swallow = (event: Event): void => {
