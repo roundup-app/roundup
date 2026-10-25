@@ -881,3 +881,20 @@ Retain all six release reports and repeats, then confirm or reset the initial
 memory aims here with justification. File measured repairs in their owning
 modules with same-observer/same-Mac before/after evidence; #3802 consumes these
 measurements and this observer selects no allocator.
+
+### Release code generation observer (#3696)
+
+The M4 Max run at `9de5a4b72` retains about 5 ms of store initialization
+inside a 10.535 ms cold start, with a 0.15 ms runtime. The remaining interval
+includes executable loading, polling and the first ping; it is not pure spawn
+time. The binary-size hypothesis above remains unproven on that Mac.
+
+Before retaining a release-profile change, build both variants from the same
+source and dependencies, stop builds/tests, then alternate fresh-Project
+startup and forty-Workstream `rail.tree` socket probes on this Linux host.
+Record executable bytes/hashes, source, toolchain, timings and loads. The only
+candidate setting is Cargo's built-in thin LTO, which permits cross-crate
+optimization; see [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html#lto).
+No configuration-text test is added (rule 10); release launches and ordinary
+RPC replies are the observer. This experiment neither rebases a budget nor
+establishes R3696c's same-M4-Max acceptance.
