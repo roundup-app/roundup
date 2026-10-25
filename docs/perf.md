@@ -803,7 +803,8 @@ below 300,000,000 ten-Agent bytes and 10,000,000 extra bytes per Agent in every
 state; a valid miss exits 1 and never rewrites a budget. Numeric success exits 0
 with native validation/calibration explicitly pending.
 
-The separate macOS work order requires the same-run, same-PID Activity Monitor
+[Mac measurement #3939](https://github.com/roundup-app/roundup/issues/3939)
+requires the same-run, same-PID Activity Monitor
 Memory and Energy cross-check with units, refresh intervals and timestamps;
 explain rounding/timing differences, and leave unexplained disagreement incomplete.
 Energy Impact is neither CPU percentage nor wake-up count. Use Web Inspector
