@@ -11,7 +11,13 @@ const disk = new Map<string, unknown>();
 
 const cache = new Map<string, unknown>();
 
-const save = vi.fn(async () => { for (const [key, value] of cache) disk.set(key, structuredClone(value)); });
+const save = vi.fn(async () => {
+  for (const [key, value] of cache) {
+    // Native JSON object ordering need not match the renderer's insertion order.
+    disk.set(key, typeof value === "object" && value !== null && "value" in value && "version" in value
+      ? { value: structuredClone(value.value), version: value.version } : structuredClone(value));
+  }
+});
 
 const entries = vi.fn(async () => [...cache]);
 
