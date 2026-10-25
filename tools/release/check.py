@@ -100,7 +100,7 @@ def main():
             cap = 15_000_000
         else:
             size, files = dist_size(args.path)
-            if files == 0:
+            if files == 0 or size == 0:
                 raise ValueError(f"{args.path}: empty output")
             cap = 10_000_000
         print(json.dumps({"artifact": str(args.path), "bytes": size, "files": files,
