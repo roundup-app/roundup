@@ -58,7 +58,7 @@ it.each([
   await browser("focus", input);
   await browser("keydown", " ");
   await wait(`!!document.querySelector('${active}')`);
-  await browser("focus", "button");
+  await browser("focus", "[data-away]");
   await browser("keyup", " ");
   await browser("focus", input);
 

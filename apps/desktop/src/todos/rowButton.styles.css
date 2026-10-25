@@ -160,7 +160,7 @@
 .todo-tick:disabled { cursor: default; }
 /* Hover and press show through the ring's ink, never a fill. */
 .todo-tick:hover:not(:disabled) { color: var(--text); }
-.todo-tick:active:not(:disabled) {
+.todo-tick[data-pressed="true"]:not(:disabled) {
   color: var(--ink-pressed);
   transition-duration: var(--duration-instant);
 }
@@ -266,7 +266,7 @@
 .todo-row[role="treeitem"]:hover {
   color: var(--text);
 }
-.todo-row[role="treeitem"]:active:not([data-dnd-dragging]) {
+.todo-row[role="treeitem"][data-pressed="true"]:not([data-dnd-dragging]) {
   color: var(--ink-pressed);
   transition-duration: var(--duration-instant);
 }

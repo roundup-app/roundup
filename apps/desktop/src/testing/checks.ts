@@ -1,5 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
+import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -401,19 +402,15 @@ const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active") => {
     page.states.set(pseudo, rules);
   }
 
-  return rules.filter((rule) =>
-    rule.selectorText.split(",").some((selector) => {
-      if (!selector.includes(pseudo)) return false;
+  return rules.filter((rule) => {
+    const bare = rule.selectorText.split(pseudo).join(":is(*)");
 
-      const bare = selector.split(pseudo).join("").trim() || "*";
-
-      try {
-        return el.matches(bare);
-      } catch {
-        return false;
-      }
-    }),
-  );
+    try {
+      return el.matches(bare);
+    } catch {
+      return false;
+    }
+  });
 };
 
 const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some((rule) => properties.some((property) => rule.style.getPropertyValue(property) !== ""));
@@ -421,7 +418,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353: a text field answers with a caret, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !el.matches("input[type=text]"));
+const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), [data-dnd-dragging], [data-dnd-dragging] *'));
 
 // D6: each click target has a hover style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
@@ -805,7 +802,10 @@ export function runChecks(doc: Document = document): Checks {
     try {
       const { ok, value, selector } = BY_ID[id](page);
 
-      return { status: ok ? "pass" : "fail", value, selector };
+      if (!ok) return { status: "fail", value, selector };
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+
+      return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {
       return { status: "fail", value: NOT_MEASURABLE, selector: "" };
     }
