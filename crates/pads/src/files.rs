@@ -9,13 +9,29 @@ use tempfile::NamedTempFile;
 /// Atomic: a temp file in the same directory, then a rename.
 pub fn write(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
     let write = || -> io::Result<()> {
-        std::fs::create_dir_all(dir)?;
-        let mut temp = NamedTempFile::new_in(dir)?;
-        temp.write_all(text.as_bytes())?;
+        let temp = staged_text(dir, text)?;
         temp.persist(path(dir, name)).map_err(|err| err.error)?;
         Ok(())
     };
     write().map_err(|err| refused(err, name))
+}
+
+/// Create a missing rename mirror without replacing an external destination.
+pub fn write_new(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
+    let write = || -> io::Result<()> {
+        let temp = staged_text(dir, text)?;
+        temp.persist_noclobber(path(dir, name))
+            .map_err(|err| err.error)?;
+        Ok(())
+    };
+    write().map_err(|err| refused(err, name))
+}
+
+fn staged_text(dir: &Path, text: &str) -> io::Result<NamedTempFile> {
+    std::fs::create_dir_all(dir)?;
+    let mut temp = NamedTempFile::new_in(dir)?;
+    temp.write_all(text.as_bytes())?;
+    Ok(temp)
 }
 
 /// `None` when the file does not exist.
