@@ -13,7 +13,185 @@ const art = captureDir("U3010b");
 
 const rendered = art ? it : it.skip;
 
-const { browser, evaluate, settle, rig } = shelfBrowser();
+const { browser, evaluate, settle, rig, openShelf } = shelfBrowser();
+
+// Ordinary CI observers use the same isolated browser as the optional critic traces below.
+// The fixture exercises the public Drawer actions and the real DrawerHost, with browser-owned animations.
+const mountDrawer = async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await evaluate(`(async () => {
+    const source = await (await fetch('/src/drawer/DrawerHost.tsx')).text();
+    const dependencies = source.split('"').filter(path => path.includes('/deps/'));
+    const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
+    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { createDrawer } = await import('/src/drawer/drawer.ts');
+    const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
+    const { drawerSliding } = await import('/src/drawer/sliding.ts');
+    const { createReducedMotion } = await import('/src/app/reducedMotion.ts');
+    const root = document.createElement('div');
+    root.id = 'drawer-observer';
+    document.querySelector('.window .overlay').append(root);
+    const drawer = createDrawer();
+    let submits = 0;
+    let incarnation = 0;
+    const trigger = document.createElement('button');
+    trigger.id = 'drawer-trigger';
+    trigger.textContent = 'Open observer drawer';
+    document.querySelector('.window').prepend(trigger);
+    trigger.addEventListener('click', () => drawer.open(() => {
+      const form = document.createElement('form');
+      form.dataset.incarnation = String(++incarnation);
+      form.innerHTML = '<textarea aria-label="draft"></textarea><button type="submit">Send</button>';
+      form.addEventListener('submit', event => { event.preventDefault(); submits++; });
+      return form;
+    }));
+    const dispose = render(() => {
+      const reducedMotion = createReducedMotion(media => matchMedia(media));
+      return createComponent(DrawerHost, { drawer, reducedMotion });
+    }, root);
+    const panel = root.querySelector('.drawer');
+    const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+    const animations = () => panel.getAnimations();
+    const finished = async () => {
+      await frame();
+      await Promise.all(animations().map(animation => animation.finished.catch(() => {})));
+    };
+    window.__drawerObserver = {
+      drawer, panel, dispose, frame, animations, finished,
+      state: () => ({ open: drawer.content() !== null, sliding: drawerSliding(),
+        retained: !!panel.querySelector('form'), inert: panel.inert, submits,
+        focused: panel.contains(document.activeElement), returned: document.activeElement === trigger }),
+    };
+    // Capture retention synchronously after the public close, before the browser can finish its exit.
+    panel.querySelector('.close').addEventListener('click', () => {
+      const observer = window.__drawerObserver;
+      observer.exit = observer.state();
+      observer.draft = panel.querySelector('textarea');
+      observer.text = observer.draft?.value;
+      observer.oldCompletion = Promise.all(animations().map(animation => animation.finished.catch(() => {})));
+    });
+    return true;
+  })()`);
+  await settle();
+};
+
+const drawerState = () => evaluate<{ open: boolean; sliding: boolean; retained: boolean; inert: boolean; submits: number; focused: boolean; returned: boolean }>("window.__drawerObserver.state()");
+const waitForDrawer = async () => {
+  await evaluate("window.__drawerObserver.finished().then(() => true)");
+  await browser("wait", "--fn", "!window.__drawerObserver.state().sliding");
+};
+
+it("u3010b_latest_action_owns_layer_lifetime", async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: true, retained: true, focused: true });
+  await browser("click", "#drawer-observer .close");
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+  expect(await evaluate("window.__drawerObserver.exit")).toMatchObject({ open: false, retained: true, inert: true, sliding: true });
+  expect(await drawerState()).toMatchObject({ open: true, retained: true, sliding: false, focused: true });
+  await browser("press", "Escape");
+  expect(await drawerState()).toMatchObject({ open: false, retained: false, sliding: false, returned: true });
+});
+
+it("u3010b_stale_completion_has_no_new_layer_effect", async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+  // Retarget within a real animation frame, so CLI round-trips cannot turn the reversal into two settled slides.
+  // These are the same public close/open actions as the former jsdom observer.
+  const result = await evaluate(`(async () => {
+    const o = window.__drawerObserver;
+    o.drawer.close();
+    await o.frame();
+    const old = o.animations().map(animation => animation.finished.catch(() => {}));
+    const exit = o.state();
+    o.drawer.open(() => { const content = document.createElement('p'); content.textContent = 'reopened'; return content; });
+    await Promise.all(old);
+    const afterOld = { ...o.state(), text: o.panel.textContent };
+    await o.finished();
+    return { exit, afterOld };
+  })()`);
+  expect(result).toMatchObject({ exit: { retained: true, sliding: true }, afterOld: { open: true, text: expect.stringContaining("reopened") } });
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: true, sliding: false });
+});
+
+it("u3010b_exit_preserves_draft_and_submit_identity", async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+  await browser("fill", "#drawer-observer textarea", "line one\nline two");
+  await evaluate("(() => { window.__drawerObserver.original = document.querySelector('#drawer-observer textarea'); return true; })()");
+  await browser("click", "#drawer-observer .close");
+  expect(await evaluate(`(() => {
+    const o = window.__drawerObserver;
+    // Native focus cannot enter an inert retained exit; Enter must not submit it.
+    o.draft.focus();
+    return { exit: o.exit, same: o.draft === o.original, text: o.text, focused: document.activeElement === o.draft };
+  })()`)).toMatchObject({ exit: { retained: true, inert: true }, same: true, text: "line one\nline two", focused: false });
+  await browser("press", "Tab");
+  await browser("press", "Enter");
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ submits: 0 });
+});
+
+it("u5_a_closed_drawer_unmounts_its_content_when_the_slide_out_ends", async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+  await browser("click", "#drawer-observer .close");
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: false, retained: false, sliding: false });
+});
+
+it("u3010b_preference_change_preserves_destination_and_focus", async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await browser("set", "media", "dark", "reduced-motion");
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: true, retained: true, sliding: false, focused: true });
+  await browser("set", "media", "dark");
+  expect(await drawerState()).toMatchObject({ open: true, sliding: false });
+  await browser("click", "#drawer-observer .close");
+  await browser("set", "media", "dark", "reduced-motion");
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: false, retained: false, sliding: false, returned: true });
+});
+
+it("u430_terminal_gets_one_resize_per_slide", async () => {
+  await openShelf("agents-10", 288, 320, 1512, "dark");
+  await browser("click", '.rail [data-id="agent-4"] .name');
+  await browser("wait", ".xterm-screen");
+  await settle();
+  await evaluate(`(() => {
+    const app = window.__fake.app;
+    window.__drawerResizes = [];
+    const rpc = app.rpc.bind(app);
+    app.rpc = (method, params) => {
+      if (method === 'terminal.resize') window.__drawerResizes.push(params);
+      return rpc(method, params);
+    };
+    window.__drawerResizeFrames = [];
+    const sample = () => {
+      window.__drawerResizeFrames.push(window.__drawerResizes.length);
+      window.__drawerResizeFrame = requestAnimationFrame(sample);
+    };
+    window.__drawerResizeFrame = requestAnimationFrame(sample);
+    return true;
+  })()`);
+  for (const [selector, count] of [[".shelf [data-todo] .todo-row-button", 1], [".drawer .close", 2]] as const) {
+    await browser("click", selector);
+    await settle();
+    await browser("wait", "--fn", `window.__drawerResizes.length === ${count}`);
+    expect(await evaluate("window.__drawerResizes.length")).toBe(count);
+  }
+  expect(await evaluate(`(() => {
+    cancelAnimationFrame(window.__drawerResizeFrame);
+    return { counts: [...new Set(window.__drawerResizeFrames)], ids: window.__drawerResizes.map(call => call.id) };
+  })()`)).toEqual({ counts: [0, 1, 2], ids: ["t-agent-4", "t-agent-4"] });
+});
 
 const trace = (rate: number) => `(async () => {
   const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
