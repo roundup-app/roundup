@@ -74,3 +74,17 @@ it("u3010c_newer_copy_failure_survives_an_older_acknowledgement", async () => {
   expect(failed).toHaveBeenCalledOnce();
   expect(screen.getByRole("button", { name: "Original" })).toBe(control);
 });
+
+it("u3010c_a_replacement_revision_does_not_inherit_copy_feedback", async () => {
+  const app = createFakeApp();
+  const failed = vi.fn();
+  let reject: ((error: Error) => void) | undefined;
+  app.writeClipboardText = () => new Promise<void>((_resolve, refusal) => { reject = refusal; });
+  const [identity, setIdentity] = createSignal("original-revision");
+  render(() => <CopyButton app={app} text="unchanged text" identity={identity()} onFailure={failed}>Copy revision</CopyButton>);
+  fireEvent.click(screen.getByRole("button", { name: "Copy revision" }));
+  setIdentity("new-revision");
+  reject!(new Error("old revision failed"));
+  await Promise.resolve();
+  expect(failed).not.toHaveBeenCalled();
+});
