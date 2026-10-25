@@ -2,10 +2,10 @@ import { caseFold } from "unicode-case-folding";
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
-import type { Deletion } from "@contracts/pad/Deletion";
+import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
 import type { DeleteParams } from "@contracts/pad/DeleteParams";
 import type { Pad } from "@contracts/pad/Pad";
-import type { Deletion } from "@contracts/todo/Deletion";
+import type { Deletion as TodoDeletion } from "@contracts/todo/Deletion";
 import type { Change } from "@contracts/todo/Change";
 import type { Comment } from "@contracts/todo/Comment";
 import type { Values } from "@contracts/todo/Values";
@@ -85,7 +85,7 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
 };
 
 const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => {
-  const deletions = new Map<string, { author: string; chosen: string; result: Deletion; rows: { todo: Todo; at: number; changes: Change[]; comments: Comment[] }[]; edges: { id: number; blockers: number[] }[] }>();
+  const deletions = new Map<string, { author: string; chosen: string; result: TodoDeletion; rows: { todo: Todo; at: number; changes: Change[]; comments: Comment[] }[]; edges: { id: number; blockers: number[] }[] }>();
 
   const retained = (operation: string) => {
     const kept = deletions.get(operation);
@@ -228,7 +228,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     const rows = store.todos.flatMap((todo, at) => ids.includes(todo.id) ? [{ todo: structuredClone(todo), at, changes: structuredClone(store.changes?.get(todo.id) ?? []), comments: structuredClone(store.comments?.get(todo.id) ?? []) }] : []);
     const deleted = rows.map(row => row.todo.id).toSorted((a, b) => a - b);
-    const result: Deletion = { operation, deleted, missing: [...new Set(ids)].filter(id => !deleted.includes(id)).toSorted((a, b) => a - b), state: "deleted" };
+    const result: TodoDeletion = { operation, deleted, missing: [...new Set(ids)].filter(id => !deleted.includes(id)).toSorted((a, b) => a - b), state: "deleted" };
     const edges = store.todos.filter(todo => !deleted.includes(todo.id) && todo.blockers.some(id => deleted.includes(id))).map(todo => ({ id: todo.id, blockers: todo.blockers.filter(id => deleted.includes(id)) }));
     const before = store.todos;
     store.todos = withBlocked(store.todos.filter(todo => !deleted.includes(todo.id)).map(todo => ({ ...todo, blockers: todo.blockers.filter(id => !deleted.includes(id)) })));
@@ -293,7 +293,7 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => {
   const request = (p: DeleteParams) => JSON.stringify([p.name, p.operation ?? null, p.expectedIncarnation ?? null]);
   const project = crypto.randomUUID();
-  const deletions = new Map<string, { receipt: Deletion; actor: string; request: string }>();
+  const deletions = new Map<string, { receipt: PadDeletion; actor: string; request: string }>();
 
   const retained = (operation: string) => {
     const entry = deletions.get(operation);
@@ -365,7 +365,7 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
       if (actor().kind !== "user" && !ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may delete this Pad");
 
       if (p.expectedIncarnation != null && p.expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "Pad creation changed");
-      const receipt: Deletion = { project, operation: p.operation ?? crypto.randomUUID(), pad: structuredClone(pad), restored: false };
+      const receipt: PadDeletion = { project, operation: p.operation ?? crypto.randomUUID(), pad: structuredClone(pad), restored: false };
       deletions.set(receipt.operation, { receipt, actor: JSON.stringify(actor()), request: request(p) });
       store.pads = store.pads.filter((item) => item !== pad);
       announce({ name: "pad.changed", data: { name: pad.name } });
