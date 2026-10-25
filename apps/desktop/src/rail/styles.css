@@ -541,11 +541,6 @@
   --button-inline: 0;
 }
 
-.rail > p.ink[role="alert"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
 .rail-row[data-todo-drop],
 .rail-row[data-todo-drop]:hover {

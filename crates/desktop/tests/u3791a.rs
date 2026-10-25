@@ -18,7 +18,7 @@ struct Fixture {
     app: App<MockRuntime>,
     events: Arc<Mutex<Vec<Value>>>,
     calls: Arc<Mutex<Vec<String>>>,
-    subscribe_fails: Arc<Mutex<bool>>,
+    subscribe_failure: Arc<Mutex<Option<i64>>>,
 }
 
 impl Fixture {
@@ -52,10 +52,10 @@ exec cat > "$1/input"
         .unwrap();
         config.data_dir = Some(dir.path().join("data"));
         let calls = Arc::new(Mutex::new(Vec::new()));
-        let subscribe_fails = Arc::new(Mutex::new(false));
+        let subscribe_failure = Arc::new(Mutex::new(None));
         let listener = UnixListener::bind(dir.path().join("real.sock")).unwrap();
         let logged = calls.clone();
-        let refuse = subscribe_fails.clone();
+        let refuse = subscribe_failure.clone();
         tokio::spawn(async move {
             loop {
                 let (stream, _) = listener.accept().await.unwrap();
@@ -68,8 +68,10 @@ exec cat > "$1/input"
                         let request: Value = serde_json::from_str(&line).unwrap();
                         let method = request["method"].as_str().unwrap();
                         logged.lock().unwrap().push(method.to_owned());
-                        let answer = if method == "events.subscribe" && *refuse.lock().unwrap() {
-                            json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32603,"message":"subscription refused"}})
+                        let answer = if method == "events.subscribe"
+                            && refuse.lock().unwrap().is_some()
+                        {
+                            json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":*refuse.lock().unwrap(),"message":"subscription refused"}})
                         } else {
                             json!({"jsonrpc":"2.0", "id":request["id"], "result":if method == "events.subscribe" { json!({"head":0}) } else { json!({"pong":true}) }})
                         };
@@ -101,7 +103,7 @@ exec cat > "$1/input"
             app,
             events,
             calls,
-            subscribe_fails,
+            subscribe_failure,
         }
     }
 
@@ -260,7 +262,19 @@ async fn u3791a_daemon_success_resets_count(fx: &Fixture) {
     })
     .await;
     // Readiness alone is insufficient: rejecting the replacement subscription is failure 2.
-    *fx.subscribe_fails.lock().unwrap() = true;
+    *fx.subscribe_failure.lock().unwrap() = Some(rpc::code::EVENTS_EXPIRED);
+    assert_eq!(
+        fx.subscribe(&path).await.unwrap_err().code,
+        rpc::code::EVENTS_EXPIRED
+    );
+    assert!(
+        fx.app
+            .state::<AppState>()
+            .projects()
+            .iter()
+            .any(|entry| entry.path == path && entry.running)
+    );
+    *fx.subscribe_failure.lock().unwrap() = Some(rpc::code::INTERNAL);
     assert!(fx.subscribe(&path).await.is_err());
     until(|| {
         fx.events
@@ -275,7 +289,7 @@ async fn u3791a_daemon_success_resets_count(fx: &Fixture) {
     let starts = fx.starts(&path);
     tick(499).await;
     assert_eq!(fx.starts(&path), starts);
-    *fx.subscribe_fails.lock().unwrap() = false;
+    *fx.subscribe_failure.lock().unwrap() = None;
     tick(1).await;
     until(|| fx.starts(&path) == starts + 1).await;
     tick(25).await;

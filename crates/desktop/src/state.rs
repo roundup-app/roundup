@@ -288,7 +288,10 @@ impl AppState {
             if result.is_ok() {
                 entry.failures = 0;
             }
-            if let Some(connected) = open.connected.take() {
+            // D11 retries an expired cursor on this same connection; it is not a failed startup.
+            if !matches!(&result, Err(err) if err.code == code::EVENTS_EXPIRED)
+                && let Some(connected) = open.connected.take()
+            {
                 let _ = connected.send(result.clone().map(|_| ()));
             }
         }
