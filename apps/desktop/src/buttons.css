@@ -101,8 +101,7 @@ button:hover:not([aria-disabled="true"]),
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
 /* Opacity also reaches independently coloured Glyphs and filled controls whose label overrides the pressed ink (U133). */
 /* Sortable ends the transient press when dragging begins, leaving only the row's selected wash. */
-button:active:not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)),
-button[data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
+:is(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"])[data-pressed="true"]:not(input, :disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
   opacity: var(--press-opacity);
   transition: none;
@@ -257,4 +256,10 @@ button[aria-disabled="true"] {
 
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, :active) {
   background-color: var(--button-surface);
+}
+
+/* Native visible inputs retain their own hit area and activation. */
+input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
+  opacity: var(--press-opacity);
+  transition: none;
 }

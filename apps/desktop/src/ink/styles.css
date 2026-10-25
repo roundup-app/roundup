@@ -327,3 +327,8 @@ p.ink[role="alert"] {
   min-inline-size: 0;
   block-size: 100%;
 }
+
+/* U131: align the visible Kind mark to the title's first baseline without moving its slot or the tick. */
+.shelf .shelf-row .glyph[data-drawing] svg {
+  transform: translateY(calc(var(--space-1) * -0.75));
+}

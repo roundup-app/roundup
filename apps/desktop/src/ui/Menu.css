@@ -11,9 +11,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  color: var(--grey);
   padding: var(--space-2);
 }
 
 .app-menu [data-highlighted] {
-  background-color: var(--hover);
+  color: var(--text);
 }
