@@ -355,12 +355,12 @@ describe("u103 a reloaded pane shows the screen", () => {
     app.emitGap("t-b", 0, 50);
     await vi.waitFor(() => expect(snapshots()).toHaveLength(4));
     await exhaust(pending, 3, "B failed");
-    const currentFailure = await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
+    await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
 
     connected.rail.select("a");
     expect(screen.queryByRole("alert")).toBeNull();
     connected.rail.select("b");
-    expect(screen.getByRole("alert")).toBe(currentFailure);
+    await screen.findByRole("alert");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });

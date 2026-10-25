@@ -17,6 +17,7 @@ export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   const { showShelfTab } = await import("./shelfTabs");
   await screen.findByRole("tree", { name: "Rail" });
   fireEvent.click(document.querySelector('[data-todo-root]')!);
+
   if (!document.querySelector('[role="tab"][aria-selected="true"]')) showShelfTab("Todos");
 
   await waitFor(() => {
