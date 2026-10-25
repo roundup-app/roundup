@@ -53,6 +53,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
 | `--row-text-inset` | `56px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending |
+| `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |

@@ -78,8 +78,7 @@ p.ink[role="alert"] {
   background-color: transparent;
 }
 
-/* The tick's 24 px target includes the 8 px after its drawn box, so every
-   tick/text row shares this column, including entry fields without a head. */
+/* Rail leaves keep the tick's existing target and title column. */
 .rail-leaf .shelf-row:has(> .shelf-glyph .todo-tick) {
   grid-template-columns: var(--space-5) minmax(0, 1fr);
   column-gap: 0;
