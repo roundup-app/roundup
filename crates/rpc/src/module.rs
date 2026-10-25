@@ -314,3 +314,23 @@ pub fn json<T: Serialize>(value: &T) -> Result<Reply, RpcError> {
 pub fn reply<T: Serialize>(value: &T) -> Result<Value, RpcError> {
     serde_json::to_value(value).map_err(RpcError::internal)
 }
+
+/// Expand an owning module's declarations into its existing async dispatcher.
+#[macro_export]
+macro_rules! dispatch_methods {
+    ([$this:ident, $ctx:ident, $method:ident, $value:ident]
+     $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
+        match $method {
+            $($wire => $this.$handler($ctx, $method, $value).await,)*
+            _ => Err($crate::RpcError::method_not_found($method)),
+        }
+    };
+}
+
+/// Test ownership before consuming parameters; no clone is needed for another module's call.
+#[macro_export]
+macro_rules! contains_method {
+    ([$method:ident] $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
+        matches!($method, $($wire)|*)
+    };
+}
