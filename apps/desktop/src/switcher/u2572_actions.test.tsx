@@ -20,6 +20,7 @@ it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", 
       { value: "second", label: "New Agent" },
       { value: "terminal:7", label: "new-shell" },
     ];
+
     await mountSwitcher("ws", [
       workstream("ws", { name: "new" }),
       agent("first", "idle", "idle", { parent: "ws", name: "New Agent" }),
@@ -28,6 +29,7 @@ it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", 
     ], [info("7", { owner: "ws", title: "new-shell" })]);
     await show();
     const actions = actionRows().map(row => ({ value: row.dataset.value!, label: row.querySelector(".switcher-name")!.textContent! }));
+
     const ranked = (group: typeof destinations) => {
       if (!query.trim()) return group.map(entry => entry.value);
 
@@ -35,12 +37,12 @@ it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", 
         .sort((a, b) => b.score - a.score || group.indexOf(a.obj) - group.indexOf(b.obj))
         .map(result => result.obj.value);
     };
+
     await search(query);
     await waitFor(() => expect(options().map(row => row.dataset.value)).toEqual([...ranked(destinations), ...ranked(actions)]));
     const groups = within(document.querySelector(".switcher")!).queryAllByRole("group", { name: "Actions" });
-    expect(groups).toHaveLength(ranked(actions).length ? 1 : 0);
 
-    if (groups[0]) expect(within(groups[0]).getAllByRole("option").map(row => row.getAttribute("data-value"))).toEqual(ranked(actions));
+    expect(groups.flatMap(group => within(group).getAllByRole("option").map(row => row.getAttribute("data-value")))).toEqual(ranked(actions));
   },
 );
 

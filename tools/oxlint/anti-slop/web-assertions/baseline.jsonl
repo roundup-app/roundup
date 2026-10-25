@@ -733,8 +733,6 @@
 {"file":"apps/desktop/src/state/u2773_storage.test.ts","test":"u2773e_credentials_keep_existing_policy","identity":"29f04e19f9cf3c24312a810010090ecfef6e761822a6c7209eae1f75f6087c04"}
 {"file":"apps/desktop/src/state/u2773_storage.test.ts","test":"u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s","identity":"e76dcbbcf3397ce7a5c41d48cc54a37d07f71651a5fee1d2e6c04e54219cb3d2"}
 {"file":"apps/desktop/src/state/u2773_storage.test.ts","test":"u2773e_shared_project_credentials_stay_memory_only_across_replacement","identity":"d4947beff555f2cefecec04abee25b25e2b677a42e74135105a3534f7512a144"}
-{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572a_searches_destinations_then_grouped_actions","identity":"f46ee8e95d40b7f4828db1c174ed89ec217afcdfb22f4d8e49ce934fe2f135b8"}
-{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572a_action_only_empty_and_unfiltered_results: %s","identity":"f6e8d3af68ba41f4c1e113a9f14c185be9c1f555c3e1e2e02b5f325296131078"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572b_actions_share_key_behavior_in_the_opening_view: rejected Terminal %s","identity":"d2191d3b6f5fbd6fc5e78a3d44ceecb2b6cfa36d20d5548c58b9b3b06b76ec43"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_actions_follow_opening_context_and_revalidate: stale %s","identity":"9d11d12f76438791d2246b15bbbe1622896b69dc7ea38979fcb5ef3de88abf71"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back","identity":"0156ce30d42ad4af41a984ce24e4f7f23791bf7cac639f233efa225c55f1ff95"}
