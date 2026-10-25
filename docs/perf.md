@@ -278,6 +278,25 @@ observations and scoped engineering investigation; no user or Mac decision is
 needed. Original clean observations remain labelled history only. No baseline,
 ceiling, load threshold, absolute limit or clean R16 verdict changes.
 
+### R23 observer acceptance assessment (#4031)
+
+[Offline verification and supported boundaries](../crates/perf/evidence/r23-observer-40219905108/README.md)
+replays #4082's producer capture and controls from the raw retained logs, preserving
+request/task/thread/FD identities. It separates pre-extraction dispatch,
+submission/first selected poll, actual pinned producer locations and complete
+spawned-task poll hooks from unsupported exact executor enqueue and optimized
+publication timestamps. Thread CPU remains distinct from useful-task CPU.
+
+The 24 controls show substantial instrumentation variation, including one retained
+historical/common echo outlier. Their recorder is off, so they do not bound the
+additional source-probe/perf cost in the profiles. Diagnostic build settings,
+logger and hook effects also remain inseparable. [#4109](https://github.com/roundup-app/roundup/issues/4109)
+blocks #4031 with alternating recorder-off, scheduler/syscall-only and full-probe
+controls against identical archived Daemons under #3760/#3720. Attribution is
+incomplete; #4031 and #3760 remain open. No new clean timing observation, p95
+correction, baseline, calibration or production repair is supplied. The original
+six-report per-metric comparison remains separately labelled history below.
+
 ### R23 paired write conclusions (#3760)
 
 [Paired measurements, reference commits, ceilings, compatibility failures and profile qualifications](perf-r23-writes.md#r23-paired-write-conclusions-3760).
