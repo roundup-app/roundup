@@ -1,7 +1,0 @@
-Added new event:
-  r23p:candidate_enqueue (on *terminal*enqueue* in /tmp/r23-queue-bins/candidate-instrumented-rupd)
-
-You can now use it in all perf tools, such as:
-
-	perf record -e r23p:candidate_enqueue -aR sleep 1
-

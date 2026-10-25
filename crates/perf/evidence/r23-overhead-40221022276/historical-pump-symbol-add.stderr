@@ -1,7 +1,0 @@
-Added new event:
-  r23p:historical_pump (on *terminal*pump in /tmp/r23-queue-bins/historical-instrumented-rupd)
-
-You can now use it in all perf tools, such as:
-
-	perf record -e r23p:historical_pump -aR sleep 1
-
