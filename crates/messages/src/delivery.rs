@@ -2,21 +2,6 @@
 
 use super::*;
 
-/// Removes its Messages from `Inner::typing` when the inbox write that carries them is done.
-pub(super) struct Typing<'a> {
-    pub(super) set: &'a Mutex<std::collections::HashSet<u32>>,
-    pub(super) ids: Vec<u32>,
-}
-
-impl Drop for Typing<'_> {
-    fn drop(&mut self) {
-        let mut set = lock(self.set);
-        for id in &self.ids {
-            set.remove(id);
-        }
-    }
-}
-
 /// Starts the status listener at most once for this `Inner` (its `Once`), and only when a Tokio
 /// runtime is there to run it on. The subscription itself was already taken at `open`, so no
 /// `agent.status` fired between `open` and this first poll is lost.
@@ -477,11 +462,5 @@ impl Messages {
             .find(|node| node.id == to)
             .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
         Ok(Some(node))
-    }
-
-    pub(super) fn get_or_not_found(&self, id: u32) -> Result<Message, RpcError> {
-        self.store()?
-            .get(id)?
-            .ok_or_else(|| RpcError::not_found(format!("message {id}")))
     }
 }

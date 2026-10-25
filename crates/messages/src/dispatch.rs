@@ -117,3 +117,23 @@ impl Messages {
         }
     }
 }
+
+impl Messages {
+    /// A32: every Message sent to or by `door`, in order, each with its Iteration.
+    pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
+        self.store()?.thread(door)
+    }
+
+    /// A32: the Iteration `door` is in ends here; returns its number.
+    pub fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
+        self.store()?.end_iteration(door)
+    }
+}
+
+impl Messages {
+    pub(super) fn get_or_not_found(&self, id: u32) -> Result<Message, RpcError> {
+        self.store()?
+            .get(id)?
+            .ok_or_else(|| RpcError::not_found(format!("message {id}")))
+    }
+}
