@@ -1,0 +1,50 @@
+{
+  "typos/x86_64-unknown-linux-musl": {
+    "url": "https://github.com/crate-ci/typos/releases/download/v1.51.1/typos-v1.51.1-x86_64-unknown-linux-musl.tar.gz",
+    "sha256": "93c301fd4120ff076e2cc2a6d6a61cab4a4bdb81899287c0938b452e56d1f454"
+  },
+  "cargo-deny/x86_64-unknown-linux-musl": {
+    "url": "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz",
+    "sha256": "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f"
+  },
+  "ruff/x86_64-unknown-linux-musl": {
+    "url": "https://github.com/astral-sh/ruff/releases/download/0.17.2/ruff-x86_64-unknown-linux-musl.tar.gz",
+    "sha256": "d6407f429ef15e558cbe980d30a67f27d02e3d2f72780be141ee006b2fdf7df3"
+  },
+  "typos/aarch64-unknown-linux-musl": {
+    "url": "https://github.com/crate-ci/typos/releases/download/v1.51.1/typos-v1.51.1-aarch64-unknown-linux-musl.tar.gz",
+    "sha256": "2ac5e37b3236b3c07dec5cdf1527acf143aec4674a6089b0bf424d021b35e099"
+  },
+  "cargo-deny/aarch64-unknown-linux-musl": {
+    "url": "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-unknown-linux-musl.tar.gz",
+    "sha256": "995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d"
+  },
+  "ruff/aarch64-unknown-linux-musl": {
+    "url": "https://github.com/astral-sh/ruff/releases/download/0.17.2/ruff-aarch64-unknown-linux-musl.tar.gz",
+    "sha256": "ba1a3a43f8afc7bda55f8be2c600a1c8966390c3de17526bb1e6c5609c2e9fa0"
+  },
+  "typos/x86_64-apple-darwin": {
+    "url": "https://github.com/crate-ci/typos/releases/download/v1.51.1/typos-v1.51.1-x86_64-apple-darwin.tar.gz",
+    "sha256": "f3451079971633a7f769fb958fe06b0d64b5f1dc46df0854aa1ddb9a6f4031d6"
+  },
+  "cargo-deny/x86_64-apple-darwin": {
+    "url": "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-apple-darwin.tar.gz",
+    "sha256": "248da7f581724e470071990c088ffc55c811981715f4cbdb258621fb79f8b7a6"
+  },
+  "ruff/x86_64-apple-darwin": {
+    "url": "https://github.com/astral-sh/ruff/releases/download/0.17.2/ruff-x86_64-apple-darwin.tar.gz",
+    "sha256": "db57a84e385435a2c4a7c8946e588f79b9de0851d8618a1b5d4431edfff0bf01"
+  },
+  "typos/aarch64-apple-darwin": {
+    "url": "https://github.com/crate-ci/typos/releases/download/v1.51.1/typos-v1.51.1-aarch64-apple-darwin.tar.gz",
+    "sha256": "316d50a32c3726a80ab39c6d12141b70080498973c5e8a9b068b12cde78b10c1"
+  },
+  "cargo-deny/aarch64-apple-darwin": {
+    "url": "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-apple-darwin.tar.gz",
+    "sha256": "fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3"
+  },
+  "ruff/aarch64-apple-darwin": {
+    "url": "https://github.com/astral-sh/ruff/releases/download/0.17.2/ruff-aarch64-apple-darwin.tar.gz",
+    "sha256": "94fbca85f19e8b6bb068adb7cbc9a74e3e6c01004cc67c6b00246a094ad4ccd9"
+  }
+}

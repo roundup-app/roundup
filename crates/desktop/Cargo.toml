@@ -38,7 +38,7 @@ tauri-build = "2"
 rupd = { path = "../rupd" }
 tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6"
