@@ -115,11 +115,14 @@ it("u483_row_composition", async () => {
   expect(await read<string[]>(`[...document.querySelectorAll('[data-id]')].map(el => el.dataset.id)`)).toEqual(["Alpha", "Beta", "Cedar", "Delta", "Echo"]);
   expect(await read<number>(`document.querySelectorAll('[data-id] [aria-hidden=true]').length`)).toBe(5);
 
+  const tree = await snapshot();
+
   for (const name of ["Alpha", "Beta", "Cedar", "Delta", "Echo"]) {
-    expect(await snapshot()).toContain(`button "Inspect ${name}"`);
-    expect(await snapshot()).toContain(`treeitem "${name}"`);
-    expect(await read<string>(`document.querySelector('[data-id=${name}] [aria-hidden=true]').textContent`)).toBe("○");
+    expect(tree).toContain(`button "Inspect ${name}"`);
+    expect(tree).toContain(`treeitem "${name}"`);
   }
+
+  expect(await read<string[]>(`[...document.querySelectorAll('[data-id] [aria-hidden=true]')].map(el => el.textContent)`)).toEqual(Array(5).fill("○"));
 }, 60_000);
 
 it("u483_tree_semantics_and_names", async () => {
@@ -135,9 +138,9 @@ it("u483_tree_semantics_and_names", async () => {
   await browser("press", "ArrowRight");
   await browser("wait", "--fn", `document.querySelector('[data-id=Beta]').getAttribute('aria-expanded') === 'true'`);
 
-  for (const name of ["Alpha", "Beta", "Cedar", "Delta", "Echo"]) {
-    expect(await snapshot()).toContain(`treeitem "${name}"`);
-  }
+  const tree = await snapshot();
+
+  for (const name of ["Alpha", "Beta", "Cedar", "Delta", "Echo"]) expect(tree).toContain(`treeitem "${name}"`);
 
   expect(await read<(string | null)[]>(`['Alpha','Beta','Cedar'].map(id => document.querySelector('[data-id='+id+']').getAttribute('aria-level'))`)).toEqual(["1", "2", "3"]);
   expect(await read<(string | null)[]>(`['Cedar','Delta','Echo'].map(id => document.querySelector('[data-id='+id+']').getAttribute('aria-expanded'))`)).toEqual([null, null, null]);
