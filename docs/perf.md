@@ -117,13 +117,21 @@ retain the boot identity, commands and statuses. Runner inventory returned HTTP
 lifetime was identified. No resource, timing invocation or profile was produced.
 #3764 remains open and #3760 blocked, with remaining work under #3720.
 
+Builder [40167225085](https://github.com/roundup-app/roundup/actions/runs/40167225085)
+also fails the unchanged preflight (exit 2): `AMD EPYC 7763 64-Core Processor`.
+[Identity and existing-host search](../crates/perf/evidence/r23-host-40167225085/README.md)
+retain the commands, boot id and statuses. Inventory returned HTTP 403 and seven
+active Builder log requests returned HTTP 404; no reachable qualified lifetime
+was identified. No resource, timing or profile was produced. #3764 stays open,
+#3760 blocked, and remaining measurement/repair work stays under #3720.
+
 For the next execution attempt, use the existing Builder facility:
 
 1. Search existing host evidence and active Actions jobs before allocating a host.
    A job name or `ubuntu-latest` label does not establish CPU identity or access.
-   This attempt's runner inventory request returned HTTP 403; job metadata exposed
+   Runner inventory requests returned HTTP 403; job metadata exposed
    no remote execution endpoint. The existing `build-issue.yml` selects
-   `ubuntu-latest` without an exact CPU selector and serializes builds of one Issue.
+   `ubuntu-24.04` without an exact CPU selector and serializes builds of one Issue.
    Dispatching another build during this one would not hand off its lifetime.
 2. On the execution host, retain the full identity commands above and execute the
    preflight in `qualification.txt`. Require exit 0 and retain the Actions run/job,
