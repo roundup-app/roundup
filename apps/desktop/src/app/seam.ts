@@ -97,7 +97,7 @@ export const SEAM_COMMANDS = [
 export const captureStateSchema = v.object({
   session: v.string(), sequence: v.number(), text: v.string(), owner: v.string(), home: v.string(),
   recovered: v.array(v.object({ revision: v.string(), text: v.string(), status: v.string(), label: v.string() })),
-  failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
+  retention: v.boolean(), failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
 });
 export const captureActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("ready") }),

@@ -68,7 +68,7 @@ impl<R: Runtime> CapturePanel<R> {
                         .skip_taskbar(true)
                         .build()
                         .map_err(|error| error.to_string())?;
-                    let panel = match window.to_panel::<NativeCapturePanel>() {
+                    let panel = match window.to_panel::<NativeCapturePanel<R>>() {
                         Ok(panel) => panel,
                         Err(error) => {
                             window.destroy().map_err(|error| error.to_string())?;
@@ -175,7 +175,7 @@ impl<R: Runtime> CapturePanel<R> {
 
 /// Register the selected native libraries without granting their JS command permissions.
 pub fn register_capture<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    let lifetime = tauri::plugin::Builder::new("capture-panel")
+    let lifetime = tauri::plugin::Builder::<R, ()>::new("capture-panel")
         .invoke_handler(tauri::generate_handler![control])
         .setup(|app, _| {
             app.manage(Binding::default());

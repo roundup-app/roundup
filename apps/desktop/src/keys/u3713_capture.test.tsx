@@ -284,3 +284,23 @@ it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_c
   await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
   expect(appSettings().quickAdd).toBe(before);
 });
+
+it("u3787f_global_capture_registers_and_releases_through_the_shell_event_adapter", async () => {
+  const { clearMocks, mockIPC } = await import("@tauri-apps/api/mocks");
+  const { emit } = await import("@tauri-apps/api/event");
+  const { createTauriApp } = await import("../app/tauri");
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  const requests: unknown[] = [];
+  mockIPC((command, args) => { if (command === "plugin:capture-panel|control") requests.push(args); }, { shouldMockEvents: true });
+  try {
+    const port = createTauriApp().capture!;
+    await mount(undefined, undefined, port);
+    await emit("capture-requested");
+    await waitFor(() => expect(requests).toContainEqual({ request: { kind: "show" } }));
+    expect(field()).toBeNull();
+    cleanup();
+    const shows = requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}').length;
+    await emit("capture-requested");
+    expect(requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}')).toHaveLength(shows);
+  } finally { clearMocks(); vi.restoreAllMocks(); }
+});
