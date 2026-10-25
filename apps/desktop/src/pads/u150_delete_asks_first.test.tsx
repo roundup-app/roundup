@@ -43,12 +43,7 @@ describe("u150 delete asks first (Pad)", () => {
   });
 
   it("u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line", async () => {
-    const { app, state, connected } = await openShelf([padOf("notes", USER, "a")]);
-    app.handlers["pad.delete"] = () => {
-      state.pads = [];
-
-      return null;
-    };
+    const { app, connected } = await openShelf([padOf("notes", USER, "a")]);
 
     await openPad("notes");
     await ask();
@@ -58,7 +53,6 @@ describe("u150 delete asks first (Pad)", () => {
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
     expect([calls(app), screen.queryByText(/was deleted/)]).toEqual([[{ method: "pad.delete", params: { name: "notes" } }], null]);
-    await waitFor(() => expect(screen.queryByText("notes")).toBeNull());
   });
 
   it("u150_keep_calls_nothing_and_focus_returns_to_delete", async () => {

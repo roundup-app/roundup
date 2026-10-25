@@ -1,0 +1,4 @@
+{
+  "extends": ["../../../../.oxlintrc.json"],
+  "rules": { "anti-slop/bounded-test-timeout": "error" }
+}

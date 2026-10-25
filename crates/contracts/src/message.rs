@@ -2,21 +2,19 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
 use crate::common::Actor;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum MessageKind {
     Note,
     Question,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum MessageStatus {
     Pending,
     Delivered,
@@ -25,9 +23,8 @@ pub enum MessageStatus {
 
 /// Why a Message is `dropped`
 /// (`receiver gone`, B9; `not accepted`, B2; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum Reason {
     #[serde(rename = "receiver gone")]
     ReceiverGone,
@@ -41,8 +38,7 @@ pub enum Reason {
 
 /// A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
 /// names why a `dropped` Message was dropped, and is `None` otherwise.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Message {
     pub id: u32,
     pub from: Actor,
@@ -53,17 +49,16 @@ pub struct Message {
     pub reply_to: Option<u32>,
     pub status: MessageStatus,
     pub reason: Option<Reason>,
-    #[ts(type = "number")]
+    #[specta(type = specta_typescript::Number)]
     pub at: i64,
     /// A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
+    #[specta(optional, type = u32)]
     pub iteration: Option<u32>,
 }
 
 /// `from` is never a parameter: it is always the calling Actor.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SendParams {
     pub to: String,
     pub kind: MessageKind,
@@ -72,42 +67,37 @@ pub struct SendParams {
     pub reply_to: Option<u32>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct MessageId {
     pub id: u32,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ListParams {
     pub to: Option<String>,
     /// A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`.
     #[serde(default)]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub id: Option<String>,
     pub status: Option<MessageStatus>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum Delivery {
     Auto,
     Drop,
 }
 
 /// A sender-to-receiver delivery rule. Both `from` and `to` are Actor ids.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Route {
     pub from: String,
     pub to: String,
     pub delivery: Delivery,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SetRouteParams {
     pub from: String,
     pub to: String,
@@ -115,27 +105,24 @@ pub struct SetRouteParams {
 }
 
 /// Read the exact instruction and result history of one Agent in its original Project.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ProgressParams {
     pub project: String,
     pub id: String,
 }
 
 /// A caller-selected target revision. Equal names never identify replacement versions.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ResultTarget {
     pub id: String,
     pub revision: String,
 }
 
 /// Only the declared condition is checked; no observation verifies all work.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub enum ResultCheck {
     /// Confirms the retained publication's exact bytes, never an external effect.
     Publication {
@@ -151,9 +138,8 @@ pub enum ResultCheck {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum ResultState {
     Reported,
     /// An issued external effect has no authoritative acknowledgement. Acceptance alone cannot resolve it.
@@ -161,9 +147,8 @@ pub enum ResultState {
 }
 
 /// Agent and Attempt authorship comes from the authenticated connection and retained delivery.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ReportParams {
     pub project: String,
     pub id: String,
@@ -177,18 +162,16 @@ pub struct ReportParams {
     pub check: ResultCheck,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ResultId {
     pub project: String,
     pub id: String,
     pub report: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct AcceptResultParams {
     pub project: String,
     pub id: String,
@@ -198,9 +181,8 @@ pub struct AcceptResultParams {
 
 /// Only the user can authorize reading this authoritative, read-only receipt endpoint.
 /// HTTPS is required except for literal loopback HTTP sources; credentials and redirects are refused.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ResolveResultParams {
     pub project: String,
     pub id: String,
@@ -210,21 +192,19 @@ pub struct ResolveResultParams {
 
 /// Response of a user-selected authoritative receipt endpoint. The Daemon reads these bytes;
 /// an Agent's report, publication or supplied RPC verdict cannot stand in for them.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ResultResolution {
     pub target: ResultTarget,
     pub revision: String,
     /// Source observation time, Unix seconds; accepted only within the preceding 60 seconds.
-    #[ts(type = "number")]
+    #[specta(type = specta_typescript::Number)]
     pub observed_at: i64,
     pub outcome: ResultOutcome,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub enum ResultOutcome {
     Completed,
     NotPerformed,
@@ -233,8 +213,7 @@ pub enum ResultOutcome {
 
 /// Immutable claim, retaining attribution and exact instruction/output identity.
 /// order_revision precedes this exact instruction; it is never the Order at report time.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct ResultReport {
     pub order_revision: Option<String>,
     pub report: String,
@@ -246,17 +225,15 @@ pub struct ResultReport {
     pub publication: crate::deliverable::Deliverable,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct ResultAcceptance {
     pub actor: Actor,
     pub evidence: String,
 }
 
 /// A Daemon observation of the report's declared source, never caller-supplied authority.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 #[serde(tag = "verdict", rename_all = "kebab-case")]
-#[ts(export, export_to = "message/")]
 pub enum ResultObservation {
     Passed {
         revision: String,
@@ -275,8 +252,7 @@ pub enum ResultObservation {
 
 /// Unresolved external effects remain current despite later claims or changed instructions.
 /// Other current results require the same instruction and latest reported target version.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct ResultProgress {
     pub report: ResultReport,
     pub current: bool,
@@ -285,8 +261,7 @@ pub struct ResultProgress {
     pub availability: crate::deliverable::Resolution,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct Progress {
     pub instructions: crate::agent::Instructions,
     pub results: Vec<ResultProgress>,
@@ -295,22 +270,20 @@ pub struct Progress {
 /// U3078d: the user's explicit choice to resume one Agent's unfinished work. `request` is the
 /// client's retry key; the same key with other bytes is refused, and a fresh key never accepts an
 /// action a decision already holds. `action` limits the resume to one reconciled action.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "message/")]
 pub struct ResumeWorkParams {
     pub project: String,
     pub id: String,
     pub request: String,
     #[serde(default)]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub action: Option<String>,
 }
 
 /// One unfinished action for exact instruction/target/output versions. `id` hashes those
 /// versions and the pending next step, never a report key, so it is stable across retries.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ContinuationAction {
     pub id: String,
     pub report: String,
@@ -324,8 +297,7 @@ pub struct ContinuationAction {
 
 /// Work that cannot be continued now: an unknown or unavailable fact, with its cause and the
 /// action that checks it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ContinuationBlock {
     pub report: String,
     pub target: ResultTarget,
@@ -335,8 +307,7 @@ pub struct ContinuationBlock {
 
 /// Retained evidence that was confirmed for its exact version. `current` is false for an older
 /// version, which verifies nothing about the version that replaced it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ContinuationContext {
     pub report: String,
     pub target: ResultTarget,
@@ -345,8 +316,7 @@ pub struct ContinuationContext {
 }
 
 /// The Daemon's read of one Agent's retained evidence, changing nothing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Reconciliation {
     pub agent: String,
     pub actions: Vec<ContinuationAction>,
@@ -356,8 +326,7 @@ pub struct Reconciliation {
 }
 
 /// An accepted decision and the one successor Message it made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ContinuationChoice {
     pub id: String,
     pub request: String,
@@ -366,8 +335,7 @@ pub struct ContinuationChoice {
 }
 
 /// `decision` is absent when no unfinished work was eligible, and then no Message was made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ResumeWork {
     pub decision: Option<ContinuationChoice>,
     pub reconciliation: Reconciliation,

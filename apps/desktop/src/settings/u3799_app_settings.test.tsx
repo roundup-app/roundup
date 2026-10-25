@@ -121,6 +121,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   await showEverythingInApp();
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
+  fireEvent.click(document.querySelector('.shelf .todo-row-button')!.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
   await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
@@ -224,7 +225,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.capture("U3814", "import-page");
     await lane.browser("click", ".import-check");
     await lane.evaluate(`(() => {
-      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.' }] });
+      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: { code: -32003, message: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.', outcome: 'failed' } }] });
       return true;
     })()`);
     await lane.browser("click", ".import-confirm");

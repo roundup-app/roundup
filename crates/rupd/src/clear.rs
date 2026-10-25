@@ -123,13 +123,16 @@ impl Clears {
 
 /// A failed clear and, once the Handoff existed, where a retry goes on.
 struct Failure {
-    err: RpcError,
+    err: Box<RpcError>,
     saved: Option<Saved>,
 }
 
 impl From<RpcError> for Failure {
     fn from(err: RpcError) -> Self {
-        Self { err, saved: None }
+        Self {
+            err: Box::new(err),
+            saved: None,
+        }
     }
 }
 
@@ -280,7 +283,7 @@ impl Daemon {
         match self.apply(p, &mut saved).await {
             Ok(()) => Ok(()),
             Err(err) => Err(Failure {
-                err,
+                err: Box::new(err),
                 saved: Some(saved),
             }),
         }
@@ -473,7 +476,11 @@ impl Daemon {
             );
             self.as_user("pad.append", json!({"name": name, "text": section}))
                 .await?;
-            self.as_user("todo.delete", json!({"id": todo.id})).await?;
+            self.as_user(
+                "todo.delete",
+                json!({"operation": format!("delete-{}", todo.id), "ids": [todo.id]}),
+            )
+            .await?;
         }
         for pad in pads {
             let section = format!(
@@ -484,7 +491,11 @@ impl Daemon {
                 .await?;
             self.pads.delete(
                 &self.ctx(Actor::user()),
-                contracts::pad::PadName { name: pad.name },
+                contracts::pad::DeleteParams {
+                    name: pad.name,
+                    operation: None,
+                    expected_incarnation: Some(pad.incarnation),
+                },
                 pads::PadDeletion::Cleanup,
             )?;
         }

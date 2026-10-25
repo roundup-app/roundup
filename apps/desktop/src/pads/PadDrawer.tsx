@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
@@ -17,7 +18,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createFailure } from "./failure";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
@@ -29,6 +30,7 @@ import "./styles.css";
 const PadRichEditor = lazy(() => import("./PadRichEditor"));
 
 const PadBody = (props: {
+  initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
   revision?: string;
   list?: PadList;
@@ -150,7 +152,7 @@ const PadBody = (props: {
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
-    setPad(next);
+    setPad({ ...next, owner: { ...next.owner } });
     sourceRevision = next.revision;
     setOrigin(next.text);
 
@@ -195,7 +197,7 @@ const PadBody = (props: {
 
         if (sameContent(current, pad())) return;
 
-        setPad(current);
+        setPad({ ...current, owner: { ...current.owner } });
 
         // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
         if (sent !== null && actor?.kind === "user" && current.text === sent) return;
@@ -297,8 +299,8 @@ const PadBody = (props: {
 
         setSaved(!closed && !conflictActor() && currentDraft() === next.text);
       } catch (thrown) {
-        connected.drafts.settle(submission.draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
-        setPaused(!(thrown instanceof RpcError && thrown.code !== INTERNAL_CODE));
+        connected.drafts.settle(submission.draft.revision, outcomeOf(thrown));
+        setPaused(outcomeOf(thrown) === "unknown");
         // A refusal keeps the draft; only another edit or blur retries it.
         due = null;
 
@@ -514,6 +516,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
+          initialFocus={props.initialFocus}
           text={source}
           readonly={!ownedByUser() || invalid()}
           onChange={onChange}
@@ -561,6 +564,7 @@ export const PadDrawer = (props: {
   onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
+  const initialFocus = captureFocus();
 
   if (props.recovery !== undefined) {
     const recovery = props.recovery;
@@ -570,7 +574,7 @@ export const PadDrawer = (props: {
     const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
     const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
 
-    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
+    return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
 
   return (
@@ -582,6 +586,7 @@ export const PadDrawer = (props: {
     >
       {(pad) => (
         <PadBody
+          initialFocus={initialFocus}
           initial={pad}
           pads={props.pads}
           heading={props.heading}

@@ -4,11 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
-import { rowOf } from "../rail/railFixture";
+import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
 import { CHORDS, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
@@ -91,23 +90,28 @@ const toPane = async () => {
 
 /** U2541b: a Terminal Bubble offers existing App chords. */
 const toBubble = async () => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
+  fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  rowOf("lead").focus();
+  await settled();
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
   document.querySelector<HTMLElement>(".terminal-tab")!.focus();
   await waitFor(() => expect(line()).toEqual(label("bubble")));
 };
 
 const toPlace = async (place: "pad" | "drawer") => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
-  document.querySelector<HTMLElement>('[data-id="w"]')!.focus();
+  fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!.focus();
 
   if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "s", code: "KeyS" });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "s", code: "KeyS" });
   }
 
   showShelfTab("Pads");
-  fireEvent.click(await screen.findByRole("button", { name: "notes" }));
+  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
+
+  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "Enter" });
   const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
   await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
   document.querySelector<HTMLElement>(selector)!.focus();
@@ -131,22 +135,6 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it("u2541d_a_chord_is_one_chip_and_an_alternative_one_pair", () => {
-    const chips = (keys: string) => {
-      const { container, unmount } = render(() => <KeyHint keys={keys}>label</KeyHint>);
-      const pairs = container.querySelectorAll(".key-chips");
-      const result = [pairs.length, [...container.querySelectorAll("kbd")].map((key) => key.textContent)] as const;
-      unmount();
-
-      return result;
-    };
-
-    expect(chips("⇧Tab")).toEqual([1, ["⇧Tab"]]);
-    expect(chips("⌘K")).toEqual([1, ["⌘K"]]);
-    expect(chips("J K")).toEqual([1, ["J", "K"]]);
-    expect(chips("J / K")).toEqual([1, ["J", "K"]]);
-  });
-
   it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.

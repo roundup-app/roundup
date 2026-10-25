@@ -1,3 +1,4 @@
+import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -11,6 +12,7 @@ import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/re
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { ROW } from "../rail/rows";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
@@ -40,7 +42,8 @@ export const AskBar = (props: {
   const deliverables = createDeliverables();
   const reactions = createReactions();
   const madeScope = shelfScope(connected);
-  const [over, setOver] = createSignal(false);
+  const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
+  const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
@@ -146,7 +149,7 @@ export const AskBar = (props: {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
+  const shown = () => opening() !== null || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
@@ -169,20 +172,28 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
-    batch(() => { setOver(false); setSelected(null); });
+    batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
 
-    if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
+    if (restore) {
+      const row = document.querySelector<HTMLElement>(".rail-row[data-selected=true]");
+
+      const target = returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo
+        : row?.closest<HTMLElement>(ROW) ?? row?.querySelector<HTMLElement>(ROW);
+
+      target?.focus();
+    }
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
 
   const open = (): void => {
     if (modalOpen()) return;
+    captureFocus(true);
     returnTo = document.activeElement;
-    setOver(true);
-    queueMicrotask(() => {
+    setOpening("over");
+    queueFocus(() => {
       field?.focus();
 
       if (field) restoreSelection(field);
@@ -264,7 +275,9 @@ export const AskBar = (props: {
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
     <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { returnTo = null; setOpening("home-focus"); } }}
+        onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
@@ -319,7 +332,6 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
-    <ReservedLine overlay message={rail.failure()} />
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>

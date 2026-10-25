@@ -62,6 +62,11 @@ _Avoid_: bot, worker; and _session_ for an Agent.
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
 _Avoid_: process, console
 
+| Code term | User label | Avoid |
+|---|---|---|
+| Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
+| Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
+
 **Terminal incarnation** (`TerminalInfo.incarnation`):
 The opaque, non-secret identity of one original Terminal, generated independently of
 authentication and vendor content. It stays the same across public reads and reconnects
@@ -139,6 +144,12 @@ Where an item sits: a Workstream, or the Project root. Each item has one Home th
 **Contract methods** (`daemon.methods`):
 The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
 
+**Contract declaration** (`declarations`, `Method`, `METHODS`, `owner_namespace`):
+One RPC method's wire name, Rust parameter/result types, owning module, handler and explicit MCP exposure (`none`, all Agents, or Door only). It generates module selection, method metadata, TypeScript bindings and tool offers. Export runs only in the contracts command; module selection uses compiled matches.
+
+**Contract export** (`export::generate`, `export::types`, `event_data_declaration`):
+The plain Specta export of the wire types into their stable per-type paths. `Ping` and `ContractFingerprint` name the existing daemon.ping envelope; `SpawnPrompt` names agent.spawnPrompt's existing result.
+
 **Contract fingerprint**:
 A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
 
@@ -158,6 +169,12 @@ An Agent's saved ask to be told, once, when all or any of named Agents finish (`
 
 **Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
 A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant; a PR's checks pin the head observed at activation and match only complete fresh `agent.worktreeState` evidence for it, a moved head ending the reaction as `invalidated`), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
+
+**Reaction observation identity** (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`):
+Typed facts emitted where a Reaction's observation succeeds or fails. The Observation and retained Watch
+keep `cause_code`, `gap_code`, `recovery_code` and `health_code` separately from diagnostic prose,
+cursor, pinned head and evidence. `unknown`, including absent legacy identity, grants no authority
+and offers a current check; historical prose never supplies identity or a successful match.
 
 **Preview** (`reaction.preview`; user label: Time preview):
 The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
@@ -271,6 +288,9 @@ The small dot just after a Project tab's name: red if an Agent has Kind `error`,
 The tree of Workstreams and Agents. Both reads return the same tree, including each
 Workstream’s Auto choice. Rail names identify its nodes in prose.
 
+**Rail removal operation** (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`):
+A user's chosen Rail identity, its authorized A34 cascade and the graph changes retained atomically by the original Project. Supplying `operation` requests data-only removal; a live process or discarded Worktree refuses and keeps the native consent path. The returned Project and operation identify Undo; `rail.deletion` reconciles an unknown reply, equal replay returns the same result even after restore, and a changed target conflicts. Restore consumes the retained operation once without starting processes or replacing changed work. Todo and Pad participant keys are generated by their owners, not accepted from the App (`Todos::retain_workstream_in`, `Todos::rail_operation`, `Todos::validate_rail_targets_in`, `Todos::restore_workstream_homes_in`, `Todos::remove_owners_in`, `Todos::restore_owners_in`, `Todos::rail_events`, `Pads::retain_workstream`, `Pads::restore_workstream_in`).
+
 **Hint line**:
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
 
@@ -332,6 +352,13 @@ One creation of a Pad, identified by a Project-scoped never-reused **incarnation
 
 **Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`):
 The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
+
+**Pad rename** (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`):
+An owner-authorized name change of the same Pad incarnation in its original Project,
+guarded by its exact original name and incarnation. `newName` is the accepted spelling,
+unique under the existing Unicode/case-folding rules. Text, Revision, owner, Home and
+content timestamp stay the same. `PadRenamed` records the incarnation and its original
+and accepted names. Renaming creates no alias or redirect for existing name-based Refs.
 
 **Pad source state** (`PadSourceState`, `source_state`):
 The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
@@ -879,3 +906,40 @@ A user-requested system confirmation containing its title, complete consequences
 
 **Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
 The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
+
+**Import exclusion cause** (`ImportExclusionCause`, `ImportExclusion.cause`):
+Why a saved conversation cannot be selected for import, distinct from its diagnostic details. Known causes name folder availability and Project membership, source identity, activity, record availability and validity, size limits, reader availability and live sources without saved records. An unknown cause is unrecognized.
+
+**Import failure** (`ImportFailure`, `ImportOutcome.error`):
+The original RPC error of one imported source, with its `code`, diagnostic `message` and Import disposition.
+
+**Import disposition** (`ImportDisposition`, `outcome`):
+Whether a per-source result proves refusal (`failed`) or leaves completion unconfirmed (`unknown`).
+
+**Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`):
+The opt-in R24 App producer's run-owned native and webview observation journal.
+Native notifications and document events are separate observed facts; requested window
+states are never observations. The measurement-only App command accepts typed renderer
+records, writes only the startup-selected bounded file, and grants no execution authority.
+It is absent without the `idle-perf` Cargo feature.
+
+**Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
+The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**Native integration** (`native`, `Preferences`, `Missing`):
+The sole repository-owned unsafe integration crate. Its plugin configures every Tauri Webview's WebKit refresh preference; owned Preferences carry their main-thread lifetime and expose no native pointer. Missing names a WebKit feature API gap, which preserves the platform rate. The opt-in idle evidence observer reports native application hide changes through a safe callback.
+
+**Todo deletion** (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`):
+One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
+
+**RPC error data** (`RpcErrorData`):
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
+
+**Thrown outcome** (`outcomeOf`):
+The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
+
+### Pad restoration
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |

@@ -52,7 +52,7 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
 };
 
 const openBody = async (id: number, body: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }), { key: "Enter" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   await within(drawer).findByRole("button", { name: /^Changes/ });
@@ -120,7 +120,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
 
   fireEvent.input(field, { target: { value: "  recover after removal 🧪  " } });
   connected.drawer.close("key");
-  await external.rpc("todo.delete", { id: original.id });
+  await external.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [original.id] });
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
@@ -259,6 +259,7 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", `[aria-label="Idle #${original.id} discard by pointer"]`);
+    await browser("click", `[data-todo="${original.id}"] [aria-label="Open"]`);
     await browser("wait", ".drawer .todo-history-line");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");

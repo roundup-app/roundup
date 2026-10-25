@@ -4,7 +4,7 @@ use perf::webview::{checked, judge_runs, perf_line};
 use serde_json::json;
 
 fn hops() -> serde_json::Value {
-    let hop = json!({ "n": 1000, "p50": 1.0, "p95": 2.0 });
+    let hop = json!({ "n": 1000, "p50": 0.0, "p95": 0.0 });
     let mut all = serde_json::Map::new();
     for name in perf::webview::HOPS {
         all.insert(name.into(), hop.clone());
@@ -13,7 +13,10 @@ fn hops() -> serde_json::Value {
 }
 
 fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
-    json!({ "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
+    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops(),
+        "timer_resolution_ms": 0.001, "hop_uncertainty_ms": 0.501,
+        "calibration": {"offset_ms": 100, "uncertainty_ms": 0.501, "resolution_ms": 0.001,
+        "exchanges": [{"sent": 0, "daemon": 100.5, "received": 1}, {"sent": 1000, "daemon": 1100.5, "received": 1001}]} })
 }
 
 #[test]
@@ -73,7 +76,7 @@ fn r21_invalid_observation_never_has_a_latency_verdict() {
         json!({"error": "missing PERF line"}),
         report(25.1, 0),
         json!({"p95": 1}),
-        json!({"frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1, "hops": hops()}),
+        json!({"n": 1000, "frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1, "hops": hops()}),
     ] {
         let (exit, failures) = judge_runs(&[report(16.7, 0), invalid], 16.0);
         assert_eq!(exit, 2);
@@ -100,8 +103,14 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         "keydown_to_input",
         "input_to_dispatch",
         "input_to_encoded",
+        "input_to_encoding",
+        "encoding_to_encoded",
         "encoded_to_dispatch",
         "dispatch_to_echo_event",
+        "dispatch_to_daemon",
+        "daemon_to_write",
+        "write_to_echo_read",
+        "echo_read_to_event",
         "echo_event_to_parsed",
         "parsed_to_frame",
     ] {
@@ -117,9 +126,86 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         absent["hops"].as_object_mut().unwrap().remove(name);
         assert!(checked(&absent).is_err());
     }
-    let mut no_hops = report(16.7, 0);
-    no_hops.as_object_mut().unwrap().remove("hops");
-    let (exit, failures) = judge_runs(&[no_hops], 16.0);
-    assert_eq!(exit, 2);
-    assert!(failures[0].contains("hop attribution"));
+}
+
+#[test]
+fn r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict() {
+    for name in perf::webview::HOPS {
+        for invalid in [
+            json!({"n": 1, "p50": 1, "p95": 2}),
+            json!({"n": 1001, "p50": 1, "p95": 2}),
+            json!({"n": 999.5, "p50": 1, "p95": 2}),
+            json!({"n": 1000, "p50": -1, "p95": 2}),
+            json!({"n": 1000, "p50": -2, "p95": -1}),
+            json!({"n": 1000, "p50": 3, "p95": 2}),
+            json!({"n": 1000, "p50": null, "p95": 2}),
+            json!({"n": 1000, "p50": 1, "p95": "2"}),
+        ] {
+            let mut invalid_report = report(16.7, 0);
+            invalid_report["hops"][name] = invalid;
+            let (exit, failures) = judge_runs(&[report(16.7, 0), invalid_report], 16.0);
+            assert_eq!(exit, 2, "accepted invalid {name}: {failures:?}");
+            assert!(
+                failures
+                    .iter()
+                    .any(|message| message.contains("run 2") && message.contains(name)),
+                "{failures:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r20_missing_measured_keys_cannot_be_silently_skipped() {
+    for invalid_n in [
+        json!(null),
+        json!(-1),
+        json!(0),
+        json!(999),
+        json!(1001),
+        json!(999.5),
+    ] {
+        let mut invalid_report = report(16.7, 0);
+        invalid_report["n"] = invalid_n;
+        let (exit, failures) = judge_runs(&[invalid_report], 16.0);
+        assert_eq!(exit, 2, "accepted an inconsistent sample count");
+        assert!(failures[0].contains("sample count"), "{failures:?}");
+    }
+
+    // A rendered subset is still a valid observation when the rest were dropped;
+    // it must retain a budget failure rather than turn into an observer error.
+    let mut dropped = report(16.7, 1);
+    dropped["n"] = json!(999);
+    for name in perf::webview::HOPS {
+        dropped["hops"][name]["n"] = json!(999);
+    }
+    assert_eq!(judge_runs(&[dropped], 16.0).0, 1);
+}
+
+#[test]
+fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
+    let valid = report(16.7, 0)["calibration"].clone();
+    let mut cases = vec![
+        json!(null),
+        json!({"offset_ms": 10, "uncertainty_ms": 0, "exchanges": []}),
+    ];
+    for field in ["offset_ms", "uncertainty_ms", "resolution_ms"] {
+        let mut forged = valid.clone();
+        forged[field] = json!(99);
+        cases.push(forged);
+    }
+    for exchange in [
+        json!({"sent": 1002, "daemon": 1100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": 9100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": null, "received": 1001}),
+    ] {
+        let mut forged = valid.clone();
+        forged["exchanges"][1] = exchange;
+        cases.push(forged);
+    }
+    for calibration in cases {
+        let mut invalid = report(16.7, 0);
+        invalid["calibration"] = calibration;
+        assert_eq!(judge_runs(&[invalid], 16.0).0, 2);
+    }
 }

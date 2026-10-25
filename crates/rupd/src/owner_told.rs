@@ -57,9 +57,8 @@ pub struct Told {
 }
 
 fn now_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as i64)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 /// The Agent an owner names; Me and Unassigned name none.
@@ -127,6 +126,9 @@ impl Told {
     /// Reads one Event: what it changes for an owner Agent waits to be told.
     pub fn record(&mut self, event: &Event) {
         match &event.data {
+            EventData::TodoRestored(todo) => {
+                self.todos.insert(todo.id, (**todo).clone());
+            }
             EventData::TodoCreated(todo) => {
                 if let Some(to) = agent(&todo.owner) {
                     self.tell(to, &event.actor, todo.id, Change::Assigned);

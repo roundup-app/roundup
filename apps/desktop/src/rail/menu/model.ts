@@ -2,7 +2,7 @@ import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { RpcError } from "../../app/seam";
+import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
@@ -25,8 +25,6 @@ type MenuState = {
 
 const NOT_FOUND = -32001;
 
-const UNKNOWN_OUTCOME = -32004;
-
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
   exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
@@ -35,7 +33,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => []) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -95,17 +93,16 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       await rail.refresh();
       acknowledge(id);
     } catch (error) {
-      if (!(error instanceof RpcError)) {
-        if (error instanceof Error) onFailure(error.message, id);
-        else throw error;
-      } else if (error.code === UNKNOWN_OUTCOME) {
+      if (!(error instanceof Error)) throw error;
+
+      if (outcomeOf(error) === "unknown") {
         await rail.refresh({ terminals: true });
 
         if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
       } else {
         onFailure(error.message, id);
 
-        if (error.code === NOT_FOUND) await rail.refresh();
+        if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
       }
     } finally {
       resuming.delete(id);
@@ -229,11 +226,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
         ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
         ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
+        ...extra(node),
         remove,
       ];
     }
 
-    if (node.kind === "workstream" && node.attempt === null) return [remove];
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), remove];
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
@@ -255,6 +253,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
+      ...extra(node),
       ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id)),
       remove,
     ];

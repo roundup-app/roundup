@@ -1,4 +1,5 @@
-import { createRoot, createSignal, onCleanup } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
+import { batch, createRoot, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { useConnectedProject } from "../../state/connectedProject";
@@ -12,6 +13,8 @@ export type PadList = {
   /** The message of the newest `pad.list` if it failed, until a later one succeeds. */
   failure: Accessor<string | null>;
   reload: () => Promise<void>;
+  /** Joins the current read without issuing another RPC. */
+  settled: () => Promise<void>;
 };
 
 type Shared = { list: PadList; users: number; dispose: () => void };
@@ -22,7 +25,14 @@ const open = (connected: ConnectedProject): Shared => {
   let newest = 0;
 
   return createRoot((dispose) => {
-    const [pads, setPads] = createSignal<readonly Pad[]>([]);
+    const [state, setState] = createStore<{ pads: Pad[] }>({ pads: [] });
+    const [refetched, setRefetched] = createSignal(0);
+
+    // Reconciliation preserves rows; callers observing the whole list still need each accepted read.
+    const pads = () => { refetched();
+
+ return state.pads; };
+
     const [loaded, setLoaded] = createSignal(false);
     const [failure, setFailure] = createSignal<string | null>(null);
 
@@ -43,7 +53,10 @@ const open = (connected: ConnectedProject): Shared => {
           return;
         }
 
-        setPads(listed);
+        batch(() => {
+          setState("pads", reconcile(listed.map(pad => ({ ...pad, owner: { ...pad.owner } })), { key: "incarnation" }));
+          setRefetched(count => count + 1);
+        });
         setFailure(null);
         setLoaded(true);
       } catch (thrown) {
@@ -69,7 +82,7 @@ const open = (connected: ConnectedProject): Shared => {
     onCleanup(
       connected.events.subscribe((event) => {
         if (event.name === "pad.deleted") {
-          setPads((listed) => listed.filter((pad) => pad.name !== event.data.name));
+          batch(() => { setState("pads", reconcile(pads().filter(pad => pad.name !== event.data.name), { key: "incarnation" })); setRefetched(count => count + 1); });
           void reload();
         } else if (event.name === "pad.changed") void reload();
       }),
@@ -77,7 +90,7 @@ const open = (connected: ConnectedProject): Shared => {
 
     void reload();
 
-    return { list: { pads, loaded, failure, reload }, users: 0, dispose };
+    return { list: { pads, loaded, failure, reload, settled: () => latest }, users: 0, dispose };
   });
 };
 

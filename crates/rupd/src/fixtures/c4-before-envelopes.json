@@ -1,0 +1,22 @@
+[
+  {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"daemon.identify\",\"params\":{\"actor\":{\"kind\":\"user\",\"id\":\"you\",\"parent\":null}}}",
+    "reply": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}"
+  },
+  {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"todo.list\",\"params\":null}",
+    "reply": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":[]}"
+  },
+  {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"todo.get\",\"params\":{\"id\":999}}",
+    "reply": "{\"jsonrpc\":\"2.0\",\"id\":3,\"error\":{\"code\":-32001,\"message\":\"not found: todo 999\"}}"
+  },
+  {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"missing.method\",\"params\":null}",
+    "reply": "{\"jsonrpc\":\"2.0\",\"id\":4,\"error\":{\"code\":-32601,\"message\":\"method not found: missing.method\"}}"
+  },
+  {
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"todo.get\",\"params\":{\"id\":\"bad\"}}",
+    "reply": "{\"jsonrpc\":\"2.0\",\"id\":5,\"error\":{\"code\":-32602,\"message\":\"invalid params: invalid type: string \\\"bad\\\", expected u32\"}}"
+  }
+]

@@ -20,6 +20,7 @@ const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 mod added {
     include!(concat!(env!("OUT_DIR"), "/added_migrations.rs"));
+    include!(concat!(env!("OUT_DIR"), "/fresh_regions.rs"));
 }
 
 /// The frozen head (1 to 10), then every `migrations/project/*.sql` that `build.rs` found.
@@ -60,11 +61,13 @@ fn reidentified() -> std::io::Result<Vec<u8>> {
     for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
         let id: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
         let mut found = 0;
-        // R3696c: the scalar scan of this 508 KB image twice cost ~0.69 ms on Linux.
         // Search the immutable template so replacement bytes cannot create another match.
-        for at in memchr::memmem::find_iter(FRESH, &placeholder[..]) {
-            image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
-            found += 1;
+        for &(start, end) in added::ID_REGIONS {
+            for offset in memchr::memmem::find_iter(&FRESH[start..end], &placeholder[..]) {
+                let at = start + offset;
+                image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
+                found += 1;
+            }
         }
         if found == 0 {
             return Err(std::io::Error::other("the image holds no placeholder id"));
@@ -96,14 +99,15 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     }
 }
 
-pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
+pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     let path = dir.join("project.db");
     // A failed seed only costs the replay: the migrations below build the same database.
     let _ = seed_fresh(&path);
-    let run = || -> rusqlite::Result<()> {
+    let run = || -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, migrations())
+        apply(&mut db, migrations())?;
+        Ok(db)
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
@@ -658,12 +662,17 @@ mod tests {
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
+        resize_schema.execute_batch(rail).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         // The standalone Agents store keeps its frozen head; the Project drops the answers table.
         expected.remove("decision_answers");
         expected.remove("decision_answers_agent");
         expected.remove("chains");
-        let actual: std::collections::BTreeMap<_, _> =
+        let mut actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
+        // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
+        actual.remove("pad_publications_revoked");
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(migrations()).current_version(&db).unwrap(),

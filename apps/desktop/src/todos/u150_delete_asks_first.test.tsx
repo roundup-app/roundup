@@ -15,7 +15,7 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
-  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
   await within(drawer()).findByText("Blocker");
 
   return mounted;
@@ -36,26 +36,26 @@ describe("u150 delete asks first (Todo)", () => {
   });
 
   it("u150_confirming_calls_todo_delete_once_and_closes_with_no_deleted_line", async () => {
-    const { app, connected } = await open();
-    app.handlers["todo.delete"] = () => null;
+    const { app } = await open();
+    app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
     await ask();
 
     await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    await waitFor(() => expect(connected.drawer.content()).toBeNull());
-    expect([callsTo(app, "todo.delete"), screen.queryByText(/was deleted/)]).toEqual([[{ method: "todo.delete", params: { id: 5 } }], null]);
+    await waitFor(() => expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(true));
+    expect([callsTo(app, "todo.delete"), screen.queryByText(/was deleted/)]).toEqual([[{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }], null]);
   });
 
   it("u150_the_row_leaves_the_list_after_todo_deleted", async () => {
     const { app, store } = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
-    app.handlers["todo.delete"] = () => {
+    app.handlers["todo.delete"] = (params) => {
       store.todos = store.todos.filter((each) => each.id !== 5);
 
-      return null;
+      return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
     };
 
-    fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
     await within(drawer()).findByText("Blocker");
     await ask();
     await answerQuestion(true);

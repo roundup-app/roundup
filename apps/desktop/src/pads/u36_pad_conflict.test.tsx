@@ -762,8 +762,8 @@ it.each(["Project", "facts-Project", "incarnation", "removed", "name", "unloaded
   const pads = mismatch === "removed" ? [] : mismatch === "incarnation" ? [{ ...original, incarnation: "replacement" }] : [original];
   const calls = [...target.app.calls];
   const connected = target.connected;
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={mismatch === "name" ? "different" : original.name} recovery={{ project: mismatch === "facts-Project" ? "/other" : connected.project.path, revision: a.revision, list: { pads: () => pads, loaded: () => mismatch !== "unloaded", failure: () => mismatch === "failed-list" ? "disconnected" : null, reload: async () => {} } }} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
-  expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull();
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={mismatch === "name" ? "different" : original.name} recovery={{ project: mismatch === "facts-Project" ? "/other" : connected.project.path, revision: a.revision, list: { pads: () => pads, loaded: () => mismatch !== "unloaded", failure: () => mismatch === "failed-list" ? "disconnected" : null, reload: async () => {}, settled: async () => {} } }} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+  expect(screen.queryAllByRole("textbox")).toHaveLength(0);
   expect(target.app.calls).toEqual(calls);
   expect(first.connected.drafts.list()).toEqual([a]);
 });

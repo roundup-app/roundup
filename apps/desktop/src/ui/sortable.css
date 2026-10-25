@@ -12,7 +12,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid var(--accent);
+  border: var(--stroke-width) solid var(--accent);
   pointer-events: none;
 }
 
@@ -39,7 +39,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px dashed var(--accent);
+  border: var(--stroke-width) dashed var(--accent);
   pointer-events: none;
 }
 
@@ -55,4 +55,9 @@
 
 .sortable-slot[data-ending="true"] {
   opacity: 0;
+}
+
+/* U133: a lifted Rail row must not mask the neighbouring name as it crosses it. */
+.rail [data-dnd-dragging] {
+  background-color: transparent;
 }

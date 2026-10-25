@@ -1,3 +1,4 @@
+import { chooseAction } from "./railFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -290,7 +291,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.input(field(), { target: { value: "keep me" } });
     pinnedAdd().focus();
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    await chooseAction(mounted.app, "g", "Add Agent");
 
     expect(document.activeElement).toBe(field());
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
