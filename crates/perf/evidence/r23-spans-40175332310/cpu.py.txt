@@ -42,5 +42,6 @@ for ref in ['historical','candidate']:
  with (root/(name+'-adapter.csv')).open('w') as f:
   w=csv.DictWriter(f,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
  summary[ref]={'events':counts,'adapter_cpu':stats([r['cpu_ns'] for r in rows]),'adapter_wall':stats([r['wall_ns'] for r in rows]),'adapter_off_cpu':stats([r['off_cpu_ns'] for r in rows]),'off_cpu_spans':sum(r['off_cpu_ns']>0 for r in rows),'stages':{label:stats([r[b]-r[a] for r in rows]) for label,a,b in [('decode','decode_start','decoded'),('extraction','extraction_start','extracted'),('deserialization','offset' if ref=='historical' else 'extracted','deserialized'),('broadcast','deserialized','broadcast')]}}
+ summary[ref]['by_loop']={phase:{'measured':{key:stats([r[key] for r in rows if r['loop']==phase and not r['warmup']]) for key in ['wall_ns','cpu_ns','off_cpu_ns']},'warmups':{key:stats([r[key] for r in rows if r['loop']==phase and r['warmup']]) for key in ['wall_ns','cpu_ns','off_cpu_ns']}} for phase in ['write_to_output','terminal_write']}
  if ref=='historical':summary[ref]['stages']['offset_insert']=stats([r['offset']-r['extracted'] for r in rows])
 (root/'adapter-cpu-summary.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary,indent=2))

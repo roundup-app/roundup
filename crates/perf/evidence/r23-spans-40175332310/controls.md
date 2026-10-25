@@ -44,6 +44,8 @@ Strace increases request p95 roughly 12–17 times versus common controls and ec
 | `marked-probe-build-retry.command` | 0 | Release build completed |
 | `marked-probe-build-with-tid.command` | 0 | Release build completed |
 | `marked-probe-build.command` | 101 | Compiler failure: timestamp placement and OwnedWriteHalf FD accessor; corrected before any marked observation |
+| `offline-cpu-replay.command` | 0 | Retained command/output |
+| `offline-marker-replay.command` | 0 | Retained command/output |
 | `offline-source-attempt.command` | 128 | Worktree FETCH_HEAD absent (128); corrected original-checkout query retained separately; no timing affected |
 | `offline-source.command` | 0 | Retained command/output |
 | `qualification.command` | 0 | Retained command/output |

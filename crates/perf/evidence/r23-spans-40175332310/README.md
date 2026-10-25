@@ -14,7 +14,7 @@ this collection adds per-loop/per-write and scheduler records without repeating
 its whole-invocation CPU-table analysis.
 
 `common-probe.patch` reproduces the prior compatibility changes on a scratch
-candidate checkout. `marked-probe.patch` additionally brackets the existing
+candidate checkout. `marked-probe.patch.gz` additionally brackets the existing
 probe operations. Both run against each identical, unmodified Daemon executable.
 `final-hashes.stdout` retains executable SHA-256 hashes and GNU build IDs;
 `build-settings.json` pins the shared toolchain and unchanged release settings.
@@ -63,6 +63,15 @@ clock reads, not an assertion that every instruction is useful translation work.
 | Lock, broadcast, receiver notification | 2724 / 3826 | 2654 / 3726 |
 | Extraction through broadcast, measured jointly | 3024 / 4257 | 2824 / 3986 |
 
+The joint adapter span, excluding warmups, remains separated by write loop:
+
+| Loop (1000 calls each) | Historical median / p95 ns | Native median / p95 ns |
+|---|---:|---:|
+| Write to output | 3064.5 / 4296 | 2865 / 4036 |
+| Request, then paced echo | 3005 / 3805 | 2804 / 3015 |
+
+Each loop's 100 warmups has separate retained summary entries and CSV flags.
+
 The historical branch's Value operations are directly bracketed in `read_loop`;
 this is an end-to-end recording, not an adapter replay. Decode includes the
 larger historical Event envelope. Stage percentiles must not be added. The
@@ -103,6 +112,22 @@ Both examples retain request receive, one-byte PTY write, cat read/write, PTY
 read, reply/output socket sends, client reads and receiver wake. Reply and echo
 branches overlap. The source's user-write acknowledgment is input enqueue, even
 when a physical write happens to precede reply delivery in a particular trace.
+
+`scheduling-example.json` and `*-example-scheduler.txt.gz` independently retain
+thread execution/wait intervals for those same request IDs:
+
+| Traced request (one example, not a clean timing result) | Historical ns | Candidate ns |
+|---|---:|---:|
+| Client request wall interval | 592855 | 694085 |
+| Main thread on CPU within that interval | 24356 | 24044 |
+| Main thread off CPU within that interval | 568499 | 670041 |
+| Input thread first waking to switch-in | 8859 | 12080 |
+
+Off-CPU includes ptrace stops and cannot be called normal application waiting.
+These values come from scheduler interval intersections, not summed futex/read
+wall totals. They demonstrate the retained correlation, not a cause of the
+clean write p95. Scheduler-only data lacks the physical syscall endpoints needed
+to remove that tracer ambiguity from Daemon stage attribution.
 
 `*-before.clock.json.gz` and `*-after.clock.json.gz` bracket realtime reads with
 CLOCK_MONOTONIC reads. Across the historical trace the retained realtime-minus-
