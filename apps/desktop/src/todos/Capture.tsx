@@ -1,4 +1,5 @@
 import { outcomeOf } from "../app/seam";
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
@@ -189,7 +190,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             value={text()}
             ref={(element) => {
               input = element;
-              queueMicrotask(() => {
+              queueFocus(() => {
                 if (!element.isConnected) return;
 
                 element.focus({ preventScroll: true });

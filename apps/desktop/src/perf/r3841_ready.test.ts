@@ -2,9 +2,123 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createFrameRun } from "./frame_run";
 import { createKeystrokeRun, reportTerminal, terminalReady, SETUP_BOUND_MS } from "./run";
 import { createFakeApp } from "../testing/fakeApp";
+import { cleanup, render, waitFor } from "@solidjs/testing-library";
+import { createComponent } from "solid-js";
+import { App } from "../App";
+import { door, info, workstream } from "../testing/nodes";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { fromBase64 } from "../terminal/base64";
 
 
-afterEach(() => { document.body.replaceChildren(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); document.body.replaceChildren(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+it("r20_the_real_app_setup_reaches_the_ready_shell_before_measurement", async () => {
+  localStorage.clear();
+  const app = createFakeApp();
+  const emulators = fakeEmulators();
+  let nodes: ReturnType<typeof workstream>[] = [];
+  let terminals: ReturnType<typeof info>[] = [];
+
+  app.opened.project = { name: "isolated", path: "/r20" };
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["terminal.list"] = () => terminals;
+  app.handlers["rail.createWorkstream"] = () => {
+    const node = workstream("w");
+
+    nodes = [node];
+
+    return node;
+  };
+
+  app.handlers["rail.startDoor"] = () => {
+    const node = door("w", "idle", "idle");
+
+    nodes = [node];
+    terminals = [info("t-w")];
+
+    return node;
+  };
+
+  app.handlers["terminal.open"] = () => {
+    const shell = info("shell", { owner: "w" });
+
+    terminals.push(shell);
+
+    return { terminal_id: shell.id };
+  };
+
+  app.handlers["terminal.resize"] = () => null;
+  app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: "ready\n", truncated: false });
+
+  const terminal = reportTerminal((id: string) => {
+    const emulator = emulators.factory(id);
+    const show = emulator.show;
+
+    return { ...emulator, show: (host: HTMLElement, focus?: boolean) => {
+      const size = show(host, focus);
+      const input = document.createElement("textarea");
+      input.className = "xterm-helper-textarea";
+      host.appendChild(input);
+
+      return size;
+    } };
+  });
+
+  render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
+  await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
+  const input = await terminalReady(app, terminal);
+  expect(terminal.target()).toBe("shell");
+  expect(input).toBe(document.activeElement);
+  expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: "w" }]);
+});
+
+it("r20_setup_failure_without_a_ready_target_reports_its_named_step", async () => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+  const written: Uint8Array[] = [];
+  let ready = false;
+
+  app.handlers["terminal.open"] = () => ({ terminal_id: "diagnostic" });
+  app.handlers["terminal.read"] = () => ({ from: 0, next: ready ? 6 : 0, text: ready ? "ready\n" : "", truncated: false });
+  app.handlers["terminal.write"] = ({ id, data }) => {
+    expect(id).toBe("diagnostic");
+    written.push(fromBase64(data));
+
+    return null;
+  };
+
+  const run = createKeystrokeRun(app);
+  const done = run.start();
+  const outcome = done.catch(error => error);
+
+  await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
+  expect(written).toEqual([]);
+  ready = true;
+  await vi.advanceTimersByTimeAsync(50);
+  expect(await outcome).toBeUndefined();
+  const line = new TextDecoder().decode(Uint8Array.from(written.flatMap(chunk => [...chunk])));
+
+  expect(line.startsWith("PERF ")).toBe(true);
+  expect(JSON.parse(line.slice(5))).toMatchObject({ error: "the new Workstream button did not appear within 10000 ms" });
+  expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null }]);
+  expect(app.calls.filter(call => call.method === "rail.startDoor" || call.method === "terminal.measure")).toEqual([]);
+});
+
+it.each(["silent", "pending"])("r20_a_diagnostic_shell_without_readiness_stops_without_writing (%s)", async (output) => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+
+  app.handlers["terminal.open"] = () => ({ terminal_id: "diagnostic" });
+  app.handlers["terminal.read"] = () => output === "pending"
+    ? new Promise<never>(() => {})
+    : { from: 0, next: 0, text: "", truncated: false };
+  const outcome = createKeystrokeRun(app).start().catch(error => error);
+
+  await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS * 2);
+  expect(await outcome).toMatchObject({ message: expect.stringContaining("shell Terminal") });
+  expect(app.calls.filter(call => call.method === "terminal.write" || call.method === "terminal.measure")).toEqual([]);
+});
 
 it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_opening_shell (%s)", async (kind) => {
   vi.useFakeTimers();

@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -123,7 +124,8 @@ export const Bubbles = (props: {
     if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
   });
   const [opening, setOpening] = createSignal(false);
-  const [wanted, setWanted] = createSignal<string | null>(null);
+  const [openingSelection, setOpeningSelection] = createSignal<string | null>();
+  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const [measured, setMeasured] = createSignal(false);
@@ -178,7 +180,7 @@ export const Bubbles = (props: {
     const next = { ...prior };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
-    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
+    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: (opening() && chosen === openingSelection()) || terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
 
@@ -227,7 +229,8 @@ export const Bubbles = (props: {
   const openRecovery = () => {
     show(null);
     // Let the Terminal's dismissable layer close before the recovery layer takes focus.
-    setTimeout(() => recover(true));
+    const focus = captureFocus(true);
+    setTimeout(() => focus(() => recover(true)));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -317,6 +320,7 @@ export const Bubbles = (props: {
   let generation = 0;
 
   const toggleMinimised = (id: string, wasMin = placeOf(id).min): void => {
+    const focus = captureFocus(true);
     const place = { ...placeOf(id), min: wasMin };
 
     if (place.min) show(id);
@@ -324,7 +328,7 @@ export const Bubbles = (props: {
     const revision = generation;
 
     // A later pointer press supersedes the focus queued by this tab.
-    queueMicrotask(() => { if (generation === revision) focusItem(id); });
+    queueMicrotask(() => { if (generation === revision) focus(() => focusItem(id)); });
   };
 
   const closeFocused = (focus: Element | null): void => {
@@ -332,14 +336,17 @@ export const Bubbles = (props: {
 
     if (id === null) return;
 
+    const focusReturn = captureFocus();
     const back = before;
     const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
       if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
-      if (back instanceof HTMLElement && back.isConnected) back.focus();
-      else focusPane();
+      focusReturn(() => {
+        if (back instanceof HTMLElement && back.isConnected) back.focus();
+        else focusPane();
+      });
     });
   };
 
@@ -353,6 +360,8 @@ export const Bubbles = (props: {
 
     if (opening() || readOnly()) return null;
 
+    const focusReturn = captureFocus(true);
+    setOpeningSelection(selection);
     setOpening(true);
 
     try {
@@ -363,15 +372,15 @@ export const Bubbles = (props: {
       if (available()) {
         setFromRoot(selection === null ? opened.terminal_id : null);
 
-        if (focus) setWanted(opened.terminal_id);
+        if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
 
       if (available()) {
-        show(opened.terminal_id);
+        if (!focus) show(opened.terminal_id);
       } else {
-        setWanted(prior => prior === opened.terminal_id ? null : prior);
+        setWanted(prior => prior?.id === opened.terminal_id ? null : prior);
         setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       }
 
@@ -385,7 +394,7 @@ export const Bubbles = (props: {
     } finally {
       setOpening(false);
 
-      if (failure() !== null && shown().length === 0) document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -592,16 +601,17 @@ export const Bubbles = (props: {
 
   // The bubble the user opened takes the keys, whether its Terminal is listed before or after `terminal.open` answers.
   createEffect(() => {
-    const id = wanted();
+    const request = wanted();
 
-    if (id === null || !shown().some((terminal) => terminal.id === id)) return;
+    if (request === null || !shown().some((terminal) => terminal.id === request.id)) return;
+    const { id, focus } = request;
 
     queueMicrotask(() => {
-      if (bubbleElement(id) === null) return;
+      if (wanted() !== request || bubbleElement(id) === null) return;
 
-      show(id);
-      focusItem(id);
-      setWanted(null);
+      if (!focus(() => { show(id); focusItem(id); })) setPlace(id, { ...placeOf(id), min: true });
+
+      if (wanted() === request) setWanted(null);
     });
   });
 
@@ -646,11 +656,12 @@ export const Bubbles = (props: {
           show(null);
           props.screens.emulatorFor(main!).focus();
         } else {
+          const permission = captureFocus(true);
           show(target);
           // The manual popover becomes focusable when Solid commits this turn's visibility change.
-          queueMicrotask(() => {
+          queueMicrotask(() => permission(() => {
             if (focus?.isConnected && !readOnly() && rail.selected() === selected && mainTerminal() === main && shown().some((terminal) => terminal.id === target) && !closing().has(target!) && !placeOf(target!).min) props.screens.emulatorFor(target!).focus();
-          });
+          }));
         }
       },
     };
@@ -707,8 +718,9 @@ export const Bubbles = (props: {
 
     if (id === null || !shown().some((terminal) => terminal.id === id)) return;
 
+    const focus = captureFocus(true);
     show(id);
-    queueMicrotask(() => focusItem(id));
+    queueMicrotask(() => focus(() => focusItem(id)));
   };
 
   window.addEventListener(REVEAL_BUBBLE, onReveal);
@@ -859,11 +871,12 @@ export const Bubbles = (props: {
                 onInput={event => { change(true); capture(event.currentTarget); }}
                 onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
                 // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
-                onMount(() => requestAnimationFrame(() => { if (!input.isConnected) return;
+                const permission = captureFocus();
+                onMount(() => requestAnimationFrame(() => permission(() => { if (!input.isConnected) return;
                   input.focus({ preventScroll: true });
 
                   if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
-                  else input.select(); }));
+                  else input.select(); })));
               }} /></Editable.Area>
             </Editable.Root>
             <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
