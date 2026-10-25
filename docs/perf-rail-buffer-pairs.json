@@ -1,0 +1,486 @@
+{
+  "before_reference": "907c9e005eb40068ff4e012dec3a0b6e63494250",
+  "after_reference": "a9c47c97115335320185f20d8323de1883ef80df",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "host": "runnervmtai0g",
+  "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 9V45 96-Core Processor\nCPU family:                              26\nModel:                                   2\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                5192.24\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk avx_vnni avx512_bf16 clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm avx512_vp2intersect\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               96 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                2 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "affinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "observer_patch": "diff --git a/crates/agents/tests/perf.rs b/crates/agents/tests/perf.rs\nindex 482aaa7c2..55a2b3345 100644\n--- a/crates/agents/tests/perf.rs\n+++ b/crates/agents/tests/perf.rs\n@@ -46,6 +46,15 @@ async fn r3696c_forty_workstreams_avoid_temporary_node_copies() {\n         .call_reply(&ctx, \"rail.tree\", Value::Null)\n         .await\n         .unwrap();\n+    if std::env::var_os(\"RAIL_PROBE\").is_some() {\n+        for _ in 0..7 {\n+            let started = std::time::Instant::now();\n+            for _ in 0..10000 {\n+                std::hint::black_box(agents.call_reply(&ctx, \"rail.tree\", Value::Null).await.unwrap());\n+            }\n+            eprintln!(\"batch_us {}\", started.elapsed().as_secs_f64() * 100.0);\n+        }\n+    }\n     let region = Region::new(ALLOCATOR);\n     let reply = agents\n         .call_reply(&ctx, \"rail.tree\", Value::Null)\n",
+  "binaries": {
+    "before": {
+      "sha256": "d0eb26a9874e8a9a36653ac37d2325283d30bf1a5d6831cbae5f87d62c6f2434",
+      "bytes": 11033592
+    },
+    "after": {
+      "sha256": "446ee51c11f2e59afaf6a393aba64200a83d4d2c576bc51bb87571b13e648045",
+      "bytes": 11029160
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": {
+        "exit": 0,
+        "load": [
+          1.06396484375,
+          1.0556640625,
+          0.94140625
+        ],
+        "started_unix": 1792926892.7590973,
+        "batches_us": [
+          45.723249599999995,
+          46.115616100000004,
+          46.4790025,
+          45.690349499999996,
+          45.9033113,
+          46.7191276,
+          46.4827555
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s\n\n",
+        "stderr": "batch_us 45.723249599999995\nbatch_us 46.115616100000004\nbatch_us 46.4790025\nbatch_us 45.690349499999996\nbatch_us 45.9033113\nbatch_us 46.7191276\nbatch_us 46.4827555\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 46.115616100000004
+      },
+      "after": {
+        "exit": 0,
+        "load": [
+          1.05859375,
+          1.0546875,
+          0.94189453125
+        ],
+        "started_unix": 1792926896.0171013,
+        "batches_us": [
+          46.602134899999996,
+          46.5678095,
+          46.7730389,
+          46.2849498,
+          46.673767999999995,
+          46.2183146,
+          47.923571700000004
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.29s\n\n",
+        "stderr": "batch_us 46.602134899999996\nbatch_us 46.5678095\nbatch_us 46.7730389\nbatch_us 46.2849498\nbatch_us 46.673767999999995\nbatch_us 46.2183146\nbatch_us 47.923571700000004\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.602134899999996
+      }
+    },
+    {
+      "pair": 2,
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": {
+        "exit": 0,
+        "load": [
+          1.05859375,
+          1.0546875,
+          0.94189453125
+        ],
+        "started_unix": 1792926899.313284,
+        "batches_us": [
+          47.0942454,
+          47.7059476,
+          46.427651399999995,
+          46.3395181,
+          47.251723,
+          47.3785078,
+          47.8730975
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.33s\n\n",
+        "stderr": "batch_us 47.0942454\nbatch_us 47.7059476\nbatch_us 46.427651399999995\nbatch_us 46.3395181\nbatch_us 47.251723\nbatch_us 47.3785078\nbatch_us 47.8730975\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 47.251723
+      },
+      "before": {
+        "exit": 0,
+        "load": [
+          1.0537109375,
+          1.0537109375,
+          0.9423828125
+        ],
+        "started_unix": 1792926902.6399317,
+        "batches_us": [
+          46.9527466,
+          46.2139227,
+          46.103989,
+          46.3730799,
+          46.3078437,
+          46.2808625,
+          46.0667004
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s\n\n",
+        "stderr": "batch_us 46.9527466\nbatch_us 46.2139227\nbatch_us 46.103989\nbatch_us 46.3730799\nbatch_us 46.3078437\nbatch_us 46.2808625\nbatch_us 46.0667004\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 46.2808625
+      }
+    },
+    {
+      "pair": 3,
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": {
+        "exit": 0,
+        "load": [
+          1.0537109375,
+          1.0537109375,
+          0.9423828125
+        ],
+        "started_unix": 1792926905.9090114,
+        "batches_us": [
+          46.0317193,
+          46.0110625,
+          46.0053279,
+          45.9580696,
+          45.68925,
+          45.6419766,
+          45.8210734
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.24s\n\n",
+        "stderr": "batch_us 46.0317193\nbatch_us 46.0110625\nbatch_us 46.0053279\nbatch_us 45.9580696\nbatch_us 45.68925\nbatch_us 45.6419766\nbatch_us 45.8210734\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 45.9580696
+      },
+      "after": {
+        "exit": 0,
+        "load": [
+          1.04931640625,
+          1.052734375,
+          0.94287109375
+        ],
+        "started_unix": 1792926909.1460156,
+        "batches_us": [
+          47.4924006,
+          47.065447500000005,
+          46.5077553,
+          46.4715052,
+          46.3838156,
+          46.554028200000005,
+          46.4023181
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.29s\n\n",
+        "stderr": "batch_us 47.4924006\nbatch_us 47.065447500000005\nbatch_us 46.5077553\nbatch_us 46.4715052\nbatch_us 46.3838156\nbatch_us 46.554028200000005\nbatch_us 46.4023181\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.5077553
+      }
+    },
+    {
+      "pair": 4,
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": {
+        "exit": 0,
+        "load": [
+          1.044921875,
+          1.0517578125,
+          0.943359375
+        ],
+        "started_unix": 1792926912.4402957,
+        "batches_us": [
+          46.4442256,
+          46.4879517,
+          46.3364481,
+          46.3434114,
+          46.584837,
+          46.3505781,
+          46.2913809
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s\n\n",
+        "stderr": "batch_us 46.4442256\nbatch_us 46.4879517\nbatch_us 46.3364481\nbatch_us 46.3434114\nbatch_us 46.584837\nbatch_us 46.3505781\nbatch_us 46.2913809\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.3505781
+      },
+      "before": {
+        "exit": 0,
+        "load": [
+          1.044921875,
+          1.0517578125,
+          0.943359375
+        ],
+        "started_unix": 1792926915.7142732,
+        "batches_us": [
+          46.1884255,
+          47.4706026,
+          46.8447362,
+          47.6006092,
+          47.391005,
+          47.034089200000004,
+          46.1798533
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.31s\n\n",
+        "stderr": "batch_us 46.1884255\nbatch_us 47.4706026\nbatch_us 46.8447362\nbatch_us 47.6006092\nbatch_us 47.391005\nbatch_us 47.034089200000004\nbatch_us 46.1798533\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 47.034089200000004
+      }
+    },
+    {
+      "pair": 5,
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": {
+        "exit": 0,
+        "load": [
+          1.041015625,
+          1.05078125,
+          0.94384765625
+        ],
+        "started_unix": 1792926919.0268037,
+        "batches_us": [
+          46.4352308,
+          46.3309875,
+          46.3992152,
+          46.456026900000005,
+          45.921993,
+          46.126468700000004,
+          46.029646400000004
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s\n\n",
+        "stderr": "batch_us 46.4352308\nbatch_us 46.3309875\nbatch_us 46.3992152\nbatch_us 46.456026900000005\nbatch_us 45.921993\nbatch_us 46.126468700000004\nbatch_us 46.029646400000004\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 46.3309875
+      },
+      "after": {
+        "exit": 0,
+        "load": [
+          1.03759765625,
+          1.0498046875,
+          0.9443359375
+        ],
+        "started_unix": 1792926922.289487,
+        "batches_us": [
+          47.2253234,
+          46.1930399,
+          46.775136499999995,
+          47.121109100000005,
+          46.912159700000004,
+          46.4578015,
+          46.5030375
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.30s\n\n",
+        "stderr": "batch_us 47.2253234\nbatch_us 46.1930399\nbatch_us 46.775136499999995\nbatch_us 47.121109100000005\nbatch_us 46.912159700000004\nbatch_us 46.4578015\nbatch_us 46.5030375\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.775136499999995
+      }
+    },
+    {
+      "pair": 6,
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": {
+        "exit": 0,
+        "load": [
+          1.03759765625,
+          1.0498046875,
+          0.9443359375
+        ],
+        "started_unix": 1792926925.587977,
+        "batches_us": [
+          46.0888622,
+          46.2600661,
+          47.7264072,
+          47.135998699999995,
+          46.768528599999996,
+          47.9515251,
+          47.6432809
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.32s\n\n",
+        "stderr": "batch_us 46.0888622\nbatch_us 46.2600661\nbatch_us 47.7264072\nbatch_us 47.135998699999995\nbatch_us 46.768528599999996\nbatch_us 47.9515251\nbatch_us 47.6432809\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 47.135998699999995
+      },
+      "before": {
+        "exit": 0,
+        "load": [
+          1.0341796875,
+          1.048828125,
+          0.94482421875
+        ],
+        "started_unix": 1792926928.9093454,
+        "batches_us": [
+          45.3939937,
+          45.1636215,
+          45.6462134,
+          45.7852827,
+          45.5651747,
+          46.8403486,
+          46.2498638
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.23s\n\n",
+        "stderr": "batch_us 45.3939937\nbatch_us 45.1636215\nbatch_us 45.6462134\nbatch_us 45.7852827\nbatch_us 45.5651747\nbatch_us 46.8403486\nbatch_us 46.2498638\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 45.6462134
+      }
+    },
+    {
+      "pair": 7,
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": {
+        "exit": 0,
+        "load": [
+          1.03125,
+          1.0478515625,
+          0.9453125
+        ],
+        "started_unix": 1792926932.1426477,
+        "batches_us": [
+          45.6955149,
+          46.847342,
+          47.427518400000004,
+          45.554625,
+          45.9470398,
+          46.5553557,
+          47.158381399999996
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.28s\n\n",
+        "stderr": "batch_us 45.6955149\nbatch_us 46.847342\nbatch_us 47.427518400000004\nbatch_us 45.554625\nbatch_us 45.9470398\nbatch_us 46.5553557\nbatch_us 47.158381399999996\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 46.5553557
+      },
+      "after": {
+        "exit": 0,
+        "load": [
+          1.03125,
+          1.0478515625,
+          0.9453125
+        ],
+        "started_unix": 1792926935.4212127,
+        "batches_us": [
+          47.8078322,
+          46.3711362,
+          46.6469533,
+          46.5249945,
+          46.7699415,
+          47.8377118,
+          46.085892099999995
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.31s\n\n",
+        "stderr": "batch_us 47.8078322\nbatch_us 46.3711362\nbatch_us 46.6469533\nbatch_us 46.5249945\nbatch_us 46.7699415\nbatch_us 47.8377118\nbatch_us 46.085892099999995\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.6469533
+      }
+    },
+    {
+      "pair": 8,
+      "order": [
+        "after",
+        "before"
+      ],
+      "after": {
+        "exit": 0,
+        "load": [
+          1.0283203125,
+          1.046875,
+          0.94580078125
+        ],
+        "started_unix": 1792926938.7287376,
+        "batches_us": [
+          46.830405600000006,
+          47.0020655,
+          47.895210500000005,
+          48.0852427,
+          47.8022439,
+          47.559374999999996,
+          47.721092
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.35s\n\n",
+        "stderr": "batch_us 46.830405600000006\nbatch_us 47.0020655\nbatch_us 47.895210500000005\nbatch_us 48.0852427\nbatch_us 47.8022439\nbatch_us 47.559374999999996\nbatch_us 47.721092\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 47.721092
+      },
+      "before": {
+        "exit": 0,
+        "load": [
+          1.02587890625,
+          1.0458984375,
+          0.9462890625
+        ],
+        "started_unix": 1792926942.0831153,
+        "batches_us": [
+          46.4782629,
+          46.414756600000004,
+          46.5210239,
+          46.813299400000005,
+          46.218677400000004,
+          46.1249087,
+          45.812406100000004
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s\n\n",
+        "stderr": "batch_us 46.4782629\nbatch_us 46.414756600000004\nbatch_us 46.5210239\nbatch_us 46.813299400000005\nbatch_us 46.218677400000004\nbatch_us 46.1249087\nbatch_us 45.812406100000004\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 46.414756600000004
+      }
+    },
+    {
+      "pair": 9,
+      "order": [
+        "before",
+        "after"
+      ],
+      "before": {
+        "exit": 0,
+        "load": [
+          1.02587890625,
+          1.0458984375,
+          0.9462890625
+        ],
+        "started_unix": 1792926945.3530347,
+        "batches_us": [
+          47.320786,
+          46.4212633,
+          47.8524155,
+          48.142629799999995,
+          47.6551756,
+          47.395125199999995,
+          46.936092200000004
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.34s\n\n",
+        "stderr": "batch_us 47.320786\nbatch_us 46.4212633\nbatch_us 47.8524155\nbatch_us 48.142629799999995\nbatch_us 47.6551756\nbatch_us 47.395125199999995\nbatch_us 46.936092200000004\nforty Workstreams: 244 allocations, 132294 allocated bytes\n",
+        "median_us": 47.395125199999995
+      },
+      "after": {
+        "exit": 0,
+        "load": [
+          1.0234375,
+          1.044921875,
+          0.94677734375
+        ],
+        "started_unix": 1792926948.6960645,
+        "batches_us": [
+          46.418426000000004,
+          47.1559648,
+          46.1448344,
+          46.1696966,
+          46.1173981,
+          46.112702999999996,
+          46.3922965
+        ],
+        "stdout": "\nrunning 1 test\ntest r3696c_forty_workstreams_avoid_temporary_node_copies ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s\n\n",
+        "stderr": "batch_us 46.418426000000004\nbatch_us 47.1559648\nbatch_us 46.1448344\nbatch_us 46.1696966\nbatch_us 46.1173981\nbatch_us 46.112702999999996\nbatch_us 46.3922965\nforty Workstreams: 243 allocations, 99334 allocated bytes\n",
+        "median_us": 46.1696966
+      }
+    }
+  ],
+  "observer": "Existing no-process allocation fixture; RAIL_PROBE=1 runs seven batches of 10000 awaited Module::call_reply(rail.tree, null) calls; black_box every reply. Instrumented System allocator; median batch means, not request p95; excludes socket transport and startup.",
+  "conditions": "All builds and tests stopped during all eighteen observations; pair order alternates; none retried or skipped.",
+  "source_sha256": {
+    "before": "64d41f64baf709813b4f0c791a83e726ac163a645115ed15541030199ffef551",
+    "after": "46bb2e2ef5291a83b99a9bb61bec4cc62251627147f8063a1ef922900b387cbc"
+  },
+  "allocation_bytes": {
+    "before": 132294,
+    "after": 99334
+  },
+  "allocations": {
+    "before": 244,
+    "after": 243
+  },
+  "median_us": {
+    "before": 46.3309875,
+    "after": 46.6469533
+  }
+}
