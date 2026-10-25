@@ -23,6 +23,8 @@ lint-rust:
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
+    tools/library-reuse.test.sh
+    tools/library-reuse.sh
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
@@ -87,10 +89,15 @@ web-durations run:
     done | loop/web-durations.py > apps/desktop/src/testing/shardDurations.json.new
     mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
 
-# Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
+# Regenerate every contract surface from its declarations and type metadata.
+contracts:
+    cargo run --quiet -p contracts --features export --bin contracts -- contracts/generated
+
+contracts-test:
+    python3 -m unittest discover -s tools/contracts
+
 contracts-fresh:
-    git diff --exit-code -- contracts/generated
-    test -z "$(git ls-files --others --exclude-standard contracts/generated)"
+    python3 tools/contracts/fresh.py
 
 # Runs a script in every pnpm workspace package (apps/*, ext/*), passing it <args>; packages without it are skipped, no packages is a pass.
 packages script *args:

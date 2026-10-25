@@ -44,7 +44,7 @@
 .app-select-trigger:active,
 .app-select-trigger[data-state="open"] {
   color: var(--text);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 .app-select-list {

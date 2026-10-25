@@ -168,7 +168,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   cleanup();
   render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
   const calls = [...app.calls];
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
   const field = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field.value).toBe("  earlier é 🪁  ");
@@ -180,7 +180,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   connected.drawer.close("key");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls).toEqual(calls);
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
   const editing = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(editing));
   const b = retained.at(-1)!;

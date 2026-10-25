@@ -1,6 +1,6 @@
 //! A6 (rail tree) and A8 (persistence) through the module's RPC surface.
 
-use contracts::agent::{NodeKind, RailNode};
+use contracts::agent::{NodeKind, Order, RailNode};
 use rpc::code;
 use serde_json::{Value, json};
 
@@ -72,6 +72,76 @@ async fn a6_move_reorders_and_keeps_orders_contiguous_from_zero() {
 
     f.mv(&a, None, 2).await.unwrap();
     assert_eq!(children(&f.tree().await, None), ["c:0", "b:1", "a:2"]);
+}
+
+async fn equal_door_orders(f: &Fixture) -> [String; 2] {
+    let mut ids = Vec::new();
+    for name in ["first", "second"] {
+        let node = f
+            .call(
+                "rail.createWorkstream",
+                json!({"name": name, "parent": null, "order": {
+                    "kind": "work", "ask": "check the release", "limits": []
+                }}),
+            )
+            .await
+            .unwrap();
+        ids.push(node["id"].as_str().unwrap().to_owned());
+    }
+    assert_ne!(ids[0], ids[1]);
+    ids.try_into().unwrap()
+}
+
+async fn assert_door_positions(f: &Fixture, ids: &[String; 2]) {
+    let tree = f.tree().await;
+    assert_eq!(
+        tree.iter()
+            .map(|node| (node.id.as_str(), node.order))
+            .collect::<Vec<_>>(),
+        [(ids[0].as_str(), 0), (ids[1].as_str(), 1)]
+    );
+    for node in tree {
+        assert_eq!(
+            node.work,
+            Some(Order::Work {
+                title: None,
+                ask: "check the release".into(),
+                done: None,
+                limits: vec![],
+            })
+        );
+        assert_eq!(node.terminal_id, None);
+        assert_eq!(node.attempt, None);
+    }
+    assert!(f.terminals.list().is_empty());
+}
+
+#[tokio::test]
+async fn a3903_equal_door_orders_keep_creation_positions() {
+    let f = Fixture::new();
+    let ids = equal_door_orders(&f).await;
+    for _ in 0..3 {
+        assert_door_positions(&f, &ids).await;
+    }
+    let f = f.reopen();
+    for _ in 0..3 {
+        assert_door_positions(&f, &ids).await;
+    }
+}
+
+#[tokio::test]
+async fn a3903_equal_door_orders_keep_an_explicit_move() {
+    let f = Fixture::new();
+    let [first, second] = equal_door_orders(&f).await;
+    f.mv(&second, None, 0).await.unwrap();
+    let ids = [second, first];
+    for _ in 0..3 {
+        assert_door_positions(&f, &ids).await;
+    }
+    let f = f.reopen();
+    for _ in 0..3 {
+        assert_door_positions(&f, &ids).await;
+    }
 }
 
 #[tokio::test]

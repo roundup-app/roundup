@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 88] = [
+pub const TOOL_METHODS: [&str; 90] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -43,6 +43,8 @@ pub const TOOL_METHODS: [&str; 88] = [
     "pad.appendSection",
     "pad.setOwner",
     "pad.delete",
+    "pad.getDeletion",
+    "pad.restore",
     "pad.export",
     "pad.setStorage",
     // B12
@@ -117,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 67] = [
+pub const NO_TOOL: [&str; 70] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -147,11 +149,16 @@ pub const NO_TOOL: [&str; 67] = [
     "todo.refs",
     // T25: only the Daemon hands a Todo.
     "todo.hand",
+    // U3787a: only the original user reconciles or restores a Rail removal.
+    "rail.deletion",
+    "rail.restore",
     "todo.restore",
     "todo.deletion",
     "message.drop",
     "terminal.list",
     "terminal.snapshot",
+    // R20: only the App's opt-in keystroke probe records timing; Agents cannot enable or read it.
+    "terminal.measure",
     // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
     "terminal.output",
     "terminal.outputStop",

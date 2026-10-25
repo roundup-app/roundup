@@ -833,8 +833,8 @@ def changed_scenarios(pr, head):
 
 
 def issue_of(branch):
-    """The Issue whose work Key names `build/<key>`, or None."""
-    return next((row['issue'] for row in orders.read_orders() if row['slug'] and f"build/{row['slug']}" == branch), None)
+    """The Issue whose work Key names `build/<key>`, or None. A Key needs no dependency or strike read."""
+    return next((row['issue'] for row in orders.classify(orders.list_issues(), {}, []) if row['slug'] and f"build/{row['slug']}" == branch), None)
 
 
 def link(pr, issue=None):
@@ -1404,7 +1404,7 @@ def main(args):
             return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget, effort=effort,
                           flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
         case ['pick']:
-            pick(slot_count())
+            orders.after_rate_limit(lambda: pick(slot_count()))
         case ['attach', branch]:
             attach(branch)
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):

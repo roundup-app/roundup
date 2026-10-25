@@ -1,5 +1,8 @@
 # Design system: quiet native
 
+Motion target: U3010a–d (`scenarios/ui-motion.md`) supersede only this document's CSS-only easing, old Drawer/Todo timings, ink-only press and reduced-motion-zero clauses. Pointer press adds scale without a background; key actions stay instant; non-key reduced motion uses a 150 ms opacity fade. `docs/motion.md` carries the complete target. The implementation must update D9's observer and Token values together; this specification changes neither production Check code nor Tokens.
+
+
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
 The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
@@ -49,6 +52,17 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
+| `--row-text-inset` | `56px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending |
+| `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
+| `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
+| `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
+| `--scrollbar-thumb-width` | `6px` | same | xterm scrollbar thumb width |
+| `--window-header-height` / `--drawer-min-width` | `38px` / `560px` | same | existing header and Drawer geometry |
+| `--rail-menu-min-width` / `--rail-menu-max-width` | `132px` / `252px` | same | Rail context menu limits |
+| `--ask-width` / `--ask-menu-width` | `640px` / `320px` | same | Ask field and its picker |
+| `--pad-editor-height` | `360px` | same | Pad editor preview height |
+| `--switcher-width` / `--capture-width` / `--dialog-min-width` | `480px` / `480px` / `360px` | same | existing switcher, Capture and dialog geometry |
+| `--duration-instant` | `0s` | same | instant press feedback, keyboard paths and reduced motion |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |

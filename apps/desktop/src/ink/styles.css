@@ -78,24 +78,21 @@ p.ink[role="alert"] {
   background-color: transparent;
 }
 
-/* The tick's 24 px target includes the 8 px after its drawn box, so every
-   tick/text row shares this column, including entry fields without a head. */
-.shelf-row:has(> .shelf-glyph .todo-tick) {
+/* Rail leaves keep the tick's existing target and title column. */
+.rail-leaf .shelf-row:has(> .shelf-glyph .todo-tick) {
   grid-template-columns: var(--space-5) minmax(0, 1fr);
   column-gap: 0;
 }
 
 /* An external-blocker mark needs space beside the tick before text begins. */
-.shelf-row:has(> .shelf-glyph .todo-tick):has(> .shelf-glyph > [data-state]) {
+.rail-leaf .shelf-row:has(> .shelf-glyph .todo-tick):has(> .shelf-glyph > [data-state]) {
   grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
   column-gap: var(--space-2);
 }
 
-.shelf-row[data-selected="true"] {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
-  border-radius: var(--radius-row);
+/* U133: keyboard focus shares the wash without replacing Kind or failure ink. */
+.shelf-row:is([data-selected="true"], [data-lifted="true"], :has(:focus-visible)) {
+  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
@@ -164,11 +161,6 @@ p.ink[role="alert"] {
   color: var(--grey);
 }
 
-/* U135: the compound selected wash needs stronger metadata ink to keep D5. */
-.shelf-row[data-selected="true"] .shelf-meta {
-  color: var(--text);
-}
-
 .shelf-meta button {
   vertical-align: middle;
 }
@@ -189,7 +181,7 @@ p.ink[role="alert"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .working-arc { animation-name: none; animation-duration: 0s; }
+  .working-arc { animation-name: none; animation-duration: var(--duration-instant); }
 }
 
 .section-head {

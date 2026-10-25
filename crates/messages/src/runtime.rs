@@ -94,18 +94,9 @@ impl Messages {
         Ok(lock(&self.inner.store))
     }
 }
-pub(super) fn now() -> SystemTime {
-    SystemTime::now()
-}
-
 pub(super) fn now_ms() -> i64 {
-    i64::try_from(
-        now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 /// Takes the store lock, whatever panicked while it was taken before: a writer's transaction

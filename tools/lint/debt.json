@@ -1,6 +1,5 @@
 {
   "size": [
-    {"path": "crates/agents/src/rail.rs", "ceiling": 1564, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/src/worktree.rs", "ceiling": 1285, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/src/worktree_wiring.rs", "ceiling": 1724, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/tests/asks.rs", "ceiling": 1302, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
@@ -12,17 +11,15 @@
     {"path": "crates/pads/tests/pads.rs", "ceiling": 1581, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/src/cli.rs", "ceiling": 1167, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/a34.rs", "ceiling": 1182, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/rup/tests/a35.rs", "ceiling": 1306, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "crates/rup/tests/a35.rs", "ceiling": 1238, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/cli.rs", "ceiling": 1319, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/e2e.rs", "ceiling": 4654, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/rup/tests/e2e/fixtures/h15_hundred_tools.json", "ceiling": 1521, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/rup/tests/e2e/reaction.rs", "ceiling": 1256, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "crates/rup/tests/e2e/reaction.rs", "ceiling": 1243, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/mcp.rs", "ceiling": 1364, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rupd/src/queue.rs", "ceiling": 1030, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rupd/tests/b50_note_inbox.rs", "ceiling": 1636, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/terminal/src/lib.rs", "ceiling": 1218, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.py", "ceiling": 1453, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "loop/builder.test.py", "ceiling": 1659, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "loop/builder.test.py", "ceiling": 1656, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "spikes/tauri-latency/src-tauri/gen/schemas/desktop-schema.json", "ceiling": 2291, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "spikes/tauri-latency/src-tauri/gen/schemas/macOS-schema.json", "ceiling": 2291, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
@@ -79,7 +76,6 @@
     {"rule": "sleep-poll", "path": "crates/rupd/tests/workstream_measurement.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 2, "location": "215:17", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/e2e.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 2, "location": "2190:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/x17_scheme.rs", "source": "tokio::time::sleep(Duration::from_millis(100))", "detail": "", "occurrence": 1, "location": "21:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
-    {"rule": "sleep-poll", "path": "crates/rup/tests/a32_handoff_refusals.rs", "source": "tokio::time::sleep(Duration::from_millis(25))", "detail": "", "occurrence": 2, "location": "222:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/tests/scenarios/common.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "229:17", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/x14.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 2, "location": "230:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rupd/tests/workstream_measurement.rs", "source": "tokio::time::sleep(Duration::from_millis(10))", "detail": "", "occurrence": 1, "location": "232:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
@@ -91,7 +87,6 @@
     {"rule": "sleep-poll", "path": "crates/rupd/tests/lean_specialists.rs", "source": "tokio::time::sleep(Duration::from_millis(10))", "detail": "", "occurrence": 3, "location": "269:17", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rupd/tests/b50_note_inbox.rs", "source": "tokio::time::sleep(Duration::from_millis(400))", "detail": "", "occurrence": 1, "location": "271:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/signal.rs", "source": "std::thread::sleep(Duration::from_millis(5))", "detail": "", "occurrence": 1, "location": "283:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
-    {"rule": "sleep-poll", "path": "crates/rup/tests/a32_handoff_refusals.rs", "source": "tokio::time::sleep(Duration::from_millis(25))", "detail": "", "occurrence": 3, "location": "284:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/e2e.rs", "source": "tokio::time::sleep(Duration::from_millis(50))", "detail": "", "occurrence": 1, "location": "2860:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/src/measurement.rs", "source": "tokio::time::sleep(OBSERVATION_PERIOD)", "detail": "", "occurrence": 1, "location": "28:17", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rupd/src/resources.rs", "source": "tokio::time::sleep(Duration::from_millis(10))", "detail": "", "occurrence": 1, "location": "294:13", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
@@ -340,7 +335,6 @@
     {"rule": "typos", "path": "proofs/messages/PROOF.bend", "source": "      rs_nd(Nat.is_eq(x, y), y, M.remove(x, rest), nm_sub(y, M.remove(x, rest), rest, L.rm_sub(x, rest), nd_hd(y, rest, h)), nd_remove(x, rest, nd_tl(y, rest, h)))", "detail": "9:nd", "occurrence": 1, "location": "599:9", "reason": "Existing proof identifier; preserve the formal model."}
   ],
   "ruff": [
-    {"rule": "E701", "path": "loop/orders.test.py", "source": "            if args[0] == 'pr': return []", "detail": "31:32", "occurrence": 1, "location": "291:31", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E741", "path": "loop/stall.test.py", "source": "        return dict(labels=[l for i in self.issues for l in i['labels']] if self.issues else [])", "detail": "56:57", "occurrence": 1, "location": "48:56", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E741", "path": "loop/stall.py", "source": "             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not orders.frozen(i)]", "detail": "58:59", "occurrence": 1, "location": "51:58", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E731", "path": "loop/affected.py", "source": "    git = lambda *args: subprocess.run(['git', *args], cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True).stdout", "detail": "5:119", "occurrence": 1, "location": "127:5", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},

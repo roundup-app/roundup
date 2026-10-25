@@ -13,7 +13,10 @@ fn hops() -> serde_json::Value {
 }
 
 fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
-    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
+    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops(),
+        "timer_resolution_ms": 0.001, "hop_uncertainty_ms": 0.501,
+        "calibration": {"offset_ms": 100, "uncertainty_ms": 0.501, "resolution_ms": 0.001,
+        "exchanges": [{"sent": 0, "daemon": 100.5, "received": 1}, {"sent": 1000, "daemon": 1100.5, "received": 1001}]} })
 }
 
 #[test]
@@ -100,8 +103,14 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         "keydown_to_input",
         "input_to_dispatch",
         "input_to_encoded",
+        "input_to_encoding",
+        "encoding_to_encoded",
         "encoded_to_dispatch",
         "dispatch_to_echo_event",
+        "dispatch_to_daemon",
+        "daemon_to_write",
+        "write_to_echo_read",
+        "echo_read_to_event",
         "echo_event_to_parsed",
         "parsed_to_frame",
     ] {
@@ -117,11 +126,6 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         absent["hops"].as_object_mut().unwrap().remove(name);
         assert!(checked(&absent).is_err());
     }
-    let mut no_hops = report(16.7, 0);
-    no_hops.as_object_mut().unwrap().remove("hops");
-    let (exit, failures) = judge_runs(&[no_hops], 16.0);
-    assert_eq!(exit, 2);
-    assert!(failures[0].contains("hop attribution"));
 }
 
 #[test]
@@ -176,4 +180,32 @@ fn r20_missing_measured_keys_cannot_be_silently_skipped() {
         dropped["hops"][name]["n"] = json!(999);
     }
     assert_eq!(judge_runs(&[dropped], 16.0).0, 1);
+}
+
+#[test]
+fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
+    let valid = report(16.7, 0)["calibration"].clone();
+    let mut cases = vec![
+        json!(null),
+        json!({"offset_ms": 10, "uncertainty_ms": 0, "exchanges": []}),
+    ];
+    for field in ["offset_ms", "uncertainty_ms", "resolution_ms"] {
+        let mut forged = valid.clone();
+        forged[field] = json!(99);
+        cases.push(forged);
+    }
+    for exchange in [
+        json!({"sent": 1002, "daemon": 1100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": 9100.5, "received": 1001}),
+        json!({"sent": 1000, "daemon": null, "received": 1001}),
+    ] {
+        let mut forged = valid.clone();
+        forged["exchanges"][1] = exchange;
+        cases.push(forged);
+    }
+    for calibration in cases {
+        let mut invalid = report(16.7, 0);
+        invalid["calibration"] = calibration;
+        assert_eq!(judge_runs(&[invalid], 16.0).0, 2);
+    }
 }

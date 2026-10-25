@@ -13,7 +13,7 @@ const tab = (id: string) => document.querySelector<HTMLButtonElement>(`button.te
 const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input");
 
 const edit = async (id: string) => {
-  fireEvent.dblClick(tab(id)!.querySelector(".terminal-tab-name")!);
+  fireEvent.dblClick(tab(id)!);
   await waitFor(() => expect(field()).not.toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };

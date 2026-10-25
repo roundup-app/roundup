@@ -1,6 +1,9 @@
 //! Pads: markdown notes, app-stored or as files. Owner: pads Builder.
 
+mod contract_handlers;
+mod deletion;
 mod files;
+pub use deletion::{restore, retain};
 mod name;
 pub mod reference;
 mod rename;
@@ -11,7 +14,6 @@ mod store;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::pad::{
@@ -235,7 +237,7 @@ impl Pads {
     fn set_owner(&self, ctx: &Ctx, p: SetOwnerParams) -> Result<Value, RpcError> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
-        require_owner_or_user(ctx, &pad, "hand over")?;
+        require_owner_or_user(&ctx.actor, &pad, "hand over")?;
         found(store.set_owner(&pad.name, &p.owner, now_ms()), &pad.name)?;
         wrote(ctx, &pad.name)?;
         reply(&Pad {
@@ -260,29 +262,6 @@ impl Pads {
             home: p.home,
             ..pad
         })
-    }
-
-    /// Delete within the Pad transaction, retaining the cause supplied by the trusted owner.
-    /// RPC authoring uses its authenticated Actor; internal archival supplies Cleanup while
-    /// keeping the user's existing Touch and event attribution.
-    pub fn delete(&self, ctx: &Ctx, p: PadName, cause: PadDeletion) -> Result<Value, RpcError> {
-        let store = self.store()?;
-        let mut files = RemovalFiles::default();
-        let pad = store.atomically(|| {
-            let pad = get(&store, &p.name)?;
-            require_owner_or_user(ctx, &pad, "delete")?;
-            store
-                .record_deletion(&pad.name, cause)
-                .map_err(RpcError::internal)?;
-            found(store.delete(&pad.name), &pad.name)?;
-            if store.files().map_err(RpcError::internal)? {
-                files.stage(&self.files_dir, &pad.name)?;
-            }
-            Ok(pad)
-        })?;
-        files.commit();
-        wrote(ctx, &pad.name)?;
-        Ok(Value::Null)
     }
 
     fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<Value, RpcError> {
@@ -357,31 +336,7 @@ impl Module for Pads {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "pad.create" => self.create(ctx, params(value)?),
-            "pad.read" => self.read(ctx, params(value)?),
-            "pad.list" => self.list(),
-            "pad.rename" => self.rename(ctx, params(value)?),
-            "pad.write" => self.write(ctx, params(value)?),
-            "pad.append" => self.append(ctx, params(value)?),
-            "pad.appendSection" => self.append_section(ctx, params(value)?),
-            "pad.setOwner" => self.set_owner(ctx, params(value)?),
-            "pad.move" => self.move_to(ctx, params(value)?),
-            "pad.delete" => self.delete(
-                ctx,
-                params(value)?,
-                if ctx.actor.kind == ActorKind::User {
-                    PadDeletion::User
-                } else if ctx.actor == Actor::daemon() {
-                    PadDeletion::Cleanup
-                } else {
-                    PadDeletion::Owner
-                },
-            ),
-            "pad.setStorage" => self.set_storage(ctx, params(value)?),
-            "pad.export" => self.export(ctx, params(value)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::pads_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 
@@ -431,8 +386,8 @@ impl Drop for RemovalFiles {
     }
 }
 
-fn require_owner_or_user(ctx: &Ctx, pad: &Pad, action: &str) -> Result<(), RpcError> {
-    if ctx.actor.kind == ActorKind::User || ctx.actor == Actor::daemon() || ctx.actor == pad.owner {
+fn require_owner_or_user(actor: &Actor, pad: &Pad, action: &str) -> Result<(), RpcError> {
+    if actor.kind == ActorKind::User || *actor == Actor::daemon() || *actor == pad.owner {
         return Ok(());
     }
     Err(RpcError::forbidden(format!(
@@ -469,13 +424,8 @@ fn item(name: &str) -> String {
 }
 
 fn now_ms() -> i64 {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]

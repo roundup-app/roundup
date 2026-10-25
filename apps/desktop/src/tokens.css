@@ -75,6 +75,25 @@
   --rail-width: 288px;
   --shelf-width: 320px;
   --centre-min-width: 388px;
+  /* U131: title geometry, including empty leading slots; not a space step. */
+  --row-text-inset: 56px;
+  --flat-tab-edge: 1px;
+  /* U130: typed zero lengths remain valid in max(), gradients and fallbacks. */
+  --length-zero: 0px;
+  --hairline-width: 1px;
+  --stroke-width: 2px;
+  --tick-border-width: 1.5px;
+  --scrollbar-thumb-width: 6px;
+  --window-header-height: 38px;
+  --drawer-min-width: 560px;
+  --rail-menu-min-width: 132px;
+  --rail-menu-max-width: 252px;
+  --ask-width: 640px;
+  --ask-menu-width: 320px;
+  --pad-editor-height: 360px;
+  --switcher-width: 480px;
+  --capture-width: 480px;
+  --dialog-min-width: 360px;
 
   --radius-chip: 4px;
   --key-chip-padding: 5px;
@@ -90,6 +109,7 @@
   --button-accent-ink: #ffffff;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-instant: 0s;
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;

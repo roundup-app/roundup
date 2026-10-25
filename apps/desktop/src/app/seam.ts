@@ -1,3 +1,4 @@
+import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { IdleEvidence } from "../perf/idle";
@@ -172,3 +173,27 @@ export class RpcError extends Error {
     this.data = data;
   }
 }
+
+const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010]);
+
+/** Only a typed refusal proves a remote mutation failed; all other throws preserve uncertainty. */
+// U3791b: this is the foreign-throw ingestion seam; even primitives must retain uncertainty.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export const outcomeOf = (thrown: unknown): "failed" | "unknown" =>
+  thrown instanceof RpcError && refusals.has(thrown.code) ? "failed" : "unknown";
+
+
+/** Foreign reads get one additional attempt; no caller can change the retry budget.
+ * Normalize TypeError because p-retry otherwise retries only network TypeErrors.
+ */
+export const retryRead = <T>(read: () => Promise<T>): Promise<T> => pRetry(async () => {
+  try {
+    return await read();
+  } catch (thrown) {
+    if (thrown instanceof TypeError) throw new Error(thrown.message, { cause: thrown });
+
+    if (thrown instanceof Error) throw thrown;
+
+    throw new RpcError(INTERNAL_CODE, String(thrown));
+  }
+}, { retries: 1, minTimeout: 0, maxTimeout: 0 });

@@ -87,7 +87,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     };
 
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
-    await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
+    await expect.poll(async () => (await app.rpc("rail.tree", null)).find(node => node.id === receiver.id)?.status?.kind).toBe("idle");
     writeFileSync(join(folder,`00000000-0000-4000-8000-${receiver.id.padStart(12,"0")}.jsonl`), "");
     await trigger("message.send",{to:receiver.id,kind:"note",body:"Measured coordination",replyTo:null});
     await expect.poll(async () => {
