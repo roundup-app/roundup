@@ -50,8 +50,8 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
 // (`harness = false`) that speaks the part of libtest's protocol nextest uses: `--list` and `--exact <name>`.
 fn main() {
     let tests: &[(&str, fn())] = &[
-        #[cfg(target_os = "linux")]
         ("u3787f_store_migrates_all_key_families_native_reopen", store_durability::u3787f_store_migrates_all_key_families_native_reopen),
+        #[cfg(target_os = "linux")]
         ("u3787f_failed_migration_keeps_recovery_native_readback", store_durability::u3787f_failed_migration_keeps_recovery_native_readback),
         ("u3787f_interrupted_migration_preserves_both_stores_native_reopen", store_durability::u3787f_interrupted_migration_preserves_both_stores_native_reopen),
         ("u3787f_failed_migration_keeps_recovery_native_invalid_existing", store_durability::u3787f_failed_migration_keeps_recovery_native_invalid_existing),
