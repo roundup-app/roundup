@@ -42,6 +42,7 @@ const focusableEmulator = (): EmulatorFactory => () => {
 const open = async () => {
   const app = createFakeApp();
   app.opened.project = { name: "p", path: "/p" };
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: "w" })),
@@ -167,7 +168,7 @@ describe("u54 keyboard help", () => {
 
   it("u54_while_open_the_listed_chords_do_nothing_and_the_rail_does_not_reorder", async () => {
     const app = await open();
-    const calls = app.calls.length;
+    const calls = [...app.calls];
 
     rowOf("a").focus();
     question(rowOf("a"));
@@ -175,7 +176,7 @@ describe("u54 keyboard help", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(help()));
     expect(await boundPresses(document.activeElement!)).toEqual([]);
-    expect(app.calls.length).toBe(calls);
+    expect(app.calls).toEqual(calls);
     expect(help()).not.toBeNull();
   });
 

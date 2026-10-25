@@ -662,6 +662,9 @@ mod tests {
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
+        resize_schema.execute_batch(rail).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         // The standalone Agents store keeps its frozen head; the Project drops the answers table.
         expected.remove("decision_answers");
         expected.remove("decision_answers_agent");

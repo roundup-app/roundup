@@ -75,6 +75,33 @@ pub struct KeptItem {
 pub struct Removal {
     pub removed: Vec<RemovedItem>,
     pub kept: Vec<KeptItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub deletion: Option<Deletion>,
+}
+
+/// A client key requests data-only removal; omission keeps irreversible removal's consent path.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RemoveParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub operation: Option<String>,
+}
+
+/// Authority is retained by the Project, never supplied as a replacement graph.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct DeletionParams {
+    pub project: String,
+    pub operation: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct Deletion {
+    pub project: String,
+    pub operation: String,
+    pub id: String,
+    pub restored: bool,
 }
 
 /// What `agent.worktreeState` returns (G3): commits only the branch has, commits only the Base
