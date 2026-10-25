@@ -1,5 +1,4 @@
 import { KindGlyph } from "./ink/KindGlyph";
-import { IconButton } from "./ui/IconButton";
 import { MARKS, markOf } from "./header/tab";
 import { storageCopy } from "./copy/storage";
 import { storageProblems } from "./state/storage";
@@ -385,7 +384,7 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label, enabled: available })),
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && node.kind === "agent")) })),
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
@@ -424,7 +423,7 @@ export const App = (props: {
     if (command.startsWith("view:")) {
       const view = command.slice(5);
 
-      if (views.some(([id]) => id === view)) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
+      if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && node.kind === "agent"))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
     } else captureActions(menuFocus()).find(action => action.value === command)?.run();
   }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
   onCleanup(() => { menuEnded = true; stopMenu?.(); });
@@ -491,7 +490,7 @@ export const App = (props: {
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <IconButton aria-label={copy.projectMark(tab.name, MARKS[markOf(tab)!].label)} onClick={() => jumpTo(tab.path)}><KindGlyph kind={markOf(tab)!} decorative /></IconButton>}</For>
+            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <button type="button" data-button="quiet" class="project-attention" aria-label={copy.projectMark(tab.name, MARKS[markOf(tab)!].label)} onClick={() => jumpTo(tab.path)}>{tab.name}<KindGlyph kind={markOf(tab)!} /></button>}</For>
           </WindowBar>
         }
         rail={
@@ -542,7 +541,7 @@ export const App = (props: {
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
-                    <AskBar />
+                    <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />

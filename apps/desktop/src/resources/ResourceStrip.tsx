@@ -48,7 +48,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   const own = createMemo(() => {
     const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-    return node?.id ?? null;
+    return node?.kind === "agent" ? node.id : null;
   });
 
   const live = () => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
@@ -113,10 +113,10 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   };
 
   return (<>
-    <Show when={hasView("resources")}><section class="resource-inspection" aria-label={copy.resources}>
-      <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
-      <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
+    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources}>
+      <div class="resource-values"><Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} /></div>
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
+      <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
     </section></Show>
     <div class="resource-strip" aria-live="off">
       <WorktreeControl returnFocus={props.returnFocus} />

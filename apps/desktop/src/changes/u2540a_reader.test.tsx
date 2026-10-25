@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 it("u2540a_open_back_close_and_editor_actions", async () => {
   const { app } = await mountControl();
   app.handlers["agent.compareFile"] = () => ({ base: "base-commit", oldPath: "src/a.ts", newPath: "src/a.ts", status: "modified", old: { kind: "text", revision: "old-revision", text: "before\n" }, new: { kind: "text", revision: "new-revision", text: "after\n" } });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
   const row = document.querySelector("file-tree-container")!.shadowRoot!.querySelector('[data-item-path="src/a.ts"]')!;
   fireEvent.click(row, { composed: true });
@@ -22,14 +22,14 @@ it("u2540a_open_back_close_and_editor_actions", async () => {
   await waitFor(() => expect(app.editorCalls).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "roundup/a" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /\d+ changed files?/ }));
 });
 
 it("u2540a_late_content_cannot_cross_agents", async () => {
   const { app, connected } = await mountControl();
   let resolve!: (value: typeof COMPARISON) => void;
   app.handlers["agent.compareFile"] = () => new Promise(done => { resolve = done; });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
   fireEvent.click(document.querySelector("file-tree-container")!.shadowRoot!.querySelector('[data-item-path="src/a.ts"]')!, { composed: true });
   fireEvent.click(screen.getByRole("button", { name: "View diff" }));

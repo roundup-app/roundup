@@ -112,3 +112,18 @@
   pointer-events: none;
   user-select: none;
 }
+
+.resource-inspection {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+
+.resource-values {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

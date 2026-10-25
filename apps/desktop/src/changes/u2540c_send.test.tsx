@@ -153,7 +153,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
   fireEvent.click(tab("api"));
   fireEvent.click(await screen.findByText("a", { selector: ".name" }));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   await saveNote("submitted A");
   const original = app.of(path("api"));
@@ -166,17 +166,17 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   await saveNote("Project B exact 🐝");
   refuse(new RpcError(-32003, "original Project refused"));
   fireEvent.click(tab("api"));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByText("original Project refused");
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("newer A");
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted A");
   fireEvent.click(tab("web"));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("Project B exact 🐝");
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
@@ -341,7 +341,7 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
 
   if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");
