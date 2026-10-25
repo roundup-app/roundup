@@ -859,15 +859,12 @@
 
 .rail-command-failure .reserved-content {
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .rail-command-failure.reserved-line .ink {
   flex-basis: 100%;
   flex-shrink: 0;
-}
-
-.rail-command-failure .reserved-actions {
-  margin-inline-start: auto;
 }
 
 .rail:has(.rail-command-failure) .rail-scroll {
