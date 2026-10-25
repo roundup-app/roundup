@@ -499,11 +499,13 @@ async fn dv2_publish_failures() {
     p.restart(&[]);
     let c = p.client().await;
     assert_eq!(list_all(&c).await, list);
+    let expected = "83ee47245398adee79bd9c0a8bc57b821e92aba10f5f9ade8a5d1fae4d8c4302";
     for record in list.as_array().unwrap() {
         let r = call(&c, "deliverable.resolve", identity(record)).await;
         let bytes = std::fs::read(r["path"].as_str().unwrap()).unwrap();
         assert_eq!(bytes.len(), 32 * 1024 * 1024);
         assert!(bytes.iter().all(|b| *b == 0));
+        assert_eq!(record["target"]["sha256"], expected);
         assert_eq!(r["sha256"], record["target"]["sha256"]);
     }
 }
