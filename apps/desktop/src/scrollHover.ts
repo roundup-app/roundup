@@ -8,7 +8,9 @@ const IDLE_MS = 500;
 
 const idle = new WeakMap<Element, ReturnType<typeof setTimeout>>();
 
-/** U3530: xterm owns its thumb geometry; only actual scrollback movement reveals it. */
+/** Z3742a: xterm 6 owns a virtual scrollbar, not a native overflow viewport.
+ * Its public API has no scroll-only auto-hide delay; keep this timer only there.
+ * Capability probes and CSS fallback failure: Issues #3742 and #4094. */
 export const showScrollbars = (element: HTMLElement): void => {
   clearTimeout(idle.get(element));
   element.setAttribute("data-scroll-active", "");
@@ -18,12 +20,13 @@ export const showScrollbars = (element: HTMLElement): void => {
   }, IDLE_MS));
 };
 
-/** U3530: retain each native viewport and its handlers, including textareas and shadow-root scrollers. */
+/** Z3742a: OverlayScrollbars 2.17 requires per-element initialization and cannot
+ * host a native textarea thumb (zero height). External slots have no positioning
+ * or ancestor clipping API. Retain discovery/placement for those native hosts;
+ * the library owns visibility, drag, geometry and its idle delay. See #3742/#4094. */
 export const trackScrollbars = (doc: Document): void => {
   const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
-  const pending = new Set<ParentNode>();
-  let frame = 0;
 
   const place = (element: HTMLElement, slot: HTMLElement) => {
     const box = element.getBoundingClientRect();
@@ -123,11 +126,6 @@ export const trackScrollbars = (doc: Document): void => {
   };
 
   const flush = () => {
-    frame = 0;
-
-    for (const root of pending) discover(root);
-    pending.clear();
-
     for (const [element, { bars, slot }] of entries) {
       if (element.isConnected) place(element, slot);
       else {
@@ -146,11 +144,6 @@ export const trackScrollbars = (doc: Document): void => {
     }
   };
 
-  const schedule = (root: ParentNode) => {
-    pending.add(root);
-    frame ||= requestAnimationFrame(flush);
-  };
-
   const observe = (root: Document | ShadowRoot) => {
     if (roots.has(root)) return;
 
@@ -166,8 +159,10 @@ export const trackScrollbars = (doc: Document): void => {
         if (record.target instanceof Element && record.target.closest(".scrollbar-slot, .os-size-observer, .os-trinsic-observer, .xterm")) continue;
 
         // Inspect the parent too: a newly mounted node can itself be the viewport.
-        if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) schedule(record.target);
+        if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) discover(record.target);
       }
+
+      flush();
     });
 
     observer.observe(root, { childList: true, subtree: true });
@@ -192,9 +187,9 @@ export const trackScrollbars = (doc: Document): void => {
     root.addEventListener("scroll", () => {
       for (const [element, { slot }] of entries) place(element, slot);
     }, true);
-    schedule(root);
+    discover(root);
   };
 
   observe(doc);
-  doc.defaultView?.addEventListener("resize", () => schedule(doc));
+  doc.defaultView?.addEventListener("resize", flush);
 };
