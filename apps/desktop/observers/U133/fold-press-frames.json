@@ -1,0 +1,276 @@
+{
+  "press-button-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-button-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-checkbox-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-checkbox-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-disclosure-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-disclosure-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-link-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-link-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-menu-item-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-menu-trigger-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-menu-trigger-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-neutral-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-neutral-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-primary-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-primary-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-radio-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-radio-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-segment-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-segment-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-select-option-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-select-trigger-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-select-trigger-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-summary-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-summary-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-switch-key.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-switch-pointer.frames.json": {
+    "base": [
+      "opacity"
+    ],
+    "head": [
+      "opacity"
+    ]
+  },
+  "press-tab-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-tab-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-toggle-key.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  },
+  "press-toggle-pointer.frames.json": {
+    "base": [
+      "color",
+      "opacity"
+    ],
+    "head": [
+      "color",
+      "opacity"
+    ]
+  }
+}
