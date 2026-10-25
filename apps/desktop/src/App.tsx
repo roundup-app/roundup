@@ -460,7 +460,11 @@ export const App = (props: {
           </ReservedLine></div></Show>
           <Show when={retainedStorage().length > 0}><div class="storage-retained" role="group" aria-label={storageCopy.retained(retainedStorage().length)}>
             <span>{storageCopy.retained(retainedStorage().length)}</span>
-            <For each={retainedStorage()}>{record => <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error)))}>{storageCopy.recoveryLabel(record.key)}</button>}</For>
+            <For each={retainedStorage()}>{record => {
+              const [copied, setCopied] = createSignal(false);
+
+              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => setCopied(true)).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>{copied() ? copy.copied : storageCopy.recoveryLabel(record.key)}</button>;
+            }}</For>
           </div></Show>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
