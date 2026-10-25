@@ -116,7 +116,7 @@ it.each(["silent", "pending"])("r20_a_diagnostic_shell_without_readiness_stops_w
   const outcome = createKeystrokeRun(app).start().catch(error => error);
 
   await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS * 2);
-  expect(await outcome).toMatchObject({ message: expect.stringContaining("diagnostic Terminal") });
+  expect(await outcome).toMatchObject({ message: expect.stringContaining("shell Terminal") });
   expect(app.calls.filter(call => call.method === "terminal.write" || call.method === "terminal.measure")).toEqual([]);
 });
 
