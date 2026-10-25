@@ -3,14 +3,40 @@ use crate::launch;
 use crate::webview::failure;
 use std::{io, path::Path, process::Stdio};
 use tokio::process::Command;
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum Workload {
     Keystroke,
+    KeystrokeFlood,
     Frames,
     Idle,
 }
 /// Starts the Terminal's program: a raw tty, a `ready` line, then `cat`, so each typed byte comes back only through the program.
 const SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\nexec cat\n";
+
+/// Only the explicit flood build uses this dispatcher. The first warm-up byte selects raw cat;
+/// the other Terminal requests yes before any measured input. exec keeps ownership in the PTY child.
+const FLOOD_SHELL: &str = r#"#!/bin/sh
+stty raw -echo
+echo ready
+exec python3 -c '
+import os
+first = os.read(0, 1)
+if first == b"y":
+    command = first
+    while not command.endswith(b"\n"):
+        part = os.read(0, 1)
+        if not part:
+            raise SystemExit(2)
+        command += part
+        if len(command) > 64:
+            raise SystemExit(2)
+    if command != b"yes roundup-flood\n":
+        raise SystemExit(2)
+    os.execv("/usr/bin/yes", ["yes", "roundup-flood"])
+os.write(1, first)
+os.execlp("cat", "cat")
+'
+"#;
 
 /// Every perf-created Workstream, including the keystroke run's, uses this fake vendor; no model call.
 const FAKE_CLAUDE: &str = concat!(
@@ -105,10 +131,14 @@ pub async fn run<T>(
         &shell,
         match workload {
             Workload::Frames => FRAMES_SHELL,
+            Workload::KeystrokeFlood => FLOOD_SHELL,
             _ => SHELL,
         },
     )?;
     std::fs::set_permissions(&shell, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
+    if let Some(logs) = evidence {
+        std::fs::copy(&shell, logs.join("shell.sh"))?;
+    }
 
     let mut command = Command::new(app);
     command.arg(&project);
@@ -157,7 +187,7 @@ pub async fn run<T>(
         std::fs::write(
             logs.join("lifecycle.json"),
             serde_json::to_vec_pretty(&serde_json::json!({
-                "pid":pid, "app":app, "status_before_cleanup":status,
+                "pid":pid, "app":app, "workload":workload, "status_before_cleanup":status,
                 "collection_error":collection_error,
                 "outcome_error":result.as_ref().err().map(ToString::to_string),
             }))?,
