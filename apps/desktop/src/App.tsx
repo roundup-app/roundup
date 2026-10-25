@@ -1,5 +1,6 @@
 import { storageCopy } from "./copy/storage";
-import { storageProblems } from "./state/storage";
+import { writeText } from "./app/clipboard";
+import { storageProblems, retainedStorage } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
@@ -457,6 +458,9 @@ export const App = (props: {
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
+          <For each={retainedStorage()}>{record => <div class="storage-failure"><ReservedLine message={storageCopy.retained(record.key)}>
+            <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error)))}>{storageCopy.recoveryCopy}</button>
+          </ReservedLine></div>}</For>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>

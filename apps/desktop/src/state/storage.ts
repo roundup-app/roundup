@@ -57,18 +57,67 @@ export const useBrowserStorage = (adapter: Storage) => {
   initialized = true;
   writes = Promise.resolve();
   setFailures([]);
+  setRetained([]);
+  setRecovery(null);
 };
 
-/** No editor is constructed until every legacy family has been validated and committed.
- * Native save independently reads disk back; a plugin cache get is not a durability proof.
- * An envelope (including a cleared record) is the migration marker, so stale legacy bytes
- * can never revive a value after cleanup was interrupted. Never force-create an existing file.
+const quarantinePrefix = "recovery:";
+
+const quarantineSchema = v.strictObject({ key: v.string(), bytes: v.string() });
+
+const [retained, setRetained] = createSignal<v.InferOutput<typeof quarantineSchema>[]>([]);
+
+const [recovery, setRecovery] = createSignal<{ key: string; continue: () => Promise<string | null> } | null>(null);
+
+/** Exact retained records are available only to explicit recovery copy actions. */
+export const retainedStorage = retained;
+
+/** Only a captured invalid legacy record grants permission to continue without it. */
+export const storageRecovery = recovery;
+
+const invalidLegacy = (key: string, bytes: string): string => {
+  let pending: Promise<string | null> | undefined;
+  setRecovery({ key, continue: () => {
+    if (pending) return pending;
+    pending = (async () => {
+      try {
+        const store = await reopen();
+
+        // Never let an earlier choice authorize removing a repaired or replaced record.
+        if (window.localStorage.getItem(key) !== bytes) return initializeStorage();
+        const name = quarantinePrefix + JSON.stringify([key, bytes]);
+        await store.set(name, { key, bytes });
+        await store.save();
+        // Reopen independently of the plugin cache. Native save also verifies disk bytes.
+        await reopen();
+        const checked = v.safeParse(quarantineSchema, restored.get(name));
+
+        if (!checked.success || checked.output.key !== key || checked.output.bytes !== bytes) return storageCopy.recoveryReadback;
+
+        return initializeStorage();
+      } catch (error) {
+        return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
+      }
+    })().finally(() => { pending = undefined; });
+
+    return pending;
+  } });
+
+  return storageCopy.invalid(key);
+};
+
+/** No editor is constructed before validation, acknowledged save and readback.
+ * Recovery records live outside the family namespace and never become live values.
  */
 export const initializeStorage = async (): Promise<string | null> => {
+  setRecovery(null);
+
   try {
     browser = undefined;
     initialized = false;
     const store = await reopen();
+    const quarantines = [...restored].flatMap(([key, value]) => key.startsWith(quarantinePrefix) ? [v.parse(quarantineSchema, value)] : []);
+    setRetained(quarantines);
     const legacy: { key: string; bytes: string }[] = [];
     const candidates: [string, unknown][] = [];
 
@@ -77,22 +126,23 @@ export const initializeStorage = async (): Promise<string | null> => {
       const family = key === null ? undefined : familyOf(key);
 
       if (key === null || family === undefined) continue;
-      let bytes: string | null;
+      // A read failure has no known bytes and therefore grants no continuation.
+      const bytes = window.localStorage.getItem(key);
+
+      if (bytes === null) continue;
+
+      if (quarantines.some(record => record.key === key && record.bytes === bytes)) {
+        legacy.push({ key, bytes });
+        continue;
+      }
+
       let value: unknown;
 
-      try {
-        bytes = window.localStorage.getItem(key);
-
-        if (bytes === null) continue;
-        // Validate even a superseded legacy record: invalid bytes remain recoverable.
-        value = JSON.parse(bytes);
-      } catch (error) {
-        return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
-      }
+      try { value = JSON.parse(bytes); } catch { return invalidLegacy(key, bytes); }
 
       const parsed = v.safeParse(schemas.get(family)!, value);
 
-      if (!parsed.success) return storageCopy.restoreFailure(parsed.issues.map(issue => issue.message).join("; "));
+      if (!parsed.success) return invalidLegacy(key, bytes);
       legacy.push({ key, bytes });
 
       if (!restored.has(key)) candidates.push([key, { version: 1, value }]);
@@ -109,10 +159,19 @@ export const initializeStorage = async (): Promise<string | null> => {
 
     for (const [key, value] of candidates) await store.set(key, value);
 
-    // Always save before removing legacy bytes, including a previous interrupted attempt.
-    // A failed save retains both sources; no caller can observe a durable acknowledgement.
     if (legacy.length > 0) await store.save();
-    restored = new Map(await store.entries<unknown>());
+    await reopen();
+
+    for (const [key, value] of candidates) {
+      if (JSON.stringify(restored.get(key)) !== JSON.stringify(value)) return storageCopy.recoveryReadback;
+    }
+
+    for (const record of quarantines) {
+      const name = quarantinePrefix + JSON.stringify([record.key, record.bytes]);
+      const checked = v.safeParse(quarantineSchema, restored.get(name));
+
+      if (!checked.success || checked.output.key !== record.key || checked.output.bytes !== record.bytes) return storageCopy.recoveryReadback;
+    }
 
     for (const { key, bytes } of legacy) {
       if (window.localStorage.getItem(key) === bytes) window.localStorage.removeItem(key);
