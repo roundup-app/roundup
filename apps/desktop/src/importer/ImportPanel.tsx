@@ -1,4 +1,4 @@
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { createSignal, For, onCleanup, Show } from "solid-js";
@@ -15,11 +15,6 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, daemonExit, now } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
-
-  const copyItem = (text: string) => {
-    void writeText(app, text)
-      .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-  };
 
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
@@ -58,7 +53,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                   <p>{copy.importPeriodName(choice.period)}</p>
                   <ul><For each={choice.sources}>{(_source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
                   <div class="import-actions">
-                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify(choice, null, 2))}>{copy.copy}</button>
+                    <CopyButton app={app} text={JSON.stringify(choice, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
                     <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.restoreChoice(choice.revision)}>{copy.importOpenChoice(at() + 1)}</button>
                     <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.discardChoice(choice.revision)}>{copy.importDiscardChoice(at() + 1)}</button>
                   </div>
@@ -79,10 +74,10 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                         <ReservedLine message={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                       </span>
                     </Checkbox>
-                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2))}>{copy.copy}</button>
+                    <CopyButton app={app} text={JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
                   </li>
                 )}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li class="import-candidate"><div class="import-text"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /></div><button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ source, error: reason }, null, 2))}>{copy.copy}</button></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li class="import-candidate"><div class="import-text"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /></div><CopyButton app={app} text={JSON.stringify({ source, error: reason }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton></li>}</For>
               </ul>
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
@@ -90,7 +85,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                     <For each={result().excluded}>{(excluded) => <li class="import-candidate">
                       <div class="import-text"><span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
                       <span class="import-meta">{copy.importExcludedReason(excluded.cause)}</span></div>
-                      <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...excluded, last_activity_ms: excluded.last_activity_ms?.toString() ?? null }, null, 2))}>{copy.copy}</button>
+                      <CopyButton app={app} text={JSON.stringify({ ...excluded, last_activity_ms: excluded.last_activity_ms?.toString() ?? null }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
                     </li>}</For>
                   </ul>
                 </Disclosure>
