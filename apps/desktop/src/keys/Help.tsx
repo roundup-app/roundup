@@ -1,3 +1,4 @@
+import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
 import { createSignal, For } from "solid-js";
@@ -36,8 +37,10 @@ export const Help = () => {
   const [open, setOpen] = createSignal(false);
   let panel: HTMLElement | undefined;
   let returnTo: Element | null = null;
+  let initialFocus = captureFocus();
 
   const show = (): void => {
+    initialFocus = captureFocus(true);
     returnTo = document.activeElement;
     setOpen(true);
   };
@@ -58,7 +61,12 @@ export const Help = () => {
       initialFocusEl={() => panel ?? null}
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-      <Dialog.Positioner><Dialog.Content class="help" aria-label={copy.help} ref={(element) => { panel = element; }}>
+      <Dialog.Positioner><Dialog.Content class="help" aria-label={copy.help} ref={(element) => {
+        panel = element;
+        const focus = initialFocus;
+
+        queueMicrotask(() => focus(() => { if (element.isConnected) element.focus({ preventScroll: true }); }));
+      }}>
         <For each={sections()}>{section => <section class="help-section">
           <h2>{section.title}</h2>
           <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{chord.what}</KeyHint></p>}</For>
