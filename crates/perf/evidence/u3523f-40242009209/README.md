@@ -21,7 +21,8 @@ Loads ranged 2.40–3.74 on four CPUs, below R13's
 2.0-per-CPU threshold. The report retains raw samples, loads, host/job/boot
 identity, source and binary hashes, observer/toolchain/settings, commands,
 invocation order, ceilings, limits and exit. `perf.*.startup-*.log` retain
-all 22 Daemon startup logs; `perf.log` retains build and measurement output.
+all 22 Daemon startup logs; `perf.log.gz` losslessly retains build and measurement output. Read it with
+`gzip -cd perf.log.gz`.
 
 | Metric (ms, except RSS in MiB) | Base | Head | Paired ceiling |
 |---|---:|---:|---:|
