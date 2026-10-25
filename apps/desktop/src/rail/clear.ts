@@ -3,7 +3,7 @@ import * as v from "valibot";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Events } from "../app/events";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 
 import type { draftStorage } from "../state/storage";
@@ -115,7 +115,7 @@ const createClearing = (app: AppSeam, events: Events, id: string, storage: Conne
         if (!(error instanceof Error)) throw error;
 
         if (submitted?.revision !== revision) return;
-        drafts.settle(revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        drafts.settle(revision, outcomeOf(error));
         submitted = null;
         setPhase("asking");
         setFailure({ message: error.message, code: error instanceof RpcError ? error.code : null });
