@@ -281,6 +281,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   };
 
   try {
+    await capture("rest");
     await read(`(() => {
       const app = window.__fake.app;
       const tree = app.handlers['rail.tree'];
@@ -299,6 +300,8 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
     // fetchTree is queued only after the successful creation reply in state/rail.ts.
     await wait(`!!window.createdRow && window.treeWaiting`);
     expect(await read(`!!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`)).toBe(false);
+
+    await capture("creating");
 
     if (choice === "ask") {
       await browser("click", ".ask-input");
@@ -325,6 +328,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
       window.terminalFocuses = [];
       document.addEventListener('focusin', event => { if (event.target.closest('.xterm')) window.terminalFocuses.push(event.target); }, true);
     })()`);
+    if (choice === "ask") expect(await read(`!!document.querySelector('.project-overview') && !!document.querySelector('.reactions')`)).toBe(true);
     await capture("before");
     await read(`window.revealCreated()`);
     await wait(`!!window.startSupervisor && !!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`);
@@ -357,11 +361,14 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
     })()`)).toEqual({ creates: 1, starts: [await read(`window.createdRow`)], writes: [], rows: 1 });
     await capture("ready");
 
+    if (choice === "ask") {
+      await browser("press", "Escape");
+      await wait(`!document.querySelector('.ask-bar')`);
+      expect(await read(`document.activeElement?.closest('.rail-row')?.dataset.id`)).toBe(await read(`window.createdRow`));
+      await capture("escaped");
+    }
+
     if (dir) {
-      if (choice === "ask") {
-        await browser("press", "Escape");
-        await wait(`!document.querySelector('.ask-bar')`);
-      }
 
       await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
       await browser("press", "Meta+t");
