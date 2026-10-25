@@ -3,6 +3,7 @@
 pub use crate::declarations::METHODS;
 #[cfg(not(feature = "export"))]
 pub const METHODS: &[Method<'static>] = include!("../../../contracts/generated/methodTypes.rs");
+pub use crate::declarations::owner_namespace;
 use specta::{Format, Type};
 use std::collections::BTreeSet;
 

@@ -139,7 +139,7 @@ Where an item sits: a Workstream, or the Project root. Each item has one Home th
 **Contract methods** (`daemon.methods`):
 The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
 
-**Contract declaration** (`declarations`, `Method`, `METHODS`):
+**Contract declaration** (`declarations`, `Method`, `METHODS`, `owner_namespace`):
 One RPC method's wire name, Rust parameter/result types, owning module, handler and explicit MCP exposure (`none`, all Agents, or Door only). It generates module selection, method metadata, TypeScript bindings and tool offers. Export runs only in the contracts command; module selection uses compiled matches.
 
 **Contract export** (`export::generate`, `export::types`, `event_data_declaration`):
