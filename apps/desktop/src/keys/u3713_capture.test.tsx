@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { agent, workstream } from "../testing/nodes";
@@ -17,8 +17,9 @@ import { leaderArmed } from "./registry";
 
 afterEach(cleanup);
 
-const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () => void) => {
+const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () => void, capture?: import("../app/seam").CapturePort) => {
   const app = createFakeApp();
+  app.capture = capture;
   app.handlers["rail.tree"] = () => withScopeRow([workstream("w"), agent("a", "idle", "idle")]);
   const store: TodoStore = { todos: [] };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
@@ -218,4 +219,113 @@ it("u3714_a_filed_capture_opens_the_shelf_and_stays_visible_once_acknowledged", 
   await waitFor(() => expect(filed).toBe(1));
   await waitFor(() => expect(store.todos.map(item => item.title)).toContain("kept in view"));
   await waitFor(() => expect(document.querySelector("[data-shelf-group=unassigned] [data-state=open]")).not.toBeNull());
+});
+
+it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
+  let requested = () => {};
+
+  let action: (event: import("../app/seam").CaptureAction) => void = () => {};
+
+  const snapshots: import("../app/seam").CaptureState[] = [];
+
+  const capture: import("../app/seam").CapturePort = {
+    configure: vi.fn(async () => {}), show: vi.fn(async () => {}), dismiss: vi.fn(async () => {}),
+    publish: async state => { snapshots.push(state); }, act: async () => {},
+    onRequested: async listener => {
+      requested = listener;
+
+      return () => { requested = () => {}; };
+    },
+    onAction: async listener => {
+      action = listener;
+
+      return () => {};
+    }, onState: async () => () => {},
+  };
+
+  const { app, connected } = await mount(undefined, undefined, capture);
+  connected.rail.select("w");
+  requested();
+  requested();
+  action({ kind: "ready" });
+  await waitFor(() => expect(snapshots.length).toBeGreaterThan(0));
+  const state = snapshots.at(-1)!;
+  action({ kind: "file", session: state.session, sequence: 1, text: "native draft 雪", keepOpen: false });
+  await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
+  expect(capture.show).toHaveBeenCalledTimes(1);
+  expect(callsTo(app, "todo.create")[0]!.params).toMatchObject({ title: "native draft 雪" });
+  expect(screen.queryByRole("textbox")).toBeNull();
+  cleanup();
+  requested();
+  expect(capture.show).toHaveBeenCalledTimes(1);
+});
+
+it("u3787f_native_dismiss_retains_exact_work_and_refuses_the_previous_session", async () => {
+  let requested = () => {};
+
+  let action: (event: import("../app/seam").CaptureAction) => void = () => {};
+
+  const snapshots: import("../app/seam").CaptureState[] = [];
+
+  const capture: import("../app/seam").CapturePort = {
+    configure: async () => {}, show: async () => {}, dismiss: async () => {},
+    publish: async state => { snapshots.push(state); }, act: async () => {},
+    onRequested: async listener => {
+      requested = listener;
+
+      return () => {};
+    },
+    onAction: async listener => {
+      action = listener;
+
+      return () => {};
+    }, onState: async () => () => {},
+  };
+
+  const { app, connected } = await mount(undefined, undefined, capture);
+  connected.rail.select("w");
+  requested();
+  await waitFor(() => expect(snapshots.length).toBeGreaterThan(0));
+  const first = snapshots.at(-1)!;
+  action({ kind: "edit", session: first.session, sequence: 1, text: "  exact 雪\nwork  " });
+  action({ kind: "dismiss", session: first.session });
+  connected.rail.select("a");
+  requested();
+  await waitFor(() => expect(snapshots.at(-1)?.session).not.toBe(first.session));
+  expect(snapshots.at(-1)?.text).toBe("  exact 雪\nwork  ");
+  action({ kind: "file", session: first.session, sequence: 2, text: "stale", keepOpen: false });
+  expect(callsTo(app, "todo.create")).toHaveLength(0);
+});
+
+it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_cause", async () => {
+  const { ShortcutSetting } = await import("../settings/ShortcutSetting");
+  const { appSettings } = await import("../settings/preferences");
+  const before = appSettings().quickAdd;
+  const causes: (string | null)[] = [];
+  render(() => <ShortcutSetting capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {} }} onFailure={cause => causes.push(cause)} />);
+  fireEvent.click(screen.getByRole("button", { name: /Quick add a Todo/ }));
+  fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
+  await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
+  expect(appSettings().quickAdd).toBe(before);
+});
+
+it("u3787f_global_capture_registers_and_releases_through_the_shell_event_adapter", async () => {
+  const { clearMocks, mockIPC } = await import("@tauri-apps/api/mocks");
+  const { emit } = await import("@tauri-apps/api/event");
+  const { createTauriApp } = await import("../app/tauri");
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  const requests: unknown[] = [];
+  mockIPC((command, args) => { if (command === "plugin:capture-panel|control") requests.push(args); }, { shouldMockEvents: true });
+
+  try {
+    const port = createTauriApp().capture!;
+    await mount(undefined, undefined, port);
+    await emit("capture-requested");
+    await waitFor(() => expect(requests).toContainEqual({ request: { kind: "show" } }));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    cleanup();
+    const shows = requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}').length;
+    await emit("capture-requested");
+    expect(requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}')).toHaveLength(shows);
+  } finally { clearMocks(); vi.restoreAllMocks(); }
 });

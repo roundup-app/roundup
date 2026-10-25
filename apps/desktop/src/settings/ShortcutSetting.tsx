@@ -1,3 +1,4 @@
+import type { CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, Show } from "solid-js";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -6,13 +7,13 @@ import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
 
 /** Ark's existing key registry owns recording as a modal layer, ahead of App shortcuts. */
-export const ShortcutSetting = (props: { onFailure: (message: string | null) => void }) => {
+export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFailure: (message: string | null) => void }) => {
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   const caption = createUniqueId();
   const value = createUniqueId();
   let button: HTMLButtonElement | undefined;
-  const save = async (press: string, key = "") => { setFailure(null); props.onFailure(await saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
+  const save = async (press: string, key = "") => { setFailure(null); props.onFailure(await saveAppSettings({ quickAdd: press, quickAddKey: key }, props.capture)); setRecording(false); };
 
   const take = (event: KeyboardEvent) => {
     if (!event.metaKey && !event.ctrlKey) return setFailure(copy.shortcutModifier);
