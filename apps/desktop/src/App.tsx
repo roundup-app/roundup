@@ -396,7 +396,7 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && node.kind === "agent")) })),
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
@@ -435,7 +435,7 @@ export const App = (props: {
     if (command.startsWith("view:")) {
       const view = command.slice(5);
 
-      if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && node.kind === "agent"))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
+      if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null)))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
     } else captureActions(menuFocus()).find(action => action.value === command)?.run();
   }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
   onCleanup(() => { menuEnded = true; stopMenu?.(); });

@@ -72,7 +72,7 @@ const capture = async (step: string) => {
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
 
 it("u511a_click_away_commits_without_swallowing_the_click", async () => {
-  await browser("open", new URL('/harness.html?seed=bubbles', origin).href);
+  await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
   await until(`!!window.__fake`);
   await browser("click", '[data-id="runner"]');
   await until(`!!document.querySelector('.terminal-tab-name')`);
@@ -140,7 +140,7 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     await capture("unavailable-original");
     // Retain rendered readings for the run log, never assert layout in behavioral tests.
     process.stdout.write(`${JSON.stringify({ before, after })}\n`);
-    await browser("open", new URL('/harness.html?seed=tree-40', origin).href);
+    await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40', origin).href);
     await until(`document.querySelectorAll('.rail-row').length > 2`);
     const denseBefore = await read<unknown[]>(`window.__checks()`);
 

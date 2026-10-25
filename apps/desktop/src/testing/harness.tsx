@@ -102,7 +102,7 @@ const mount = (app: AppSeam) => {
     requested.add(open.project.path);
     inspection(open);
 
-    if (query.get("view") === "workstreams") open.showView("workstreams");
+    for (const view of query.getAll("view")) open.showView(view);
 
     if (query.get("items") === "1") queueMicrotask(() => {
       if (document.querySelector('.window[data-shelf="closed"]')) captureActions(document.activeElement).find(action => action.value === "action:leader:S")?.run();

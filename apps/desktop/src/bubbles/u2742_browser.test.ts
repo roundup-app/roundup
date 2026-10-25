@@ -132,13 +132,12 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await browser("press", "Escape");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write' && c.params.id === '103' && atob(c.params.data) === '\\x1b')`);
 
-  // Hints are pointer-transparent (resources/styles.css); their strip and the header still receive the press.
-  for (const target of [".hint-line", ".project-tab[data-selected] .tab-name-button"]) {
-    const receiver = target === ".hint-line" ? ".resource-strip" : target;
+  // Requested navigation and the window title still receive an outside press.
+  for (const target of [".window-title", ".project-tab[data-selected] .tab-name-button"]) {
 
     await read(`(() => {
       window.__outsidePresses = 0;
-      document.querySelector('${receiver}').addEventListener('pointerdown', () => window.__outsidePresses++, {once:true});
+      document.querySelector('${target}').addEventListener('pointerdown', () => window.__outsidePresses++, {once:true});
       window.__outsideStart = window.__fake.app.calls.length;
     })()`);
     const at = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('${target}').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
