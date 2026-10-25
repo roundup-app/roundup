@@ -68,7 +68,7 @@ if (query.has("storage-recovery")) {
  return; }
 
       if (command === "plugin:store|save") {
-        if (sessionStorage.getItem("u4086:fail")) throw new Error("Recovery copy could not be saved: disk is full. Free space and retry.");
+        if (sessionStorage.getItem("u4086:fail")) throw new Error("disk is full. Free space and retry.");
         localStorage.setItem("u4086:store", JSON.stringify([...cache]));
 
         return;

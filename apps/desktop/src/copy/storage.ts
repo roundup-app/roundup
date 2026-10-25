@@ -1,15 +1,16 @@
 const labels = new Map([
   ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "drafts"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
-  ["widths", "panel widths"], ["shelf", "Shelf settings"], ["terminal-font", "Terminal text size"],
+  ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
  ]);
 
 /** Copy for restoring and retaining saved work. Draft recovery labels stay with the draft catalogue. */
 export const storageCopy = {
-  invalid: (key: string) => `Could not restore saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"} because their format is invalid. Retry or continue without them; the original data will be kept for recovery.`,
+  invalid: (key: string) => `Could not restore saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"} because the saved format is invalid. Retry or continue; the original data will be kept for recovery.`,
   continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue without these saved drafts" : "Continue without these settings",
-  retained: (key: string) => `Saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"} could not be restored because their format is invalid. Copy the original data for recovery.`,
-  recoveryCopy: "Copy original data",
+  retained: (count: number) => `Invalid saved data kept for recovery (${count})`,
+  recoveryLabel: (key: string) => `Copy ${labels.get(key.split(":")[1] ?? "") ?? "settings"}`,
+  recoveryFailure: (key: string, cause: string) => `Could not keep a copy of saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"}: ${cause}`,
   recoveryReadback: "Could not verify the saved recovery copy. Retry restoring saved work.",
   restoreFailure: (cause: string) => `Could not restore saved work: ${cause}`,
   readFailure: (cause: string) => `Could not read saved work: ${cause}`,
@@ -17,7 +18,7 @@ export const storageCopy = {
   replaced: "Saving was interrupted. Retry saving your work.",
   changed: "Saved work changed before saving. Review the current work before retrying.",
   restoring: "Restoring saved work…",
-  restoreRetry: "Retry restoring saved work",
+  restoreRetry: "Retry",
   saveRetry: "Retry saving",
   failure: (problems: readonly { key: string; cause: string }[]) => {
     const work = [...new Set(problems.map(problem => labels.get(problem.key.split(":")[1] ?? "") ?? "saved work"))];
