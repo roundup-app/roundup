@@ -1,4 +1,4 @@
-import type { ConnectedProject } from "../../state/connectedProject";
+import type { draftStorage } from "../../state/storage";
 import * as v from "valibot";
 import { storedValue } from "../../state/storage";
 
@@ -16,7 +16,7 @@ export type RailStorage = {
 
 export const railStorage = (path: string): RailStorage => storedValue(`roundup:rail:${path}`, layoutSchema);
 
-type Drafts = ConnectedProject["drafts"];
+type Drafts = ReturnType<typeof draftStorage>;
 
 /** A narrow Rail view of the connected Project’s single reactive draft holder. */
 export const draftsOf = (storage: Drafts) => {

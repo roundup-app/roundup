@@ -12,7 +12,8 @@
     "spikes/**"
   ],
   "ignoreDependencies": [
-    "@oxlint/plugins"
+    "@oxlint/plugins",
+    "mdn-data"
   ],
   "rules": {
     "duplicate-exports": "off"

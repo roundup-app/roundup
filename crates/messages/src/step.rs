@@ -35,7 +35,7 @@ pub(crate) enum Event {
     Send { from_user: bool, route: Delivery },
     Idle,
     Busy,
-    Exit,
+    ReceiverExit,
     UserDrop(u32),
     Restart { alive: bool },
 }
@@ -46,7 +46,14 @@ pub(crate) enum Effect {
 }
 
 #[cfg(test)]
-pub(crate) const TRANSITIONS: [&str; 6] = ["send", "idle", "busy", "exit", "user_drop", "restart"];
+pub(crate) const TRANSITIONS: [&str; 6] = [
+    "send",
+    "idle",
+    "busy",
+    "receiver_exit",
+    "user_drop",
+    "restart",
+];
 
 fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
     if s.idle && !s.queue.is_empty() {
@@ -93,7 +100,7 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             }
         }
         Event::Busy => s.idle = false,
-        Event::Exit => {
+        Event::ReceiverExit => {
             let mut gone = std::mem::take(&mut s.queue);
             s.dropped.append(&mut gone);
             s.idle = false;
@@ -111,7 +118,7 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             if alive {
                 s.idle = false;
             } else {
-                s = step(&s, Event::Exit).0;
+                s = step(&s, Event::ReceiverExit).0;
             }
         }
     }
@@ -119,9 +126,14 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
 }
 
 /// A35: a reserved receiver's temporary ending, idle and Daemon reopen cannot apply
-/// Exit/Idle/Restart to its Message ledger. Removal is final and bypasses this projection.
+/// ReceiverExit/Idle/Restart to its Message ledger. Removal is final and bypasses this projection.
 pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
-    if reserved && matches!(event, Event::Exit | Event::Idle | Event::Restart { .. }) {
+    if reserved
+        && matches!(
+            event,
+            Event::ReceiverExit | Event::Idle | Event::Restart { .. }
+        )
+    {
         Event::Busy
     } else {
         event
@@ -134,7 +146,7 @@ pub(crate) fn retirement_event(retiring: bool, event: Event) -> Event {
     if retiring
         && matches!(
             event,
-            Event::Send { .. } | Event::Exit | Event::Idle | Event::Restart { .. }
+            Event::Send { .. } | Event::ReceiverExit | Event::Idle | Event::Restart { .. }
         )
     {
         Event::Busy

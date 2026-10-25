@@ -10,6 +10,7 @@ name = "roundup"
 path = "src/main.rs"
 
 [features]
+idle-perf = []
 # Makes a release build load the files embedded from frontendDist instead of the dev server.
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -37,13 +38,14 @@ tauri-build = "2"
 rupd = { path = "../rupd" }
 tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = "0.3"
+objc2-foundation = { version = "0.3", features = ["block2"] }
+block2 = "0.6"
 
-# The workspace forbids unsafe code; `src/webkit_rate.rs` alone calls WebKit's private selectors, which `msg_send!` makes unsafe.
+# Objective-C calls are confined to `webkit_rate.rs` and the measurement-only `idle_macos.rs`.
 [lints.rust]
 unsafe_code = "deny"
 unused = { level = "deny", priority = -1 }
