@@ -1,0 +1,615 @@
+{
+  "head": "0c189cd98bae0568e8b1366475c8317fdc4137d4",
+  "continuedFrom": "3ff02d29510abc6596a6baf21bc3a5bdd2d1fa39",
+  "mergedMain": "b1544163aab2494922c6b0ef9352e9b53e2069af",
+  "base": "9f0295fb61e1864a135615104be44fa97e723655",
+  "baseNote": "App sources identical to merged main; only loop and backend changes separate these main revisions.",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "keyboard": {
+    "checks": {
+      "D1": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D10": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "contrast": "no-preference",
+          "failing": [],
+          "scheme": "dark",
+          "viewport": "1512x950"
+        }
+      },
+      "D11": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D12": {
+        "selector": "div.shelf-row",
+        "status": "pass",
+        "value": 0
+      },
+      "D13": {
+        "selector": "",
+        "status": "pass",
+        "value": 0
+      },
+      "D14": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 1
+        }
+      },
+      "D16": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D2": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D3": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D4": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 39
+        }
+      },
+      "D5": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D6": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D7": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D8": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D9": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      }
+    },
+    "overlays": [
+      {
+        "text": "",
+        "visibility": "hidden"
+      }
+    ],
+    "slots": [
+      {
+        "rect": {
+          "bottom": 486,
+          "height": 32,
+          "left": 48,
+          "right": 287,
+          "top": 454,
+          "width": 239,
+          "x": 48,
+          "y": 454
+        },
+        "text": ""
+      }
+    ],
+    "sources": [
+      "agent-4"
+    ]
+  },
+  "pointer": {
+    "checks": {
+      "D1": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D10": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "contrast": "no-preference",
+          "failing": [],
+          "scheme": "dark",
+          "viewport": "1512x950"
+        }
+      },
+      "D11": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D12": {
+        "selector": "div.shelf-row",
+        "status": "pass",
+        "value": 0
+      },
+      "D13": {
+        "selector": "",
+        "status": "pass",
+        "value": 0
+      },
+      "D14": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 1
+        }
+      },
+      "D16": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D2": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D3": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D4": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 39
+        }
+      },
+      "D5": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D6": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D7": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D8": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D9": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      }
+    },
+    "overlays": [
+      {
+        "text": "",
+        "visibility": "hidden"
+      }
+    ],
+    "slots": [
+      {
+        "rect": {
+          "bottom": 518,
+          "height": 32,
+          "left": 48,
+          "right": 287,
+          "top": 486,
+          "width": 239,
+          "x": 48,
+          "y": 486
+        },
+        "text": ""
+      }
+    ],
+    "sources": [
+      "agent-4"
+    ]
+  },
+  "cancel": {
+    "checks": {
+      "D1": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D10": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "contrast": "no-preference",
+          "failing": [],
+          "scheme": "dark",
+          "viewport": "1512x950"
+        }
+      },
+      "D11": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D12": {
+        "selector": "div.shelf-row",
+        "status": "pass",
+        "value": 0
+      },
+      "D13": {
+        "selector": "",
+        "status": "pass",
+        "value": 0
+      },
+      "D14": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 1
+        }
+      },
+      "D16": {
+        "selector": "",
+        "status": "pass",
+        "value": "no Thread"
+      },
+      "D2": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D3": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D4": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "rows": 39
+        }
+      },
+      "D5": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D6": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D7": {
+        "selector": "",
+        "status": "pass",
+        "value": {
+          "targets": 108
+        }
+      },
+      "D8": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      },
+      "D9": {
+        "selector": "",
+        "status": "pass",
+        "value": []
+      }
+    },
+    "focused": "agent-4"
+  },
+  "fileHover": {
+    "D1": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D10": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [],
+        "scheme": "light",
+        "viewport": "1512x950"
+      }
+    },
+    "D11": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D12": {
+      "selector": "div.shelf-row",
+      "status": "pass",
+      "value": 0
+    },
+    "D13": {
+      "selector": "",
+      "status": "pass",
+      "value": 0
+    },
+    "D14": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 1
+      }
+    },
+    "D16": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D2": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D3": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D4": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 35
+      }
+    },
+    "D5": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D6": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 92
+      }
+    },
+    "D7": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 92
+      }
+    },
+    "D8": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D9": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    }
+  },
+  "baseIdle": {
+    "D1": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D10": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [],
+        "scheme": "dark",
+        "viewport": "1512x950"
+      }
+    },
+    "D11": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D12": {
+      "selector": "div.shelf-row",
+      "status": "pass",
+      "value": 0
+    },
+    "D13": {
+      "selector": "",
+      "status": "pass",
+      "value": 0
+    },
+    "D14": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 1
+      }
+    },
+    "D16": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D2": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D3": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D4": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 39
+      }
+    },
+    "D5": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D6": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 108
+      }
+    },
+    "D7": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 108
+      }
+    },
+    "D8": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D9": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    }
+  },
+  "baseKeyboard": {
+    "D1": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D10": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [],
+        "scheme": "dark",
+        "viewport": "1512x950"
+      }
+    },
+    "D11": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D12": {
+      "selector": "div.shelf-row",
+      "status": "pass",
+      "value": 0
+    },
+    "D13": {
+      "selector": "",
+      "status": "pass",
+      "value": 0
+    },
+    "D14": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 1
+      }
+    },
+    "D16": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Thread"
+    },
+    "D2": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D3": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D4": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "rows": 40
+      }
+    },
+    "D5": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D6": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 108
+      }
+    },
+    "D7": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "targets": 108
+      }
+    },
+    "D8": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D9": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    }
+  },
+  "focusedTests": {
+    "files": 3,
+    "passed": 19,
+    "retry": 0
+  },
+  "failures": [
+    "Initial combined fetch selected main instead of the PR head; corrected with a dedicated PR-head fetch and a separate worktree before merging.",
+    "Initial related command used repository-relative paths from the desktop cwd and selected zero tests; restarted using absolute paths.",
+    "First cold browser navigation timed out; page subsequently loaded and fresh observations completed.",
+    "Recording setup initially lacked ffmpeg; isolated setup repair in progress."
+  ]
+}
