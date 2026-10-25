@@ -162,7 +162,8 @@ unchanged just test-rust-since '' --profile ciN --test-threads 4
   contracts-fresh          → original Cargo run + --timings + strace
 ```
 
-The run-owned Cargo proxy dispatches the installed nextest executable directly
+The run-owned Cargo proxy is an immutable copy of the collector, so later checkout
+edits cannot change an in-flight observation. It dispatches the installed nextest executable directly
 so its `CARGO` points back to the proxy for compilation. It forwards all other
 arguments and the existing environment, wrappers, target directory and linker
 settings. It never substitutes another build, compiler, linker or scheduler.

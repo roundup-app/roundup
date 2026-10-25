@@ -264,6 +264,26 @@ class CI3781Reports(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'unchanged full Rust lane on hosted Linux'):
                     observer.run(SimpleNamespace(build_observation=True, lane=lane, base=base))
 
+    def test_ci3781_compiler_frontends_and_assemblers_are_not_link_intervals(self):
+        spec = importlib.util.spec_from_file_location('build', Path(__file__).with_name('build.py'))
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            directory = output / 'cargo-fixture'
+            directory.mkdir()
+            (directory / 'build.json').write_text(json.dumps(dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'])))
+            (directory / 'timing.html').write_text('const UNIT_DATA = [{"name":"one","version":"1","target":"bin","features":[],"duration":2}]; <td>Profile:</td><td>test</td> <td>Build start:</td><td>2026-10-25T00:00:00Z</td>\nDURATION = 3;')
+            (directory / 'cargo.stdout').write_text(json.dumps(dict(reason='compiler-artifact', package_id='one@1', target=dict(name='one'), profile={}, features=[], filenames=['one'], executable='one', fresh=False)) + '\n' + json.dumps(dict(reason='build-finished', success=True)))
+            for pid, program in enumerate(('ld', 'cc1', 'as', 'rustc')):
+                def quoted(value):
+                    return '"' + ''.join(f'\\x{byte:02x}' for byte in value.encode()) + '"'
+                args = ', '.join(quoted(value) for value in (program, '-o', 'one'))
+                trace = f'2.000000 execve({quoted("/bin/" + program)}, [{args}], 0x0 /* 0 vars */) = 0\n3.000000 +++ exited with 0 +++\n'
+                (directory / f'trace.{pid}').write_text(trace)
+            links = build.report(output)['builds'][0]['links']
+            self.assertEqual([row['executable'] for row in links], ['/bin/ld'])
+
     def test_ci3781_missing_or_invalid_raw_build_evidence_never_supplies_a_gain(self):
         # The report seam needs no compiler for malformed, lost or incomplete collector files.
         spec = importlib.util.spec_from_file_location('build', Path(__file__).with_name('build.py'))
