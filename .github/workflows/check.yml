@@ -106,7 +106,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          # Empty BASE makes the unchanged R26 baseline guard read origin/main.
+          fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
