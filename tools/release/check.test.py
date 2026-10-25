@@ -98,7 +98,8 @@ class Release(unittest.TestCase):
         report = self.root / "modules.json"
         report.write_text(json.dumps(metadata))
         inventory = self.root / "inventory.json"
-        inventory.write_text(json.dumps({"modules": ["mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs"]}))
+        inventory.write_text(json.dumps({"modules": ["mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs"],
+                                         "languages": {"plain": 0}, "diagrams": {"12.1.0": ["flowchart-v2"]}}))
         self.file(f"dist/{chunk}", 42)
         return report, inventory
 
@@ -147,6 +148,17 @@ class Release(unittest.TestCase):
                 else:
                     self.file("dist/assets/omitted.js", 1)
                 report.write_text(json.dumps(data))
+                result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
+                self.assertEqual(result.returncode, 2, result.stdout)
+
+    def test_c9d_incomplete_inventory_is_an_observer_error(self):
+        import json
+        for missing in ["modules", "languages", "diagrams"]:
+            with self.subTest(missing=missing):
+                report, inventory = self.modules("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs")
+                data = json.loads(inventory.read_text())
+                del data[missing]
+                inventory.write_text(json.dumps(data))
                 result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
                 self.assertEqual(result.returncode, 2, result.stdout)
 
