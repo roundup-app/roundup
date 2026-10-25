@@ -1,0 +1,97 @@
+{
+  "sleep-poll": {
+    "all": [
+      {
+        "kind": "call_expression"
+      },
+      {
+        "has": {
+          "field": "function",
+          "regex": "(^|::|\\.)(sleep|sleep_until)(::<[^>]*>)?$"
+        }
+      },
+      {
+        "inside": {
+          "any": [
+            {
+              "kind": "loop_expression"
+            },
+            {
+              "kind": "while_expression"
+            },
+            {
+              "kind": "for_expression"
+            }
+          ],
+          "stopBy": "end"
+        }
+      }
+    ]
+  },
+  "dom-clone": {
+    "all": [
+      {
+        "kind": "call_expression"
+      },
+      {
+        "has": {
+          "field": "function",
+          "any": [
+            {
+              "kind": "member_expression",
+              "has": {
+                "field": "property",
+                "regex": "^cloneNode$"
+              }
+            },
+            {
+              "kind": "subscript_expression",
+              "has": {
+                "field": "index",
+                "kind": "string",
+                "regex": "^[\"\\x27]cloneNode[\"\\x27]$"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "style-override": {
+    "all": [
+      {
+        "any": [
+          {
+            "kind": "string"
+          },
+          {
+            "kind": "template_string"
+          }
+        ]
+      },
+      {
+        "any": [
+          {
+            "regex": "(?s)(^|[\\s{;\"\\x27`])$CSS_PROPERTY\\s*:\\s*[^;{}]*!important\\b"
+          },
+          {
+            "all": [
+              {
+                "regex": "!important\\b"
+              },
+              {
+                "inside": {
+                  "kind": "pair",
+                  "has": {
+                    "field": "key",
+                    "regex": "^[\"\\x27]?$CSS_PROPERTY[\"\\x27]?$"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
