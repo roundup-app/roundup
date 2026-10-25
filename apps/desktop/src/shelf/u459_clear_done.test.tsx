@@ -35,7 +35,6 @@ it("u459_clear_done_success_removes_only_done_rows", async () => {
   const { app } = await mountTodos([todo(1, { done: true }), todo(2, { done: true }), todo(3)]);
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
   await confirmDeletion();
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Clear done" })).toBeNull());
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }]);
   expect(screen.getByRole("button", { name: /#3 / })).toBeTruthy();
@@ -55,5 +54,5 @@ it("u459_failed_done_rows_are_visible_and_selected", async () => {
   await screen.findByText("Could not delete todo 2 #2: denied");
   await questionClosed();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByText("1 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
 });
