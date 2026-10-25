@@ -97,7 +97,9 @@ impl Rail {
         // R3696c: the separate finish-count query/map made a forty-Workstream
         // reply allocate 290 times. Keep the count beside its node during traversal.
         let mut flat = load_with(&self.db, false, |node, finished| (node, finished))?;
-        flat.sort_by_key(|(node, _)| node.order);
+        // Sibling orders are unique (A6); equal orders across parents need no stability.
+        // R3696c: avoid the stable sort's scratch copy of these large nodes.
+        flat.sort_unstable_by_key(|(node, _)| node.order);
         let mut out = Vec::with_capacity(flat.len());
         let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
         descend(&mut flat, None, &mut out, &mut present)?;

@@ -606,3 +606,42 @@ Budgets are unchanged. The latest nine-pair M4 Max A/B at `59cff55cae` remains
 the failing acceptance evidence; remaining startup/RSS attribution, full
 same-M4-Max gate, unchanged-code false-fail evidence and the separate later
 main pass remain open. This repair justifies no baseline rebase.
+
+### Rail sort scratch space (#3696)
+
+The stable sort in `Rail::tree_with` allocates scratch space for the loaded
+`RailNode` values. A6 requires sibling orders to be unique; ties between
+nodes with different parents do not affect parent-first traversal. Rust's
+standard `sort_unstable_by_key` therefore preserves the reply order without
+that scratch allocation. No traversal, cache or sorting implementation is
+added.
+
+On Linux x86_64 (AMD EPYC 9V45, four available CPUs, rustc 1.99.0), the existing
+`r3696c_forty_workstreams_avoid_temporary_node_copies` observer measures 245
+allocations / 172,230 allocated bytes on `f32419986`, and 244 / 132,294 after
+this repair: 39,936 fewer temporary bytes per reply. Its new 150,000-byte cap
+fails on the original path and passes on the repair. The existing
+260-allocation cap remains because it catches the separate finish-map
+regression. No test in this file repeats either proof or is removed. Existing
+A6 Rail tests cover ordering and moves.
+
+Release probe: replace the allocation observer's measured call/assertions with
+seven batches of 10,000 awaited `Module::call_reply("rail.tree", null)` calls,
+black-boxing each reply and retaining the instrumented allocator. Build both
+revisions before measuring. Three alternating before/after invocations with
+builds and tests stopped produced median batch means (microseconds per reply):
+
+| Pair | Stable sort | In-place sort |
+|---|---:|---:|
+| 1 | 51.856 | 51.729 |
+| 2 | 51.524 | 51.555 |
+| 3 | 51.700 | 51.744 |
+
+One-minute load at invocation start ranged from 3.80 to 4.81 on four CPUs.
+These timings show no material speed change; the measured saving is allocation.
+They include presentation/JSON and exclude socket transport.
+
+This is temporary request allocation, not idle RSS attribution or a Mac timing
+pass. Budgets remain unchanged. Full same-M4-Max acceptance, remaining
+startup/RSS attribution, unchanged-code false-fail evidence and the separate
+later main pass remain open; this repair justifies no baseline rebase.
