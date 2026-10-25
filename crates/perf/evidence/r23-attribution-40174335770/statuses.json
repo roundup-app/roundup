@@ -20,6 +20,10 @@
     "exit": 0
   },
   {
+    "command": "historical-window-report",
+    "exit": 0
+  },
+  {
     "command": "candidate-header",
     "exit": 0
   },
@@ -29,6 +33,10 @@
   },
   {
     "command": "candidate-events",
+    "exit": 0
+  },
+  {
+    "command": "candidate-window-report",
     "exit": 0
   }
 ]
