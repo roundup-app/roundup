@@ -35,7 +35,7 @@ export type RailState = {
   workstreamCreating(): boolean;
   clearWorkstreamFailure(): void;
   selected(): string | null;
-  /** One initial Terminal focus permission, captured on selection or an explicit supervisor start. */
+  /** One initial Terminal focus permission, captured on creation, selection or an explicit supervisor start. */
   terminalFocus(): ReturnType<typeof captureFocus>;
   restored(): boolean;
   collapsed(): ReadonlySet<string>;
@@ -72,6 +72,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
   let workstreamFocus = captureFocus();
+  let selectionRevision = 0;
+  let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const [restored, setRestored] = createSignal(false);
@@ -92,9 +94,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
 
-  const select = (id: string | null): void => {
+  const select = (id: string | null, focus = captureFocus(true)): void => {
+    selectionRevision++;
     batch(() => {
-      setTerminalFocus(() => captureFocus(true));
+      setTerminalFocus(() => focus);
       setRestored(false);
       setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
       reveal(selected());
@@ -145,7 +148,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
-      workstreamFocus(() => select(wanted));
+
+      if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
+
       setWorkstreamCreating(false);
       void startDoor(wanted, false);
     }
@@ -248,6 +253,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const createWorkstream = async (): Promise<void> => {
     if (workstreamCreating()) return;
     workstreamFocus = captureFocus(true);
+    workstreamSelection = selectionRevision;
     setWorkstreamCreating(true);
 
     try {
