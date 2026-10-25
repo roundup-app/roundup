@@ -77,8 +77,8 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
         let _ = fs::remove_file(f);
     }
     let mut db = Connection::open(&work).unwrap();
-    // DV2: 16 KiB pages cut publication write calls fourfold; build them here to avoid runtime VACUUM.
-    db.pragma_update(None, "page_size", 16384).unwrap();
+    // DV2: 8 KiB pages halve publication write calls; build them here to avoid runtime VACUUM.
+    db.pragma_update(None, "page_size", 8192).unwrap();
     let migrations: Vec<M> = sources.iter().map(|s| M::up(s)).collect();
     Migrations::new(migrations).to_latest(&mut db).unwrap();
     // Placeholders `storage.rs` replaces with each Project's own ids, in the bytes of the copy.
