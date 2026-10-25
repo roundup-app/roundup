@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
@@ -12,7 +13,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
-import { failureOf, outcomeOf } from "./failureOf";
+import { failureOf } from "./failureOf";
 import { useTodoList } from "./todoList";
 import "./capture.styles.css";
 

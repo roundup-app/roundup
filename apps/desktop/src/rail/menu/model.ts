@@ -2,7 +2,7 @@ import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { RpcError } from "../../app/seam";
+import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
@@ -24,8 +24,6 @@ type MenuState = {
 };
 
 const NOT_FOUND = -32001;
-
-const UNKNOWN_OUTCOME = -32004;
 
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
@@ -95,17 +93,16 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       await rail.refresh();
       acknowledge(id);
     } catch (error) {
-      if (!(error instanceof RpcError)) {
-        if (error instanceof Error) onFailure(error.message, id);
-        else throw error;
-      } else if (error.code === UNKNOWN_OUTCOME) {
+      if (!(error instanceof Error)) throw error;
+
+      if (outcomeOf(error) === "unknown") {
         await rail.refresh({ terminals: true });
 
         if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
       } else {
         onFailure(error.message, id);
 
-        if (error.code === NOT_FOUND) await rail.refresh();
+        if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
       }
     } finally {
       resuming.delete(id);
