@@ -27,3 +27,19 @@ index 4386eba7dccc590f5193c9cb0b9af36c777b21a0..9de71c9e725ac045d3e66f04ee913442
  	} finally {
  		releaseHighlighterType();
  	}
+diff --git a/dist/highlighter/themes/themeResolver.js b/dist/highlighter/themes/themeResolver.js
+--- a/dist/highlighter/themes/themeResolver.js
++++ b/dist/highlighter/themes/themeResolver.js
+@@ -7,2 +6,0 @@
+-const loadHighlightsThemeCatalog = createCachedLoader(() => import("@pierre/highlights/themes/loader"));
+-const loadPierreThemeCatalog = createCachedLoader(() => import("@pierre/theming/themes"));
+@@ -92,4 +89,0 @@
+-				const catalog = loadHighlightsThemeCatalog();
+-				const { themes } = catalog instanceof Promise ? await catalog : catalog;
+-				const bundledLoader = themes[name];
+-				if (bundledLoader != null) return createHighlightsTheme(name, (await bundledLoader()).default);
+@@ -104,3 +98 @@
+-					const catalog = loadPierreThemeCatalog();
+-					const { themes } = catalog instanceof Promise ? await catalog : catalog;
+-					const descriptor = themes.getTheme(name);
++					const descriptor = null;
