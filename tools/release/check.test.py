@@ -79,6 +79,51 @@ class Release(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, result.stdout)
                 self.assertIn(str(path), result.stderr)
 
+    def modules(self, name, chunk="assets/shared.js"):
+        import json
+        metadata = {"version": 2, "nodeMetas": {"m": {"id": name, "moduleParts": {chunk: "p"}}},
+                    "nodeParts": {"p": {"metaUid": "m", "renderedLength": 42}}}
+        report = self.root / "modules.json"
+        report.write_text(json.dumps(metadata))
+        inventory = self.root / "inventory.json"
+        inventory.write_text(json.dumps({"modules": ["mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs"]}))
+        self.file(f"dist/{chunk}", 42)
+        return report, inventory
+
+    def test_c9d_unusable_modules_fail(self):
+        for module, chunk, code in [
+            ("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs", "assets/flow.js", 0),
+            ("mermaid@12.1.0/dist/chunks/mermaid.core/unknownDiagram-ABC.mjs", "assets/alone.js", 1),
+            ("mermaid@12.1.0/dist/chunks/mermaid.core/unknownDiagram-ABC.mjs", "assets/shared.js", 1),
+            ("@shikijs/langs/dist/typescript.mjs", "assets/shared.js", 1),
+        ]:
+            with self.subTest(module=module, chunk=chunk):
+                import shutil
+                shutil.rmtree(self.root / "dist", ignore_errors=True)
+                report, inventory = self.modules(module, chunk)
+                result = subprocess.run([sys.executable, str(CHECK), "modules", str(report),
+                                         "--inventory", str(inventory), "--dist", str(self.root / "dist")],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, code, result.stderr)
+                if code:
+                    self.assertIn(module, result.stdout)
+                    self.assertIn(chunk, result.stdout)
+
+    def test_c9d_missing_metadata_is_an_observer_error(self):
+        import json
+        report, inventory = self.modules("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs")
+        for invalid in [None, {}, {"version": 2, "nodeParts": {}, "nodeMetas": {}},
+                        {"version": 2, "nodeParts": {"p": {"metaUid": "absent"}}, "nodeMetas": {}}]:
+            with self.subTest(invalid=invalid):
+                if invalid is None:
+                    report.unlink(missing_ok=True)
+                else:
+                    report.write_text(json.dumps(invalid))
+                result = subprocess.run([sys.executable, str(CHECK), "modules", str(report),
+                                         "--inventory", str(inventory), "--dist", str(self.root / "dist")],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2, result.stdout)
+
     @unittest.skipIf(__import__("os").geteuid() == 0, "root bypasses file permissions")
     def test_c9c_unreadable_dist_entry_is_an_observer_error(self):
         path = self.file("dist/unreadable.js", 1)
