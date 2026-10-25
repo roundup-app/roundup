@@ -139,6 +139,19 @@ impl Store {
         stmt.query_map([], row_to_pad)?.collect()
     }
 
+    /// Caller holds the immediate write transaction and has checked destination occupancy.
+    pub fn rename(&self, name: &str, new_name: &str) -> rusqlite::Result<()> {
+        self.db.execute(
+            "UPDATE pads SET key = ?2, name = ?3 WHERE key = ?1",
+            params![key(name), key(new_name), new_name],
+        )?;
+        self.db.execute(
+            "UPDATE pad_sources SET pad_key = ?2 WHERE pad_key = ?1",
+            params![key(name), key(new_name)],
+        )?;
+        Ok(())
+    }
+
     pub fn set_text(&self, name: &str, text: &str, at: i64) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
             "UPDATE pads SET revision = revision + (text <> ?2),
