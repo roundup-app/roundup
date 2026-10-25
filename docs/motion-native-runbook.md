@@ -6,9 +6,17 @@ For U3010d (#3013). One command per workload, one paste back. This document clai
 
 Base and head are the two commits U3010d compares; build and run each in its own checkout, alternating base, head, base, head, base, head. The recorder (U3010e) must be in both: for a base before it, cherry-pick `apps/desktop/src/perf/` and the `perf-frames` recipe onto it.
 
+## Next owner observation for #3013
+
+After this scheduling-verdict repair merges, run the remaining `layers`, `todos`, `glyphs` sequence once on measurement revision `95e2219df28a5483a869415f72ed64c557fa555b`. Use a fresh checkout (`git worktree add --detach /tmp/roundup-motion-3013 95e2219df28a5483a869415f72ed64c557fa555b`), `cd /tmp/roundup-motion-3013` and `pnpm install --frozen-lockfile`, then the Run command below for each workload in order. Keep each build attempt and its diagnostics. Stop concurrent builds before sampling; the recipe finishes its build before opening its window. Retain the report and complete `target/perf-frames-*` evidence directories after each attempt, including failures, before rebuilding another workload. Stop on an invalid run and return its diagnostics; a scheduling miss is retained for diagnosis, never tuned away.
+
+The earlier valid `layers` observation at `ce9c8f2f7` remains in [the owner’s report](https://github.com/roundup-app/roundup/issues/3013#issuecomment-6383793231), with raw files in `/tmp/p3013-out3`. The later attempt at `1f1b9a991` had a locked screen and no samples (`/tmp/p3013-out4`); retain it as invalid. Do not rewrite either report’s original verdict.
+
+This next observation checks the repaired verdict and remaining workloads; it does not replace the required three alternating baseline/head pairs, reserved/overlay and reduced-motion observations, or same-machine regression comparison. The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`; it predates the recorder. Do not treat this repair’s parent as a replacement performance baseline. Qualify any recorder-only backport against that source before asking for paired collection; retain the patch and hashes, preserving production code and fixture identity. #3013 remains open until the full protocol has evidence.
+
 ## Before you run
 
-- AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered and the Mac awake.
+- AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
 - No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the `glyphs` run starts ten stand-in Agents (`fake_claude.py`, no model call) and tells each it works. `layers` and `todos` first make four Todos.
 - The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
 
@@ -22,15 +30,15 @@ It builds the App with the recorder, opens a window kept above everything for ab
 
 ## What the report measures
 
-`stages.scheduling` is the `requestAnimationFrame` interval series the thresholds judge. `stages.update` is the main-thread cost of each sample frame's rendering update (style, layout and paint recording together, from the animation callback to the next task); it has no threshold and is not displayed time. `stages.presentation` stays `unmeasured` in the page report, its reason naming the entry types the webview lists (`performance_entry_types`). The native presentation procedure below supplies a separate report; callback timing never fills this stage.
+`stages.scheduling` is the `requestAnimationFrame` interval series the thresholds judge. `stages.update` is the main-thread cost of each sample frame's rendering update (style, layout and paint recording together, from the animation callback to the next task); it has no threshold and is not displayed time. `stages.presentation` stays `unmeasured` in the page report, its reason naming the entry types the webview lists (`performance_entry_types`). Presentation is outside acceptance under the owner’s 2026-10-25 direction on #3013; callback timing never fills this stage or proves displayed frames.
 
 ## Exit codes
 
 | Code | Meaning | Decides |
 | --- | --- | --- |
-| 0 | every required stage measured and passing | acceptance evidence complete (never printed while presentation is unmeasured) |
+| 0 | valid scheduling sample meets thresholds | scheduling passes for this run; all workloads and paired comparisons still required |
 | 1 | a valid sample misses the scheduling thresholds | diagnose and repair; keep the report |
-| 2 | invalid run, unmeasured stage or no report | incomplete: repeat an invalid run; an unmeasured presentation stage leaves U3010d incomplete even when scheduling passes |
+| 2 | invalid run or no scheduling report | incomplete: retain diagnostics and repeat after repairing the cause |
 
 ## Paste back into #3013
 
@@ -44,7 +52,9 @@ macOS: <version>   WebKit: <Safari/WebKit version>
 Display: <Hz>   Power: <AC or battery, Low Power Mode on or off>
 ````
 
-## Native presentation evidence (after the observer PR merges)
+## Historical native presentation investigation (retired)
+
+The remaining sections retain failed source investigations and importer documentation. They are historical, not instructions for another capture. The owner retired this acceptance stage on 2026-10-25 and closed #3776 as not planned. No presentation collector, export or native permission is requested; unmeasured presentation does not block scheduling acceptance.
 
 The page cannot fill `stages.presentation`. `perf-presentation` consumes a separate native export; it never starts a window, sends input or changes the scheduling report. Its tests use invented timestamps and prove report validity only. No native presentation result is claimed by those tests.
 
@@ -97,7 +107,7 @@ Presentation remains unmeasured. No timestamp extractor can be derived from thes
 
 ### Source capability required before another Mac request
 
-The next engineering step is to establish a source that exposes both target identity and actual presentation times without a new native permission. Retain the field names, rows, referenced definitions, identifier namespaces and lifetimes for every ownership link; do not join by temporal proximity, equal numbers in unrelated namespaces, combined refresh or App pid alone. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app). It must identify its clock/resolution, distinguish dropped frames from displayed frames and provide complete coverage of the fixed sample window. Review its API or observed schema before writing a collector; test extraction and refusal of unsupported evidence without starting a window. Only after that collector merges should the owner be asked for the remaining paired sequence.
+The then-proposed engineering step was to establish a source that exposes both target identity and actual presentation times without a new native permission. Retain the field names, rows, referenced definitions, identifier namespaces and lifetimes for every ownership link; do not join by temporal proximity, equal numbers in unrelated namespaces, combined refresh or App pid alone. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app). It must identify its clock/resolution, distinguish dropped frames from displayed frames and provide complete coverage of the fixed sample window. Review its API or observed schema before writing a collector; test extraction and refusal of unsupported evidence without starting a window. That proposed prerequisite is retired; the remaining sequence uses scheduling evidence.
 
 Two native API names do not supply that missing source:
 
@@ -148,4 +158,4 @@ cargo run --release -p perf --bin perf-presentation -- \
 
 The consumer retains raw timestamps and intervals, nearest-rank p50/p95/p99/max and the >1.5P count/rate. It applies U3010d's existing presentation thresholds independently. It refuses incomplete coverage, duplicate/reversed timestamps, missing provenance, a callback stage or insufficient resolution; it includes intervals crossing the sample boundaries so cropping cannot hide a late frame. Exit 1 means a measured presentation budget miss; exit 2 means invalid/unmeasured evidence or a passing **single stage** with full acceptance still incomplete. This command never exits 0, never overwrites an existing output and never promotes the page's scheduling report to a presentation pass.
 
-Paste both reports and retain the trace, clock conversion, raw exports, attribution and full run manifest. The 30 s idle observation, style/layout/paint attribution, cleanup and same-machine three-pair regression comparisons remain required, separate evidence. A passing imported presentation sample alone cannot close #3013. Request a new Mac capture only after the observer repair merges and the attribution prerequisite establishes a usable native source.
+Paste both reports and retain the trace, clock conversion, raw exports, attribution and full run manifest. The 30 s idle observation, style/layout/paint attribution, cleanup and same-machine three-pair regression comparisons remain required, separate evidence. A passing imported presentation sample alone cannot close #3013. No further presentation capture is requested.
