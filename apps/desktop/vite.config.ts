@@ -74,6 +74,20 @@ export default defineConfig({
         {
           postcssPlugin: "roundup-vendor-control-feedback",
           Once(root) {
+            root.walkDecls(/^(?:animation|transition)(?:-.+)?$/, declaration => {
+              if (!declaration.source?.input.file?.includes("/node_modules/")) return;
+
+              const value = valueParser(declaration.value);
+
+              value.walk(node => {
+                if (node.type !== "word") return;
+
+                const dimension = valueParser.unit(node.value);
+
+                if (dimension && (dimension.unit === "ms" || dimension.unit === "s")) node.value = `var(--duration-vendor, ${node.value})`;
+              });
+              declaration.value = value.toString();
+            });
             // Imported editors keep their selection paint, but cannot add rings or press washes (U3528).
             root.walkRules((rule) => {
               if (!rule.source?.input.file?.includes("/node_modules/")) return;
