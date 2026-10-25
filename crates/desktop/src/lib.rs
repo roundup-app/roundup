@@ -2,6 +2,10 @@
 
 mod config;
 mod daemon;
+#[cfg(any(test, feature = "idle-perf"))]
+mod idle;
+#[cfg(all(any(test, feature = "idle-perf"), target_os = "macos"))]
+mod idle_macos;
 mod menu;
 mod open;
 mod paste;
@@ -31,6 +35,8 @@ pub fn build<R: Runtime>(
 ) -> Builder<R> {
     #[cfg(target_vendor = "apple")]
     let builder = builder.plugin(webkit_rate::plugin());
+    #[cfg(feature = "idle-perf")]
+    let builder = builder.plugin(idle::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -40,21 +46,26 @@ pub fn build<R: Runtime>(
         .manage(menu::ProjectMenu::default())
         .menu(menu::app_menu)
         .on_menu_event(|app, event| handle_menu_event(app, &event))
-        .invoke_handler(tauri::generate_handler![
-            projects,
-            open_project,
-            close_project,
-            rename_project,
-            rpc,
-            subscribe,
-            terminal_output,
-            terminal_output_stop,
-            open_target,
-            open_in_editor,
-            save_pasted_image,
-            menu::select_project_menu,
-            menu::show_context_menu
-        ])
+        .invoke_handler({
+            let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
+                projects,
+                open_project,
+                close_project,
+                rename_project,
+                rpc,
+                subscribe,
+                terminal_output,
+                terminal_output_stop,
+                open_target,
+                open_in_editor,
+                save_pasted_image,
+                menu::select_project_menu,
+                menu::show_context_menu
+            ];
+            #[cfg(feature = "idle-perf")]
+            let handler = idle::with_handler(handler);
+            handler
+        })
         .setup(move |app| {
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
@@ -98,6 +109,12 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "idle-perf")]
+    idle::guard(
+        std::env::var("ROUNDUP_ALLOW_WINDOW").ok().as_deref(),
+        std::env::var_os("ROUNDUP_DATA_DIR").as_deref(),
+        std::env::var_os("ROUNDUP_IDLE_EVIDENCE_DIR").as_deref(),
+    )?;
     let config = Config::from_env()?;
     let mut context = context();
     if let Some(dir) = &config.data_dir {
