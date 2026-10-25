@@ -53,6 +53,10 @@ cp -r "$root/proofs/messages" "$scratch/layout"
 cat > "$scratch/bend" <<'F'
 #!/bin/sh
 dir=$(dirname "$1")
+if [ "${2:-}" = --verdict ]; then
+  printf '%s\n' "${FAKE_VERDICT_OUT-ALL PROOFS CHECK}"
+  exit "${FAKE_VERDICT_RC:-0}"
+fi
 if ! cmp -s "$dir/model.bend" "$FAKE_MODEL"; then
   id=$(sed -nE 's/^law ((m|b)[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
   case "$id" in
@@ -70,6 +74,8 @@ chmod +x "$scratch/bend"
 check() { BEND=$scratch/bend FAKE_MODEL=$root/proofs/messages/model.bend FAKE_OUT="${FAKE_OUT-ALL PROOFS CHECK}" "$root/proofs/check.sh" "$1" 2>&1; }
 fresh() { rm -rf "$scratch/l"; cp -r "$scratch/layout" "$scratch/l"; }
 
+fresh; out=$(FAKE_VERDICT_RC=1 FAKE_VERDICT_OUT='Lean kernel failed' check "$scratch/l")
+expect "v2 verdict failure exits nonzero" 1 "--verdict.*Lean kernel failed\|Lean kernel failed" "$?" "$out"
 fresh; out=$(check "$scratch/l"); expect "v2 a clean layout prints ALL PROOFS CHECK" 0 "ALL PROOFS CHECK" "$?" "$out"
 fresh; out=$(FAKE_OUT="SOME PROOFS FAIL" check "$scratch/l"); expect "v2 any other output fails" 1 "did not print" "$?" "$out"
 fresh; out=$(FAKE_RC=1 check "$scratch/l"); expect "v2 a non-zero bend fails" 1 "non-zero" "$?" "$out"
