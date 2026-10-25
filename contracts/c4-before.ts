@@ -1,4 +1,5 @@
 // C4: pre-migration type shapes from main 09f5f6611149162c403fe07adf8e757190fb2bf2; frozen independently of the exporter.
+// Todo restoration contracts and Event unions also include main c8c12a4a3 (U3787a).
 
 export type Actor = { kind: ActorKind, id: string, parent: string | null, };
 
@@ -6,9 +7,9 @@ export type ActorKind = "user" | "agent" | "ext";
 
 export type Event = { 
 
-seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" });
+seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" });
 
-export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" };
+export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" };
 
 export type HistoryParams = { item: string, };
 
@@ -868,6 +869,12 @@ export type workstream_WorkstreamClearFailedEvent = { id: string, code: number, 
 
 export type workstream_WorkstreamClearedEvent = { id: string, iteration: number, };
 
+// Frozen from main c8c12a4a3, independently of the Specta outputs.
+export type todo_DeleteParams = { operation: string, ids: Array<number> };
+export type todo_DeletionParams = { operation: string };
+export type todo_DeletionState = "deleted" | "restored";
+export type todo_Deletion = { operation: string, deleted: Array<number>, missing: Array<number>, state: todo_DeletionState };
+
 export type Before = {
   "Actor": Actor;
   "ActorKind": ActorKind;
@@ -1125,6 +1132,10 @@ export type Before = {
   "todo/SetBlockersParams": todo_SetBlockersParams;
   "todo/Todo": todo_Todo;
   "todo/TodoId": todo_TodoId;
+  "todo/DeleteParams": todo_DeleteParams;
+  "todo/DeletionParams": todo_DeletionParams;
+  "todo/DeletionState": todo_DeletionState;
+  "todo/Deletion": todo_Deletion;
   "todo/UnreadComment": todo_UnreadComment;
   "todo/UpdateParams": todo_UpdateParams;
   "todo/Values": todo_Values;
@@ -1201,7 +1212,9 @@ export type BeforeRpcMethods = {
   "todo.hand": { params: todo_HandParams; result: todo_Todo | null };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };
   "todo.reorder": { params: todo_ReorderParams; result: todo_Todo };
-  "todo.delete": { params: todo_TodoId; result: null };
+  "todo.delete": { params: todo_DeleteParams; result: todo_Deletion };
+  "todo.deletion": { params: todo_DeletionParams; result: todo_Deletion | null };
+  "todo.restore": { params: todo_DeletionParams; result: todo_Deletion };
   "todo.comment": { params: todo_CommentParams; result: todo_Comment };
   "todo.comments": { params: todo_TodoId; result: todo_Comment[] };
   "todo.unread": { params: null; result: todo_UnreadComment[] };

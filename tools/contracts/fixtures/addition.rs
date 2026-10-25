@@ -1,15 +1,11 @@
 use super::*;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use serde_json::json;
-use std::sync::Arc;
 
 #[tokio::test]
 async fn c4_one_declaration_reaches_every_surface() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("mcp.sock");
-    let daemon = Arc::new(rupd::Daemon::open(dir.path()).unwrap());
-    let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-    let server = tokio::spawn(rupd::serve(listener, daemon));
+    let project = crate::start_daemon();
+    let socket = project.socket.clone();
     let actor = Actor { kind: ActorKind::Agent, id: "fixture-agent".into(), parent: None };
     let direct = rpc::Client::connect(&socket).await.unwrap();
     direct.request("daemon.identify", json!({"actor": actor.clone()})).await.unwrap();
@@ -49,5 +45,5 @@ async fn c4_one_declaration_reaches_every_surface() {
         service.abort();
     }
     drop(direct);
-    server.abort();
+    project.daemon.abort();
 }
