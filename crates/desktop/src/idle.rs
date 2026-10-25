@@ -200,7 +200,7 @@ pub(crate) fn guard(
     if allow != Some("1") || data.is_none() || dir.is_none() {
         return Err("R24 requires ROUNDUP_ALLOW_WINDOW=1, fresh ROUNDUP_DATA_DIR and ROUNDUP_IDLE_EVIDENCE_DIR".into());
     }
-    if !cfg!(target_os = "macos") {
+    if std::env::consts::OS != "macos" {
         return Err("R24 native producer requires macOS".into());
     }
     Ok(())
@@ -238,7 +238,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                 if let Err(error) = native(&window, "initial") {
                     eprintln!("{error}");
                 }
-                #[cfg(target_os = "macos")]
+                #[cfg(target_vendor = "apple")]
                 super::idle_macos::watch(window);
             }
         })
@@ -318,7 +318,7 @@ fn finish<R: Runtime>(app: &tauri::AppHandle<R>) {
     });
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 pub(super) fn application<R: Runtime>(window: &WebviewWindow<R>, cause: &str, hidden: bool) {
     let state = window.state::<Collector>();
     if let Err(error) = state
