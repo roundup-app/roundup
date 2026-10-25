@@ -1,4 +1,5 @@
-import { captureFocus, queueFocus } from "../keys/focus";
+import { useDialog } from "@ark-ui/solid/dialog";
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -12,7 +13,6 @@ import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/re
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { ROW } from "../rail/rows";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
@@ -125,8 +125,9 @@ export const AskBar = (props: {
 
   const restoreSelection = (element: HTMLTextAreaElement) => {
     field = element;
+    const caret = current()?.selection;
+
     queueMicrotask(() => {
-      const caret = current()?.selection;
 
       if (element.isConnected && caret) element.setSelectionRange(caret.start, caret.end, caret.direction);
     });
@@ -146,7 +147,31 @@ export const AskBar = (props: {
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
-  let returnTo: Element | null = null;
+
+  let openingFocus = captureFocus();
+  let selectedPane = false;
+  let homeFocus = false;
+
+  const dialog = useDialog(() => ({
+    open: over(), modal: false, trapFocus: true, preventScroll: false,
+    restoreFocus: true, closeOnInteractOutside: true,
+    "aria-label": copy.askBarLabel,
+    initialFocusEl: () => openingFocus.target(() => {
+      if (field) restoreSelection(field);
+
+      return field;
+    }),
+    finalFocusEl: () => homeFocus
+      ? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      : selectedPane
+      ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+        ?? document.querySelector<HTMLElement>(".pane-screen textarea")
+        ?? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      : null,
+    // Background layers may close while Ask remains the newer focus owner.
+    onRequestDismiss: event => event.preventDefault(),
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
   const shown = () => opening() !== null || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
@@ -172,32 +197,20 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
+    selectedPane = !restore;
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
-
-    if (restore) {
-      const row = document.querySelector<HTMLElement>(".rail-row[data-selected=true]");
-
-      const target = returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo
-        : row?.closest<HTMLElement>(ROW) ?? row?.querySelector<HTMLElement>(ROW);
-
-      target?.focus();
-    }
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
 
   const open = (): void => {
     if (modalOpen()) return;
-    captureFocus(true);
-    returnTo = document.activeElement;
+    selectedPane = false;
+    homeFocus = false;
+    openingFocus = captureFocus(true);
     setOpening("over");
-    queueFocus(() => {
-      field?.focus();
-
-      if (field) restoreSelection(field);
-    });
   };
 
   createEffect(() => {
@@ -275,8 +288,8 @@ export const AskBar = (props: {
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
     <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
-        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { returnTo = null; setOpening("home-focus"); } }}
+      <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; homeFocus = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
         onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
