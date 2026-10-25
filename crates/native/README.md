@@ -107,7 +107,7 @@ is added. A compiler-expanded macOS audit remains required before delivery.
 The actual-AppKit observers run in desktop's existing s2297a main-thread harness:
 `u3787f_panel_does_not_activate_main_window` creates/shows/re-shows/dismisses/releases
 through the safe interface and checks the hidden main window remains unfocused
-and unmoved; `u3787f_panel_uses_invoking_display` compares the real panel's monitor
+and unmoved; its worker calls are marshalled through a running real event loop; `u3787f_panel_uses_invoking_display` compares the real panel's monitor
 and bounds with the cursor monitor's work area. These are macOS-only observers;
 Linux supplies no native pass. No existing test or then-clause was cut. The existing
 WebKit success, missing-feature and off-thread refusal proofs remain unchanged.
@@ -118,7 +118,9 @@ panel-only view forwarding edits/actions to the existing Capture/draft owner. Do
 not point the panel at a second full App or initialize a second draft writer. No
 production caller registers this plugin until that view and event path are ready.
 The observers load only about:blank, never the full App or a second draft holder.
-The eventual production caller supplies its panel-only entry URL.
+The eventual production caller supplies its panel-only entry URL from Rust; no
+webview command accepts an arbitrary URL. Construction refuses an unregistered
+native integration. Failed conversion/style setup destroys its hidden window.
 Only after that integration and CI pass can an implementation SHA identify the
 remaining observation of another App retaining activation through show, deliberate
 panel typing, submit/dismiss and focus return, including multiple displays. No
