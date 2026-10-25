@@ -486,6 +486,7 @@ it("p2544b_an_external_change_during_save_still_requires_a_choice", async () => 
   app.handlers["pad.write"] = () => reply.promise;
   fireEvent.input(field, { target: { value: "draft" } });
   fireEvent.focusOut(field);
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   state.pads = [padOf("notes", USER, "agent append")];
   app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
   await screen.findByText(/Changed by/);
@@ -527,6 +528,7 @@ it("p2544b_keep_mine_waits_for_the_active_save", async () => {
   app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
   fireEvent.input(field, { target: { value: "draft" } });
   fireEvent.focusOut(field);
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   state.pads = [padOf("notes", USER, "agent append")];
   app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
   await screen.findByText(/Changed by/);
@@ -534,7 +536,7 @@ it("p2544b_keep_mine_waits_for_the_active_save", async () => {
   expect(writes).toBe(1);
   reply.resolve(padOf("notes", USER, "draft"));
   await waitFor(() => expect(writes).toBe(2));
-  expect(screen.queryByText(/Changed by/)).toBeNull();
+  await waitFor(() => expect(screen.queryByText(/Changed by/)).toBeNull());
 });
 
 it("p2544b_a_save_echo_cannot_replace_an_inflight_undo", async () => {
@@ -545,6 +547,7 @@ it("p2544b_a_save_echo_cannot_replace_an_inflight_undo", async () => {
   app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
   fireEvent.input(field, { target: { value: "first" } });
   fireEvent.focusOut(field);
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   fireEvent.input(field, { target: { value: "old" } });
   state.pads = [padOf("notes", USER, "first")];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
@@ -593,6 +596,7 @@ it.each([
   const { app } = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")]);
   const field = await openPad("notes");
   fireEvent.input(field, { target: { value: "draft retained" } });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.source).toBe("draft retained\n"));
   cleanup();
   const stored = JSON.parse(localStorage.getItem("roundup:drafts:/p")!);
   stored.drafts[0].value.document = document;

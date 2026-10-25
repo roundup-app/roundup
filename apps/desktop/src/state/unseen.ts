@@ -3,10 +3,10 @@ import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { descendantsOf } from "../rail/layout";
-import { storedValue } from "./storage";
+import { storageSchema, storedValue } from "./storage";
 
 /** U3566c: the finish count the user has read, per Agent id, of one original Project. */
-const acknowledgedSchema = v.record(v.string(), v.pipe(v.string(), v.regex(/^\d+$/)));
+const acknowledgedSchema = storageSchema("roundup:unseen", v.record(v.string(), v.pipe(v.string(), v.regex(/^\d+$/))));
 
 type Acknowledged = v.InferOutput<typeof acknowledgedSchema>;
 
