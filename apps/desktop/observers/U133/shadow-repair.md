@@ -8,7 +8,7 @@ Isolated headless Chromium, fresh profile, dark, 1512×950.
 | Tree row in `file-tree-container` | Pressed Token ink, alpha 0.75 | Cleared |
 | Diff button in `diffs-container` | Pressed Token ink, alpha 0.75 | Cleared |
 
-The probe uses open shadow roots, the production tree/diff styles and document feedback listener. A capture listener samples the first animation frame queued by the real pointerdown/keydown event. All four probes retain their resting background. Measurements: `shadow-repair.json`; PNGs: `artifacts/ux/U133/shadow-repair/` (uncommitted).
+The probe uses open shadow roots, the production tree/diff styles and document feedback listener. A capture listener samples the first animation frame queued by the real pointerdown/keydown event. All four probes retain their resting background. Measurements: `shadow-repair.json`; Images: `artifacts/ux/U133/shadow-repair/` (uncommitted).
 
 The regression test fails in all four shadow cases before the event-path fix and passes afterward. It covers pointer release, pointer leave, key release and blur through nested shadow content. Existing cancellation and editor/disabled-control tests still cover distinct paths; none was removed.
 
@@ -23,3 +23,5 @@ The warmed App capture at `artifacts/ux/U133/shadow-repair/dense/head/dense-fail
 The six-minute related-file run ended while the real-Daemon build was waiting on the cold Rust lint build lock; it is not a suite pass.
 
 Focused validation passed: 83 tests in `u133_feedback.test.ts`, `u133_press.test.ts`, `u130_tokens.test.ts` and `u137_checks.test.tsx`, including real headless native/Ark activation and cancellation.
+
+`just lint-rust` and `loop/rules.sh merge-loss` pass.
