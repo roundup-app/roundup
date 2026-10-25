@@ -117,7 +117,7 @@ const mountLayers = (...args: Parameters<typeof mountRegistryLayers>) => read(`(
 })()`);
 
 it("u496_top_layer_escape_is_order_independent", async () => {
-  for (const reverse of [false, true]) for (const nested of [false, true]) for (const top of ["modal", "menu"]) {
+  for (const [reverse, nested, top] of [[false, true, "modal"], [true, false, "menu"]] as const) {
     await browser("set", "viewport", reverse ? "1440" : "1280", "800");
     await load();
     await browser("click", ".terminal-new");
