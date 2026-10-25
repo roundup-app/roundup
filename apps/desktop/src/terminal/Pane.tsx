@@ -88,7 +88,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   createEffect(() => props.observeTerminal?.(dashboard() ? null : terminalId()));
   onCleanup(() => props.observeTerminal?.(null));
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
+  const notice = createMemo(() => props.notice ?? storageFailure() ?? connected.terminalScheme.failure() ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
@@ -330,7 +330,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
-        <ReservedLine message={notice() ?? rail.workstreamFailure()}>
+        <ReservedLine message={notice()}>
+          <Show when={connected.terminalScheme.failure() && notice() === connected.terminalScheme.failure()}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
+          <Show when={rail.failure() && notice() === rail.failure()}><button data-button="quiet" type="button" onClick={() => void rail.refresh({ terminals: true })}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
       </div>

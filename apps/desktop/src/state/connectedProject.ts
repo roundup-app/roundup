@@ -1,3 +1,5 @@
+import type { RpcMethodName } from "@contracts/methods";
+import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
 import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
@@ -149,7 +151,24 @@ export type ConnectedProject = {
   daemonExit: Accessor<DaemonExit | null>;
   /** Disposes connection-owned reads and X17 scheme updates when the connection ends. */
   stopTerminalScheme: () => void;
+  terminalScheme: Awaited<ReturnType<typeof syncTerminalScheme>>;
 };
+
+// Explicit read allowlist: subscriptions, cursor acknowledgments and commands never replay.
+const reads = new Set<RpcMethodName>([
+  "daemon.ping", "daemon.methods", "rail.tree", "rail.list", "terminal.list",
+  "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
+  "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
+  "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read",
+  "agent.worktreeState", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
+  "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
+  "project.get", "project.getPrepared", "project.resources", "models.list", "import.list", "project.importDiscover",
+  "project.measurements", "project.measurementSummary", "message.get", "message.list",
+  "message.progress", "message.reconcileWork", "route.list", "checkpoint.list", "ask.list",
+  "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
+  "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
+  "workstream.queue", "workstream.rewindPlan",
+]);
 
 export const connectProject = async (
   app: AppSeam,
@@ -162,6 +181,17 @@ export const connectProject = async (
   /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
   viewing: Accessor<boolean> = () => true,
 ): Promise<ConnectedProject> => {
+  const original = app;
+
+  const rpc: AppSeam["rpc"] = (method, params) => {
+    if (!reads.has(method)) return original.rpc(method, params);
+
+    const captured = structuredClone(params);
+
+    return retryRead(() => original.rpc(method, captured));
+  };
+
+  app = { ...app, rpc, get showContextMenu() { return original.showContextMenu; } };
   // Preserve the Project-owned Notes lookup for observers using the original connection.
   notesFor(app, project.path, drafts);
   app = withAppSettings(app, id => rail.nodes.find(node => node.id === id)?.can_resume ?? false);
@@ -173,8 +203,16 @@ export const connectProject = async (
 
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
-  const [stopTerminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
-  const rail = createRailState(app, events, storage);
+  const [terminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
+  let stopRail = () => {};
+
+  const rail = createRoot(dispose => {
+    stopRail = dispose;
+
+    return createRailState(app, events, storage);
+  });
+
+  if (ended) stopRail();
 
   await rail.settled();
 
@@ -212,7 +250,7 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
-  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
