@@ -24,8 +24,8 @@ ShadowRoot.prototype.adoptedStyleSheets ??= [];
 
 CSSStyleSheet.prototype.replaceSync ??= () => undefined;
 
-// jsdom has no boxes; Zag checks layout visibility before focusing Dialog children.
+// jsdom has no boxes; Zag checks layout visibility before focusing the nonmodal Switcher and Ask dialogs.
 // Keep hidden content excluded while allowing the real focus trap to run in tests.
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get() {
-  return this.isConnected && this.closest('[data-scope="dialog"][data-part="content"]') && !this.closest("[hidden]") ? 1 : 0;
+  return this.isConnected && this.closest('.switcher[data-scope="dialog"], .ask-bar[data-scope="dialog"]') && !this.closest("[hidden]") ? 1 : 0;
 } });
