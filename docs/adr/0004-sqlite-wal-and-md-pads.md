@@ -27,7 +27,7 @@ cannot repair the locking conflict. Moving WAL checkpoints also retains the
 payload's eventual WAL-to-database write. See [SQLite isolation](https://sqlite.org/isolation.html)
 and [WAL mechanics](https://sqlite.org/wal.html).
 
-Amended 2026-10-25 (#3964): [Architect authorization](https://github.com/roundup-app/roundup/issues/3964#issuecomment-6394909828)
+Amended 2026-10-25 (#3964): [User authorization](https://github.com/roundup-app/roundup/issues/3964#issuecomment-6394909828)
 approves R3778b's physical payload representation and exact implementation file
 set in `scenarios/test-cost.md`. Publish through one public operation and one
 metadata visibility point: make each new local payload's private immutable file
