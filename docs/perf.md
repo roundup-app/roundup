@@ -471,19 +471,23 @@ cross-process subtraction is involved; a report without every hop is invalid
 | `keydown_to_input` | `keydown` → xterm `onData` |
 | `input_to_dispatch` | `onData` → `terminal.write` called; retained coarse span for the earlier reports |
 | `input_to_encoded` | `onData` → base64 encoding completed; includes the input queue's wait for the previous write's reply |
+| `input_to_encoding` | `onData` → batch byte preparation starts; isolates the input queue wait |
+| `encoding_to_encoded` | batch byte preparation starts → base64 completed |
 | `encoded_to_dispatch` | base64 encoding completed → `terminal.write` called |
 | `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
 | `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
 | `parsed_to_frame` | parsed → the next render |
 | `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
 
-Screens stamps completed encoding of each dispatched batch through the existing
-optional emulator probe, after `toBase64` returns and before the RPC call. Queued
-keys are stamped when their batch is encoded, not when they first enter the
-queue. This adds a same-clock boundary; it does not split queue wait from
-encoding cost, calibrate Daemon clocks, or establish a latency repair. The
-previously retained five-span reports remain historical evidence; new reports
-require both additional spans, or exit 2.
+Screens stamps the start of each dispatched batch before converting queued bytes
+and stamps completion after `toBase64` returns. Both use the existing optional
+emulator probe on the webview clock. The deterministic R20 attribution test
+separates a 7 ms queue wait from 2 ms encoding; the queued-input test holds the
+previous RPC reply and verifies that the next batch starts encoding only when
+released. These are synthetic attribution checks, not measured native latency.
+New reports require both split spans alongside the historical coarse spans, or
+exit 2. This does not calibrate Daemon clocks or establish a production repair;
+retained native reports remain historical evidence.
 
 The collector also requires every required hop's sample count to equal the
 rendered sample count, with finite, nonnegative, ordered p50/p95 values. Rendered
