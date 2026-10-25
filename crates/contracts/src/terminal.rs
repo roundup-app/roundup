@@ -202,3 +202,25 @@ pub struct Screen {
     pub lines: Vec<String>,
     pub truncated: bool,
 }
+
+/// R20: opt-in per-Terminal recording; the same run reads its retained samples and clock.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct MeasureParams {
+    pub id: String,
+    pub run: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct KeystrokeSample {
+    pub token: String,
+    pub received: f64,
+    pub written: Option<f64>,
+    pub read: Option<f64>,
+    pub ambiguous: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Measurement {
+    pub at: f64,
+    pub samples: Vec<KeystrokeSample>,
+}
