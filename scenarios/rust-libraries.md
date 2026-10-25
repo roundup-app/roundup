@@ -45,23 +45,31 @@ Policy: use the existing vendor tests in Check 2 and the other `r16_cached_rows_
 
 Policy: compare gix, `git2` and the installed git executable. Retain an alternating before/after timing series on one host/session for identical repositories and reference inputs, excluding fixture creation/build time; publish sample count, raw durations, medians and exact observer commands on the Issue. Keep only if the candidate median elapsed read time is strictly lower and the total nonblank, noncomment production lines implementing that read plus any new helper/adapter are strictly fewer; report before/after line counts and counted files. Dependency/generated/test code is excluded symmetrically. Record build/binary costs and retain all rule 7 perf gates. A tie in either measure drops gix. No git writes, Worktree provisioning or cleanup operations change. Remove a dropped spike from production and leave its reproducible result on the Issue.
 
-**Z3802e insta removes at least five manual snapshot assertions.** Given existing assertions of structured behavior in one owning Rust crate, when adopting insta, then each converted fixture still fails if any previously asserted behavioral field changes. Preserve meaningful identities and ordering; normalize only demonstrated nondeterministic values, never fields the scenario promises. Keep existing scenario-prefixed test names; add a `z3802e_` test only for an otherwise unproved behavior, not for the snapshot mechanism itself.
+**Z3802e insta removes at least five manual snapshot assertions.** Policy: given existing assertions of structured behavior in one owning Rust crate, when adopting insta, then each converted fixture still fails if any previously asserted behavioral field changes. Preserve meaningful identities and ordering; normalize only demonstrated nondeterministic values, never fields the scenario promises. Keep existing scenario-prefixed test names; add a `z3802e_` test only for an otherwise unproved behavior, not for the snapshot mechanism itself.
 
 Policy: before editing, inventory at least five concrete manual assertion sites by file/test and the fields they prove. Replace at least five of those assertion calls with fewer insta snapshot assertions, preserving every site's then-clause; report old/new assertion counts, retained test names and snapshot paths. Do not manufacture assertions merely to collapse them. Review snapshot contents and demonstrate a deliberate changed behavioral field is caught, then restore it. Compare `insta` with `expect-test`, checking release/maintenance evidence and existing assertion tools first. Drop with the inventory/count if fewer than five suitable assertions can collapse. Snapshot acceptance is explicit review; CI never updates snapshots automatically.
 
 **Z3802f cargo-mutants reports PR-diff results within ten minutes.** Given a PR with changed Rust production lines, when its mutation lint runs, then only mutations intersecting the PR's merge-base-to-head diff are selected, a completed report identifies caught/missed/unviable/timeout results, and total lane time including tool setup, build and report publication stays below 600 seconds (policy: retained CI run, diff, selection and timestamps). An unchanged/no-Rust diff reports zero selected mutations without a mutation build. A main push never runs this lint. Missed mutants and observer/tool failures are reported but cannot turn a required gate red or suppress ordinary checks.
 
-Policy: use cargo-mutants' supported diff selection/reporting before writing any wrapper; compare with `mutagen` and state its maintenance status. Do not claim a 2018 release is a maintained alternative: include a second maintained testing candidate if that comparison fails rule 9. Wire the advisory PR-only lint through `.github/workflows/check.yml`; changing frozen workflows, `.agents/` or `loop/` is not authorized. It cannot approve its own PR, satisfy `review`/`rules`/`critic`, change branch protection or mutate the PR. Retain the actual workflow observations for changed Rust, no Rust, main push, missed mutant and failed/timed-out tool; do not add source-text workflow tests.
+Policy: use cargo-mutants' supported [diff selection](https://mutants.rs/in-diff.html) and reporting before writing any wrapper; compare with `cargo-llvm-cov`, whose coverage reports must be checked for the required mutant detection capability. Registry observations on 2026-10-25: cargo-mutants 27.1.0 released 2026-06-02; cargo-llvm-cov 0.9.1 released 2026-09-06 ([cargo-mutants](https://crates.io/crates/cargo-mutants), [cargo-llvm-cov](https://crates.io/crates/cargo-llvm-cov)). Wire the advisory PR-only lint through `.github/workflows/check.yml`; changing frozen workflows, `.agents/` or `loop/` is not authorized. It cannot approve its own PR, satisfy `review`/`rules`/`critic`, change branch protection or mutate the PR. Retain the actual workflow observations for changed Rust, no Rust, main push, missed mutant and failed/timed-out tool; do not add source-text workflow tests.
 
 Policy: report every outcome separately; a hard timeout must leave a report and a drop decision rather than count as a completed run under budget. The adapter preserves the tool's raw exit status and distinguishes these outcomes:
 
-| Observer outcome | Advisory lane result | Decision |
+Use the pinned tool's documented [exit codes](https://mutants.rs/exit-codes.html); retain stdout/stderr and `mutants.out` when produced. Each failure has its own report row, even though the PR lane remains advisory. Setup/publication subprocess failures retain their actual status separately from the tool status.
+
+| Observer outcome | Raw exit | Advisory report and decision |
 |---|---|---|
-| Completed, all selected mutations caught | success report, raw tool exit retained | keep only below 600 s |
-| Completed, missed/unviable mutations | success report with counts and raw exit | keep only below 600 s; report survivors |
-| No changed Rust mutations | success report with count 0 | skip build; not performance evidence |
-| Tool/setup/build/report failure | advisory failure report with raw exit/cause | no keep proof; ordinary checks still run |
-| 600 s reached, including setup/publication | timeout report | drop with elapsed seconds; main remains unblocked |
+| Completed, viable mutants caught | 0 | keep only below 600 s |
+| No changed Rust mutations | 0 | zero selected; skip build; no timing proof |
+| Invalid arguments | 1 | usage failure; no keep proof |
+| Missed mutations | 2 | report survivors; keep only below 600 s |
+| Mutant test timeout | 3 | report timeouts; no completed-run proof |
+| Baseline tests fail/hang | 4 | report baseline failure; no keep proof |
+| Diff does not match tested tree | 5 | report mismatched revision; no keep proof |
+| Invalid diff | 6 | report diff failure; no keep proof |
+| Tool internal failure | 70 | report cause; no keep proof |
+| Setup/build/publication subprocess failure | actual nonzero status | report stage/status; no keep proof |
+| Total lane deadline reached | 124 from deadline wrapper | report elapsed seconds; drop; main remains unblocked |
 
 **Z3802g one parser and one reducer gain generated properties.** Given bounded generated JSON values containing nested objects, arrays, Unicode and objects spanning the parser's eight-entry staging boundary, when serialized JSON is decoded by the production `Parsed` deserializer, then its value equals serde_json's ordinary decode (`z3802g_frame_parser_matches_json`, planned beside `Parsed`, using proptest). Values exclude non-finite numbers; generation has explicit size/depth limits. A recorded seed replays a failure and shrinking retains a runnable minimal counterexample. This tests production parsing, not a generator round-trip alone.
 
