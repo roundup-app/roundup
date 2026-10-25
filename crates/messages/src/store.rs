@@ -60,6 +60,7 @@ pub(crate) struct Store {
 impl Store {
     pub(crate) fn open(path: &Path) -> Result<Self, OpenError> {
         let mut db = Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
         let store = Self { db };
         store.migrate_removed_holds()?;

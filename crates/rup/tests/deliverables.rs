@@ -888,3 +888,21 @@ async fn dv1_stale_pad_source_cannot_publish_replacement() {
         1
     );
 }
+
+#[tokio::test]
+async fn r3778c_file_failure_has_no_publication() {
+    for operation in ["write", "file_sync", "link", "directory_sync"] {
+        let mut p = daemon::start(&[("RUPD_PUBLICATION_FAIL", operation)]);
+        let c = p.client().await;
+        c.request("pad.create", json!({"name":"notes","text":"durable bytes"})).await.unwrap();
+        let request = json!({"key":"retry","title":"Result","target":pad_target(&c,"notes",1).await});
+        assert!(c.request("deliverable.publish",request.clone()).await.is_err(), "{operation}");
+        assert_eq!(c.request("deliverable.list",json!({})).await.unwrap(),json!([]));
+        p.restart(&[]);
+        let c = p.client().await;
+        let r=c.request("deliverable.publish",request.clone()).await.unwrap();
+        assert_eq!(c.request("deliverable.publish",request).await.unwrap(),r);
+        let resolved=c.request("deliverable.resolve",json!({"project":r["project"],"id":r["id"]})).await.unwrap();
+        assert_eq!(std::fs::read(resolved["path"].as_str().unwrap()).unwrap(),b"durable bytes");
+    }
+}

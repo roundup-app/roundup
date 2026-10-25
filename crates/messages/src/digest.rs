@@ -103,6 +103,7 @@ impl Seen {
     /// Daemon last ran (B23).
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut db = rusqlite::Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
         crate::digest_schema::open(&mut db, path)?;
         let named = db
             .prepare("SELECT door, child, newest FROM pad_cursors")?

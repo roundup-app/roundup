@@ -281,10 +281,6 @@ impl Drop for MeasurementWait {
 impl Timing {
     pub(crate) fn open(path: &Path, bus: Bus, clock: crate::Clock) -> Result<Self, OpenError> {
         let db = Connection::open(path)?;
-        if path.file_name().is_some_and(|name| name == "project.db") {
-            db.pragma_update(None, "synchronous", "EXTRA")?;
-            db.pragma_update(None, "journal_mode", "PERSIST")?;
-        }
         // A busy measurement store reports a collection failure; it cannot hold up an
         // acknowledgement/answer waiting for a writer in the Agent lifecycle.
         db.busy_timeout(Duration::ZERO)?;

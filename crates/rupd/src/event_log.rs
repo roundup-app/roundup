@@ -15,9 +15,8 @@ pub(crate) struct SqliteLog {
 impl SqliteLog {
     pub(crate) fn open(dir: &Path) -> rusqlite::Result<Self> {
         let db = Connection::open(dir.join("project.db"))?;
-        // NORMAL is safe only for WAL; rollback writers require EXTRA (ADR 0004).
-        db.pragma_update(None, "synchronous", "EXTRA")?;
-        db.pragma_update(None, "journal_mode", "PERSIST")?;
+        // A SIGKILL cannot lose a committed row in WAL mode; only a power cut can lose the last few.
+        db.pragma_update(None, "synchronous", "NORMAL")?;
         db.busy_timeout(std::time::Duration::from_secs(5))?;
         Ok(Self { db: Mutex::new(db) })
     }
