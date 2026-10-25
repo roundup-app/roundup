@@ -71,6 +71,20 @@ def gh(*args):
     return json.loads(call(*args, timeout=GH_TIMEOUT))
 
 
+def running(pr):
+    """The workflows with a run that has not ended on the PR's head."""
+    return {check['workflowName'] for check in pr.get('statusCheckRollup') or []
+            if check.get('workflowName') and check.get('status') != 'COMPLETED'}
+
+
+def touches_desktop(pr):
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
+    the 300 files where GitHub refuses `gh pr diff`."""
+    return any(changed['filename'].startswith('apps/desktop/src/') for page in gh(
+        'api', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100', '--paginate', '--slurp') for changed in page)
+
+
+
 def created(item):
     return datetime.fromisoformat(item.replace('Z', '+00:00')).timestamp()
 
