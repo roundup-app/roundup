@@ -1,11 +1,10 @@
 name: review
 run-name: Review ${{ github.event.workflow_run.head_branch }}
 
-# L24: one review run per PR head, once `pre` (the lints) passes on it, before the tests run. A workflow_run job runs main's copy of this file, so no PR
+# L24: one review run per PR head, once `pre` (the lints) passes on it. A workflow_run job runs main's copy of this file, so no PR
 # changes its own review. The review run holds a read token and answers in a fixed schema; `post` publishes the answer
-# as a VERDICT comment and the `review` status the ruleset requires; a reject starts a fix run, and an approve that
-# completes the pair with `critic` reruns the head's `check`, whose lanes wait for it. It runs on Sonnet,
-# which spends less of the weekly Claude limit than Opus.
+# as a VERDICT comment and the `review` status the ruleset requires; a reject starts a fix run. The tests run alongside it.
+# It runs on Sonnet, which spends less of the weekly Claude limit than Opus.
 on:
   workflow_run:
     workflows: [pre]
@@ -32,13 +31,12 @@ jobs:
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
-    # L24: an unchanged diff keeps its approval here (`carried`), which sets the `review` status and reruns `check`.
+    # L24: an unchanged diff keeps its approval here (`carried`), which sets the `review` status.
     permissions:
       contents: read
       issues: read
       pull-requests: read
       statuses: write
-      actions: write
     outputs:
       pr: ${{ steps.task.outputs.pr }}
       head: ${{ github.event.workflow_run.head_sha }}
