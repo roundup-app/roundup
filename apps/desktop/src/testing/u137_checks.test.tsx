@@ -36,6 +36,11 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D4).toMatchObject({ status: "fail", selector: 'li[data-id="pad"]' });
   });
 
+  it("u133_drag_cancels_control_press_measurement", () => {
+    document.body.innerHTML = '<div data-dnd-dragging><button>Rename</button></div>';
+    expect(runChecks().D4.status).toBe("pass");
+  });
+
   it("u137_a_later_check_call_observes_changed_styles", () => {
     document.body.innerHTML = "<p class='rail-row'>x</p>";
     addSheet(".rail-row { transition-duration: 0s; }");
@@ -69,12 +74,16 @@ describe("u137 one module measures the checks", () => {
 
     expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"] } });
     expect(before.D7.status).toBe("pass");
+    expect(before.D4).toMatchObject({ status: "fail", value: { pressFeedback: "missing" } });
 
     addSheet(".rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
     const after = runChecks();
 
     expect(after.D6.status).toBe("pass");
     expect(after.D7).toMatchObject({ status: "fail", value: { pressedBackground: true } });
+
+    addSheet(":root { --press-opacity: 0.6; } button[data-pressed=\"true\"] { opacity: var(--press-opacity); transition: none; }");
+    expect(runChecks().D4.status).toBe("pass");
   });
 
   it("u133_d6_measures_text_input_hit_areas_without_button_states", () => {

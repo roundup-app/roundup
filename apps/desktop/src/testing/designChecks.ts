@@ -1,6 +1,6 @@
 type Alignment = { row: string; inset: number; baseline: number | null };
 
-type Reading = string | { press: string } | { controls: number; feedback: string } | { rows: number; cue?: string } | { cue: string; rule: string } | { expected: number; readings: Alignment[] };
+type Reading = string | { pressFeedback: string } | { controls: number; feedback: string } | { rows: number; cue?: string } | { cue: string; rule: string } | { expected: number; readings: Alignment[] };
 
 const result = <Value extends Reading>(value: Value, selector = "", ok = true) => ({ status: ok ? "pass" as const : "fail" as const, value, selector });
 
@@ -30,7 +30,7 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
       try { return owner.matches(selector) && (rule.style.transition === "none" || view.getComputedStyle(owner).transitionDuration.split(",").every(value => parseFloat(value) === 0)); } catch { return false; }
     });
 
-    if (!covered) return result({ press: "missing instant visible Token feedback" }, nameOf(owner), false);
+    if (!covered) return result({ pressFeedback: "missing" }, nameOf(owner), false);
   }
 
   return result({ controls: controls.length, feedback: "instant Token recipe; frame readings in paired observer" });
