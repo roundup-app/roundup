@@ -49,7 +49,7 @@ for ref in ['historical','candidate']:
     grouped = collections.Counter()
     for key,count in counts.items(): grouped[key[0],key[1]] += count
     relevant = [r for r in records if r[4].startswith('PERF_RECORD_COMM') and (r[1] in (daemon,probe) or 'exec: cat:' in r[4]) or r[1]==daemon and r[4].startswith('PERF_RECORD_EXIT')]
-    (out/(ref+'-boundaries.txt')).write_text('\n'.join(f'{t:.6f} {pid}/{tid} {comm} {detail}' for comm,pid,tid,t,detail in relevant)+'\n')
+    (out/(ref+'-boundaries.txt.gz')).write_bytes(gzip.compress(('\n'.join(f'{t:.6f} {pid}/{tid} {comm} {detail}' for comm,pid,tid,t,detail in relevant)+'\n').encode(), mtime=0))
     summary[ref]={'probe_pid':probe,'daemon_pid':daemon,'echo_thread_comm_time':start,'first_daemon_thread_exit_time':end,'window_seconds':end-start,'total_samples':len(samples),'samples':{window+':'+role:n for (window,role),n in grouped.items()},'record_types':dict(collections.Counter(re.split(r'[:(]', r[4].split()[0])[0] for r in records))}
 (out/'input-hashes.json').write_text(json.dumps(identities,indent=2)+'\n')
 (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
