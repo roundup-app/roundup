@@ -34,6 +34,8 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
     // Version 36 precedes 0023-remove-decisions.sql. Later migrations must not
     // move this fixture past the authority-removal boundary it exercises.
     let db = Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
+        .unwrap();
     db.pragma_update(None, "user_version", 36_i64).unwrap();
     db.execute_batch(
         "CREATE TABLE decision_answers (seq INTEGER PRIMARY KEY, decision TEXT NOT NULL UNIQUE,
