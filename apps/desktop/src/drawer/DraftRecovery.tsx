@@ -75,8 +75,8 @@ const DraftRecoveryPanel = () => {
     const { surface, object } = row.draft.destination;
 
     if (surface === "row-name") {
-      const todo = object.startsWith("todo:") ? todos.all().find(todo => String(todo.id) === object.slice(5)) : undefined;
-      const pad = object.startsWith("pad:") ? pads.pads().find(pad => pad.incarnation === object.slice(4)) : undefined;
+      const todo = todos.all().find(todo => object === `todo:${todo.id}`);
+      const pad = pads.pads().find(pad => object === `pad:${pad.incarnation}`);
 
       return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
         version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}

@@ -171,7 +171,7 @@ for (const { remaining, reopened, target } of [
     fireEvent.click(await screen.findByRole("button", { name: `${remaining.length} done` }));
     const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: `Reopen todo ${reopened}` });
     box.focus(); fireEvent.click(box);
-    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));
+    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:reopened}]));
     mounted.app.emit(todoEvent("todo.updated", mounted.store.todos.find(t => t.id === reopened)!));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: target })));
     // The reopened Todo is Unassigned, a group that starts folded.

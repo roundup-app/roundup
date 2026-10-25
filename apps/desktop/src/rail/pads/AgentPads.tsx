@@ -1,5 +1,5 @@
 import { deleteTodos } from "../../todos/deleteTodos";
-import { contextMenu, linkEntries, openOnRelease } from "../../ui/contextMenu";
+import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
 import { copy } from "../../copy";
@@ -169,9 +169,14 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
+    const homes = homesToOffer(connected.rail.nodes, todo.home);
+    const move: MenuEntry = { id: "move", label: copy.move, enabled: homes.length > 0 };
+
+    if (homes.length > 0) move.children = homes.map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name,
+      run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) }));
+
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name,
-        run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) })) },
+      move,
       { id: "move-up", label: copy.moveUp, run: () => props.pads.reorder.step(todo.id, -1) },
       { id: "move-down", label: copy.moveDown, run: () => props.pads.reorder.step(todo.id, 1) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),

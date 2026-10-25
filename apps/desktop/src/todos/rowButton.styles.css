@@ -398,7 +398,17 @@
 .todo-row:focus-within [data-group-toggle],
 .todo-row[data-selected="true"] [data-group-toggle] { opacity: 1; pointer-events: auto; }
 .row-name-editor { flex: 1; min-width: 0; position: relative; z-index: 1; }
-.row-name-editor input { width: 100%; font: inherit; color: var(--text); background: var(--sunken); }
+.row-name-editor input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+}
 
 .row-secondary { opacity: 0; pointer-events: none; }
 :is(.shelf-row, .rail-row):focus-within .row-secondary,

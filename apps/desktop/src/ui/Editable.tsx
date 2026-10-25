@@ -80,7 +80,7 @@ export const NameField = (props: {
   });
 
   return <Editable.Root edit value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
-    <Editable.Input aria-label={copy.name} aria-invalid={conflict() || undefined} aria-busy={!ready() || pending()} ref={field => queueMicrotask(() => {
+    <Editable.Input type="text" class="shelf-title" aria-label={copy.name} aria-invalid={conflict() || undefined} aria-busy={!ready() || pending()} ref={field => queueMicrotask(() => {
       if (!field.isConnected) return;
       field.focus();
 

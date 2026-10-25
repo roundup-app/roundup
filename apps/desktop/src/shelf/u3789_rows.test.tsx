@@ -1,4 +1,5 @@
 import { settled } from "../rail/railFixture";
+import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { App } from "../App";
@@ -68,7 +69,8 @@ it.each(cases.flatMap(kind => ["return", "open"].map(input => ({ kind, input, na
     await waitFor(() => expect(document.activeElement?.closest('.pane-screen')).not.toBeNull());
   } else {
     const method = kind.startsWith("pad") ? "pad.read" : "todo.getHistory";
-    await waitFor(() => expect(rpcCalls(app, method)).toHaveLength(1));
+    const identity = kind.startsWith("todo") ? { id: 1 } : { name: kind === "pad-shelf" ? "a-pad-with-a-very-long-name-here" : "pad-0" };
+    await waitFor(() => expect(rpcCalls(app, method)).toEqual([identity]));
     expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull();
   }
 
@@ -259,8 +261,10 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
   fireEvent.input(field, {target:{value:"scoped exact"}});
   fireEvent.keyDown(field, {key:"Enter"});
   await waitFor(() => expect(rpcCalls(app, "todo.create")).toHaveLength(1));
-  const expected: {title:string;body:null;blockers:null;owner?:{kind:"agent";id:string;parent:null}} = {title:"scoped exact",body:null,blockers:null};
-  if (scope === "agent") expected.owner = {kind:"agent",id:"tokens",parent:null};
+  const expected: CreateParams = { title: "scoped exact", body: null, blockers: null };
+
+  if (scope === "agent") expected.owner = { kind: "agent", id: "tokens", parent: null };
+
   expect(rpcCalls(app, "todo.create")[0]).toEqual(expected);
 
   if (scope !== "overview") await waitFor(() => expect(rpcCalls(app, "todo.move")).toEqual([{id:expect.any(Number), home:scope === "agent" ? "auth" : "payments"}]));
@@ -282,13 +286,17 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   await showEverythingInApp();
 
   if (kind === "pad-shelf") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
+
   const selector = kind === "todo-shelf" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab [data-incarnation="fixture-1"] .pad-name';
+
   const row = await waitFor(() => {const row = document.querySelector<HTMLElement>(selector);
 
  if (!row) throw new Error("row unavailable");
 
  return row;});
+
   fireEvent.keyDown(row, {key:"F2"});
+
   const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:"Name"});
   await waitFor(() => expect(document.activeElement).toBe(restored));
   expect(restored.value).toBe(text);
@@ -362,7 +370,7 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
   await waitFor(() => expect(panel().querySelectorAll('[data-shelf-group]')).toHaveLength(1));
 
   if ("id" in item) {
-    if (action === "delete") await app.rpc("todo.delete", {id:item.id});
+    if (action === "delete") await app.rpc("todo.delete", {operation: crypto.randomUUID(), ids:[item.id]});
     else await app.rpc("todo.move", {id:item.id, home:null});
   } else {
     if (action === "delete") await app.rpc("pad.delete", {name:item.name});

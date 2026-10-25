@@ -147,7 +147,7 @@ export const RailRowView = (props: {
       props.onEditing(true);
     },
     onKeyDown: (event: KeyboardEvent) => {
-      if (event.target !== event.currentTarget || event.key !== "F2") return;
+      if (event.target !== event.currentTarget || event.key !== "F2" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) return;
       event.preventDefault(); event.stopPropagation(); props.onEditing(true);
     },
     onContextMenu: (press: MouseEvent) => openOnRelease(press, (x, y) => props.onOpenMenu(x, y)),

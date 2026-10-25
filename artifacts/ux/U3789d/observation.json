@@ -1,0 +1,25 @@
+{
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seeds": [
+    "tree-40",
+    "agents-10",
+    "empty-project"
+  ],
+  "checks_files": 23,
+  "check_failures": [],
+  "row_geometry_changes": {
+    "dense-hover": [],
+    "dense-focus": [],
+    "dense-selected": []
+  },
+  "failure_text": [
+    "Rename refused: busy",
+    "Complete refused: busy"
+  ],
+  "video": "interaction.webm",
+  "base": "936b9c726b7eb137680141197b3a692e99af2f15"
+}

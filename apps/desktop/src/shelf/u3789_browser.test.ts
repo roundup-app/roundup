@@ -142,7 +142,7 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await shot("U3789b", "head", "dense-failure");
   await shot("U3789c", "head", "empty-groups-absent");
   await browser("eval", "window.__rowObserver.disconnect()");
-  await browser("press", "Escape");
+  await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', bubbles:true, cancelable:true}))");
   await browser("focus", title);
   await browser("press", "F2");
   await wait("document.querySelector('.row-name-editor input')");
@@ -152,9 +152,13 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await browser("press", "Enter");
   await wait("document.body.textContent.includes('Rename refused: busy')");
   await shot("U3789d", "head", "dense-rename-failure");
-  await browser("press", "Escape");
-  await browser("eval", "window.__fake.failNext(-32003, 'Complete refused: busy')");
+  await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', code:'Escape', bubbles:true, cancelable:true}))");
+  await wait("!document.querySelector('.row-name-editor') && document.querySelector('.todos-tab').checkVisibility()");
+  await browser("scrollintoview", '.todos-tab [data-todo="2"] .todo-row-button');
   await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
+  await shot("U3789d", "head", "before-complete");
+  await wait("document.activeElement?.matches('.todos-tab [data-todo=\"2\"] .todo-row-button')");
+  await browser("eval", "window.__fake.failNext(-32003, 'Complete refused: busy')");
   await browser("click", '.todos-tab [data-todo="2"] .todo-tick');
   await wait("document.body.textContent.includes('Complete refused: busy')");
   await shot("U3789d", "head", "dense-complete-failure");

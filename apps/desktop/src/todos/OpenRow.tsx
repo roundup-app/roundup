@@ -198,8 +198,7 @@ export const OpenRow = (props: {
     >
       <Show when={props.nested}>{head}</Show>
       <div class="row-secondary">{props.groupProgress}</div>
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><button data-button="quiet" class="word" type="button" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}>{copy.dismissFailure}</button></ReservedLine></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><IconButton aria-label={copy.dismissFailure} data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}><Icon name="x" /></IconButton></ReservedLine></div>
     </ShelfRow>
   );
 };
-

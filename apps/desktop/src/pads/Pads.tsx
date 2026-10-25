@@ -304,7 +304,7 @@ export const Pads = (props: {
     },
   };
 
-  const isEmpty = createMemo(() => list.loaded() && pads().length === 0);
+  const isEmpty = createMemo(() => list.loaded() && shown().length === 0);
 
   return (
     <section aria-label={copy.pads} class="pads-tab">

@@ -483,11 +483,12 @@ export const Todos = (props: {
   };
 
   const openField = () => {
+    setCreateFailure(null);
+
     if (typing()) { document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
 
  return; }
 
-    setCreateFailure(null);
     setCreationHome(selectedWorkstream());
     setCreationOwner(scope.agent()?.id ?? null);
     const draft = creation();

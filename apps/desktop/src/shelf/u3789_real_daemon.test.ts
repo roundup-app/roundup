@@ -99,6 +99,10 @@ it("u3789a_real_daemon_rows", async () => {
     expect(renamedTodo).toMatchObject({ title: "renamed todo", body: "keep body", home: home.id, creator: todo.creator });
     expect(renamedPad).toMatchObject({ name: "renamed pad", text: "keep text", home: home.id, owner: pad.owner, revision: pad.revision });
     expect((await app.rpc("rail.tree", null)).find(node => node.id === home.id)?.attempt).toBe(door.attempt);
+  } catch (error) {
+    console.error(await browser("snapshot"));
+    console.error(await browser("errors"));
+    throw error;
   } finally {
     try { await browser("close"); } finally { await real.stop(); await rm(profile, { recursive: true, force: true }); }
   }

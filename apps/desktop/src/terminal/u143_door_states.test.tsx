@@ -1,3 +1,4 @@
+import { chooseAction } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -215,7 +216,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
 
     connected.rail.select("r");
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    await chooseAction(app, "r", "Add Agent");
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });

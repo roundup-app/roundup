@@ -259,6 +259,7 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", `[aria-label="Idle #${original.id} discard by pointer"]`);
+    await browser("click", `[data-todo="${original.id}"] [aria-label="Open"]`);
     await browser("wait", ".drawer .todo-history-line");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");

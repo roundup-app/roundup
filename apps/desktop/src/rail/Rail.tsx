@@ -62,7 +62,7 @@ export const Rail = () => {
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [...(node.attempt === null && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
-        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); void rail.startDoor(node.id); } }] : [])] : []),
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
   });
 
@@ -87,7 +87,7 @@ export const Rail = () => {
 
     if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
 
-    if (surface === "rail-name" && object === editingName()) {
+    if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
       return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
     }
 

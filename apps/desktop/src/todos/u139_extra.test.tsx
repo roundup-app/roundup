@@ -13,9 +13,10 @@ describe("u139 a non-Enter key on the focused text does not start editing", () =
     await within(drawer()).findByText("Blocker");
     const title = within(drawer()).getByText("session store");
 
+    const fields = within(drawer()).queryAllByRole("textbox");
     title.focus();
     fireEvent.keyDown(title, { key: "a" });
 
-    expect(within(drawer()).queryAllByRole("textbox")).toHaveLength(0);
+    expect(within(drawer()).queryAllByRole("textbox")).toEqual(fields);
   });
 });
