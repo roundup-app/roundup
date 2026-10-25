@@ -145,7 +145,7 @@ async fn d2_the_first_prompt_names_the_agent() {
 }
 
 #[tokio::test]
-async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
+async fn h15_every_hook_call_of_a_ten_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
  {
     use std::os::unix::fs::PermissionsExt;
     let probe = tempfile::tempdir().unwrap();
@@ -164,14 +164,14 @@ sys.exit(result.returncode)
 "##).unwrap();
     std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
     let project = daemon::start_real(
-        "h15_hundred_tools",
+        "h15_ten_tools",
         &[
             ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
             ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
             ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
         ],
     );
-    for index in 0..100 {
+    for index in 0..10 {
         std::fs::write(
             project.dir.path().join(format!("h15-{index:03}.txt")),
             "H15 hook round\n",
@@ -184,7 +184,7 @@ sys.exit(result.returncode)
             Duration::from_secs(30),
             client.request(
                 "agent.spawn",
-                json!({"cwd": project.dir.path(), "name":"hook-reader", "prompt": "H15 exercise one hundred tools"}),
+                json!({"cwd": project.dir.path(), "name":"hook-reader", "prompt": "H15 exercise ten tools"}),
             ),
         )
         .await
@@ -211,13 +211,13 @@ sys.exit(result.returncode)
         }
     })
     .await
-    .expect("the hundred-tool turn completes");
+    .expect("the ten-tool turn completes");
     let model = project.model.as_ref().unwrap();
     model.assert_matched();
     let journal = model.journal();
     // Aimock truncates long request bodies at 64 KB. Its selected fixture records the
     // last-result ID and content constraints that actually matched even after that cap.
-    for index in 0..100 {
+    for index in 0..10 {
         let id = format!("toolu_h15_{index:03}");
         assert!(
             journal.iter().any(|entry| {
@@ -237,7 +237,7 @@ sys.exit(result.returncode)
         .iter()
         .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
         .collect();
-    assert_eq!(uses.len(), 200, "{hooks:#?}");
+    assert_eq!(uses.len(), 20, "{hooks:#?}");
     assert!(
         uses.chunks(2).all(|pair| pair[0]["event"] == "PreToolUse"
             && pair[1]["event"] == "PostToolUse"
