@@ -502,7 +502,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
     mount();
     await openRecovery();
-    await screen.findByRole("alert");
+    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
     expect(holder.problem()).toMatchObject({ operation: "retain", cause: "write" });
     expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision).sort()).toEqual([older.revision, newer.revision].sort());
     calls.forEach((spy) => spy.mockClear());
@@ -510,7 +510,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(holder.list().find((draft) => draft.revision === newer.revision)).toEqual(newer);
     // Stored again, newer is no longer at risk but stays listed as left unsent.
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
     fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(createProjectDrafts()(first.dir).list()).toEqual([newer]));
     expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
@@ -601,7 +601,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     });
     mount();
     await openRecovery();
-    await screen.findByRole("alert");
+    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
     expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
     expect(headerFactory).toBe(drafts);
     const header = headerFactory!(first.dir);
@@ -632,12 +632,12 @@ describe("u2773 Project draft integration on real Projects", () => {
     if (kind === "surface") {
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       expect(localStorage.getItem(key)).toBe(bytes);
-      expect(screen.getByRole("alert")).toBeTruthy();
+      expect(within(screen.getByLabelText("Unfinished work")).getByRole("alert")).toBeTruthy();
       localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
     }
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     noDelivery();
   }, 60_000);
