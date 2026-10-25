@@ -270,6 +270,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: R3800 startup artifact checker observers
+        run: node --test apps/desktop/budgets/*.test.mjs
       - name: T3797a real-tool lint observers
         run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies
