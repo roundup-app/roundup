@@ -1,0 +1,3 @@
+[files]
+# Tool output contains the exact rejected spellings; scanning it would duplicate each exception.
+extend-exclude = ["tools/lint/debt.json"]

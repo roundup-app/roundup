@@ -16,6 +16,8 @@ lint-rust:
     cargo fmt --check
     just clippy
     cargo machete crates
+    python3 tools/lint/setup.py rust
+    python3 tools/lint/scan.py rust
     spikes/context-injection/e7_report.test.sh
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
@@ -61,6 +63,8 @@ lint-web:
     pnpm tokens:check
     pnpm typecheck
     pnpm slop
+    pnpm lint:boundaries
+    pnpm lint:cycles
     just packages typecheck
 
 # L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty. CI passes vitest a shard.
