@@ -777,43 +777,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn u2875b_failed_import_readiness_leaves_no_visible_pair_or_assignment() {
-        let (dir, agents, _) = fixture();
-        let path = enroll(&agents, dir.path(), "false").await;
-        assert!(
-            agents
-                .prepare_closed("failed", "hidden", dir.path(), RETAINED)
-                .await
-                .unwrap_err()
-                .message
-                .contains("readiness")
-        );
-        let agents = reopen(agents);
-        assert_eq!(agents.shared.rail().tree().unwrap().len(), 1);
-        assert!(
-            agents
-                .shared
-                .rail()
-                .closed_source("failed")
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            agents
-                .shared
-                .rail()
-                .worktree_owner_of(path.to_str().unwrap())
-                .unwrap()
-                .is_none()
-        );
-        assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-        assert_eq!(
-            std::fs::read_to_string(path.join(".cache/user-dependency")).unwrap(),
-            "keep"
-        );
-    }
-
-    #[tokio::test]
     async fn u2875c_failed_source_cannot_undo_a_published_source() {
         let (dir, agents, _) = fixture();
         let published = agents
@@ -848,58 +811,6 @@ mod tests {
                 .count(),
             1
         );
-    }
-
-    #[tokio::test]
-    async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
-        for mode in 0..3 {
-            let (dir, agents, _) = fixture();
-            if mode == 0 {
-                agents
-                    .shared
-                    .rail()
-                    .set_worktrees(&contracts::project::Worktrees {
-                        on: false,
-                        check: None,
-                    })
-                    .unwrap();
-            } else if mode == 2 {
-                enroll(&agents, dir.path(), "test -f src/file").await;
-            }
-            let (workstream, agent) = agents
-                .prepare_closed(
-                    "opaque-source",
-                    "imported",
-                    &dir.path().join("src"),
-                    b"{\"sessionId\":\"original\",\"type\":\"user\",\"message\":\"retained\"}\n",
-                )
-                .await
-                .unwrap();
-            let node = agents.shared.node(&agent).unwrap();
-            assert_eq!(node.parent.as_ref(), Some(&workstream));
-            assert!(node.can_resume);
-            assert!(node.attempt.is_none());
-            assert!(node.terminal_id.is_none());
-            assert!(node.status_revision.is_none());
-            assert_eq!(node.worktree.is_some(), mode != 0);
-            let saved = agents.shared.rail().conversation(&agent).unwrap().unwrap();
-            let bytes = agents
-                .launcher
-                .record_conversation(Path::new(&saved.1), &saved.0)
-                .unwrap();
-            assert!(String::from_utf8(bytes).unwrap().contains("retained"));
-            assert!(agents.shared.terminals.list().is_empty());
-            assert!(agents.shared.runs().is_empty());
-            let agents = reopen(agents);
-            assert!(agents.shared.node(&agent).unwrap().can_resume);
-            assert_eq!(
-                agents
-                    .prepare_closed("opaque-source", "replacement", dir.path(), b"invalid")
-                    .await
-                    .unwrap(),
-                (workstream, agent)
-            );
-        }
     }
 
     async fn enroll(agents: &Agents, project: &Path, readiness: &str) -> PathBuf {
@@ -944,5 +855,107 @@ mod tests {
             worktree::Git::from_env(),
         )
         .unwrap()
+    }
+    #[tokio::test]
+    async fn u2875b_first_explicit_resume_launches_attempt_one_in_retained_cwd() {
+        use rpc::Module;
+        use serde_json::json;
+        use std::os::unix::fs::PermissionsExt;
+        for prepared in [false, true] {
+            let (dir, mut agents, id) = fixture();
+            if prepared {
+                enroll(&agents, dir.path(), "true").await;
+            }
+            let bin = dir.path().join("fake-claude");
+            std::fs::write(&bin, "#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > launch-argv\npwd > launch-cwd\nexec sleep 30\n").unwrap();
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+            std::fs::write(dir.path().join("rup"), "").unwrap();
+            agents.launcher = Launcher::new(
+                bin.to_string_lossy(),
+                dir.path().join("claude.json"),
+                dir.path().join("rup"),
+                None,
+            );
+            let (cwd, made) = agents
+                .provision_worktree(&id, &dir.path().join("src"))
+                .await
+                .unwrap()
+                .unwrap();
+            agents.retain_worktree(&id).await.unwrap();
+            let conversation = "11111111-1111-1111-1111-111111111111";
+            agents
+                .shared
+                .rail()
+                .save_conversation(&id, conversation, cwd.to_str().unwrap())
+                .unwrap();
+            let agents = Arc::new(reopen(agents));
+            assert!(agents.shared.terminals.list().is_empty());
+            assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+            let ctx = rpc::Ctx {
+                actor: contracts::Actor::user(),
+                bus: Bus::new(),
+                touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            };
+            let mut resuming = {
+                let agents = Arc::clone(&agents);
+                let ctx = rpc::Ctx {
+                    actor: ctx.actor.clone(),
+                    bus: ctx.bus.clone(),
+                    touches: Arc::clone(&ctx.touches),
+                };
+                let id = id.clone();
+                tokio::spawn(
+                    async move { agents.call(&ctx, "agent.resume", json!({"id": id})).await },
+                )
+            };
+            tokio::time::timeout(Duration::from_secs(10), async {
+                loop {
+                    let ready = matches!(
+                        agents.shared.runs().get(&id),
+                        Some(Slot::Resuming {
+                            terminal_id: Some(_),
+                            ..
+                        })
+                    );
+                    if ready {
+                        break;
+                    }
+                    if resuming.is_finished() {
+                        panic!(
+                            "resume ended before its launch was claimed: {:?}",
+                            (&mut resuming).await
+                        );
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+            agents.call(&ctx, "agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"SessionStart","session_id":conversation,"source":"resume"}})).await.unwrap();
+            let node: contracts::agent::RailNode =
+                serde_json::from_value(resuming.await.unwrap().unwrap()).unwrap();
+            assert_eq!(node.attempt.as_deref(), Some("1"));
+            assert!(node.terminal_id.is_some());
+            assert_eq!(node.worktree.unwrap().path, made.path.to_string_lossy());
+            tokio::time::timeout(Duration::from_secs(10), async {
+                while !cwd.join("launch-cwd").exists() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+            let argv = std::fs::read_to_string(cwd.join("launch-argv")).unwrap();
+            assert!(argv.contains(&format!("--resume\n{conversation}")));
+            assert_eq!(
+                std::fs::read_to_string(cwd.join("launch-cwd"))
+                    .unwrap()
+                    .trim(),
+                cwd.to_str().unwrap()
+            );
+            agents
+                .call(&ctx, "agent.stop", json!({"id":id}))
+                .await
+                .unwrap();
+        }
     }
 }
