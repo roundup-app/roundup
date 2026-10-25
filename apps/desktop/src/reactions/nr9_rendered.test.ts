@@ -316,15 +316,17 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
         [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
       })()`);
       await browser("wait", "--fn", "document.querySelector('.reaction-detail [role=alert]')?.textContent.includes(\"Could not read the Agent's work\")");
+      await evaluate("document.querySelector('.reaction-detail [role=alert]').scrollIntoView({ block: 'center' })");
       observationChecks = await capture("typed-observation-failure");
     }
 
     if (captureDir("U3791b")) {
       await evaluate(`(() => {
         const app = window.__fake.app;
-        const record = app.handlers['reaction.get']({ id: 'reaction-lifetime' });
-        record.observation.cause_code = 'unknown'; record.observation.cause = null;
-        record.observation.recovery_code = 'unknown'; record.observation.recovery = null;
+        const previous = app.handlers['reaction.get']({ id: 'reaction-lifetime' });
+        const record = { ...previous, observation: { ...previous.observation, health: 'observing', health_code: 'observing', cause_code: 'unknown', recovery_code: 'unknown', cause: null, recovery: null } };
+        app.handlers['reaction.get'] = () => record;
+        app.handlers['reaction.list'] = () => [record];
         [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
       })()`);
       await browser("wait", "--fn", "!document.querySelector('.reaction-detail [role=alert]')");

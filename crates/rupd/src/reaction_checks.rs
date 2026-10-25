@@ -256,7 +256,11 @@ impl Watcher {
                     self.reactions.observe(
                         &saved.id,
                         Health::Unavailable,
-                        Cause::AuthorityRefused,
+                        if why.code == rpc::code::NOT_FOUND {
+                            Cause::AgentUnavailable
+                        } else {
+                            Cause::AuthorityRefused
+                        },
                         Some(format!(
                             "authority refused: {}; the user may inspect or stop this reaction",
                             why.message
@@ -611,6 +615,14 @@ mod tests {
             assert_eq!(seen["remaining"], 1);
             assert_eq!(seen["target"], target);
             assert_eq!(seen["observation"]["health"], "unavailable");
+            assert_eq!(
+                seen["observation"]["cause_code"],
+                if removed {
+                    "agent-unavailable"
+                } else {
+                    "authority-refused"
+                }
+            );
             let cause = seen["observation"]["cause"].as_str().unwrap();
             assert!(
                 cause.contains(if removed { "gone" } else { "Reach" }),

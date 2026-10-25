@@ -207,7 +207,14 @@ impl Timer {
             );
         };
         if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
-            return refuse(Cause::AuthorityRefused, why);
+            return refuse(
+                if why.code == rpc::code::NOT_FOUND {
+                    Cause::AgentUnavailable
+                } else {
+                    Cause::AuthorityRefused
+                },
+                why,
+            );
         }
         let fired = self
             .messages
@@ -242,7 +249,9 @@ impl Reactions {
             "SELECT record FROM reactions
              WHERE json_extract(record, '$.state') = 'active'
                AND json_extract(record, '$.condition.kind') = 'instant'
-               AND (json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed'))
+               AND (json_extract(record, '$.observation.health_code') IN ('not-observing', 'waiting', 'acceptance-failed')
+                    OR (json_type(record, '$.observation.health_code') IS NULL
+                        AND json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed')))
                AND NOT EXISTS (SELECT 1 FROM reaction_firings WHERE reaction = reactions.id)",
         ) else {
             return Vec::new();
