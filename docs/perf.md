@@ -231,6 +231,26 @@ outputs, statuses and machine/load/process records are retained. No collection
 ran: #4032, #4031 and #3760 remain incomplete under #3720. This supplies no new
 producer/dispatch observation, repeated control, overhead bound or timing verdict.
 
+### R23 hosted producer/dispatch collection (#4032)
+
+[R23 producer/dispatch capture and offline assessment](../crates/perf/evidence/r23-producer-40214115988/README.md)
+records Builder 40214115988's actual CPU (`AMD EPYC 9V45 96-Core Processor`)
+without requiring that model. Both pinned references and all 24 alternating
+controls share this job and matching boot identity. Both captures join 2200
+writes/echoes to physical PTY endpoints; supported source probes reach producer
+locations, dispatch prologue precedes field extraction, and Tokio hooks separately
+bracket complete spawned-task polls. Commands, failures, source patches, executable
+bytes, hashes, load/process records and replay scripts are retained together.
+
+All controls are load-qualified with no skips, but instrumentation shifts write
+p95s materially and source/perf costs remain inseparable. The report states each
+metric's variation and each unresolved enqueue/producer/task bound; it claims no
+Daemon-only cause or clean timing verdict. The six earlier clean pairs remain
+history, never this host's comparison base. This execution-only collection adds
+no timing campaign, calibrated baseline or production repair. #4031 and #3760
+remain open under #3720. R16/R23 now explicitly retire exact-CPU eligibility for
+this hosted collection; ordinary calibrated baseline selection stays separate.
+
 ### R23 paired write conclusions (#3760)
 
 [Paired measurements, reference commits, ceilings, compatibility failures and profile qualifications](perf-r23-writes.md#r23-paired-write-conclusions-3760).
@@ -700,6 +720,17 @@ offline extraction are reused. No new clean pair, aggregate CPU table, stage p95
 calibration, baseline, production repair or Mac observation is supplied.
 
 ### R23 producer/dispatch continuation (#4032)
+
+
+[Builder 40212001837](../crates/perf/evidence/r23-host-40212001837/README.md)
+retains an unchanged exact-model qualification miss: AMD EPYC 9V74, exit 2.
+Commands, actual statuses, runner/job identity, matching before/after boot IDs,
+load/background processes, toolchain, shell and settings are retained. Runner
+inventory returned HTTP 403 (exit 1); available job metadata and launch inputs
+identify no accessible qualified target. No producer/dispatch collection or
+controls ran. #4032 remains incomplete; this miss supplies no timing observation,
+attribution or overhead bound.
+
 
 
 [Builder 40208780160](../crates/perf/evidence/r23-host-40208780160/README.md)
