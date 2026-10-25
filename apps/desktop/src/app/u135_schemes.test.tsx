@@ -4,6 +4,7 @@ import { App } from "../App";
 import { underSettings } from "../testing/media";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
+import { resolveToken, tokensOf } from "../testing/contrast";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
@@ -38,7 +39,9 @@ const mount = async (settings: Setting[]) => {
   tokens.dataset.viteDevId = "/src/tokens.css";
   tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings);
+  // jsdom leaves custom properties unresolved; expand the instant Token before its duration cascade is observed.
+  sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings)
+    .replaceAll("var(--duration-instant)", resolveToken("var(--duration-instant)", tokensOf(underSettings(tokenCss, settings))));
   matchMedia = window.matchMedia;
 
   const feature = { dark: "prefers-color-scheme: dark", "more-contrast": "prefers-contrast: more", "reduced-transparency": "prefers-reduced-transparency: reduce", "reduced-motion": "prefers-reduced-motion: reduce" };
