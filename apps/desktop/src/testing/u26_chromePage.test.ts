@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { expect, it, vi } from "vitest";
@@ -14,7 +14,10 @@ it.runIf(process.platform === "linux")("u26_parallel_cold_pages_answer_under_a_r
   if (!found) throw new Error("U26 requires isolated Chromium");
 
   const source = dirname(realpathSync(found));
-  const dir = mkdtempSync(join(tmpdir(), "u26-cold-"));
+  // A read IOPS limit needs a block device: on ubuntu-26.04 `/tmp` is a tmpfs, so the copy lives on the checkout's disk.
+  const cache = join(process.cwd(), "node_modules", ".cache");
+  mkdirSync(cache, { recursive: true });
+  const dir = mkdtempSync(join(cache, "u26-cold-"));
   const group = join("/sys/fs/cgroup", basename(dir));
   const browser = join(dir, "browser", "chrome");
   const runner = join(dir, "run.mts");
