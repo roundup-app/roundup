@@ -64,13 +64,18 @@ export const NameField = (props: {
 
     if (!alive || !ready() || pending() || conflict() || text().trim() === "") return;
     retain(field);
-    const submitted = revision === null ? null : drafts.submit(revision);
-
-    if (!submitted) return;
+    const value = text().trim();
     setPending(true);
+    const submitted = revision === null ? null : await drafts.submit(revision);
+
+    if (!submitted) {
+      setPending(false);
+
+      return;
+    }
 
     try {
-      await props.commit(text().trim(), base, version());
+      await props.commit(value, base, version());
       drafts.settle(submitted.draft.revision, "acknowledged");
 
       if (alive && revision === submitted.draft.revision) { props.fail(null); props.close(); }

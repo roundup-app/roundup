@@ -1,4 +1,7 @@
 import { pressFeedback } from "./ui/pressFeedback";
+import { storageCopy } from "./copy/storage";
+import { storageProblems } from "./state/storage";
+import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { applyAppAppearance } from "./settings/preferences";
@@ -342,6 +345,13 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  const storageFailures = createMemo(() => {
+    const open = activeConnection();
+    const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
+
+    return storageProblems().filter(problem => problem.key !== railKey);
+  });
+
   createEffect(() => {
     if (!props.prepareIdle) return;
 
@@ -396,7 +406,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle }}
+        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
             app={props.app}
@@ -445,6 +455,10 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="storage-center">
+          <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
+            <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
+          </ReservedLine></div></Show>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
@@ -472,6 +486,7 @@ export const App = (props: {
           </Show>
           </div>
           <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
           </div>
         }
         shelf={

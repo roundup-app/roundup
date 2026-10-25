@@ -325,10 +325,17 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
   };
 
   const measure = async () => {
-    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => { flood = await startFlood(app, input, (evidence) => { floodEvidence = evidence; }); } : undefined);
+    let frame: number | undefined;
+
+    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => {
+      // #3550: a live yes can starve drawing; sample the display period before load so it cannot block typing.
+      frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames before flood");
+      flood = await startFlood(app, input, (evidence) => { floodEvidence = evidence; });
+      await flood.sample();
+    } : undefined);
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
-    const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
+    frame ??= await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
     const timerResolution = timerResolutionMs();
     const id = terminal.target();
 

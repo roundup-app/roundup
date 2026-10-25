@@ -1,4 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Agent diff observer</title></head><body><div id="root"></div><script type="module">
+import { useBrowserStorage } from "../state/storage";
+useBrowserStorage(window.localStorage);
 import { createComponent } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../App";
@@ -45,7 +47,7 @@ app.handlers["agent.compareFile"] = () => comparison;
 
 
 
-const failure = railStorage(app.opened.project.path).write({ selected: "agent-1", collapsed: [] });
+const failure = await railStorage(app.opened.project.path).write({ selected: "agent-1", collapsed: [] });
 
 if (failure) throw new Error(failure);
 
