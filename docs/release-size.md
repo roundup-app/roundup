@@ -9,7 +9,7 @@ x86_64-unknown-linux-gnu, LLVM 23.1.1, Node 22.23.3, pnpm 10.14.0.
 |---|---:|---:|---:|
 | Complete desktop dist, logical bytes | 27,673,763 | 18,961,207 | 10,000,000 |
 | Regular files / JS files | 738 / 665 | 487 / 414 | — |
-| Native release rupd | 26,163,328 | build pending | 15,000,000 |
+| Native release rupd | 26,163,328 | 22,462,584 | 15,000,000 |
 
 Both production desktop builds exited 0. Reproduce with
 `pnpm install --frozen-lockfile`, `pnpm --filter desktop build`,
@@ -72,13 +72,18 @@ for native cleanup; their macOS results remain outstanding.
 Neither byte cap is met. The qualified R13/R16 comparison, its cold-start and other
 metric table, macOS cold-start comparison, full registration inventory and C9d
 checker remain outstanding. `just perf --out /tmp/c9-reference-perf.json` built the
-reference release and entered the same-job paired observer; no completed report or
-performance pass is claimed here. Hosted calibration #3706 is not needed by this
+reference release and entered the same-job paired observer; the superseded observer was terminated during its reference build with exit 143.
+No completed report or performance pass is claimed here. Hosted calibration #3706 is not needed by this
 new paired path. A manual check-workflow dispatch returned HTTP 403; draft PR jobs
 skip the release lanes, so their skipped runs are not macOS evidence.
 
 Raw build logs, module graphs, command results and unwind-test output are retained
 in the producing [Builder run](https://github.com/roundup-app/roundup/actions/runs/40242009209),
-artifact `answer-3807`, directory `release-3807`. Its `SHA256SUMS` identifies the
+artifact `answer-3807`, directory `release-3807`. The SHA-256 of its `SHA256SUMS` is
+`24698a762ffceed23f5b6c338b078540a060a3fa855782a82c87d5c0ac0b0008`; that manifest identifies the
 retained files; its reproduction table includes failed and discarded attempts.
 The raw reports are not committed.
+
+Final verification: `just lint-web` and `just lint-rust` exited 0. The native head
+build exited 0 and its actual workspace-stripped artifact failed the 15 MB gate
+with exit 1; no separately stripped copy was used for that verdict.
