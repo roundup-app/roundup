@@ -15,7 +15,7 @@ const saved = (patch: Partial<Reaction> = {}): Reaction => ({
   project: "p", id: "r1", name: "Ship it", actor: { kind: "user", id: "u", parent: null }, home: null, target: "a",
   instruction: "go", condition: { kind: "agents", ids: ["a"], any: false }, max_firings: 1, remaining: 1, rearm: false,
   expires_at: "2026-10-21T09:00:00Z", created_at: "2026-10-20T09:00:00Z", state: "active",
-  observation: { health: "observing", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
+  observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
 });
 
 const mount = async (list: () => Reaction[]) => {
@@ -327,7 +327,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
 });
 
 it("u3299b_copy_keeps_original_facts", async () => {
-  const record = saved({ observation: { health: "observing", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
+  const record = saved({ observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
   const write = vi.fn().mockResolvedValue(undefined);
 
   try {
@@ -505,7 +505,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_ide
 });
 
 it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_reactions_action_identity_%s", async transition => {
-  const record = saved({ observation: { health: "unavailable", cursor: null, gap: null, recovery: null, evidence: null, cause: "no required-check evidence" } });
+  const record = saved({ observation: { health: "unavailable", health_code: "unavailable", cause_code: "evidence-missing", gap_code: "unknown", recovery_code: "check", cursor: null, gap: null, recovery: null, evidence: null, cause: "no required-check evidence" } });
   const second = saved({ id: "r2", name: "Other reaction" });
   const { app, connected } = await mount(() => [record, second]);
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
@@ -520,6 +520,8 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   };
 
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const observationFailure = (await screen.findByRole("alert")).getAttribute("aria-label") ?? "";
+
   fireEvent.click(screen.getByRole("button", { name: copy.reactionRun }));
   await screen.findByRole("alert", { name: "first reaction refused" });
 
@@ -535,6 +537,55 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   }
 
   expect(screen.queryByRole("alert", { name: "first reaction refused" }) !== null).toBe(transition !== "dismiss");
-  expect(screen.getByRole("alert", { name: "No required-check results are available. Refresh to check again." })).toBeTruthy();
+  expect(screen.getByRole("alert", { name: observationFailure })).toBeTruthy();
   expect(connected.drafts.list()).toEqual(retained);
+});
+
+const observeFailure = async (observation: Reaction["observation"]) => {
+  const record = saved({ observation });
+  const { app } = await mount(() => [record]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const text = (await screen.findByRole("alert")).textContent;
+
+  const controls = [copy.refresh, copy.reactionStop, copy.reactionRun].map(name => ({
+    name, disabled: screen.getByRole("button", { name }).hasAttribute("disabled"),
+  }));
+
+  expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
+  cleanup();
+
+  return { text, controls };
+};
+
+it.each([
+  ["head-moved", "unknown"], ["unsupported", "head-moved"], ["unknown", "unsupported"],
+] as const)("u3791b_copy_depends_on_codes_not_messages_reactions_%s", async (code, otherCode) => {
+  const observation = (cause_code: typeof code | typeof otherCode, cause: string): Reaction["observation"] => ({
+    health: "unavailable", health_code: "unavailable", cause_code, gap_code: "unknown", recovery_code: "check", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause,
+  });
+
+  const diagnostic = "the PR head moved from a to b";
+  const baseline = await observeFailure(observation(code, diagnostic));
+
+  for (const changed of ["unsupported /private/diagnostic", ""]) {
+    expect(await observeFailure(observation(code, changed))).toEqual(baseline);
+  }
+
+  expect((await observeFailure(observation(otherCode, diagnostic))).text).not.toBe(baseline.text);
+});
+
+it.each([
+  ["history-expired", "reconciled", "agent-unavailable", "replace-agent"],
+  ["agent-unavailable", "replace-agent", "unknown", "unknown"],
+  ["unknown", "unknown", "history-expired", "reconciled"],
+] as const)("u3791b_copy_depends_on_codes_not_messages_reaction_gaps_%s", async (gap, recovery, otherGap, otherRecovery) => {
+  const observation = (gap_code: typeof gap | typeof otherGap, recovery_code: typeof recovery | typeof otherRecovery, diagnostic: string): Reaction["observation"] => ({
+    health: "observing", health_code: "observing", cause_code: "unknown", gap_code, recovery_code, cursor: 99, gap: diagnostic, recovery: diagnostic, evidence: null,
+  });
+
+  const diagnostic = "the Event history after 88 expired";
+  const baseline = await observeFailure(observation(gap, recovery, diagnostic));
+  expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
+  expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
+  expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
 });

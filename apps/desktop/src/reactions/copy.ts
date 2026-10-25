@@ -1,5 +1,77 @@
 /** App-authored reactions copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
+import type { Observation } from "@contracts/reaction/Observation";
+import type { ObservationCause } from "@contracts/reaction/ObservationCause";
+import type { ObservationGap } from "@contracts/reaction/ObservationGap";
+import type { ObservationRecovery } from "@contracts/reaction/ObservationRecovery";
+import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
+import type { Reason } from "@contracts/message/Reason";
+const checkObservation = "Refresh to check current observation.";
+
+const activityUnreadable = "Agent activity could not be read. Nothing matched during that gap.";
+
+const firingSourceMissing = "The accepted firing has no source record. Restore its evidence before checking again.";
+
+const firingsUnreadable = "Could not read accepted firings. Refresh before checking again.";
+
+const authorityRefused = "Permission to reach the Agent was refused. You can inspect or stop this reaction.";
+
+const agentUnavailable = "An Agent is no longer available. Stop this reaction. Choose an available Agent for a new reaction.";
+
+
+const reactionCauses: Record<ObservationCause, string> = {
+  "head-moved": "The PR has new commits. Create a new reaction for the current version.",
+  "agent-unavailable": agentUnavailable,
+  "authority-refused": authorityRefused,
+  "checks-failed": "A required check did not pass on the selected version. Check the PR before trying again.",
+  "checks-pending": "It waits for required checks on the selected version.",
+  "checks-unavailable": "PR checks are unavailable. Check your GitHub login and connection, then refresh.",
+  "worktree-read-failed": "Could not read the Agent's work. Refresh before checking again.",
+  "pr-missing": "The Agent's work has no matching PR. Check its PR. Or choose another Agent in a new reaction.",
+  "evidence-missing": "No required-check results are available. Refresh to check again.",
+  "evidence-stale": "Check results are out of date. Refresh to read the current results.",
+  "forge-read-failed": "Could not read GitHub. Check your connection, then refresh.",
+  "head-missing": "The PR's current version is unavailable. Refresh to check again.",
+  "repository-mismatch": "The Agent's PR belongs to another repository. Create a reaction for the correct PR.",
+  "unknown": "Observation details could not be explained. Refresh to check again.",
+  "unsupported": "This source cannot be watched. Stop this reaction and choose a supported condition.",
+  "firings-read-failed": firingsUnreadable,
+  "cursor-missing": firingSourceMissing,
+  "acceptance-failed": "Could not accept the firing. Check the Agent and storage before trying again.",
+  "observation-save-failed": "Could not save observation. Check storage before trying again."
+};
+
+const reactionGaps: Record<ObservationGap, string> = {
+  "unknown": "Earlier observation details could not be explained. Refresh to check again.",
+  "history-expired": "Earlier activity could not be read. This gap remains in the history.",
+  "agent-read-failed": activityUnreadable,
+  "events-read-failed": activityUnreadable,
+  "firings-read-failed": firingsUnreadable,
+  "cursor-missing": firingSourceMissing,
+  "agent-unavailable": agentUnavailable,
+  "authority-refused": authorityRefused
+};
+
+const reactionRecoveries: Record<ObservationRecovery, string> = {
+  "unknown": checkObservation,
+  "check": checkObservation,
+  "reconciled": "Current Agent activity is available again; the earlier gap remains.",
+  "replace-agent": "Stop this reaction and create one with an available Agent.",
+  "replace-target": "Inspect or stop this reaction; create a new one with an authorized Agent.",
+  "restore-evidence": "Restore the accepted firing\u2019s source evidence before checking again.",
+  "retry-acceptance": "Check the Agent and storage; observation retries within the saved bound and expiry.",
+  "retry-storage": "Check storage; the next observation retries saving progress.",
+  "reconcile": "Check current Agent activity; the earlier gap remains."
+};
+
+const reactionReasons: Record<Reason, string> = {
+  "receiver gone": "The original Agent is no longer available. Choose an available Agent for new work.",
+  "not accepted": "The Agent did not accept this Message. Check the Agent before retrying.",
+  "removed": "You removed this Message before delivery.",
+  "merged": "A newer summary includes it."
+};
+
+
 
 const reactionChanged = "The PR has changed.";
 
@@ -13,9 +85,9 @@ const reactionFiringStates = new Map([["pending", shared.draftStatus.pending], [
 
 const reactionDelivery = new Map([["pending", shared.draftStatus.pending], ["delivered", delivered], ["dropped", "Not delivered"], ["sending", sending], ["passed", "Passed on"]]);
 
-const reactionHealth = new Map([["fired", "It sent on time."], ["fired late", "It sent late."], ["expired: no firing at or after expires_at", "It expired before sending."], ["skipped: the instant was missed and the late policy is skip", "It missed the time and skipped as requested."], ["observing", "It is watching for changes."], ["not-observing", "It waits to start watching."], ["unavailable", reactionUnavailable], ["waiting", "It waits for checks."], ["matched", "The condition was met."], ["invalidated", reactionChanged], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
+const reactionHealth = new Map<ObservationHealth, string>([["fired", "It sent on time."], ["fired-late", "It sent late."], ["expired", "It expired before sending."], ["skipped", "It missed the time and skipped as requested."], ["observing", "It is watching for changes."], ["not-observing", "It waits to start watching."], ["unavailable", reactionUnavailable], ["waiting", "It waits for checks."], ["matched", "The condition was met."], ["invalidated", reactionChanged], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
 
-const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"], ["fired", "Sent on time"], ["fired late", "Sent late"], ["expired: no firing at or after expires_at", "Expired"], ["skipped: the instant was missed and the late policy is skip", "Missed; skipped"], ["observing", "Watching"], ["not-observing", "Awaiting observation"], ["unavailable", "Observation unavailable"], ["waiting", "Awaiting checks"], ["matched", "Condition met"], ["acceptance-failed", "Firing refused"], ["write-failed", "Firing save failed"], ["observation-save-failed", "Observation save failed"]]);
+const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"], ["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired"], ["skipped", "Missed; skipped"], ["observing", "Watching"], ["not-observing", "Awaiting observation"], ["unavailable", "Observation unavailable"], ["waiting", "Awaiting checks"], ["matched", "Condition met"], ["acceptance-failed", "Firing refused"], ["write-failed", "Firing save failed"], ["observation-save-failed", "Observation save failed"]]);
 
 const reactionFirings = "Firings";
 
@@ -63,7 +135,7 @@ export const copy = {
   reactionCreationUnknown: (cause: string) => `Creation is unconfirmed. Check creation before saving another reaction. ${cause}`,
   /** @prose */
   reactionNotCreated: (cause: string) => `The reaction was not created: ${cause}. Check before trying again.`,
-  reactionState: (state: string, health: string) => reactionStates.get(state === "active" ? health : state) ?? "Unavailable",
+  reactionState: (state: string, health: ObservationHealth = "unknown") => reactionStates.get(state === "active" ? health : state) ?? "Unavailable",
   reactionTarget: "Target Agent",
   reactionPickTarget: "Pick an Agent",
   reactionInstruction: "Instruction",
@@ -93,37 +165,27 @@ export const copy = {
   /** @prose */
   reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings remain${rearm ? "; it re-arms" : ""}.`,
   /** @prose */
-  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained.",
+  reactionHealth: (health: ObservationHealth = "unknown") => reactionHealth.get(health) ?? "Observation details could not be explained.",
   reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
   /** @prose */
-  reactionCause: (cause: string) => cause.startsWith("the PR head moved") ? "The PR has new commits. Create a new reaction for the current version."
-    : cause.includes("no longer names an Agent with a state") ? "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one."
-    : cause.startsWith("authority refused:") ? "Permission to reach the Agent was refused. You can inspect or stop this reaction."
-    : cause === "a required check did not pass on the pinned head" ? "A required check did not pass on the selected version. Check the PR before trying again."
-    : cause === "a required check is pending, or none is required" || cause === "no required check concluded" ? "Waiting for required checks to finish on the selected version."
-    : cause === "no usable gh, login, GitHub remote or answer in time" ? "PR checks are unavailable. Check your GitHub login and connection, then refresh."
-    : cause.startsWith("the Worktree read failed:") ? "Could not read the Agent's work. Refresh before checking again."
-    : cause.startsWith("the Worktree holds no PR ") ? "The Agent's work has no matching PR. Check its PR or choose another Agent in a new reaction."
-    : cause === "no required-check evidence" ? "No required-check results are available. Refresh to check again."
-    : cause === "the evidence is stale; the last refresh failed or is old" ? "Check results are out of date. Refresh to read the current results."
-    : cause === "the forge read failed without a reason" ? "Could not read GitHub. Check your connection, then refresh."
-    : cause === "the evidence names no current head" ? "The PR's current version is unavailable. Refresh to check again."
-    : cause.startsWith("the PR is in ") ? "The Agent's PR belongs to another repository. Create a reaction for the correct PR."
-    : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
-    : cause === "inbox" ? "The Agent's inbox is unavailable. Check the Agent before retrying."
-    : cause === "not accepted" ? "The Agent did not accept this Message. Check the Agent before retrying."
-    : cause === "merged" ? "A newer summary includes it."
-    : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
-    : "Observation details could not be explained. Refresh to check again.",
+  reactionFeedback: (observation: Observation) => {
+    const cause = observation.cause_code !== "unknown" || (observation.cause !== undefined && observation.cause !== null)
+      ? reactionCauses[observation.cause_code]
+      : observation.gap_code !== "unknown" || observation.gap !== null ? reactionGaps[observation.gap_code]
+        : observation.health_code === "unknown" || observation.health_code === "unavailable" ? reactionCauses.unknown : null;
+
+    const recovery = observation.cause_code !== "unsupported" && (cause || observation.recovery_code !== "unknown" || observation.recovery !== null)
+      ? reactionRecoveries[observation.recovery_code] : null;
+
+    return cause ? recovery ? `${cause} ${recovery}` : cause : recovery;
+  },
+  /** @prose */
+  reactionReason: (reason: Reason) => reactionReasons[reason],
   reactionUnknownState: "Observation unclear",
   /** @prose */
   reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
   reactionDetails: "Details",
   reactionObservation: "Observation",
-  /** @prose */
-  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. No condition was met during that gap." : "Earlier observation details could not be explained.",
-  /** @prose */
-  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation.",
   reactionMessage: (_id: number) => "Message",
   reactionMessageState: "Delivery",
   reactionNoFirings: "None yet",
