@@ -117,16 +117,17 @@ class FileSize(unittest.TestCase):
 
     def test_r4132b_default_uses_merge_base(self):
         self.write("main-only", 1_000_001)
+        self.write("shared", 1_000_002)
         self.commit()
         self.git("update-ref", "refs/remotes/origin/main", "HEAD")
         self.git("reset", "--hard", self.base)
-        self.write("branch-only", 1_000_001)
+        self.write("shared", 1_000_001)
         self.commit()
         # A file present only in the worktree must not influence a HEAD check.
         self.write("untracked", 1_000_002)
         result = self.guard()
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("branch-only", result.stdout)
+        self.assertIn("shared", result.stdout)
         self.assertNotIn("main-only", result.stdout)
         self.assertNotIn("untracked", result.stdout)
 
