@@ -71,7 +71,7 @@ Read these current `apps/desktop/src/` callers and every additional `writeText` 
 
 Native context menus dismiss before `contextMenu` dispatches `linkEntries` actions; their copied acknowledgement therefore belongs to the originating visible item's local label, via the existing callback, for 1.5 s. Preserve U2694a/U2694c native menus; do not retain/reopen an NSMenu, change its App seam or replace it with a web menu to display feedback.
 
-The shared helper owns clipboard acknowledgement, local success deadline, timer cleanup and stale-result protection. Owners supply payload, label and failure sink; content, permissions and focus stay with them. Existing already-confirming copies join this helper rather than retaining a second feedback lifecycle. No save/file operation becomes a clipboard action.
+The shared helper `ui/CopyButton.tsx` owns clipboard acknowledgement, local success deadline, timer cleanup and stale-result protection. It uses the installed `@solid-primitives/scheduled` debounce; a payload or explicit identity change invalidates the old result. Owners supply payload, label and failure sink; content, permissions and focus stay with them. Existing already-confirming copies join this helper rather than retaining a second feedback lifecycle. No save/file operation becomes a clipboard action.
 
 ## Lifecycle and ownership
 

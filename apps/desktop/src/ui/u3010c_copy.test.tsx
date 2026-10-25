@@ -3,10 +3,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { createFakeApp } from "../testing/fakeApp";
 import { CopyButton } from "./CopyButton";
+import { copy } from "../copy";
+import { withStylesheets } from "../testing/contrast";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-it("u3010c_copy_feedback_belongs_to_the_acknowledged_control", async () => {
+it("u3010c_copy_feedback_belongs_to_the_acknowledged_control", () => withStylesheets(async () => {
   vi.useFakeTimers();
   const app = createFakeApp();
   const failed = vi.fn();
@@ -16,28 +18,29 @@ it("u3010c_copy_feedback_belongs_to_the_acknowledged_control", async () => {
   const first = screen.getByRole("button", { name: "First" });
   const second = screen.getByRole("button", { name: "Second" });
   fireEvent.click(first);
-  expect(first.textContent === second.textContent).toBe(false);
+  expect(screen.getByRole("button", { name: "First" })).toBe(first);
   acknowledge!();
   await Promise.resolve();
-  const acknowledged = first.textContent;
-  expect(acknowledged).not.toBe("First");
-  expect(second.textContent).toBe("Second");
+  expect(screen.getByRole("button", { name: copy.copied })).toBe(first);
+  expect(screen.getByRole("button", { name: "Second" })).toBe(second);
   await vi.advanceTimersByTimeAsync(1000);
   fireEvent.click(first);
   acknowledge!();
   await Promise.resolve();
   await vi.advanceTimersByTimeAsync(600);
-  expect(first.textContent).toBe(acknowledged);
+  expect(screen.getByRole("button", { name: copy.copied })).toBe(first);
+
   app.writeClipboardText = async () => { throw new Error("refused"); };
+
   fireEvent.click(first);
   await Promise.resolve();
-  expect(first.textContent).toBe("First");
+  expect(screen.getByRole("button", { name: "First" })).toBe(first);
   expect(failed).toHaveBeenCalledOnce();
   await vi.runAllTimersAsync();
   expect(failed).toHaveBeenCalledOnce();
-});
+}));
 
-it("u3010c_copy_disposal_cancels_feedback", async () => {
+it("u3010c_copy_disposal_cancels_feedback", () => withStylesheets(async () => {
   vi.useFakeTimers();
   const app = createFakeApp();
   const failed = vi.fn();
@@ -51,5 +54,23 @@ it("u3010c_copy_disposal_cancels_feedback", async () => {
   await Promise.resolve();
   await vi.runAllTimersAsync();
   expect(failed).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Replacement" })).toBeTruthy();
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+}));
+
+it("u3010c_newer_copy_failure_survives_an_older_acknowledgement", async () => {
+  const app = createFakeApp();
+  const failed = vi.fn();
+  let acknowledge: (() => void) | undefined;
+  app.writeClipboardText = () => new Promise<void>(resolve => { acknowledge = resolve; });
+  render(() => <CopyButton app={app} text="retained" onFailure={failed}>Original</CopyButton>);
+  const control = screen.getByRole("button", { name: "Original" });
+  fireEvent.click(control);
+  app.writeClipboardText = async () => { throw new Error("latest refusal"); };
+
+  fireEvent.click(control);
+  await Promise.resolve();
+  acknowledge!();
+  await Promise.resolve();
+  expect(failed).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Original" })).toBe(control);
 });
