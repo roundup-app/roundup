@@ -409,7 +409,7 @@ if "bpftrace" not in sys.argv:
     os.execvp(arguments[0], arguments)
 tid, entry = int(sys.argv[-2]), time.monotonic_ns()
 done = []
-signal.signal(signal.SIGTERM, lambda *_: done.append(1))
+signal.signal(signal.SIGINT, lambda *_: done.append(1))
 printf("READY\n")
 snapshot("SNAPSHOT\n", "SNAPSHOT_END\n", {str(tid): [tid, 4096, 4096, entry, 4096, 8192, 4096, 2, 49, "held"]}, {f"{tid},{entry}": "folio_wait_bit_common+307"})
 time.sleep(0.5)
