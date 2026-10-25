@@ -985,3 +985,13 @@ measurements and this observer selects no allocator.
 
 
 Release profile measurements: [code generation comparison](perf-release-profile.md).
+
+### R23 correlated write capture (#3976)
+
+[Builder 40175332310](../crates/perf/evidence/r23-spans-40175332310/README.md) retains per-write/loop/warmup identities, monotonic timestamps, FD-resolved PTY/socket timelines, scheduler records and matching executables on one qualified 9V45 lifetime for R23's pinned references. Both common/marked probes run against each identical Daemon, with separate unprofiled, scheduler-only and syscall controls; commands, hashes, versions, failures and raw recordings survive.
+
+Historical extraction/offset insertion/deserialization/broadcast jointly take 3.024 µs median / 4.257 µs p95; native takes 2.824 / 3.986 µs. All 2200 spans per reference are on CPU. Separate decoding and per-loop/warmup results are retained. These bounds include clocks/wakers, establish no Daemon cause, and are never subtracted from clean p95s. Syscall tracing substantially changes latency and establishes correlation only.
+
+Dispatch/task scheduling, input/reply queue acceptance and output publication/queueing remain bounded by request-read/reply-send and PTY-read/output-send. [Investigation #3983](https://github.com/roundup-app/roundup/issues/3983) natively blocks #3760 on the missing in-process/task markers. User-write completion acknowledges enqueue, not physical PTY completion; reply and echo overlap.
+
+The six original clean observations and PR #3975's extraction are reused: all three candidate invocations fit the historical-derived 0.0604572 ms request and 0.1230527 ms echo ceilings. #3760 stays open until its full acceptance holds; #3720 retains regression work. No baseline, calibration, production repair, limit, load/pacing policy or macOS behavior changes. No Mac observation is required.
