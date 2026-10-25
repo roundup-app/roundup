@@ -1,6 +1,6 @@
 # SQLite for state; Pads as markdown
 
-Status: Accepted
+Status: Accepted on main; the Project PERSIST amendment below is blocked by [#3961](https://github.com/roundup-app/roundup/issues/3961).
 
 ## Decision
 
@@ -21,6 +21,10 @@ The existing legacy data-folder mover carries `-journal` companions alongside `-
 The prebuilt image and migration sequence stay unchanged. A fresh image still carries WAL; initialization converts it through SQLite before store opening. This conversion is included in startup measurements. Ten alternating baseline/head starts measured medians 14.661/18.211 ms fresh and 11.559/13.638 ms reopened, including process launch and readiness; both remain below 300 ms. Fresh conversion adds SQLite synchronization (six fsync calls including image seeding versus one on baseline). Reopened rollback connections also perform more locking and schema reads: a separate syscall-count probe saw fcntl 167→312, pread64 92→196 and openat 44→93, with no reopen fsync. These counts explain the startup tradeoff; traced elapsed times are not speed comparisons. Event writes also pay EXTRA synchronization instead of WAL/NORMAL. Never hide these costs by changing budgets or excluding conversion from accounting.
 
 ## Concurrency
+
+PERSIST cannot preserve the existing Project snapshot contract. In `crates/rup/tests/pad_sources.rs`, `dv2_source_incarnation_survives_edits_owner_home_and_restart` holds a read transaction while public Pad writes commit, then checks that the transaction still reads the original source. Rollback journaling needs that reader to finish before the writer can commit, so the public `pad.write` returns `database is locked`. [SQLite isolation](https://sqlite.org/isolation.html) documents this distinction: WAL permits writers to commit while readers retain an older snapshot; DELETE, PERSIST and TRUNCATE require excluding readers. EXTRA synchronization changes durability, not that locking rule.
+
+The PERSIST amendment is therefore an unshippable candidate, despite its measured I/O reduction. The worker lease behavior and concurrent-publication observer below do not prove the retained-snapshot contract. Do not weaken that observer, extend its timeout, or mark #3942 complete. #3961 specifies a WAL-compatible repair and its authorized ownership before implementation; restoring WAL alone leaves #3942's duplicate-write outcome unmet. #3904 remains open for its separate latency and implementation-head CI acceptance.
 
 SQLite serializes writers and briefly excludes readers during rollback writes. Existing transaction boundaries and busy bounds remain unchanged. The schema-only owner-read worker grants leases only when `wal_checkpoint(PASSIVE)` reports a completed WAL backfill; outside WAL its frame count is negative, so it holds no read transaction and cannot block a rollback writer. It retains its bounded wake queue and shutdown. Public RPC publication alongside Project reads/writes and owner reads must complete without busy refusals or missing durable Events; standalone WAL/read-lease observers remain required.
 
