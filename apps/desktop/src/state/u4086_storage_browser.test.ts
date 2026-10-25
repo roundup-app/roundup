@@ -19,7 +19,7 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
     })()`);
     await lane.browser("open", `${origin}/harness.html?seed=tree-40&storage-recovery=1`);
     await lane.until("document.querySelector('.storage-failure')?.textContent.includes('Continue without these settings')");
-    expect(await lane.calls("agent.start")).toEqual([]);
+    expect(await lane.calls("agent.spawn")).toEqual([]);
     await lane.capture("U4086a", "head-invalid-shelf");
     await lane.evaluate("sessionStorage.setItem('u4086:fail', '1')");
     await lane.tabTo("Continue without these settings");
@@ -47,7 +47,7 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
     expect(JSON.parse(copied)).toEqual({ key: "roundup:rail:/q", bytes: '{"selected":' });
     expect(await lane.evaluate<string>("document.querySelector('.ask-input').value")).toBe("Original saved work 雪");
     const calls = await lane.calls();
-    expect(calls.filter(call => /(?:ask.send|agent.start|terminal.write)/.test(call.method))).toEqual([]);
+    expect(calls.filter(call => /(?:ask.send|agent.spawn|agent.start|agent.resume|agent.restart|workstream.create|terminal.write)/.test(call.method))).toEqual([]);
     await lane.capture("U4086b", "head-reopened-copy");
   } finally { await lane.close(); }
 }, 120_000);
