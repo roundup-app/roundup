@@ -1,4 +1,3 @@
-import { trackPress } from "../ui/press";
 import { questionProbe } from "./menuProbe";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
@@ -35,8 +34,6 @@ declare global {
 }
 
 window.__question = questionProbe;
-
-trackPress(document);
 
 trackScrollbars(document);
 

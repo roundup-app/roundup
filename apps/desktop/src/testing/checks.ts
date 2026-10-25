@@ -1,5 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
+import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -276,24 +277,12 @@ const d3 = (page: Page): Measure => {
   });
 };
 
-// D4: Kind has a Glyph; every control declares Token press feedback. First-frame paint is recorded by the rendered observer.
-const d4 = (page: Page): Measure => {
-  const { doc } = page;
+// D4: every Rail, Shelf and Drawer row draws a Glyph, so no Kind is carried by colour alone.
+const d4 = ({ doc }: Page): Measure => {
   const rows = [...doc.querySelectorAll("[role=treeitem][data-id], aside li, aside [role=listitem]")].filter((row) => !row.closest(".milkdown-slash-menu") || row.matches("[data-id], [role=listitem], [role=treeitem]"));
   const bare = rows.find((row) => !row.querySelector(".glyph svg, .glyph"));
 
-  if (bare) return { ok: false, value: { rows: rows.length }, selector: selectorOf(bare) };
-
-  for (const control of pressable(page)) {
-    const target = control.matches("input") ? control.closest(".app-checkbox, .app-radio, .app-segment") ?? control : control;
-
-    const feedback = stateRules(page, target, ":active").filter(rule =>
-      ["color", "opacity", "scale", "transform"].some(property => rule.style.getPropertyValue(property).includes("var(--")));
-
-    if (!feedback.length) return { ok: false, value: { pressFeedback: "missing" }, selector: selectorOf(control) };
-  }
-
-  return { ok: true, value: { rows: rows.length, controls: pressable(page).length }, selector: "" };
+  return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
 const uniformLayer = (page: Page, el: Element): Rgba | null => {
@@ -429,7 +418,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353: a text field answers with a caret, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), [data-dnd-dragging], [data-dnd-dragging] *'));
+const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), [data-dnd-dragging], [data-dnd-dragging] *'));
 
 // D6: each click target has a hover style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
@@ -463,7 +452,7 @@ const d6 = (page: Page): Measure => {
   return targets.length > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { targets: targets.length }, selector: "" };
 };
 
-// D7: no pressed background flash, and selection, keyboard focus and drag share one row cue.
+// D7: a press never adds a background flash (U3528); ink feedback is allowed.
 const d7 = (page: Page): Measure => {
   for (const el of pressable(page)) {
     const pressed = stateRules(page, el, ":active");
@@ -473,37 +462,12 @@ const d7 = (page: Page): Measure => {
     }
   }
 
-  for (const row of page.elements.filter(el => el.matches(".rail-row, .shelf-row"))) {
-    const changes = new Map<string, Set<string>>();
-
-    for (const rule of page.rules) {
-      if (!/data-selected|data-lifted|focus-visible/.test(rule.selectorText)) continue;
-      const plain = rule.selectorText.replace(/\[(?:data-selected|data-lifted)(?:="true")?\]|:focus-visible/g, ":is(*)");
-
-      if (!row.matches(plain)) continue;
-
-      for (const property of ["color", "background", "background-color", "background-image", "outline", "outline-width", "border", "border-width", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "box-shadow", "font-weight", "border-radius", "transform", "translate", "scale", "opacity"]) {
-        const value = rule.style.getPropertyValue(property);
-
-        if (!value || value === "none" || value === "transparent") continue;
-        const cue = property.startsWith("background") ? "ground" : property;
-        const values = changes.get(cue) ?? new Set<string>();
-
-        values.add(resolveAt(page, row, value));
-        changes.set(cue, values);
-      }
-    }
-
-    if ((row.matches('[data-selected="true"], [data-lifted="true"], :focus-visible, :has(:focus-visible)') && changes.size === 0) || [...changes].some(([cue, values]) => !["ground", "color"].includes(cue) || values.size > 1) || changes.size > 1)
-      return { ok: false, value: { rowCues: Object.fromEntries([...changes].map(([key, values]) => [key, [...values]])) }, selector: selectorOf(row) };
-  }
-
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: shared elevation, local title inset and visible Glyph baseline; descendants retain all surface checks.
+// D8: floating menus and the Terminal's control overlay use shared elevation; their descendants retain all surface checks.
 const d8 = (page: Page): Measure => {
-  const surfaces = offender(page, (el, style) => {
+  return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
 
     if (!hairline) return { border: NOT_MEASURABLE };
@@ -570,53 +534,6 @@ const d8 = (page: Page): Measure => {
 
     return null;
   });
-
-  if (!surfaces.ok) return surfaces;
-
-  const rows = page.elements.filter(el => el.matches(".rail-row, .shelf-row, .terminal-tab"));
-  const offsets: number[] = [];
-  const baselines: number[] = [];
-
-  for (const row of rows) {
-    const name = row.querySelector(".name, .shelf-title, .terminal-tab-name");
-
-    if (!name || !name.textContent?.trim()) continue;
-    const range = page.doc.createRange();
-
-    range.selectNodeContents(name);
-    const first = range.getClientRects()[0];
-    const box = row.getBoundingClientRect();
-
-    if (!first || !box.width || !first.height) return { ok: false, value: NOT_MEASURABLE, selector: selectorOf(row) };
-    const depth = row.matches(".rail-row") ? Math.max(0, Number(row.getAttribute("data-depth")) - 1) : Math.max(0, Number(row.closest("[aria-level]")?.getAttribute("aria-level") ?? 1) - 1);
-    const step = row.matches(".rail-row") ? (px(page.token("space-5") ?? "") ?? NaN) + (px(page.token("space-1") ?? "") ?? NaN) : px(page.token("space-4") ?? "") ?? NaN;
-    const offset = first.x - box.x - depth * step;
-    const expected = px(page.token("row-text-inset") ?? "") ?? NaN;
-
-    offsets.push(offset);
-
-    if (!Number.isFinite(offset + expected) || Math.abs(offset - expected) > 1) return { ok: false, value: { inset: offset, expected }, selector: selectorOf(row) };
-    const svg = row.querySelector(".glyph svg, .todo-tick svg");
-
-    if (!(svg instanceof SVGSVGElement)) continue;
-    const mark = (svg.querySelector("circle") ?? svg).getBBox();
-    const matrix = svg.getScreenCTM();
-    const context = page.doc.createElement("canvas").getContext("2d");
-
-    if (!matrix || !context) return { ok: false, value: NOT_MEASURABLE, selector: selectorOf(row) };
-    context.font = page.style(name).font;
-    const metrics = context.measureText(name.textContent);
-    const baseline = first.y + metrics.fontBoundingBoxAscent;
-    const stroke = Number.parseFloat(page.style(svg).strokeWidth) / 2;
-    const bottom = new DOMPoint(mark.x + mark.width / 2, mark.y + mark.height + stroke).matrixTransform(matrix).y;
-    const delta = bottom - baseline;
-
-    baselines.push(delta);
-
-    if (!Number.isFinite(delta) || Math.abs(delta) > 1) return { ok: false, value: { opticalBaseline: delta }, selector: selectorOf(row) };
-  }
-
-  return { ok: true, value: { insets: offsets, opticalBaselines: baselines }, selector: "" };
 };
 
 // D9: each duration is within 25% of docs/motion.md; under reduced motion all are 0.
@@ -885,7 +802,10 @@ export function runChecks(doc: Document = document): Checks {
     try {
       const { ok, value, selector } = BY_ID[id](page);
 
-      return { status: ok ? "pass" : "fail", value, selector };
+      if (!ok) return { status: "fail", value, selector };
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+
+      return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {
       return { status: "fail", value: NOT_MEASURABLE, selector: "" };
     }

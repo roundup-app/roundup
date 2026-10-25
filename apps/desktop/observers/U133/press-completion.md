@@ -1,49 +1,93 @@
-# U131 / U133 / U137 completion
+# U131 / U133 completion
 
-Runtime: `b4110f46fefc0a20cb051cec5c63d82dbabb7b01`.
-Baseline: `ec105c209aa1f26ad21af2c8fc2be282327879aa`.
-Observer: isolated headless Chromium, dark, 1512×950, fresh profiles.
-Artifacts: `artifacts/ux/U133/finish/{base,head}/`; images and videos are uncommitted.
+Runtime base: `46dcbf37f`. Runtime head: `0ab879878`.
+Observer: isolated headless Chromium, dark, 1512×950, device scale 1.
+Readings: `completion.json`. Images, full readings and recordings remain
+uncommitted under `artifacts/ux/U133/completion/{base,head}/`.
 
-| Observation | Baseline | Runtime |
-| --- | --- | --- |
-| Button / Toggle / Tab, Enter, first frame | Opacity 1 | Token opacity 0.9 |
-| Checkbox / Switch, Space, first frame | Opacity 1 | Token opacity 0.9 |
-| Release and blur | Restored | Restored; no retained transient attribute |
-| Rail title local inset, less tree indentation | 44 px | Shared 56 px |
-| Shelf Kind Glyph bottom to first-line text baseline | 2.75 px | 0.75 px |
-| Rail Kind Glyph bottom to first-line text baseline | 0.36 px | 0.36 px |
+| Before | After |
+| --- | --- |
+| Enter leaves native buttons at opacity 1 | Native keys and pointer presses apply instant Token feedback |
+| Checkbox/Switch have no visible press recipe | Their visible owner answers while the input retains native activation |
+| Pointer cancellation can leave control-specific `:active` ink | One transient flag clears on release, cancellation, blur, exit and drag |
+| Rail's new Glyph wrapper misses the merged inset rule | The wrapper reserves the existing 56 px title column |
+| Shelf Kind marks sit 2.75–3 px below the title baseline | The visible marks align within 1 px; tick/disclosure geometry stays fixed |
 
-The native browser and Ark still own activation. The document observer only marks
-keyboard paint; it never clicks, prevents an event, moves focus or sends a command.
-Checkbox/Switch paint covers their visible label and mark. Pointer press remains
-native `:active`; its blur and release restore the resting style. Every feedback
-change is instant, including reduced motion; no motion engine or tween is added.
+Every sampled App title inset is 56 px after tree indentation. The largest
+absolute visible-circle-edge/first-line-font-baseline difference is 0.359375 px.
+The SVG circle's visible edge includes its stroke; animated interior paths do
+not enlarge the mark. Plain Terminal tabs reserve the column and have no Kind
+mark to compare. Canvas font metrics, Range and SVG geometry are read without
+changing the page. The same alignment observer runs against both checkouts.
 
-The original raw-key activation test used a driver command that omits the native
-key code/text. Complete `press` events prove activation; raw down/up events record
-first-frame paint and blur separately. Ark tab controls expose `data-value`, not
-`value`. Numeric call counts replace draft text assertions. Paint assertions move
-to this rendered observer; no behavioral case is retired or duplicated.
+The control fixture is shared between checkouts; only the head installs the
+feedback observer. First-frame readings use one requestAnimationFrame after
+real pointerdown/keydown. Rail Return opens its destination and blurs before
+that sample on both revisions: its cancellation is recorded separately, rather
+than counted as a positive press measurement. Behavioral tests separately use
+complete native key presses and count one action; raw held-key probes do not
+substitute for activation tests.
 
-D4 retains missing-Glyph detection and checks Token press declarations. D7 retains
-pressed-ground rejection and checks one row cue. D8 retains elevation, border and
-nested-filter checks and measures local text insets and visible SVG mark baselines.
-Native selector matching handles functional selector lists; no selector parser,
-DOM clone or synthetic production event is introduced. Canvas font metrics and the
-SVG circle's stroked bounds measure the mark rather than its square SVG box.
+Paired captures cover the five required seeds, dense Todos, visible
+`Complete failed: Offline. Retry.`, Todo menu, Pad and Rail focus/selection/drag,
+and Terminal tabs/Bubble. D2/D5/D6 pass in every App capture. No Check passing
+on the baseline regresses. D12/D14 fail during Todo/Pad drag on both revisions.
+The isolated native-control fixture retains baseline D3/D6/D8 failures; it is
+not an App layout. Both drag recordings decode successfully.
 
-Paired first-run, agents-10, tree-40, daemon-exits, conflict and dense-failure
-captures pass every Check, including D2/D5/D6. The dense failure reads
-“Daemon exited 1” with its Reopen action. The existing 53 Check tests and 24 control
-activation/cancellation tests pass; both required lints pass. Full capture-suite
-results are recorded separately from those focused passes.
+D4 inspects the instant Token recipe; actual first-frame samples accompany it.
+D7 keeps the old no-pressed-ground duty and checks state decoration separately
+from the installed drag library's pointer geometry and browser reset rules.
+D8 retains elevation/hairline duties and adds local inset/visible-mark readings.
 
-P11 gate: keyboard paint ignores text-entry fields and changes no input, target or
-submission. Its observer is the existing native/Ark activation seam, including
-release away, blur and one action per complete native activation. This is the
-Understand/Intervene journey's control-feedback slice; it claims no new native
-material, palette or Mac observation.
+## Validation
+
+- 99 focused tests pass with retries disabled, including Rail/Todo drag and
+  native activation/cancellation. After the final observer repair, all 54 U137
+  Check tests pass again with retries disabled.
+- The broad prescribed capture command completed 144 files before interruption.
+  Its cold U463 first-run timeout passes alone with warm binaries and retries
+  disabled. The broad run is incomplete, not a passing full-suite claim.
+- `just lint-rust`, Stylelint, type checks, source lint, Token scan and
+  `merge-loss` pass. `just lint-web` passes after main `9f0295fb6` brings
+  #4098's size-ceiling repair. This PR authors no loop-machinery changes.
+- PR #3948 is retained through #4005 and subsequent merged continuations;
+  #4049's choice-machine repair is included. No existing test was cut: the
+  edited choice test only narrows its blur target after adding fixture controls.
+
+This completes #3824's scoped press/baseline slice. #4068–#4072 retain the
+remaining whole-pass acceptance, including strict lint, palette/accent and
+native material. This observer makes no native rendering or launch-cost claim.
+
+## Reproduce
+
+Serve the base and head worktrees on ports 5200 and 5199 after `pnpm install`.
+Share the head's `ui/u133Fixture.tsx` with the base, removing its feedback import
+and onMount registration; copy `testing/designChecks.ts` to the base as a
+measurement-only module. From the repo root run:
+
+```sh
+pnpm --filter desktop exec python3 observers/U133/observe.py --browser agent-browser --output ../../artifacts/ux/U133/completion
+```
+
+`--side head` needs no base checkout. `--phase` limits observations to rows,
+controls, failure or the Rail Return/blur probe. Keep the same renderer and
+pixel ratio; `record start` recreates its context, so the driver restores dark
+mode and viewport before recording the real drag.
+
+## Concurrent fix integration
+
+The merge retains the concurrent fix run's functional-selector matching and
+text-entry/drag exclusions, drag-measurement regression and post-blur activation
+probe. Feedback registration is consolidated at the App lifetime with one flag;
+the duplicate keyboard-only installer and its `data-key-pressed` styles are
+replaced by the pointer/key cancellation implementation measured here.
+
+The concurrent `u133_release_away_does_not_activate` cases are covered by
+`u133_release_away_cancels` for Button, Checkbox, Switch and Toggle, plus Tab.
+Its blur case remains `u133_blur_clears_native_button_press`, including the next
+activation. Check tests use the retained `data-pressed` recipe. No behavior is
+retired; both runs' commits remain in the branch history.
 
 ## Bubble regression repair
 

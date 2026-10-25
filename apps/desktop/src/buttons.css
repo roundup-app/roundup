@@ -73,11 +73,11 @@ button {
 }
 
 /* U133: selected ground needs stronger ink; plain rows keep neighbouring icons’ tone. */
-.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"], [data-key-pressed]) {
+.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"], [data-key-pressed]) {
+.rail-row button.rail-add:hover:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--text);
 }
 
@@ -101,8 +101,7 @@ button:hover:not([aria-disabled="true"]),
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
 /* Opacity also reaches independently coloured Glyphs and filled controls whose label overrides the pressed ink (U133). */
 /* Sortable ends the transient press when dragging begins, leaving only the row's selected wash. */
-button:active:not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)),
-button:is([data-pressed="true"], [data-key-pressed]):not(:disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
+:is(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"])[data-pressed="true"]:not(input, :disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
   opacity: var(--press-opacity);
   transition: none;
@@ -114,7 +113,7 @@ button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   background-color: transparent;
 }
 
-button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
+button[data-feedback="ink"][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -125,11 +124,11 @@ button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
 }
 
 /* U510: a toggled control rests one ink step below hover, which reaches --text; a press dims to --ink-pressed. */
-:is([data-button="icon"])[aria-pressed="true"]:not(:active, [data-pressed="true"], [data-key-pressed], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--ink-rest-selected);
 }
 
-:is([data-button="icon"])[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [data-key-pressed], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:hover:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--text);
 }
 
@@ -154,8 +153,8 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 
-[data-flat-tab] button:is(:active, [data-pressed="true"], [data-key-pressed]):not([aria-disabled="true"]),
-[data-flat-add]:is(:active, [data-pressed="true"], [data-key-pressed]):not([aria-disabled="true"]) {
+[data-flat-tab] button[data-pressed="true"]:not([aria-disabled="true"]),
+[data-flat-add][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -243,11 +242,11 @@ button[aria-disabled="true"] {
   color: var(--surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button]:is(:active, [data-pressed="true"], [data-key-pressed]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--text);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:is(:active, [data-pressed="true"], [data-key-pressed]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--button-accent-ink);
 }
 
@@ -255,17 +254,12 @@ button[aria-disabled="true"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:hover {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, [data-pressed="true"]) {
   background-color: var(--button-surface);
 }
 
-/* Native links and ARIA commands share button press ink, including Enter through release. */
-:is(a[href], summary, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="treeitem"][tabindex]):is(:active, [data-key-pressed]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
-  opacity: var(--press-opacity);
-  transition: none;
-}
-
-.todo-tick:is(:active, [data-key-pressed]):not(:disabled, [aria-disabled="true"]) {
+/* Native visible inputs retain their own hit area and activation. */
+input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
   opacity: var(--press-opacity);
   transition: none;
 }
