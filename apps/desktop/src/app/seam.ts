@@ -96,6 +96,7 @@ export const SEAM_COMMANDS = [
 /** U3787f: the panel displays the main window's Capture owner; it stores no drafts. */
 export const captureStateSchema = v.object({
   session: v.string(), sequence: v.number(), text: v.string(), owner: v.string(), home: v.string(),
+  recovered: v.array(v.object({ revision: v.string(), text: v.string(), status: v.string(), label: v.string() })),
   failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
 });
 export const captureActionSchema = v.variant("kind", [
@@ -104,6 +105,8 @@ export const captureActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("file"), session: v.string(), sequence: v.number(), text: v.string(), keepOpen: v.boolean() }),
   v.object({ kind: v.literal("dismiss"), session: v.string() }),
   v.object({ kind: v.literal("discard"), session: v.string() }),
+  v.object({ kind: v.literal("copy"), session: v.string(), revision: v.string() }),
+  v.object({ kind: v.literal("discard-revision"), session: v.string(), revision: v.string() }),
   v.object({ kind: v.literal("retry"), session: v.string() }),
 ]);
 export type CaptureState = v.InferOutput<typeof captureStateSchema>;

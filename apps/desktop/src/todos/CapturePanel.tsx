@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup, Show, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -56,6 +56,14 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     <ReservedLine message={failure() ?? state()?.failure ?? null}>
       <Show when={state()?.failure}><button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
     </ReservedLine>
+    <For each={state()?.recovered}>{draft => <div class="capture-recovery">
+      <span class="ink" data-state={draft.status}>{draft.label}</span>
+      <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
+      <div class="capture-actions">
+        <button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "copy", session: current.session, revision: draft.revision }); }}>{copy.copy}</button>
+        <button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "discard-revision", session: current.session, revision: draft.revision }); }}>{copy.discardRevision}</button>
+      </div>
+    </div>}</For>
     <div class="capture-actions"><button data-button="quiet" onClick={dismiss}>{copy.cancel}</button><button data-button="primary" disabled={!state() || text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
   </section>;
 };
