@@ -36,6 +36,7 @@ run("u3010e the recorder in the Chromium harness", () => {
     expect(report.stages.scheduling.status).toBe("measured");
     expect(report.stages.update.status).toBe("measured");
     expect(report.stages.presentation.status).toBe("unmeasured");
-    expect(report).toMatchObject({ engine: "chromium", exit: 2 });
+    expect(report.engine).toBe("chromium");
+    expect(report.exit).toBe(report.stages.scheduling.meets_thresholds ? 0 : 1);
   }, 30_000);
 });

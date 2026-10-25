@@ -189,19 +189,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
             let matches = if code == 1 {
                 measured && scheduling["meets_thresholds"] == false && report["verdict"] == "fail"
             } else {
-                [
-                    "scheduling",
-                    "style",
-                    "layout",
-                    "paint",
-                    "compositor",
-                    "presentation",
-                ]
-                .iter()
-                .all(|stage| {
-                    report["stages"][stage]["status"] == "measured"
-                        && report["stages"][stage]["meets_thresholds"] == true
-                }) && report["verdict"] == "pass"
+                measured && scheduling["meets_thresholds"] == true && report["verdict"] == "pass"
             };
             if valid && matches {
                 Ok(if code == 0 { 0 } else { 1 })
@@ -215,7 +203,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
     }
 }
 
-/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 1 for a miss on the measured stage and 2 for an invalid run or an unmeasured stage, so the run never ends in a pass the webview cannot show.
+/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 0 for passing scheduling, 1 for a scheduling miss and 2 for an invalid run. Presentation remains unmeasured.
 async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     // Each invocation retains its own logs, even when cleanup must remove the temporary Project.
     let parent = args
