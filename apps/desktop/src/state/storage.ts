@@ -94,7 +94,13 @@ const invalidLegacy = (key: string, bytes: string): string => {
 
         if (!checked.success || checked.output.key !== key || checked.output.bytes !== bytes) return storageCopy.recoveryReadback;
 
-        return initializeStorage();
+        const selected = recovery();
+        const failure = await initializeStorage();
+
+        // A failed restart or cleanup still owns the same recoverable original.
+        if (failure !== null && recovery() === null) setRecovery(selected);
+
+        return failure;
       } catch (error) {
         return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
       }
