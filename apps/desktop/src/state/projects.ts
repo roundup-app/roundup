@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
-import { RpcError } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { storedValue } from "./storage";
 
@@ -245,7 +245,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
           setFailure(`${error.message}; ${readError.message}`);
         }
 
-        return { ...submission, status: error instanceof RpcError && error.code === -32003 ? "failed" : "unknown", error: error.message };
+        return { ...submission, status: outcomeOf(error), error: error.message };
       } finally {
         holder.remaining--;
 
