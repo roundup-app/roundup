@@ -56,9 +56,16 @@ jobs:
           builder: 'true'
       - name: Stamp Builder commits
         run: bash loop/author.sh "builder-$GITHUB_RUN_ID"
+      # L34: the hour's closed-Issue cache `build.yml` saves, so this job's queue read fetches what changed, not every page.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-restore
+          restore-keys: closed-issues-
       - id: task
         env:
           GH_TOKEN: ${{ github.token }}
+          ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
         run: |
           code=0
           python3 loop/orders.py task "$ISSUE" >"$RUNNER_TEMP/task.md" || code=$?
@@ -164,7 +171,15 @@ jobs:
         with:
           name: answer-${{ inputs.issue }}
           path: ${{ runner.temp }}/answer
-      - run: |
+      # L34: the hour's closed-Issue cache `build.yml` saves, so this job's queue read fetches what changed, not every page.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-restore
+          restore-keys: closed-issues-
+      - env:
+          ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
+        run: |
           verdict=$(cat "$RUNNER_TEMP/answer/verdict.txt" 2>/dev/null || true)
           { cat "$RUNNER_TEMP/answer/answer.txt" 2>/dev/null || true; } | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$verdict"
       # A GITHUB_TOKEN dispatch starts a workflow; a job where no model worked (a usage limit) ends the chain.
