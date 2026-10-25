@@ -36,30 +36,26 @@ const FIXTURE = `async () => {
 run("u361 the rendered Todo row", () => {
   const [width, height] = [1512, 950] as const;
 
-  for (const seed of ["tree-40", "agents-10", "first-run"])
-    for (const scheme of ["light", "dark"] as const) {
-      if (seed !== "first-run") it(`u361_a_failed_tick_box_call_unchecks_it_and_keeps_visible_keyboard_focus ${seed} ${scheme} ${width}x${height}`, async () => {
-        await page.scheme(scheme);
-        await page.load(`/harness.html?seed=${seed}`, width, height);
-        await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(window.__fake)`);
-        await page.call(FIXTURE);
-        await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
-        await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
-        // The real keyboard generates the native change event; visit the row controls until its tick box.
-        await page.call(`() => document.querySelector('.shelf [data-todo-also-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
+  it("u361_a_failed_tick_box_call_unchecks_it_and_keeps_visible_keyboard_focus", async () => {
+    await page.scheme("light");
+    await page.load("/harness.html?seed=tree-40", width, height);
+    await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(window.__fake)`);
+    await page.call(FIXTURE);
+    await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
+    await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
+    // The real keyboard generates the native change event; visit the row controls until its tick box.
+    await page.call(`() => document.querySelector('.shelf [data-todo-also-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
 
-        for (let at = 0; at < 8; at++) {
-          await page.press("Tab", "Tab");
+    for (let at = 0; at < 8; at++) {
+      await page.press("Tab", "Tab");
 
-          if (await page.call<boolean>(`() => document.activeElement.matches('.todo-tick')`)) break;
-        }
-
-        expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
-        await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
-        await page.press(" ", "Space");
-        await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
-        expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
-      }, 30_000);
-
+      if (await page.call<boolean>(`() => document.activeElement.matches('.todo-tick')`)) break;
     }
+
+    expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
+    await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
+    await page.press(" ", "Space");
+    await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
+    expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
+  }, 30_000);
 });

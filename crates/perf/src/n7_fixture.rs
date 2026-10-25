@@ -57,7 +57,7 @@ pub(crate) fn app(dir: &Path) -> PathBuf {
 printf "%s\n%s\n" "$ROUNDUP_DATA_DIR" "$$" > "$N7_LAUNCH_LOG"
 exec {} "$@"
 "#,
-            super::quote(&bin).unwrap()
+            shlex::try_quote(bin.to_str().unwrap()).unwrap()
         ),
     )
     .unwrap();
@@ -73,8 +73,8 @@ RUPD_SOCKET={}/roundup-$$.sock; export RUPD_SOCKET
 "$ROUNDUP_RUPD_BIN" "$1" &
 wait
 "#,
-            super::quote(&log).unwrap(),
-            super::quote(&std::env::temp_dir()).unwrap()
+            shlex::try_quote(log.to_str().unwrap()).unwrap(),
+            shlex::try_quote(std::env::temp_dir().to_str().unwrap()).unwrap()
         ),
     )
     .unwrap();
