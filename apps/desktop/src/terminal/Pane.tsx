@@ -290,6 +290,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   return (
     <div class="pane">
+      <Show when={selected()}><div class="pane-navigation"><button type="button" data-button="quiet" onClick={() => { connected.showView(null); rail.select(null); }}><Icon name="left" />{copy.backToAsk}</button></div></Show>
       <Show when={selected()?.kind === "workstream"}>
         <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.measurementTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
       </Show>

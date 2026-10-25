@@ -20,7 +20,7 @@ type Point = {x: number; y: number};
 type Checks = Record<string, {status: string; value: unknown}>;
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
-  await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
+  await page.load(`${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
@@ -189,7 +189,7 @@ run('u2716a Project overview band', () => {
   const band = '.rail [data-todo-root]';
 
   const open = async () => {
-    await page.load('/harness.html?seed=tree-40');
+    await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40');
     await page.until(`() => Boolean(document.querySelector('${band}')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-row').click()`);
     await page.until(`() => document.querySelector('${band}').getAttribute('aria-pressed') === 'false'`);

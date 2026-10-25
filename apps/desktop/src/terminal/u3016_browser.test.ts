@@ -123,7 +123,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     // The dense rendered observer uses the same App and public read contract; arithmetic,
     // stored pagination and production collection are proved by their smaller observers.
     const server = await appServer();
-    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await until("!!window.__fake");
     const dense = measurementFixture("backend");
     dense.rows.forEach((row, i) => {

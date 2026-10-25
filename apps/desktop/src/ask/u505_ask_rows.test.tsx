@@ -68,7 +68,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
   it("u505_selecting_a_row_selects_its_workstream", async () => {
     await observe(async (browser, origin) => {
       for (const activation of ["click", "Enter"]) {
-        await browser("open", new URL("/harness.html?seed=tree-40&view=workstreams", origin).href);
+        await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams", origin).href);
         await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
         await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
         await browser("eval", `(() => {
@@ -106,7 +106,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
 
   it("u505_arrows_move_between_openable_rows", async () => {
     await observe(async (browser, origin) => {
-      await browser("open", new URL("/harness.html?seed=tree-40&view=workstreams", origin).href);
+      await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams", origin).href);
       await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
         await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
       await browser("eval", `(() => {

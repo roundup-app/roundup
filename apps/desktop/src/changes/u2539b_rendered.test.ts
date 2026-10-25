@@ -47,6 +47,14 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await until("!!document.querySelector('.ask-input, .rail-tree')");
         await capture(lane, `${seed}-landing`);
 
+        if (lane === "head" && seed === "agents-10") {
+          await browser("click", ".overview-entry");
+          await until("!!document.querySelector('.window-identity [data-state]')");
+          await capture(lane, "agents-10-selected-agent");
+          await browser("click", '[aria-label="Back to Ask"]');
+          await until("!!document.querySelector('.ask-input')");
+        }
+
         if (lane === "head") {
           expect(await evaluate("document.querySelectorAll('.rail-tree, .todos-tab, .terminal-tabs, .resource-value, .ask-rows').length")).toBe(0);
           await evaluate("window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path: JSON.parse(localStorage.getItem('roundup:open-tab') ?? 'null') ?? list.at(-1).path,command:'view:workstreams'}})))");

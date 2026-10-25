@@ -440,15 +440,7 @@ export const openPage = async (
       await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
       loaded.clear();
-      // These retained observers inspect requested navigation and work items (U2539b).
-      // Resting-screen observers use agent-browser directly, or opt out with rest=1.
       const target = new URL(path, origin);
-
-      if (target.pathname.endsWith("harness.html") && !target.searchParams.has("rest")) {
-        target.searchParams.set("view", "workstreams");
-        target.searchParams.set("items", "1");
-        target.searchParams.set("tabs", "1");
-      }
 
       const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: target.href }, session);
 

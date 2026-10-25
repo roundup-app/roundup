@@ -21,7 +21,7 @@ afterAll(async () => { await page?.close(); });
 it("u3780_rendered_checks", async () => {
   for (const [scheme, contrast] of [["light", undefined], ["dark", undefined], ["dark", "more"]] as const) {
     await page.scheme(scheme, contrast);
-    await page.load("/harness.html?seed=note-queue", FULLSCREEN.width, FULLSCREEN.height);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=note-queue", FULLSCREEN.width, FULLSCREEN.height);
     await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
     await page.call(`() => document.querySelector('.rail-row[data-id="agent-4"]').click()`);
     await page.until(`() => Boolean(document.querySelector('.pane'))`);
@@ -45,7 +45,7 @@ it("p3557c_failed_note_deletion_shows_then_clears", async () => {
   const dir = captureDir("P3557c");
 
   await page.scheme("dark");
-  await page.load("/harness.html?seed=note-queue", FULLSCREEN.width, FULLSCREEN.height);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=note-queue", FULLSCREEN.width, FULLSCREEN.height);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
   await page.call(`() => document.querySelector('.rail-row[data-id="agent-4"]').click()`);
   await page.until(`() => document.querySelectorAll('.note-queue-row').length === 4`);

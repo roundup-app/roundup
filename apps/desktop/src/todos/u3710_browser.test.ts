@@ -22,7 +22,7 @@ const rows = '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button
 
 const setup = async () => {
   await page.scheme("light");
-  await page.load("/harness.html?seed=tree-40", 1280, 820);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');

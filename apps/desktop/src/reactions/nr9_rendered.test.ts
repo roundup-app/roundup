@@ -106,7 +106,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
       expect((await app.rpc("reaction.get", { id: created.id })).state).toBe("active");
     } finally { mcp.kill(); }
 
-    await browser("open", `${real.base}/harness.html?seed=agents-10`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=agents-10`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await activate('.rail [data-todo-root]');
@@ -286,7 +286,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
   try {
     await browser("set", "media", "dark");
     await browser("set", "viewport", "1512", "950");
-    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.reaction-head')");
     await evaluate(`(() => {
       const record = {

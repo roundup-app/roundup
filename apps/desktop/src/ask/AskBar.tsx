@@ -30,7 +30,10 @@ import "./styles.css";
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
 
+const optionalViews = ["ask-history", "reactions", "made"];
+
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
+
 export const AskBar = (props: {
   /** Change on the mounted owner to open one retained revision without reloading its readers.
    * Closing returns ordinary editing to the current work; selection never submits or reconciles.
@@ -43,7 +46,7 @@ export const AskBar = (props: {
   const reactions = createReactions();
   const madeScope = shelfScope(connected);
   const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
-  const over = () => (["ask-history", "reactions", "made"].some(connected.hasView) && rail.selected() !== null) || opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
+  const over = () => (optionalViews.some(connected.hasView) && rail.selected() !== null) || opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
@@ -149,7 +152,7 @@ export const AskBar = (props: {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => opening() !== null || rail.selected() === null || ["ask-history", "reactions", "made"].some(connected.hasView);
+  const shown = () => opening() !== null || rail.selected() === null || optionalViews.some(connected.hasView);
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
@@ -174,7 +177,7 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
-    if (["ask-history", "reactions", "made"].some(connected.hasView)) ["ask-history", "reactions", "made"].forEach(connected.hideView);
+    if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
@@ -319,7 +322,7 @@ export const AskBar = (props: {
         </div>
         <Show when={connected.view()}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
 
- if (current) connected.hideView(current); }}>{copy.close}</button></Show>
+          if (current) connected.hideView(current); }}>{copy.closeView(connected.view()!)}</button></Show>
         <Show when={treeReady() && !over() && !connected.drawer.content()}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
         <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>

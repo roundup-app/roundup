@@ -10,6 +10,7 @@
 }
 
 .window-bar .shelf-tabs {
+  padding-inline: var(--space-4);
   grid-column: 4 / 6;
   justify-self: end;
   padding-inline: var(--space-4);

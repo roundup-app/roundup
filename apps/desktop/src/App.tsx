@@ -1,3 +1,6 @@
+import { KindGlyph } from "./ink/KindGlyph";
+import { IconButton } from "./ui/IconButton";
+import { MARKS, markOf } from "./header/tab";
 import { storageCopy } from "./copy/storage";
 import { storageProblems } from "./state/storage";
 import "./state/storage.css";
@@ -485,7 +488,7 @@ export const App = (props: {
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            {null}
+            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <IconButton aria-label={`${tab.name}: ${MARKS[markOf(tab)!].label}`} onClick={() => jumpTo(tab.path)}><KindGlyph kind={markOf(tab)!} decorative /></IconButton>}</For>
           </WindowBar>
         }
         rail={
@@ -500,16 +503,16 @@ export const App = (props: {
                   <>
                     <Keys />
                     <AttentionKey />
-            <Strip requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false}
-              tabs={stripTabs()}
-              active={projects.active()}
-              onSelect={projects.select}
-              onMark={jumpTo}
-              onRename={renameProject}
-              onClose={(path) => projects.close(path)}
-              onChoose={() => void projects.choose()}
-              app={props.app}
-            />
+                    <Strip requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false}
+                      tabs={stripTabs()}
+                      active={projects.active()}
+                      onSelect={projects.select}
+                      onMark={jumpTo}
+                      onRename={renameProject}
+                      onClose={(path) => projects.close(path)}
+                      onChoose={() => void projects.choose()}
+                      app={props.app}
+                    />
 
                     <Rail requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false} />
                   </>
@@ -542,7 +545,9 @@ export const App = (props: {
                     <ProjectSettingsView />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip />
+                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+
+                      if (id) screens()?.emulatorFor(id).focus(); }} />
                   </div>
                 );
               }}
@@ -581,7 +586,7 @@ export const App = (props: {
               )}
             </InProject>
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
-              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label="Switch Project" placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
+              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <Toasts queue={toasts} />
           </>

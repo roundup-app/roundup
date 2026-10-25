@@ -170,7 +170,7 @@ const until = async (predicate: string, ...args: Json[]) => {
 
 const load = async (size: { width: number; height: number }) => {
   await browser.page("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 1, mobile: false });
-  await browser.page("Page.navigate", { url: `${origin}/harness.html?seed=tree-40` });
+  await browser.page("Page.navigate", { url: `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40` });
   // The harness asks for its pads last, once the Rail's tree and Terminals are in.
   await until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector(".rail-fold button"))`);
   await browser.eval("window.getSelection().removeAllRanges()");

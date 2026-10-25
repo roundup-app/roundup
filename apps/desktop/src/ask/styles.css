@@ -473,3 +473,5 @@
   margin: 0;
   color: var(--grey);
 }
+
+.ask-bar[data-mode="home"] .ask-compose { width: min(100%, var(--ask-width)); align-self: center; }

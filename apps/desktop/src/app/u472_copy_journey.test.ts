@@ -53,7 +53,7 @@ afterAll(async () => {
 const load = async (base: string, seed: string, width: number, scheme: string) => {
   await browser("set", "viewport", String(width), "800");
   await browser("set", "media", scheme);
-  await browser("open", `${base}harness.html?seed=${seed}&view=workstreams&items=1&tabs=1`);
+  await browser("open", `${base}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}&view=workstreams&items=1&tabs=1`);
   await wait("Boolean(window.__fake && document.querySelector('.window'))");
   await evaluate("localStorage.clear()");
   await browser("reload");

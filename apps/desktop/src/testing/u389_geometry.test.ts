@@ -27,7 +27,7 @@ afterAll(async () => {
 });
 
 const load = async (width: number, height: number) => {
-  await page.load("/harness.html?seed=tree-40", width, height);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, height);
   await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`);
 };
 

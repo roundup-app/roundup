@@ -35,7 +35,7 @@ it("u3707_rendered_checks", async () => {
   for (const [scheme, contrast] of MODES) {
     for (const [name, seed, row] of STATES) {
       await page.scheme(scheme, contrast);
-      await page.load(`/harness.html?seed=${seed}`, FULLSCREEN.width, FULLSCREEN.height);
+      await page.load(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, FULLSCREEN.width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row, .pane'))`);
 
       if (row) await page.call(`(row) => document.querySelector(row).click()`, row);

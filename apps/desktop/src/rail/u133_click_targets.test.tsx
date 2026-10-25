@@ -54,7 +54,7 @@ describe("u133 click targets", () => {
 
     try {
       await page.scheme("dark");
-      await page.load("/harness.html?seed=tree-40");
+      await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
       await page.until('() => !!document.querySelector(".rail-row[data-id=tokens] [data-pads-control]")');
       await page.call('() => document.querySelector(".rail-row[data-id=tokens] [data-pads-control]").focus()');
       await page.call("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");

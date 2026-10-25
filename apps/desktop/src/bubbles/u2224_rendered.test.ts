@@ -32,7 +32,7 @@ const shoot = async (name: string, reading: Reading): Promise<void> => {
 it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
-    await page.load("/harness.html?seed=bubbles", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", 1280, 800);
     await page.until(`() => Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
     await page.until(`() => document.querySelector('.terminal-new')`);

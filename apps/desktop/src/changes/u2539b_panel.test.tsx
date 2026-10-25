@@ -83,7 +83,7 @@ describe("U2539b", () => {
     expect(document.querySelector("file-tree-container")).toBeNull();
   });
 
-  it("u2539b_a_failed_call_shows_one_failure_line", async () => {
+  it("u2539b_a_failed_read_is_not_no_changes", async () => {
     const cause = "worktree_missing: /gone";
     await mountControl(() => { throw new RpcError(-32001, cause); });
 

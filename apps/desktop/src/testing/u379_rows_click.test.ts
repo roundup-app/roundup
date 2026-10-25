@@ -51,7 +51,7 @@ run("u379 where a Shelf row washes, a click acts", () => {
 
   it(`u3789a_every_visible_row_line_selects_without_opening on tree-40 ${scheme} at ${width}x${height}`, async () => {
     await page.scheme(scheme);
-    await page.load("/harness.html?seed=tree-40", width, height);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, height);
     await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
     await page.call(TAB, "todos");
     await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
