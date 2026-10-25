@@ -48,6 +48,7 @@ Each report path must exist in the tested Git head and repeat its observation's 
 | [#3013](https://github.com/roundup-app/roundup/issues/3013) | `macos` | Native motion observation in the App on the required Mac. |
 | [#3720](https://github.com/roundup-app/roundup/issues/3720) | `linux-9v45` | Same-host historical/current regression diagnosis and measured repair. |
 | [#3760](https://github.com/roundup-app/roundup/issues/3760) | `linux-9v45` | Paired write-path timing and profiles on one qualified 9V45 host. |
+| [#3971](https://github.com/roundup-app/roundup/issues/3971) | `linux-9v45` | Isolate write-stage scheduling and historical output-adapter cost for #3760. |
 | [#3764](https://github.com/roundup-app/roundup/issues/3764) | `linux-9v45` | Qualify the execution lifetime and run dependent probes within that lifetime. |
 | [#3706](https://github.com/roundup-app/roundup/issues/3706) | `linux-9v45` | R16 diagnosis, calibration and independent observer evidence on 9V45. |
 | [#3848](https://github.com/roundup-app/roundup/issues/3848) | `any` | Live-method and committed-evidence Rust checks; no machine-specific measurement. |
@@ -207,6 +208,52 @@ R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured ca
 ### R23 execution lifetime (#3764)
 
 [Host attempts, qualified observations and reproduction instructions](perf-r23-execution.md).
+
+### R23 paired write conclusions (#3760)
+
+The [retained 9V45 lifetime](../crates/perf/evidence/r23-host-40170055163/README.md)
+compares historical `2029ed2c4ee606d26e73c858c4d7c93130df36e0` with candidate
+`50e546c1a3ce74689738b08a3dfe273895f9ae31` using one compatible probe.
+Three ordered pairs each contain eleven fresh Daemons, with median load/CPU
+0.6325–1.3150 and neither write metric skipped. Values below are invocation
+medians in milliseconds; ratios use the unrounded reports.
+
+| Pair | Historical write | Candidate write | Ratio | Historical output | Candidate output | Ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 0.054052 | 0.055794 | 1.032228 | 0.112005 | 0.110897 | 0.990108 |
+| 2 | 0.053530 | 0.056035 | 1.046796 | 0.110526 | 0.111509 | 1.008894 |
+| 3 | 0.054162 | 0.053080 | 0.980023 | 0.110957 | 0.111127 | 1.001532 |
+
+`terminal_write_p95_ms`: historical median 0.054052; ceiling
+0.054052 × 1.10 + 0.001 = **0.0604572 ms**. All three candidates fit.
+`write_to_output_p95_ms`: historical median 0.110957; ceiling
+0.110957 × 1.10 + 0.001 = **0.1230527 ms**. All three candidates fit,
+and all six invocation medians are below the unchanged 16 ms absolute limit.
+Cold start and extra RSS invocation medians also stay below 300 ms and 150 MB.
+These are complete-observer comparisons; they establish no Daemon-only repair.
+The older diagnosis below measures a different candidate and incompatible probes.
+
+All six exits remain 1: each misses the explicitly diagnostic copied-boxd
+ceilings for ping, RSS and write-to-output. Their raw values, ceilings, statuses,
+startup logs and all failed attempts remain retained. No copied value becomes
+a 9V45 baseline. H15 is excluded after the writes for both references, so this
+supplies no full perf pass, calibration or relaxation of R16 step 3.
+
+[Compatibility assessment, calculation command and profile analysis](../crates/perf/evidence/r23-host-40170055163/assessment.md)
+explain the unresolved attribution. Historical Events require probe-side output
+adaptation; its cost was not isolated. Separate perf/strace recordings include
+RPC, PTY and delivery work, but combine setup, Rail, ping and write phases.
+Their CPU samples show JSON decoding, allocation and scheduling work; overlapping
+syscall wall times cannot assign per-write waiting. Whole-invocation profiling
+overhead is +8.4% historical / +9.5% candidate; profiles never count as timing pairs.
+
+[Reproduction commands](../crates/perf/evidence/r23-host-40170055163/reproduce.txt)
+require a newly qualified 9V45 lifetime; this assessment collected no substitute
+measurements on its 9V74 host. **Attribution remains incomplete**:
+[#3971](https://github.com/roundup-app/roundup/issues/3971) blocks #3760 to isolate
+adapter cost and request/reply, PTY and output-delivery stages, linked under
+[#3720](https://github.com/roundup-app/roundup/issues/3720). #3760 stays open;
+R8 pins, R13 qualification, R15 pacing, R16 ceilings and macOS behavior are unchanged.
 
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
