@@ -14,12 +14,13 @@ pub(super) fn load_nodes(
     db: &Connection,
     include_preparation: bool,
 ) -> Result<Vec<RailNode>, RpcError> {
-    load_with(db, include_preparation, |node, _| node)
+    load_with(db, include_preparation, 0, |node, _| node)
 }
 
 fn load_with<T>(
     db: &Connection,
     include_preparation: bool,
+    capacity: usize,
     mut map: impl FnMut(RailNode, u64) -> T,
 ) -> Result<Vec<T>, RpcError> {
     let mut query = db.prepare_cached(NODES).map_err(sql)?;
@@ -81,7 +82,11 @@ fn load_with<T>(
             Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
         })
         .map_err(sql)?;
-    rows.collect::<Result<_, _>>().map_err(sql)
+    let mut nodes = Vec::with_capacity(capacity);
+    for row in rows {
+        nodes.push(row.map_err(sql)?);
+    }
+    Ok(nodes)
 }
 
 impl Rail {
@@ -132,7 +137,16 @@ impl Rail {
     ) -> Result<Vec<RailNode>, RpcError> {
         // R3696c: the separate finish-count query/map made a forty-Workstream
         // reply allocate 290 times. Keep the count beside its node during traversal.
-        let mut flat = load_with(&self.db, false, |node, finished| (node, finished))?;
+        // R3696c: growing this buffer costs 19,968 bytes per forty-node reply.
+        // A previous length reserves space without the count query that regressed timing.
+        let mut flat = load_with(
+            &self.db,
+            false,
+            self.tree_capacity.get(),
+            |node, finished| (node, finished),
+        )?;
+        // Retain no nodes; bound speculative space after a large tree is removed.
+        self.tree_capacity.set(flat.len().min(256));
         // Sibling orders are unique (A6); equal orders across parents need no stability.
         // R3696c: avoid the stable sort's scratch copy of these large nodes.
         flat.sort_unstable_by_key(|(node, _)| node.order);
