@@ -235,6 +235,8 @@ for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
 
     if (path === "todo-title") await newer("drawer");
 
+    if (path === "switcher") await holdFrames();
+
     await read(`window.queuedFocus = []; window.realMicrotask = window.queueMicrotask; window.queueMicrotask = fn => window.queuedFocus.push(fn)`);
 
     if (path === "ask") await browser("press", "Meta+/");
@@ -246,7 +248,9 @@ for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
     else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
     expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
     await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);
-    // All app microtasks queued by this action have completed before checking its final focus.
+    if (path === "switcher") await read(`window.releaseFrames()`);
+
+    // The owner's microtasks and the chooser machine's focus frame have completed before reading focus.
     expect(await read(`document.activeElement === window.newerFocus`)).toBe(true);
   }, 90_000);
 }

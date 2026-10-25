@@ -1,3 +1,9 @@
+import * as combobox from "@zag-js/combobox";
+import { normalizeProps, useMachine } from "@zag-js/solid";
+import { useLocaleContext } from "@ark-ui/solid/locale";
+import { useEnvironmentContext } from "@ark-ui/solid/environment";
+import { useFieldContext } from "@ark-ui/solid/field";
+import { captureFocus } from "../keys/focus";
 import "./Combobox.css";
 import "./Select.css";
 import { Portal } from "solid-js/web";
@@ -5,7 +11,7 @@ import { Popover } from "./Popover";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { copy } from "../copy";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
-import { createMemo, createSignal, createUniqueId, For, type JSX } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
 
 type ComboboxItem = { value: string; label: string };
 
@@ -17,6 +23,9 @@ const Root = (props: {
   inputValue: string;
   /** Native selection/caret access; changing the query goes through `inputValue`. Focus only on explicit opening. */
   inputRef?: (input: HTMLInputElement) => void;
+  initialFocus?: ReturnType<typeof captureFocus>;
+  onDismiss?: () => void;
+  focusScope?: () => HTMLElement | undefined;
   onInput: (text: string) => void;
   onSelect: (value: string) => void;
   label: string;
@@ -25,6 +34,8 @@ const Root = (props: {
   group?: (item: ComboboxItem) => string | undefined;
   row: (item: ComboboxItem) => JSX.Element;
 }) => {
+  const dismiss = props.onDismiss ?? Popover.dismiss();
+  const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && (props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
 
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
@@ -35,17 +46,57 @@ const Root = (props: {
     setTimeout(() => { pointerEvent = false; });
   };
 
-  return <ArkCombobox.Root class="app-combobox" collection={collection()} open lazyMount={false} inputBehavior="none" selectionBehavior="clear" loopFocus={false} autoFocus
-    inputValue={props.inputValue} value={[]} highlightedValue={props.highlightedValue ?? undefined}
-    onHighlightChange={(details) => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); }}
-    onInputValueChange={(details) => props.onInput(details.inputValue)}
-    onValueChange={(details) => {
-      const [value] = details.value;
+  const initialFocus = props.initialFocus ?? Popover.initialFocus() ?? captureFocus();
+  let input: HTMLInputElement | undefined;
+  const id = createUniqueId();
+  const locale = useLocaleContext();
+  const environment = useEnvironmentContext();
+  const field = useFieldContext();
+  // Zag 1.45's open entry schedules focus regardless of autoFocus. Ark's useCombobox fixes
+  // that machine, so retain it through RootProvider and guard only its focus actions.
+  // https://github.com/chakra-ui/zag/blob/%40zag-js/combobox%401.45.0/packages/machines/combobox/src/combobox.machine.ts
+  const machine: typeof combobox.machine = {
+    ...combobox.machine,
+    implementations: {
+      ...combobox.machine.implementations,
+      actions: {
+        ...combobox.machine.implementations?.actions,
+        setInitialFocus: () => {
+          requestAnimationFrame(() => initialFocus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
+        },
+        setFinalFocus: () => {
+          const focus = captureFocus();
+          requestAnimationFrame(() => focus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
+        },
+      },
+    },
+  };
+  const service = useMachine(machine, () => ({
+    id, ids: { label: field?.().ids.label, input: field?.().ids.control },
+    disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
+    dir: locale().dir, getRootNode: environment().getRootNode,
+    collection: collection(), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
+    onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
+    inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
+    onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
+    onInputValueChange: details => props.onInput(details.inputValue),
+    onValueChange: details => { const [value] = details.value; if (value !== undefined) props.onSelect(value); },
+  }));
+  const api = createMemo(() => combobox.connect(service, normalizeProps));
 
-      if (value !== undefined) props.onSelect(value);
-    }}>
+  return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
-    <ArkCombobox.Control><ArkCombobox.Input ref={props.inputRef} class="app-combobox-input" placeholder={props.placeholder} autofocus /></ArkCombobox.Control>
+    <ArkCombobox.Control><ArkCombobox.Input ref={element => {
+      const focus = initialFocus;
+      input = element;
+      const signal = focus.signal(target => contains(target, element));
+      const cancel = () => dismiss?.();
+      signal.addEventListener("abort", cancel, { once: true });
+      onCleanup(() => signal.removeEventListener("abort", cancel));
+
+      if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
+      props.inputRef?.(element);
+    }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {([group, items]) => group ? <ArkCombobox.ItemGroup>
@@ -54,7 +105,7 @@ const Root = (props: {
         </ArkCombobox.ItemGroup> : <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
       </For>
     </ArkCombobox.Content>
-  </ArkCombobox.Root>;
+  </ArkCombobox.RootProvider>;
 };
 
 
@@ -68,7 +119,7 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   let input: HTMLInputElement | undefined;
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
-  return <Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+  return <Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
     <Popover.Trigger class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
       <span id={caption} class="app-combobox-label">{props.label}</span>
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>

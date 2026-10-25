@@ -1,4 +1,6 @@
 import { outcomeOf } from "../app/seam";
+import { captureFocus } from "../keys/focus";
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { copy } from "../copy";
 import * as v from "valibot";
@@ -129,6 +131,8 @@ export const EditableText = (props: {
   let shown: HTMLElement | undefined;
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
+    captureFocus(true);
+
     const saved = props.revision === undefined
       ? records().findLast(draft => draft.status === "draft" || draft.status === "failed")
       : records().find(draft => draft.revision === props.revision);
@@ -164,12 +168,13 @@ export const EditableText = (props: {
 
   const field = (started: Editing) => (element: HTMLTextAreaElement) => {
     element.value = started.text;
+    const focus = captureFocus();
     // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       fit(element);
 
       if (!alive) return;
-      element.focus({ preventScroll: true });
+      focus(() => element.focus({ preventScroll: true }));
 
       if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
     });
@@ -209,6 +214,7 @@ export const EditableText = (props: {
 
     const submit = async () => {
       if (left) return;
+      const retryFocus = captureFocus();
       left = true;
 
       if (element.value === started.form.base && !started.recovered) {
@@ -248,7 +254,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body)) startWith(started.width);
+            && (document.activeElement === null || document.activeElement === document.body)) retryFocus(() => startWith(started.width));
         }
       }
     };
@@ -259,7 +265,7 @@ export const EditableText = (props: {
 
         if (element.value !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
-        queueMicrotask(() => shown?.focus());
+        queueFocus(() => shown?.focus());
       } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
         event.preventDefault(); void submit();
       }
