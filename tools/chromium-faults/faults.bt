@@ -2,6 +2,7 @@
 // a Chromium fork from any thread belongs to this command, never the host.
 BEGIN {
   @integrity = 0;
+  @samples = 0;
   @tree[$1] = 1;
   // The sentinel makes an empty snapshot distinguishable from a lost print.
   @live[0] = ((uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint32)0, "");
@@ -28,7 +29,9 @@ kfunc:filemap_fault /@chrome[tid]/ {
   @fault[tid] = (pid, args.vmf->address, args.vmf->pgoff * $2,
                 nsecs, $v->vm_start, $v->vm_end, $v->vm_pgoff * $2,
                 $file->f_inode->i_ino, $file->f_inode->i_sb->s_dev);
-  @name[tid] = str($file->f_path.dentry->d_name.name);
+  // Bound the tuple below bpftrace's 256-byte allocation limit on releases
+  // whose default str() capacity is 1024; 64 preserves the older capacity.
+  @name[tid] = str($file->f_path.dentry->d_name.name, 64);
   if (!@fault[tid].3 || @name[tid] == "") { @integrity = 1; }
 }
 // This is the stack at the actual wait, rather than filemap_fault's caller.
