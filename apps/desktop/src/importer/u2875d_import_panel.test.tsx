@@ -105,7 +105,8 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
   await waitFor(() => expect(screen.getByText(/No working folder was recorded/)).toBeTruthy());
   expect(screen.getByText(/The saved conversation changed/)).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(3));
 });
 
 it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)", async (empty) => {
@@ -249,12 +250,11 @@ it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
   await open();
   const dialog = screen.getByRole("region", { name: "Import Claude Code work" });
 
-  expect(within(screen.getByRole("list", { name: "Conversations" })).getAllByRole("listitem")).toHaveLength(2);
-  expect(within(dialog).queryByText(/Already imported/)).toBeNull();
+  expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await within(dialog).findByText(/Already imported/);
+  await waitFor(() => expect(within(dialog).getAllByRole("listitem")).toHaveLength(4));
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await waitFor(() => expect(within(dialog).queryByText(/Already imported/)).toBeNull());
+  await waitFor(() => expect(within(dialog).getAllByRole("listitem")).toHaveLength(2));
 });
 
 it("u3083b_no_line_without_excluded", async () => {
