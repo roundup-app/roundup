@@ -1,8 +1,9 @@
+import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import * as v from "valibot";
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -21,13 +22,23 @@ import "./capture.styles.css";
 let optimistic = 0;
 
 /** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
-export const Capture = (props: { onFile: (() => void) | undefined }) => {
+export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const [open, setOpen] = createSignal(false);
+  const [nativeOpen, setNativeOpen] = createSignal(false);
+  const port = connected.app.capture;
+  const identity = createUniqueId();
+  let shows = 0;
+  const [session, setSession] = createSignal(identity);
+  const [sequence, setSequence] = createSignal(0);
   const { drafts } = connected;
   const destination = { surface: "capture", object: "todo-capture", recipient: null };
-  drafts.validate("capture", v.object({ text: v.string() }));
+  const targetSchema = v.object({
+    owner: v.nullable(v.object({ kind: v.literal("agent"), id: v.string(), parent: v.null() })),
+    ownerName: v.nullable(v.string()), home: v.nullable(v.string()), homeName: v.nullable(v.string()),
+  });
+  drafts.validate("capture", v.object({ text: v.string(), target: v.optional(targetSchema) }));
   drafts.registerRecovery("capture", () => "available");
 
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
@@ -45,7 +56,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     return value.success ? value.output : "";
   };
 
-  const setText = (text: string) => drafts.edit(destination, { text }, input
+  const setText = (text: string) => drafts.edit(destination, { text, target: target() }, input
     ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null, "ordinary");
 
   const recovered = () => records().filter(draft => draft.revision !== current()?.revision && draft.status !== "pending");
@@ -57,7 +68,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   };
 
   createEffect(() => {
-    if (open()) onCleanup(drafts.editor(destination));
+    if (open() || nativeOpen()) onCleanup(drafts.editor(destination));
   });
   /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
   let stranded: { title: string; id: number } | null = null;
@@ -67,7 +78,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   let panel: HTMLElement | undefined;
 
   /** U3740: what the selection gives a new Todo, read when the line shows and when `⏎` files, so the two agree. */
-  const target = () => {
+  const selectedTarget = () => {
     const nodes = connected.rail.nodes;
     const node = nodes.find(each => each.id === connected.rail.selected());
     const home = node ? resolvedWorkstream(nodes, node.id) : null;
@@ -77,6 +88,12 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     return { owner, ownerName: owner ? node!.name : null, home: homeName === null ? null : home, homeName };
   };
 
+  let nativeSession = false;
+  let capturedTarget: ReturnType<typeof selectedTarget> | undefined;
+  const target = () => {
+    const retained = v.safeParse(targetSchema, current()?.value.target);
+    return text() !== "" && retained.success ? retained.output : capturedTarget ?? selectedTarget();
+  };
   const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
   const ownerCut = createCutTitle(ownerLine);
@@ -85,12 +102,20 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   const show = () => {
     if (open()) return;
 
+    nativeSession = false;
+    capturedTarget = selectedTarget();
     returnTo = document.activeElement;
     setOpen(true);
   };
 
   const close = () => {
     setOpen(false);
+    if (nativeOpen()) {
+      setNativeOpen(false);
+      props.onNativeOpen?.(false);
+      void port?.dismiss().catch(error => setFailure(String(error)));
+      return;
+    }
 
     if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
   };
@@ -167,10 +192,45 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
         }
 
         setFailure(error.message);
-        show();
+        if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
+        else show();
       }
     })();
   };
+
+  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), owner: ownerLine(), home: homeLine(), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+  const nativeShow = () => {
+    if (nativeOpen() || open()) return;
+    setSession(`${identity}:${++shows}`);
+    setSequence(0);
+    nativeSession = true;
+    capturedTarget = selectedTarget();
+    setNativeOpen(true);
+    props.onNativeOpen?.(true);
+    void port?.show().then(publish).catch(error => { setFailure(String(error)); setNativeOpen(false); props.onNativeOpen?.(false); show(); });
+  };
+  if (port) {
+    let stopped = false;
+    const stops: (() => void)[] = [];
+    const own = (subscription: Promise<() => void>) => void subscription.then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => setFailure(String(error)));
+    own(port.onRequested(nativeShow));
+    own(port.onAction(action => {
+      if (!nativeOpen()) return;
+      if (action.kind === "ready") { void publish(); return; }
+      if (action.session !== session()) return;
+      if (action.kind === "edit" || action.kind === "file") {
+        if (action.sequence < sequence()) return;
+        setSequence(action.sequence);
+        setText(action.text);
+      }
+      if (action.kind === "file") void file(action.keepOpen);
+      else if (action.kind === "discard") discard();
+      else if (action.kind === "dismiss") close();
+      else if (action.kind === "retry") void drafts.retry();
+    }));
+    createEffect(() => { if (nativeOpen()) void publish()?.catch(error => setFailure(String(error))); });
+    onCleanup(() => { stopped = true; for (const stop of stops) stop(); if (untrack(nativeOpen)) { void port.dismiss(); props.onNativeOpen?.(false); } });
+  }
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
   createEffect(() => registerKeys({ kind: "app" }, [{ chords: chordsOf(CHORDS.find(row => row.what === copy.captureATodo)), run: show }]));

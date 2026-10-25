@@ -14,6 +14,9 @@ idle-perf = []
 tauri = { version = "2", default-features = false, features = ["wry"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tauri-plugin-global-shortcut = "=2.4.1"
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "ef6e3090a6083c653955ca0b6e7f6c6ae1453d40" }
 tauri-plugin-positioner = "=2.4.0"
 objc2 = "0.6"

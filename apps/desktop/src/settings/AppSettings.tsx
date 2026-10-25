@@ -114,7 +114,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <ReservedLine message={sizeFailure()} />
         </div>
       </SettingsGroup>
-      <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting onFailure={setFailure} /></SettingsGroup>
+      <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup>
       <SettingsGroup name={copy.settingsAppearance}>
         <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
