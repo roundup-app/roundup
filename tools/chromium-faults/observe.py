@@ -286,7 +286,11 @@ def main():
     def stderr():
         nonlocal kernel_error, history_complete
         for number, raw in enumerate(tracer.stderr):
-            if any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
+            # bpftrace 0.25 repeats stream loss in a shutdown summary. Like
+            # lost_events, it invalidates history, not the final kernel map.
+            if raw.startswith("WARNING: Total lost event count:"):
+                history_complete = False
+            elif any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
                 # Even beyond the diagnostic cap, failure invalidates evidence.
                 kernel_error = True
                 history_complete = False
@@ -324,7 +328,7 @@ def main():
     signal.signal(signal.SIGINT, interrupted)
     result = 1
     try:
-        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--preserve-status", "--signal=TERM", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         readers = [threading.Thread(target=target, daemon=True) for target in (consume, stderr, announce)]
         for reader in readers:
             reader.start()
@@ -346,9 +350,10 @@ def main():
             os.close(write_fd)
         if tracer and tracer.poll() is None:
             # sudo forwards to the timeout supervisor, which owns only this
-            # tracer. Its 15-minute watchdog also bounds a lost control channel.
+            # tracer. TERM also reaches bpftrace when INT was inherited ignored.
+            # Its 15-minute watchdog also bounds a lost control channel.
             try:
-                subprocess.run(["sudo", "-n", "kill", "-INT", str(tracer.pid)], timeout=5, check=False)
+                subprocess.run(["sudo", "-n", "kill", "-TERM", str(tracer.pid)], timeout=5, check=False)
                 tracer.wait(timeout=10)
             except (OSError, subprocess.TimeoutExpired) as error:
                 publish({"status": "error", "detail": f"tracer cleanup: {error}; its watchdog remains bounded to 15 minutes"})
