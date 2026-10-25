@@ -637,7 +637,6 @@
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"2fa731fd702a57698a0cf26f7b52cdb6232509cf8f278f82c3e762fe3a9ca800"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"f2433ec26e3d53de89d7cfe82f0a015682b2c0ab2fc4e9bb8336481715c23133"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
-{"file":"apps/desktop/src/todos/u3010c_rendered.test.ts","test":"<module>","identity":"e16186d7432bf157ece00080a70193a955a11c085c3f6b6c22a551bded39137f"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_busy_until_is_now_plus_the_sum_of_estimates_and_done_todos_add_nothing","identity":"8b18f0aa8f800c30e3782d696d249ae69e30d0518273415fbbbd0714767f2640"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_missing_estimates_add_nothing_and_say_so","identity":"4a4f0745e32ccf4170a645e7388b5fd5994f2c16b3638647526460d5665999e5"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_missing_estimates_add_nothing_and_say_so","identity":"529449a77ba4375232075731763a2cf74a0821b9c7c3b447df7f2d85dc2d4115"}

@@ -1,3 +1,4 @@
+import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
@@ -290,7 +291,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   return (
     <div class="pane">
-      <Show when={selected()}><div class="pane-navigation"><button type="button" data-button="quiet" onClick={() => { connected.showView(null); rail.select(null); }}><Icon name="left" />{copy.backToAsk}</button></div></Show>
+      <Show when={selected()}>{node => <div class="pane-navigation"><div class="pane-identity"><Show when={node().kind === "agent"}><h2 class="pane-name">{node().name}</h2><Show when={node().status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show></Show></div><button type="button" data-button="quiet" onClick={() => { connected.showView(null); rail.select(null); }}><Icon name="left" />{copy.backToAsk}</button></div>}</Show>
       <Show when={selected()?.kind === "workstream"}>
         <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.measurementTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
       </Show>

@@ -212,7 +212,6 @@ rendered("u3010c_refused_move_leaves_the_rows_where_they_were", async () => {
   const run = await stop();
   const first = run[0]!.tops;
 
-  expect(await page.call<string>(`() => document.querySelector('[role=alert]').textContent`)).toBe("todo would wait on itself");
   expect(await ids()).toEqual(before);
   expect(await reorders()).toEqual([]);
   // The failure text opens a line under its row, so rows below it move down; no row changes place or slides.

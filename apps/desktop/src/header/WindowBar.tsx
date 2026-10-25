@@ -1,5 +1,4 @@
-import { KindGlyph } from "../ink/KindGlyph";
-import { createEffect, createMemo, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
@@ -17,7 +16,6 @@ export const WindowBar = (props: {
   shelf?: JSX.Element;
   onFailure: (message: string | null) => void;
 }) => {
-  const agent = createMemo(() => props.rail?.nodes.find(node => node.id === props.rail?.selected() && node.kind === "agent"));
   const title = createMemo(() => {
     if (!props.project) return copy.roundup;
 
@@ -29,8 +27,6 @@ export const WindowBar = (props: {
 
     return props.project;
   });
-
-  const visibleTitle = () => agent() ? `${props.project} — ${agent()!.name}` : title();
 
   let writing = false;
   let written: string | undefined;
@@ -65,9 +61,9 @@ export const WindowBar = (props: {
 
   // U2228b: the visible title is cut in the middle to the box; the accessible name and `title` stay whole.
   let box: HTMLDivElement | undefined;
-  const fit = () => { if (box) middleCut(box, visibleTitle()); };
+  const fit = () => { if (box) middleCut(box, title()); };
 
-  createEffect(() => { visibleTitle(); fit(); });
+  createEffect(() => { title(); fit(); });
 
   createEffect(() => {
     if (!box?.parentElement || typeof ResizeObserver === "undefined") return;
@@ -95,12 +91,9 @@ export const WindowBar = (props: {
     }}>
       <div class="traffic-lights" aria-hidden="true" />
       <div class="window-actions">{props.children}</div>
-      <div class="window-identity">
-        <Tip text={visibleTitle()}>
-          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={visibleTitle()} ref={box} />}
+        <Tip text={title()}>
+          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
         </Tip>
-        <Show when={agent()?.status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show>
-      </div>
       {props.shelf}
     </div>
   );
