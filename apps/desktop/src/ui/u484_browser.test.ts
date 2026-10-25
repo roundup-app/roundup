@@ -181,7 +181,7 @@ it("u3800a_one_drag_fixture", async () => {
   await focusedA();
 
   // The same session exercises native path routing through the real App and fake event seam.
-  await browser("open", new URL("harness.html?seed=tree-40", origin).href);
+  await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=tokens]')");
   await browser("click", ".rail-row[data-id=tokens] .name");
   await browser("wait", "--fn", "document.querySelector('.pane-body .xterm') !== null");

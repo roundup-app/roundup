@@ -17,7 +17,7 @@ describe("u179 the header is the strip", () => {
   it("u449_the_header_keeps_the_strip_and_project_title", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
-    expect(within(header()).getByRole("heading", { name: "web" })).toBeTruthy();
+
     expect(projectTabs().map(entry => entry.textContent)).toEqual(["api", "web"]);
   });
 

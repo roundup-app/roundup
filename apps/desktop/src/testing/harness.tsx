@@ -59,7 +59,7 @@ const mount = (app: AppSeam) => {
 
   const inspection = (open: import("../state/connectedProject").ConnectedProject) => {
     createEffect(() => {
-      if (query.get("tabs") === "1" && open.rail.selected() !== null) open.showView("terminal-tabs");
+      if (query.get("tabs") === "1") open.showView("terminal-tabs");
     });
   };
 
@@ -138,4 +138,3 @@ if (query.get("daemon") === "1") {
 
   if (query.get("todos") === "worst") mountTodoWorstCase(controls);
 }
-

@@ -245,6 +245,7 @@ export const Strip = (props: {
                 <ProjectTab
                   tab={tab()}
                   selected={path === props.active}
+                  suppressed={path === props.active}
                   closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
                   ref={(element) => {
                     elements.set(path, element);

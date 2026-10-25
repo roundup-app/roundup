@@ -85,7 +85,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   await settle();
-  const read = () => evaluate(`document.querySelector('.rail [aria-selected=true]').dataset.id`);
+  const read = () => evaluate(`document.querySelector('.rail .rail-row[data-selected=true]').dataset.id`);
   expect(await read()).toBe("payments");
   await browser("mouse", "move", "288", "400");
   await browser("mouse", "down", "left");
@@ -106,7 +106,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "up", "left");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
-  expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
+  expect(await evaluate("document.querySelector('.rail .rail-row[data-selected=true]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   expect(await read()).toBe("payments");

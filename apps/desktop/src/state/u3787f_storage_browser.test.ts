@@ -11,7 +11,7 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
 
     for (const seed of ["tree-40", "tabs-8", "conflict"]) {
       await lane.evaluate("localStorage.clear()");
-      await lane.browser("open", `${origin}/harness.html?seed=${seed}&todos=worst`);
+      await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}&todos=worst`);
       await lane.until("!!document.querySelector('[role=tree]')");
       await lane.evaluate("(async () => { const settings = await import('/src/settings/preferences.ts'); await settings.saveAppSettings({ mode: 'dark' }); })()");
       const capture = captureDir("U3787f");
