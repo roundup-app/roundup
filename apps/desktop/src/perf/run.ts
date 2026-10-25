@@ -105,9 +105,15 @@ type PerfReport =
       user_agent: string;
     });
 
-const press = (textarea: HTMLTextAreaElement) => {
-  textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", keyCode: 65, bubbles: true }));
-  textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true }));
+/** Follow the browser's cancellation rule: xterm can send the key on keydown, so forcing keypress would write the same identity twice. */
+export const press = (textarea: HTMLTextAreaElement) => {
+  const down = new KeyboardEvent("keydown", { key: "a", code: "KeyA", keyCode: 65, bubbles: true, cancelable: true });
+
+  if (textarea.dispatchEvent(down)) {
+    textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true, cancelable: true }));
+  }
+
+  textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "a", code: "KeyA", keyCode: 65, bubbles: true }));
 };
 
 const hasReadyLine = (text: string) => text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`);
@@ -165,31 +171,8 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
   };
 };
 
-/** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
-export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>): Promise<HTMLTextAreaElement> => {
-  const create = await appears(
-    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
-    "the new Workstream button",
-  );
-
-  create.click();
-  await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
-  // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
-  await appears(
-    () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
-    "the new Workstream's Agent input",
-  );
-  const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
-
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
-
-  const input = await appears(
-    () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
-    "the shell Terminal's input",
-  );
-
-  const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
-
+/** Binds a live or retained ready line to one shell before typing or reporting. */
+const readyTerminal = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>, id: string): Promise<void> => {
   terminal.select(id);
   // Read the retained log, not the screen snapshot: READY may already have scrolled off the grid.
   // Keep this decoder separate from xterm's live decoder so overlapping bytes cannot splice a false line.
@@ -225,37 +208,134 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   } finally {
     reading = false;
   }
+};
+
+/** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
+export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>, beforeMeasure?: (input: HTMLTextAreaElement) => Promise<void>): Promise<HTMLTextAreaElement> => {
+  const create = await appears(
+    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
+    "the new Workstream button",
+  );
+
+  create.click();
+  await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+  // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
+  await appears(
+    () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
+    "the new Workstream's Agent input",
+  );
+
+  const open = async () => {
+    const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
+    const input = await appears(
+      () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
+      "the shell Terminal's input",
+    );
+
+    return input;
+  };
+
+  if (beforeMeasure) await beforeMeasure(await open());
+  const input = await open();
+
+  const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
+
+  await readyTerminal(app, terminal, id);
 
   input.focus();
 
   return input;
 };
 
+/** The App owns both Terminals; snapshots count raw bytes without draining a never-ending log. */
+type FloodEvidence = { id: string; command: string; opened: boolean; samples: { at_ms: number; bytes: number; state: "visible" | "folded" }[]; bytes: number; bytes_per_second: number; interval_ms: number };
+
+export const startFlood = async (app: Pick<AppSeam, "rpc">, input: HTMLTextAreaElement, retain: (evidence: FloodEvidence) => void = () => {}) => {
+  const id = input.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!;
+  const evidence: FloodEvidence = { id, command: "/usr/bin/yes roundup-flood", opened: true, samples: [], bytes: 0, bytes_per_second: 0, interval_ms: 0 };
+
+  retain(evidence);
+  const readiness = reportTerminal(() => ({ write: (_bytes: Uint8Array) => {} }));
+
+  await readyTerminal(app, readiness, id);
+  await bounded(app.rpc("terminal.write", { id, data: toBase64(new TextEncoder().encode("yes roundup-flood\n")) }), SETUP_BOUND_MS, "the flood Terminal's producer start");
+  let searching = true;
+
+  try {
+    await bounded((async () => {
+      while (searching) {
+        const read = await app.rpc("terminal.read", { id, after: 0, reader: null, max: 256 });
+
+        if (read.text.includes("roundup-flood")) return;
+        await sleep(50);
+      }
+    })(), SETUP_BOUND_MS, "the flood Terminal's active output");
+  } finally {
+    searching = false;
+  }
+
+  const sample = async () => {
+    const terminals = await bounded(app.rpc("terminal.list", null), SETUP_BOUND_MS, "the flood Terminal's liveness");
+
+    if (!terminals.find(terminal => terminal.id === id)?.running) throw new Error("the flood Terminal's producer is missing or exited");
+    const snapshot = await bounded(app.rpc("terminal.snapshot", { id }), SETUP_BOUND_MS, "the flood Terminal's byte count");
+    const bubble = [...document.querySelectorAll<HTMLElement>("[data-bubble]")].find(element => element.dataset.bubble === id);
+
+    if (!bubble) throw new Error("the opened flood Terminal disappeared");
+    const at_ms = performance.now();
+    const previous = evidence.samples.at(-1);
+
+    evidence.samples.push({ at_ms, bytes: snapshot.after, state: bubble.hidden ? "folded" : "visible" });
+
+    if (previous && snapshot.after <= previous.bytes) throw new Error("the flood Terminal's producer is silent");
+    const first = evidence.samples[0]!;
+
+    evidence.bytes = snapshot.after - first.bytes;
+    evidence.interval_ms = at_ms - first.at_ms;
+    evidence.bytes_per_second = evidence.interval_ms > 0 ? evidence.bytes * 1000 / evidence.interval_ms : 0;
+  };
+
+  return { evidence, sample, poll: async () => {
+    const last = evidence.samples.at(-1);
+
+    if (last && performance.now() - last.at_ms >= 1000) await sample();
+  } };
+};
+
 /**
  * The keystroke run of `scenarios/perf.md` (K1 to K3): in a build made with `VITE_ROUNDUP_PERF`, `start` opens a Terminal, types
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
-export const createKeystrokeRun = (app: AppSeam) => {
+export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "idle") => {
   const run = crypto.randomUUID();
   const recorder = createRecorder(() => performance.now(), run, () => terminal.target());
   const { probe } = recorder;
   const terminal = reportTerminal(recorder.createEmulator);
 
-  const report = async (body: PerfReport) => {
-    const id = terminal.target();
+  let floodEvidence: FloodEvidence | undefined;
+  let flood: Awaited<ReturnType<typeof startFlood>> | undefined;
 
-    if (id === null) throw new Error("no Terminal printed the ready line to report through");
+  const report = async (body: PerfReport, id: string) => {
+    const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", workload, terminal_id: id, flood: floodEvidence, ...body })}\n`;
 
-    const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
-
-    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
+    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
   };
 
   const measure = async () => {
-    const textarea = await terminalReady(app, terminal);
+    let frame: number | undefined;
+
+    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => {
+      // #3550: a live yes can starve drawing; sample the display period before load so it cannot block typing.
+      frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames before flood");
+      flood = await startFlood(app, input, (evidence) => { floodEvidence = evidence; });
+      await flood.sample();
+    } : undefined);
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
-    const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
+    frame ??= await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
     const timerResolution = timerResolutionMs();
     const id = terminal.target();
 
@@ -273,9 +353,11 @@ export const createKeystrokeRun = (app: AppSeam) => {
     };
 
     await exchange();
+    await flood?.sample();
     const end = performance.now() + TYPING_BOUND_MS;
 
-    await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
+    await typeKeys(probe, { press: () => press(textarea), sleep: async (ms) => { await sleep(ms); await flood?.poll(); }, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
+    await flood?.sample();
     const measured = await exchange();
     await report({
       ...recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS),
@@ -286,7 +368,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
       timer_resolution_ms: timerResolution,
       device_pixel_ratio: window.devicePixelRatio,
       user_agent: navigator.userAgent,
-    });
+    }, id);
   };
 
   return {
@@ -296,9 +378,15 @@ export const createKeystrokeRun = (app: AppSeam) => {
       try {
         await measure();
       } catch (failure) {
-        if (terminal.target() === null) throw failure;
+        let id = terminal.target();
 
-        await report({ error: failure instanceof Error ? failure.message : String(failure) });
+        if (id === null) {
+          // Setup can fail before a Bubble exists. A run-owned Project shell reports that step without starting an Agent.
+          id = (await bounded(app.rpc("terminal.open", { workstream: null }), SETUP_BOUND_MS, "the diagnostic Terminal open")).terminal_id;
+          await readyTerminal(app, terminal, id);
+        }
+
+        await report({ error: failure instanceof Error ? failure.message : String(failure) }, id);
       }
     },
   };

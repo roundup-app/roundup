@@ -1,4 +1,5 @@
-import { writeText } from "../app/clipboard";
+import { NameField } from "../ui/Editable";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -49,15 +50,6 @@ const DraftRecoveryPanel = () => {
 
   type Row = ReturnType<typeof work.rows>[number];
 
-  const copyText = async (row: Row) => {
-    try {
-      await writeText(app, typedText(row.draft).join("\n"));
-      clear(row.draft.revision);
-    } catch (error) {
-      setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }));
-    }
-  };
-
   const node = (row: Row) => rail.nodes.find((candidate) => candidate.id === (row.draft.destination.surface === "terminal_selection" ? row.draft.value.source : row.draft.destination.object));
 
   const title = (row: Row) => {
@@ -72,6 +64,19 @@ const DraftRecoveryPanel = () => {
 
   const open = (row: Row) => {
     const { surface, object } = row.draft.destination;
+
+    if (surface === "row-name") {
+      const todo = todos.all().find(todo => object === `todo:${todo.id}`);
+      const pad = pads.pads().find(pad => object === `pad:${pad.incarnation}`);
+
+      return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
+        version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}
+        commit={async (text, base, version) => {
+          if (todo) await app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) });
+          else if (pad) await app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation });
+          else throw new Error(copy.railDraftMissingTarget);
+        }} />, "key");
+    }
 
     if (surface === "pads" && row.draft.value.originalName) {
       return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key");
@@ -123,7 +128,7 @@ const DraftRecoveryPanel = () => {
           </div>
           <div class="draft-actions">
             <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
-              <button data-button="quiet" type="button" onClick={() => void copyText(row)}>{copy.copyDraft}</button>
+              <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error.message) }))}>{copy.copyDraft}</CopyButton>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>
           </div>

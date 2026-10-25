@@ -1,9 +1,9 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, watch } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { expect, it } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { chromePath } from "../testing/chromePage";
@@ -83,18 +83,44 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
 
     const trigger = async <M extends "message.send">(method: M, params: RpcMethods[M]["params"]) => {
       writeFileSync(join(real.dir, `call-${home.id}.json`), JSON.stringify({method,params}));
-      await app.rpc("terminal.write", {id:terminal,data:"AQ=="});
+      // terminal.write acknowledges queued input, not the vendor's authenticated call.
+      // The fixture atomically renames this reply only after message.send returns.
+      const filename = `reply-${home.id}.json`;
+      const replies = watch(real.dir);
+
+      onTestFinished(() => replies.close());
+
+      const accepted = new Promise<unknown>((resolve, reject) => {
+        replies.on("error", reject);
+        replies.on("change", (_event, changed) => {
+          if (changed !== filename) return;
+
+          try {
+            resolve(JSON.parse(readFileSync(join(real.dir, filename), "utf8")));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+
+      try {
+        await app.rpc("terminal.write", {id:terminal,data:"AQ=="});
+        expect(await accepted).toHaveProperty("result");
+      } finally {
+        replies.close();
+      }
     };
 
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
-    await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
+    // The fixture's first idle title precedes SessionStart; wait for its launch acknowledgement too.
+    await expect.poll(async () => {
+      const node = (await app.rpc("rail.tree", null)).find(node => node.id === receiver.id);
+      const facts = await app.rpc("project.measurements", null);
+
+      return node?.status?.kind === "idle" && facts.time_evidence.some((fact) => fact.agent === receiver.id && fact.value.kind === "observed" && fact.value.activity.kind === "startup" && fact.value.state.kind === "ended");
+    }).toBe(true);
     writeFileSync(join(folder,`00000000-0000-4000-8000-${receiver.id.padStart(12,"0")}.jsonl`), "");
     await trigger("message.send",{to:receiver.id,kind:"note",body:"Measured coordination",replyTo:null});
-    await expect.poll(async () => {
-      const facts=await app.rpc("project.measurements",null);
-
-      return facts.time_evidence.some((fact) => fact.value.kind === "observed" && fact.value.activity.kind === "coordination");
-    }).toBe(true);
     await expect.poll(async () => {
       const facts=await app.rpc("project.measurements",null);
 
@@ -102,8 +128,9 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     }).toBe(true);
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
+    // The Attempt's span grows at the observer's cadence, so a wait that ended after its last sample counts once the next lands.
+    await expect.poll(async () => BigInt((await app.rpc("project.measurementSummary",{home:home.id,offset:0,revision:null})).time.coordination_ns) > 0n, { timeout: 10_000 }).toBe(true);
     const timed=await app.rpc("project.measurementSummary",{home:home.id,offset:0,revision:null});
-    expect(BigInt(timed.time.coordination_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.execution_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
     await capture("measured-waits");

@@ -2,6 +2,12 @@
   "identifier": "webview",
   "windows": ["*"],
   "permissions": [
+    "capture-panel:allow-control",
+    "store:allow-load",
+    "store:allow-entries",
+    "store:allow-set",
+    "store:allow-save",
+    "core:resources:allow-close",
     "clipboard-manager:allow-write-text",
     "dialog:allow-open",
     "dialog:allow-save",

@@ -26,7 +26,7 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     const [one] = initial;
 
     await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
-    await lane.browser("click", `.shelf [data-todo="${one}"] [aria-label="Move down"]`);
+    await lane.browser("press", "Alt+ArrowDown");
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id !== '${one}'`);
     await read(lane, "reorder");
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot reorder'); return true; })()");
@@ -73,12 +73,14 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     })()`);
 
     await lane.until(`!!document.querySelector('.rail [data-todo="${made}"]')`);
-    await lane.browser("hover", `.rail [data-todo="${made}"]`);
-    await lane.browser("focus", `.rail [data-todo="${made}"] .todo-move`);
-    await lane.browser("press", "Enter");
-    await lane.until("!!document.querySelector('[role=\"menu\"]')");
+    const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.rail [data-todo="${made}"] .todo-row-button').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
+
+    await lane.browser("mouse", "move", String(point.x), String(point.y));
+    await lane.browser("mouse", "down", "right");
+    await lane.browser("mouse", "up", "right");
+    await lane.until("window.__fake.app.menuLabels().length > 0");
     await read(lane, "home-menu");
-    await lane.browser("press", "Escape");
+    await lane.evaluate("window.__fake.app.closeMenu()");
   }, 240_000);
 
   it("u492a_dense_failure", async () => {

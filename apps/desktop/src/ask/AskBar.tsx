@@ -1,3 +1,6 @@
+import { useDialog } from "@ark-ui/solid/dialog";
+import { captureFocus } from "../keys/focus";
+import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -40,7 +43,8 @@ export const AskBar = (props: {
   const deliverables = createDeliverables();
   const reactions = createReactions();
   const madeScope = shelfScope(connected);
-  const [over, setOver] = createSignal(false);
+  const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
+  const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
@@ -122,8 +126,9 @@ export const AskBar = (props: {
 
   const restoreSelection = (element: HTMLTextAreaElement) => {
     field = element;
+    const caret = current()?.selection;
+
     queueMicrotask(() => {
-      const caret = current()?.selection;
 
       if (element.isConnected && caret) element.setSelectionRange(caret.start, caret.end, caret.direction);
     });
@@ -143,10 +148,34 @@ export const AskBar = (props: {
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
-  let returnTo: Element | null = null;
+
+  let openingFocus = captureFocus();
+  let selectedPane = false;
+  let homeFocus = false;
+
+  const dialog = useDialog(() => ({
+    open: over(), modal: false, trapFocus: true, preventScroll: false,
+    restoreFocus: true, closeOnInteractOutside: true,
+    "aria-label": copy.askBarLabel,
+    initialFocusEl: () => openingFocus.target(() => {
+      if (field) restoreSelection(field);
+
+      return field;
+    }),
+    finalFocusEl: () => homeFocus
+      ? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      : selectedPane
+      ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+        ?? document.querySelector<HTMLElement>(".pane-screen textarea")
+        ?? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      : null,
+    // Background layers may close while Ask remains the newer focus owner.
+    onRequestDismiss: event => event.preventDefault(),
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
+  const shown = () => opening() !== null || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
@@ -169,24 +198,20 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
-    batch(() => { setOver(false); setSelected(null); });
+    selectedPane = !restore;
+    batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
-
-    if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
 
   const open = (): void => {
     if (modalOpen()) return;
-    returnTo = document.activeElement;
-    setOver(true);
-    queueMicrotask(() => {
-      field?.focus();
-
-      if (field) restoreSelection(field);
-    });
+    selectedPane = false;
+    homeFocus = false;
+    openingFocus = captureFocus(true);
+    setOpening("over");
   };
 
   createEffect(() => {
@@ -214,14 +239,14 @@ export const AskBar = (props: {
     { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
-  const send = (): void => {
+  const send = async (): Promise<void> => {
     const value = text();
 
     if (value.trim() === "") return;
 
     const draft = current();
 
-    if (!draft || !drafts.submit(draft.revision)) return;
+    if (!draft || !(await drafts.submit(draft.revision))) return;
     setFailure(null);
     const workstream = v.safeParse(v.string(), draft.value.workstream);
     const request: AskSubmission = { text: value, submission: draft.revision };
@@ -264,7 +289,9 @@ export const AskBar = (props: {
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
     <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+      <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; homeFocus = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
+        onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
@@ -436,29 +463,22 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     }
   };
 
+  const copied = createCopyLabels(() => records().map(record => record.id));
+
   const openMenu = (record: Deliverable, x: number, y: number) => {
+    const feedback = copied().get(record.id);
     setSelected(record.id);
     clear(record.id);
     void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
       connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => fail(record.id, cause)).map(entry => entry.id !== "copy-link" ? entry : {
-        ...entry, label: copy.copy, run: async () => {
-          try {
-            const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+        ...entry, label: copy.copy, run: () => feedback?.run(async () => {
+          const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id }).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
 
-            if (resolved.kind === "unavailable") {
-              fail(record.id, copy.deliverableUnavailable[resolved.cause]);
+          if (resolved.kind === "unavailable") throw new Error(copy.deliverableUnavailable[resolved.cause]);
 
-              return;
-            }
-
-            const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-            await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
-            clear(record.id);
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            fail(record.id, copy.copyDraftFailure(error.message));
-          }
-        },
+          const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
+          await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+        }, () => clear(record.id), error => fail(record.id, error.message)),
       }), x, y);
   };
 
@@ -496,7 +516,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
-            <span class="made-title">{record.title}</span>
+            <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
             <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
             <time class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>

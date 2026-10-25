@@ -1,6 +1,6 @@
 # R20 hop attribution
 
-Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) precede this recorder and do not establish full-chain Mac timing.
+Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf.md#valid-full-chain-idle-baseline-2026-10-25).
 
 The opt-in report carries every hop's p50/p95 and sample count. Webview marks
 use `performance.now()`; receipt (before decoding), physical `write_all` plus
@@ -55,7 +55,7 @@ is claimed. Per key:
 Screens stamps encoding start before byte preparation, then completion after `toBase64` and before RPC dispatch, through the existing optional emulator probe.
 `input_to_encoding` measures queue wait; `encoding_to_encoded` measures byte preparation
 and base64. Both are required (exit 2 if absent); coarse spans remain for comparison.
-Retained native observations predate these marks. No new native timing or production latency repair is claimed.
+The valid idle baseline includes these marks. No production latency repair is claimed.
 
 The no-window `r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch`
 failed before the start mark: with a held RPC reply, queued batches preserve the order
@@ -79,8 +79,9 @@ before the validation repair. This changes report validation, not the input path
 or any retained native timing.
 
 The collector independently recomputes calibration bounds and rejects missing exchanges, invalid clocks, forged uncertainty and incomplete hop counts with exit 2.
-The quiet-Mac reports above place `parsed_to_frame` first among the recorded
-spans; full attribution and a production latency repair remain unclaimed.
+The valid quiet-Mac baseline places `parsed_to_frame` first among the full-chain
+spans (p50 4 ms; p95 7/8/8 ms). It establishes idle attribution; a production
+latency repair and attribution under another Terminal's flood remain unclaimed.
 
 The recorder accepts input, write replies, echo bytes and renders only from the
 Terminal that printed the ready line. Previously every emulator shared those
@@ -93,3 +94,76 @@ predate this correction; this identifies a possible attribution error, not
 evidence that another Terminal actually contaminated those runs. No reports are
 discarded and no production latency improvement is claimed.
 
+
+## Full-chain output flood (R20/R21 recorder)
+
+After this recorder implementation merges, on the quiet Mac with AC power and
+Low Power Mode off, explicitly authorize the native window and run:
+
+```sh
+ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json
+```
+
+The default command without `--flood` remains idle typing. The recipe selects the
+same workload for the opt-in frontend build and runner; a mismatched build is an
+invalid observation (exit 2). This command retains three fresh runs, each with
+100 warm-up keys and 1000 measured keys, unchanged clock calibration, hop,
+frame-time, dropped-key and latency validation. A slow valid run exits 1;
+missing or invalid evidence exits 2. Every run remains in the aggregate report.
+
+The real App creates a Workstream with the fake vendor, opens a shell Bubble,
+waits for its raw-tty `ready`, and requests `/usr/bin/yes roundup-flood` from the
+run-owned shell dispatcher. The dispatcher execs that system executable without
+a background writer. It then opens a second shell Bubble through the App; that
+shell execs `cat` after forwarding its first warm-up byte. Typing, report writes,
+OSC key identities, parsing and renders remain bound to that second Terminal.
+The first Bubble has actually opened before it can fold; it is never an unopened
+Terminal offered as evidence for a hidden-screen theory.
+
+The `flood` report records the separate Terminal id, command, opened state and
+raw output offsets with webview timestamps and visible/folded state. Samples
+bracket typing including warm-up; between keys, at most once per second, the
+recorder checks liveness and obtains a snapshot offset. The screen payload is
+discarded. `bytes`, `interval_ms` and `bytes_per_second` describe this interval,
+not a configured target rate: `yes` runs without a rate cap. These observer RPCs
+add load and are part of the documented workload. Missing/exited producers,
+non-increasing offsets or stalled checks invalidate the observation. Setup,
+producer-start, active-output, liveness and byte-count waits name their step and
+are bounded at 10 seconds. The complete run is bounded at 240 seconds.
+
+Each run keeps `collection.json`, the raw `report.json`, App stdout/stderr,
+Daemon stderr, the run-owned `shell.sh` and lifecycle diagnostics beside the aggregate output. Collection
+keeps at most 128 KiB per Terminal and reads one capped page per Terminal per
+round. A gap in unrelated flood output resets only that Terminal's diagnostic
+tail; a gap within a pending report invalidates collection. An oversized report
+fails instead of growing the buffer (frame reports retain their raw intervals under a separate 1 MiB cap). The unending `yes` output cannot evict a
+report in the other Terminal's log. App/Daemon/PTY cleanup belongs to this run,
+on both success and failure, before its temporary profile is removed.
+
+No-window proofs cover real-App setup, producer liveness/counts/failures,
+workload mismatch, unrelated flood eviction and owned-child cleanup. Existing
+R20 identity and chunked-report tests remain the identity/report proof. These
+prove recorder implementation, not native latency or a production repair.
+#3550 still owns the flood observation, Solo comparisons, production repair,
+Agent/shell-path proof and final idle/flood acceptance; no new idle-only baseline
+is requested here.
+
+### Flood recorder frame wait (2026-10-25)
+
+The [Mac attempt at `7fbf5d6ff7bbc2702f152112caad01caca45daa0`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6400874363)
+retains all three failed runs and the immediate idle control. Each flood run
+exited 2 at the 10 s display-frame setup bound, before its first activity sample;
+the same build's idle runs reported p95 11/11/11 ms and zero drops. Empty activity
+samples therefore do not establish that the flood command failed: the recorder
+already passed its producer-start and active-output checks before waiting for
+frames. The observation cannot choose a production latency repair.
+
+The recorder now measures the display period before starting `yes`, takes an
+activity sample before opening the measured shell, and retains the existing
+samples around typing. `frame_ms` is this pre-flood display period; per-key
+`parsed_to_frame` and end-to-end measurements still include the live flood.
+The window-free `r20_flood_reports_activity_and_drops_when_output_stops_display_frames`
+regression stops frames once the producer starts. The run must still reach
+input and report positive flood bytes and all 1100 keys as dropped, rather than
+fail at the display setup wait. This repairs the observer only; native timing,
+the production repair and R21's final acceptance remain outstanding on #3550.

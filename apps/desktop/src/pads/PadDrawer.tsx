@@ -1,4 +1,5 @@
-import { writeText } from "../app/clipboard";
+import { captureFocus } from "../keys/focus";
+import { CopyButton } from "../ui/CopyButton";
 import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
@@ -29,6 +30,7 @@ import "./styles.css";
 const PadRichEditor = lazy(() => import("./PadRichEditor"));
 
 const PadBody = (props: {
+  initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
   revision?: string;
   list?: PadList;
@@ -150,7 +152,7 @@ const PadBody = (props: {
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
-    setPad(next);
+    setPad({ ...next, owner: { ...next.owner } });
     sourceRevision = next.revision;
     setOrigin(next.text);
 
@@ -195,7 +197,7 @@ const PadBody = (props: {
 
         if (sameContent(current, pad())) return;
 
-        setPad(current);
+        setPad({ ...current, owner: { ...current.owner } });
 
         // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
         if (sent !== null && actor?.kind === "user" && current.text === sent) return;
@@ -261,10 +263,15 @@ const PadBody = (props: {
       if (text === origin() && !resolveConflict) return;
 
       capture();
-      const submission = draftRevision ? connected.drafts.submit(draftRevision) : null;
-
-      if (!submission) return;
       sent = text;
+      const submission = draftRevision ? (await connected.drafts.submit(draftRevision)) : null;
+
+      if (!submission) {
+        sent = null;
+
+        return;
+      }
+
       setSaved(false);
 
       const timeout = setTimeout(() => {
@@ -502,7 +509,7 @@ const PadBody = (props: {
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>
           <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-          <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).then(() => actionFailure.clear()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
+          <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
@@ -514,6 +521,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
+          initialFocus={props.initialFocus}
           text={source}
           readonly={!ownedByUser() || invalid()}
           onChange={onChange}
@@ -561,6 +569,7 @@ export const PadDrawer = (props: {
   onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
+  const initialFocus = captureFocus();
 
   if (props.recovery !== undefined) {
     const recovery = props.recovery;
@@ -570,7 +579,7 @@ export const PadDrawer = (props: {
     const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
     const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
 
-    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
+    return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
 
   return (
@@ -582,6 +591,7 @@ export const PadDrawer = (props: {
     >
       {(pad) => (
         <PadBody
+          initialFocus={initialFocus}
           initial={pad}
           pads={props.pads}
           heading={props.heading}

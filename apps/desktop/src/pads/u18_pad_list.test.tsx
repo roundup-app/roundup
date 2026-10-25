@@ -27,28 +27,7 @@ describe("u18 list and ownership", () => {
     ).toBe(2);
   });
 
-  it("u18_a_pad_name_is_plain_text_not_a_light_word", async () => {
-    await openShelf([padOf("auth-notes", AGENT)]);
-
-    expect((await screen.findByText("auth-notes")).className).not.toContain(
-      "word",
-    );
-  });
-
-  it("u18_an_agents_pad_carries_the_mark_◈_and_the_users_pad_the_mark_◇", async () => {
-    await openShelf([
-      padOf("auth-notes", AGENT),
-      padOf("release-checklist", USER),
-    ]);
-    await screen.findByText("auth-notes");
-
-    expect([
-      screen.getAllByRole("img", { name: "Agent owned" }).length,
-      screen.getAllByRole("img", { name: "User owned" }).length,
-    ]).toEqual([1, 1]);
-  });
-
-  it("u18_clicking_◈_calls_pad_setOwner_with_the_user_and_the_mark_becomes_◇", async () => {
+  it("u18_make_yours_menu_changes_the_original_pad_owner", async () => {
     const { app, state } = await openShelf([padOf("auth-notes", AGENT)]);
     app.handlers["pad.setOwner"] = ({ name, owner }) => {
       state.pads = state.pads.map((pad) =>
@@ -58,43 +37,23 @@ describe("u18 list and ownership", () => {
       return padOf(name, owner);
     };
 
-    fireEvent.click(await screen.findByRole("img", { name: "Agent owned" }));
-
-    const unassigned = await waitFor(() => {
-      const control = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
-      expect(control).not.toBeNull();
-
-      return control!;
-    });
-
-    fireEvent.click(unassigned);
-    await screen.findByRole("img", { name: "User owned" });
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
+    await app.pickMenu("Make yours");
 
     expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
       { method: "pad.setOwner", params: { name: "auth-notes", owner: USER } },
     ]);
-    expect(screen.queryByRole("img", { name: "Agent owned" })).toBeNull();
-  });
-
-  it("u18_the_mark_◇_is_not_clickable", async () => {
-    const { calls } = await openShelf([padOf("release-checklist", USER)]);
-
-    fireEvent.click(await screen.findByRole("img", { name: "User owned" }));
-
-    expect(calls()).not.toContain("pad.setOwner");
   });
 
   it("u18_a_refused_owner_change_shows_the_message_in_ink", async () => {
     const { app } = await openShelf([padOf("auth-notes", AGENT)]);
-    app.handlers["pad.setOwner"] = () => {
-      throw new RpcError(-32001, "only the owner may hand it over");
-    };
+    const failure = new RpcError(-32001, "only the owner may hand it over");
+    app.handlers["pad.setOwner"] = () => { throw failure; };
 
-    fireEvent.click(await screen.findByRole("img", { name: "Agent owned" }));
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
+    await app.pickMenu("Make yours");
 
-    expect((await screen.findByText(/only the owner/)).textContent).toBe(
-      "only the owner may hand it over",
-    );
+    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
   });
 
   it("u18_pad_changed_refetches_pad_list_and_logs_no_touch", async () => {

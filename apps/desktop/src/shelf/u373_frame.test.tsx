@@ -215,14 +215,15 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_the_open_tab_survives_a_restart_per_project", async () => {
     const first = await mountApp();
+    const chosen = tabNamed("Pads").id;
 
     fireEvent.click(tabNamed("Pads"));
-    expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads");
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
 
     cleanup();
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(selectedTab()).toBe("Pads");
+    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
@@ -281,7 +282,7 @@ describe("u370 the Shelf closes and opens", () => {
       return row!;
     });
 
-    fireEvent.click(row);
+    fireEvent.keyDown(row, { key: "Enter" });
     await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
     const drawer = document.querySelector('.drawer[data-open="true"]')!;
 
@@ -290,7 +291,7 @@ describe("u370 the Shelf closes and opens", () => {
     expect(drawer.isConnected).toBe(true);
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
+    expect(tabNamed("Pads").getAttribute("aria-expanded") === "true").toBe(true);
     expect(drawer.isConnected).toBe(true);
   });
 

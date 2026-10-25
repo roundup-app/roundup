@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-exclude = ["vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
+exclude = ["vendor/global-hotkey-0.8.0", "crates/desktop/vendor/tauri-plugin-store-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
 
 [workspace.package]
 edition = "2024"
@@ -13,7 +13,7 @@ async-trait = "0.1"
 base64 = "0.23"
 portable-pty = "0.9"
 rusqlite_migration = "2.6"
-rusqlite = { version = "=0.40.2", features = ["bundled"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "session"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tempfile = "3"
@@ -33,6 +33,7 @@ unused = { level = "deny", priority = -1 }
 all = { level = "deny", priority = -1 }
 
 [patch.crates-io]
+global-hotkey = { path = "vendor/global-hotkey-0.8.0" }
 rusqlite = { path = "vendor/rusqlite-0.40.2" }
 vt100 = { path = "vendor/vt100-0.16.2" }
 vte = { path = "vendor/vte-0.15.0" }

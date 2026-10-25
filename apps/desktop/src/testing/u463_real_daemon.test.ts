@@ -54,7 +54,10 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   return { real, browser, wait, activate, app: createServedApp(real.base), close: async () => {
     try { await browser("close"); } finally {
       await real.stop();
-      await rm(profile, { recursive: true, force: true });
+      await rm(profile, { recursive: true, force: true }).catch(error => {
+        // Chromium cache helpers may finish after close; as in chromePage, leave only this temporary profile to the OS.
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+      });
     }
   } };
 };
@@ -91,9 +94,13 @@ const width = 1280;
       await activate(".pane-action");
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
-      await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('.rail-row[data-kind="idle"]')`);
+      await wait(`!!document.querySelector('.pane-screen textarea')`);
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
+      await wait(`(async () => {
+        const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
+        return (await response.json()).result?.some(node => node.id === '${workstream.id}' && node.status?.kind === 'idle');
+      })()`);
       const rendered = (await browser("eval", `({id: document.querySelector('.rail-row[data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
 
       expect(rendered.id).toBe(workstream.id);
@@ -422,7 +429,30 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     expect([child.terminal_id, child.attempt, child.status_revision, child.can_resume]).toEqual([null, null, null, true]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
-    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Start supervisor')`);
+    await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
+
+    const rightClick = async (id: string) => {
+      const point = (await browser("eval", `(() => { const box = document.querySelector('.rail-row[data-id="${id}"]').getBoundingClientRect(); return {x:box.x + box.width / 2,y:box.y + box.height / 2}; })()`)).result;
+      await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+      await browser("mouse", "down", "right");
+      await browser("mouse", "up", "right");
+    };
+
+    const choose = async (id: string, action: string) => {
+      await browser("eval", "window.__importMenu.shown = null");
+      await rightClick(id);
+      await wait(`window.__importMenu.shown?.some(item => item.id === '${action}' && item.enabled !== false)`);
+      await browser("eval", `window.__importMenu.answer('${action}')`);
+    };
+
+    const idle = async (id: string) => wait(`(async () => {
+      const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
+      return (await response.json()).result?.some(node => node.id === '${id}' && node.status?.kind === 'idle');
+    })()`);
+
+    await rightClick(parent.id);
+    await wait("window.__importMenu.shown?.some(item => item.id === 'start' && item.enabled !== false)");
+    await browser("eval", "window.__importMenu.answer(null)");
 
     const captures = captureDir("U3037d") ?? captureDir("U2875d");
 
@@ -437,16 +467,16 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
     await activate(`.rail-row[data-id="${child.id}"] .name`);
-    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Resume')`);
-    await browser("find", "role", "button", "click", "--name", "Resume", "--exact");
-    await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"][data-kind="idle"]')`);
+    await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
+    await choose(child.id, "resume");
+    await idle(child.id);
     const resumed = (await app.rpc("rail.tree", null)).find((node) => node.id === child.id)!;
 
     expect(resumed.attempt).toBe("1");
     expect(resumed.terminal_id).not.toBeNull();
     expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(resumed.terminal_id);
-    await browser("find", "role", "button", "click", "--name", "Start supervisor", "--exact");
-    await wait(`!!document.querySelector('.rail-row[data-id="${parent.id}"][data-kind="idle"]')`);
+    await choose(parent.id, "start");
+    await idle(parent.id);
     expect((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id)?.terminal_id).not.toBeNull();
 
     if (captures) {

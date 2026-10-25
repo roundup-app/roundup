@@ -133,27 +133,53 @@ for (const list of [nested, shelf]) {
       expect(after.active).toContain(`#${before.ids[last]} `);
     }, 60_000);
 
-    it("u490a_cancel_and_noop", async () => {
+    it("u490a_cancel_and_noop_escape_cancels", async () => {
       await page.scheme("light");
       await list.setup();
 
+      const before = await state(rows);
       const first = await centre(rows, 0);
-      const last = await centre(rows, (await state(rows)).ids.length - 1);
+      const last = await centre(rows, before.ids.length - 1);
 
       await drag(last, async () => first, false);
       await page.press("Escape", "Escape");
       await page.pointer("up", first.x, first.y);
       await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+
+      // Re-measure after cancellation: settling or owner groups can move rows.
+      const origin = await centre(rows, before.ids.length - 1);
+
       // Past the activation distance and back to the row's own place: no move.
-      await page.pointer("down", last.x, last.y);
-      await page.pointer("move", last.x, last.y - 12);
-      await page.pointer("move", last.x, last.y);
-      await page.pointer("up", last.x, last.y);
+      await page.pointer("down", origin.x, origin.y);
+      await page.pointer("move", origin.x, origin.y - 12);
+      await page.pointer("move", origin.x, origin.y);
+      await page.pointer("up", origin.x, origin.y);
       await settled();
       expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
     }, 60_000);
 
-    it("u490a_a_click_opens_the_Todo_not_a_drag", async () => {
+    it("u490a_cancel_and_noop_original_gap_makes_no_call", async () => {
+      await page.scheme("light");
+      await list.setup();
+
+      const before = await state(rows);
+      const last = await centre(rows, before.ids.length - 1);
+
+      await page.pointer("down", last.x, last.y);
+      await page.pointer("move", last.x + 6, last.y);
+      // Sortable keeps the source row in place and draws its drop gap separately (ui/sortable.tsx).
+      await page.until(`() => Boolean(document.querySelector('.sortable-slot:not([data-ending])'))`);
+      const gap = await centre('.sortable-slot:not([data-ending])', 0);
+
+      await page.pointer("move", gap.x, gap.y);
+      await page.until(`() => document.querySelector('[data-sortable-index]')?.getAttribute('data-sortable-index') === "${before.ids.length - 1}"`);
+      await page.pointer("up", gap.x, gap.y);
+      await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+    }, 60_000);
+
+    it("u3789a_a_click_selects_the_Todo_without_open_or_drag", async () => {
       await page.scheme("light");
       await list.setup();
 
@@ -163,18 +189,17 @@ for (const list of [nested, shelf]) {
 
       await page.pointer("down", point.x, point.y);
       await page.pointer("up", point.x, point.y);
-      await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
-      expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
+      await page.until(`() => document.activeElement?.matches(${JSON.stringify(rows)})`);
+      expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
     }, 60_000);
 
-    it(`u490a_${list === shelf ? "Space" : "Enter"}_on_a_row_button_opens_it_without_drag_semantics`, async () => {
+    it("u3789a_Return_on_a_row_button_opens_it_without_drag_semantics", async () => {
       await page.scheme("light");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
       // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
       expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
-      // U3309 reserves Shelf Enter for lifting; Space still opens the Todo.
-      await page.press(list === shelf ? " " : "Enter", list === shelf ? "Space" : "Enter");
+      await page.press("Enter", "Enter");
       await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
       expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
     }, 60_000);

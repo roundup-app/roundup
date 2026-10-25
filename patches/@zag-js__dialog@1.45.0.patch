@@ -1,0 +1,24 @@
+diff --git a/dist/dialog.machine.js b/dist/dialog.machine.js
+index 872a0587aaedb30158d621844690087186bc46b8..2256824b19564199a827d1d982ddfd3056c277cc 100644
+--- a/dist/dialog.machine.js
++++ b/dist/dialog.machine.js
+@@ -190,6 +190,7 @@ var machine = (0, import_core.createMachine)({
+         const contentEl = () => dom.getContentEl(scope);
+         return (0, import_focus_trap.trapFocus)(contentEl, {
+           preventScroll: true,
++          immediate: !prop("modal"),
+           returnFocusOnDeactivate: !!prop("restoreFocus"),
+           initialFocus: () => (0, import_dom_query.getInitialFocus)({
+             root: dom.getContentEl(scope),
+diff --git a/dist/dialog.machine.mjs b/dist/dialog.machine.mjs
+index 934ec9ba763687b56a0bb1b2f6bd59b54eb1f273..c73735032b956817a1a76bc5563c280e82aceede 100644
+--- a/dist/dialog.machine.mjs
++++ b/dist/dialog.machine.mjs
+@@ -156,6 +156,7 @@ var machine = createMachine({
+         const contentEl = () => dom.getContentEl(scope);
+         return trapFocus(contentEl, {
+           preventScroll: true,
++          immediate: !prop("modal"),
+           returnFocusOnDeactivate: !!prop("restoreFocus"),
+           initialFocus: () => getInitialFocus({
+             root: dom.getContentEl(scope),

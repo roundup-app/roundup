@@ -1,6 +1,10 @@
 //! S2297a (`scenarios/app.md`): the webview renders at the display's rate.
 
 #[cfg(target_vendor = "apple")]
+mod capture_panel;
+mod store_durability;
+
+#[cfg(target_vendor = "apple")]
 fn u3787f_native_integration_keeps_safe_callers() {
     assert!(
         std::thread::spawn(|| native::Preferences::new().is_none())
@@ -34,15 +38,36 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
     context.config_mut().app.app_directories_override = Some(
         tauri::utils::config::AppDirectoriesOverride::Root(dir.path().join("data")),
     );
-    build(mock_builder(), config, None, |app, code| app.exit(code))
+    let app = build(mock_builder(), config, None, |app, code| app.exit(code))
         .build(context)
         .expect("the App builds from tauri.conf.json");
+    use tauri_plugin_store::StoreExt;
+    app.store_builder("registration.json")
+        .disable_auto_save()
+        .build()
+        .unwrap();
 }
 
 // WebKit asserts it is on the main thread, which libtest's worker threads are not, so this binary has its own `main`
 // (`harness = false`) that speaks the part of libtest's protocol nextest uses: `--list` and `--exact <name>`.
 fn main() {
     let tests: &[(&str, fn())] = &[
+        #[cfg(target_vendor = "apple")]
+        ("u3787f_panel_uses_invoking_display", capture_panel::u3787f_panel_uses_invoking_display),
+        #[cfg(target_vendor = "apple")]
+        ("u3787f_panel_does_not_activate_main_window", capture_panel::u3787f_panel_does_not_activate_main_window),
+        ("u3787f_store_migrates_all_key_families_native_reopen", store_durability::u3787f_store_migrates_all_key_families_native_reopen),
+        #[cfg(target_os = "linux")]
+        ("u3787f_failed_migration_keeps_recovery_native_readback", store_durability::u3787f_failed_migration_keeps_recovery_native_readback),
+        ("u3787f_interrupted_migration_preserves_both_stores_native_reopen", store_durability::u3787f_interrupted_migration_preserves_both_stores_native_reopen),
+        ("u3787f_failed_migration_keeps_recovery_native_invalid_existing", store_durability::u3787f_failed_migration_keeps_recovery_native_invalid_existing),
+        ("u3787f_failed_migration_keeps_recovery_native_serialization", store_durability::u3787f_failed_migration_keeps_recovery_native_serialization),
+        ("u3787f_failed_migration_keeps_recovery_native_partial_write", store_durability::u3787f_failed_migration_keeps_recovery_native_partial_write),
+        #[cfg(target_os = "linux")]
+        ("u3787f_failed_migration_keeps_recovery_native_commit", store_durability::u3787f_failed_migration_keeps_recovery_native_commit),
+        #[cfg(target_os = "linux")]
+        ("u3787f_interrupted_migration_preserves_both_stores_native_before_commit", store_durability::u3787f_interrupted_migration_preserves_both_stores_native_before_commit),
+
         #[cfg(target_vendor = "apple")]
         (
             "u3787f_native_integration_keeps_safe_callers",

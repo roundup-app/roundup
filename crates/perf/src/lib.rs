@@ -11,3 +11,5 @@ pub mod webview;
 pub mod idle;
 
 pub mod app;
+
+pub mod paired;

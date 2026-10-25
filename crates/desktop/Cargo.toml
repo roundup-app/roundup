@@ -26,6 +26,7 @@ serde_json.workspace = true
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
 tokio = { workspace = true, features = ["process", "io-util"] }
 
 [[test]]
@@ -36,6 +37,7 @@ harness = false
 tauri-build = "2"
 
 [dev-dependencies]
+tauri-plugin-global-shortcut = "=2.4.1"
 native = { path = "../native", features = ["idle-perf"] }
 rupd = { path = "../rupd" }
 tauri = { version = "2", features = ["test"] }
