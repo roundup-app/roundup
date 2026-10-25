@@ -217,6 +217,10 @@ class CI3781(unittest.TestCase):
         report = build.report(self.output)
         self.assertEqual(report['packages'][0]['package'], 'ci3781-fixture@0.1.0')
         self.assertGreater(report['packages'][0]['unit_seconds'], 0)
+        compiled = report['builds'][0]
+        self.assertLessEqual(compiled['start'], compiled['cargo_interval']['start'])
+        self.assertLess(compiled['cargo_interval']['start'], compiled['cargo_interval']['end'])
+        self.assertLessEqual(compiled['cargo_interval']['end'], compiled['end'])
         links = report['builds'][0]['links']
         self.assertTrue(links)
         self.assertTrue(all(row['exit_code'] == 0 and row['end'] > row['start'] for row in links))
@@ -272,9 +276,10 @@ class CI3781Reports(unittest.TestCase):
             output = Path(temporary)
             directory = output / 'cargo-fixture'
             directory.mkdir()
-            (directory / 'build.json').write_text(json.dumps(dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'])))
+            (directory / 'build.json').write_text(json.dumps(dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'], command=['/bin/cargo', 'build'])))
             (directory / 'timing.html').write_text('const UNIT_DATA = [{"name":"one","version":"1","target":"bin","features":[],"duration":2}]; <td>Profile:</td><td>test</td> <td>Build start:</td><td>2026-10-25T00:00:00Z</td>\nDURATION = 3;')
             (directory / 'cargo.stdout').write_text(json.dumps(dict(reason='compiler-artifact', package_id='one@1', target=dict(name='one'), profile={}, features=[], filenames=['one'], executable='one', fresh=False)) + '\n' + json.dumps(dict(reason='build-finished', success=True)))
+            (directory / 'trace.123').write_text(r'1.000000 execve("\x2f\x62\x69\x6e\x2f\x63\x61\x72\x67\x6f", ["\x63\x61\x72\x67\x6f", "\x62\x75\x69\x6c\x64"], 0x0 /* 0 vars */) = 0' + '\n4.000000 +++ exited with 0 +++\n')
             for pid, program in enumerate(('ld', 'cc1', 'as', 'rustc')):
                 def quoted(value):
                     return '"' + ''.join(f'\\x{byte:02x}' for byte in value.encode()) + '"'
