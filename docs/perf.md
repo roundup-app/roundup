@@ -712,7 +712,7 @@ for side in base head; do
 done
 ```
 
-Linux verified both applications and identical resulting observer files. Readiness patch SHA256:
+Linux verified the patch applies to both sources and yields identical observer files. Readiness patch SHA256:
 `65c8dd82ff042e72b0837dbe83d81bbf3e82a648a5f85ab2642985586877c124`.
 Both checkouts' `run.ts` SHA256 is `17db62ae0c3735553c1b5dc0d7b9efc7d3f556c612dd4c24629c2731f8343873`;
 `frame_run.ts` is `017cae7dee289546cf8a1ee110ff6b988fde3edb70b938dc12f528de6c9c4d30`.
