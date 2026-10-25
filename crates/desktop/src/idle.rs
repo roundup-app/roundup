@@ -372,14 +372,7 @@ mod tests {
     #[cfg(not(feature = "idle-perf"))]
     #[test]
     fn r24_normal_build_does_not_register_the_measurement_command() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut config =
-            crate::Config::locate(None, Path::new("/unused/roundup"), Path::new("/tmp"), 1)
-                .unwrap();
-        config.data_dir = Some(dir.path().into());
-        let builder = crate::build(tauri::test::mock_builder(), config, None, |_, _| {
-            panic!("no process should start")
-        });
+        let builder = tauri::test::mock_builder().invoke_handler(crate::invoke_handler());
         assert!(
             invoke(builder)
                 .unwrap_err()
