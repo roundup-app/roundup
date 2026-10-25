@@ -32,7 +32,7 @@ jobs:
   # runner. The runner's own cargo suffices, as in `check`.
   plan:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.plan.outputs.web }}
     steps:
@@ -47,7 +47,7 @@ jobs:
   # L89: the Rust checks that run no test binary.
   lint:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -63,7 +63,7 @@ jobs:
   lint-web:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
@@ -94,7 +94,7 @@ jobs:
   # (a `GITHUB_TOKEN`'s do not), and re-arms the auto-merge that turning it draft disarmed.
   rekick:
     if: github.event_name == 'pull_request' && github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
@@ -140,7 +140,7 @@ jobs:
   pre:
     needs: [plan, lint, lint-web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
