@@ -178,8 +178,8 @@ async fn t19_legacy_history_keeps_unknown_actor() {
     let dir = tempfile::tempdir().unwrap();
     let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
     rusqlite_migration::Migrations::new(vec![
-        rusqlite_migration::M::up(include_str!("../migrations/001/up.sql")),
-        rusqlite_migration::M::up(include_str!("../migrations/002/up.sql")),
+        rusqlite_migration::M::up(include_str!("../../migrations/001/up.sql")),
+        rusqlite_migration::M::up(include_str!("../../migrations/002/up.sql")),
     ])
     .to_latest(&mut db)
     .unwrap();
