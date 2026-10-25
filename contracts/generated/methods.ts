@@ -75,6 +75,7 @@ import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
+import type { RenameParams as pad_RenameParams } from "./pad/RenameParams";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
 import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
@@ -213,6 +214,7 @@ export type RpcMethods = {
   "pad.create": { params: pad_CreateParams; result: pad_Pad };
   "pad.read": { params: pad_PadName; result: pad_Pad };
   "pad.list": { params: null; result: pad_Pad[] };
+  "pad.rename": { params: pad_RenameParams; result: pad_Pad };
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };

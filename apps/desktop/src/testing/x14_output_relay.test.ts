@@ -12,6 +12,7 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { expect, it, vi } from "vitest";
 import { chromePath } from "./chromePage";
+import type { RpcErrorData } from "@contracts/RpcErrorData";
 import { createServedApp } from "./realSeam";
 import { realDaemon } from "./realDaemonPlugin";
 
@@ -29,7 +30,7 @@ const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.string
 
 const gap = (id: string, from: number, to: number) => JSON.stringify({ jsonrpc: "2.0", method: "terminal.gap", params: { id, from, to } }) + "\n";
 
-const fixture = async (offset = 0) => {
+const fixture = async (offset = 0, failure?: { code: number; message: string; data: RpcErrorData }) => {
   const dir = await mkdtemp(join(tmpdir(), "x14-relay-"));
   const path = join(dir, "daemon.sock");
   const sockets = new Set<Socket>();
@@ -53,7 +54,7 @@ const fixture = async (offset = 0) => {
       if (frame.method === "events.subscribe" || frame.method === "terminal.output") subscriptions.push(socket);
 
       // The Daemon answers a Terminal subscription with the offset of its first byte; an unknown Terminal is NOT_FOUND.
-      const answer = frame.method === "terminal.output"
+      const answer = failure ? { error: failure } : frame.method === "terminal.output"
         ? frame.params.id === "missing" ? { error: { code: -32001, message: "not found: terminal missing" } } : { result: { offset } }
         : { result: frame.method === "events.subscribe" ? null : "control-reply" };
 
@@ -115,6 +116,15 @@ const fixture = async (offset = 0) => {
 
   return { dir, base, subscriptions, responses, select, close };
 };
+
+it("u3791b_served_rpc_preserves_event_error_data_and_identity", async () => {
+  const failure = { code: -32009, message: "arbitrary diagnostic", data: { kind: "events-expired" as const, oldest: 6 } };
+  const real = await fixture(0, failure);
+
+  try {
+    await expect(createServedApp(real.base).rpc("daemon.ping", null)).rejects.toMatchObject(failure);
+  } finally { await real.close(); }
+});
 
 it("x14_harness_output_relay_selects_exact_bytes", async () => {
   const real = await fixture();

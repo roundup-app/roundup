@@ -123,13 +123,16 @@ impl Clears {
 
 /// A failed clear and, once the Handoff existed, where a retry goes on.
 struct Failure {
-    err: RpcError,
+    err: Box<RpcError>,
     saved: Option<Saved>,
 }
 
 impl From<RpcError> for Failure {
     fn from(err: RpcError) -> Self {
-        Self { err, saved: None }
+        Self {
+            err: Box::new(err),
+            saved: None,
+        }
     }
 }
 
@@ -280,7 +283,7 @@ impl Daemon {
         match self.apply(p, &mut saved).await {
             Ok(()) => Ok(()),
             Err(err) => Err(Failure {
-                err,
+                err: Box::new(err),
                 saved: Some(saved),
             }),
         }

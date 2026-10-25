@@ -338,6 +338,10 @@ fn offered_tools() -> Vec<Offered> {
             "pad.write",
             "Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT.",
         ),
+        offered::<pad::RenameParams>(
+            "pad.rename",
+            "Rename a Pad you own, keeping its creation and text. Pass the exact original name and expectedIncarnation from a read in this Project.",
+        ),
         offered::<pad::AppendParams>("pad.append", "Add text to the end of any Pad."),
         offered::<pad::AppendSectionParams>(
             "pad.appendSection",
