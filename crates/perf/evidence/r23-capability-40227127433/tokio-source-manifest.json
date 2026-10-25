@@ -25,6 +25,11 @@
       "sha256": "e0194904acf8d55946b949cacca2b266051bb2a99844c606829fb0159c39cfb1",
       "retained": "tokio-Cargo.toml.gz",
       "matches_package": true
+    },
+    "LICENSE": {
+      "sha256": "253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552",
+      "retained": "tokio-LICENSE.txt",
+      "matches_package": true
     }
   }
 }

@@ -2,7 +2,7 @@
 
 Attribution remains incomplete. [#4120](https://github.com/roundup-app/roundup/issues/4120)
 is the concrete native-probe identity prerequisite, installed as a blocked-by
- dependency of #4031 under #3760/#3720. No user or Mac decision is needed.
+dependency of #4031 under #3760/#3720. No user or Mac decision is needed.
 This report verifies the already-delivered captures and controls and attempts
 additional profiler capability discovery; it supplies no new workload recording,
 probe hits, clean timing observations or host comparison.
@@ -140,6 +140,7 @@ Inspection-only lookup failures before this report (never workload measurements)
 | `gzip -dc .../r23-overhead-40221022276/assess-overhead.py.txt.gz` | 1 | Script is uncompressed |
 | `rg ... /home/runner/.cargo/registry/src/*/tokio-1.53.1/src/runtime/builder.rs` before dependency fetch | 2 | Dependency source initially absent |
 | `gzip -dc .../candidate-source-output.stdout.gz` | 1 | Output is uncompressed; later symbol commands above are independent |
+| `gzip -dc .../historical-output_publish-source-add.stdout.gz` | 1 | Output is uncompressed |
 | `cat .../diagnostic-budgets.provenance.json` | 1 | Guessed companion filename absent; no budget loaded or changed |
 | `rg .../runtime/*meta*` | 2 | Actual metadata file is `task_hooks.rs` |
 | First dependency-source retention Python command | 1 | Assumed `.cargo-checksum.json` absent; corrected verification uses the actual cached crate and both lock checksums |
