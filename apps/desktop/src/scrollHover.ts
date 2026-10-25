@@ -110,6 +110,7 @@ export const trackScrollbars = (doc: Document): void => {
       slot.className = "scrollbar-slot";
       slot.setAttribute("aria-hidden", "true");
       element.parentNode?.appendChild(slot);
+
       const bars = OverlayScrollbars({ target: element, elements: { viewport: element }, scrollbars: { slot } }, {
         overflow: { x: x ? "scroll" : "hidden", y: y ? "scroll" : "hidden" },
         scrollbars: { theme: "app-scrollbar", autoHide: "scroll", autoHideDelay: IDLE_MS, autoHideSuspend: false, dragScroll: true, clickScroll: false },
