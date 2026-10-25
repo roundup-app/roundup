@@ -32,6 +32,8 @@ it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
     window.__fake.app.calls.length = 0;
     document.querySelector('.rail-row[data-id="agent-4"]').click();
   })()`);
+  await browser("focus", '.rail-row[data-id="agent-4"]');
+  await browser("press", "Enter");
   await wait("window.__terminals.has('t-agent-4') && !!document.querySelector('.pane .xterm-helper-textarea')");
   await browser("press", "x");
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.write' && call.params.id === 't-agent-4')");

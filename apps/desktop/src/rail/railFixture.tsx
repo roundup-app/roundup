@@ -112,3 +112,9 @@ export const pinnedAdd = (): HTMLElement => screen.getByText("Workstream", { sel
 
 /** Ark's tree reads a key or a click on a microtask: await this before asserting what the press did. */
 export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
+
+/** Exercises the native action path without selecting or opening its row. */
+export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: string, label: string) => {
+  fireEvent.contextMenu(rowOf(name), { clientX: 1, clientY: 1 });
+  await app.pickMenu(label);
+};

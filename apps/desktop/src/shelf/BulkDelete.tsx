@@ -187,7 +187,7 @@ export const createBulkDelete = <Id,>(props: {
   );
 
   const bar = () => (
-    <Show when={props.selected().length > 0 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
+    <Show when={props.selected().length > 1 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
