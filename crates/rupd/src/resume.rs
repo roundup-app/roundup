@@ -314,7 +314,3 @@ fn successor_body(actions: &[&ContinuationAction], r: &Reconciliation) -> String
     }
     body
 }
-
-pub(crate) fn is_resume_method(method: &str) -> bool {
-    matches!(method, "message.reconcileWork" | "message.resumeWork")
-}
