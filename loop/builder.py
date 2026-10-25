@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import orders  # noqa: E402
+import push  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
@@ -567,8 +568,7 @@ def keep(branch, issue, run_url):
     token = os.environ['GH_TOKEN'] = app_token()
     try:
         remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
-        push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
-        subprocess.run(push, timeout=300, check=True)
+        push.land(remote, branch, CLAUDE_ACCOUNT)
         if not draft:
             return
         order = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
@@ -896,7 +896,7 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
     if not ran:
         print('the run made no tool call; nothing to record')
         return
-    if slug.startswith('repair-'):
+    if slug == f'repair-{issue}':
         # L96: a repair run opens no PR; it failed when the Issue still does not parse.
         current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
         if current['state'] == 'open' and not orders.waits(current):
