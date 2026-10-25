@@ -104,7 +104,7 @@ describe("u2773 Rail task destinations", () => {
   };
 
   const switchTo = async (name: string) => {
-    fireEvent.click(screen.getByRole("tab", { name }));
+    fireEvent.click(await screen.findByRole("tab", { name }));
     await waitFor(() => expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true"));
     await screen.findByRole("region", { name: "Rail" });
   };

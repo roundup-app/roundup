@@ -40,7 +40,7 @@ const open = async (path: string) => { await browser("open", new URL(path, serve
 const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
 
 const showDiff = async () => {
-  await click("roundup/agent-1");
+  await browser("click", ".worktree-control");
   await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
   await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
   await click("View diff");
@@ -172,7 +172,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await browser("eval", `document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(node.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
     await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
     await press("View diff");
@@ -221,7 +221,7 @@ it("p3557c_failure_lifetime_changes_rendered", async () => {
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(checks[id].status, id).toBe("pass");
   };
 
-  await click("roundup/agent-1");
+  await browser("click", ".worktree-control");
   await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
   await browser("eval", `(() => {
     window.__fake.app.editorFailure = new Error('Editor refused this file; retry opening it.');
