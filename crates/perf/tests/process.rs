@@ -16,6 +16,11 @@ fn r25_missing_method_or_reason_fails_coverage() {
     for (budgets, reasons, passes) in [
         (r#"{}"#, r#"{}"#, false),
         (r#"{}"#, r#"{"new.call":"  "}"#, false),
+        (
+            r#"{"latency_ms":{"methods":["new.call"]}}"#,
+            r#"{"new.call":""}"#,
+            false,
+        ),
         (r#"{"latency_ms":{"methods":["new.call"]}}"#, r#"{}"#, true),
         (
             r#"{}"#,

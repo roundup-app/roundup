@@ -126,6 +126,7 @@ fn r8_the_committed_limits_are_rule_sevens_budgets() {
     let budgets = committed();
 
     assert_eq!(budgets["cold_start_ms"].limit, Some(300.0));
+    assert_eq!(budgets["cold_plugin_materialization_ms"].limit, Some(300.0));
     assert_eq!(budgets["rss_extra_mb"].limit, Some(150.0));
     assert_eq!(budgets["write_to_output_p95_ms"].limit, Some(16.0));
 }
@@ -266,18 +267,6 @@ fn r8_the_committed_baselines_are_the_recorded_values() {
 }
 
 #[test]
-fn q11_cold_plugin_materialization_keeps_the_300_ms_limit() {
-    let budgets = committed();
-    let budget = &budgets["cold_plugin_materialization_ms"];
-    assert_eq!(budget.limit, Some(300.0));
-    assert_eq!(judge(300.0, budget, "none"), None);
-    assert_eq!(
-        judge(next_up(300.0), budget, "none"),
-        Some(Miss::OverLimit { limit: 300.0 })
-    );
-}
-
-#[test]
 fn q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median() {
     let mut budgets = committed();
     budgets.retain(|name, _| name == "cold_plugin_materialization_ms");
@@ -320,3 +309,19 @@ fn q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_l
         matches!(outcome.misses.as_slice(), [(name, Miss::Regressed { .. })] if name == "cold_plugin_materialization_ms")
     );
 }
+
+#[path = "support/baseline.rs"]
+mod baseline;
+
+#[test]
+fn r26_committed_baseline_edits_have_same_host_evidence() {
+    baseline::committed(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .as_path(),
+    )
+    .unwrap();
+}
+
+#[path = "support/baseline_cases.rs"]
+mod baseline_cases;

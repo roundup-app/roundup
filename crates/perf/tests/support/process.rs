@@ -27,17 +27,21 @@ pub fn coverage<'a>(
         .0;
     let off_path: BTreeMap<String, String> =
         serde_json::from_str(json).map_err(|e| e.to_string())?;
-    let missing: Vec<_> = methods
-        .filter(|name| {
-            !measured.contains(name)
-                && !off_path
-                    .get(*name)
-                    .is_some_and(|reason| !reason.trim().is_empty())
-        })
+    let mut missing: BTreeSet<_> = methods
+        .filter(|name| !measured.contains(name) && !off_path.contains_key(*name))
         .collect();
+    missing.extend(
+        off_path
+            .iter()
+            .filter(|(_, reason)| reason.trim().is_empty())
+            .map(|(name, _)| name.as_str()),
+    );
     if missing.is_empty() {
         Ok(())
     } else {
-        Err(format!("No perf disposition: {}", missing.join(", ")))
+        Err(format!(
+            "No perf disposition: {}",
+            missing.into_iter().collect::<Vec<_>>().join(", ")
+        ))
     }
 }
