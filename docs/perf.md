@@ -631,6 +631,15 @@ calibration, baseline, production repair or Mac observation is supplied.
 
 ### R23 producer/dispatch continuation (#4032)
 
+
+[Builder 40206540231](../crates/perf/evidence/r23-host-40206540231/README.md)
+retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
+Before/after boot IDs match; original commands, statuses, load/background processes,
+toolchain, shell and settings are retained. Runner inventory returned HTTP 403
+(exit 1); current job metadata and launch inputs identify no accessible qualified
+target. No producer/dispatch collection or controls ran. #4032 remains incomplete;
+this miss supplies no timing observation or overhead bound.
+
 [Builder 40204505975](../crates/perf/evidence/r23-host-40204505975/README.md)
 retains another unchanged qualification miss: AMD EPYC 7763, exit 2, with
 matching before/after boot IDs and actual command statuses. Runner inventory
