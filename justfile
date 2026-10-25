@@ -168,7 +168,9 @@ perf-keystroke *args:
     set -euo pipefail
     [ "${ROUNDUP_ALLOW_WINDOW:-}" = 1 ] || { echo "perf-keystroke opens a window over your screen for about 40 s per run and types into it; set ROUNDUP_ALLOW_WINDOW=1 only when the user asked for the run" >&2; exit 2; }
     dist={{quote(justfile_directory())}}/target/perf-dist
-    VITE_ROUNDUP_PERF=1 pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
+    workload=idle
+    for arg in {{args}}; do [ "$arg" != --flood ] || workload=flood; done
+    VITE_ROUNDUP_PERF=1 VITE_ROUNDUP_PERF_WORKLOAD="$([ "$workload" = flood ] && echo flood || true)" pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
     TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}, app: {windows: [{title: "roundup", alwaysOnTop: true, visibleOnAllWorkspaces: true}]}}') \
         cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
