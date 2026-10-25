@@ -880,7 +880,7 @@ A user-requested system confirmation containing its title, complete consequences
 **Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
 The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
 
-**Idle evidence** (`record_idle_evidence`, `IdleEvidence`):
+**Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`):
 The opt-in R24 App producer's run-owned native and webview observation journal.
 Native notifications and document events are separate observed facts; requested window
 states are never observations. The measurement-only App command accepts typed renderer

@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { IdleEvidence } from "../perf/idle";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -62,9 +63,10 @@ export type ProjectCalls = {
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
 
-/** The Tauri commands the App registers (`crates/desktop`), every one of them; `m5_every_app_action_has_a_tool_or_a_reason` reads this table and fails for a command without an MCP tool or a reason. */
+/** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
   "projects",
+  "record_idle_evidence",
   "select_project_menu",
   "open_project",
   "close_project",
@@ -88,6 +90,8 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** R24 measurement builds alone provide this bounded native evidence sink. */
+  recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */

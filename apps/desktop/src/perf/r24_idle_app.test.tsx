@@ -4,7 +4,6 @@ import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, event, info } from "../testing/nodes";
 import { fakeEmulators, subscribed } from "../terminal/paneHarness";
-import { createIdleEvidence } from "./idle";
 import type { IdleEvidence } from "./idle";
 import { createIdleRun } from "./idle_run";
 
@@ -22,8 +21,7 @@ it("r24_the_app_keeps_its_selected_terminal_from_ten_agents_to_one_without_spawn
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
 
   const records: IdleEvidence[] = [];
-  const evidence = createIdleEvidence(document, window, () => 0, async record => { records.push(record); });
-  const idle = createIdleRun(evidence);
+  const idle = createIdleRun(async record => { records.push(record); }, () => 0);
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={idle.prepare} observeTerminal={idle.selected} />);
   await subscribed(app, "t-idle-0");
@@ -33,8 +31,8 @@ it("r24_the_app_keeps_its_selected_terminal_from_ten_agents_to_one_without_spawn
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(document.querySelectorAll('[role="treeitem"]').length).toBe(1));
 
-  await evidence.flush();
+  await idle.flush();
   expect(records.at(-1)).toMatchObject({ project: "/r24", terminal: "t-idle-0" });
   expect(app.calls.filter(call => call.method === "agent.spawn" || call.method === "terminal.write")).toEqual([]);
-  evidence.stop();
+  idle.stop();
 });
