@@ -14,7 +14,7 @@ new_repo() {
   git config user.name t
   mkdir loop crates contracts
   cp "$script" loop/rules.sh
-  printf '_Avoid_: session, bot, process\n_Avoid_: parent agent\n' >GLOSSARY.md
+  printf '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | Session, bot, process, parent agent |\n' >GLOSSARY.md
   echo 'pub fn ok() {}' >crates/a.rs
   git add -A
   git commit -qm base
@@ -60,6 +60,10 @@ new_repo; echo 'export type SessionId = string;' >contracts/a.ts; commit x
 expect fail "L3 vocab: TS export" rules vocab
 new_repo; rm GLOSSARY.md; echo 'pub fn session_id() {}' >crates/b.rs; commit x
 expect fail "L3 vocab: missing GLOSSARY.md fails loudly" rules vocab
+for data in '| Code term | User label |' '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | |' '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | — |'; do
+  new_repo; printf '%b\n' "$data" >GLOSSARY.md; commit x
+  expect fail "L3 vocab: absent or empty Avoid data fails loudly: $data" rules vocab
+done
 
 # L95
 words() { loop/rules.sh architect-words; }
