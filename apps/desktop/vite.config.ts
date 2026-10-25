@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
-import { buildModules } from "./budgets/build";
+import { buildModules } from "./budgets/build.ts";
 
 const served = realDaemonFromEnv(process.env);
 
