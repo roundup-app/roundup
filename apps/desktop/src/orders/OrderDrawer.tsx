@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
@@ -33,32 +33,13 @@ type OrderInput = {
 /** O17: the session id is muted text that copies itself on click and says so for a moment. */
 const SessionId = (props: { id: string }) => {
   const { app } = useConnectedProject();
-  const [note, setNote] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const idText = createUniqueId();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(timer));
-
-  const copyId = async () => {
-    clearTimeout(timer);
-
-    try {
-      await writeText(app, props.id);
-      setFailure(null);
-      setNote(copy.copied);
-    } catch (error) {
-      setNote(copy.copyFailed);
-      setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)));
-    }
-
-    clearTimeout(timer);
-    timer = setTimeout(() => setNote(null), 1500);
-  };
 
   return <>
-    <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
+    <CopyButton app={app} text={props.id} class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{props.id}</CopyButton>
     <span id={idText} class="overview-id-note">{props.id}</span>
-    <ReservedLine message={failure()} status={note()}><Show when={failure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => { setFailure(null); setNote(null); }}><Icon name="x" /></IconButton></Show></ReservedLine>
+    <ReservedLine message={failure()} ><Show when={failure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => { setFailure(null); }}><Icon name="x" /></IconButton></Show></ReservedLine>
   </>;
 };
 
@@ -324,7 +305,7 @@ const OrderContent = (props: OrderInput) => {
       </ReservedLine>
       <div class="order-edit-actions order-edit-recovery">
         <Show when={recovery()}>
-          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void writeText(app, String(selectedDraft()?.value[name] ?? "")).then(() => setFailure(null)).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
+          <For each={["title", "ask", "done"]}>{(name) => <CopyButton app={app} identity={selectedDraft()?.revision} text={String(selectedDraft()?.value[name] ?? "")} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copyField(name)}</CopyButton>}</For>
           <button data-button="quiet" type="button" onClick={() => {
             const draft = selectedDraft();
 
