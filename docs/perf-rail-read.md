@@ -252,8 +252,8 @@ the batches (baseline cap 260, repaired cap 210). No timing code is committed.
 Median saving: **12.139 µs (15.8%)**. These are batch means,
 not request p95s: they include SQLite, live presentation, JSON serialization
 and the instrumented System allocator, and exclude startup/socket transport.
-All eighteen invocations exit 0; none is retried or skipped. Builds and checks
-are stopped during the pairs. Host: AMD EPYC 7763 64-Core Processor, Linux x86_64,
+All eighteen invocations exit 0; none is retried or skipped. No other builds,
+lints or test runs overlap the pairs. One-minute load is 1.373–2.548. Host: AMD EPYC 7763 64-Core Processor, Linux x86_64,
 4 affinity CPUs, rustc 1.99.0 (b940084d7 2026-09-28).
 
 Reproduce using the report's temporary `observer_patch` on both references:
