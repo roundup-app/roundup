@@ -105,14 +105,22 @@ describe("U83 closed Agent overview", () => {
 
     it("o17_a_failed_copy_names_the_cause_and_recovery", async () => {
       let failing = true;
-      const button = await setup(async () => { if (failing) throw new Error("denied"); });
+      const refusal = new Error("denied");
+      const written: string[] = [];
+
+      const button = await setup(async (text) => {
+        written.push(text);
+
+        if (failing) throw refusal;
+      });
+
       fireEvent.click(button);
-      expect((await screen.findByRole("alert")).textContent).toContain("Copy failed: denied. Select the text to copy it.");
-      expect(button.textContent).toBe("Copy failed");
+      expect((await screen.findByRole("alert")).textContent).toContain(refusal.message);
+      expect(button.textContent).toBe(overview.id);
       failing = false;
       fireEvent.click(button);
       await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-      expect(button.textContent).toBe("Copied");
+      expect(written).toEqual([overview.id, overview.id]);
     });
   });
 });
