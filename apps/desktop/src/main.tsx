@@ -18,8 +18,10 @@ const tauri = createTauriApp();
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 
-// Only a build made with VITE_ROUNDUP_PERF carries the keystroke run and the frame run (U3010e); Vite drops the branch and the import from every other build (K1).
-const keystrokes = import.meta.env.VITE_ROUNDUP_PERF
+// Build-time branches exclude each workload from normal bundles; idle never imports the typing/frame drivers.
+const idle = import.meta.env.VITE_ROUNDUP_IDLE_PERF ? (await import("./perf/idle_run")).createIdleRun() : null;
+
+const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VITE_ROUNDUP_PERF
   ? await import("./perf/run").then(async ({ createKeystrokeRun }) => {
       const measured = (await tauri.projects()).at(-1);
 
@@ -39,6 +41,6 @@ const keystrokes = import.meta.env.VITE_ROUNDUP_PERF
 
 const app = keystrokes?.traced(tauri) ?? tauri;
 
-render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={keystrokes?.createEmulator} />, root);
+render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />, root);
 
 void keystrokes?.start();
