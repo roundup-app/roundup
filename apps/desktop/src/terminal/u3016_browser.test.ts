@@ -87,7 +87,9 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       // The fixture atomically renames this reply only after message.send returns.
       const filename = `reply-${home.id}.json`;
       const replies = watch(real.dir);
+
       onTestFinished(() => replies.close());
+
       const accepted = new Promise<unknown>((resolve, reject) => {
         replies.on("error", reject);
         replies.on("change", (_event, changed) => {
