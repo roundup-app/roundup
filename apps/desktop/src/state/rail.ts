@@ -72,6 +72,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
   let workstreamFocus = captureFocus();
+  let selectionRevision = 0;
+  let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const [restored, setRestored] = createSignal(false);
@@ -93,6 +95,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let latest: Promise<void> = Promise.resolve();
 
   const select = (id: string | null, focus = captureFocus(true)): void => {
+    selectionRevision++;
     batch(() => {
       setTerminalFocus(() => focus);
       setRestored(false);
@@ -145,7 +148,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
-      select(wanted, workstreamFocus);
+
+      if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
+
       setWorkstreamCreating(false);
       void startDoor(wanted, false);
     }
@@ -248,6 +253,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const createWorkstream = async (): Promise<void> => {
     if (workstreamCreating()) return;
     workstreamFocus = captureFocus(true);
+    workstreamSelection = selectionRevision;
     setWorkstreamCreating(true);
 
     try {
