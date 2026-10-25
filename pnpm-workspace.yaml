@@ -1,4 +1,5 @@
 packages:
+  - "tools/lint"
   - "apps/*"
   - "ext/*"
   - "crates/agents/sidecar"
