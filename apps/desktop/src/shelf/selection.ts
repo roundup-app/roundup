@@ -44,13 +44,13 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     setSelected(start < 0 ? [id] : [...new Set(order.slice(Math.min(start, end), Math.max(start, end) + 1))]);
   };
 
-  const click = (id: Id, event: MouseEvent, open: () => void) => {
+  const click = (id: Id, event: MouseEvent) => {
     if (event.shiftKey) range(id);
     else if (event.metaKey) toggle(id);
     else {
-      clear();
+      setSelected([id]);
       anchor = id;
-      open();
+      rowOf(id)?.focus();
     }
   };
 

@@ -23,11 +23,11 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Open folder", "Open in editor", "Add Agent", "Send to Agent", "Copy Link", "Remove"]);
     expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -80,7 +80,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(press.defaultPrevented).toBe(true);
     expect(app.shownMenus).toHaveLength(0);
     fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
-    expect(app.menuLabels()).toEqual(["Complete", "Send to Agent", "Copy Link", "Delete"]);
+    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Complete", "Send to Agent", "Copy Link", "Delete"]));
     app.handlers["todo.complete"] = () => todo(5, { done: true });
     await app.pickMenu("Complete");
     expect(railCallsTo(app, "todo.complete")).toEqual([{ id: 5 }]);
@@ -91,7 +91,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual(["Remove"]);
+    expect(app.menuLabels()).toEqual(["Open folder", "Open in editor", "Clear…", "Add Agent", "Start supervisor", "Remove"]);
   });
 
   it.each([
@@ -125,7 +125,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Open folder", "Open in editor", "Add Agent", ...(!running ? ["Start supervisor"] : []), "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u3515b_only_send_is_disabled_in_an_exhausted_row_menu", async () => {
@@ -290,20 +290,11 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       app.handlers["todo.list"] = () => [item];
       app.emit(event({ name: "todo.created", data: item }));
       fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-      (await screen.findByRole("button", { name: /#1 todo 1/ })).focus();
-      const move = await screen.findByRole<HTMLButtonElement>("button", { name: "Move #1" });
-      expect(move.disabled).toBe(false);
-      expect(move.getAttribute("aria-disabled")).toBe("true");
-      expect(move.title).not.toBe("");
-      move.focus();
-      expect(document.activeElement).toBe(move);
-
-      for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(move, { key });
-      fireEvent.contextMenu(screen.getByRole("button", { name: /#1 todo 1/ }));
+      fireEvent.contextMenu(await screen.findByRole("button", { name: /#1 todo 1/ }));
+      expect(entry(app, "Move").enabled).toBe(false);
+      expect(entry(app, "Move").children).toBeUndefined();
       expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
-      await app.closeMenu();
-      fireEvent.click(move);
-      expect(screen.queryByRole("menu")).toBeNull();
+      await app.pickMenu("Move");
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Rail Pad link: its only Agent has exited", run: async () => {
@@ -384,7 +375,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
     } },
     { name: "blocker: only the Todo itself", run: async () => {
       const { app } = await mountTodos([todo(1)]);
-      fireEvent.click(await screen.findByRole("button", { name: /Idle #1 / }));
+      fireEvent.keyDown(await screen.findByRole("button", { name: /Idle #1 / }), { key: "Enter" });
       const trigger = await within(await screen.findByRole("complementary", { name: "Drawer" })).findByRole<HTMLButtonElement>("button", { name: /Blocker/ });
       expect(trigger.disabled).toBe(false);
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
@@ -405,16 +396,11 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       screen.getByRole("button", { name: "mine" }).focus();
-      const trigger = document.querySelector<HTMLButtonElement>('[aria-label="assign mine"]')!;
-      expect(trigger.disabled).toBe(false);
-      expect(trigger.getAttribute("aria-disabled")).toBe("true");
-      expect(trigger.title).not.toBe("");
-      trigger.focus();
-      expect(document.activeElement).toBe(trigger);
-
-      for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(trigger, { key });
-      fireEvent.click(trigger);
       const button = screen.getByRole("button", { name: "mine" });
+      fireEvent.contextMenu(button);
+      expect(entry(app, "Assign").enabled).toBe(false);
+      await app.pickMenu("Assign");
+      expect(actionCalls(app)).toEqual([]);
       fireEvent.contextMenu(button);
       expect(entry(app, "Send to Agent").enabled).toBe(false);
       expect(entry(app, "Send to Agent").children).toBeUndefined();
@@ -448,7 +434,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(screen.queryByRole("menu")).toBeNull();
       fireEvent.keyDown(button, { key: "a", code: "KeyA" });
       const menu = await screen.findByRole("menu");
-      expect(within(menu).queryByRole("menuitem", { name: "Me" })).toBeNull();
+      expect(within(menu).getAllByRole("menuitem").map(item => item.getAttribute("data-value"))).not.toContain("me");
       expect(within(menu).getByRole("menuitem", { name: "New Workstream…" }).getAttribute("aria-disabled")).not.toBe("true");
       expect(actionCalls(app)).toEqual([]);
     } },

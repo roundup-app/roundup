@@ -11,7 +11,7 @@ import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "sol
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
-export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
+export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()), owner: v.optional(v.nullable(v.string()), null) });
 
 export const blockerSchema = v.strictObject({
   title: v.string(), body: v.string(), done: v.boolean(), blockers: v.array(v.string()), baseBlockers: v.array(v.string()), expected_change: v.nullable(v.number()),

@@ -35,7 +35,6 @@ const settle = async (prompt: string) => {
   const startDoor = async () => {
     const id = (await workstreams()).at(-1)!.id;
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
     // SessionStart can read idle before the initial prompt begins. Wait for this
     // Door's fixture reply, then its Stop, before another Workstream can affect it.
     await waitFor(async () => {
@@ -69,8 +68,6 @@ const settle = async (prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
-  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
-  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
 

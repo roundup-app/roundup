@@ -150,7 +150,7 @@ const PadBody = (props: {
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
-    setPad(next);
+    setPad({ ...next, owner: { ...next.owner } });
     sourceRevision = next.revision;
     setOrigin(next.text);
 
@@ -195,7 +195,7 @@ const PadBody = (props: {
 
         if (sameContent(current, pad())) return;
 
-        setPad(current);
+        setPad({ ...current, owner: { ...current.owner } });
 
         // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
         if (sent !== null && actor?.kind === "user" && current.text === sent) return;

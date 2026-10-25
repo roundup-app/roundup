@@ -169,6 +169,7 @@ export const createSortedList = (source: {
   };
 
   return {
+    step,
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
       measure();

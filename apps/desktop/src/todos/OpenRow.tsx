@@ -1,25 +1,22 @@
-import ChevronUp from "lucide-solid/icons/chevron-up";
+import { NameField } from "../ui/Editable";
 import type { JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { IconButton } from "../ui/IconButton";
-import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
-import { createNear } from "../ink/near";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
-import { HomeMove } from "./HomeMove";
+
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
 import { doesClearTodoFailure, failureOf } from "./failureOf";
-import { homeNameOf } from "./homes";
-import { kindOf, openBlockersOf } from "./todoView";
+import { kindOf } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
 
@@ -79,16 +76,12 @@ export const OpenRow = (props: {
   const connected = useConnectedProject();
   // The frame and button must unregister through the same closures that registered them.
   const sorted = untrack(() => props.sorted);
-  const near = props.nested ? createNear() : null;
-  const [listOpen, setListOpen] = createSignal(false);
-  const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
+  const [editing, setEditing] = createSignal(false);
+  const [picked, setPicked] = createSignal(false);
+  let rowButton: HTMLButtonElement | undefined;
+  const closeName = () => { setEditing(false); queueMicrotask(() => rowButton?.focus()); };
 
-  // U3810: every open blocker, including the nesting parent, in id order.
-  const waitingLine = createMemo(() => copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma)));
-
-  /** U3731: the body's first non-empty line, the row's one quiet line under the title. */
-  const bodyLine = createMemo(() => props.todo.body.split("\n").find(line => line.trim() !== "")?.trim() ?? "");
-
+  const [failedAction, setFailedAction] = createSignal<string | null>(null);
   const [actionFailure, setFailure] = createSignal<string | null>(null);
   const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
   const failure = createMemo(() => moveFailure() ?? actionFailure());
@@ -100,7 +93,7 @@ export const OpenRow = (props: {
     if (id !== props.todo.id) return message;
 
     if (message === null) clearFailure();
-    else setFailure(message);
+    else { setFailedAction(props.todo.done ? copy.reopen : copy.complete); setFailure(message); }
 
     return message;
   };
@@ -130,13 +123,19 @@ export const OpenRow = (props: {
   const head = (
     <div class="row-head">
         {props.disclosure}
+        <Show when={!editing()} fallback={<NameField object={`todo:${props.todo.id}`} name={props.todo.title}
+          version={async () => String((await connected.app.rpc("todo.getHistory", { id: props.todo.id })).changes.at(-1)?.seq ?? 0)}
+          commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) }); }}
+          close={closeName} fail={message => { setFailedAction(copy.rename); setFailure(message); }} />}>
         <RowButton
           hang={false}
           keysSuspended={props.lifted === true}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
-          pressed={props.pressed}
+          pressed={props.pressed ?? picked()}
           selectionActive={props.selectionActive}
-          onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
+          onClick={(event) => { if (props.onPick) props.onPick(props.todo, event); else { setPicked(true); rowButton?.focus(); } }}
+          onRename={() => setEditing(true)}
+          onOpen={() => props.onOpen(props.todo, "key")}
           reorderable={sorted !== undefined}
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
           onNest={async (run) => reportMove(await run())}
@@ -146,50 +145,35 @@ export const OpenRow = (props: {
             sorted?.key(event);
           }}
           ref={(row) => {
+            rowButton = row;
             props.registerRow?.(props.todo.id, row);
             sorted?.button(row);
           }}
         >
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
-          <Show when={!props.nested && props.todo.estimate_minutes !== null}><span class="todo-row-estimate" data-state="estimate">{copy.todoEstimate(props.todo.estimate_minutes)}</span></Show>
-          <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
-        <Show when={!props.nested && sorted}>
-          <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
-            <Show when={sorted}>
-              <Show when={props.onAssign}>
-                <button data-button="row-action" type="button" class="word light todo-assign" aria-label={copy.assignTodoNumber(props.todo.id)} onClick={(event) => props.onAssign?.(props.todo, event.currentTarget)}>{copy.assign}</button>
-              </Show>
-              <IconButton aria-label={copy.moveUp} style={sorted?.can(-1) ? undefined : { visibility: "hidden" }} onClick={() => sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
-              <IconButton aria-label={copy.moveDown} style={sorted?.can(1) ? undefined : { visibility: "hidden" }} onClick={() => sorted?.step(1)}><Icon name="down" /></IconButton>
-            </Show>
-          </div>
         </Show>
-        <Show when={props.nested}>
-          <HomeMove
-            id={props.todo.id}
-            home={props.todo.home}
-            onOpenChange={setListOpen}
-            choose={async (home) => {
-              const message = await failureOf(() => connected.app.rpc("todo.move", { id: props.todo.id, home }));
-
-              reportAction(message);
-
-              return message;
-            }}
-          />
-        </Show>
+        <span class="row-controls">
+          <IconButton aria-label={copy.openDraft} onClick={event => props.onOpen(props.todo, activationSource(event))}><Icon name="right" /></IconButton>
+          <Show when={props.groupComplete === undefined}><TickBox todo={props.todo} onToggle={toggle} /></Show>
+        </span>
       </div>
   );
 
   return (
     <ShelfRow
-      glyph={<>
-        <TickBox todo={props.todo} onToggle={toggle} />
-        <Show when={!props.todo.done && props.todo.blocked}><KindGlyph kind="blocked" /></Show>
-      </>}
+      glyph={<span classList={{ "row-secondary": failure() === null && !props.todo.blocked && !props.todo.done }}><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      onClick={event => {
+        if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
+
+        if (props.onPick) props.onPick(props.todo, event);
+        else { setPicked(true); rowButton?.focus(); }
+      }}
+      onDblClick={event => {
+        if (!editing() && !props.lifted && event.target instanceof Element && !event.target.closest("button, input, [role=checkbox]")) setEditing(true);
+      }}
       data-lifted={props.lifted ? "true" : undefined}
       onAnimationEnd={event => {
         if (props.groupComplete !== undefined && event.target instanceof Element && event.target.matches(".todo-tick-mark path")) props.onMotionEnd?.();
@@ -197,9 +181,8 @@ export const OpenRow = (props: {
       data-aggregate-motion={props.aggregateMotion ? "play" : undefined}
       data-group-complete={props.groupComplete === undefined ? undefined : String(props.groupComplete)}
       data-motion={props.motion ? "play" : undefined}
-      data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
-      data-selected={props.selected ? "true" : undefined}
+      data-selected={props.pressed || picked() || props.selected ? "true" : undefined}
       role={props.treeItem?.role}
       aria-level={props.treeItem?.["aria-level"]}
       aria-expanded={props.treeItem?.["aria-expanded"]}
@@ -210,48 +193,13 @@ export const OpenRow = (props: {
       style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-4))` } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
-      {...near?.handlers}
       ref={(frame) => {
         sorted?.frame(frame);
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      <Show when={bodyLine() !== ""}>
-        {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
-        <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
-      </Show>
-      {props.groupProgress}
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><button data-button="quiet" class="word" type="button" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}>{copy.dismissFailure}</button></ReservedLine></div>
-      <Show when={props.nested}>
-        <p class="shelf-meta" data-todo-meta>
-          <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
-          <Show when={props.nested && waitingOn().length > 0}>
-            <span data-todo-waits>
-              <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()}>{copy.waitsOnWord}</span>}</Tip><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
-                <>
-                  <Show when={index() > 0}><span>{copy.comma}</span></Show>
-                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono="" onClick={(event) => props.onOpen(blocker, activationSource(event))}>#{blocker.id}</button>
-                </>
-              )}</For></span>
-            </span>
-          </Show>
-          <Show when={props.nested}>
-            {" "}<span data-todo-home>{copy.in}<span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
-          </Show>
-        </p>
-      </Show>
-      <Show when={!props.nested && !props.todo.done && waitingOn().length > 0}>
-        <p class="shelf-meta" data-todo-meta>
-          {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
-          <Tip class="todo-tooltip" text={waitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={waitingLine()}><span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
-            <>
-              <Show when={index() > 0}><span>{copy.comma}</span></Show>
-              <button data-button="quiet" type="button" class="word todo-blocker" aria-label={copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>{blocker.title}</button>
-            </>
-          )}</For></span></span>}</Tip>
-        </p>
-      </Show>
+      <div class="row-secondary">{props.groupProgress}</div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined}><IconButton aria-label={copy.dismissFailure} data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}><Icon name="x" /></IconButton></ReservedLine></div>
     </ShelfRow>
   );
 };
-

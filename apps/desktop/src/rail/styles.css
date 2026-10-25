@@ -59,40 +59,6 @@
   min-height: var(--space-6);
 }
 
-/* U426: an Agent row's hidden actions sit out of flow, take no room and stay out of the Tab order; near the row they claim space before the name can reach them. The line stays one row high. */
-.rail-row .row-icons {
-  position: absolute;
-  top: 50%;
-  right: var(--space-4);
-  transform: translateY(-50%);
-  display: flex;
-  flex: none;
-  gap: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.rail-row[data-near="true"] .row-icons,
-.rail-row:hover .row-icons,
-.rail-row:focus-within .row-icons {
-  position: static;
-  transform: none;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* U3744: a queued Workstream's badge is its state, so at rest the actions leave the flow and the name keeps their room; near the row they return. */
-[data-part="branch-control"].rail-row:has(.queue-badge):not([data-near="true"], :hover, :focus-within) .row-icons {
-  position: absolute;
-  transform: translateY(-50%);
-}
-
-/* U3704: a Workstream row carries states after its name, so its actions keep their room at rest, hidden and out of the Tab order: a name is cut in the same place and a state keeps its x. */
-[data-part="branch-control"].rail-row .row-icons {
-  position: static;
-  transform: none;
-}
-
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
 .rail-row {
   position: relative;
@@ -458,11 +424,6 @@
 
 /* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
 .rail-row .door-action-label {
-  display: none;
-}
-
-/* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
-.rail-row[data-near="true"] .line > .rail-pads-control {
   display: none;
 }
 
@@ -835,13 +796,6 @@
   overflow-wrap: anywhere;
 }
 
-/* The edited name owns the row until editing ends. */
-.rail-row[data-editing="true"] .row-tail,
-.rail-row[data-editing="true"] .rail-pads-control,
-.rail-row[data-editing="true"] .fill {
-  display: none;
-}
-
 .rail-row[data-editing="true"] input {
   width: 100%;
 }
@@ -911,3 +865,14 @@
   padding-bottom: var(--line);
   scroll-padding-bottom: var(--line);
 }
+
+.rail-row .name { flex: 1; }
+.rail-row .row-state { width: var(--space-4); flex: none; }
+.rail-row .row-controls { flex: none; }
+.rail-row .rail-chevron { opacity: 0; pointer-events: none; }
+.rail-row:focus-within .rail-chevron,
+.rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }
+
+.rail-row[data-worktree="true"] { min-height: calc(var(--space-6) + var(--space-2)); }
+.rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
+.rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }

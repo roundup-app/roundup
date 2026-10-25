@@ -211,7 +211,7 @@ export const Todos = (props: {
     if (!bulk.pending()) selection.key(todo.id, event);
   };
 
-  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0);
+  const isEmpty = createMemo(() => todos.isLoaded() && inScope().length === 0);
 
   /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
   const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
@@ -220,7 +220,7 @@ export const Todos = (props: {
   });
 
   const [dragging, setDragging] = createSignal(false);
-  const [adding, setAdding] = createSignal<{ group: string; owner: Actor | null } | null>(null);
+  const [filed, setFiled] = createSignal(0);
   const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
   let pickAdvance: (() => Promise<void>) | undefined;
   let commentAdvance: (() => Promise<void>) | undefined;
@@ -368,7 +368,7 @@ export const Todos = (props: {
     },
   }]);
 
-  const ownerKeys = createOwnerKeys({ connected, todos, active, assign });
+  createOwnerKeys({ connected, todos, active, assign });
 
   const offers = () => {
     const current = todos.byId().get(picking()?.id ?? -1);
@@ -408,7 +408,8 @@ export const Todos = (props: {
   });
 
   const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
-  const creationRecipient = () => adding() === null ? creationHome() : `${creationHome() ?? ""}/${adding()!.group}`;
+  const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
+  const creationRecipient = () => creationHome();
   const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
 
   createEffect(() => {
@@ -417,7 +418,7 @@ export const Todos = (props: {
 
   const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
     && draft.destination.object === "new" && draft.destination.recipient === creationRecipient()
-    && (creationRevision() !== null ? draft.revision === creationRevision() : draft.status === "draft"));
+    && (creationRevision() !== null ? draft.revision === creationRevision() : (draft.status === "draft" || draft.status === "failed" || draft.status === "unknown" || draft.status === "pending")));
 
   createEffect(() => {
     const revision = creationRevision();
@@ -447,14 +448,14 @@ export const Todos = (props: {
 
     if (field.value === "" && !previous) return;
 
-    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision));
+    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome(), owner: creationOwner() }, caret, "ordinary", creationRevision()).draft.revision));
   };
 
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
   const create = async (title: string) => {
     setCreateFailure(null);
-    // U3733: the top field under a selected Agent makes its Todo; a group's plus keeps its own group's owner.
-    const owner = adding() ? adding()!.owner : scope.agent();
+    // Keep the owner captured when the scope-line field opened, even if selection changed.
+    const owner: Actor | null = creationOwner() === null ? null : { kind: "agent", id: creationOwner()!, parent: null };
 
     const draft = creation();
 
@@ -466,6 +467,7 @@ export const Todos = (props: {
 
     try {
       const made = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
+      setFiled(count => count + 1);
       // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
       connected.drafts.settle(draft.revision, "acknowledged");
 
@@ -477,34 +479,23 @@ export const Todos = (props: {
       const retained = v.safeParse(v.string(), draft.value.title);
 
       // EntryRow clears on submit; restore only this field's unchanged failed revision.
-      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && !creation() && retained.success) field.value = retained.output;
+      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && (!creation() || creation()?.revision === draft.revision) && retained.success) { field.value = retained.output; setCreationRevision(draft.revision); }
     }
   };
 
-  /** U3719: an Agent group whose Agent left the Rail keeps its open field at the top, so the create fails as NOT_FOUND and says so. */
-  const fieldGroupGone = () => adding() !== null && !ownersOnRail(connected).some(owner => owner.id === adding()?.group);
-
-  /** U3719: the plus of a group header, or the top button (`null`), opens the one new-Todo field. */
-  const openField = (next: { group: string; owner: Actor | null } | null) => {
+  const openField = () => {
     setCreateFailure(null);
 
-    if (typing() && adding()?.group === next?.group) {
-      document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
+    if (typing()) { document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
 
-      return;
-    }
-
-    // U3719: one field is open at a time; opening another discards the first one's text.
-    const previous = typing() ? creation() : undefined;
-
-    batch(() => {
-      if (previous) connected.drafts.discard(previous.revision);
-      setCreationRevision(null);
-    });
+ return; }
 
     setCreationHome(selectedWorkstream());
-    setAdding(next);
+    setCreationOwner(scope.agent()?.id ?? null);
     const draft = creation();
+    const saved = v.safeParse(creationSchema, draft?.value);
+
+    if (saved.success) setCreationOwner(saved.output.owner);
 
     if (draft && !v.safeParse(v.string(), draft.value.title).success) {
       setCreateFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
@@ -516,9 +507,14 @@ export const Todos = (props: {
     setTyping(true);
   };
 
+  registerKeys(shelfKeyScope, [{ chords: ["n"],
+    when: event => !event.repeat && !event.isComposing && event.target instanceof Element && section?.contains(event.target) === true && !event.target.closest(TEXT_FIELDS),
+    run: openField,
+  }]);
+
   const field = () => (
     <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
-      <ReservedLine overlay message={adding() !== null && !fieldGroupGone() ? createFailure() : null} />
+
       <EntryRow
         glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
         class="todo-inset"
@@ -533,14 +529,12 @@ export const Todos = (props: {
         onEdit={retainCreation}
         onSubmit={(title) => void create(title)}
         onClose={(reason) => {
-          const group = adding()?.group;
 
           setTyping(false);
-          setAdding(null);
 
           if (reason === "escape") setCreateFailure(null);
 
-          if (reason !== "blur") (document.querySelector<HTMLElement>(`.todos-tab [data-shelf-group="${group}"] .shelf-group-add`) ?? plusButton)?.focus();
+          if (reason !== "blur") plusButton?.focus();
         }}
       />
     </div>
@@ -749,7 +743,17 @@ export const Todos = (props: {
 
     if (todo === undefined) return;
 
+    const order = treeRows(ownerGroups(connected, listed(), item => item.owner).find(group => group.items.some(item => item.id === todo.id))?.items ?? []).map(row => row.todo.id);
+
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
+
+ if (anchor) setPicking({ id: todo.id, anchor }); } },
+      ...(!todo.done ? [
+        { id: "move-up", label: copy.moveUp, enabled: order.indexOf(todo.id) > 0, run: () => sorted.step(todo.id, -1, order) },
+        { id: "move-down", label: copy.moveDown, enabled: order.indexOf(todo.id) < order.length - 1, run: () => sorted.step(todo.id, 1, order) },
+      ] : []),
+      { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name, run: () => moveHome(todo.id, home.home) })) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
@@ -759,8 +763,7 @@ export const Todos = (props: {
   const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id), "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
-      <ReservedLine overlay status={ownerKeys.announcement()} />
+    <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
       <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">
@@ -770,14 +773,14 @@ export const Todos = (props: {
           aria-label={copy.addTodoTo(scope.label())}
           class="shelf-add"
           ref={(button) => (plusButton = button)}
-          onClick={() => openField(null)}
+          onClick={() => openField()}
         >
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
-      <ReservedLine overlay message={(createFailure() !== null && (adding() === null || fieldGroupGone()) ? createFailure()! : null) || (todos.failure()) || null} />
+      <ReservedLine overlay message={createFailure() || (todos.failure()) || null} content={typing() && createFailure() ? <>{copy.failed(copy.addTodoTo(scope.label()), "")}<span>{createFailure()}</span></> : undefined} />
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
@@ -788,8 +791,8 @@ export const Todos = (props: {
           </Progress>
         </div>
       </Show>
-      <Show when={listed().length > 0 || adding() !== null || selectedWorkstream() !== null}>
-        <OwnerGroups showEmpty={group => group.actor?.kind === "agent" && selectedWorkstream() !== null && resolvedWorkstream(connected.rail.nodes, group.id) === selectedWorkstream()} target={() => ownerKeys.lifted()?.group ?? null} mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={() => dragging() || ownerKeys.lifted() !== null} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} arrivals={arrivals} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+      <Show when={listed().length > 0}>
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -814,7 +817,6 @@ export const Todos = (props: {
               aggregateMotion={dependency.strike(todo.id)}
               groupComplete={members().length ? dependency.complete(todo.id) : undefined}
               groupProgress={<Show when={members().length > 0}><Progress label={copy.todosDoneIn(todo.title)} max={members().length} value={members().filter(row => row.todo.done).length} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{members().filter(row => row.todo.done).length}/{members().length}</span></Progress></Show>}
-              lifted={ownerKeys.lifted()?.id === todo.id}
               current={now().has(todo.id)}
               motion={finishing.row(todo.id)}
               onMotionEnd={() => finishing.rowEnded(todo.id)}
@@ -823,7 +825,7 @@ export const Todos = (props: {
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
               pressed={selection.selected().includes(todo.id)}
               selectionActive={selection.selected().length > 0}
-              onPick={(item, event) => !bulk.pending() && selection.click(item.id, event, () => show(item, activationSource(event)))}
+              onPick={(item, event) => !bulk.pending() && selection.click(item.id, event)}
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
@@ -886,9 +888,6 @@ export const Todos = (props: {
         </TreeView.Tree>
         </Sortable.Root>
         </TreeView.Root>
-        <Show when={typing() && !fieldGroupGone() && adding()?.group === group().id}>
-          {field()}
-        </Show>
         </>; }}</OwnerGroups>
       </Show>
       <HomePicker target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
@@ -903,7 +902,7 @@ export const Todos = (props: {
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
         } else queueMicrotask(() => rowButtonOf(id)?.focus());
       }} />
-      <Show when={typing() && (adding() === null || fieldGroupGone())}>
+      <Show when={typing()}>
         {field()}
       </Show>
       <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
@@ -926,7 +925,7 @@ export const Todos = (props: {
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}
-                  onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event, () => show(picked, activationSource(event)))}
+                  onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event)}
                   onSelectionKey={selectionKey}
                   registerRow={(id, row) => {
                     selection.register(id, row);
