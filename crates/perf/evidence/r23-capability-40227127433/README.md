@@ -143,8 +143,17 @@ Inspection-only lookup failures before this report (never workload measurements)
 | `gzip -dc .../historical-output_publish-source-add.stdout.gz` | 1 | Output is uncompressed |
 | `cat .../diagnostic-budgets.provenance.json` | 1 | Guessed companion filename absent; no budget loaded or changed |
 | `rg .../runtime/*meta*` | 2 | Actual metadata file is `task_hooks.rs` |
+| `rg ... apps/desktop/vitest.config.* apps/desktop/vite.config.*` | 2 | Optional `vitest.config.*` absent; actual configuration is `vite.config.ts`; inspection only |
 | First dependency-source retention Python command | 1 | Assumed `.cargo-checksum.json` absent; corrected verification uses the actual cached crate and both lock checksums |
 
 All original capture/control failures and actual statuses remain in their
 respective `failures.md` and command records. Successful later inspection never
 turns a failed attempt into timing evidence.
+
+## Validation
+
+`pnpm install`, both required lints, fixture build and `cargo nextest run -p perf`
+exit 0 (103 tests passed). `just test-web-since origin/main` exits 0: 31 files
+passed, 160 tests passed and 13 existing conditional skips. Commands and combined
+stdout/stderr logs remain under `validation-*`. These tests validate the checkout;
+they supply no R23 timing observations or missing profiling capability.
