@@ -629,6 +629,24 @@ The six original clean observations, #3982's four controls/recordings and #3975'
 offline extraction are reused. No new clean pair, aggregate CPU table, stage p95,
 calibration, baseline, production repair or Mac observation is supplied.
 
+### R23 producer/dispatch continuation (#4032)
+
+[Builder 40200071512's retained qualification](../crates/perf/evidence/r23-producer-40200071512/README.md)
+passed on an exact 9V45 host, but its build job ended with failure at
+2026-10-25T14:24:52Z without retaining producer/initial-dispatch capture,
+repeated controls or assessment. That lifetime is no longer collecting.
+[Fix run 40202162343](../crates/perf/evidence/r23-host-40202162343/README.md)
+retains a new exact-model qualification failure: AMD EPYC 9V74, exit 2.
+Runner inventory returned HTTP 403 (exit 1); existing launch inputs and job
+metadata identify no accessible qualified target. No new build or collection ran.
+
+#4032 remains the execution prerequisite of #4031 under #3760 and #3720.
+The linked continuation report retains commands, statuses, boot/runner identity
+and the outstanding producer, initial scheduling and observer-overhead boundaries.
+The original six clean observations remain the timing evidence; this continuation
+changes no per-metric conclusion and supplies no attribution or overhead bound.
+No baseline, calibration, production repair or clean R16 verdict is claimed.
+
 ### Terminal readiness repair and U3800 Mac handoff (#3841)
 
 The [previous Mac attempt](https://github.com/roundup-app/roundup/pull/3772#issuecomment-6390588594) produced four
