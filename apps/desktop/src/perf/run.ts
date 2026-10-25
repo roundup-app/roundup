@@ -326,6 +326,7 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
 
   const measure = async () => {
     let frame: number | undefined;
+
     const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => {
       // #3550: a live yes can starve drawing; sample the display period before load so it cannot block typing.
       frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames before flood");
