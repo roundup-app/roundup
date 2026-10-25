@@ -565,3 +565,44 @@ in the Mac's RSS rise. The saving is heap allocation on Linux, not a measured
 Mac RSS saving. No baseline changes or full R3696c pass are claimed. Startup,
 Rail, same-M4-Max observations, unchanged-code false-fail evidence and the
 separate later main pass remain outstanding.
+
+
+### Finish counts in the Rail read (#3696)
+
+The ordinary forty-Workstream reply still read `nodes` twice: once for the
+nodes and once for their finish counts, constructing an id-keyed map for the
+second read. PR #3864 selects `finished` with the node and carries it through
+the existing traversal. Presentation visits only reachable nodes, in the same
+order as before; no result is cached. The public Rail and RPC replies stay the
+same. The callback is internal to the existing Rail module.
+
+The existing no-process allocation observer,
+`r3696c_forty_workstreams_avoid_temporary_node_copies`, measures 290 allocations /
+176,266 bytes on `a1d2169e3` and 245 allocations / 172,230 bytes after this
+repair. Its cap is tightened from 400 to 260: it fails on the original path
+and passes on the repair. This file holds only that observer, so no redundant
+test is removed. Existing Rail ordering and
+`u3566c_finish_count_survives_attempts_and_reopen` cover the returned facts.
+
+Release probe: Linux x86_64, AMD EPYC 9V74, four available CPUs, rustc 1.99.0.
+Use the allocation observer's fixture and instrumented system allocator, then
+replace its measured call/assertion with seven batches of 10,000 awaited
+`Module::call_reply("rail.tree", null)` calls, black-boxing every reply and
+reporting elapsed time per call. Build both revisions before measuring. With
+builds and tests stopped, three alternating before/after invocations gave
+these median batch means (microseconds per reply):
+
+| Pair | Separate finish map | Combined read |
+|---|---:|---:|
+| 1 | 77.023 | 67.238 |
+| 2 | 78.204 | 67.546 |
+| 3 | 76.847 | 67.110 |
+
+One-minute load at invocation start ranged from 3.77 to 5.57 (0.94–1.39 per CPU).
+This is about 13% less local reply work, including live presentation and JSON
+serialization under the allocation observer. It excludes the Daemon's socket
+transport and is not the end-to-end Mac metric or evidence of idle RSS savings.
+Budgets are unchanged. The latest nine-pair M4 Max A/B at `59cff55cae` remains
+the failing acceptance evidence; remaining startup/RSS attribution, full
+same-M4-Max gate, unchanged-code false-fail evidence and the separate later
+main pass remain open. This repair justifies no baseline rebase.
