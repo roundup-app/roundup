@@ -4,25 +4,37 @@ use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::sync::{MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 use wait_timeout::ChildExt;
 
 use super::Git;
 
 impl Git {
-    fn hold(&self) -> Result<MutexGuard<'_, ()>, String> {
-        if self.deadline.is_none() {
-            return Ok(self.lock.lock().unwrap_or_else(|err| err.into_inner()));
-        }
-        loop {
-            self.check_deadline()?;
-            match self.lock.try_lock() {
-                Ok(hold) => return Ok(hold),
-                Err(TryLockError::Poisoned(err)) => return Ok(err.into_inner()),
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(5)),
+    fn hold(&self) -> Result<Guard<'_>, String> {
+        self.check_deadline()?;
+        let (lock, released) = &*self.lock;
+        let busy = lock.lock().unwrap_or_else(|err| {
+            lock.clear_poison();
+            err.into_inner()
+        });
+        let mut busy = match self.deadline {
+            Some(deadline) => {
+                let (busy, _) = released
+                    .wait_timeout_while(
+                        busy,
+                        deadline.saturating_duration_since(Instant::now()),
+                        |busy| *busy,
+                    )
+                    .unwrap_or_else(|err| err.into_inner());
+                self.check_deadline()?;
+                busy
             }
-        }
+            None => released
+                .wait_while(busy, |busy| *busy)
+                .unwrap_or_else(|err| err.into_inner()),
+        };
+        *busy = true;
+        Ok(Guard(self))
     }
 
     pub(super) fn check_deadline(&self) -> Result<(), String> {
@@ -63,12 +75,12 @@ impl Git {
         // Files avoid pipe backpressure and inherited hook pipes keeping collection alive.
         let mut stdout = tempfile::tempfile().map_err(|err| err.to_string())?;
         let mut stderr = tempfile::tempfile().map_err(|err| err.to_string())?;
-        let mut child = command
+        command
             .stdout(stdout.try_clone().map_err(|err| err.to_string())?)
             .stderr(stderr.try_clone().map_err(|err| err.to_string())?)
-            .process_group(0)
-            .spawn()
-            .map_err(|err| err.to_string())?;
+            .process_group(0);
+        self.check_deadline()?;
+        let mut child = command.spawn().map_err(|err| err.to_string())?;
         let status = loop {
             // Retain output-limit checks without waiting past the operation's shared budget.
             let pause =
@@ -121,5 +133,20 @@ fn check_output_size(stdout: &std::fs::File, stderr: &std::fs::File) -> Result<(
         Err("Git output exceeds comparison budget".into())
     } else {
         Ok(())
+    }
+}
+
+// Keep IO outside the state mutex so bounded contenders can reach their own timeout.
+struct Guard<'a>(&'a Git);
+
+impl Drop for Guard<'_> {
+    fn drop(&mut self) {
+        let (lock, released) = &*self.0.lock;
+        *lock.lock().unwrap_or_else(|err| {
+            lock.clear_poison();
+            err.into_inner()
+        }) = false;
+        // A waiter waking after its deadline must not strand the other contenders.
+        released.notify_all();
     }
 }
