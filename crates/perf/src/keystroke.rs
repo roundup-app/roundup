@@ -639,6 +639,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn r20_invalid_keystroke_runs_keep_separate_diagnostics() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args::try_parse_from([
+            "perf-keystroke", "--runs", "2", "--app",
+            dir.path().join("absent-app").to_str().unwrap(), "--out",
+            dir.path().join("report.json").to_str().unwrap(),
+            "--budgets", concat!(env!("CARGO_MANIFEST_DIR"), "/keystroke-budgets.json"),
+        ]).unwrap();
+        assert_eq!(run(&args).await.unwrap(), 2);
+        let report: Value = serde_json::from_slice(&std::fs::read(&args.out).unwrap()).unwrap();
+        let reports = report["reports"].as_array().unwrap();
+        assert_eq!(reports.len(), 2);
+        let paths: Vec<_> = reports.iter().map(|run| {
+            assert!(run["error"].as_str().unwrap().contains("absent-app"));
+            let logs = Path::new(run["diagnostics"].as_str().expect("diagnostics retained"));
+            assert!(logs.starts_with(dir.path()));
+            assert!(logs.join("app.stderr.log").is_file());
+            assert!(logs.join("app.stdout.log").is_file());
+            logs
+        }).collect();
+        assert_ne!(paths[0], paths[1]);
+    }
+
+    #[tokio::test]
     async fn r20_perf_workstream_never_starts_real_claude() {
         const CHILD: &str = "R20_ISOLATED_VENDOR_TEST";
         if std::env::var_os(CHILD).is_none() {
