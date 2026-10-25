@@ -1,4 +1,4 @@
-CREATE TABLE rail_deletions (
+CREATE TABLE IF NOT EXISTS rail_deletions (
  operation TEXT PRIMARY KEY NOT NULL,
  actor TEXT NOT NULL,
  node TEXT NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE rail_deletions (
  boundary TEXT NOT NULL,
  restored INTEGER NOT NULL DEFAULT 0 CHECK(restored IN (0,1))
 );
-CREATE TABLE rail_removal_items (
+CREATE TABLE IF NOT EXISTS rail_removal_items (
  operation TEXT NOT NULL,
  kind TEXT NOT NULL,
  id TEXT NOT NULL,

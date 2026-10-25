@@ -90,10 +90,7 @@ impl Daemon {
         };
         observe("after_commit");
         files.commit();
-        for event in events {
-            self.bus.emit(Actor::daemon(), event);
-        }
-        self.removal_todo_events(owners)?;
+        self.publish_removal(events, owners)?;
         rpc::reply(&removal)
     }
 }
@@ -211,15 +208,32 @@ impl Daemon {
         for file in files {
             file.keep().map_err(RpcError::internal)?;
         }
-        for event in events {
-            self.bus.emit(Actor::daemon(), event);
-        }
-        self.removal_todo_events(moved)?;
+        self.publish_removal(events, moved)?;
         rpc::reply(&result)
     }
 
-    fn removal_todo_events(&self, ids: Vec<u32>) -> Result<(), RpcError> {
+    fn publish_removal(
+        &self,
+        mut events: Vec<contracts::EventData>,
+        ids: Vec<u32>,
+    ) -> Result<(), RpcError> {
+        use contracts::EventData;
         for event in self.todos.rail_events(ids)? {
+            let EventData::TodoUpdated(todo) = &event else {
+                unreachable!("Todo participant event")
+            };
+            if let Some(existing)=events.iter_mut().find(|e|matches!(e,EventData::TodoUpdated(t)|EventData::TodoRestored(t) if t.id==todo.id)) {
+                if matches!(existing,EventData::TodoUpdated(_)) {*existing=event;}
+            } else {events.push(event);}
+        }
+        // Home, ownership and blocker participants announce one final committed value,
+        // in A34's Todo order, before the existing Pad events.
+        events.sort_by_key(|e| match e {
+            EventData::TodoUpdated(t) | EventData::TodoRestored(t) => (0, t.id),
+            EventData::TodoDeleted(t) | EventData::TodoUnblocked(t) => (0, t.id),
+            _ => (1, 0),
+        });
+        for event in events {
             self.bus.emit(Actor::daemon(), event);
         }
         Ok(())

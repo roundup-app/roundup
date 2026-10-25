@@ -176,6 +176,9 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     let publication = call(&daemon, "deliverable.get", publication_id.clone())
         .await
         .unwrap();
+    call(&daemon, "todo.assign", json!({"id":2,"owner":owner}))
+        .await
+        .unwrap();
     let rail = call(&daemon, "rail.tree", Value::Null).await.unwrap();
     let todos = call(&daemon, "todo.list", Value::Null).await.unwrap();
     let pads = call(&daemon, "pad.list", Value::Null).await.unwrap();
@@ -185,6 +188,7 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     let history = call(&daemon, "todo.getHistory", json!({"id":1}))
         .await
         .unwrap();
+    let mut emitted = daemon.bus.subscribe();
     let deleted = call(
         &daemon,
         "rail.remove",
@@ -192,6 +196,17 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     )
     .await
     .unwrap();
+    let mut moved_events = Vec::new();
+    while let Ok(event) = emitted.try_recv() {
+        if let contracts::EventData::TodoUpdated(todo) = event.data
+            && todo.id == 2
+        {
+            moved_events.push(todo);
+        }
+    }
+    assert_eq!(moved_events.len(), 1);
+    assert!(moved_events[0].home.is_none());
+    assert!(moved_events[0].owner.is_none());
     assert_eq!(
         call(&daemon, "todo.list", Value::Null)
             .await
