@@ -6,13 +6,9 @@ use contracts::reaction::Reaction;
 use rpc::code;
 use serde_json::{Value, json};
 
+use super::daemon::storage;
 use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
-
-#[allow(dead_code)]
-mod storage {
-    include!("../../../rupd/tests/support/store_migrations.rs");
-}
 
 fn definition(target: &str, instruction: &str) -> Value {
     json!({
