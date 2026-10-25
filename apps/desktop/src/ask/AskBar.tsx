@@ -1,5 +1,6 @@
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus } from "../keys/focus";
+import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -462,29 +463,22 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     }
   };
 
+  const copied = createCopyLabels(() => records().map(record => record.id));
+
   const openMenu = (record: Deliverable, x: number, y: number) => {
+    const feedback = copied().get(record.id);
     setSelected(record.id);
     clear(record.id);
     void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
       connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => fail(record.id, cause)).map(entry => entry.id !== "copy-link" ? entry : {
-        ...entry, label: copy.copy, run: async () => {
-          try {
-            const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+        ...entry, label: copy.copy, run: () => feedback?.run(async () => {
+          const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id }).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
 
-            if (resolved.kind === "unavailable") {
-              fail(record.id, copy.deliverableUnavailable[resolved.cause]);
+          if (resolved.kind === "unavailable") throw new Error(copy.deliverableUnavailable[resolved.cause]);
 
-              return;
-            }
-
-            const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-            await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
-            clear(record.id);
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            fail(record.id, copy.copyDraftFailure(error.message));
-          }
-        },
+          const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
+          await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+        }, () => clear(record.id), error => fail(record.id, error.message)),
       }), x, y);
   };
 
@@ -522,7 +516,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
-            <span class="made-title">{record.title}</span>
+            <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
             <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
             <time class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>
