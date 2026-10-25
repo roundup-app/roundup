@@ -71,30 +71,79 @@ Budgets remain unchanged. Full same-M4-Max acceptance, the owner's unchanged-cod
 false-fail evidence and the separate later main pass remain open on #3696.
 Earlier attribution stays in [the main record](perf-macos-startup.md).
 
-## Rail node storage (#4021)
 
-The same warmed allocation observer on Linux x86_64 isolates two remaining costs:
-geometric growth while collecting rusqlite rows, and a second node vector for
-traversal even when every node is at the root.
+## Reuse of the loaded Rail buffer (#3696)
 
-| Forty-Workstream reply | Allocations | Allocated bytes |
+`Rail::tree_with` scanned for descendants once per node and allocated a second
+vector for traversal output even when every node was a root. The forty-Workstream
+fixture has no children. A flat tree now presents the sorted nodes directly with
+standard iterator collection, reusing the loaded buffer. Nested trees keep the
+existing traversal; no query, cache, graph representation or library is added.
+
+The existing no-process allocation observer measures **132,294 → 99,334 temporary
+bytes** and **244 → 243 allocations** per reply. Its 100,000-byte cap is committed
+before implementation and fails on the original path. The 260-allocation cap
+remains because it catches the separate finish-map regression. This file holds
+only that observer, so no redundant test is removed. Existing A6 ordering/move,
+R16 conversation-availability and U3566c finish-count tests retain their
+behavioral proofs. No timing instrumentation is committed.
+
+The [raw paired report](perf-rail-buffer-pairs.json) retains all eighteen
+observations, exits, loads, executable/source hashes, host/toolchain facts and the
+temporary timing patch. Before is `8b164b2c30c056bb10e351b3866e46c7d3ca4849`;
+after is `35b6697c2ae3ca549f76b0413a127432b3ac8e0a`. Both have the same
+Rust source apart from the flat-tree branch and the stricter allocation cap;
+allocation assertions run after the timed batches. Reproduction uses the
+`RAIL_PROBE=1` procedure above and each reference's existing test fixture.
+
+| Pair | Descendant traversal, µs/reply | Direct flat presentation, µs/reply |
 |---|---:|---:|
-| Before | 244 | 132,294 |
-| Reserve the stored node count | 244 | 112,326 |
-| Also reuse the sorted vector when every node is a root | 243 | 79,366 |
+| 1 | 45.851 | 43.463 |
+| 2 | 46.374 | 43.800 |
+| 3 | 45.302 | 43.458 |
+| 4 | 46.038 | 43.965 |
+| 5 | 46.471 | 43.491 |
+| 6 | 45.060 | 43.870 |
+| 7 | 45.988 | 44.012 |
+| 8 | 45.132 | 43.776 |
+| 9 | 45.196 | 44.462 |
+| Median of pair medians | 45.851 | 43.800 |
 
-The installed rusqlite iterator supplies no size hint. A cached `count(*)` read
-provides an upper bound, including nodes the visibility filter excludes; Rust's
-`Vec::with_capacity` reserves it. For an unnested Rail, the standard iterator
-collection reuses that allocation while presenting the nodes. Nested Rails keep
-the existing traversal. Neither SQL results nor live Agent facts are cached.
+All nine pairs improve. The median saving is
+2.051 µs
+(4.5%). Linux x86_64,
+AMD EPYC 9V45, four affinity CPUs, rustc 1.99.0; one-minute load
+1.191–1.445
+(0.298–0.361/CPU). Builds and tests were stopped
+throughout all pairs; order alternates, every exit is 0, and none is retried or
+skipped. These are median batch means, not request p95s; they include presentation,
+JSON serialization and the instrumented System allocator, and exclude startup
+and socket transport. The 32,960-byte saving is temporary allocation, not idle RSS.
 
-`cargo test -p agents --test perf -- --nocapture` reproduces the allocation
-counts through `Module::call_reply`. Its existing R3696c observer now caps bytes
-at 90,000: removing either reservation or vector reuse fails the cap. No test is
-removed or duplicated. This measures allocation work, not elapsed time or Mac
-acceptance; #3696 remains open and `crates/perf/budgets.json` is unchanged.
+Budgets remain unchanged. The latest M4 Max report at `477a3ce93`
+([retained result](https://github.com/roundup-app/roundup/issues/3696#issuecomment-6396742823))
+still fails cold start at 9.543 ms against 8.110 and Rail 40 at 0.164 ms against
+0.149, with writes and RSS passing. This repair establishes neither a Mac pass
+nor startup attribution or a baseline rebase. Remaining startup/Rail attribution,
+full same-M4-Max acceptance, unchanged-code false-fail evidence and the separate
+later main pass remain open on #3696.
 
-Temporary mutation checks confirm that bound: without reservation, 99,334 bytes;
-without vector reuse, 112,326 bytes. Each test invocation exits 101. Both mutations
-are removed from the final code.
+
+### Rejected count reservation
+
+A concurrent candidate reserved the loaded vector with a cached
+`SELECT count(*) FROM nodes`, then used the same flat-tree presentation. This
+reduced allocation to 79,366 bytes, but added a query to every read. The
+[separate raw comparison](perf-rail-reservation-pairs.json) retains nine alternating
+pairs against the same `8b164b2c3` reference, using the same observer and host.
+Before/after medians are **45.408 → 47.048 µs**:
+all nine pairs regress, with a 3.6%
+higher median. Builds and tests were stopped, every exit is 0, and no pair is
+retried or skipped. The candidate source is `324e2892441019549dec136431f66a20ea566594`;
+its executable/source hashes and invocation loads are in the report.
+
+The final change keeps the faster flat-tree path and removes the count query.
+Its allocation bound is 100,000 bytes, down from main's 150,000; the unmerged
+90,000-byte bound required the slower reservation. Removing flat presentation
+still fails the retained bound at 132,294 bytes. Neither comparison is the Mac
+gate, a startup/RSS attribution or grounds for changing a budget.
