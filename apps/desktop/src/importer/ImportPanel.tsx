@@ -78,17 +78,17 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                         <ReservedLine message={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                       </span>
                     </Checkbox>
-                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...candidate, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2))}>{copy.copy}</button>
+                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2))}>{copy.copy}</button>
                   </li>
                 )}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={reason} /></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /><button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ source, error: reason }, null, 2))}>{copy.copy}</button></div></li>}</For>
               </ul>
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
                   <ul class="import-list">
                     <For each={result().excluded}>{(excluded) => <li class="import-candidate">
                       <div class="import-text"><span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
-                      <span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span></div>
+                      <span class="import-meta">{copy.importExcludedReason(excluded.cause)}</span></div>
                       <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...excluded, last_activity_ms: excluded.last_activity_ms?.toString() ?? null }, null, 2))}>{copy.copy}</button>
                     </li>}</For>
                   </ul>

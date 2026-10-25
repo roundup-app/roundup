@@ -224,7 +224,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.capture("U3814", "import-page");
     await lane.browser("click", ".import-check");
     await lane.evaluate(`(() => {
-      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.' }] });
+      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: { code: -32003, message: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.', outcome: 'failed' } }] });
       return true;
     })()`);
     await lane.browser("click", ".import-confirm");

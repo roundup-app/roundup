@@ -20,7 +20,7 @@ const found = (revision = "r1"): ImportDiscovery => ({
     { source: "s1", title: "First", cwd: "", last_activity_ms: 2n, revision },
     { source: "s2", title: "Second", cwd: "src", last_activity_ms: 1n, revision: "r2" },
   ],
-  excluded: [{ source: "s3", reason: "already in this Project", title: "third", last_activity_ms: 3n }],
+  excluded: [{ source: "s3", cause: "alreadyImported", reason: "already in this Project", title: "third", last_activity_ms: 3n }],
 });
 
 const calls = (app: Awaited<ReturnType<typeof mountRail>>["app"], method: string) => app.calls.filter((call) => call.method === method);
@@ -29,7 +29,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
   it("u2875d_keyboard_pointer_and_recovery", async () => {
     const { app } = await mountRail([workstream("w1")]);
     let discovered = found();
-    let commit: () => ImportResult = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: "disk full" }] });
+    let commit: () => ImportResult = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
     app.handlers["project.importDiscover"] = () => discovered;
     app.handlers["project.importCommit"] = () => commit();
 
@@ -53,9 +53,9 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(screen.getByRole("button", { name: "Import 2" })).toBeTruthy();
 
     // Partial failure: the success leaves the selection, the failure stays for retry, and each call names its sources.
-    commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: "disk full" }] });
+    commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
-    await screen.findByText(/disk full/);
+    await screen.findByText(/The conversation changed since preview/);
     expect(calls(app, "project.importCommit").map((call) => call.params)).toEqual([
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
@@ -531,7 +531,9 @@ it("u3791b_copy_depends_on_codes_not_messages_import_outcomes_keep_revisions", a
   await waitFor(() => expect(state.verified()).toBe(true));
   state.choose("s1", "First", "r1", true);
   state.choose("s2", "Second", "r2", true);
+  app.handlers["project.importDiscover"] = () => found("changed");
   await state.confirm();
+  expect(state.verified()).toBe(false);
   expect([...state.selected()]).toEqual([["s2", { title: "Second", revision: "r2" }]]);
   const retained = drafts.list().find(entry => entry.status === "unknown");
   expect(retained?.destination.object).toBe("/typed-import");

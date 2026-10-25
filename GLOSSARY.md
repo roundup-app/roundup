@@ -879,3 +879,10 @@ A user-requested system confirmation containing its title, complete consequences
 
 **Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
 The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
+
+**Import exclusion cause** (`ImportExclusionCause`, `ImportExclusion.cause`):
+The typed reason discovery or listing excludes a source; `reason` retains diagnostic details and never determines App copy. Causes distinguish already imported, ambiguous Project, missing/no/too many directories, Worktree or roundup folders, duplicate/unsupported/foreign source identity, unknown activity, absent/incomplete/malformed/subagent records, preview/record/snapshot/metadata limits, unreadable SDK records and live sources without saved records. Unknown causes keep generic recovery copy.
+
+**Import failure** (`ImportFailure`, `ImportOutcome.error`):
+A per-source import error retaining the original RPC `code` and diagnostic `message`.
+Its **Import disposition** (`ImportDisposition`, `outcome`) is `failed` only for a proven refusal code; `unknown` retains submitted revisions when completion is unconfirmed. This is an import result, not a thrown-value classifier.
