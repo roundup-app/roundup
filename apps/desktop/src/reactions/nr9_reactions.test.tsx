@@ -519,6 +519,8 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   };
 
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const observationFailure = (await screen.findByRole("alert")).getAttribute("aria-label") ?? "";
+
   fireEvent.click(screen.getByRole("button", { name: copy.reactionRun }));
   await screen.findByRole("alert", { name: "first reaction refused" });
 
@@ -534,38 +536,55 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   }
 
   expect(screen.queryByRole("alert", { name: "first reaction refused" }) !== null).toBe(transition !== "dismiss");
-  expect(screen.getByRole("alert", { name: /No required-check results are available/ })).toBeTruthy();
+  expect(screen.getByRole("alert", { name: observationFailure })).toBeTruthy();
   expect(connected.drafts.list()).toEqual(retained);
 });
 
+const observeFailure = async (observation: Reaction["observation"]) => {
+  const record = saved({ observation });
+  const { app } = await mount(() => [record]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const text = (await screen.findByRole("alert")).textContent;
+
+  const controls = [copy.refresh, copy.reactionStop, copy.reactionRun].map(name => ({
+    name, disabled: screen.getByRole("button", { name }).hasAttribute("disabled"),
+  }));
+
+  expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
+  cleanup();
+
+  return { text, controls };
+};
+
 it.each([
-  { code: "head-moved", text: "The PR has new commits. Create a new reaction for the current version." },
-  { code: "unsupported", text: "This source cannot be watched. Stop this reaction and choose a supported condition." },
-  { code: "unknown", text: "Observation details could not be explained. Refresh to check again." },
-] as const)("u3791b_copy_depends_on_codes_not_messages_reactions_$code", async ({ code, text }) => {
-  for (const diagnostic of ["the PR head moved from a to b", "unsupported /private/diagnostic", ""]) {
-    const record = saved({ observation: { health: "unavailable", health_code: "unavailable", cause_code: code, gap_code: "unknown", recovery_code: "check", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause: diagnostic } });
-    const { app } = await mount(() => [record]);
-    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-    await screen.findByRole("alert", { name: code === "unsupported" ? text : `${text} Refresh to check current observation.` });
-    expect(screen.getByRole("button", { name: copy.refresh })).toBeTruthy();
-    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
-    cleanup();
+  ["head-moved", "unknown"], ["unsupported", "head-moved"], ["unknown", "unsupported"],
+] as const)("u3791b_copy_depends_on_codes_not_messages_reactions_%s", async (code, otherCode) => {
+  const observation = (cause_code: typeof code | typeof otherCode, cause: string): Reaction["observation"] => ({
+    health: "unavailable", health_code: "unavailable", cause_code, gap_code: "unknown", recovery_code: "check", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause,
+  });
+
+  const diagnostic = "the PR head moved from a to b";
+  const baseline = await observeFailure(observation(code, diagnostic));
+
+  for (const changed of ["unsupported /private/diagnostic", ""]) {
+    expect(await observeFailure(observation(code, changed))).toEqual(baseline);
   }
+
+  expect((await observeFailure(observation(otherCode, diagnostic))).text).not.toBe(baseline.text);
 });
 
 it.each([
-  { gap: "history-expired", recovery: "reconciled", gapText: "Earlier activity could not be read. This gap remains in the history.", recoveryText: "Current Agent activity is available again; the earlier gap remains." },
-  { gap: "agent-unavailable", recovery: "replace-agent", gapText: "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one.", recoveryText: "Stop this reaction and create one with an available Agent." },
-  { gap: "unknown", recovery: "unknown", gapText: "Earlier observation details could not be explained. Refresh to check again.", recoveryText: "Refresh to check current observation." },
-] as const)("u3791b_copy_depends_on_codes_not_messages_reaction_gaps_$gap", async ({ gap, recovery, gapText, recoveryText }) => {
-  for (const diagnostic of ["the Event history after 88 expired", "unrecognized /private/history"]) {
-    const record = saved({ observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: gap, recovery_code: recovery, cursor: 99, gap: diagnostic, recovery: diagnostic, evidence: null } });
-    const { app } = await mount(() => [record]);
-    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-    await screen.findByRole("alert", { name: `${gapText} ${recoveryText}` });
-    expect(screen.getByRole("button", { name: copy.refresh })).toBeTruthy();
-    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
-    cleanup();
-  }
+  ["history-expired", "reconciled", "agent-unavailable", "replace-agent"],
+  ["agent-unavailable", "replace-agent", "unknown", "unknown"],
+  ["unknown", "unknown", "history-expired", "reconciled"],
+] as const)("u3791b_copy_depends_on_codes_not_messages_reaction_gaps_%s", async (gap, recovery, otherGap, otherRecovery) => {
+  const observation = (gap_code: typeof gap | typeof otherGap, recovery_code: typeof recovery | typeof otherRecovery, diagnostic: string): Reaction["observation"] => ({
+    health: "observing", health_code: "observing", cause_code: "unknown", gap_code, recovery_code, cursor: 99, gap: diagnostic, recovery: diagnostic, evidence: null,
+  });
+
+  const diagnostic = "the Event history after 88 expired";
+  const baseline = await observeFailure(observation(gap, recovery, diagnostic));
+  expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
+  expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
+  expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
 });
