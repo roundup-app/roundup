@@ -89,6 +89,7 @@
     Method { name: "terminal.write", params: "terminal_WriteParams", result: "null" },
     Method { name: "terminal.resize", params: "terminal_ResizeParams", result: "null" },
     Method { name: "terminal.kill", params: "terminal_TerminalId", result: "null" },
+    Method { name: "terminal.measure", params: "terminal_MeasureParams", result: "terminal_Measurement" },
     Method { name: "terminal.scheme", params: "terminal_SchemeParams", result: "null" },
     Method { name: "terminal.show", params: "terminal_TerminalId", result: "null" },
     Method { name: "terminal.list", params: "null", result: "terminal_TerminalInfo[]" },

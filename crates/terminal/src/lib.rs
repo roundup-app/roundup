@@ -8,6 +8,7 @@ mod contract_handlers;
 mod integration;
 mod output;
 mod pty;
+mod recorder;
 mod scheme;
 mod screen;
 
@@ -19,7 +20,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{SyncSender, TrySendError};
-use std::sync::{Arc, Mutex, MutexGuard, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -133,6 +134,21 @@ struct Handle {
     master: Mutex<Box<dyn MasterPty + Send>>,
     input: SyncSender<Input>,
     program: Program,
+    recorder: Arc<OnceLock<Mutex<recorder::Recording>>>,
+}
+
+impl Handle {
+    fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
+        match self.input.try_send(input) {
+            Ok(()) => Ok(()),
+            Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
+                "terminal {id} is not reading its input"
+            ))),
+            Err(TrySendError::Disconnected(_)) => Err(RpcError::internal(format!(
+                "terminal {id} can no longer take input"
+            ))),
+        }
+    }
 }
 
 type InputWriter = dyn Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync;
@@ -142,7 +158,7 @@ type ExitHold = dyn Fn() + Send + Sync;
 type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
 
 enum Input {
-    Bytes(Vec<u8>),
+    Bytes(Vec<u8>, Vec<recorder::Sample>),
     Effect(Effect, tokio::sync::oneshot::Sender<Result<(), RpcError>>),
 }
 
@@ -159,6 +175,7 @@ struct Entry {
 }
 
 struct Shared {
+    clock: Arc<dyn Fn() -> f64 + Send + Sync>,
     bus: Bus,
     table: Mutex<BTreeMap<u64, Entry>>,
     /// Env var names stripped from every spawned program's environment, however they reached the
@@ -197,7 +214,7 @@ impl Shared {
             .get(&number)
             .and_then(|entry| entry.handle.clone());
         if let Some(handle) = handle
-            && let Err(err) = handle.input.try_send(Input::Bytes(bytes))
+            && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
         {
             eprintln!("terminal {number}: scheme reply dropped: {err}");
         }
@@ -257,6 +274,7 @@ impl Terminals {
         Ok(Self {
             shared: Arc::new(Shared {
                 bus,
+                clock: recorder::clock(),
                 table: Mutex::new(BTreeMap::new()),
                 clean_env: clean_env
                     .iter()
@@ -467,22 +485,23 @@ impl Terminals {
             rows: params.rows,
             scheme_notices: false,
         }));
-        let (arrival, child_arrives) = mpsc::channel();
+        let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let pump_output = output.clone();
         let shared = Arc::clone(&self.shared);
         let reader_screen = Arc::clone(&screen);
         let exit_hold = self.exit_hold.clone();
+        let recorder = Arc::new(OnceLock::new());
         std::thread::Builder::new()
             .name(format!("terminal-{number}"))
             .spawn(move || {
                 // No child means the program never started: nothing to report.
-                if let Ok(program) = child_arrives.recv() {
+                if let Ok(handle) = child_arrives.recv() {
                     pty::pump(
                         &shared,
                         number,
                         reader,
-                        &program,
+                        &handle,
                         &reader_screen,
                         pump_output,
                         exit_hold.as_deref(),
@@ -491,9 +510,10 @@ impl Terminals {
             })
             .map_err(RpcError::internal)?;
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
+        let input_clock = Arc::clone(&self.shared.clock);
         std::thread::Builder::new()
             .name(format!("terminal-{number}-input"))
-            .spawn(move || pty::type_queued(number, queued, writer))
+            .spawn(move || pty::type_queued(number, queued, writer, input_clock))
             .map_err(RpcError::internal)?;
         let argv0 = params
             .command
@@ -508,11 +528,12 @@ impl Terminals {
         // Only the program may hold the slave end, or reading never sees it close.
         drop(pair.slave);
         let pid = program.lock().expect("program lock").process_id();
-        let handle = Handle {
+        let handle = Arc::new(Handle {
             input,
             program: Arc::clone(&program),
             master: Mutex::new(pair.master),
-        };
+            recorder,
+        });
 
         let (sender, events) = broadcast::channel(EVENT_BACKLOG);
         self.shared.table().insert(
@@ -531,13 +552,14 @@ impl Terminals {
                 },
                 events: sender,
                 output: Some(output.clone()),
-                handle: Some(Arc::new(handle)),
+                handle: Some(Arc::clone(&handle)),
                 screen,
             },
         );
-        arrival
-            .send(program)
-            .expect("the reader thread waits for its child");
+        assert!(
+            arrival.send(handle).is_ok(),
+            "the reader thread waits for its child"
+        );
         Ok(Spawned {
             id: number.to_string(),
             events,
@@ -553,7 +575,19 @@ impl Terminals {
     /// read them. `NOT_FOUND` if it is unknown or has exited; `CONFLICT` if the program has left
     /// [`WRITE_BACKLOG`] writes unread.
     pub async fn write(&self, id: &str, bytes: &[u8]) -> Result<(), RpcError> {
-        self.enqueue(id, Input::Bytes(bytes.to_vec()))
+        self.write_at(id, bytes, (self.shared.clock)())
+    }
+
+    fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), RpcError> {
+        let handle = self.running(id)?;
+        let samples = match handle.recorder.get() {
+            Some(recorder) => recorder
+                .lock()
+                .expect("recorder lock")
+                .receive(bytes, received)?,
+            None => Vec::new(),
+        };
+        handle.enqueue(id, Input::Bytes(bytes.to_vec(), samples))
     }
 
     /// Await the physical write and flush in input order. Refusal to enqueue has no effect;
@@ -592,15 +626,7 @@ impl Terminals {
     }
 
     fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
-        match self.running(id)?.input.try_send(input) {
-            Ok(()) => Ok(()),
-            Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
-                "terminal {id} is not reading its input"
-            ))),
-            Err(TrySendError::Disconnected(_)) => Err(RpcError::internal(format!(
-                "terminal {id} can no longer take input"
-            ))),
-        }
+        self.running(id)?.enqueue(id, input)
     }
 
     /// Tell a running Terminal its window is now `cols` x `rows`. `NOT_FOUND` as for [`Terminals::write`].

@@ -1,3 +1,6 @@
+import type { KeystrokeSample } from "@contracts/terminal/KeystrokeSample";
+import type { Calibration } from "./calibration";
+
 /** How long a key may take to come back as a rendered echo before its sample is dropped. */
 export const PATIENCE_MS = 500;
 
@@ -19,8 +22,8 @@ const percentile = (sorted: number[], share: number): number => {
   return value;
 };
 
-/** The ordered boundaries of one key, all read on the webview's clock so no cross-process subtraction is needed. */
-export const BOUNDARIES = ["keydown", "input", "encoding", "encoded", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
+/** Daemon marks are converted with retained calibration before any cross-clock subtraction. */
+export const BOUNDARIES = ["keydown", "input", "encoding", "encoded", "dispatched", "received", "written", "read", "replied", "arrived", "parsed", "rendered"] as const;
 
 type Boundary = (typeof BOUNDARIES)[number];
 
@@ -31,10 +34,48 @@ export type HopSummary = { n: number; p50: number | null; p95: number | null };
 type Pending = { key: number; at: number; echoed: boolean; counted: () => void; marks: Marks };
 
 /** Keydown to the target Terminal's first render that shows its echo. Other Terminals and renders before its echo reaches the buffer cannot finish a sample. */
-export const createKeystrokeProbe = (now: () => number, typed: string, target: () => string | null) => {
+export const createKeystrokeProbe = (now: () => number, typed: string, target: () => string | null, run?: string) => {
   const latencies: { key: number; ms: number }[] = [];
   const finished: { key: number; marks: Marks }[] = [];
   let dispatched: Marks | null = null;
+  const records = new Map<string, Pending>();
+  const tails = { arrived: "", parsed: "" };
+  const marker = (key: number) => `\x1b]777;${run}-${key}\x07`;
+
+  const matching = (text: string): Pending[] => [...text.matchAll(/\x1b\]777;[a-zA-Z0-9-]+-[0-9]{1,6}\x07/g)].flatMap(match => {
+    const record = records.get(match[0]);
+
+    return record ? [record] : [];
+  });
+
+  const batch = (bytes?: readonly number[]): Pending[] => run === undefined
+    ? pending ? [pending] : []
+    : matching(new TextDecoder().decode(Uint8Array.from(bytes ?? [])));
+
+  const output = (bytes: Uint8Array, boundary: "arrived" | "parsed") => {
+    const at = now();
+    const previous = tails[boundary].length;
+    const text = tails[boundary] + new TextDecoder().decode(bytes);
+
+    for (const record of matching(text)) {
+      const end = text.indexOf(marker(record.key)) + marker(record.key).length;
+
+      if (end <= previous) continue;
+
+      // Duplicate identity is ambiguous; it cannot supply a complete chain.
+      if (record.marks[boundary] !== undefined) {
+        delete record.marks.dispatched;
+        continue;
+      }
+
+      record.marks[boundary] = at;
+
+      if (boundary === "parsed" && record === pending) record.echoed = true;
+    }
+
+    tails[boundary] = text.slice(-100);
+  };
+
   const droppedKeys: number[] = [];
   let pending: Pending | null = null;
   let keys = 0;
@@ -44,16 +85,29 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
     /** Resolves when the key's echo has been rendered, or at `abandon`. */
     keydown: (): Promise<void> =>
       new Promise((resolve) => {
-        if (pending) droppedKeys.push(pending.key);
+        if (pending) {
+          droppedKeys.push(pending.key);
+          pending.counted();
+        }
 
         const at = now();
 
         pending = { key: keys, at, echoed: false, counted: resolve, marks: { keydown: at } };
+        records.set(marker(keys), pending);
         keys += 1;
       }),
+    /** Only the opt-in raw echo workload gets an invisible identity; ordinary input is untouched. */
+    frame: (text: string, id: string): string =>
+      run !== undefined && id === target() && pending && text === typed ? text + marker(pending.key) : text,
     /** Called with each chunk the emulator has parsed. Only the typed character itself is the echo; anything else is the program's own output. */
     written: (bytes: Uint8Array, id: string) => {
       if (id !== target()) return;
+
+      if (run !== undefined) {
+        output(bytes, "parsed");
+
+        return;
+      }
 
       if (pending && new TextDecoder().decode(bytes) === typed) {
         pending.echoed = true;
@@ -67,36 +121,63 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
       if (pending) pending.marks.input ??= now();
     },
     /** The previous reply has released this input batch for byte preparation and base64 encoding. */
-    encoding: (id: string) => {
+    encoding: (id: string, bytes?: readonly number[]) => {
       if (id !== target()) return;
 
-      if (pending?.marks.input !== undefined) pending.marks.encoding ??= now();
+      const at = now();
+
+      for (const record of batch(bytes)) if (record.marks.input !== undefined) record.marks.encoding ??= at;
     },
     /** The input queue's current batch has finished base64 encoding; includes any wait for the previous reply. */
-    encoded: (id: string) => {
+    encoded: (id: string, bytes?: readonly number[]) => {
       if (id !== target()) return;
 
-      if (pending?.marks.input !== undefined) pending.marks.encoded ??= now();
+      const at = now();
+
+      for (const record of batch(bytes)) if (record.marks.input !== undefined) record.marks.encoded ??= at;
     },
     /** `terminal.write` called and, later, answered. */
-    dispatched: (id: string) => {
+    dispatched: (id: string, bytes?: readonly number[]) => {
       if (id !== target()) return;
 
-      if (pending?.marks.input === undefined || pending.marks.dispatched !== undefined) return;
+      const at = now();
 
-      pending.marks.dispatched = now();
-      dispatched = pending.marks;
+      for (const record of batch(bytes)) {
+        if (record.marks.input === undefined || record.marks.dispatched !== undefined) continue;
+        record.marks.dispatched = at;
+        dispatched = record.marks;
+      }
     },
-    replied: (id: string) => {
+    replied: (id: string, bytes?: readonly number[]) => {
       if (id !== target()) return;
 
-      if (dispatched && dispatched.replied === undefined) dispatched.replied = now();
+      const at = now();
 
+      if (run !== undefined) {
+        for (const record of batch(bytes)) record.marks.replied ??= at;
+      } else if (dispatched && dispatched.replied === undefined) dispatched.replied = now();
       dispatched = null;
+    },
+    /** Attach independently collected Daemon stamps only to the identical input token. */
+    daemon: (samples: KeystrokeSample[], calibration: Calibration) => {
+      for (const sample of samples) {
+        for (const record of matching(sample.token)) {
+          if (sample.ambiguous || sample.received === null || sample.written === null || sample.read === null) continue;
+          record.marks.received = sample.received - calibration.offset_ms;
+          record.marks.written = sample.written - calibration.offset_ms;
+          record.marks.read = sample.read - calibration.offset_ms;
+        }
+      }
     },
     /** The output event carrying the typed character reached the webview, before `emulator.write`. */
     arrived: (bytes: Uint8Array, id: string) => {
       if (id !== target()) return;
+
+      if (run !== undefined) {
+        output(bytes, "arrived");
+
+        return;
+      }
 
       if (pending && new TextDecoder().decode(bytes) === typed) pending.marks.arrived ??= now();
     },
@@ -107,7 +188,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
 
       pending.marks.rendered = now();
       finished.push({ key: pending.key, marks: pending.marks });
-      latencies.push({ key: pending.key, ms: now() - pending.at });
+      latencies.push({ key: pending.key, ms: pending.marks.rendered - pending.at });
       pending.counted();
       pending = null;
     },
@@ -143,6 +224,10 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
         encoding_to_encoded: sample("encoding", "encoded"),
         encoded_to_dispatch: sample("encoded", "dispatched"),
         dispatch_to_echo_event: sample("dispatched", "arrived"),
+        dispatch_to_daemon: sample("dispatched", "received"),
+        daemon_to_write: sample("received", "written"),
+        write_to_echo_read: sample("written", "read"),
+        echo_read_to_event: sample("read", "arrived"),
         echo_event_to_parsed: sample("arrived", "parsed"),
         parsed_to_frame: sample("parsed", "rendered"),
         write_reply: sample("dispatched", "replied"),

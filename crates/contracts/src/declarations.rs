@@ -134,6 +134,7 @@ declarations! { $;
         "terminal.write": contracts::terminal::WriteParams => (), rpc_terminal_write, all(schema(contracts::terminal::WriteParams,"Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, use `agent_prompt`, `agent_interrupt` or `agent_stop`; type keystrokes only when no direct tool does."));
         "terminal.resize": contracts::terminal::ResizeParams => (), rpc_terminal_resize, all(schema(contracts::terminal::ResizeParams,"Resize a Terminal you or your Reach own to `cols` by `rows`."));
         "terminal.kill": contracts::terminal::TerminalId => (), rpc_terminal_kill, all(schema(contracts::terminal::TerminalId,"Stop the program of a Terminal you or your Reach own."));
+        "terminal.measure": contracts::terminal::MeasureParams => contracts::terminal::Measurement, rpc_terminal_measure, none();
         "terminal.scheme": contracts::terminal::SchemeParams => (), rpc_terminal_scheme, none();
         "terminal.show": contracts::terminal::TerminalId => (), rpc_terminal_show, door(custom(terminal_show()));
         "terminal.list": () => Vec<contracts::terminal::TerminalInfo>, rpc_terminal_list, none();
