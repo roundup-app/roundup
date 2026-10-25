@@ -1,0 +1,224 @@
+
+/tmp/r23-queue-bins/candidate-instrumented-rupd:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+000000000170f000 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local>:
+ 170f000:	55                   	push   %rbp
+ 170f001:	41 57                	push   %r15
+ 170f003:	41 56                	push   %r14
+ 170f005:	41 55                	push   %r13
+ 170f007:	41 54                	push   %r12
+ 170f009:	53                   	push   %rbx
+ 170f00a:	50                   	push   %rax
+ 170f00b:	49 89 d7             	mov    %rdx,%r15
+ 170f00e:	49 89 f6             	mov    %rsi,%r14
+ 170f011:	48 89 fb             	mov    %rdi,%rbx
+ 170f014:	48 89 14 24          	mov    %rdx,(%rsp)
+ 170f018:	48 ff 86 90 00 00 00 	incq   0x90(%rsi)
+ 170f01f:	85 c9                	test   %ecx,%ecx
+ 170f021:	75 7c                	jne    170f09f <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x9f>
+ 170f023:	41 80 be 18 01 00 00 	cmpb   $0x0,0x118(%r14)
+ 170f02a:	00 
+ 170f02b:	74 72                	je     170f09f <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x9f>
+ 170f02d:	49 8b 86 f8 00 00 00 	mov    0xf8(%r14),%rax
+ 170f034:	49 c7 86 f8 00 00 00 	movq   $0x0,0xf8(%r14)
+ 170f03b:	00 00 00 00 
+ 170f03f:	48 85 c0             	test   %rax,%rax
+ 170f042:	0f 84 af 00 00 00    	je     170f0f7 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0xf7>
+ 170f048:	4d 8d a6 c0 00 00 00 	lea    0xc0(%r14),%r12
+ 170f04f:	4d 8b ae c0 00 00 00 	mov    0xc0(%r14),%r13
+ 170f056:	48 8b 2d b3 46 13 00 	mov    0x1346b3(%rip),%rbp        # 1843710 <_DYNAMIC+0x5528>
+ 170f05d:	0f 1f 00             	nopl   (%rax)
+ 170f060:	49 8b 75 18          	mov    0x18(%r13),%rsi
+ 170f064:	48 89 f2             	mov    %rsi,%rdx
+ 170f067:	48 c1 ea 20          	shr    $0x20,%rdx
+ 170f06b:	41 8b 4d 20          	mov    0x20(%r13),%ecx
+ 170f06f:	89 cf                	mov    %ecx,%edi
+ 170f071:	29 d7                	sub    %edx,%edi
+ 170f073:	81 ff 00 01 00 00    	cmp    $0x100,%edi
+ 170f079:	0f 82 c2 00 00 00    	jb     170f141 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x141>
+ 170f07f:	39 f2                	cmp    %esi,%edx
+ 170f081:	0f 85 cd 00 00 00    	jne    170f154 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x154>
+ 170f087:	4c 89 e7             	mov    %r12,%rdi
+ 170f08a:	48 89 c6             	mov    %rax,%rsi
+ 170f08d:	49 89 d8             	mov    %rbx,%r8
+ 170f090:	4d 89 f1             	mov    %r14,%r9
+ 170f093:	ff d5                	call   *%rbp
+ 170f095:	48 85 c0             	test   %rax,%rax
+ 170f098:	75 c6                	jne    170f060 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x60>
+ 170f09a:	e9 c0 00 00 00       	jmp    170f15f <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x15f>
+ 170f09f:	4d 8d a6 c0 00 00 00 	lea    0xc0(%r14),%r12
+ 170f0a6:	4d 8b ae c0 00 00 00 	mov    0xc0(%r14),%r13
+ 170f0ad:	48 8b 2d 5c 46 13 00 	mov    0x13465c(%rip),%rbp        # 1843710 <_DYNAMIC+0x5528>
+ 170f0b4:	66 66 66 2e 0f 1f 84 	data16 data16 cs nopw 0x0(%rax,%rax,1)
+ 170f0bb:	00 00 00 00 00 
+ 170f0c0:	49 8b 45 18          	mov    0x18(%r13),%rax
+ 170f0c4:	48 89 c2             	mov    %rax,%rdx
+ 170f0c7:	48 c1 ea 20          	shr    $0x20,%rdx
+ 170f0cb:	41 8b 4d 20          	mov    0x20(%r13),%ecx
+ 170f0cf:	89 ce                	mov    %ecx,%esi
+ 170f0d1:	29 d6                	sub    %edx,%esi
+ 170f0d3:	81 fe 00 01 00 00    	cmp    $0x100,%esi
+ 170f0d9:	72 28                	jb     170f103 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x103>
+ 170f0db:	39 c2                	cmp    %eax,%edx
+ 170f0dd:	75 48                	jne    170f127 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x127>
+ 170f0df:	4c 89 e7             	mov    %r12,%rdi
+ 170f0e2:	4c 89 fe             	mov    %r15,%rsi
+ 170f0e5:	49 89 d8             	mov    %rbx,%r8
+ 170f0e8:	4d 89 f1             	mov    %r14,%r9
+ 170f0eb:	ff d5                	call   *%rbp
+ 170f0ed:	49 89 c7             	mov    %rax,%r15
+ 170f0f0:	48 85 c0             	test   %rax,%rax
+ 170f0f3:	75 cb                	jne    170f0c0 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0xc0>
+ 170f0f5:	eb 3b                	jmp    170f132 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x132>
+ 170f0f7:	4d 89 be f8 00 00 00 	mov    %r15,0xf8(%r14)
+ 170f0fe:	e9 07 01 00 00       	jmp    170f20a <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x20a>
+ 170f103:	0f b6 c1             	movzbl %cl,%eax
+ 170f106:	49 8b 55 10          	mov    0x10(%r13),%rdx
+ 170f10a:	4c 89 3c c2          	mov    %r15,(%rdx,%rax,8)
+ 170f10e:	ff c1                	inc    %ecx
+ 170f110:	41 89 4d 20          	mov    %ecx,0x20(%r13)
+ 170f114:	49 83 be 00 01 00 00 	cmpq   $0x0,0x100(%r14)
+ 170f11b:	00 
+ 170f11c:	0f 85 97 00 00 00    	jne    170f1b9 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x1b9>
+ 170f122:	e9 e3 00 00 00       	jmp    170f20a <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x20a>
+ 170f127:	48 89 df             	mov    %rbx,%rdi
+ 170f12a:	4c 89 fe             	mov    %r15,%rsi
+ 170f12d:	e8 6e 02 00 00       	call   170f3a0 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task>
+ 170f132:	49 83 be 00 01 00 00 	cmpq   $0x0,0x100(%r14)
+ 170f139:	00 
+ 170f13a:	75 7d                	jne    170f1b9 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x1b9>
+ 170f13c:	e9 c9 00 00 00       	jmp    170f20a <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x20a>
+ 170f141:	0f b6 d1             	movzbl %cl,%edx
+ 170f144:	49 8b 75 10          	mov    0x10(%r13),%rsi
+ 170f148:	48 89 04 d6          	mov    %rax,(%rsi,%rdx,8)
+ 170f14c:	ff c1                	inc    %ecx
+ 170f14e:	41 89 4d 20          	mov    %ecx,0x20(%r13)
+ 170f152:	eb 0b                	jmp    170f15f <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x15f>
+ 170f154:	48 89 df             	mov    %rbx,%rdi
+ 170f157:	48 89 c6             	mov    %rax,%rsi
+ 170f15a:	e8 41 02 00 00       	call   170f3a0 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task>
+ 170f15f:	49 8b be f8 00 00 00 	mov    0xf8(%r14),%rdi
+ 170f166:	48 85 ff             	test   %rdi,%rdi
+ 170f169:	74 3d                	je     170f1a8 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x1a8>
+ 170f16b:	48 c7 c0 c0 ff ff ff 	mov    $0xffffffffffffffc0,%rax
+ 170f172:	f0 48 0f c1 07       	lock xadd %rax,(%rdi)
+ 170f177:	48 c1 e8 06          	shr    $0x6,%rax
+ 170f17b:	48 83 f8 01          	cmp    $0x1,%rax
+ 170f17f:	74 20                	je     170f1a1 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x1a1>
+ 170f181:	48 85 c0             	test   %rax,%rax
+ 170f184:	75 22                	jne    170f1a8 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x1a8>
+ 170f186:	48 8d 3d 7b ce d0 fe 	lea    -0x12f3185(%rip),%rdi        # 41c008 <anon.4138832898842d6abe373cafc70ac0bd.54.llvm.2635974810995537851>
+ 170f18d:	48 8d 15 0c a6 12 00 	lea    0x12a60c(%rip),%rdx        # 18397a0 <anon.4138832898842d6abe373cafc70ac0bd.55.llvm.2635974810995537851>
+ 170f194:	be 27 00 00 00       	mov    $0x27,%esi
+ 170f199:	ff 15 71 fb 12 00    	call   *0x12fb71(%rip)        # 183ed10 <_DYNAMIC+0xb28>
+ 170f19f:	0f 0b                	ud2
+ 170f1a1:	48 8b 47 10          	mov    0x10(%rdi),%rax
+ 170f1a5:	ff 50 10             	call   *0x10(%rax)
+ 170f1a8:	4d 89 be f8 00 00 00 	mov    %r15,0xf8(%r14)
+ 170f1af:	49 83 be 00 01 00 00 	cmpq   $0x0,0x100(%r14)
+ 170f1b6:	00 
+ 170f1b7:	74 51                	je     170f20a <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x20a>
+ 170f1b9:	48 8d bb 60 01 00 00 	lea    0x160(%rbx),%rdi
+ 170f1c0:	48 89 de             	mov    %rbx,%rsi
+ 170f1c3:	e8 78 f4 ff ff       	call   170e640 <<tokio::runtime::scheduler::multi_thread::idle::Idle>::worker_to_notify>
+ 170f1c8:	48 83 f8 01          	cmp    $0x1,%rax
+ 170f1cc:	75 3c                	jne    170f20a <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x20a>
+ 170f1ce:	48 8b b3 08 01 00 00 	mov    0x108(%rbx),%rsi
+ 170f1d5:	48 39 f2             	cmp    %rsi,%rdx
+ 170f1d8:	73 3f                	jae    170f219 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x219>
+ 170f1da:	48 8b 83 00 01 00 00 	mov    0x100(%rbx),%rax
+ 170f1e1:	48 c1 e2 04          	shl    $0x4,%rdx
+ 170f1e5:	48 8d 3c 10          	lea    (%rax,%rdx,1),%rdi
+ 170f1e9:	48 83 c7 08          	add    $0x8,%rdi
+ 170f1ed:	48 81 c3 08 02 00 00 	add    $0x208,%rbx
+ 170f1f4:	48 89 de             	mov    %rbx,%rsi
+ 170f1f7:	48 83 c4 08          	add    $0x8,%rsp
+ 170f1fb:	5b                   	pop    %rbx
+ 170f1fc:	41 5c                	pop    %r12
+ 170f1fe:	41 5d                	pop    %r13
+ 170f200:	41 5e                	pop    %r14
+ 170f202:	41 5f                	pop    %r15
+ 170f204:	5d                   	pop    %rbp
+ 170f205:	e9 46 31 00 00       	jmp    1712350 <<tokio::runtime::scheduler::multi_thread::park::Unparker>::unpark>
+ 170f20a:	48 83 c4 08          	add    $0x8,%rsp
+ 170f20e:	5b                   	pop    %rbx
+ 170f20f:	41 5c                	pop    %r12
+ 170f211:	41 5d                	pop    %r13
+ 170f213:	41 5e                	pop    %r14
+ 170f215:	41 5f                	pop    %r15
+ 170f217:	5d                   	pop    %rbp
+ 170f218:	c3                   	ret
+ 170f219:	48 8d 05 a0 a2 12 00 	lea    0x12a2a0(%rip),%rax        # 18394c0 <anon.23c43f2e252ad217d7310d882cbb563d.44.llvm.6790189719105732083>
+ 170f220:	48 89 d7             	mov    %rdx,%rdi
+ 170f223:	48 89 c2             	mov    %rax,%rdx
+ 170f226:	ff 15 ec fa 12 00    	call   *0x12faec(%rip)        # 183ed18 <_DYNAMIC+0xb30>
+ 170f22c:	eb 00                	jmp    170f22e <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x22e>
+ 170f22e:	48 89 c3             	mov    %rax,%rbx
+ 170f231:	48 89 e7             	mov    %rsp,%rdi
+ 170f234:	e8 77 b5 01 00       	call   172a7b0 <<tokio::runtime::task::Task<alloc::sync::Arc<tokio::runtime::scheduler::current_thread::Handle>> as core::ops::drop::Drop>::drop>
+ 170f239:	eb 10                	jmp    170f24b <<tokio::runtime::scheduler::multi_thread::handle::Handle>::schedule_local+0x24b>
+ 170f23b:	ff 15 17 f2 12 00    	call   *0x12f217(%rip)        # 183e458 <_DYNAMIC+0x270>
+ 170f241:	48 89 c3             	mov    %rax,%rbx
+ 170f244:	4d 89 be f8 00 00 00 	mov    %r15,0xf8(%r14)
+ 170f24b:	48 89 df             	mov    %rbx,%rdi
+ 170f24e:	e8 5d 9e 08 00       	call   17990b0 <_Unwind_Resume@plt>
+ 170f253:	cc                   	int3
+ 170f254:	cc                   	int3
+ 170f255:	cc                   	int3
+ 170f256:	cc                   	int3
+ 170f257:	cc                   	int3
+ 170f258:	cc                   	int3
+ 170f259:	cc                   	int3
+ 170f25a:	cc                   	int3
+ 170f25b:	cc                   	int3
+ 170f25c:	cc                   	int3
+ 170f25d:	cc                   	int3
+ 170f25e:	cc                   	int3
+ 170f25f:	cc                   	int3
+
+000000000170f260 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task>:
+ 170f260:	48 8b 87 58 01 00 00 	mov    0x158(%rdi),%rax
+ 170f267:	48 85 c0             	test   %rax,%rax
+ 170f26a:	0f 84 bb 00 00 00    	je     170f32b <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0xcb>
+ 170f270:	41 56                	push   %r14
+ 170f272:	53                   	push   %rbx
+ 170f273:	50                   	push   %rax
+ 170f274:	b9 01 00 00 00       	mov    $0x1,%ecx
+ 170f279:	31 c0                	xor    %eax,%eax
+ 170f27b:	f0 0f b1 8f 70 01 00 	lock cmpxchg %ecx,0x170(%rdi)
+ 170f282:	00 
+ 170f283:	0f 85 a5 00 00 00    	jne    170f32e <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0xce>
+ 170f289:	48 8b 1d 80 f3 12 00 	mov    0x12f380(%rip),%rbx        # 183e610 <_DYNAMIC+0x428>
+ 170f290:	48 8b 03             	mov    (%rbx),%rax
+ 170f293:	48 d1 e0             	shl    $1,%rax
+ 170f296:	48 85 c0             	test   %rax,%rax
+ 170f299:	0f 85 aa 00 00 00    	jne    170f349 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0xe9>
+ 170f29f:	31 c9                	xor    %ecx,%ecx
+ 170f2a1:	0f b6 87 74 01 00 00 	movzbl 0x174(%rdi),%eax
+ 170f2a8:	48 8b 87 58 01 00 00 	mov    0x158(%rdi),%rax
+ 170f2af:	31 d2                	xor    %edx,%edx
+ 170f2b1:	48 85 c0             	test   %rax,%rax
+ 170f2b4:	0f 95 c2             	setne  %dl
+ 170f2b7:	48 89 c6             	mov    %rax,%rsi
+ 170f2ba:	48 29 d6             	sub    %rdx,%rsi
+ 170f2bd:	48 89 b7 58 01 00 00 	mov    %rsi,0x158(%rdi)
+ 170f2c4:	48 85 c0             	test   %rax,%rax
+ 170f2c7:	74 35                	je     170f2fe <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0x9e>
+ 170f2c9:	48 8b 87 a8 01 00 00 	mov    0x1a8(%rdi),%rax
+ 170f2d0:	48 85 c0             	test   %rax,%rax
+ 170f2d3:	74 29                	je     170f2fe <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0x9e>
+ 170f2d5:	48 8b 50 08          	mov    0x8(%rax),%rdx
+ 170f2d9:	48 89 97 a8 01 00 00 	mov    %rdx,0x1a8(%rdi)
+ 170f2e0:	48 85 d2             	test   %rdx,%rdx
+ 170f2e3:	75 0b                	jne    170f2f0 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0x90>
+ 170f2e5:	48 c7 87 b0 01 00 00 	movq   $0x0,0x1b0(%rdi)
+ 170f2ec:	00 00 00 00 
+ 170f2f0:	48 c7 40 08 00 00 00 	movq   $0x0,0x8(%rax)
+ 170f2f7:	00 
+ 170f2f8:	84 c9                	test   %cl,%cl
+ 170f2fa:	74 08                	je     170f304 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0xa4>
+ 170f2fc:	eb 18                	jmp    170f316 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::next_remote_task+0xb6>
+ 170f2fe:	31 c0                	xor    %eax,%eax

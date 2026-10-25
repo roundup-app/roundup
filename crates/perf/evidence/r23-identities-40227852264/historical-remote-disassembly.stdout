@@ -1,0 +1,161 @@
+
+/tmp/r23-queue-bins/historical-instrumented-rupd:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000003c2af0 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task>:
+  3c2af0:	55                   	push   %rbp
+  3c2af1:	41 57                	push   %r15
+  3c2af3:	41 56                	push   %r14
+  3c2af5:	41 54                	push   %r12
+  3c2af7:	53                   	push   %rbx
+  3c2af8:	48 83 ec 10          	sub    $0x10,%rsp
+  3c2afc:	49 89 f7             	mov    %rsi,%r15
+  3c2aff:	49 89 fe             	mov    %rdi,%r14
+  3c2b02:	48 89 74 24 08       	mov    %rsi,0x8(%rsp)
+  3c2b07:	f0 48 ff 87 e0 01 00 	lock incq 0x1e0(%rdi)
+  3c2b0e:	00 
+  3c2b0f:	48 8d 9f 70 01 00 00 	lea    0x170(%rdi),%rbx
+  3c2b16:	b9 01 00 00 00       	mov    $0x1,%ecx
+  3c2b1b:	31 c0                	xor    %eax,%eax
+  3c2b1d:	f0 0f b1 8f 70 01 00 	lock cmpxchg %ecx,0x170(%rdi)
+  3c2b24:	00 
+  3c2b25:	75 6d                	jne    3c2b94 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xa4>
+  3c2b27:	4c 8b 25 2a d9 08 00 	mov    0x8d92a(%rip),%r12        # 450458 <_DYNAMIC+0x7c0>
+  3c2b2e:	49 8b 04 24          	mov    (%r12),%rax
+  3c2b32:	48 d1 e0             	shl    $1,%rax
+  3c2b35:	48 85 c0             	test   %rax,%rax
+  3c2b38:	75 65                	jne    3c2b9f <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xaf>
+  3c2b3a:	31 ed                	xor    %ebp,%ebp
+  3c2b3c:	41 0f b6 86 74 01 00 	movzbl 0x174(%r14),%eax
+  3c2b43:	00 
+  3c2b44:	41 80 be b8 01 00 00 	cmpb   $0x0,0x1b8(%r14)
+  3c2b4b:	00 
+  3c2b4c:	74 6f                	je     3c2bbd <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xcd>
+  3c2b4e:	48 c7 c0 c0 ff ff ff 	mov    $0xffffffffffffffc0,%rax
+  3c2b55:	f0 49 0f c1 07       	lock xadd %rax,(%r15)
+  3c2b5a:	48 c1 e8 06          	shr    $0x6,%rax
+  3c2b5e:	48 83 f8 01          	cmp    $0x1,%rax
+  3c2b62:	74 24                	je     3c2b88 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x98>
+  3c2b64:	48 85 c0             	test   %rax,%rax
+  3c2b67:	0f 85 81 00 00 00    	jne    3c2bee <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xfe>
+  3c2b6d:	48 8d 3d 84 a1 cd ff 	lea    -0x325e7c(%rip),%rdi        # 9ccf8 <anon.32d94616c8e27f1a13de5ee8c2bf1fc4.55.llvm.3636595458307377370>
+  3c2b74:	48 8d 15 dd 92 08 00 	lea    0x892dd(%rip),%rdx        # 44be58 <anon.32d94616c8e27f1a13de5ee8c2bf1fc4.56.llvm.3636595458307377370>
+  3c2b7b:	be 27 00 00 00       	mov    $0x27,%esi
+  3c2b80:	ff 15 02 db 08 00    	call   *0x8db02(%rip)        # 450688 <_DYNAMIC+0x9f0>
+  3c2b86:	0f 0b                	ud2
+  3c2b88:	49 8b 47 10          	mov    0x10(%r15),%rax
+  3c2b8c:	4c 89 ff             	mov    %r15,%rdi
+  3c2b8f:	ff 50 10             	call   *0x10(%rax)
+  3c2b92:	eb 5a                	jmp    3c2bee <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xfe>
+  3c2b94:	48 89 df             	mov    %rbx,%rdi
+  3c2b97:	ff 15 c3 d8 08 00    	call   *0x8d8c3(%rip)        # 450460 <_DYNAMIC+0x7c8>
+  3c2b9d:	eb 88                	jmp    3c2b27 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x37>
+  3c2b9f:	ff 15 c3 d8 08 00    	call   *0x8d8c3(%rip)        # 450468 <_DYNAMIC+0x7d0>
+  3c2ba5:	89 c5                	mov    %eax,%ebp
+  3c2ba7:	40 80 f5 01          	xor    $0x1,%bpl
+  3c2bab:	41 0f b6 86 74 01 00 	movzbl 0x174(%r14),%eax
+  3c2bb2:	00 
+  3c2bb3:	41 80 be b8 01 00 00 	cmpb   $0x0,0x1b8(%r14)
+  3c2bba:	00 
+  3c2bbb:	75 91                	jne    3c2b4e <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x5e>
+  3c2bbd:	49 8b 86 58 01 00 00 	mov    0x158(%r14),%rax
+  3c2bc4:	49 8b 8e b0 01 00 00 	mov    0x1b0(%r14),%rcx
+  3c2bcb:	48 85 c9             	test   %rcx,%rcx
+  3c2bce:	74 06                	je     3c2bd6 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xe6>
+  3c2bd0:	4c 89 79 08          	mov    %r15,0x8(%rcx)
+  3c2bd4:	eb 07                	jmp    3c2bdd <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0xed>
+  3c2bd6:	4d 89 be a8 01 00 00 	mov    %r15,0x1a8(%r14)
+  3c2bdd:	4d 89 be b0 01 00 00 	mov    %r15,0x1b0(%r14)
+  3c2be4:	48 ff c0             	inc    %rax
+  3c2be7:	49 89 86 58 01 00 00 	mov    %rax,0x158(%r14)
+  3c2bee:	40 84 ed             	test   %bpl,%bpl
+  3c2bf1:	75 13                	jne    3c2c06 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x116>
+  3c2bf3:	48 b8 ff ff ff ff ff 	movabs $0x7fffffffffffffff,%rax
+  3c2bfa:	ff ff 7f 
+  3c2bfd:	49 8b 0c 24          	mov    (%r12),%rcx
+  3c2c01:	48 85 c1             	test   %rax,%rcx
+  3c2c04:	75 2b                	jne    3c2c31 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x141>
+  3c2c06:	31 c0                	xor    %eax,%eax
+  3c2c08:	87 03                	xchg   %eax,(%rbx)
+  3c2c0a:	83 f8 02             	cmp    $0x2,%eax
+  3c2c0d:	74 0d                	je     3c2c1c <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x12c>
+  3c2c0f:	48 83 c4 10          	add    $0x10,%rsp
+  3c2c13:	5b                   	pop    %rbx
+  3c2c14:	41 5c                	pop    %r12
+  3c2c16:	41 5e                	pop    %r14
+  3c2c18:	41 5f                	pop    %r15
+  3c2c1a:	5d                   	pop    %rbp
+  3c2c1b:	c3                   	ret
+  3c2c1c:	48 89 df             	mov    %rbx,%rdi
+  3c2c1f:	48 83 c4 10          	add    $0x10,%rsp
+  3c2c23:	5b                   	pop    %rbx
+  3c2c24:	41 5c                	pop    %r12
+  3c2c26:	41 5e                	pop    %r14
+  3c2c28:	41 5f                	pop    %r15
+  3c2c2a:	5d                   	pop    %rbp
+  3c2c2b:	ff 25 ff d9 08 00    	jmp    *0x8d9ff(%rip)        # 450630 <_DYNAMIC+0x998>
+  3c2c31:	ff 15 31 d8 08 00    	call   *0x8d831(%rip)        # 450468 <_DYNAMIC+0x7d0>
+  3c2c37:	84 c0                	test   %al,%al
+  3c2c39:	75 cb                	jne    3c2c06 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x116>
+  3c2c3b:	41 c6 86 74 01 00 00 	movb   $0x1,0x174(%r14)
+  3c2c42:	01 
+  3c2c43:	eb c1                	jmp    3c2c06 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x116>
+  3c2c45:	49 89 c6             	mov    %rax,%r14
+  3c2c48:	48 8d 7c 24 08       	lea    0x8(%rsp),%rdi
+  3c2c4d:	e8 2e 4a 00 00       	call   3c7680 <<tokio::runtime::task::Task<alloc::sync::Arc<tokio::runtime::scheduler::current_thread::Handle>> as core::ops::drop::Drop>::drop>
+  3c2c52:	eb 0f                	jmp    3c2c63 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_task+0x173>
+  3c2c54:	49 89 c6             	mov    %rax,%r14
+  3c2c57:	40 0f b6 f5          	movzbl %bpl,%esi
+  3c2c5b:	48 89 df             	mov    %rbx,%rdi
+  3c2c5e:	e8 ed e9 ff ff       	call   3c1650 <core::ptr::drop_glue::<std::sync::poison::mutex::MutexGuard<tokio::runtime::scheduler::multi_thread::worker::Synced>>>
+  3c2c63:	4c 89 f7             	mov    %r14,%rdi
+  3c2c66:	e8 b5 91 07 00       	call   43be20 <_Unwind_Resume@plt>
+  3c2c6b:	ff 15 77 d2 08 00    	call   *0x8d277(%rip)        # 44fee8 <_DYNAMIC+0x250>
+  3c2c71:	cc                   	int3
+  3c2c72:	cc                   	int3
+  3c2c73:	cc                   	int3
+  3c2c74:	cc                   	int3
+  3c2c75:	cc                   	int3
+  3c2c76:	cc                   	int3
+  3c2c77:	cc                   	int3
+  3c2c78:	cc                   	int3
+  3c2c79:	cc                   	int3
+  3c2c7a:	cc                   	int3
+  3c2c7b:	cc                   	int3
+  3c2c7c:	cc                   	int3
+  3c2c7d:	cc                   	int3
+  3c2c7e:	cc                   	int3
+  3c2c7f:	cc                   	int3
+
+00000000003c2c80 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_timer>:
+  3c2c80:	55                   	push   %rbp
+  3c2c81:	41 57                	push   %r15
+  3c2c83:	41 56                	push   %r14
+  3c2c85:	41 55                	push   %r13
+  3c2c87:	41 54                	push   %r12
+  3c2c89:	53                   	push   %rbx
+  3c2c8a:	48 83 ec 18          	sub    $0x18,%rsp
+  3c2c8e:	49 89 f7             	mov    %rsi,%r15
+  3c2c91:	48 89 fb             	mov    %rdi,%rbx
+  3c2c94:	48 89 74 24 08       	mov    %rsi,0x8(%rsp)
+  3c2c99:	80 bf 08 03 00 00 00 	cmpb   $0x0,0x308(%rdi)
+  3c2ca0:	0f 84 01 01 00 00    	je     3c2da7 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_timer+0x127>
+  3c2ca6:	4c 8d b3 70 01 00 00 	lea    0x170(%rbx),%r14
+  3c2cad:	b9 01 00 00 00       	mov    $0x1,%ecx
+  3c2cb2:	31 c0                	xor    %eax,%eax
+  3c2cb4:	f0 0f b1 8b 70 01 00 	lock cmpxchg %ecx,0x170(%rbx)
+  3c2cbb:	00 
+  3c2cbc:	0f 85 09 01 00 00    	jne    3c2dcb <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_timer+0x14b>
+  3c2cc2:	4c 8b 25 8f d7 08 00 	mov    0x8d78f(%rip),%r12        # 450458 <_DYNAMIC+0x7c0>
+  3c2cc9:	49 8b 04 24          	mov    (%r12),%rax
+  3c2ccd:	48 d1 e0             	shl    $1,%rax
+  3c2cd0:	48 85 c0             	test   %rax,%rax
+  3c2cd3:	0f 85 00 01 00 00    	jne    3c2dd9 <<tokio::runtime::scheduler::multi_thread::handle::Handle>::push_remote_timer+0x159>
+  3c2cd9:	31 ed                	xor    %ebp,%ebp
+  3c2cdb:	0f b6 83 74 01 00 00 	movzbl 0x174(%rbx),%eax
+  3c2ce2:	4c 89 7c 24 10       	mov    %r15,0x10(%rsp)
+  3c2ce7:	4c 8b ab a0 01 00 00 	mov    0x1a0(%rbx),%r13
+  3c2cee:	4c                   	rex.WR
+  3c2cef:	3b                   	.byte 0x3b
