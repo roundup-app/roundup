@@ -112,10 +112,6 @@
   font-size: var(--text-small);
 }
 
-.import-unavailable {
-  padding-block: var(--space-2);
-}
-
 .import-recovery {
   display: grid;
   gap: var(--space-4);
