@@ -435,18 +435,20 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
 
 it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => {
   const { app, row } = await target("agent");
-  app.handlers["rail.rename"] = () => { throw new Error("name already taken"); };
+  const refused = new Error("name already taken");
+  app.handlers["rail.rename"] = () => { throw refused; };
+
   fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   const text = "  exact 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter" });
-  await screen.findByText(/Rename failed: name already taken/);
+  await screen.findByRole("alert", { name: new RegExp(refused.message) });
   const elsewhere = document.querySelector<HTMLElement>('.rail-row[data-id="agent-4"]')!;
   fireEvent.blur(field);
   fireEvent.click(elsewhere);
   await waitFor(() => expect(document.activeElement).toBe(elsewhere));
-  expect(screen.getByRole("alert").textContent).toContain("name already taken");
+  expect(screen.getByRole("alert", { name: new RegExp(refused.message) })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   await waitFor(() => expect(document.activeElement).toBe(recovered));

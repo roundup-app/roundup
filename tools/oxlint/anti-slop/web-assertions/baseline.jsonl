@@ -603,13 +603,11 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u370 the Shelf closes and opens > u373_tabs_remain_available_when_the_project_connection_fails","identity":"681f35214db75b8ecef51537bbb40daf96cac4787b0b183eac14946e84fdf010"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u370 the Shelf closes and opens > u373_first_run_tabs_open_the_empty_shelf_without_counts","identity":"a94ad52c8c0e87bcc73400511a2bfc6e608217b88b00d22402e6ce421f52cbb3"}
 {"file":"apps/desktop/src/shelf/u3730_scope_line.test.tsx","test":"u3730_the_scope_line_holds_the_name_and_one_add_button","identity":"9a63ed031b3830bc6506d6a474ae377a6fd712e4720aa0eff09b27416d01cce8"}
-{"file":"apps/desktop/src/shelf/u458_lifetime.test.tsx","test":"u458_selection_survives_refetch_by_identity","identity":"b10c3cbdae0ccc3fe3d49af1d89488e35c0faf5d856f38a3e783acbf6f84b62b"}
 {"file":"apps/desktop/src/shelf/u458_lifetime.test.tsx","test":"u458_hidden_rows_and_context_changes_clear_selection","identity":"1c5eb4dde5c550e5767afd86ccbcc188dc5a6481c471be33e3e5442a593ffbfe"}
 {"file":"apps/desktop/src/shelf/u458_lifetime.test.tsx","test":"u458_hidden_rows_and_context_changes_clear_selection","identity":"94a2a8e1d6b697a42927a22e47a62ae03ff799617182fcf9592b1b53b4ab0559"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_pointer_toggle_and_range_follow_visible_order","identity":"e8efe578a58cc7a39d17846d3f3cf2ba9ae3571644f5e660db142a0ab51fa7db"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_keyboard_toggle_range_and_bounds","identity":"dc35abadecf61163e596d6f4a357224772ccf61d82aea91fe73e1bc0917b7b9b"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u460_one_question_precedes_every_delete","identity":"4d2af06929f5f561d043476dde13be4b9bd54f6635c95112620c250efcfdf330"}
-{"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u460_bar_counts_unique_items_and_cancel_clears_without_calls","identity":"1d07af3ff6562772e8f5da471560476a0b6a6ee2a9e0cb6b2838b9fd3da1728f"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_ranges_skip_folded_rows_and_keep_a_toggled_off_anchor","identity":"64820949d9299d1f8297f0d380272f4e6b4fffaa14b393bf794b283d02e7f925"}
 {"file":"apps/desktop/src/shelf/u460_execution.test.tsx","test":"u460_cancel_keeps_selection_and_restores_focus","identity":"3f7d26f48e9c6ebf8702e5f55e0c3a7ec282a258ed24926d271a57684bbcde32"}
 {"file":"apps/desktop/src/shelf/u460_execution.test.tsx","test":"u460_backspace_is_local_and_repeat_safe","identity":"8d1545d05756af048d4dd58a3cfac8b2e406afcd79b2d117db8f952940b287e0"}

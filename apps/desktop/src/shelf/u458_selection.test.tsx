@@ -1,5 +1,4 @@
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
@@ -51,11 +50,12 @@ it("u3789a_selection_keeps_ranges_and_disclosures_plain_click_replaces_selection
   expect(connected.drawer.content()).toBeNull();
 });
 
-it("u460_bar_counts_unique_items_and_cancel_clears_without_calls", async () => {
-  const { app } = await mountTodos([todo(1)]);
+it("u460_multi_selection_cancel_clears_without_calls", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
   fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(screen.queryByText("1 selected")).toBeNull();
+  expect(screen.queryAllByRole("button", { pressed: true })).toEqual([]);
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
 
