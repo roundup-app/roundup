@@ -150,7 +150,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (holder) { holder.shownSize = size; holder.resizeSize = size; }
 
-    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size }));
+    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
+      // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+      if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
+    });
   };
 
   const reflow = (id: string, holder: Holder): void => {
@@ -432,15 +435,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
-  const attempt = async (id: string, call: Promise<unknown>): Promise<void> => {
+  const attempt = async (id: string, call: Promise<unknown>): Promise<boolean> => {
     try {
       await call;
 
       setFailure(id, "live", null);
+
+      return true;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(id, "live", thrown.message);
+
+      return false;
     }
   };
 

@@ -105,7 +105,7 @@ const mount = async (
   const log = () => made.get("t-a")?.log ?? [];
   const logOf = (id: string) => made.get(id)?.log ?? [];
 
-  return { app, connected, pending, snapshots, subscriptionsAtSnapshot, emulators: made, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
+  return { app, connected, pending, snapshots, subscriptionsAtSnapshot, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
 };
 
 const typed = (app: { calls: { method: string }[] }) => app.calls.filter((call) => call.method === "terminal.write");
@@ -228,6 +228,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     expect((await screen.findByRole("alert", { name: "terminal.snapshot: recovery failed" })).tagName).toBe("P");
     expect(log()).toEqual(["size 100x30", "complete"]);
+    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_output_overlapping_the_recovery_cut_writes_only_the_remaining_bytes", async () => {
@@ -244,6 +245,21 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "old", "reset", "size 100x30", "new", "def"]));
   });
 
+  it("u103_the_pane_still_sends_its_size_to_the_daemon_as_before", async () => {
+    const { app, pending, snapshots } = await mount();
+
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
+    pending[0]?.(snapshotOf("S", 0));
+
+    await vi.waitFor(() =>
+      expect(app.calls.filter((call) => call.method === "terminal.resize")[0]?.params).toEqual({
+        id: "t-a",
+        cols: 100,
+        rows: 30,
+      }),
+    );
+  });
+
   it("u103_a_failed_snapshot_shows_one_failure_line_and_the_emulator_starts_blank", async () => {
     const { app, pending, snapshots, log } = await mount();
 
@@ -254,6 +270,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(log()).toEqual([]);
     app.emitOutput("t-a", "live");
     expect(log()).toEqual(["live"]);
+    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_a_late_resize_success_cannot_clear_a_failed_snapshot_line", async () => {
@@ -272,12 +289,13 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy();
     expect(log()).toEqual([]);
+    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_a_resolved_newer_resize_failure_reveals_the_older_snapshot_failure", async () => {
     const resizes: ((reply: Error | null) => void)[] = [];
 
-    const { pending, snapshots, emulators } = await mount(undefined, undefined, (app) => {
+    const { pending, snapshots } = await mount(undefined, undefined, (app) => {
       app.handlers["terminal.resize"] = () => new Promise<null>((resolve, reject) => {
         resizes.push((reply) => reply instanceof Error ? reject(reply) : resolve(null));
       });
@@ -290,12 +308,12 @@ describe("u103 a reloaded pane shows the screen", () => {
     resizes[0]?.(new Error("resize failed"));
     await screen.findByRole("alert", { name: "resize failed" });
 
-    vi.spyOn(emulators.get("t-a")!, "fit").mockReturnValue({ cols: 110, rows: 30 });
     window.dispatchEvent(new Event("resize"));
     await vi.waitFor(() => expect(resizes).toHaveLength(2));
     resizes[1]?.(null);
     await vi.waitFor(() => expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy());
     expect(screen.queryByRole("alert", { name: "resize failed" })).toBeNull();
+    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_output_buffered_during_a_failed_initial_snapshot_continues_as_live_output", async () => {
@@ -335,6 +353,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     connected.rail.select("a");
     expect(await screen.findByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy();
     expect(screen.queryByRole("alert", { name: "terminal.snapshot: B failed" })).toBeNull();
+    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_nothing_is_typed_for_a_done_agent_and_its_screen_is_still_restored", async () => {
