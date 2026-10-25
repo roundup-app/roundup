@@ -1,0 +1,290 @@
+cargo build --release -p rupd -p rup -p perf
+[1m[92m    Updating[0m crates.io index
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m unicode-ident v1.0.26
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m libc v0.2.189
+[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m find-msvc-tools v0.1.14
+[1m[92m   Compiling[0m pkg-config v0.3.34
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m syn v3.0.6
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m jobserver v0.1.35
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m cc v1.5.1
+[1m[92m   Compiling[0m glob v0.3.4
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m pin-project-lite v0.2.17
+[1m[92m   Compiling[0m clang-sys v1.9.1
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m minimal-lexical v0.2.1
+[1m[92m   Compiling[0m regex-syntax v0.8.11
+[1m[92m   Compiling[0m synstructure v0.14.0
+[1m[92m   Compiling[0m nom v7.1.3
+[1m[92m   Compiling[0m regex-automata v0.4.18
+[1m[92m   Compiling[0m libloading v0.8.9
+[1m[92m   Compiling[0m zerofrom-derive v0.1.8
+[1m[92m   Compiling[0m either v1.19.0
+[1m[92m   Compiling[0m bindgen v0.72.1
+[1m[92m   Compiling[0m smallvec v1.16.2
+[1m[92m   Compiling[0m cexpr v0.6.0
+[1m[92m   Compiling[0m itertools v0.13.0
+[1m[92m   Compiling[0m zerofrom v0.1.8
+[1m[92m   Compiling[0m yoke-derive v0.8.4
+[1m[92m   Compiling[0m regex v1.13.1
+[1m[92m   Compiling[0m shlex v1.3.0
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m mio v1.2.3
+[1m[92m   Compiling[0m errno v0.3.14
+[1m[92m   Compiling[0m yoke v0.8.3
+[1m[92m   Compiling[0m vcpkg v0.2.15
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m signal-hook-registry v1.4.8
+[1m[92m   Compiling[0m zerovec-derive v0.11.6
+[1m[92m   Compiling[0m tokio-macros v2.7.2
+[1m[92m   Compiling[0m socket2 v0.6.5
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m futures-core v0.3.34
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m zerovec v0.11.8
+[1m[92m   Compiling[0m tokio v1.53.1
+[1m[92m   Compiling[0m displaydoc v0.2.7
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m futures-sink v0.3.34
+[1m[92m   Compiling[0m semver v1.0.28
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m rustc_version v0.4.1
+[1m[92m   Compiling[0m tinystr v0.8.4
+[1m[92m   Compiling[0m litemap v0.8.3
+[1m[92m   Compiling[0m serde_json v1.0.151
+[1m[92m   Compiling[0m equivalent v1.0.2
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m writeable v0.6.4
+[1m[92m   Compiling[0m rusqlite_migration v2.6.0
+[1m[92m   Compiling[0m icu_locale_core v2.3.0
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m specta v2.0.0-rc.27
+[1m[92m   Compiling[0m futures-channel v0.3.34
+[1m[92m   Compiling[0m zerotrie v0.2.5
+[1m[92m   Compiling[0m potential_utf v0.1.6
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m ref-cast v1.0.27
+[1m[92m   Compiling[0m libsqlite3-sys v0.38.2
+[1m[92m   Compiling[0m icu_normalizer_data v2.3.0
+[1m[92m   Compiling[0m utf8_iter v1.0.4
+[1m[92m   Compiling[0m Inflector v0.11.4
+[1m[92m   Compiling[0m icu_properties_data v2.3.0
+[1m[92m   Compiling[0m specta-macros v2.0.0-rc.27
+[1m[92m   Compiling[0m icu_collections v2.3.0
+[1m[92m   Compiling[0m icu_provider v2.3.1
+[1m[92m   Compiling[0m ref-cast-impl v1.0.27
+[1m[92m   Compiling[0m futures-macro v0.3.34
+[1m[92m   Compiling[0m serde_derive_internals v0.30.0
+[1m[92m   Compiling[0m futures-io v0.3.34
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m futures-task v0.3.34
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m futures-util v0.3.34
+[1m[92m   Compiling[0m chrono v0.4.45
+[1m[92m   Compiling[0m schemars_derive v1.2.2
+[1m[92m   Compiling[0m http v1.5.0
+[1m[92m   Compiling[0m cmake v0.1.58
+[1m[92m   Compiling[0m dunce v1.0.5
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m rustix v1.1.5
+[1m[92m   Compiling[0m fs_extra v1.3.0
+[1m[92m   Compiling[0m dyn-clone v1.0.20
+[1m[92m   Compiling[0m schemars v1.2.2
+[1m[92m   Compiling[0m aws-lc-sys v0.46.0
+[1m[92m   Compiling[0m http-body v1.1.0
+[1m[92m   Compiling[0m icu_properties v2.3.0
+[1m[92m   Compiling[0m icu_normalizer v2.3.0
+[1m[92m   Compiling[0m hashlink v0.12.2
+[1m[92m   Compiling[0m thiserror-impl v2.0.21
+[1m[92m   Compiling[0m fallible-streaming-iterator v0.1.9
+[1m[92m   Compiling[0m linux-raw-sys v0.12.1
+[1m[92m   Compiling[0m fallible-iterator v0.3.0
+[1m[92m   Compiling[0m idna_adapter v1.2.2
+[1m[92m   Compiling[0m specta-typescript v0.0.14
+[1m[92m   Compiling[0m specta-serde v0.0.14
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m tower-service v0.3.3
+[1m[92m   Compiling[0m httparse v1.10.1
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m contracts v0.0.0 (/tmp/roundup-issue-3523-ship/crates/contracts)
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m tracing-core v0.1.36
+[1m[92m   Compiling[0m tracing-attributes v0.1.31
+[1m[92m   Compiling[0m zeroize v1.9.1
+[1m[92m   Compiling[0m aws-lc-rs v1.18.2
+[1m[92m   Compiling[0m try-lock v0.2.5
+[1m[92m   Compiling[0m getrandom v0.3.4
+[1m[92m   Compiling[0m ipnet v2.12.2
+[1m[92m   Compiling[0m want v0.3.1
+[1m[92m   Compiling[0m tracing v0.1.44
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m sync_wrapper v1.0.2
+[1m[92m   Compiling[0m async-trait v0.1.92
+[1m[92m   Compiling[0m base64 v0.23.1
+[1m[92m   Compiling[0m atomic-waker v1.1.2
+[1m[92m   Compiling[0m tower-layer v0.3.3
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m httpdate v1.0.3
+[1m[92m   Compiling[0m cfg_aliases v0.1.1
+[1m[92m   Compiling[0m nix v0.28.0
+[1m[92m   Compiling[0m hyper v1.11.1
+[1m[92m   Compiling[0m rustls-pki-types v1.15.1
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[92m   Compiling[0m inotify-sys v0.1.8
+[1m[92m   Compiling[0m tinyvec v1.13.3
+[1m[92m   Compiling[0m anyhow v1.0.104
+[1m[92m   Compiling[0m unicode-normalization v0.1.25
+[1m[92m   Compiling[0m hyper-util v0.1.21
+[1m[92m   Compiling[0m tower v0.5.3
+[1m[92m   Compiling[0m http-body-util v0.1.5
+[1m[92m   Compiling[0m aho-corasick v1.1.5
+[1m[92m   Compiling[0m time-core v0.1.9
+[1m[92m   Compiling[0m crc32fast v1.5.2
+[1m[92m   Compiling[0m num-conv v0.2.2
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m deranged v0.5.8
+[1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m untrusted v0.9.0
+[1m[92m   Compiling[0m powerfmt v0.2.0
+[1m[92m   Compiling[0m rustls v0.23.46
+[1m[92m   Compiling[0m time v0.3.55
+[1m[92m   Compiling[0m tempfile v3.27.0
+[1m[92m   Compiling[0m vte v0.15.0 (/tmp/roundup-issue-3523-ship/vendor/vte-0.15.0)
+[1m[92m   Compiling[0m filedescriptor v0.8.3
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m serial2 v0.2.38
+[1m[92m   Compiling[0m simd-adler32 v0.3.10
+[1m[92m   Compiling[0m subtle v2.6.1
+[1m[92m   Compiling[0m downcast-rs v1.2.1
+[1m[92m   Compiling[0m unicode-width v0.2.2
+[1m[92m   Compiling[0m same-file v1.0.6
+[1m[92m   Compiling[0m io-lifetimes v2.0.4
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m shell-words v1.1.1
+[1m[92m   Compiling[0m io-lifetimes v3.0.1
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m axum-core v0.5.6
+[1m[92m   Compiling[0m portable-pty v0.9.0
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m walkdir v2.5.0
+[1m[92m   Compiling[0m vt100 v0.16.2 (/tmp/roundup-issue-3523-ship/vendor/vt100-0.16.2)
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m inotify v0.11.5
+[1m[92m   Compiling[0m serde_path_to_error v0.1.20
+[1m[92m   Compiling[0m notify-types v2.1.0
+[1m[92m   Compiling[0m wait-timeout v0.2.1
+[1m[92m   Compiling[0m io-extras v0.19.0
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m pulldown-cmark v0.13.4
+[1m[92m   Compiling[0m matchit v0.8.4
+[1m[92m   Compiling[0m axum v0.8.9
+[1m[92m   Compiling[0m rusqlite v0.40.2 (/tmp/roundup-issue-3523-ship/vendor/rusqlite-0.40.2)
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m fs-more v0.8.1
+[1m[92m   Compiling[0m notify v8.2.0
+[1m[92m   Compiling[0m flate2 v1.1.10
+[1m[92m   Compiling[0m rangemap v1.8.0
+[1m[92m   Compiling[0m unicase v2.10.0
+[1m[92m   Compiling[0m openssl-probe v0.2.1
+[1m[92m   Compiling[0m utf8parse v0.2.2
+[1m[92m   Compiling[0m cap-primitives v4.0.3
+[1m[92m   Compiling[0m anstyle-parse v1.0.0
+[1m[92m   Compiling[0m rustls-native-certs v0.8.5
+[1m[92m   Compiling[0m fs-set-times v0.20.3
+[1m[92m   Compiling[0m caseless v0.2.2
+[1m[92m   Compiling[0m rustix-linux-procfs v0.1.1
+[1m[92m   Compiling[0m anstyle-query v1.1.5
+[1m[92m   Compiling[0m maybe-owned v0.3.4
+[1m[92m   Compiling[0m is_terminal_polyfill v1.70.2
+[1m[92m   Compiling[0m cap-std v4.0.3
+[1m[92m   Compiling[0m colorchoice v1.0.5
+[1m[92m   Compiling[0m ambient-authority v0.0.2
+[1m[92m   Compiling[0m anstyle v1.0.14
+[1m[92m   Compiling[0m anstream v1.0.0
+[1m[92m   Compiling[0m rupd v0.0.0 (/tmp/roundup-issue-3523-ship/crates/rupd)
+[1m[92m   Compiling[0m tower-http v0.6.11
+[1m[92m   Compiling[0m strsim v0.11.1
+[1m[92m   Compiling[0m clap_lex v1.1.1
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m   Compiling[0m clap_builder v4.6.7
+[1m[92m   Compiling[0m clap_derive v4.6.7
+[1m[92m   Compiling[0m provenance v0.0.0 (/tmp/roundup-issue-3523-ship/crates/provenance)
+[1m[92m   Compiling[0m rpc v0.0.0 (/tmp/roundup-issue-3523-ship/crates/rpc)
+[1m[92m   Compiling[0m clap v4.6.7
+[1m[92m   Compiling[0m sysinfo v0.37.2
+[1m[92m   Compiling[0m checkpoints v0.0.0 (/tmp/roundup-issue-3523-ship/crates/checkpoints)
+[1m[92m   Compiling[0m terminal v0.0.0 (/tmp/roundup-issue-3523-ship/crates/terminal)
+[1m[92m   Compiling[0m pads v0.0.0 (/tmp/roundup-issue-3523-ship/crates/pads)
+[1m[92m   Compiling[0m agents v0.0.0 (/tmp/roundup-issue-3523-ship/crates/agents)
+[1m[92m   Compiling[0m todos v0.0.0 (/tmp/roundup-issue-3523-ship/crates/todos)
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m   Compiling[0m futures-executor v0.3.34
+[1m[92m   Compiling[0m rmcp v3.5.1
+[1m[92m   Compiling[0m futures v0.3.34
+[1m[92m   Compiling[0m uuid v1.26.1
+[1m[92m   Compiling[0m tokio-util v0.7.19
+[1m[92m   Compiling[0m pastey v0.2.3
+[1m[92m   Compiling[0m messages v0.0.0 (/tmp/roundup-issue-3523-ship/crates/messages)
+[1m[92m   Compiling[0m rustls-webpki v0.103.16
+[1m[92m   Compiling[0m tokio-rustls v0.26.6
+[1m[92m   Compiling[0m rustls-platform-verifier v0.7.1
+[1m[92m   Compiling[0m hyper-rustls v0.27.10
+[1m[92m   Compiling[0m reqwest v0.13.5
+[1m[92m   Compiling[0m perf v0.0.0 (/tmp/roundup-issue-3523-ship/crates/perf)
+[1m[92m   Compiling[0m rup v0.0.0 (/tmp/roundup-issue-3523-ship/crates/rup)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 7m 04s
+tools/sidecar/bundle.sh target/release/sidecar
+./target/release/perf 
+run 1/11: load 3.7 on 4 cpus; Daemon log target/perf.base-0.startup-1.log
+run 2/11: load 3.5 on 4 cpus; Daemon log target/perf.base-0.startup-2.log
+run 3/11: load 3.5 on 4 cpus; Daemon log target/perf.base-0.startup-3.log
+run 4/11: load 3.5 on 4 cpus; Daemon log target/perf.base-0.startup-4.log
+run 5/11: load 3.2 on 4 cpus; Daemon log target/perf.base-0.startup-5.log
+run 6/11: load 3.2 on 4 cpus; Daemon log target/perf.base-0.startup-6.log
+run 7/11: load 3.0 on 4 cpus; Daemon log target/perf.base-0.startup-7.log
+run 8/11: load 3.0 on 4 cpus; Daemon log target/perf.base-0.startup-8.log
+run 9/11: load 3.0 on 4 cpus; Daemon log target/perf.base-0.startup-9.log
+run 10/11: load 2.7 on 4 cpus; Daemon log target/perf.base-0.startup-10.log
+run 11/11: load 2.7 on 4 cpus; Daemon log target/perf.base-0.startup-11.log
+run 1/11: load 2.5 on 4 cpus; Daemon log target/perf.head-0.startup-1.log
+run 2/11: load 2.5 on 4 cpus; Daemon log target/perf.head-0.startup-2.log
+run 3/11: load 2.4 on 4 cpus; Daemon log target/perf.head-0.startup-3.log
+run 4/11: load 2.4 on 4 cpus; Daemon log target/perf.head-0.startup-4.log
+run 5/11: load 2.4 on 4 cpus; Daemon log target/perf.head-0.startup-5.log
+run 6/11: load 3.3 on 4 cpus; Daemon log target/perf.head-0.startup-6.log
+run 7/11: load 3.3 on 4 cpus; Daemon log target/perf.head-0.startup-7.log
+run 8/11: load 3.2 on 4 cpus; Daemon log target/perf.head-0.startup-8.log
+run 9/11: load 3.2 on 4 cpus; Daemon log target/perf.head-0.startup-9.log
+run 10/11: load 3.2 on 4 cpus; Daemon log target/perf.head-0.startup-10.log
+run 11/11: load 3.0 on 4 cpus; Daemon log target/perf.head-0.startup-11.log
+class Class { key: "linux-9v45", provenance: "", machine: Machine { distro_id: Some("ubuntu"), version_id: Some("24.04"), arch: Some("x86_64"), cpu_model: Some("AMD EPYC 9V45 96-Core Processor"), online_cpus: Some("0-3"), available_cpus: Some(4), affinity: Some("0-3"), kernel: Some("6.17.0-1022-azure"), shell: Some("/bin/bash") } } observer {"hash":"93d6465df84afd4b90940d421fd368ddf02117c6b8565adc0ec3931b24af6440  /home/runner/work/roundup/roundup/target/release/perf","rustc":"rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1","toolchain":"1.99.0-x86_64-unknown-linux-gnu","manifest":"[workspace]\nresolver = \"2\"\nmembers = [\"crates/*\"]\nexclude = [\"vendor/global-hotkey-0.8.0\", \"crates/desktop/vendor/tauri-plugin-store-2.5.0\", \"vendor/rusqlite-0.40.2\", \"vendor/vt100-0.16.2\", \"vendor/vte-0.15.0\"]\n\n[workspace.package]\nedition = \"2024\"\nlicense = \"MIT\"\nversion = \"0.0.0\"\n\n[workspace.dependencies]\nasync-trait = \"0.1\"\nbase64 = \"0.23\"\nportable-pty = \"0.9\"\nrusqlite_migration = \"2.6\"\nrusqlite = { version = \"=0.40.2\", features = [\"bundled\", \"session\"] }\nserde = { version = \"1\", features = [\"derive\"] }\nserde_json = { version = \"1\", features = [\"preserve_order\"] }\ntempfile = \"3\"\nthiserror = \"2\"\nspecta = { version = \"=2.0.0-rc.27\", features = [\"derive\"] }\nspecta-serde = \"=0.0.14\"\nspecta-typescript = \"=0.0.14\"\nvt100 = \"=0.16.2\"\nregex = \"1\"\ntokio = { version = \"1\", features = [\"rt-multi-thread\", \"net\", \"io-util\", \"macros\", \"sync\", \"time\"] }\n\n[workspace.lints.rust]\nunsafe_code = \"forbid\"\nunused = { level = \"deny\", priority = -1 }\n\n[workspace.lints.clippy]\nall = { level = \"deny\", priority = -1 }\n\n[patch.crates-io]\nglobal-hotkey = { path = \"vendor/global-hotkey-0.8.0\" }\nrusqlite = { path = \"vendor/rusqlite-0.40.2\" }\nvt100 = { path = \"vendor/vt100-0.16.2\" }\nvte = { path = \"vendor/vte-0.15.0\" }\n\n# R3696c's release startup/reply A/B and link-time tradeoff: docs/perf.md.\n[profile.release]\nlto = \"thin\"\ncodegen-units = 1\n\n# The Output log feeds every byte a Terminal prints through the parser; tests run unoptimised.\n[profile.dev.package.vt100]\nopt-level = 3\n\n[profile.dev.package.vte]\nopt-level = 3\n\n# U3082b: scanning 400 MB with IgnoredAny took 2.29–2.57 s in the test profile.\n# Keep the JSON scanner optimised, as with the Terminal parsers above; the Adapter\n# and its tests remain unoptimised and keep the two-second preview budget.\n[profile.dev.package.serde_json]\nopt-level = 3\n\n# DV2's 32 real 32 MiB publications took 27.339 s with unoptimised SHA-256.\n# Optimise the installed hash implementation to keep that quota observer under 5 s.\n[profile.dev.package.sha2]\nopt-level = 3\n\n# With SHA-256 optimised, DV2 still took 5.25 s; SQLite's WAL checksum\n# consumed 27.8% of sampled user CPU. Keep the real quota commits within 5 s.\n[profile.dev.package.libsqlite3-sys]\nopt-level = 3\n","settings":"cargo build --locked --release -p rupd -p rup","rustflags":null,"encoded_rustflags":null} commands ["/tmp/roundup-issue-3523-ship: git [\"rev-parse\", \"--verify\", \"HEAD^{commit}\"]", "/tmp/roundup-issue-3523-ship: git [\"merge-base\", \"origin/main\", \"3c606bea3df495946b21b9521bd95dd7c751b74b\"]", "/tmp/roundup-issue-3523-ship: sha256sum [\"/home/runner/work/roundup/roundup/target/release/perf\"]", "/tmp/roundup-issue-3523-ship: rustc [\"-Vv\"]", "/tmp/roundup-issue-3523-ship: rustup [\"show\", \"active-toolchain\"]", "/tmp/roundup-issue-3523-ship: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmppujkIH/base\", \"3c606bea3df495946b21b9521bd95dd7c751b74b\"]", "/tmp/.tmppujkIH/base: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]", "/tmp/.tmppujkIH/base: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]", "/tmp/.tmppujkIH/base: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]", "/tmp/roundup-issue-3523-ship: sha256sum [\"/tmp/.tmppujkIH/base/target/release/rupd\", \"/tmp/.tmppujkIH/base/target/release/rup\", \"/tmp/.tmppujkIH/base/target/release/sidecar/node\"]", "/tmp/roundup-issue-3523-ship: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmppujkIH/head\", \"3c606bea3df495946b21b9521bd95dd7c751b74b\"]", "/tmp/.tmppujkIH/head: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]", "/tmp/.tmppujkIH/head: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]", "/tmp/.tmppujkIH/head: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]", "/tmp/roundup-issue-3523-ship: sha256sum [\"/tmp/.tmppujkIH/head/target/release/rupd\", \"/tmp/.tmppujkIH/head/target/release/rup\", \"/tmp/.tmppujkIH/head/target/release/sidecar/node\"]"]
+3c606bea3df495946b21b9521bd95dd7c751b74b hashes 8a35351db5de4d39a4e0976fd3d0666a86f889db097abac9e38de315ea87ff10  /tmp/.tmppujkIH/base/target/release/rupd
+9134158ec509c59862c9a9f2b385aa3230abd34a6b0dcfe199f094f232a2b586  /tmp/.tmppujkIH/base/target/release/rup
+fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48  /tmp/.tmppujkIH/base/target/release/sidecar/node
+3c606bea3df495946b21b9521bd95dd7c751b74b hashes 8a35351db5de4d39a4e0976fd3d0666a86f889db097abac9e38de315ea87ff10  /tmp/.tmppujkIH/head/target/release/rupd
+9134158ec509c59862c9a9f2b385aa3230abd34a6b0dcfe199f094f232a2b586  /tmp/.tmppujkIH/head/target/release/rup
+fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48  /tmp/.tmppujkIH/head/target/release/sidecar/node
+paired base 3c606bea3df495946b21b9521bd95dd7c751b74b head 3c606bea3df495946b21b9521bd95dd7c751b74b class linux-9v45 host Identity { host: "runnervmtai0g", boot: "ddac8902-9ed6-426b-85e5-25c99e2999b6", job: "40242009209/1/build" }
+cold_plugin_materialization_ms base 9.15232 head 9.097935999999999 ceiling 10.068552 limit Some(300.0): ok
+cold_start_ms base 9.565561 head 9.709758 ceiling 10.822117100000002 limit Some(300.0): ok
+hook_loop_ms base 206.996426 head 208.709588 ceiling 227.69606860000005 limit Some(2000.0): ok
+ping_p95_ms base 0.036735 head 0.035854 ceiling 0.0414085 limit None: ok
+rail_tree_10_p95_ms base 0.099299 head 0.100161 ceiling 0.1092289 limit Some(2.0): ok
+rail_tree_40_p95_ms base 0.241984 head 0.25052199999999997 ceiling 0.26718240000000004 limit None: ok
+rss_extra_mb base 2.34765625 head 2.39453125 ceiling 2.632421875 limit Some(150.0): ok
+terminal_write_p95_ms base 0.055449 head 0.054602 ceiling 0.061993900000000005 limit None: ok
+write_to_output_p95_ms base 0.10914399999999999 head 0.108363 ceiling 0.1210584 limit Some(16.0): ok
