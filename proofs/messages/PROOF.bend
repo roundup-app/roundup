@@ -104,7 +104,7 @@ def step4(e: M.Ev, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.step(e,
       match s:
         case M.W{+q, +t, +d, +u, +n, +i, +g}:
           prefix_refl(t)
-    case M.Exit{}:
+    case M.ReceiverExit{}:
       match s:
         case M.W{+q, +t, +d, +u, +n, +i, +g}:
           prefix_refl(t)
@@ -217,7 +217,7 @@ def step7(e: M.Ev, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.step(e, s))):
       match s:
         case M.W{+q, +t, +d, +u, +n, +i, +g}:
           h
-    case M.Exit{}:
+    case M.ReceiverExit{}:
       match s:
         case M.W{+q, +t, +d, +u, +n, +i, +g}:
           {==}
@@ -1266,7 +1266,7 @@ def step_inv(e: M.Ev, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.step(e, s))):
       idle_inv(s, h)
     case M.Busy{}:
       busy_inv(s, h)
-    case M.Exit{}:
+    case M.ReceiverExit{}:
       exit_inv(s, h)
     case M.UserDrop{id}:
       user_drop_inv(id, s, h)
@@ -1468,7 +1468,7 @@ def a35_m6(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> E
 def a35_m7(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +fu: Bool, +r: M.Route) -> L.T(Bool.and(S.implies(S.gone(S.world(M.restart_window(before, during, after))), S.is_nil(S.queue(S.world(M.restart_window(before, during, after))))), S.implies(S.gone(S.world(M.restart_window(before, during, after))), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(M.restart_window(before, during, after)))), S.next_id(S.world(M.restart_window(before, during, after))))))):
   m7_main(M.restart_window(before, during, after), fu, r)
 
-def a35_reserved_stop(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Exit{}), s)) == S.records(s) : S.Rec}:
+def a35_reserved_stop(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.ReceiverExit{}), s)) == S.records(s) : S.Rec}:
   match s:
     case M.W{+q, +t, +d, +u, +n, +i, +g}:
       {==}
@@ -1590,7 +1590,7 @@ def a35_store_m9(+reserved: Bool, +j: M.PromptJournal, +alive: Bool) -> {S.recor
           restart_replay(alive, world)
 
 # Retirement eligibility is explicit and independent of a lost Terminal or SessionStart.
-# M7 still proves ordinary Exit drops its queue. A35 keeps archived pending in an ineligible
+# M7 still proves ordinary ReceiverExit drops its queue. A35 keeps archived pending in an ineligible
 # receiver; M6/M10 liveness applies to eligible ordinary/released retained receivers.
 def a35_retirement_ineligible(r: M.Retirement) -> {M.retirement_eligible(r) == False{} : Bool}:
   {==}
@@ -1599,7 +1599,7 @@ def a35_retirement_completion_idempotent(r: M.Retirement) -> {M.complete_retirem
   {==}
 
 # M5/M6: stop, loss, reopen and rejected sends preserve every status list and its order.
-def a35_retirement_stop(r: M.Retirement, w: M.World) -> {S.records(M.step(M.retirement_event(r, M.Exit{}), w)) == S.records(w) : S.Rec}:
+def a35_retirement_stop(r: M.Retirement, w: M.World) -> {S.records(M.step(M.retirement_event(r, M.ReceiverExit{}), w)) == S.records(w) : S.Rec}:
   match w:
     case M.W{+q, +t, +d, +u, +n, +i, +g}:
       {==}
