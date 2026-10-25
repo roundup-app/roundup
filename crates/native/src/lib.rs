@@ -1,0 +1,16 @@
+//! Native integration owns Objective-C objects and thread obligations; callers supply only safe handles.
+#[cfg(target_vendor = "apple")]
+mod webkit_rate;
+#[cfg(target_vendor = "apple")]
+pub use webkit_rate::{Missing, Preferences, plugin};
+#[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
+mod application;
+#[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
+pub use application::watch;
+
+// WKPreferences requires the process main thread, so these actual-WebKit proofs use a main-thread harness.
+#[cfg(test)]
+fn main() {
+    #[cfg(target_vendor = "apple")]
+    webkit_rate::tests::run();
+}

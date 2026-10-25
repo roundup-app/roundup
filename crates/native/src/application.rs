@@ -1,8 +1,7 @@
 //! AppKit notifications preserve native hide transitions even when JavaScript is suspended.
-#![allow(unsafe_code)]
 use block2::RcBlock;
 use objc2::{
-    msg_send,
+    MainThreadMarker, msg_send,
     rc::Retained,
     runtime::{AnyClass, AnyObject, ProtocolObject},
 };
@@ -26,13 +25,27 @@ impl Drop for Observers {
 }
 thread_local! { static OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers([None, None])) }; }
 
-pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
+/// Register hide/unhide observation on Tauri's main thread; replacement unregisters the old callbacks.
+pub fn watch<R: Runtime>(
+    window: WebviewWindow<R>,
+    observed: impl Fn(&WebviewWindow<R>, &str, bool) + Send + Sync + 'static,
+) -> tauri::Result<()> {
+    let dispatch = window.clone();
+    dispatch.run_on_main_thread(move || watch_on_main(window, observed))
+}
+
+fn watch_on_main<R: Runtime>(
+    window: WebviewWindow<R>,
+    observed: impl Fn(&WebviewWindow<R>, &str, bool) + Send + Sync + 'static,
+) {
+    let _main = MainThreadMarker::new().expect("Tauri dispatches observers on the main thread");
+    let observed = std::sync::Arc::new(observed);
     let center = NSNotificationCenter::defaultCenter();
     let application = AnyClass::get(c"NSApplication").expect("AppKit owns this webview");
     // SAFETY: NSApplication.sharedApplication is process-owned and queried on the main thread.
     let application: Retained<AnyObject> = unsafe { msg_send![application, sharedApplication] };
     let hidden: bool = unsafe { msg_send![&*application, isHidden] };
-    super::idle::application(&window, "initial", hidden);
+    observed(&window, "initial", hidden);
     for (index, (name, hidden)) in [
         ("NSApplicationDidHideNotification", true),
         ("NSApplicationDidUnhideNotification", false),
@@ -40,9 +53,10 @@ pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
     .into_iter()
     .enumerate()
     {
-        let observed = window.clone();
+        let window = window.clone();
+        let observed = observed.clone();
         let block = RcBlock::new(move |_notification: NonNull<NSNotification>| {
-            super::idle::application(&observed, name, hidden)
+            observed(&window, name, hidden)
         });
         // SAFETY: AppKit delivers these notifications on the main thread; the block owns its window handle.
         let token = unsafe {
