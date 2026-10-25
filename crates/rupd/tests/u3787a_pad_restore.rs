@@ -520,3 +520,47 @@ async fn u3787a_restore_keeps_exact_existing_refs() {
     );
     assert_eq!(call(&w, "link.read", json!({"url":url})).await["pad"], pad);
 }
+
+#[tokio::test]
+async fn u3787a_delete_after_rename_restores_the_authoritative_name_and_creation() {
+    let w = world().await;
+    let pad = call(&w, "pad.create", json!({"name":"first","text":"original"})).await;
+    let renamed = call(
+        &w,
+        "pad.rename",
+        json!({"name":"first","newName":"Moved","expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+    let receipt = call(
+        &w,
+        "pad.delete",
+        json!({"name":"Moved","expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    assert_eq!(call(&w, "pad.read", json!({"name":"Moved"})).await, renamed);
+    assert_eq!(
+        w.client
+            .request("pad.read", json!({"name":"first"}))
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn u3787a_consumed_restore_does_not_reverse_a_later_rename() {
+    let w = world().await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let renamed = call(
+        &w,
+        "pad.rename",
+        json!({"name":"notes","newName":"Moved","expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    assert_eq!(call(&w, "pad.read", json!({"name":"Moved"})).await, renamed);
+    assert_eq!(call(&w, "pad.list", Value::Null).await, json!([renamed]));
+}

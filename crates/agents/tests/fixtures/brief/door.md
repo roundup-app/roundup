@@ -29,6 +29,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `import_list`: list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing.
 - `pad_list`: see which Pads exist.
 - `pad_write`: rewrite a Pad you own.
+- `pad_rename`: rename a Pad you own, keeping its creation and text; pass the exact original name and expectedIncarnation from a read in this Project.
 - `pad_append`: add text to the end of any Pad.
 - `pad_appendSection`: add text at the end of the section under a Markdown heading of any Pad.
 - `pad_setOwner`: give a Pad to another Actor.

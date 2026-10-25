@@ -98,6 +98,10 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
+    (
+        "pad_rename",
+        "rename a Pad you own, keeping its creation and text; pass the exact original name and expectedIncarnation from a read in this Project",
+    ),
     ("pad_append", "add text to the end of any Pad"),
     (
         "pad_appendSection",
