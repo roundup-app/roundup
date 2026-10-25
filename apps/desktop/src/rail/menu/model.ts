@@ -33,7 +33,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => []) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -226,11 +226,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
         ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
         ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
+        ...extra(node),
         remove,
       ];
     }
 
-    if (node.kind === "workstream" && node.attempt === null) return [remove];
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), remove];
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
@@ -252,6 +253,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
+      ...extra(node),
       ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id)),
       remove,
     ];

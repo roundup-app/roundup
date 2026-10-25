@@ -195,23 +195,25 @@ it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: 
   }
 
   const save = app.handlers["pad.setOwner"]!;
-  app.handlers["pad.setOwner"] = () => { throw new RpcError(-32002, "assignment refused"); };
+  const refusal = "assignment refused";
+  app.handlers["pad.setOwner"] = () => { throw new RpcError(-32002, refusal); };
 
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
   const pending = screen.getByLabelText<HTMLInputElement>("Pad name");
   fireEvent.input(pending, { target: { value: "unfinished" } });
 
   const assign = async () => {
-    fireEvent.click(document.querySelector('[data-pad="failed"] [aria-label="assign failed"]')!);
+    fireEvent.contextMenu(document.querySelector('[data-pad="failed"]')!);
+    await app.pickMenu("Assign");
     fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
   };
 
   await assign();
-  await screen.findByText("assignment refused");
+  const failure = await screen.findByRole("alert", {name:refusal});
   await app.rpc("pad.create", { name: "added", text: null });
   app.emit({ actor: USER, name: "pad.changed", data: { name: "added" } });
   await screen.findByText("added");
-  expect(within(document.querySelector<HTMLElement>('[data-pad="failed"]')!).getByText("assignment refused")).toBeDefined();
+  expect(document.querySelector('[data-pad="failed"]')?.contains(failure)).toBe(true);
 
   if (action === "delete") {
     await openPad("failed");
@@ -223,7 +225,7 @@ it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: 
     app.handlers["pad.setOwner"] = save;
     await assign();
   } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(screen.queryByText("assignment refused")).toBeNull());
+  await waitFor(() => expect(failure.isConnected).toBe(false));
   expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("unfinished");
 });
 

@@ -55,9 +55,11 @@ describe("u111 opening and closing a Drawer leaves the layout where it was", () 
   // Every Drawer opens through DrawerHost, and U64's close on a new selection calls the same `drawer.close()` (test above).
   it("u111_a_todo_drawer_opened_from_its_row_and_closed_with_close_passes_prevent_scroll", async () => {
     await mountTodos([todo(1)]);
+    const row = await screen.findByRole("button", { name: /todo 1/ });
+    row.focus();
     const spy = focusCalls();
 
-    fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
+    fireEvent.click(row.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
     await waitFor(() => expect(drawerPanel().contains(document.activeElement)).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(drawerPanel().inert).toBe(true));

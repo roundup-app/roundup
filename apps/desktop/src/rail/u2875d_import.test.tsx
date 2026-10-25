@@ -216,9 +216,11 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
 
     await waitFor(() => expect(rowOf("a1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
-    expect(rowOf("a1").querySelector("button[aria-label=Resume]")).toBeTruthy();
-    fireEvent.focusIn(rowOf("w1").querySelector<HTMLElement>("button[aria-label=Collapse]")!);
-    expect(screen.getByRole("button", { name: "Start supervisor" })).toBeTruthy();
+    fireEvent.contextMenu(rowOf("a1"));
+    expect(app.menuLabels()).toContain("Resume");
+    await app.closeMenu();
+    fireEvent.contextMenu(rowOf("w1"));
+    expect(app.menuLabels()).toContain("Start supervisor");
     expect(calls(app, "agent.resume")).toEqual([]);
   });
 

@@ -282,7 +282,7 @@ describe("u370 the Shelf closes and opens", () => {
       return row!;
     });
 
-    fireEvent.click(row);
+    fireEvent.keyDown(row, { key: "Enter" });
     await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
     const drawer = document.querySelector('.drawer[data-open="true"]')!;
 
@@ -291,7 +291,7 @@ describe("u370 the Shelf closes and opens", () => {
     expect(drawer.isConnected).toBe(true);
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
+    expect(tabNamed("Pads").getAttribute("aria-expanded") === "true").toBe(true);
     expect(drawer.isConnected).toBe(true);
   });
 
