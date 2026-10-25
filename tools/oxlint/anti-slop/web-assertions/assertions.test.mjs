@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
+const directory = "tools/oxlint/anti-slop/web-assertions";
+const lint = resolve(repo, directory, "lint.mjs");
 const plugin = resolve(repo, "tools/oxlint/anti-slop/index.ts");
 const cases = [
   ["computed style", 'expect(getComputedStyle(element).color).toBe("red");', "appearance"],
@@ -46,16 +48,17 @@ for (const [name, source, kind] of cases) {
     const file = resolve(dir, "fixture.test.tsx");
     const config = resolve(dir, "config.json");
     writeFileSync(file, 'import { expect, expect as check, test } from "vitest";\ntest("t3779b_fixture", async () => {\n' + source + '\n});');
+    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
     writeFileSync(config, JSON.stringify({
       jsPlugins: [{ name: "anti-slop", specifier: plugin }],
-      rules: { "anti-slop/audit-web-assertions": "error" },
+      rules: { "anti-slop/no-new-web-assertions": "error" },
     }));
     try {
-      const result = spawnSync("pnpm", ["--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: repo, encoding: "utf8" });
+      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: repo, encoding: "utf8" });
       assert.equal(result.status, kind ? 1 : 0, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, "The real lint command must analyze the fixture");
-      const diagnostics = report.diagnostics.filter(item => item.code === "anti-slop(audit-web-assertions)");
+      const diagnostics = report.diagnostics.filter(item => item.code === "anti-slop(no-new-web-assertions)");
       assert.equal(diagnostics.length, kind ? 1 : 0, result.stdout);
       if (kind) {
         const observation = JSON.parse(diagnostics[0].message);
@@ -91,3 +94,50 @@ test("t3779b_assertion_boundary: Python assertions and scripts are inventoried w
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+for (const change of ["unchanged", "additional", "duplicate", "deleted", "added entry", "broadened entry", "renamed", "moved", "edited"]) {
+  test(`t3779b_assertion_boundary: baseline ${change}`, () => {
+    const dir = mkdtempSync(resolve(repo, ".baseline-fixture-"));
+    const file = resolve(dir, "fixture.test.tsx");
+    const config = resolve(dir, "config.json");
+    const baseline = resolve(dir, directory, "baseline.jsonl");
+    mkdirSync(resolve(dir, directory), { recursive: true });
+    const source = 'import { expect, test } from "vitest"; test("t3779b_fixture", () => { expect(element.scrollWidth).toBe(10); });';
+    const run = () => spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+    const git = (...args) => {
+      const result = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    };
+    try {
+      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
+      writeFileSync(file, source);
+      writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/audit-web-assertions": "error" } }));
+      const audit = run();
+      assert.equal(audit.status, 1, audit.stdout + audit.stderr);
+      const observation = JSON.parse(JSON.parse(audit.stdout).diagnostics[0].message);
+      const entry = { file: "fixture.test.tsx", test: observation.test, identity: observation.identity };
+      writeFileSync(baseline, JSON.stringify(entry) + "\n");
+      git("init", "-q");
+      git("add", ".");
+      git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "baseline");
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
+      if (change === "additional") writeFileSync(file, source.replace(' });', ' expect(element.clientHeight).toBe(20); });'));
+      if (change === "duplicate") writeFileSync(file, source.replace(' });', ' expect(element.scrollWidth).toBe(10); });'));
+      if (change === "deleted") writeFileSync(file, source.replace('expect(element.scrollWidth).toBe(10);', ''));
+      if (change === "added entry") appendFileSync(baseline, JSON.stringify({ ...entry, identity: "a".repeat(64) }) + "\n");
+      if (change === "broadened entry") writeFileSync(baseline, JSON.stringify({ ...entry, test: "*" }) + "\n");
+      if (change === "renamed") writeFileSync(file, source.replace("t3779b_fixture", "t3779b_other"));
+      if (change === "moved") { writeFileSync(resolve(dir, "other.test.tsx"), source); writeFileSync(file, ""); }
+      if (change === "edited") writeFileSync(file, source.replace("toBe(10)", "toBe(11)"));
+      const result = run();
+      assert.equal(result.status, change === "unchanged" ? 0 : 1, result.stdout + result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.number_of_files, 1, result.stdout);
+      assert.equal(report.diagnostics.length === 0, change === "unchanged", result.stdout);
+      if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `baseline ${change}`, source, exitCode: result.status, diagnostics: report.diagnostics.map(item => item.message) }) + "\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
