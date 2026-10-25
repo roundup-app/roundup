@@ -10,5 +10,13 @@
   "assess": {
     "exit": 0,
     "elapsed_seconds": 18.554777528000045
+  },
+  "new-boundaries": {
+    "exit": 0,
+    "elapsed_seconds": 109.0080623880001
+  },
+  "controls-assess": {
+    "exit": 0,
+    "elapsed_seconds": 0.19071079299999383
   }
 }

@@ -110,7 +110,9 @@ then replays the task/thread, producer and control assessors. Source evidence is
 never overwritten. Exact subprocess arguments, output and actual statuses are
 retained as `replay-*.command`, `.stdout`, `.stderr` and `.exit`.
 
-`replay-comparison.json` compares all five derived JSON reports and eight CSVs
+All five replay commands exit 0. `raw-verification.json` verifies 366 manifest
+entries; all ten archived executables match their recorded hashes.
+`replay-comparison.json` confirms equality for all five derived JSON reports and eight CSVs
 against the capture (CSV comparison decompresses gzip wrappers). New gzip headers
 change compressed input hashes; original raw identities and decompressed contents
 must agree. `raw-verification.json` identifies the verified manifest count;
