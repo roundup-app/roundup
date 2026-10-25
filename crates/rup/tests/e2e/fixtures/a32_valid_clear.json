@@ -19,6 +19,15 @@
     },
     {
       "match": {
+        "userMessage": "I want a login page",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
       },
       "response": {
