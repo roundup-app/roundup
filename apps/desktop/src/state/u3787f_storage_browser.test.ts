@@ -50,15 +50,19 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
           window.__restoreStorage = () => { Storage.prototype.setItem = original; };
           window.__failureCause = "write work.json: disk quota exceeded at /original/調査/résumé — committed records remain available; retry after freeing space";
           Storage.prototype.setItem = function(key, value) {
-            if (key === 'roundup:app-settings') throw new Error(window.__failureCause);
+            if (key.startsWith('roundup:')) throw new Error(window.__failureCause);
             return original.call(this, key, value);
           };
           const settings = await import('/src/settings/preferences.ts');
           await settings.saveAppSettings({ fontFamily: 'Original font 雪' });
         })()`);
+        await lane.browser("click", ".rail-row[data-id='agent-3']");
+        await lane.until("(async () => (await import('/src/state/storage.ts')).storageProblems().length >= 2)()");
         await lane.until("!!document.querySelector('.storage-failure [data-button]')");
-        expect(await lane.evaluate<boolean>("document.querySelector('.storage-failure .reserved-status').textContent.includes(window.__failureCause)")).toBe(true);
-        await lane.browser("hover", ".storage-failure .reserved-status > span");
+        expect(await lane.evaluate<boolean>("document.querySelector('.storage-failure [role=alert]').getAttribute('aria-label').includes(window.__failureCause)")).toBe(true);
+        expect(await lane.evaluate<number>("[...document.querySelectorAll('[role=alert]')].filter(el => el.textContent.includes(window.__failureCause)).length")).toBe(1);
+        expect(await lane.evaluate<number>("document.querySelectorAll('.storage-failure button').length")).toBe(1);
+        await lane.browser("hover", ".storage-failure [role=alert]");
         await lane.until("!!document.querySelector('[role=tooltip]')");
         await lane.capture("U3787f", `head-${seed}-retention-failure`);
         await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");

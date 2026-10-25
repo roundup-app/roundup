@@ -13,22 +13,6 @@
 
 .storage-failure {
   flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
   padding: var(--space-3);
-  color: var(--text);
   background: var(--ground);
-  max-block-size: var(--measure);
-  overflow: auto;
-  overscroll-behavior: contain;
-  overflow-wrap: anywhere;
-}
-
-.storage-failure .reserved-status > span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
