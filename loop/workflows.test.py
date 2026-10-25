@@ -460,9 +460,9 @@ class L24(unittest.TestCase):
 
     def test_l24_no_test_lane_starts_before_the_approval(self):
         jobs = self.jobs('check')
-        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'check', 'summary'}, set(jobs))
+        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'u26', 'check', 'summary'}, set(jobs))
         self.assertIn('needs: approved\n', jobs['plan'])
-        for lane in ('rust', 'mac-clippy', 'mac', 'web'):
+        for lane in ('rust', 'mac-clippy', 'mac', 'web', 'u26'):
             self.assertIn('needs: plan\n', jobs[lane], lane)
         self.assertRegex(jobs['check'], r'needs: \[plan, ')
 

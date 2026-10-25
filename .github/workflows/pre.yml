@@ -35,7 +35,6 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.plan.outputs.web }}
-      u26: ${{ steps.plan.outputs.u26 }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -44,10 +43,6 @@ jobs:
         run: |
           reached=$(python3 loop/affected.py web "$BASE")
           echo "web=${reached:+true}" >>"$GITHUB_OUTPUT"
-          # U26's held tests take about 4 min; a PR runs them only when its diff touches their tools or their App seam.
-          u26=true
-          [ -z "$BASE" ] || git diff --name-only "$BASE" | grep -qE '^(tools/chromium-faults/|apps/desktop/src/testing/u26)' || u26=
-          echo "u26=$u26" >>"$GITHUB_OUTPUT"
 
   # L89: the Rust checks that run no test binary.
   lint:
@@ -61,10 +56,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
-  # L89: the web checks that run no test, then the two U26 regression tests that hold Chromium's startup for real seconds:
-  # neither depends on which web tests run, so they run once here and not in every shard. The held tests run on `main`
-  # and on a PR whose diff touches them (`plan`'s `u26`), so the lint gates review in seconds. A failed step leaves
-  # later steps running, so one run reports every failure.
+  # L89: the web checks that run no test.
   lint-web:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
@@ -79,18 +71,6 @@ jobs:
           rust: 'false'
           browser: 'true'
       - run: python3 loop/app-data.py just lint-web
-      - id: deps
-        name: U26 Linux fault observer dependencies
-        if: ${{ !cancelled() && needs.plan.outputs.u26 == 'true' }}
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
-      - name: U26 held cold startup regression
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
-      - name: U26 held file-backed fault
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
   # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
   # then judges the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
