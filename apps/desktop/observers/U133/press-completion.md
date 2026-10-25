@@ -1,6 +1,6 @@
 # U131 / U133 completion
 
-Runtime base: `46dcbf37f`. Runtime head: `a0cb11710`.
+Runtime base: `46dcbf37f`. Runtime head: `0ab879878`.
 Observer: isolated headless Chromium, dark, 1512×950, device scale 1.
 Readings: `completion.json`. Images, full readings and recordings remain
 uncommitted under `artifacts/ux/U133/completion/{base,head}/`.
@@ -42,8 +42,8 @@ D8 retains elevation/hairline duties and adds local inset/visible-mark readings.
 
 ## Validation
 
-- 98 focused tests pass with retries disabled, including Rail/Todo drag and
-  native activation/cancellation. After the final observer repair, all 53 U137
+- 99 focused tests pass with retries disabled, including Rail/Todo drag and
+  native activation/cancellation. After the final observer repair, all 54 U137
   Check tests pass again with retries disabled.
 - The broad prescribed capture command completed 144 files before interruption.
   Its cold U463 first-run timeout passes alone with warm binaries and retries
