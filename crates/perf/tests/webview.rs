@@ -104,6 +104,10 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         "encoding_to_encoded",
         "encoded_to_dispatch",
         "dispatch_to_echo_event",
+        "dispatch_to_daemon",
+        "daemon_to_write",
+        "write_to_echo_read",
+        "echo_read_to_event",
         "echo_event_to_parsed",
         "parsed_to_frame",
     ] {
@@ -173,4 +177,17 @@ fn r20_missing_measured_keys_cannot_be_silently_skipped() {
         dropped["hops"][name]["n"] = json!(999);
     }
     assert_eq!(judge_runs(&[dropped], 16.0).0, 1);
+}
+
+#[test]
+fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
+    for calibration in [
+        json!(null),
+        json!({"offset_ms": 10, "uncertainty_ms": -1, "exchanges": []}),
+        json!({"offset_ms": 10, "uncertainty_ms": 0, "exchanges": [{"sent": 1, "daemon": 12, "received": 0}]}),
+    ] {
+        let mut invalid = report(16.7, 0);
+        invalid["calibration"] = calibration;
+        assert_eq!(judge_runs(&[invalid], 16.0).0, 2);
+    }
 }
