@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
-import { outcomeOf, RpcError } from "../app/seam";
+import { outcomeOf, retryRead, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { storedValue } from "./storage";
 
@@ -71,7 +71,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
 
   void (async () => {
     try {
-      const listed = await app.projects();
+      const listed = await retryRead(() => app.projects());
 
       setTabs(
         listed.map(({ name, path, running }) => ({ project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 })),

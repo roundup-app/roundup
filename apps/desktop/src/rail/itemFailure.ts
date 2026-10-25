@@ -18,7 +18,7 @@ export const createItemFailure = (exists: (item: string) => boolean) => {
     message: () => live()?.message ?? null,
     show: (message: string, item: string | null = null) => setState({ message, item }),
     /** An acknowledged save, or any success, of `item` clears only a failure about it. */
-    acknowledge: (item: string) => {
+    acknowledge: (item: string | null) => {
       if (state()?.item === item) setState(null);
     },
     clear: () => setState(null),

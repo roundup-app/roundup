@@ -39,6 +39,29 @@ it("u3791a_read_recovers_once", () => {
   expect(read.mock.calls).toEqual([["captured"], ["captured"]]);
 });
 
+it("u3791a_local_remove_recovers_once", () => {
+  localStorage.setItem("captured", '"kept"');
+  const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect(storedValue("captured", v.string()).clear()).toBeNull();
+  expect(remove.mock.calls).toEqual([["captured"], ["captured"]]);
+  expect(localStorage.getItem("captured")).toBeNull();
+});
+
+it("u3791a_storage_second_failure_is_actionable", () => {
+  const storage = storedValue("captured", v.string());
+  localStorage.setItem("captured", '"last valid"');
+
+  const write = vi.spyOn(Storage.prototype, "setItem")
+    .mockImplementationOnce(() => { throw new Error("first"); })
+    .mockImplementationOnce(() => { throw new Error("second"); });
+
+  expect(storage.write("new")).toBe("second");
+  expect(write).toHaveBeenCalledTimes(2);
+  expect(storage.read()).toBe("last valid");
+  expect(storage.write("new")).toBeNull();
+  expect(storage.read()).toBe("new");
+});
+
 it("u2773a_storage_restores_exact_work", () => {
   const drafts = draftStorage("/project/a");
   const value = { text: " \ne\u0301 😀\n ", choices: ["second", "first"], enabled: false };
@@ -82,7 +105,7 @@ it("u2773b_storage_pending_reopens_as_unknown_without_resubmission", () => {
   expect(reopened.submit(a.revision)).toBeNull();
 });
 
-it("u2773e_storage_failure_keeps_memory", () => {
+it("u3791a_retention_failure_keeps_revisions", () => {
   const drafts = draftStorage("/project/a");
   const a = edit(drafts, "stored");
   drafts.submit(a.revision);
@@ -90,6 +113,8 @@ it("u2773e_storage_failure_keeps_memory", () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
   const result = drafts.edit(target, { text: " complete\nnew 😀 " }, null, "ordinary");
   const b = result.draft;
+  expect(write).toHaveBeenCalledTimes(2);
+  expect(write.mock.calls[0]).toEqual(write.mock.calls[1]);
   expect(result.problem).toEqual({ project: "/project/a", destination: target, revision: b.revision, operation: "retain", cause: "write" });
   expect(drafts.list()).toEqual([{ ...a, status: "pending" }, { ...b, value: { text: " complete\nnew 😀 " } }]);
   expect(localStorage.getItem("roundup:drafts:/project/a")).toBe(before);

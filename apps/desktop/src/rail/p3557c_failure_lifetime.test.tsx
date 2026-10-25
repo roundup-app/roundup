@@ -32,6 +32,21 @@ const failedRemove = async () => {
 };
 
 describe("p3557c an item failure in the Rail goes with its item", () => {
+  it("u3791c_same_scope_failure_replaces_across_command_sources", async () => {
+    const { app, rail, drop, connected } = await failedRemove();
+    const original = rail.commandFailure.message();
+    const draft = connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "b" }, { text: " unfinished 🌿 " }, null, "ordinary").draft;
+    app.handlers["rail.createWorkstream"] = () => { throw new Error("new command failure"); };
+
+    await rail.createWorkstream();
+    expect(rail.commandFailure.message()).not.toBe(original);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    drop("a");
+    await rail.refresh();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(connected.drafts.list()).toContainEqual(draft);
+  });
+
   it("p3557c_failure_lifetime_rail_deleted_item_clears", async () => {
     const { rail, drop } = await failedRemove();
     drop("a");

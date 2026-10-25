@@ -126,12 +126,28 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (message === null && previous[kind] === null) return current;
 
-      const state: TerminalFailures = {
-        ...previous,
-        [kind]: message === null ? null : { message, order: ++failureOrder },
-      };
+      const state: TerminalFailures = { ...previous };
+
+      if (message !== null && (kind === "live" || kind === "link")) {
+        state.live = null;
+        state.link = null;
+      }
+
+      state[kind] = message === null ? null : { message, order: ++failureOrder };
 
       const next = new Map(current);
+
+      // One Terminal scope per Project: replacing a kind also replaces its owned Terminal.
+      // Acknowledgments still clear only their original id and operation.
+      if (message !== null) for (const [otherId, other] of next) {
+        const replaced = { ...other };
+        const sameKind = kind === "live" || kind === "link" ? ["live", "link"] as const : [kind];
+
+        for (const operation of sameKind) replaced[operation] = null;
+
+        if (FAILURE_KINDS.some(operation => replaced[operation] !== null)) next.set(otherId, replaced);
+        else next.delete(otherId);
+      }
 
       next.delete(id);
 
