@@ -76,3 +76,51 @@ impl<'de> Deserialize<'de> for Parsed {
         deserializer.deserialize_any(Values)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Parsed;
+    use proptest::prelude::*;
+    use serde_json::Value;
+
+    fn json() -> impl Strategy<Value = Value> {
+        let text = prop::collection::vec(any::<char>(), 0..24)
+            .prop_map(|chars| chars.into_iter().collect::<String>());
+        prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            any::<i64>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
+            (-1.0e6_f64..1.0e6_f64).prop_map(Value::from),
+            text.clone().prop_map(Value::String),
+        ]
+        .prop_recursive(3, 64, 12, move |inner| {
+            prop_oneof![
+                prop::collection::vec(inner.clone(), 0..13).prop_map(Value::Array),
+                prop::collection::vec((text.clone(), inner), 0..13)
+                    .prop_map(|entries| Value::Object(entries.into_iter().collect())),
+            ]
+        })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 128, ..ProptestConfig::default() })]
+
+        #[test]
+        fn z3802g_frame_parser_matches_json(value in json()) {
+            // Unique keys force both sides of the eight-entry staging boundary on every run.
+            let mut inputs = vec![value.clone()];
+            for count in [7, 8, 9, 12] {
+                inputs.push(Value::Object((0..count).map(|id| {
+                    (format!("鍵🦀{id}"), serde_json::json!({ "nested": [value.clone(), "é\n零"] }))
+                }).collect()));
+            }
+            for input in inputs {
+                let wire = serde_json::to_vec(&input).unwrap();
+                let expected: Value = serde_json::from_slice(&wire).unwrap();
+                let actual: Parsed = serde_json::from_slice(&wire).unwrap();
+                prop_assert_eq!(actual.0, expected);
+            }
+        }
+    }
+}
