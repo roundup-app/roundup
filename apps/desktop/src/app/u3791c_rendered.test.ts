@@ -87,7 +87,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
 
     if (!await evaluate("!!document.querySelector('.drawer[data-open=true]')")) await browser("press", "Enter");
 
-    await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] .todo-history')");
+    await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] .todo-detail-title')");
     await capture("U3791c", "review-recovered");
     await browser("click", ".drawer [aria-label=Close]");
     await browser("click", "#shelf-tab-pads");
