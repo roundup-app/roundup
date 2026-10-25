@@ -38,6 +38,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--cache-write` | `#b4b4b9` | `#636368` | Measurement cache-write segment and swatch |
 | `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
+| `--press-opacity` | `0.96` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
 | `--accent` | `#0a60d8` | `#4d9bff` | Glyph tone of `working`, the primary action |
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
