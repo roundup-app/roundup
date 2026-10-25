@@ -58,6 +58,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
           ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")
       : null,
+    // A background layer closing is not a parent dismissal of this independent dialog.
+    onRequestDismiss: event => event.preventDefault(),
     onOpenChange: details => { if (!details.open) close(true); },
   }));
 

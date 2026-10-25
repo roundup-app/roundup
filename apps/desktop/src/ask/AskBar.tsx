@@ -150,6 +150,7 @@ export const AskBar = (props: {
 
   let openingFocus = captureFocus();
   let selectedPane = false;
+  let homeFocus = false;
 
   const dialog = useDialog(() => ({
     open: over(), modal: false, trapFocus: true, preventScroll: false,
@@ -160,11 +161,15 @@ export const AskBar = (props: {
 
       return field;
     }),
-    finalFocusEl: () => selectedPane
+    finalFocusEl: () => homeFocus
+      ? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      : selectedPane
       ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
         ?? document.querySelector<HTMLElement>(".pane-screen textarea")
         ?? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
       : null,
+    // Background layers may close while Ask remains the newer focus owner.
+    onRequestDismiss: event => event.preventDefault(),
     onOpenChange: details => { if (!details.open) close(true); },
   }));
 
@@ -203,6 +208,7 @@ export const AskBar = (props: {
   const open = (): void => {
     if (modalOpen()) return;
     selectedPane = false;
+    homeFocus = false;
     openingFocus = captureFocus(true);
     setOpening("over");
   };
@@ -283,7 +289,7 @@ export const AskBar = (props: {
     </Popover.Root></div></Show>
     <Show when={shown()}>
       <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
-        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; homeFocus = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
         onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
