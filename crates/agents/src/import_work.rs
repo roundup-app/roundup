@@ -2,9 +2,9 @@
 
 use super::*;
 use contracts::project::{
-    ImportCandidate, ImportCommitParams, ImportDiscoverParams, ImportDiscovery, ImportExclusion,
-    ImportList, ImportListParams, ImportListed, ImportLive, ImportOutcome, ImportPeriod,
-    ImportResult,
+    ImportCandidate, ImportCommitParams, ImportDiscoverParams, ImportDiscovery, ImportDisposition,
+    ImportExclusion, ImportExclusionCause, ImportFailure, ImportList, ImportListParams,
+    ImportListed, ImportLive, ImportOutcome, ImportPeriod, ImportResult,
 };
 
 const DAY_MS: i64 = 86_400_000;
@@ -63,6 +63,7 @@ impl Agents {
             if rail.represents_source(&c.source)? {
                 out.excluded.push(ImportExclusion {
                     source: c.source,
+                    cause: ImportExclusionCause::AlreadyImported,
                     reason: "already in this Project".into(),
                     title: Some(c.title),
                     last_activity_ms: Some(c.last_activity_ms),
@@ -87,6 +88,7 @@ impl Agents {
         out.excluded
             .extend(found.excluded.into_iter().map(|e| ImportExclusion {
                 source: e.source,
+                cause: e.cause,
                 reason: e.reason,
                 title: None,
                 last_activity_ms: e.modified_ms,
@@ -117,6 +119,7 @@ impl Agents {
             if rail.represents_source(&c.source)? {
                 out.excluded.push(ImportExclusion {
                     source: c.source,
+                    cause: ImportExclusionCause::AlreadyImported,
                     reason: "already in this Project".into(),
                     title: Some(c.title),
                     last_activity_ms: Some(c.last_activity_ms),
@@ -134,6 +137,7 @@ impl Agents {
         out.excluded
             .extend(found.excluded.into_iter().map(|e| ImportExclusion {
                 source: e.source,
+                cause: e.cause,
                 reason: e.reason,
                 title: None,
                 last_activity_ms: e.modified_ms,
@@ -173,7 +177,23 @@ impl Agents {
                     source: selection.source,
                     workstream: None,
                     agent: None,
-                    error: Some(err.message),
+                    error: Some(ImportFailure {
+                        outcome: match err.code {
+                            rpc::code::PARSE_ERROR
+                            | rpc::code::METHOD_NOT_FOUND
+                            | rpc::code::INVALID_PARAMS
+                            | rpc::code::NOT_FOUND
+                            | rpc::code::FORBIDDEN
+                            | rpc::code::CONFLICT
+                            | rpc::code::BUSY
+                            | rpc::code::NOT_RUNNING
+                            | rpc::code::EVENTS_EXPIRED
+                            | rpc::code::INBOX_UNAVAILABLE => ImportDisposition::Failed,
+                            _ => ImportDisposition::Unknown,
+                        },
+                        code: err.code,
+                        message: err.message,
+                    }),
                 },
             };
             outcomes.push(outcome);
