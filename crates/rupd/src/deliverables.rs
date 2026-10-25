@@ -155,7 +155,7 @@ impl Daemon {
                             return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, QUOTA)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
                             incarnation: source.pad.incarnation,
@@ -178,7 +178,7 @@ impl Daemon {
                         )?;
                         file_source =
                             Some(serde_json::to_string(&source).map_err(RpcError::internal)?);
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, QUOTA)?;
                         let target = PublishedTarget::File {
                             path,
                             length: content.len() as u64,
@@ -364,7 +364,7 @@ fn external(url: &str) -> Result<(), RpcError> {
 
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 const QUOTA: i64 = 1024 * 1024 * 1024;
-fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
+fn bounded(db: &Connection, bytes: &[u8], quota: i64) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
             "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
@@ -372,7 +372,7 @@ fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > QUOTA {
+    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > quota {
         return Err(RpcError::new(
             code::INVALID_PARAMS,
             "publication exceeds 32 MiB or Project's 1 GiB retained quota",
@@ -604,6 +604,19 @@ fn observe(stage: &str) -> Result<(), RpcError> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn dv2_a_publication_that_would_pass_the_quota_is_refused_and_equality_fits() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute("CREATE TABLE deliverable_bytes (id TEXT, bytes BLOB)", [])
+            .unwrap();
+        db.execute(
+            "INSERT INTO deliverable_bytes VALUES ('a', zeroblob(10))",
+            [],
+        )
+        .unwrap();
+        assert!(bounded(&db, &[0; 10], 20).is_ok());
+        assert!(bounded(&db, &[0; 11], 20).is_err());
+    }
     #[tokio::test]
     async fn dv2_metadata_only() {
         let dir = tempfile::tempdir().unwrap();
