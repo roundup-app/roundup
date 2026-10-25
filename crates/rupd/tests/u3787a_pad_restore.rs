@@ -374,22 +374,43 @@ async fn u3787a_mirror_refusal_rolls_back_restore_and_can_retry() {
 }
 
 #[tokio::test]
-async fn u3787a_restore_does_not_reauthorize_a_revoked_publication() {
+async fn u3787a_restored_pad_can_publish_again_without_reauthorizing_old_publications() {
     let w = world().await;
-    let original = call(&w, "pad.create", json!({"name":"notes","text":"published"})).await;
-    let publication = call(&w,"deliverable.publish",json!({"key":"result","title":"Result","target":{"kind":"pad","name":"notes","incarnation":original["incarnation"],"revision":1}})).await;
-    let receipt = call(&w, "pad.delete", json!({"name":"notes"})).await;
-    call(&w, "pad.restore", deletion_id(&receipt)).await;
-    let resolved = call(
-        &w,
-        "deliverable.resolve",
-        json!({"project":publication["project"],"id":publication["id"]}),
-    )
-    .await;
-    assert_eq!(
-        resolved,
-        json!({"kind":"unavailable","cause":"access-revoked"})
-    );
+    let pad = call(&w, "pad.create", json!({"name":"notes","text":"published"})).await;
+    let mut publications = Vec::new();
+    for (key, operation) in [("first", "delete-first"), ("second", "delete-second")] {
+        let publication = call(&w, "deliverable.publish", json!({"key":key,"title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await;
+        let resolved = call(
+            &w,
+            "deliverable.resolve",
+            json!({"project":publication["project"],"id":publication["id"]}),
+        )
+        .await;
+        assert_eq!(resolved["kind"], "retained");
+        assert_eq!(
+            std::fs::read_to_string(resolved["path"].as_str().unwrap()).unwrap(),
+            "published"
+        );
+        publications.push(publication);
+        let receipt = call(
+            &w,
+            "pad.delete",
+            json!({"name":"notes","operation":operation}),
+        )
+        .await;
+        call(&w, "pad.restore", deletion_id(&receipt)).await;
+        for publication in &publications {
+            assert_eq!(
+                call(
+                    &w,
+                    "deliverable.resolve",
+                    json!({"project":publication["project"],"id":publication["id"]})
+                )
+                .await,
+                json!({"kind":"unavailable","cause":"access-revoked"})
+            );
+        }
+    }
 }
 
 #[tokio::test]
