@@ -104,7 +104,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
   await waitFor(() => expect(screen.getByText(/No working folder was recorded/)).toBeTruthy());
-  expect(screen.getByText(/The import conflicts with the current work/)).toBeTruthy();
+  expect(screen.getByText(/The saved conversation changed/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
@@ -271,7 +271,7 @@ it("u3083c_failed_import_preserves_failed_row", async () => {
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  const alert = await screen.findByText(/The import conflicts with the current work/);
+  const alert = await screen.findByText(/The saved conversation changed/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
 });
@@ -598,7 +598,7 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
     fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).error.message).toBe(message));
 
-    return within(row).getByRole("alert").textContent;
+    return screen.getByRole("alert").textContent;
   };
 
   const refusal = await submit();

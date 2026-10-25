@@ -28,6 +28,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const found = state.discovery;
   const failure = state.failure;
   const refused = state.failed;
+  const uncertain = () => !state.verified() && [...refused().values()].some(failure => copy.importRowRefusal(failure) === null);
   const pending = state.pending;
   const discover = state.refresh;
   const choose = state.setPeriod;
@@ -46,7 +47,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           </div>
       </SettingsGroup>
       <SettingsGroup name={copy.importResults}><div class="import-panel">
-          <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null)}
+          <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null)}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
             <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
           </ReservedLine>
@@ -81,7 +82,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                     <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2))}>{copy.copy}</button>
                   </li>
                 )}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /><button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ source, error: reason }, null, 2))}>{copy.copy}</button></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li class="import-candidate"><div class="import-text"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /></div><button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ source, error: reason }, null, 2))}>{copy.copy}</button></li>}</For>
               </ul>
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
