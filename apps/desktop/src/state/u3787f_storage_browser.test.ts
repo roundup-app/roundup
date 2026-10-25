@@ -10,6 +10,8 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
     for (const seed of ["tree-40", "tabs-8", "conflict"]) {
       await lane.browser("open", `${origin}/harness.html?seed=${seed}&todos=worst`);
       await lane.until("!!document.querySelector('[role=tree]')");
+      await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
+      await lane.until("!!document.querySelector('.settings-font input')");
       await lane.capture("U3787f", `head-${seed}-before`);
       await lane.evaluate(`(async () => {
         const original = Storage.prototype.setItem;
@@ -28,7 +30,7 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
       await lane.evaluate("window.__restoreStorage()");
       await lane.browser("click", ".storage-failure button");
       await lane.until("!document.querySelector('.storage-failure')");
-      expect(await lane.evaluate("import('/src/settings/preferences.ts').then(module => module.appSettings().fontFamily)")).toBe("Original font 雪");
+      expect(await lane.evaluate("document.querySelector('.settings-font input').value")).toBe("Original font 雪");
       await lane.capture("U3787f", `head-${seed}-retained`);
     }
   } finally { await lane.close(); }
