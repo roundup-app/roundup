@@ -101,6 +101,7 @@ it.each(["save", "read", "mismatch", "restart-read", "cleanup"])("u4086c_quarant
 
   if (failure === "mismatch") entries.mockImplementationOnce(async () => [...cache]).mockImplementationOnce(async () =>
     [...cache].map(([name]): [string, unknown] => [name, { key, bytes: "different retained bytes" }]));
+
   if (failure === "restart-read") entries.mockImplementationOnce(async () => [...cache])
     .mockImplementationOnce(async () => [...cache]).mockRejectedValueOnce(new Error("reopen denied"));
   const remove = vi.spyOn(Storage.prototype, "removeItem");

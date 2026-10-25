@@ -12,6 +12,10 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
       localStorage.clear();
       localStorage.setItem('roundup:shelf:/p', '{"open":');
       localStorage.setItem('roundup:rail:/q', '{"selected":');
+      localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({ version: 1, drafts: [{
+        revision: 'original-ask-revision', destination: { surface: 'ask', object: 'ask-bar', recipient: null },
+        value: { text: 'Original saved work 雪', workstream: null, name: null }, selection: null, status: 'draft', policy: 'ordinary',
+      }] }));
     })()`);
     await lane.browser("open", `${origin}/harness.html?seed=tree-40&storage-recovery=1`);
     await lane.until("document.querySelector('.storage-failure')?.textContent.includes('Continue without these settings')");
@@ -41,6 +45,7 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
     await lane.until("window.__fake.app.clipboardWrites.length === 1");
     const copied = await lane.evaluate<string>("window.__fake.app.clipboardWrites[0]");
     expect(JSON.parse(copied)).toEqual({ key: "roundup:rail:/q", bytes: '{"selected":' });
+    expect(await lane.evaluate<string>("document.querySelector('.ask-input').value")).toBe("Original saved work 雪");
     const calls = await lane.calls();
     expect(calls.filter(call => /(?:ask.send|agent.start|terminal.write)/.test(call.method))).toEqual([]);
     await lane.capture("U4086b", "head-reopened-copy");
