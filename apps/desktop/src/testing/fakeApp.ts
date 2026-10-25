@@ -26,6 +26,7 @@ const emptyReads: Handlers = {
   "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),
   "terminal.scheme": () => null,
   "todo.list": () => [],
+  "todo.deletion": () => null,
   "todo.listHanded": () => [],
   "message.list": () => [],
   "pad.list": () => [],

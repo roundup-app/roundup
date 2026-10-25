@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 87] = [
+pub const TOOL_METHODS: [&str; 88] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -38,6 +38,7 @@ pub const TOOL_METHODS: [&str; 87] = [
     // U3523a: read-only listing for the import Agent
     "import.list",
     "pad.write",
+    "pad.rename",
     "pad.append",
     "pad.appendSection",
     "pad.setOwner",
@@ -116,7 +117,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 65] = [
+pub const NO_TOOL: [&str; 67] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -146,6 +147,8 @@ pub const NO_TOOL: [&str; 65] = [
     "todo.refs",
     // T25: only the Daemon hands a Todo.
     "todo.hand",
+    "todo.restore",
+    "todo.deletion",
     "message.drop",
     "terminal.list",
     "terminal.snapshot",
@@ -263,4 +266,58 @@ pub fn seam_commands() -> Vec<String> {
 /// M5, M6: the tools a non-Door Agent is offered.
 pub fn expected_tools() -> Vec<String> {
     TOOL_METHODS.iter().map(|m| tool_name(m)).collect()
+}
+
+#[tokio::test]
+async fn u3789a_mcp_and_cli_rename_keep_the_guarded_creation() {
+    let project = super::start_daemon();
+    let owner = super::client_as(&project.socket, super::agent("maker")).await;
+    let original = owner
+        .request(
+            "pad.create",
+            serde_json::json!({"name":"Notes","text":"original"}),
+        )
+        .await
+        .unwrap();
+    let shim = super::spawn_shim(&project.socket, "maker").await;
+    let refused = shim
+        .call(
+            "pad_rename",
+            serde_json::json!({"name":"Notes","newName":"Plan","expectedIncarnation":"stale"}),
+        )
+        .await;
+    assert_eq!(refused.is_error, Some(true));
+    assert_eq!(super::text(&refused)["code"], rpc::code::CONFLICT);
+    let accepted = shim.call("pad_rename", serde_json::json!({"name":"Notes","newName":"Plan","expectedIncarnation":original["incarnation"]})).await;
+    assert_eq!(accepted.is_error, Some(false));
+    let mut expected = original.clone();
+    expected["name"] = serde_json::json!("Plan");
+    assert_eq!(super::text(&accepted), expected);
+    let cli = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .args([
+            "pad",
+            "rename",
+            "Plan",
+            "Final",
+            original["incarnation"].as_str().unwrap(),
+            "--agent",
+            "maker",
+        ])
+        .env("RUPD_SOCKET", &project.socket)
+        .output()
+        .await
+        .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    expected["name"] = serde_json::json!("Final");
+    assert_eq!(
+        owner
+            .request("pad.read", serde_json::json!({"name":"Final"}))
+            .await
+            .unwrap(),
+        expected
+    );
 }
