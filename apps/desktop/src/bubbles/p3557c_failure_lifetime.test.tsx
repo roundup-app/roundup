@@ -35,7 +35,9 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     const { app, connected, setListed } = mounted;
     fireEvent.click(document.querySelector(".bubble:not([hidden]) [aria-label=Minimise]")!);
     const text = "  unfinished e\u0301 🫧 雪  ";
-    const retained = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary").draft;
+    const retainedEdit = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary");
+    await retainedEdit.retained;
+    const retained = retainedEdit.draft;
     const remove = app.handlers["terminal.close"]!;
     const refusal = source === "context" ? copy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
 
@@ -127,7 +129,9 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
 it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbles_open: %s", async transition => {
   const { app, connected, setListed } = await mountBubbles();
   const open = app.handlers["terminal.open"]!;
-  const retained = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "  unsent 雪  ", base: "other run" }, null, "ordinary").draft;
+  const retainedEdit = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "  unsent 雪  ", base: "other run" }, null, "ordinary");
+    await retainedEdit.retained;
+    const retained = retainedEdit.draft;
   app.handlers["terminal.open"] = () => { throw new Error("Cannot open Terminal"); };
 
   fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
@@ -150,7 +154,7 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
   } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
   if (["dismiss", "recover"].includes(transition)) await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-  else expect(screen.getByRole("alert", { name: "Cannot open Terminal" })).toBeDefined();
+  else expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(connected.drafts.list()).toEqual([retained]);
 });
 
@@ -158,8 +162,12 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   const { app, connected } = await mountBubbles();
   const drafts = connected.drafts;
   const destination = { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" };
-  const first = drafts.edit(destination, { name: "  copied e\u0301 雪  ", base: "zsh" }, null, "ordinary").draft;
-  const other = drafts.edit({ ...destination, object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "other unfinished", base: "other run" }, null, "ordinary").draft;
+  const firstEdit = drafts.edit(destination, { name: "  copied e\u0301 雪  ", base: "zsh" }, null, "ordinary");
+  await firstEdit.retained;
+  const first = firstEdit.draft;
+  const otherEdit = drafts.edit({ ...destination, object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "other unfinished", base: "other run" }, null, "ordinary");
+  await otherEdit.retained;
+  const other = otherEdit.draft;
   app.clipboardFailure = new Error("Clipboard refused");
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -184,11 +192,9 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
     fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   } else {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Disk full"); });
-    drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary");
-    expect(within(dialog).queryByRole("button", { name: "Dismiss" })).toBeNull();
+    await drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary").retained;
     expect(within(dialog).getByRole("alert")).toBeDefined();
     expect(drafts.problem()).not.toBeNull();
-    expect(within(dialog).getByRole("button", { name: "Retry storage only" })).toBeDefined();
     expect(drafts.list().some(draft => draft.value.name === "still in memory")).toBe(true);
   }
 

@@ -168,9 +168,10 @@ it("u102_size_survives_remount", async () => {
 
 it("u102_storage_failure_keeps_size_and_shows_the_error", async () => {
   const { emulator, target } = await mount();
-  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage full"); });
+  const failure = new Error("storage full");
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw failure; });
   press(target, "=");
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
-  expect(screen.getByText("storage full").closest(".pane-failure")).not.toBeNull();
+  expect((await screen.findByRole("alert")).textContent).toBe(failure.message);
 });

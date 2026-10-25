@@ -2,7 +2,7 @@ import { copy } from "../copy";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
-import { storedValue } from "../state/storage";
+import { storageSchema, storedValue } from "../state/storage";
 
 type Limits = { min: number; max: number; fallback: number };
 
@@ -21,7 +21,7 @@ export const shelfEffective = (stored: number): number => limited(stored, SHELF)
 
 const finite = (fallback: number) => v.fallback(v.pipe(v.number(), v.finite()), fallback);
 
-const widthsSchema = v.object({ rail: finite(RAIL.fallback), shelf: finite(SHELF.fallback) });
+const widthsSchema = storageSchema("roundup:widths", v.object({ rail: finite(RAIL.fallback), shelf: finite(SHELF.fallback) }));
 
 /** U389, U390: what the webview keeps per Project, as U100 keeps layout; a stored width that is not a finite number means the default. */
 const storageOf = (path: string) => storedValue(`roundup:widths:${path}`, widthsSchema);
