@@ -177,9 +177,11 @@ Each `build/cargo-*/` directory retains:
 | `cargo-timing-*.html` | Raw Cargo unit durations, targets, features, profile, build start and duration |
 | `trace.<pid>` | strace exec arguments, descendants, exec errors, signals and real exits; argv bytes use `-xx` hex encoding |
 | `strace.stderr` | Cargo diagnostics and tracer errors |
+| `cargo.stdout` | Raw Cargo JSON compiler-artifact, build-script and build-finished records; program output for Cargo run |
 | `build.json` | Original/effective commands, command envelope, successful exec intervals and failed exec attempts, collection status |
 
 `build/summary.json` validates the raw records, retains units/profile/features,
+verifies newly compiled executables/shared libraries have matching link outputs,
 and ranks **all packages by descending summed unit wall seconds** across the
 lane's actual Cargo invocations (package name/version, stable lexical tie break).
 Take its first three `packages` rows for #3985's llvm-lines work. Summed unit
@@ -204,7 +206,7 @@ replace missing measurements with zero. Investigate and repair an unsupported
 invocation before using it in a comparison.
 
 The observer adds Python proxy startup, Cargo HTML generation, ptrace process
-tracing, trace writes and report copying. This overhead is **not calibrated or
+tracing, trace writes, stdout retention/replay and report copying. This overhead is **not calibrated or
 subtracted**. Exec timestamps include loader startup and tracing overhead; they
 are observed process intervals, not CPU time. Use this exact observer revision
 on instrumented baseline and candidate, and retain the overhead in command/job
@@ -239,7 +241,7 @@ three-sample medians/ranges, candidate decisions and llvm-lines table.
 
 Cargo 1.99.0's installed `--timings` and nextest 0.9.149's forwarding flag were
 probed with a real compilation. [Cargo timings](https://doc.rust-lang.org/cargo/reference/timings.html)
-supply unit reports, but no external linker argv or process exit interval.
+supply unit reports. Cargo’s [JSON compiler-artifact/build-finished messages](https://doc.rust-lang.org/cargo/reference/external-tools.html) supply target/profile/features and completion status, but no external linker argv or process exit interval.
 Existing E14 artifacts and Actions logs supply lifecycle, runner memory, job
 and cache facts; they do not contain linker intervals.
 
@@ -257,7 +259,8 @@ and cache facts; they do not contain linker intervals.
 
 Behavioral collection tests run with the existing `observe.test.py` command.
 They compile a tiny fixture through real nextest, retain a real failed linker,
-and reject absent/incomplete reports and intervals. The source-text timeout
+terminate a run-owned build descendant, and reject absent/incomplete raw reports
+and intervals. The source-text timeout
 configuration test was removed under rule 10; the existing memory stop/coverage
 observers still prove collector completion and whole-lane coverage. The
 40-minute collector bound and all existing budgets remain unchanged.

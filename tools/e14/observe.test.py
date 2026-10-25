@@ -275,6 +275,7 @@ class CI3781Reports(unittest.TestCase):
             directory.mkdir()
             html = 'const UNIT_DATA = [{"name":"one","version":"1","target":"bin","features":[],"duration":2}]; <td>Profile:</td><td>test</td> <td>Build start:</td><td>2026-10-25T00:00:00Z</td>\nDURATION = 3;'
             (directory / 'timing.html').write_text(html)
+            (directory / 'cargo.stdout').write_text(json.dumps(dict(reason='compiler-artifact', package_id='one@1', target=dict(name='one'), profile={}, features=[], filenames=['one'], executable='one', fresh=False)) + '\n' + json.dumps(dict(reason='build-finished', success=True)))
             valid = dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'], links=[])
             trace = r'2.000000 execve("\x2f\x62\x69\x6e\x2f\x6c\x64", ["\x6c\x64", "\x2d\x6f", "\x6f\x6e\x65"], 0x0 /* 0 vars */) = 0' + '\n3.000000 +++ exited with 0 +++\n'
             failures = [
@@ -284,6 +285,7 @@ class CI3781Reports(unittest.TestCase):
                 (valid, trace.split('\n')[0], 'missing linker interval'),
                 (valid, trace.replace(r'\x6f\x6e\x65', r'\x40\x66\x69\x6c\x65'), 'response file'),
                 (valid, '', 'missing raw process trace'),
+                (valid, trace.replace(r'\x6f\x6e\x65', r'\x74\x77\x6f'), 'missing linker observation for Cargo artifact'),
                 (valid, trace.replace(r'"\x6f\x6e\x65"', '...'), 'truncated exec argv'),
             ]
             for record, raw, error in failures:
