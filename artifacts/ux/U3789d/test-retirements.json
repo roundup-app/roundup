@@ -370,7 +370,8 @@
     {
       "file": "apps/desktop/src/todos/u35_todo_triage.test.tsx",
       "test": "u35_hovering_an_open_row_keeps_the_tick_box_which_calls_todo_complete",
-      "retirement": "U3789e/U3789d retire row presentation requirements; AGENTS.md rule 10 retires appearance and exact-copy assertions to the rendered observer."
+      "retirement": "U3789e/U3789d retire row presentation requirements; AGENTS.md rule 10 retires appearance and exact-copy assertions to the rendered observer.",
+      "replacement": "u35_complete_logs_no_read_touch_and_does_not_open_the_drawer"
     },
     {
       "file": "apps/desktop/src/todos/u35_todo_triage.test.tsx",
@@ -405,7 +406,8 @@
     {
       "file": "apps/desktop/src/todos/u3708_nesting.test.tsx",
       "test": "u3810_locked_rows_name_only_open_blockers_and_open_their_drawers (u3708_the_other_blockers_show_as_one_quiet_line)",
-      "retirement": "U3789e/U3789d retire row presentation requirements; AGENTS.md rule 10 retires appearance and exact-copy assertions to the rendered observer."
+      "retirement": "U3789e/U3789d retire row presentation requirements; AGENTS.md rule 10 retires appearance and exact-copy assertions to the rendered observer.",
+      "replacement": "u17_waits_on_lists_each_blocker_with_its_own_glyph; u3789a_return_and_open_activate_once"
     },
     {
       "file": "apps/desktop/src/todos/u3717_owner_groups.test.tsx",
