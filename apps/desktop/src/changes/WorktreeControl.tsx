@@ -52,7 +52,6 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   const [path, setPath] = createSignal<string>();
   const [editing, setEditing] = createSignal<Note>();
   const [diff, setDiff] = createSignal(false);
-  const [control, setControl] = createSignal<HTMLButtonElement>();
 
   createEffect(on(() => [open(), version()] as const, ([now]) => {
     if (!now) return;
@@ -74,22 +73,20 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     onCleanup(() => { current = false; });
   }));
 
-  const hide = () => { setOpen(false); setDiff(false); setEditing(undefined); };
+  const close = () => { setOpen(false); setDiff(false); setEditing(undefined); };
 
   const branchCut = createCutTitle(() => props.worktree.branch);
   const baseCut = createCutTitle(() => props.worktree.base);
 
-  const close = () => { hide(); control()?.focus(); };
-
   let viewButton: HTMLButtonElement | undefined;
   const openPanel = () => { props.onOpen(); setOpen(true); };
 
-  createEffect(() => { if (props.recoveryOpen) hide(); });
+  createEffect(() => { if (props.recoveryOpen) close(); });
 
   return (
     <Popover.Root closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Popover.Trigger asChild={(trigger) => (
-        <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
+        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
           <span class="worktree-branch">{props.worktree.branch}</span>
         </button>
