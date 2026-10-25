@@ -62,6 +62,11 @@ _Avoid_: bot, worker; and _session_ for an Agent.
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
 _Avoid_: process, console
 
+| Code term | User label | Avoid |
+|---|---|---|
+| Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
+| Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
+
 **Terminal incarnation** (`TerminalInfo.incarnation`):
 The opaque, non-secret identity of one original Terminal, generated independently of
 authentication and vendor content. It stays the same across public reads and reconnects
@@ -930,8 +935,8 @@ The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies
 **Thrown outcome** (`outcomeOf`):
 The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
 
-**Keystroke sample** (`KeystrokeSample`):
-One opt-in R20 input identity in one Terminal. Its raw-echo workload carries an invisible OSC 777 marker (`run` plus key ordinal); receipt, physical write/flush and echo read use the Daemon monotonic clock. A duplicate echo is ambiguous, never evidence for another key. Ordinary input carries no marker.
+### Pad restoration
 
-**Keystroke measurement** (`MeasureParams`, `Measurement`, `terminal.measure`):
-A user-only opt-in recording for one running Terminal and run identity, bounded to 4096 samples and released with that Terminal. Reads return retained samples and one Daemon clock reading for a webview-bracketed calibration exchange. It neither writes input nor changes enqueue acknowledgements. It changes no Message, Route, Held or Takeover law (M1–M10).
+| Code term | User label | Avoid |
+|---|---|---|
+| Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |

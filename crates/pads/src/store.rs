@@ -75,7 +75,7 @@ pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSo
 const FILES_SETTING: &str = "files";
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
     settings: &'static str,
 }
 

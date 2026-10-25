@@ -113,7 +113,9 @@ declarations! { $;
         "pad.appendSection": contracts::pad::AppendSectionParams => contracts::pad::Pad, rpc_pad_append_section, all(schema(contracts::pad::AppendSectionParams,"Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since."));
         "pad.setOwner": contracts::pad::SetOwnerParams => contracts::pad::Pad, rpc_pad_set_owner, all(schema(contracts::pad::SetOwnerParams,"Give a Pad to another Actor."));
         "pad.move": contracts::pad::MoveParams => contracts::pad::Pad, rpc_pad_move, none();
-        "pad.delete": contracts::pad::PadName => (), rpc_pad_delete, all(schema(contracts::pad::PadName,"Delete a Pad."));
+        "pad.delete": contracts::pad::DeleteParams => contracts::pad::Deletion, rpc_pad_delete, all(schema(contracts::pad::DeleteParams,"Delete a Pad, retaining its original creation for restoration."));
+        "pad.getDeletion": contracts::pad::GetDeletionParams => contracts::pad::Deletion, rpc_pad_get_deletion, all(schema(contracts::pad::GetDeletionParams,"Reconcile an unknown Pad deletion on its originating Project."));
+        "pad.restore": contracts::pad::DeletionId => contracts::pad::Deletion, rpc_pad_restore, all(schema(contracts::pad::DeletionId,"Restore your retained Pad deletion once, without replaying external effects."));
         "pad.export": contracts::pad::ExportParams => (), rpc_pad_export, all(schema(contracts::pad::ExportParams,"Write a Pad's text to a file at an absolute path."));
         "pad.setStorage": contracts::pad::SetStorageParams => (), rpc_pad_set_storage, all(schema(contracts::pad::SetStorageParams,"Choose whether the Project mirrors its Pads to files."));
     }
