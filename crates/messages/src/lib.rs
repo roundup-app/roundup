@@ -28,7 +28,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::RailNode;
@@ -399,18 +398,9 @@ fn item(id: u32) -> String {
     format!("message:{id}")
 }
 
-fn now() -> SystemTime {
-    SystemTime::now()
-}
-
 fn now_ms() -> i64 {
-    i64::try_from(
-        now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 /// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
