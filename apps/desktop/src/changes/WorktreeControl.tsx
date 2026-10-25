@@ -1,6 +1,6 @@
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createCutTitle } from "../ui/cutTitle";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -22,7 +22,7 @@ import "./styles.css";
 type Read = { failure: null; changed: ChangedFiles } | { failure: string; changed?: ChangedFiles } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
-const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void; recover: () => void }) => {
+const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void; returnFocus?: (() => void) | undefined; recover: () => void }) => {
   const { app, worktrees, rail } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
@@ -78,7 +78,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
     if (changed?.files.length === 0 && open()) {
       close();
-      queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex], .ask-input")?.focus());
+      queueFocus(() => props.returnFocus?.());
     }
   };
 
@@ -156,7 +156,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 };
 
 /** U2539b: the bottom bar's one control for the selected Agent's Worktree; none for an Agent without one. */
-export const WorktreeControl = () => {
+export const WorktreeControl = (props: { returnFocus?: (() => void) | undefined }) => {
   const { rail, app, project, drafts, hasView, hideView, showView } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
   const names = new Map<string, string>();
@@ -176,5 +176,5 @@ export const WorktreeControl = () => {
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <><Show when={selected()} keyed>{(each) => <Panel recover={() => setRecoveryOpen(true)} id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
+  return <><Show when={selected()} keyed>{(each) => <Panel returnFocus={props.returnFocus} recover={() => setRecoveryOpen(true)} id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
 };

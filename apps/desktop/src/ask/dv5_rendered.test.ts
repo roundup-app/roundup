@@ -56,7 +56,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     if (process.env.ROUNDUP_BASELINE_ROOT) {
       baseline = await createServer({ root: process.env.ROUNDUP_BASELINE_ROOT, configFile: join(process.env.ROUNDUP_BASELINE_ROOT, "vite.config.ts"), logLevel: "silent", plugins: [realDaemon({ project: real.dir, socket: join(real.dir, "rupd.sock") })], server: { host: "127.0.0.1", port: 0 } });
       await baseline.listen();
-      await browser("open", `${baseline.resolvedUrls!.local[0]}harness.html?daemon=1`);
+      await browser("open", `${baseline.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       await until("!!document.querySelector('.ask-input')");
       await capture("base/overview");
     }

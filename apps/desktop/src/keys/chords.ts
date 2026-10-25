@@ -57,8 +57,8 @@ export type LeaderKey = { keys: string; what: string; short: string; press: stri
 
 export const LEADER: readonly LeaderKey[] = [
   { keys: "A", what: copy.assignTodo, short: copy.assign, press: "KeyA" },
-  { keys: "P", what: "Switch Project", short: "Projects", press: "KeyP" },
-  { keys: "C", what: "Review changes", short: "Changes", press: "KeyC" },
+  { keys: "P", what: copy.switchProject, short: "Projects", press: "KeyP" },
+  { keys: "C", what: copy.reviewChanges, short: "Changes", press: "KeyC" },
   { keys: "J", what: copy.jumpToWhatNeedsYou, short: copy.leaderShortNeedsYou, press: "KeyJ" },
   { keys: "⇧J", what: copy.jumpToWhatNeedsYouInAnotherProject, short: copy.leaderShortAnotherProject, press: "Shift+KeyJ" },
   { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },

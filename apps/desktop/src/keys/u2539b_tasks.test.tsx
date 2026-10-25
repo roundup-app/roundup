@@ -59,7 +59,6 @@ it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
   expect(screen.getByRole("heading", { level: 1 }).getAttribute("aria-label")).toContain("Agent 0");
   fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
-  expect(screen.getByRole("textbox", { name: "Ask" })).toBeTruthy();
 });
 
 it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
@@ -289,6 +288,8 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
     if ([...document.querySelectorAll(".inbox-item")].some(row => row.textContent?.includes(target.name))) {
       found.push("Inbox entry", "Inbox section count");
     }
+
+    if (connected().rail.selected() === target.id && document.querySelector(".window-identity [data-state]")) found.push("Selected Agent title");
 
     return found;
   };

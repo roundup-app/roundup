@@ -195,12 +195,12 @@ rendered("u137 rendered surfaces", () => {
     if (!chrome) throw new Error("U137 requires Chromium");
 
     page = await openPage(chrome);
-    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-report", 1280, 800);
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
   it("u3712_d2_accepts_only_the_declared_token_derived_tree_padding", async () => {
-    await page.load("/harness.html?seed=tree-40");
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
 
     const statuses = await page.call<string[]>(`() => {
       document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--space-4))">Grandchild</div></div>';
@@ -229,7 +229,7 @@ rendered("u137 rendered surfaces", () => {
   it.each(["milkdown-slash-menu", "app-select-list", "app-menu", "app-popover", "app-dialog", "shelf"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
-      await page.load("/harness.html?seed=tree-40");
+      await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
 
       const observed = await page.call<string[]>(`(surface) => {
         document.body.innerHTML = '<div class="${surface}" ${({ 'app-select-list': 'role="listbox" data-scope="select" data-part="content"', 'app-menu': 'role="menu" data-scope="menu" data-part="content"', 'shelf': 'data-open="true"', 'app-popover': 'data-scope="popover" data-part="content"', 'app-dialog': 'role="dialog" data-scope="dialog" data-part="content"' }[surface] ?? "")} style="box-shadow:var(--elevation)"><p>Text</p></div><p class="content">Content</p>';
@@ -259,7 +259,7 @@ rendered("u137 rendered surfaces", () => {
   }, 60_000);
 
   it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
-    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-report", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
     await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 100% 100%">text</p>'; }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
@@ -268,7 +268,7 @@ rendered("u137 rendered surfaces", () => {
   });
 
   it("u137_unsupported_single_layer_coverage_is_not_measurable", async () => {
-    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-report", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
     await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 50% 50%; background-repeat: no-repeat">text</p>'; }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
@@ -285,7 +285,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
   afterAll(async () => { await page?.close(); });
 
   const load = async (seed: string, width = 1280, height = 800) => {
-    await page.load(`/harness.html?seed=${seed}`, width, height);
+    await page.load(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, width, height);
     await page.until(`() => Boolean(window.__fake) && Boolean(document.querySelector('[role="tree"]'))`);
 
     if (seed === "daemon-exits") await page.until(`() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Reopen')`);

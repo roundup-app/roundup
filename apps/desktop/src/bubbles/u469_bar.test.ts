@@ -37,7 +37,7 @@ const capture = async (name: string): Promise<void> => {
 };
 
 it("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable", async () => {
-  await page.load('/harness.html?seed=bubbles', 1280, 800);
+  await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length === 3`);
@@ -59,7 +59,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
     await page.scheme(scheme);
 
     for (const width of [FULLSCREEN.width]) {
-      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
+      await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('#shelf-tab-todos')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
@@ -110,7 +110,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
 }, 120_000);
 
 it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_from_the_keyboard_%s", async (key, code) => {
-  await page.load('/harness.html?seed=bubbles', 1280, 800);
+  await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);

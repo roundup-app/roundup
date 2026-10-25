@@ -1,4 +1,5 @@
-import { createEffect, createMemo, onCleanup } from "solid-js";
+import { KindGlyph } from "../ink/KindGlyph";
+import { createEffect, createMemo, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
@@ -16,8 +17,11 @@ export const WindowBar = (props: {
   shelf?: JSX.Element;
   onFailure: (message: string | null) => void;
 }) => {
+  const agent = createMemo(() => props.rail?.nodes.find(node => node.id === props.rail?.selected() && node.kind === "agent"));
   const title = createMemo(() => {
     if (!props.project) return copy.roundup;
+
+    if (agent()) return `${props.project} — ${agent()!.name}`;
 
     const nodes = props.rail?.nodes ?? [];
     const id = resolvedWorkstream(nodes, props.rail?.selected() ?? null);
@@ -90,10 +94,13 @@ export const WindowBar = (props: {
       if (event.button === 0 && empty(event.target)) void action(event.detail === 2 ? "zoom" : "drag");
     }}>
       <div class="traffic-lights" aria-hidden="true" />
-      {props.children}
-      <Tip text={title()}>
-        {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
-      </Tip>
+      <div class="window-actions">{props.children}</div>
+      <div class="window-identity">
+        <Tip text={title()}>
+          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
+        </Tip>
+        <Show when={agent()?.status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show>
+      </div>
       {props.shelf}
     </div>
   );

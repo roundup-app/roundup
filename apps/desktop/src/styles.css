@@ -534,3 +534,5 @@ code {
 
 .window[data-rail="closed"] .columns { grid-template-columns: minmax(0, 1fr); }
 .window[data-rail="closed"] :is(.rail, .rail-edge) { display: none; }
+
+.choose-project { padding-inline: var(--space-4); }

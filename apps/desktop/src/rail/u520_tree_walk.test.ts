@@ -44,7 +44,7 @@ run("u520 the Rail is a tree", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
   it("u520_three_level_keyboard_walk", async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
     await page.until(`() => document.querySelector('[role=tree] [data-id="backend"]') !== null`);
 
     // Close the Shelf so its bar-to-panel Tab path does not precede the Rail.
@@ -88,7 +88,7 @@ run("u520 the Rail is a tree", () => {
   });
 
   it("u520_done_line_is_not_a_row", async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
     await page.until(`() => document.querySelector('[role=tree] [data-id="auth"]') !== null`);
 
     const rows = await page.call<string[]>(`() => [...document.querySelectorAll('[role=treeitem][data-id]')].map((row) => row.getAttribute('data-id'))`);

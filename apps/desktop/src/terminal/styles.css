@@ -169,3 +169,5 @@
 .xterm .xterm-viewport {
   overscroll-behavior: contain;
 }
+
+.pane-navigation { padding-inline: var(--space-4); padding-block: var(--space-2); }
