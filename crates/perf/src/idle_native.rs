@@ -69,17 +69,32 @@ impl Native {
                 .output(),
         )
         .await;
-        let (status, stdout, stderr) = match result {
-            Ok(Ok(out)) => (out.status.code(), out.stdout, out.stderr),
-            Ok(Err(e)) => (None, vec![], e.to_string().into_bytes()),
-            Err(e) => (None, vec![], format!("command deadline: {e}").into_bytes()),
+        let (status, termination, stdout, stderr) = match result {
+            Ok(Ok(out)) => (
+                out.status.code(),
+                format!("{:?}", out.status),
+                out.stdout,
+                out.stderr,
+            ),
+            Ok(Err(e)) => (
+                None,
+                "spawn failed".into(),
+                vec![],
+                e.to_string().into_bytes(),
+            ),
+            Err(e) => (
+                None,
+                "command deadline".into(),
+                vec![],
+                format!("command deadline: {e}").into_bytes(),
+            ),
         };
         std::fs::write(prefix.with_extension("stdout"), &stdout)?;
         std::fs::write(prefix.with_extension("stderr"), &stderr)?;
         std::fs::write(
             prefix.with_extension("json"),
             serde_json::to_vec_pretty(
-                &json!({ "argv":[program,args.join(" ").as_str()], "args":args, "start_s":begin, "end_s":self.now(), "status":status }),
+                &json!({ "argv":[program,args.join(" ").as_str()], "args":args, "start_s":begin, "end_s":self.now(), "status":status, "termination":termination }),
             )?,
         )?;
         if status != Some(0) {
