@@ -176,7 +176,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     putState(id, remaining.length ? { ...failed, notes: remaining } : { kind: "idle", text: "" });
   };
 
-  const retain = (id: string, value: Recipient) => {
+  const retain = async (id: string, value: Recipient) => {
     const empty = !value.notes.length && !value.forms.length && !value.submissions.length && !value.recovered.length;
 
     setAll(old => {
@@ -191,8 +191,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     if (invalid.size) return;
 
     if (empty) {
-      for (const draft of records()) if (draft.destination.surface === "changes" && draft.destination.recipient === id) setProblem(storage.discard(draft.revision));
-    } else setProblem(storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").problem);
+      for (const draft of records()) if (draft.destination.surface === "changes" && draft.destination.recipient === id) setProblem(await storage.discard(draft.revision));
+    } else setProblem(await storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").retained);
   };
 
   const accepted = (id: string, submission: Submission, message: Message) => {
@@ -225,8 +225,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     entries: () => [...all().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
     copy: () => JSON.stringify({ project, drafts: records(), memory: [...all()] }, null, 2),
-    retry: () => {
-      setProblem(storage.retry());
+    retry: async () => {
+      setProblem(await storage.retry());
 
       // A recovered read can reveal older work alongside newer memory. Keep both, with no implicit merge or send.
       const saved = records();
@@ -270,10 +270,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
         return { ...draft, preview };
       }); },
-    discardInvalid: (revision: string) => {
+    discardInvalid: async (revision: string) => {
       invalid.delete(revision);
       setInvalidCount(invalid.size);
-      setProblem(storage.discard(revision));
+      setProblem(await storage.discard(revision));
 
       if (!invalid.size) for (const [id, value] of all()) retain(id, value);
     },
@@ -299,13 +299,13 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       retain(id, { ...current, recovered: current.recovered.filter(value => value.revision !== revision) });
     },
-    discardSubmission: (id: string, revision: string) => {
+    discardSubmission: async (id: string, revision: string) => {
       const current = recipient(id);
 
       const selected = current.submissions.find(value => value.revision === revision);
       const revisions = new Set(selected?.notes.map(note => note.revision));
 
-      retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== revision) });
+      await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== revision) });
 
       if (notes.problem()) return;
       const failure = sends().get(id);
@@ -314,21 +314,21 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       for (const note of selected?.notes ?? []) if (!list(id).some(value => value.id === note.id)) clearItem(id, note.id);
     },
-    save: (id: string, note: Omit<Note, "id" | "revision">, replacing?: number, form?: string) => {
+    save: async (id: string, note: Omit<Note, "id" | "revision">, replacing?: number, form?: string) => {
       const current = recipient(id);
       const values = current.notes;
 
       if (replacing === undefined && values.length >= 200) return false;
       const value = { ...note, id: replacing ?? ++next, revision: crypto.randomUUID() };
       const updated = values.some(old => old.id === replacing) ? values.map(old => old.id === replacing ? value : old) : [...values, value];
-      retain(id, { ...current, notes: updated, forms: current.forms.filter(value => value.revision !== form) });
+      await retain(id, { ...current, notes: updated, forms: current.forms.filter(value => value.revision !== form) });
 
       if (replacing !== undefined && !notes.problem()) clearItem(id, replacing);
 
       return true;
     },
-    remove: (id: string, note: number) => {
-      retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+    remove: async (id: string, note: number) => {
+      await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
 
       if (!notes.problem()) clearItem(id, note);
     },
@@ -337,7 +337,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const connection = app;
       const notes = [...list(id)];
       const submission: Submission = { revision: crypto.randomUUID(), notes, body: bodyOf(notes), previous: null, status: "pending", text: "" };
-      retain(id, { ...recipient(id), submissions: [...recipient(id).submissions, submission] });
+      await retain(id, { ...recipient(id), submissions: [...recipient(id).submissions, submission] });
       const prior = await history(connection, id);
 
       if (prior.kind !== "ok") {

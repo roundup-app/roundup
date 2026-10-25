@@ -835,7 +835,7 @@ export const Bubbles = (props: {
         }>{_edit =>
           <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
             <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
-              onValueCommit={({ value }) => {
+              onValueCommit={async ({ value }) => {
                 const submitted = revision;
                 const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
 
@@ -845,7 +845,7 @@ export const Bubbles = (props: {
                   return;
                 }
 
-                if (submitted && !drafts.submit(submitted)) {
+                if (submitted && !(await drafts.submit(submitted))) {
                   openRecovery();
 
                   return;

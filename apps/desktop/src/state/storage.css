@@ -1,0 +1,32 @@
+.storage-center {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.storage-center .settings-center {
+  flex: 1;
+  min-block-size: 0;
+  block-size: auto;
+}
+
+.storage-failure {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  color: var(--text);
+  background: var(--ground);
+  max-block-size: var(--measure);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+
+.storage-failure p {
+  margin: 0;
+  min-inline-size: 0;
+}

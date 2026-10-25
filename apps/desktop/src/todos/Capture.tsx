@@ -104,14 +104,14 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     close();
   };
 
-  const file = (keepOpen: boolean) => {
+  const file = async (keepOpen: boolean) => {
     const draft = text();
     const title = draft.trim();
     const revision = current();
 
-    if (title === "" || !revision || !drafts.submit(revision.revision)) return;
-
     const { owner, home } = target();
+
+    if (title === "" || !revision || !(await drafts.submit(revision.revision))) return;
     const retry = stranded?.title === title && home !== null ? stranded : null;
 
     stranded = null;
