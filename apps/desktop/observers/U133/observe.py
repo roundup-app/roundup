@@ -12,7 +12,7 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--base", default="http://127.0.0.1:5200")
 parser.add_argument("--head", default="http://127.0.0.1:5199")
 parser.add_argument("--side", choices=("base", "head", "both"), default="both")
-parser.add_argument("--phase", choices=("all", "rows", "controls"), default="all")
+parser.add_argument("--phase", choices=("all", "rows", "controls", "failure", "rail"), default="all")
 args = parser.parse_args()
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
@@ -34,7 +34,7 @@ def observe(side, origin):
     directory = output / side
     directory.mkdir(parents=True, exist_ok=True)
     profile = tempfile.mkdtemp(prefix="u133-observer-")
-    session = f"builder-40214203543-{side}"
+    session = f"builder-40214203543-{side}-{args.phase}"
 
     def browser(*command):
         reply = subprocess.run([args.browser, "--session", session, "--json", *command], capture_output=True, text=True, timeout=45, check=True)
@@ -83,6 +83,7 @@ def observe(side, origin):
         evaluate(SETTLE)
         point = evaluate(f"""(() => {{ const el=document.querySelector({json.dumps(selector)}); const b=el.getBoundingClientRect(); const owner=el.matches('input')?el.closest('.app-checkbox,.app-radio,.app-segment')??el:el;
           const style={STYLE}; window.__pressFrames={{before:style(owner)}};
+          owner.addEventListener('blur',()=>{{window.__pressFrames.cancelled='blur';}},{{once:true,capture:true}});
           window.addEventListener({json.dumps('keydown' if key else 'pointerdown')},()=>requestAnimationFrame(()=>{{window.__pressFrames.first=style(owner);window.__pressFrames.connected=owner.isConnected;}}),{{once:true,capture:true}});
           return {{x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}}; }})()""")
         if key:
@@ -120,6 +121,18 @@ def observe(side, origin):
         browser("set", "viewport", "1512", "950")
         browser("set", "media", "dark")
         evaluate("localStorage.clear()")
+        if args.phase == "rail":
+            load("/harness.html?seed=agents-10")
+            browser("press", "Tab")
+            browser("focus", ".rail-row[data-id=agent-3]")
+            press("rail-key", ".rail-row[data-id=agent-3]", key="Enter", reload=False)
+            return
+        if args.phase == "failure":
+            todos()
+            evaluate("window.__fake.failNext(-32003,'Offline. Retry.'); document.querySelector('.shelf input.todo-tick').click()")
+            wait("document.body.textContent.includes('Offline. Retry.')")
+            capture("dense-failure")
+            return
         if args.phase != "controls":
             for seed in ("first-run", "agents-10", "tree-40", "daemon-exits", "conflict"):
                 load(f"/harness.html?seed={seed}")
@@ -134,8 +147,8 @@ def observe(side, origin):
             browser("click", ".shelf .todo-row[data-todo] .todo-row-button")
             capture("todo-selected")
             drag(".shelf .todo-row[data-todo] .todo-row-button", "todo-dragged")
-            evaluate("window.__fake.failNext(-32003,'Offline. Reconnect.'); document.querySelector('.shelf input.todo-tick').click()")
-            wait("document.body.textContent.includes('Offline. Reconnect.')")
+            evaluate("window.__fake.failNext(-32003,'Offline. Retry.'); document.querySelector('.shelf input.todo-tick').click()")
+            wait("document.body.textContent.includes('Offline. Retry.')")
             capture("dense-failure")
             todos()
             browser("focus", ".shelf .todo-row[data-todo] .todo-row-button")
