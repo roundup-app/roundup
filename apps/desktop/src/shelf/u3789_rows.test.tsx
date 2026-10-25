@@ -218,14 +218,18 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_escape_
   expect(app.calls.filter(call => ["todo.update", "pad.rename", "pad.read", "todo.readHistory"].includes(call.method))).toEqual([]);
 });
 
-it("u3789d_controls_keep_all_actions", async () => {
+it.each(["pointer", "key"])("u3789d_controls_keep_all_actions_%s", async input => {
   const { app, row } = await target("agent");
   const selected = document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id');
-  fireEvent.contextMenu(row);
+  const menu = () => {
+    if (input === "pointer") fireEvent.contextMenu(row);
+    else { row.focus(); fireEvent.keyDown(row, { key: "ContextMenu" }); }
+  };
+  menu();
   await app.pickMenu("Open folder");
   expect(app.openedTargets).toHaveLength(1);
   expect(document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id')).toBe(selected);
-  fireEvent.contextMenu(row);
+  menu();
   expect(app.menuLabels()).toEqual(expect.arrayContaining(["Stop", "Rename", "Open in editor", "Remove"]));
   expect(rpcCalls(app, "agent.stop")).toEqual([]);
   expect(rpcCalls(app, "rail.remove")).toEqual([]);
