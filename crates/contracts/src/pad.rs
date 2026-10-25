@@ -105,3 +105,16 @@ pub struct MoveParams {
     pub name: String,
     pub home: Option<String>,
 }
+
+/// Rename this exact creation under its captured, exact spelling. Owner only.
+/// Incarnations are Project-scoped: submit on the originally captured Project connection.
+/// Missing name is NOT_FOUND; a changed spelling/incarnation or occupied destination is
+/// CONFLICT. Refusal changes no text, mirror, Touch or Event. Content Revision is unchanged.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, export_to = "pad/")]
+pub struct RenameParams {
+    pub name: String,
+    pub new_name: String,
+    pub expected_incarnation: String,
+}
