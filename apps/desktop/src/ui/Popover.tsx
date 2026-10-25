@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
-import { Popover as ArkPopover } from "@ark-ui/solid/popover";
-import { createComputed, createContext, createSignal, on, useContext } from "solid-js";
+import { Popover as ArkPopover, usePopoverContext } from "@ark-ui/solid/popover";
+import { createComputed, createContext, createSignal, on, onMount, useContext } from "solid-js";
 import { dialogOwned, floatingControl } from "./Dialog";
 import "./Popover.css";
 
@@ -33,6 +33,15 @@ export const Popover = {
   },
   Trigger: (props: ArkPopover.TriggerProps) => {
     const owner = useContext(Owner);
+    const popover = usePopoverContext();
+
+    // Ark's asChild omits refs; its public trigger id still identifies the rendered button.
+    onMount(() => {
+      const id = popover().getTriggerProps({ value: props.value }).id;
+      const element = id ? document.getElementById(id) : null;
+
+      if (element) owner?.setElement(element);
+    });
 
     return <ArkPopover.Trigger {...props} ref={(element: HTMLButtonElement) => {
       owner?.setElement(element);

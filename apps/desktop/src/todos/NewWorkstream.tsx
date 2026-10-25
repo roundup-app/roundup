@@ -47,7 +47,7 @@ const WaitFor = (props: { todos: readonly { id: number; title: string }[]; value
   }]);
 
   return <Popover.Root closeOnInteractOutside={false} open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger ref={element => { button = element; }} asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
+    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { button = element; }} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
       <span>{chosen() ? `#${chosen()!.id} ${chosen()!.title}` : copy.chooseTodo}</span><Icon name="down" />
     </button>} />
     <Popover.Positioner><Popover.Content ref={element => { panel = element; }} class="todo-blocker-menu" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
