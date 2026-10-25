@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
@@ -269,14 +269,11 @@ const Facts = (props: { reaction: Reaction }) => {
       <span>{observation()}</span>
       <ReservedLine message={copy.reactionFeedback(r().observation)} />
     </dd>
-    <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-      const owner = copyOwner();
-      void writeText(app, JSON.stringify({
+    <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
-      }, null, 2)).then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-    }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+      }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
@@ -289,11 +286,7 @@ const Facts = (props: { reaction: Reaction }) => {
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionReason(value().reason!)}` : ""}</dd>
-        <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-          const owner = copyOwner();
-          void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
-            .then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-        }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+        <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
     </section>
   </Show>;

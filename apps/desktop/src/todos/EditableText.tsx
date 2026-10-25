@@ -1,7 +1,7 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { queueFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
@@ -53,11 +53,6 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  const copyDraft = async (text: string) => {
-    try { await writeText(app, text); setFailure(null); }
-    catch (error) { if (!(error instanceof Error)) throw error; setFailure(copy.copyDraftFailure(error.message)); }
-  };
-
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
@@ -71,10 +66,12 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         <span id={`todo-context-${revision}`} class="todo-draft-label" hidden>{label(record())}</span>
         <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
         <div class="todo-draft-actions">
-        <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => {
-          const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
-          void copyDraft(!record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value));
-        }}>{copy.copyField(surface)}</button>{" "}
+        <CopyButton app={app} identity={revision} class="word" aria-describedby={`todo-revision-${revision} todo-context-${revision}`}
+          text={(() => {
+            const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
+
+            return !record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value);
+          })()} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copyField(surface)}</CopyButton>{" "}
         <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => { props.onDiscard?.(revision); drafts.discard(revision); }}>{copy.discardRevision}</button>
         </div>
       </div>}</Show>;

@@ -1,4 +1,5 @@
 import { writeText } from "../app/clipboard";
+import { createCopyFeedback } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
@@ -101,6 +102,11 @@ export const ProjectTab = (props: {
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
 
+  const nativeCopy = createCopyFeedback();
+  const nameCopy = createCopyFeedback();
+  createEffect(on(createMemo(() => props.tab.path), nativeCopy.reset));
+  createEffect(on(createMemo(() => shown()?.revision), nameCopy.reset));
+
   const copyName = async () => {
     const draft = shown();
 
@@ -109,8 +115,9 @@ export const ProjectTab = (props: {
 
     if (!parsed.success) return;
 
-    try { await writeText(props.app!, parsed.output.name); failCopy(null); }
-    catch (error) { failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); }
+    await nameCopy.run(() => writeText(props.app!, parsed.output.name), () => failCopy(null), error => {
+      failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) });
+    });
   };
 
   let base: string | undefined;
@@ -167,8 +174,7 @@ export const ProjectTab = (props: {
             const copied = shown();
             const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
 
-            try { await writeText(props.app!, JSON.stringify(details, null, 2)); failCopy(null); }
-            catch (error) { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); }
+            await nativeCopy.run(() => writeText(app, JSON.stringify(details, null, 2)), () => failCopy(null), error => { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); });
           } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
           { id: "close", label: copy.close, run: () => props.onClose() },
@@ -213,7 +219,7 @@ export const ProjectTab = (props: {
                     props.onMark();
                   }
                 }}>
-                <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <span class="tab-name" onDblClick={() => edit()}><Show when={nativeCopy.copied()} fallback={<><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></>}>{copy.copied}</Show></span>
                 <Show when={props.tab.unseen}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
@@ -241,7 +247,7 @@ export const ProjectTab = (props: {
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
         </>}</Show>
         <div class="draft-actions">
-        <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyProjectName}</button>
+        <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{nameCopy.copied() ? copy.copied : copy.copyProjectName}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button>
         </>}</Show>
           <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button></Show>

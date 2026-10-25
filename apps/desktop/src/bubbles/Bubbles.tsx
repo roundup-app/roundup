@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
@@ -79,20 +79,6 @@ export const Bubbles = (props: {
   };
 
   const original = (draft: ReturnType<typeof drafts.list>[number]) => rail.terminals().find(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running);
-
-  const copyName = async () => {
-    const draft = shownDraft();
-    const parsed = draft && v.safeParse(schema, draft.value);
-
-    if (!parsed?.success) return;
-
-    try {
-      await writeText(connected.app, parsed.output.name);
-      failCopy(prior => prior?.revision === draft!.revision ? null : prior);
-    } catch (error) {
-      failCopy({ revision: draft!.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) });
-    }
-  };
 
   let recoveryPanel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
@@ -807,13 +793,16 @@ export const Bubbles = (props: {
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
     /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
+    const copied = createCopyFeedback();
+    createEffect(on(() => terminal().incarnation, copied.reset));
+
     const tabMenu = (x: number, y: number) => {
       const agents = rail.nodes;
       const target = terminal();
 
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
-        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, message => setFailure({ message, terminal: target })),
+        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, message => setFailure({ message, terminal: target }), () => clearItemFailure(target), copied),
         { id: "close", label: copy.close, shortcut: lastTarget() === id ? copy.closeChord : undefined, run: () => close(id) },
       ], x, y);
     };
@@ -827,7 +816,7 @@ export const Bubbles = (props: {
                 aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}
                 onDblClick={() => start()}>
-                <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
+                <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
                 <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
               </button>
             )}
@@ -914,7 +903,7 @@ export const Bubbles = (props: {
             <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
           </>}</Show>
           <div class="draft-actions">
-            <Show when={shownDraft()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyProjectName}</button>
+            <Show when={shownDraft()}>{draft => <><CopyButton app={app} identity={draft().revision} text={String(draft().value.name ?? "")} onSuccess={() => failCopy(prior => prior?.revision === draft().revision ? null : prior)} onFailure={error => failCopy({ revision: draft().revision, message: copy.copyDraftFailure(error.message) })}>{copy.copyProjectName}</CopyButton>
             <button type="button" data-button="quiet" onClick={() => { drafts.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></>}</Show>
             <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>

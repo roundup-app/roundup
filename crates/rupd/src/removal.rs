@@ -248,10 +248,9 @@ fn removal_touch(
     removal: &contracts::agent::Removal,
 ) -> Result<(), RpcError> {
     use contracts::agent::RemovalKind;
-    let at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(RpcError::internal)?
-        .as_millis();
+    let nanos = u128::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos())
+        .map_err(RpcError::internal)?;
+    let at = nanos / 1_000_000;
     let at = i64::try_from(at).map_err(RpcError::internal)?;
     let prefix = |kind| match kind {
         RemovalKind::Agent => "rail",

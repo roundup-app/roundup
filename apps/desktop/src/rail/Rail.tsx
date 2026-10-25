@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
@@ -53,6 +53,8 @@ export const Rail = (props: { requested?: boolean }) => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
+  const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
+
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
     setEditingName(id);
   }, connected.queue, node => {
@@ -64,7 +66,7 @@ export const Rail = (props: { requested?: boolean }) => {
       ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
         ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
-  });
+  }, id => copied.get(id));
 
 
   const clearPrompt = createMemo(() => {
@@ -655,6 +657,12 @@ export const Rail = (props: { requested?: boolean }) => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          copyWith={feedback => {
+                            const id = view().node.id;
+                            copied.set(id, feedback);
+
+                            return () => { if (copied.get(id) === feedback) copied.delete(id); };
+                          }}
                           editing={editingName() === view().node.id}
                           onOpen={() => openRow(view().node.id)}
                           selected={rail.selected() === view().node.id}
@@ -731,7 +739,7 @@ export const Rail = (props: { requested?: boolean }) => {
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
-                  <button data-button="quiet" onClick={() => { void attempt(() => writeText(connected.app, text())); }}>{copy.railDraftCopy}</button>
+                  <CopyButton app={connected.app} identity={entry().revision} text={text()} onFailure={error => failure.show(error.message)}>{copy.railDraftCopy}</CopyButton>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
                     retained.discard(entry().revision);

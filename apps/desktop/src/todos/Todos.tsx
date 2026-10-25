@@ -1,3 +1,4 @@
+import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { deleteTodos } from "./deleteTodos";
@@ -71,6 +72,13 @@ export const Todos = (props: {
   if (props.recovery && props.recovery.project !== connected.project.path) return null;
 
   const todos = props.recovery?.list ?? useTodoList();
+  const copied = new Map<number, ReturnType<typeof createCopyFeedback>>();
+
+  const registerCopy = (id: number) => (feedback: ReturnType<typeof createCopyFeedback>) => {
+    copied.set(id, feedback);
+
+    return () => { if (copied.get(id) === feedback) copied.delete(id); };
+  };
 
   const retained = props.recovery ? connected.drafts.list().find(draft => draft.revision === props.recovery?.revision
     && draft.destination.surface === "todos" && draft.destination.object === "new") : undefined;
@@ -767,7 +775,7 @@ export const Todos = (props: {
       ] : []),
       { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name, run: () => moveHome(todo.id, home.home) })) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure, () => setCreateFailure(null), copied.get(todo.id)),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
     ], x, y));
   };
@@ -819,6 +827,7 @@ export const Todos = (props: {
             return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
+              copyWith={registerCopy(todo.id)}
               disclosure={<Show when={members().length > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
                 "aria-label": copy.toggleTodoGroup(todo.title), "aria-controls": `todo-group-${todo.id}`, "aria-expanded": dependency.expanded(todo.id),
                 onClick: () => {
@@ -933,6 +942,7 @@ export const Todos = (props: {
             <For each={foldedDone().filter((todo) => !finishingRow(todo))}>
               {(todo) => (
                 <OpenRow
+                  copyWith={registerCopy(todo.id)}
                   todo={todo}
                   motion={finishing.row(todo.id)}
                   onMotionEnd={() => finishing.rowEnded(todo.id)}
