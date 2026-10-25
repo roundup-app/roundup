@@ -2,6 +2,7 @@
 // a Chromium fork from any thread belongs to this command, never the host.
 BEGIN {
   @integrity = 0;
+  @samples = 0;
   @tree[$1] = 1;
   // The sentinel makes an empty snapshot distinguishable from a lost print.
   @live[0] = ((uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint64)0, (uint32)0, "");
