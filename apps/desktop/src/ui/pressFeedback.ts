@@ -39,6 +39,7 @@ export function pressFeedback(doc: Document): () => void {
   doc.addEventListener("pointerdown", pointer, true);
   doc.addEventListener("pointerout", leave, true);
   doc.addEventListener("keydown", key, true);
+
   const blur = (event: Event) => {
     const target = event.composedPath()[0];
 
