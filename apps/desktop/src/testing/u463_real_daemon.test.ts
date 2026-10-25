@@ -471,7 +471,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await activate(".import-list li:nth-child(2) .import-check");
       await wait("document.querySelector('.import-confirm')?.textContent.includes('2')");
       await activate(".import-confirm");
-      await wait("document.querySelector('.import-candidate [role=alert]')?.textContent.includes('The import conflicts')");
+      await wait("document.querySelector('.import-candidate [role=alert]')?.textContent.includes('The saved conversation changed')");
       expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.length")).result).toBe(2);
       expect((await browser("eval", "document.querySelectorAll('.import-check[data-state=checked]').length")).result).toBe(1);
       await capture("partial-failure");
