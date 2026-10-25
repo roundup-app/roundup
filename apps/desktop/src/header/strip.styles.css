@@ -27,7 +27,7 @@
   /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
   --cut-start: var(--length-zero);
   --cut-end: var(--length-zero);
-  mask-image: linear-gradient(to right, transparent, var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), transparent);
+  mask-image: linear-gradient(to right, var(--transparent), var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), var(--transparent));
 }
 
 .tablist::-webkit-scrollbar {
@@ -118,7 +118,7 @@
   font: inherit;
   line-height: inherit;
   color: var(--text);
-  background: transparent;
+  background: var(--transparent);
   border: 0;
 }
 

@@ -110,7 +110,7 @@
 .todo-row .todo-strike { position: absolute; inset: 0; pointer-events: none; }
 .todo-row .todo-strike::after {
   content: attr(data-title);
-  color: transparent;
+  color: var(--transparent);
   background-image: linear-gradient(var(--grey), var(--grey));
   background-repeat: no-repeat;
   background-position: left var(--strike-offset);
@@ -408,7 +408,7 @@
   border: 0;
   font: inherit;
   color: var(--text);
-  background: transparent;
+  background: var(--transparent);
 }
 
 .row-secondary { opacity: 0; pointer-events: none; }

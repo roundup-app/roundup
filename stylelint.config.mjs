@@ -95,7 +95,7 @@ export default {
     'color-no-hex': true,
     'color-named': 'never',
     'declaration-property-value-disallowed-list': {
-      '/.*/': [/(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^;]*?[\s,(/][+-]?(?:\d|\.\d)/i],
+      '/.*/': [/\btransparent\b/i, /(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^;]*?[\s,(/][+-]?(?:\d|\.\d)/i],
     },
     [containerRule]: true,
     [focusRingRule]: true,

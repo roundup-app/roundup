@@ -3,7 +3,7 @@
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
   /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -110,7 +110,7 @@ button:hover:not([aria-disabled="true"]),
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
 button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   color: var(--text);
-  background-color: transparent;
+  background-color: var(--transparent);
 }
 
 button[data-feedback="ink"][data-pressed="true"]:not([aria-disabled="true"]) {

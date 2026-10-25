@@ -172,7 +172,7 @@
   box-sizing: border-box;
   padding: var(--space-1);
   border: 0;
-  background: transparent;
+  background: var(--transparent);
   color: inherit;
   font: inherit;
 }
@@ -273,8 +273,8 @@
 .rail-pass,
 .rail-stem,
 .rail-branch {
-  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1));
-  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1));
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
   position: absolute;
   top: 0;
   bottom: 0;

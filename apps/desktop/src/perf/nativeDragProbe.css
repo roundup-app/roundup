@@ -32,7 +32,7 @@
 .native-probe-rows div {
   min-height: var(--space-6);
   box-sizing: border-box;
-  border-block: var(--hairline-width) solid transparent;
+  border-block: var(--hairline-width) solid var(--transparent);
 }
 
 .native-probe-rows [data-probe-child] {

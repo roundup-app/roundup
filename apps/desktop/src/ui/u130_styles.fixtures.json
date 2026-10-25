@@ -106,5 +106,29 @@
     "path": "spec-fixture.css",
     "rule": null,
     "column": null
+  },
+  {
+    "code": ".a { color: transparent; }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
+  },
+  {
+    "code": ".a { color: currentColor; }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { color: rgb(var(--rgb)); }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { --ink: rgb(1 2 3); }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
   }
 ]
