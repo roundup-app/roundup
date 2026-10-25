@@ -19,13 +19,7 @@ const tauri = createTauriApp();
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 
 // Build-time branches exclude each workload from normal bundles; idle never imports the typing/frame drivers.
-const idle = import.meta.env.VITE_ROUNDUP_IDLE_PERF ? await import("./perf/idle_run").then(({ createIdleRun }) => {
-  const send = tauri.recordIdleEvidence;
-
-  if (!send) throw new Error("R24 native evidence sink is unavailable");
-
-  return createIdleRun(send);
-}) : null;
+const idle = import.meta.env.VITE_ROUNDUP_IDLE_PERF ? (await import("./perf/idle_run")).createIdleRun(tauri.recordIdleEvidence) : null;
 
 const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VITE_ROUNDUP_PERF
   ? await import("./perf/run").then(async ({ createKeystrokeRun }) => {
