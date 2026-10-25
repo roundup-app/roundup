@@ -47,6 +47,7 @@ Names and App labels use this table (`AGENTS.md` rule 6). Avoid entries govern p
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | Firing | — |
 | Observation (Reaction) (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | Observation | — |
+| Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | none | — |
 | Mark | Mark | — |
 | Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | Rewind | roll back |
 | Checkpoint | Checkpoint | — |
