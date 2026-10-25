@@ -11,7 +11,12 @@ export const projectPageSchema = v.object({ path: v.string(), command: v.picklis
 /** One entry of `projects`, in tab order (S8): `running` is false once that Project's Daemon exited. */
 export const listedProjectSchema = v.object({ name: v.string(), path: v.string(), running: v.boolean() });
 
-const daemonExitSchema = v.object({ code: v.nullable(v.number()) });
+const daemonExitSchema = v.object({
+  code: v.nullable(v.number()),
+  /** Omitted only after automatic recovery is exhausted. */
+  recovery: v.optional(v.picklist(["waiting", "connecting"])),
+  cause: v.optional(v.string()),
+});
 
 /** The `daemon-exited` event, which names the Project whose Daemon ended (S8). */
 export const daemonExitedSchema = v.object({ path: v.string(), ...daemonExitSchema.entries });

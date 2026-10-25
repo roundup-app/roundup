@@ -541,7 +541,7 @@
   --button-inline: 0;
 }
 
-.rail p.ink[role="alert"] {
+.rail > p.ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
 }
