@@ -1,6 +1,7 @@
 //! D10, D11: the Event log in `project.db`. A row's id is the Event number, so no second counter
 //! can drift from the log; AUTOINCREMENT keeps a number from returning after its row is pruned.
 
+#[cfg(test)]
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -13,8 +14,12 @@ pub(crate) struct SqliteLog {
 }
 
 impl SqliteLog {
-    pub(crate) fn open(dir: &Path) -> rusqlite::Result<Self> {
-        let db = Connection::open(dir.join("project.db"))?;
+    #[cfg(test)]
+    fn open(dir: &Path) -> rusqlite::Result<Self> {
+        Self::from_connection(Connection::open(dir.join("project.db"))?)
+    }
+
+    pub(crate) fn from_connection(db: Connection) -> rusqlite::Result<Self> {
         // A SIGKILL cannot lose a committed row in WAL mode; only a power cut can lose the last few.
         db.pragma_update(None, "synchronous", "NORMAL")?;
         db.busy_timeout(std::time::Duration::from_secs(5))?;
