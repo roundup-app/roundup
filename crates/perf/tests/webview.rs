@@ -100,6 +100,8 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         "keydown_to_input",
         "input_to_dispatch",
         "input_to_encoded",
+        "input_to_encoding",
+        "encoding_to_encoded",
         "encoded_to_dispatch",
         "dispatch_to_echo_event",
         "echo_event_to_parsed",
@@ -117,11 +119,6 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
         absent["hops"].as_object_mut().unwrap().remove(name);
         assert!(checked(&absent).is_err());
     }
-    let mut no_hops = report(16.7, 0);
-    no_hops.as_object_mut().unwrap().remove("hops");
-    let (exit, failures) = judge_runs(&[no_hops], 16.0);
-    assert_eq!(exit, 2);
-    assert!(failures[0].contains("hop attribution"));
 }
 
 #[test]

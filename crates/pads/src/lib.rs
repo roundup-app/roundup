@@ -1,5 +1,6 @@
 //! Pads: markdown notes, app-stored or as files. Owner: pads Builder.
 
+mod contract_handlers;
 mod files;
 mod name;
 pub mod reference;
@@ -11,7 +12,6 @@ mod store;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::pad::{
@@ -357,31 +357,7 @@ impl Module for Pads {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "pad.create" => self.create(ctx, params(value)?),
-            "pad.read" => self.read(ctx, params(value)?),
-            "pad.list" => self.list(),
-            "pad.rename" => self.rename(ctx, params(value)?),
-            "pad.write" => self.write(ctx, params(value)?),
-            "pad.append" => self.append(ctx, params(value)?),
-            "pad.appendSection" => self.append_section(ctx, params(value)?),
-            "pad.setOwner" => self.set_owner(ctx, params(value)?),
-            "pad.move" => self.move_to(ctx, params(value)?),
-            "pad.delete" => self.delete(
-                ctx,
-                params(value)?,
-                if ctx.actor.kind == ActorKind::User {
-                    PadDeletion::User
-                } else if ctx.actor == Actor::daemon() {
-                    PadDeletion::Cleanup
-                } else {
-                    PadDeletion::Owner
-                },
-            ),
-            "pad.setStorage" => self.set_storage(ctx, params(value)?),
-            "pad.export" => self.export(ctx, params(value)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::pads_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 
@@ -469,13 +445,8 @@ fn item(name: &str) -> String {
 }
 
 fn now_ms() -> i64 {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]

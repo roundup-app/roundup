@@ -18,7 +18,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tempfile = "3"
 thiserror = "2"
-ts-rs = { version = "12", features = ["no-serde-warnings"] }
+specta = { version = "=2.0.0-rc.27", features = ["derive"] }
+specta-serde = "=0.0.14"
+specta-typescript = "=0.0.14"
 vt100 = "=0.16.2"
 regex = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time"] }
@@ -34,6 +36,11 @@ all = { level = "deny", priority = -1 }
 rusqlite = { path = "vendor/rusqlite-0.40.2" }
 vt100 = { path = "vendor/vt100-0.16.2" }
 vte = { path = "vendor/vte-0.15.0" }
+
+# R3696c's release startup/reply A/B and link-time tradeoff: docs/perf.md.
+[profile.release]
+lto = "thin"
+codegen-units = 1
 
 # The Output log feeds every byte a Terminal prints through the parser; tests run unoptimised.
 [profile.dev.package.vt100]

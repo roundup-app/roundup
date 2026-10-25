@@ -139,6 +139,12 @@ Where an item sits: a Workstream, or the Project root. Each item has one Home th
 **Contract methods** (`daemon.methods`):
 The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
 
+**Contract declaration** (`declarations`, `Method`, `METHODS`, `owner_namespace`):
+One RPC method's wire name, Rust parameter/result types, owning module, handler and explicit MCP exposure (`none`, all Agents, or Door only). It generates module selection, method metadata, TypeScript bindings and tool offers. Export runs only in the contracts command; module selection uses compiled matches.
+
+**Contract export** (`export::generate`, `export::types`, `event_data_declaration`):
+The plain Specta export of the wire types into their stable per-type paths. `Ping` and `ContractFingerprint` name the existing daemon.ping envelope; `SpawnPrompt` names agent.spawnPrompt's existing result.
+
 **Contract fingerprint**:
 A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
 
@@ -920,3 +926,6 @@ One Actor's exact chosen Todo identities in their original Project, bound to a c
 
 **RPC error data** (`RpcErrorData`):
 The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
+
+**Thrown outcome** (`outcomeOf`):
+The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.

@@ -1,33 +1,31 @@
 //! The user's Ask, its verbatim parts, and their durable delivery state (A40–A42).
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "ask/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct Ask {
     pub id: String,
     pub text: String,
+    #[specta(type = specta_typescript::BigInt)]
     pub at: i64,
     pub parts: Vec<AskPart>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub submission: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "ask/")]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct AskPart {
     pub text: String,
     pub placement: Placement,
     pub state: State,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-#[ts(export, export_to = "ask/")]
 pub enum Placement {
     Routed {
         workstream: String,
@@ -35,7 +33,7 @@ pub enum Placement {
     New {
         title: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        #[ts(optional)]
+        #[specta(optional, type = String)]
         workstream: Option<String>,
     },
     Unclear {
@@ -44,9 +42,8 @@ pub enum Placement {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
-#[ts(export, export_to = "ask/")]
 pub enum State {
     Placing,
     Waiting,
@@ -56,35 +53,33 @@ pub enum State {
     Dropped,
 }
 
-#[derive(Deserialize, TS)]
-#[ts(export, export_to = "ask/")]
+#[derive(Deserialize, Type)]
 pub struct SendParams {
     pub text: String,
     // A caller-captured revision identity. Equal replay returns its original Ask.
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub submission: Option<String>,
     // Captured destination; never resolve the text's leading name when supplied.
-    #[ts(optional)]
+    #[specta(optional, type = String)]
     pub workstream: Option<String>,
 }
 
-#[derive(Deserialize, TS)]
-#[ts(export, export_to = "ask/")]
+#[derive(Deserialize, Type)]
 pub struct PickParams {
     pub id: String,
+    #[specta(type = specta_typescript::Number)]
     pub part: usize,
     pub target: Target,
 }
 
-#[derive(Deserialize, TS)]
+#[derive(Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-#[ts(export, export_to = "ask/")]
 pub enum Target {
     Workstream {
         id: String,
     },
     New {
-        #[ts(optional)]
+        #[specta(optional, type = String)]
         title: Option<String>,
     },
     Drop,
