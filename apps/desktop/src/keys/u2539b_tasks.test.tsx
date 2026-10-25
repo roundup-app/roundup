@@ -61,16 +61,29 @@ it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions"
   expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 
-it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"])("u2539b_top_ten_tasks_complete_within_three_presses: %s", async task => {
+it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
+  (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source }))))("u2539b_top_ten_tasks_complete_within_three_presses: $task from $source", async ({ task, source }) => {
   const { daemon, connected, store, nodes, shells, emulators } = await mount();
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
+  const command = (id: string, code: string, options: KeyboardEventInit = {}) => {
+    if (source === "native-menu") { presses++; openProjectPage(id, "/p"); }
+    else press(code, options);
+  };
 
-  const runLeader = (code: string) => { press("KeyK", { metaKey: true }); press(code); };
+  if (source === "terminal") {
+    connected().rail.select("a1");
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  }
+
+  const runLeader = (code: string) => {
+    if (source === "native-menu") { presses++; openProjectPage(`action:leader:${code.replace("Key", "")}`, "/p"); }
+    else { press("KeyK", { metaKey: true }); press(code); }
+  };
 
   if (task === "ask") {
     daemon.handlers["ask.send"] = params => ({ id: "ask", text: params.text, at: 0n, parts: [] });
-    press("Slash", { metaKey: true });
+    command("action:chord:⌘/", "Slash", { metaKey: true });
     fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: "Do this" } });
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
     press("Enter");
@@ -80,7 +93,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
 
  return node; };
 
-    press("KeyN", { metaKey: true });
+    command("action:chord:⌘N", "KeyN", { metaKey: true });
     await waitFor(() => expect(connected().rail.selected()).toBe("new"));
     expect(daemon.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
   } else if (task === "terminal") {
@@ -89,11 +102,11 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
 
  return { terminal_id: "shell" }; };
 
-    press("KeyT", { metaKey: true });
+    command("action:chord:⌘T", "KeyT", { metaKey: true });
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
     expect(emulators.made.has("shell")).toBe(true);
   } else if (task === "todo") {
-    press("KeyT", { metaKey: true, shiftKey: true });
+    command("action:chord:⇧⌘T", "KeyT", { metaKey: true, shiftKey: true });
     const field = await screen.findByRole("textbox", { name: "Capture a Todo" });
     fireEvent.input(field, { target: { value: "Capture me" } });
     press("Enter");
