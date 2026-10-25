@@ -181,7 +181,7 @@ p.ink[role="alert"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .working-arc { animation-name: none; animation-duration: 0s; }
+  .working-arc { animation-name: none; animation-duration: var(--duration-instant); }
 }
 
 .section-head {
