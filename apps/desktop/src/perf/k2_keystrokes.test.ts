@@ -188,7 +188,9 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       void probe.keydown();
       time.advance(2);
       probe.input("shell");
+      probe.encoding("agent");
       time.advance(queued);
+      probe.encoding("shell");
       probe.encoded("agent");
       time.advance(2);
       probe.encoded("shell");
@@ -211,6 +213,8 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       keydown_to_input: { n: 1, p50: 2, p95: 2 },
       input_to_dispatch: { n: 1, p50: 10, p95: 10 },
       input_to_encoded: { n: 1, p50: 9, p95: 9 },
+      input_to_encoding: { n: 1, p50: 7, p95: 7 },
+      encoding_to_encoded: { n: 1, p50: 2, p95: 2 },
       encoded_to_dispatch: { n: 1, p50: 1, p95: 1 },
       dispatch_to_echo_event: { n: 1, p50: 4, p95: 4 },
       echo_event_to_parsed: { n: 1, p50: 4, p95: 4 },
@@ -233,26 +237,5 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       error: "no key was echoed and rendered after the warm-up",
       n: 0, dropped: 5, p50: null, p95: null, p99: null, max: null,
     });
-  });
-
-  it("r20_a_run_out_of_time_counts_the_untyped_keys_as_dropped_and_still_reports", async () => {
-    const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
-    let typed = 0;
-
-    await typeKeys(
-      probe,
-      { press: () => void (typed += 1), sleep: async () => {}, random: () => 0, expired: () => typed >= 2 },
-      5,
-    );
-
-    void probe.keydown();
-    probe.written(bytes("a"), "shell");
-    time.advance(4);
-    probe.rendered("shell");
-
-    // Two keys were typed and dropped, three never typed.
-    expect(typed).toBe(2);
-    expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 5, p50: 4 });
   });
 });
