@@ -245,6 +245,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
     const source = event.operation.source;
 
+    if (source?.element) {
+      source.element.removeAttribute("data-pressed");
+
+      for (const control of source.element.querySelectorAll("[data-pressed]")) control.removeAttribute("data-pressed");
+    }
+
     previewed = null;
     clearPreview();
 
@@ -289,6 +295,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
+
         list?.setAttribute("data-sortable-index", String(source.index));
 
         if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
