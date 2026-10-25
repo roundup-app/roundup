@@ -33,6 +33,11 @@ impl Daemon {
     }
 
     /// `dispatch` for a line the caller already parsed.
+    #[tracing::instrument(
+        name = "request",
+        skip_all,
+        fields(method = request["method"].as_str().unwrap_or_default())
+    )]
     pub(crate) async fn dispatch_parsed(
         &self,
         conn: &mut Conn,
@@ -97,6 +102,7 @@ impl Daemon {
                 .await
                 .map(rpc::Reply::Value)
         };
+        tracing::info!(outcome = if outcome.is_ok() { "ok" } else { "error" });
         let id = id?;
         Some(match outcome {
             Ok(rpc::Reply::Value(result)) => {
@@ -297,7 +303,7 @@ impl Daemon {
                     self.specialist_stop(&params).await
                 };
                 if let Err(err) = repair {
-                    eprintln!("rupd: specialist handoff: {}", err.message);
+                    tracing::warn!(code = err.code, "specialist handoff failed");
                 }
             }
         }
