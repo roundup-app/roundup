@@ -4,9 +4,12 @@ use crate::methods::Method;
 use crate::methods::{ExportedMethod, typed};
 
 macro_rules! declarations {
-    ($d:tt; $($owner:ident { $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)* })*) => {
+    ($d:tt; $($owner:ident [$namespace:literal] { $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)* })*) => {
         #[cfg(feature = "export")]
         pub const METHODS: &[Method<'static>] = &[$($(Method {name: $wire, params: stringify!($params), result: stringify!($result)},)*)*];
+        pub fn owner_namespace(method: &str) -> Option<&'static str> {
+            match method { $($($wire => Some($namespace),)*)* _ => None }
+        }
         pub(crate) fn exported() -> Vec<ExportedMethod> { vec![$($(typed::<$params, $result>($wire),)*)*] }
         pub(crate) fn types() -> specta::Types { specta::Types::default() $($(.register::<$params>().register::<$result>())*)* }
         $(
@@ -27,7 +30,7 @@ macro_rules! declarations {
 }
 
 declarations! { $;
-    agents_methods {
+    agents_methods["agent"] {
         "project.measurements": () => contracts::project::Measurements, rpc_project_measurements, all(empty("Read retained Project measurements and collection coverage."));
         "project.measurementSummary": contracts::project::MeasurementSummaryParams => contracts::project::MeasurementSummary, rpc_project_measurements, all(schema(contracts::project::MeasurementSummaryParams,"Read a Workstream’s consumed tokens and ranked contributors, twenty per page. Later pages require the first page’s revision; reconcile from offset zero after a revision conflict. Unknown coverage is not zero. This does not report money or time."));
         "terminal.open": contracts::terminal::OpenParams => contracts::terminal::Opened, rpc_terminal_open, all(schema(contracts::terminal::OpenParams,concat!(
@@ -75,7 +78,7 @@ declarations! { $;
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
-    todos_methods {
+    todos_methods["todo"] {
         "todo.create": contracts::todo::CreateParams => contracts::todo::Todo, rpc_todo_create, all(schema(contracts::todo::CreateParams,"Create a Todo."));
         "todo.get": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_get, all(schema(contracts::todo::TodoId,"Read one Todo."));
         "todo.listHanded": () => Vec<contracts::todo::Handed>, rpc_todo_list_handed, none();
@@ -98,7 +101,7 @@ declarations! { $;
         "todo.addRef": contracts::todo::RefParams => contracts::todo::Todo, rpc_todo_add_ref, all(schema(contracts::todo::RefParams,"Point the user to a Pad or one section of it from a Todo, so they open it from the Todo and read it. Pass the link `roundup://pad/<name>?project=<key>`; a section link ends in `#<heading>`, the heading's text percent-encoded. The Pad and heading must exist. Adding the same link twice keeps one."));
         "todo.removeRef": contracts::todo::RefParams => contracts::todo::Todo, rpc_todo_remove_ref, all(schema(contracts::todo::RefParams,"Remove a Pad or Pad-section link from a Todo, by the same link you added; removing one the Todo lacks changes nothing."));
     }
-    pads_methods {
+    pads_methods["pad"] {
         "pad.create": contracts::pad::CreateParams => contracts::pad::Pad, rpc_pad_create, all(schema(contracts::pad::CreateParams,"Create a Pad you own."));
         "pad.read": contracts::pad::PadName => contracts::pad::Pad, rpc_pad_read, all(schema(contracts::pad::PadName,"Read one Pad."));
         "pad.list": () => Vec<contracts::pad::Pad>, rpc_pad_list, all(empty("List every Pad."));
@@ -111,7 +114,7 @@ declarations! { $;
         "pad.export": contracts::pad::ExportParams => (), rpc_pad_export, all(schema(contracts::pad::ExportParams,"Write a Pad's text to a file at an absolute path."));
         "pad.setStorage": contracts::pad::SetStorageParams => (), rpc_pad_set_storage, all(schema(contracts::pad::SetStorageParams,"Choose whether the Project mirrors its Pads to files."));
     }
-    messages_methods {
+    messages_methods["message"] {
         "message.send": contracts::message::SendParams => contracts::message::Message, rpc_message_send, all(schema(contracts::message::SendParams,"Send a note or a question to an Agent or the user. You are the sender."));
         "message.get": contracts::message::MessageId => contracts::message::Message, rpc_message_get, all(schema(contracts::message::MessageId,"Read one Message you sent or received."));
         "message.list": contracts::message::ListParams => Vec<contracts::message::Message>, rpc_message_list, all(schema(contracts::message::ListParams,"List the Messages you sent or received, newest last."));
@@ -119,7 +122,7 @@ declarations! { $;
         "route.set": contracts::message::SetRouteParams => contracts::message::Route, rpc_route_set, all(schema(contracts::message::SetRouteParams,"Set where one Agent's Messages to another go: `auto` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set."));
         "route.list": () => Vec<contracts::message::Route>, rpc_route_list, all(empty("List the Routes: who each Agent's questions go to."));
     }
-    terminal_methods {
+    terminal_methods["terminal"] {
         "terminal.spawn": contracts::terminal::SpawnParams => contracts::terminal::TerminalId, rpc_terminal_spawn, all(schema(contracts::terminal::SpawnParams,concat!(
                 "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
                 bubble_rule!()
@@ -136,16 +139,16 @@ declarations! { $;
         "terminal.read": contracts::terminal::ReadParams => contracts::terminal::Read, rpc_terminal_read, all(custom(terminal_read()));
         "terminal.search": contracts::terminal::SearchParams => contracts::terminal::Search, rpc_terminal_search, all(schema(contracts::terminal::SearchParams,"Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call."));
     }
-    checkpoints_methods {
+    checkpoints_methods["checkpoint"] {
         "checkpoint.write": contracts::checkpoint::WriteParams => contracts::checkpoint::Checkpoint, rpc_checkpoint_write, door(custom(checkpoint_write()));
         "checkpoint.list": contracts::checkpoint::ListParams => Vec<contracts::checkpoint::Checkpoint>, rpc_checkpoint_list, all(schema(contracts::checkpoint::ListParams,"List the Checkpoints of a Workstream, oldest first."));
     }
-    asks_methods {
+    asks_methods["ask"] {
         "ask.send": contracts::ask::SendParams => contracts::ask::Ask, rpc_ask_send, none();
         "ask.list": () => Vec<contracts::ask::Ask>, rpc_ask_list, none();
         "ask.pick": contracts::ask::PickParams => contracts::ask::Ask, rpc_ask_pick, none();
     }
-    daemon_methods {
+    daemon_methods["daemon"] {
         "deliverable.publish": contracts::deliverable::PublishParams => contracts::deliverable::Deliverable, deliverable_call, all(schema(contracts::deliverable::PublishParams,"Deliberately publish a file, expected Pad incarnation and Revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses."));
         "deliverable.list": contracts::deliverable::ListParams => Vec<contracts::deliverable::Deliverable>, deliverable_call, all(schema(contracts::deliverable::ListParams,"List published results without reading retained payloads."));
         "deliverable.get": contracts::deliverable::DeliverableId => contracts::deliverable::Deliverable, deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Read publication metadata by its Project and identity."));

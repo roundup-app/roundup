@@ -326,11 +326,3 @@ macro_rules! dispatch_methods {
         }
     };
 }
-
-/// Test ownership before consuming parameters; no clone is needed for another module's call.
-#[macro_export]
-macro_rules! contains_method {
-    ([$method:ident] $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
-        matches!($method, $($wire)|*)
-    };
-}

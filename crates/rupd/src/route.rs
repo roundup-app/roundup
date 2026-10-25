@@ -144,7 +144,8 @@ impl Daemon {
         ) {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if contracts::daemon_methods!(rpc::contains_method, method) {
+        let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
+        if owner == "daemon" {
             return contracts::daemon_methods!(rpc::dispatch_methods, self, conn, method, params);
         }
         if method == "todo.addRef" {
@@ -153,15 +154,9 @@ impl Daemon {
         if method == "checkpoint.write" {
             self.require_door(&conn.actor).await?;
         }
-        // X12: the Agents module resolves Workstream and Project ownership.
-        let namespace = if method == "terminal.open" {
-            "agent"
-        } else {
-            namespace
-        };
         let module = self
             .modules
-            .get(namespace)
+            .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
         if matches!(method, "todo.move" | "pad.move") {
             if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
