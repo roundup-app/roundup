@@ -28,7 +28,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   m.store.comments!.set(2, [line(2, "blocked on CI")]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 2 } });
   await within(panel()).findByRole("button", { name: /builder commented on todo 2/ });
-  await m.app.rpc("todo.delete", { id: 2 });
+  await m.app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [2] });
   m.app.emit({ actor: AGENT, name: "todo.deleted", data: { id: 2 } });
   await waitFor(() => expect(within(panel()).queryByRole("button", { name: /todo 2/ })).toBeNull());
 

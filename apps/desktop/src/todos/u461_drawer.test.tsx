@@ -65,7 +65,7 @@ it("u461_delete_failure_is_retryable", async () => {
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
   await screen.findByText("Delete failed");
-  app.handlers["todo.delete"] = () => null;
+  app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
   await questionDialog();
   await answerQuestion(true);
@@ -128,7 +128,7 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
       const { mounted, box, activate } = await doneSurface(surface, input);
       const before = mounted.app.calls.length;
       activate();
-      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { id: 1 } }]));
+      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { operation: expect.any(String), ids: [1] } }]));
       expect(Boolean(mounted.connected.drawer.content())).toBe(surface === "drawer");
       mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
 

@@ -37,17 +37,17 @@ it("u459_clear_done_success_removes_only_done_rows", async () => {
   await confirmDeletion();
   await waitFor(() => expect(screen.queryByRole("button", { name: "Clear done" })).toBeNull());
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }]);
   expect(screen.getByRole("button", { name: /#3 / })).toBeTruthy();
 });
 
 it("u459_failed_done_rows_are_visible_and_selected", async () => {
   const { app, store } = await mountTodos([todo(1, { done: true }), todo(2, { done: true })]);
   app.handlers["todo.delete"] = (params) => {
-    if (params.id === 2) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.id);
+    if (params.ids[0] === 2) throw new RpcError(-32001, "denied");
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
 
-    return null;
+    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
   };
 
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));

@@ -24,7 +24,7 @@ async fn a33_completing_the_blocker_reads_idle() {
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
-        .request("todo.delete", json!({"id":2}))
+        .request("todo.delete", json!({"operation": "delete-2", "ids": [2]}))
         .await
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Idle).await;
