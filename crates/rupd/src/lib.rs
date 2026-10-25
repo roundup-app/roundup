@@ -35,6 +35,8 @@ mod route;
 mod specialist;
 mod storage;
 mod todo_refs;
+#[cfg(test)]
+mod tracing_tests;
 mod waits;
 mod wake;
 

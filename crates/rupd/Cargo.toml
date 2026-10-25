@@ -27,6 +27,8 @@ terminal = { path = "../terminal" }
 todos = { path = "../todos" }
 time = { version = "0.3.55", features = ["parsing", "formatting"] }
 tokio.workspace = true
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "registry"] }
 cap-std = "4"
 rustix = { version = "1", features = ["fs"] }
 
