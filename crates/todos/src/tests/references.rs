@@ -69,7 +69,9 @@ async fn t27_refs_persist_old_databases_read_none_and_delete_clears_them() {
     let h = Harness::new(dir.path());
     let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
     assert_eq!(todo["refs"], json!([NOTES]));
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     let rows: i64 = rusqlite::Connection::open(dir.path().join("todos.db"))
         .unwrap()
         .query_row("SELECT count(*) FROM todo_refs", [], |r| r.get(0))

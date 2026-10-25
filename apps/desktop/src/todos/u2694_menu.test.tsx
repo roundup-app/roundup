@@ -81,6 +81,6 @@ it("u2694b_deleting_a_completed_todo_keeps_other_completed_todos", async () => {
   await answerQuestion(true);
 
   await waitFor(() => expect(questionProbe.shown).toBeNull());
-  expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 5 } }]);
+  expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]);
   expect(await rowOf("keep")).toBeTruthy();
 });

@@ -92,8 +92,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
-  let windowResized = false;
-
   const refit = () => {
     pendingFrame = null;
 
@@ -101,9 +99,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (resizeDragging() || drawerSliding() || shelfSliding()) return;
 
-    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
-
-    windowResized = false;
+    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), true);
   };
 
   const refitNextFrame = () => {
@@ -111,7 +107,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   const onWindowResize = () => {
-    windowResized = true;
     refitNextFrame();
   };
 
