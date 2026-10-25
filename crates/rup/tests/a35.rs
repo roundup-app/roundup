@@ -254,10 +254,19 @@ async fn roots(fx: &Fix) -> Vec<(String, PathBuf)> {
 }
 
 #[tokio::test]
-async fn a35_write_records_a_mark_per_agent() {
+async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
     use std::os::unix::fs::{PermissionsExt, symlink};
     let fx = fixture().await;
     let roots = roots(&fx).await;
+    // A tracked folder replaced by a symlink to outside the Worktree: the Mark does not follow it.
+    let child_root = roots.iter().find(|(id, _)| id == &fx.b).unwrap().1.clone();
+    std::fs::create_dir(child_root.join("folder")).unwrap();
+    std::fs::write(child_root.join("folder/file"), "tracked").unwrap();
+    git(&child_root, &["add", "folder/file"]);
+    std::fs::remove_dir_all(child_root.join("folder")).unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("file"), "outside the Worktree").unwrap();
+    symlink(outside.path(), child_root.join("folder")).unwrap();
     let mut before = Vec::new();
     for (id, root) in &roots {
         std::fs::write(root.join("README"), "staged").unwrap();
@@ -329,6 +338,34 @@ async fn a35_write_records_a_mark_per_agent() {
         );
         assert!(String::from_utf8_lossy(&mark.conversation).contains("Follow this instruction"));
     }
+    let linked = marks.agents.iter().find(|mark| mark.agent == fx.b).unwrap();
+    assert!(!linked.files.iter().any(|file| file.path == b"folder/file"));
+    assert!(matches!(
+        linked
+            .files
+            .iter()
+            .find(|file| file.path == b"folder")
+            .unwrap()
+            .content,
+        checkpoints::FileContent::Symlink { .. }
+    ));
+    // A plan lists each Agent with its changes since the Mark, and changes nothing.
+    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
+    std::fs::write(root(&fx.a).join("README"), "after").unwrap();
+    let later = spawn_later(&fx, &fx.b).await;
+    let tree = rail_tree(&fx.user).await;
+    let listing = plan(&fx, None).await.unwrap();
+    let agents = listing["agents"].as_array().unwrap();
+    assert_eq!(agents.len(), 3);
+    let entry = |id: &str| agents.iter().find(|a| a["agent"] == id).unwrap();
+    assert_eq!(entry(&fx.a)["files_changed"], json!(["README"]));
+    assert_eq!(entry(&fx.a)["created_after"], false);
+    assert_eq!(entry(&fx.b)["files_changed"], json!([]));
+    assert_eq!(entry(&later.id)["created_after"], true);
+    assert_eq!(entry(&later.id)["files_changed"], json!([]));
+    assert_eq!(listing["files_changed"], true);
+    assert_eq!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
+    assert_eq!(attempts(&rail_tree(&fx.user).await), attempts(&tree));
     fx.project.model.as_ref().unwrap().assert_matched();
 }
 
@@ -391,36 +428,6 @@ async fn a35_a_clear_makes_earlier_marks_unusable() {
     assert_eq!(listed(&fx).await[1]["rewindable"], true);
     assert_eq!(store(&fx).marks(&fx.ws, 2, 2).unwrap().agents.len(), 1);
     fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_marks_do_not_follow_a_replaced_directory_symlink() {
-    let fx = fixture().await;
-    let root = roots(&fx)
-        .await
-        .into_iter()
-        .find(|(id, _)| id == &fx.b)
-        .unwrap()
-        .1;
-    std::fs::create_dir(root.join("folder")).unwrap();
-    std::fs::write(root.join("folder/file"), "tracked").unwrap();
-    git(&root, &["add", "folder/file"]);
-    std::fs::remove_dir_all(root.join("folder")).unwrap();
-    let outside = tempfile::tempdir().unwrap();
-    std::fs::write(outside.path().join("file"), "outside the Worktree").unwrap();
-    std::os::unix::fs::symlink(outside.path(), root.join("folder")).unwrap();
-    write(&fx).await;
-    let marks = store(&fx).marks(&fx.ws, 1, 1).unwrap();
-    let mark = marks.agents.iter().find(|mark| mark.agent == fx.b).unwrap();
-    assert!(!mark.files.iter().any(|file| file.path == b"folder/file"));
-    assert!(matches!(
-        mark.files
-            .iter()
-            .find(|file| file.path == b"folder")
-            .unwrap()
-            .content,
-        checkpoints::FileContent::Symlink { .. }
-    ));
 }
 
 /// The Door's own rewind call: the only caller A35 allows.
@@ -502,22 +509,140 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
     node(&fx.user, &later.id).await.unwrap()
 }
 
+/// One Mark, then each way to rewind it, one after the other on the same Agents: the plan names no
+/// control, a selected child alone is rewound, `keep` leaves the files and `restore` returns them,
+/// a refused call changes nothing and `workstream.rewound` is emitted once after the last restart.
 #[tokio::test]
-async fn a35_rewind_selects_one_or_all_children() {
+async fn a35_rewind_applies_the_selection_and_files_it_is_given() {
     let fx = fixture().await;
     write(&fx).await;
+    let roots = roots(&fx).await;
+    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
+    let attempt = |tree: &[RailNode], id: &str| attempt_of(tree, id);
+
+    // The plan names no control, consent or takeover; a selected child applies in the call and the
+    // other child's file stays; a refused call changes nothing.
+    std::fs::write(root(&fx.a).join("README"), "after").unwrap();
+    std::fs::write(root(&fx.b).join("README"), "after").unwrap();
+    let listing = plan(&fx, None).await.unwrap();
+    for entry in listing["agents"].as_array().unwrap() {
+        assert!(
+            entry
+                .as_object()
+                .unwrap()
+                .keys()
+                .all(|k| !k.contains("control")
+                    && !k.contains("consent")
+                    && !k.contains("takeover")),
+            "{entry}"
+        );
+    }
+    let done = rewind(&fx, Some(&fx.a), "restore").await;
+    let agents = done["agents"].as_array().unwrap();
+    assert_eq!(agents.len(), 1, "{done}");
+    assert_eq!(agents[0]["state"], "rewound", "{done}");
+    assert_ne!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
+    assert_eq!(std::fs::read(root(&fx.b).join("README")).unwrap(), b"after");
+    let before = attempts(&rail_tree(&fx.user).await);
+    let refused = rewind_as(&fx, &fx.ws, &fx.ws, Some("nobody"), "keep").await;
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(attempts(&rail_tree(&fx.user).await), before);
+
+    // Unselected Agents keep their files and conversations.
+    let before = rail_tree(&fx.user).await;
+    for id in [&fx.ws, &fx.a, &fx.b] {
+        std::fs::write(root(id).join("README"), format!("later {id}")).unwrap();
+    }
+    rewind(&fx, Some(&fx.b), "restore").await;
+    assert_eq!(std::fs::read(root(&fx.b).join("README")).unwrap(), b"keep");
+    for id in [&fx.ws, &fx.a] {
+        assert_eq!(
+            std::fs::read(root(id).join("README")).unwrap(),
+            format!("later {id}").into_bytes()
+        );
+        assert_eq!(
+            attempt(&rail_tree(&fx.user).await, id),
+            attempt(&before, id)
+        );
+    }
+
+    // `restore` returns each Worktree's files and moves no branch and pushes nothing.
+    let child_root = root(&fx.b);
+    let remote = tempfile::tempdir().unwrap();
+    git(remote.path(), &["init", "-q", "--bare"]);
+    git(
+        &child_root,
+        &["remote", "add", "origin", remote.path().to_str().unwrap()],
+    );
+    std::fs::write(child_root.join("README"), "committed later").unwrap();
+    git(&child_root, &["add", "README"]);
+    git(&child_root, &["commit", "-qm", "later"]);
+    let state = |root: &Path| {
+        (
+            git(root, &["symbolic-ref", "HEAD"]),
+            git(root, &["rev-parse", "HEAD"]),
+            git(root, &["remote", "-v"]),
+        )
+    };
+    let states: Vec<_> = roots.iter().map(|(_, root)| state(root)).collect();
+    for (_, root) in &roots {
+        std::fs::write(root.join("README"), "later").unwrap();
+        std::fs::write(root.join("new"), "new").unwrap();
+        std::fs::remove_file(root.join(".gitignore")).unwrap();
+    }
+    rewind(&fx, None, "restore").await;
+    assert_eq!(
+        roots
+            .iter()
+            .map(|(_, root)| state(root))
+            .collect::<Vec<_>>(),
+        states
+    );
+    assert_eq!(git(remote.path(), &["for-each-ref"]), "");
+    for id in [&fx.a, &fx.b] {
+        assert_eq!(std::fs::read(root(id).join("README")).unwrap(), b"keep");
+        assert!(!root(id).join("new").exists());
+        assert!(root(id).join(".gitignore").exists());
+    }
+
+    // `keep` changes no file, and a call without it or with another value is refused.
+    for (_, root) in &roots {
+        std::fs::write(root.join("README"), "after").unwrap();
+        std::fs::write(root.join("new"), "new").unwrap();
+    }
+    for params in [
+        json!({"id": fx.ws, "checkpoint": 1}),
+        json!({"id": fx.ws, "checkpoint": 1, "files": "always"}),
+    ] {
+        let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
+            .await
+            .request("workstream.rewind", params)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    }
+    let before = rail_tree(&fx.user).await;
+    let done = rewind(&fx, None, "keep").await;
+    assert_eq!(done["files"], "keep");
+    for (_, root) in &roots {
+        assert_eq!(std::fs::read(root.join("README")).unwrap(), b"after");
+        assert_eq!(std::fs::read(root.join("new")).unwrap(), b"new");
+    }
+    let after = rail_tree(&fx.user).await;
+    for id in [&fx.a, &fx.b] {
+        assert_ne!(attempt(&after, id), attempt(&before, id));
+    }
+
+    // One child, then all: the first call invalidated nothing the second needs, and the Door stays.
     let before = rail_tree(&fx.user).await;
     let one = rewind(&fx, Some(&fx.b), "keep").await;
     assert_eq!(one["agents"].as_array().unwrap().len(), 1);
     assert_eq!(one["agents"][0]["agent"], fx.b.as_str());
     assert_eq!(one["agents"][0]["state"], "rewound");
     let after = rail_tree(&fx.user).await;
-    let attempt =
-        |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).unwrap().attempt.clone();
     assert_ne!(attempt(&after, &fx.b), attempt(&before, &fx.b));
     assert_eq!(attempt(&after, &fx.a), attempt(&before, &fx.a));
     assert_eq!(attempt(&after, &fx.ws), attempt(&before, &fx.ws));
-    // The first call invalidated nothing it needs: Checkpoint 1 still rewinds.
     let all = rewind(&fx, None, "keep").await;
     let mut ids: Vec<_> = all["agents"]
         .as_array()
@@ -542,14 +667,9 @@ async fn a35_rewind_selects_one_or_all_children() {
         attempt(&before, &fx.ws),
         "the Door is not restarted"
     );
-}
 
-#[tokio::test]
-async fn a35_only_a_door_is_offered_and_can_call_rewind() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let before = rail_tree(&fx.user).await;
     // Only the Door's MCP shim offers the tools; an ordinary Agent's call has no effect.
+    let before = rail_tree(&fx.user).await;
     let door = mcp(&fx, &fx.ws, &[("tools/list", json!({}))]).await;
     let plain = mcp(
         &fx,
@@ -594,9 +714,204 @@ async fn a35_only_a_door_is_offered_and_can_call_rewind() {
         serde_json::from_str(done[0]["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(body["agents"][0]["state"], "rewound");
     assert_ne!(
-        attempt_of(&rail_tree(&fx.user).await, &fx.b),
-        attempt_of(&before, &fx.b)
+        attempt(&rail_tree(&fx.user).await, &fx.b),
+        attempt(&before, &fx.b)
     );
+
+    // A restart that fails leaves the others rewound, and a retry rewinds only what is left.
+    let before = rail_tree(&fx.user).await;
+    let cwd = before
+        .iter()
+        .find(|n| n.id == fx.b)
+        .unwrap()
+        .worktree
+        .as_ref()
+        .unwrap()
+        .path
+        .clone();
+    let dir = transcript_dir(&fx, Path::new(&cwd));
+    let held = dir.with_extension("held");
+    std::fs::rename(&dir, &held).unwrap();
+    std::fs::write(&dir, "blocks the copy").unwrap();
+    let error = rewind_as(&fx, &fx.ws, &fx.ws, None, "keep")
+        .await
+        .unwrap_err();
+    assert!(!error.message.is_empty());
+    let failed = rail_tree(&fx.user).await;
+    assert_ne!(
+        attempt(&failed, &fx.a),
+        attempt(&before, &fx.a),
+        "a was rewound"
+    );
+    assert_eq!(attempt(&failed, &fx.b), attempt(&before, &fx.b));
+    std::fs::remove_file(&dir).unwrap();
+    std::fs::rename(&held, &dir).unwrap();
+    let mut events = fx.project.subscribed().await;
+    let done = rewind(&fx, None, "keep").await;
+    assert_eq!(done["agents"].as_array().unwrap().len(), 2);
+    let retried = rail_tree(&fx.user).await;
+    assert_eq!(
+        attempt(&retried, &fx.a),
+        attempt(&failed, &fx.a),
+        "a is not rewound twice"
+    );
+    assert_ne!(attempt(&retried, &fx.b), attempt(&before, &fx.b));
+    daemon::next(&mut events, |event| match event {
+        contracts::EventData::WorkstreamRewound(_) => Some(()),
+        _ => None,
+    })
+    .await;
+
+    // `workstream.rewound` is emitted once, after the last session start.
+    let before = rail_tree(&fx.user).await;
+    let mut events = fx.project.subscribed().await;
+    rewind(&fx, None, "keep").await;
+    let rail_changes = std::cell::Cell::new(0);
+    let restarted = std::cell::RefCell::new(std::collections::HashSet::new());
+    daemon::next(&mut events, |e| {
+        match e {
+            contracts::EventData::AgentStatus(status) if status.status.kind == Kind::Idle => {
+                if before
+                    .iter()
+                    .any(|n| n.id == status.id && n.attempt.as_ref() != Some(&status.attempt))
+                {
+                    restarted.borrow_mut().insert(status.id.clone());
+                }
+            }
+            contracts::EventData::RailChanged => {
+                assert_eq!(restarted.borrow().len(), 2);
+                rail_changes.set(rail_changes.get() + 1);
+            }
+            contracts::EventData::WorkstreamRewound(data) => {
+                assert_eq!((data.id.as_str(), data.checkpoint), (fx.ws.as_str(), 1));
+                assert_eq!(rail_changes.get(), 1);
+                return Some(());
+            }
+            _ => {}
+        }
+        None
+    })
+    .await;
+    let quiet = tokio::time::timeout(Duration::from_millis(500), async {
+        daemon::next(&mut events, |e| match e {
+            contracts::EventData::WorkstreamRewound(_) => Some(()),
+            _ => None,
+        })
+        .await
+    })
+    .await;
+    assert!(quiet.is_err(), "workstream.rewound was emitted twice");
+
+    // Each Agent resumes a copy of its conversation cut at its Mark, and no slash command is typed.
+    for agent in [&fx.a, &fx.b] {
+        ask(&fx, agent, "after mark").await;
+    }
+    rewind(&fx, None, "restore").await;
+    for agent in [&fx.a, &fx.b] {
+        idle(&fx.user, agent).await;
+    }
+    for agent in [&fx.a, &fx.b] {
+        ask(&fx, agent, "after rewind").await;
+    }
+    let journal = fx.project.model.as_ref().unwrap().journal();
+    let asked: Vec<_> = journal
+        .iter()
+        .filter(|e| e["body"].to_string().contains("after rewind"))
+        .collect();
+    assert_eq!(asked.len(), 2);
+    for entry in asked {
+        let body = entry["body"].to_string();
+        assert!(
+            body.contains("Follow this instruction"),
+            "earlier turns stay"
+        );
+        assert!(!body.contains("after mark"), "later turns left the context");
+    }
+    let projects = fx.project.dir.path().join("claude-config/projects");
+    for dir in std::fs::read_dir(projects).unwrap() {
+        for file in jsonl(&dir.unwrap().path()) {
+            let text = std::fs::read_to_string(&file).unwrap();
+            assert!(
+                !text.contains("<command-name>/"),
+                "a slash command ran in {file:?}"
+            );
+        }
+    }
+    for entry in &journal {
+        for message in entry["body"]["messages"].as_array().unwrap() {
+            if message["role"] == "user" {
+                assert!(
+                    !message["content"]
+                        .to_string()
+                        .trim_start_matches(['"', '['])
+                        .starts_with('/'),
+                    "{message}"
+                );
+            }
+        }
+    }
+    fx.project.model.as_ref().unwrap().assert_matched();
+
+    // A Subagent made after the Mark leaves the Rail and keeps its Worktree.
+    let later = spawn_later(&fx, &fx.b).await;
+    let descendant = spawn_later(&fx, &later.id).await;
+    let later_root = PathBuf::from(&later.worktree.as_ref().unwrap().path);
+    std::fs::write(later_root.join("keep-later"), "kept").unwrap();
+    let branch = git(&later_root, &["rev-parse", "--abbrev-ref", "HEAD"]);
+    let done = rewind(&fx, None, "restore").await;
+    let entry = done["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["agent"] == later.id)
+        .unwrap();
+    assert_eq!(entry["state"], "removed");
+    assert!(node(&fx.user, &descendant.id).await.is_none());
+    assert!(node(&fx.user, &later.id).await.is_none());
+    assert_eq!(
+        std::fs::read(later_root.join("keep-later")).unwrap(),
+        b"kept"
+    );
+    assert_eq!(
+        git(&later_root, &["rev-parse", "--abbrev-ref", "HEAD"]),
+        branch
+    );
+
+    // Messages, Todos, Pads and every Checkpoint stay through a rewind.
+    as_actor(&fx.project, ActorKind::Agent, &fx.ws)
+        .await
+        .request(
+            "checkpoint.write",
+            json!({"title": "later", "blocks": [{"kind": "text", "text": "more"}]}),
+        )
+        .await
+        .unwrap();
+    fx.user
+        .request("todo.create", json!({"title": "keep me"}))
+        .await
+        .unwrap();
+    fx.user
+        .request("pad.create", json!({"name": "notes", "text": "kept"}))
+        .await
+        .unwrap();
+    let state = || async {
+        (
+            fx.user.request("todo.list", json!(null)).await.unwrap(),
+            fx.user.request("pad.list", json!(null)).await.unwrap(),
+        )
+    };
+    let before = state().await;
+    rewind(&fx, None, "keep").await;
+    assert_eq!(state().await, before);
+    let listed = listed(&fx).await;
+    let entries = listed.as_array().unwrap();
+    assert_eq!(entries.len(), 2, "every Checkpoint stays stored");
+    assert!(
+        entries
+            .iter()
+            .all(|c| c["rewindable"] == false || c["id"] == 1)
+    );
+    assert_eq!(entries[1]["rewindable"], false);
 }
 
 /// The replies of `rup mcp <id>` to `calls`, in order, over one stdio session.
@@ -647,174 +962,6 @@ async fn mcp(fx: &Fix, id: &str, calls: &[(&str, Value)]) -> Vec<Value> {
     out
 }
 
-#[tokio::test]
-async fn a35_plan_lists_each_agent_and_changes_nothing() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let roots = roots(&fx).await;
-    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
-    std::fs::write(root(&fx.a).join("README"), "after").unwrap();
-    let later = spawn_later(&fx, &fx.b).await;
-    let before = rail_tree(&fx.user).await;
-    let listing = plan(&fx, None).await.unwrap();
-    let agents = listing["agents"].as_array().unwrap();
-    assert_eq!(agents.len(), 3);
-    let entry = |id: &str| agents.iter().find(|a| a["agent"] == id).unwrap();
-    assert_eq!(entry(&fx.a)["files_changed"], json!(["README"]));
-    assert_eq!(entry(&fx.a)["created_after"], false);
-    assert_eq!(entry(&fx.b)["files_changed"], json!([]));
-    assert_eq!(entry(&later.id)["created_after"], true);
-    assert_eq!(entry(&later.id)["files_changed"], json!([]));
-    assert_eq!(listing["files_changed"], true);
-    assert_eq!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
-    assert_eq!(attempts(&rail_tree(&fx.user).await), attempts(&before));
-}
-
-#[tokio::test]
-async fn b3563d_rewind_has_no_control_consent_or_deferred_action() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let roots = roots(&fx).await;
-    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
-    std::fs::write(root(&fx.a).join("README"), "after").unwrap();
-    std::fs::write(root(&fx.b).join("README"), "after").unwrap();
-
-    let listing = plan(&fx, None).await.unwrap();
-    for entry in listing["agents"].as_array().unwrap() {
-        assert!(
-            entry
-                .as_object()
-                .unwrap()
-                .keys()
-                .all(|k| !k.contains("control")
-                    && !k.contains("consent")
-                    && !k.contains("takeover")),
-            "{entry}"
-        );
-    }
-
-    // Selecting one child applies in the call: its file returns, the other child's stays.
-    let done = rewind(&fx, Some(&fx.a), "restore").await;
-    let agents = done["agents"].as_array().unwrap();
-    assert_eq!(agents.len(), 1, "{done}");
-    assert_eq!(agents[0]["state"], "rewound", "{done}");
-    assert_ne!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
-    assert_eq!(std::fs::read(root(&fx.b).join("README")).unwrap(), b"after");
-
-    // A failed validation is an error in the call and changes nothing.
-    let before = attempts(&rail_tree(&fx.user).await);
-    let refused = rewind_as(&fx, &fx.ws, &fx.ws, Some("nobody"), "keep").await;
-    assert!(refused.is_err(), "{refused:?}");
-    assert_eq!(attempts(&rail_tree(&fx.user).await), before);
-}
-
-#[tokio::test]
-async fn a35_keep_changes_no_file() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let roots = roots(&fx).await;
-    for (_, root) in &roots {
-        std::fs::write(root.join("README"), "after").unwrap();
-        std::fs::write(root.join("new"), "new").unwrap();
-    }
-    for params in [
-        json!({"id": fx.ws, "checkpoint": 1}),
-        json!({"id": fx.ws, "checkpoint": 1, "files": "always"}),
-    ] {
-        let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-            .await
-            .request("workstream.rewind", params)
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::INVALID_PARAMS);
-    }
-    let before = rail_tree(&fx.user).await;
-    // Nothing was rewound by the refused calls.
-    let done = rewind(&fx, None, "keep").await;
-    assert_eq!(done["files"], "keep");
-    for (_, root) in &roots {
-        assert_eq!(std::fs::read(root.join("README")).unwrap(), b"after");
-        assert_eq!(std::fs::read(root.join("new")).unwrap(), b"new");
-    }
-    let after = rail_tree(&fx.user).await;
-    for id in [&fx.a, &fx.b] {
-        let attempt =
-            |tree: &[RailNode]| tree.iter().find(|n| &n.id == id).unwrap().attempt.clone();
-        assert_ne!(attempt(&after), attempt(&before));
-    }
-}
-
-#[tokio::test]
-async fn a35_restore_returns_each_worktree_to_its_snapshot() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let roots = roots(&fx).await;
-    let child_root = &roots.iter().find(|(id, _)| id == &fx.b).unwrap().1;
-    let remote = tempfile::tempdir().unwrap();
-    git(remote.path(), &["init", "-q", "--bare"]);
-    git(
-        child_root,
-        &["remote", "add", "origin", remote.path().to_str().unwrap()],
-    );
-    std::fs::write(child_root.join("README"), "committed later").unwrap();
-    git(child_root, &["add", "README"]);
-    git(child_root, &["commit", "-qm", "later"]);
-    let state = |root: &Path| {
-        (
-            git(root, &["symbolic-ref", "HEAD"]),
-            git(root, &["rev-parse", "HEAD"]),
-            git(root, &["remote", "-v"]),
-        )
-    };
-    let before: Vec<_> = roots.iter().map(|(_, root)| state(root)).collect();
-    let selected = [&fx.a, &fx.b];
-    for (_, root) in &roots {
-        std::fs::write(root.join("README"), "later").unwrap();
-        std::fs::write(root.join("new"), "new").unwrap();
-        std::fs::remove_file(root.join(".gitignore")).unwrap();
-    }
-    rewind(&fx, None, "restore").await;
-    assert_eq!(
-        roots
-            .iter()
-            .map(|(_, root)| state(root))
-            .collect::<Vec<_>>(),
-        before
-    );
-    assert_eq!(git(remote.path(), &["for-each-ref"]), "");
-
-    for (id, root) in &roots {
-        if selected.contains(&id) {
-            assert_eq!(std::fs::read(root.join("README")).unwrap(), b"keep");
-            assert!(!root.join("new").exists());
-            assert!(root.join(".gitignore").exists());
-        }
-    }
-}
-
-#[tokio::test]
-async fn a35_unselected_children_keep_their_files_and_conversations() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let roots = roots(&fx).await;
-    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
-    let before = rail_tree(&fx.user).await;
-    for id in [&fx.ws, &fx.a, &fx.b] {
-        std::fs::write(root(id).join("README"), format!("later {id}")).unwrap();
-    }
-    rewind(&fx, Some(&fx.b), "restore").await;
-    assert_eq!(std::fs::read(root(&fx.b).join("README")).unwrap(), b"keep");
-    for id in [&fx.ws, &fx.a] {
-        assert_eq!(
-            std::fs::read(root(id).join("README")).unwrap(),
-            format!("later {id}").into_bytes()
-        );
-        let attempt =
-            |tree: &[RailNode]| tree.iter().find(|n| &n.id == id).unwrap().attempt.clone();
-        assert_eq!(attempt(&rail_tree(&fx.user).await), attempt(&before));
-    }
-}
-
 fn jsonl(dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
         .unwrap()
@@ -858,178 +1005,6 @@ fn transcript_dir(fx: &Fix, cwd: &Path) -> PathBuf {
         .join(project)
 }
 
-#[tokio::test]
-async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
-    let fx = fixture().await;
-    write(&fx).await;
-    for agent in [&fx.a, &fx.b] {
-        ask(&fx, agent, "after mark").await;
-    }
-    rewind(&fx, None, "restore").await;
-    for agent in [&fx.a, &fx.b] {
-        idle(&fx.user, agent).await;
-    }
-    for agent in [&fx.a, &fx.b] {
-        ask(&fx, agent, "after rewind").await;
-    }
-    let journal = fx.project.model.as_ref().unwrap().journal();
-    let asked: Vec<_> = journal
-        .iter()
-        .filter(|e| e["body"].to_string().contains("after rewind"))
-        .collect();
-    assert_eq!(asked.len(), 2);
-    for entry in asked {
-        let body = entry["body"].to_string();
-        assert!(
-            body.contains("Follow this instruction"),
-            "earlier turns stay"
-        );
-        assert!(!body.contains("after mark"), "later turns left the context");
-    }
-    let projects = fx.project.dir.path().join("claude-config/projects");
-    for dir in std::fs::read_dir(projects).unwrap() {
-        for file in jsonl(&dir.unwrap().path()) {
-            let text = std::fs::read_to_string(&file).unwrap();
-            assert!(
-                !text.contains("<command-name>/"),
-                "a slash command ran in {file:?}"
-            );
-        }
-    }
-    let journal = fx.project.model.as_ref().unwrap().journal();
-    for entry in &journal {
-        for message in entry["body"]["messages"].as_array().unwrap() {
-            if message["role"] == "user" {
-                assert!(
-                    !message["content"]
-                        .to_string()
-                        .trim_start_matches(['"', '['])
-                        .starts_with('/'),
-                    "{message}"
-                );
-            }
-        }
-    }
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_a_failed_restart_leaves_the_others_rewound_and_retries() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let before = rail_tree(&fx.user).await;
-    let cwd = before
-        .iter()
-        .find(|n| n.id == fx.b)
-        .unwrap()
-        .worktree
-        .as_ref()
-        .unwrap()
-        .path
-        .clone();
-    let dir = transcript_dir(&fx, Path::new(&cwd));
-    let held = dir.with_extension("held");
-    std::fs::rename(&dir, &held).unwrap();
-    std::fs::write(&dir, "blocks the copy").unwrap();
-    let error = rewind_as(&fx, &fx.ws, &fx.ws, None, "keep")
-        .await
-        .unwrap_err();
-    assert!(!error.message.is_empty());
-    let attempt =
-        |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).unwrap().attempt.clone();
-    let failed = rail_tree(&fx.user).await;
-    assert_ne!(
-        attempt(&failed, &fx.a),
-        attempt(&before, &fx.a),
-        "a was rewound"
-    );
-    assert_eq!(attempt(&failed, &fx.b), attempt(&before, &fx.b));
-    std::fs::remove_file(&dir).unwrap();
-    std::fs::rename(&held, &dir).unwrap();
-    let mut events = fx.project.subscribed().await;
-    let done = rewind(&fx, None, "keep").await;
-    assert_eq!(done["agents"].as_array().unwrap().len(), 2);
-    let retried = rail_tree(&fx.user).await;
-    assert_eq!(
-        attempt(&retried, &fx.a),
-        attempt(&failed, &fx.a),
-        "a is not rewound twice"
-    );
-    assert_ne!(attempt(&retried, &fx.b), attempt(&before, &fx.b));
-    daemon::next(&mut events, |event| match event {
-        contracts::EventData::WorkstreamRewound(_) => Some(()),
-        _ => None,
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let later = spawn_later(&fx, &fx.b).await;
-    let descendant = spawn_later(&fx, &later.id).await;
-    let root = PathBuf::from(&later.worktree.as_ref().unwrap().path);
-    std::fs::write(root.join("keep-later"), "kept").unwrap();
-    let branch = git(&root, &["rev-parse", "--abbrev-ref", "HEAD"]);
-    let done = rewind(&fx, None, "restore").await;
-    let entry = done["agents"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["agent"] == later.id)
-        .unwrap();
-    assert_eq!(entry["state"], "removed");
-    assert!(node(&fx.user, &descendant.id).await.is_none());
-    assert!(node(&fx.user, &later.id).await.is_none());
-    assert_eq!(std::fs::read(root.join("keep-later")).unwrap(), b"kept");
-    assert_eq!(git(&root, &["rev-parse", "--abbrev-ref", "HEAD"]), branch);
-}
-
-#[tokio::test]
-async fn a35_rewound_is_emitted_once_after_the_last_session_start() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let before = rail_tree(&fx.user).await;
-    let mut events = fx.project.subscribed().await;
-    rewind(&fx, None, "keep").await;
-    let rail_changes = std::cell::Cell::new(0);
-    let restarted = std::cell::RefCell::new(std::collections::HashSet::new());
-    daemon::next(&mut events, |e| {
-        match e {
-            contracts::EventData::AgentStatus(status) if status.status.kind == Kind::Idle => {
-                if before
-                    .iter()
-                    .any(|n| n.id == status.id && n.attempt.as_ref() != Some(&status.attempt))
-                {
-                    restarted.borrow_mut().insert(status.id.clone());
-                }
-            }
-            contracts::EventData::RailChanged => {
-                assert_eq!(restarted.borrow().len(), 2);
-                rail_changes.set(rail_changes.get() + 1);
-            }
-            contracts::EventData::WorkstreamRewound(data) => {
-                assert_eq!((data.id.as_str(), data.checkpoint), (fx.ws.as_str(), 1));
-                assert_eq!(rail_changes.get(), 1);
-                return Some(());
-            }
-            _ => {}
-        }
-        None
-    })
-    .await;
-    let quiet = tokio::time::timeout(Duration::from_millis(500), async {
-        daemon::next(&mut events, |e| match e {
-            contracts::EventData::WorkstreamRewound(_) => Some(()),
-            _ => None,
-        })
-        .await
-    })
-    .await;
-    assert!(quiet.is_err(), "workstream.rewound was emitted twice");
-}
-
 /// Restart the Daemon on the pinned `claude`, with a fresh model server for the same fixture.
 fn attempt_of(tree: &[RailNode], id: &str) -> Option<String> {
     tree.iter().find(|n| n.id == id).unwrap().attempt.clone()
@@ -1047,45 +1022,6 @@ async fn no_rewound(events: &mut rpc::Client) {
     assert!(seen.is_err(), "workstream.rewound came too early");
 }
 
-#[tokio::test]
-async fn a35_messages_todos_pads_and_checkpoints_stay() {
-    let fx = fixture().await;
-    write(&fx).await;
-    as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-        .await
-        .request(
-            "checkpoint.write",
-            json!({"title": "later", "blocks": [{"kind": "text", "text": "more"}]}),
-        )
-        .await
-        .unwrap();
-    fx.user
-        .request("todo.create", json!({"title": "keep me"}))
-        .await
-        .unwrap();
-    fx.user
-        .request("pad.create", json!({"name": "notes", "text": "kept"}))
-        .await
-        .unwrap();
-    let state = || async {
-        (
-            fx.user.request("todo.list", json!(null)).await.unwrap(),
-            fx.user.request("pad.list", json!(null)).await.unwrap(),
-        )
-    };
-    let before = state().await;
-    rewind(&fx, None, "keep").await;
-    assert_eq!(state().await, before);
-    let listed = listed(&fx).await;
-    let entries = listed.as_array().unwrap();
-    assert_eq!(entries.len(), 2, "every Checkpoint stays stored");
-    assert!(
-        entries
-            .iter()
-            .all(|c| c["rewindable"] == false || c["id"] == 1)
-    );
-    assert_eq!(entries[1]["rewindable"], false);
-}
 // M16: the Door does through its MCP what the user does to a child, and no more.
 
 /// The Door's MCP replies to `tools/call` of each `(tool, arguments)`, in order.
@@ -1122,7 +1058,7 @@ async fn working(events: &mut rpc::Client, id: &str) {
 }
 
 #[tokio::test]
-async fn m16_a_door_can_perform_each_user_action_on_a_child() {
+async fn m16_a_door_can_perform_each_user_action_on_a_child_and_only_on_its_own() {
     let fx = fixture().await;
     write(&fx).await;
     let model = fx.project.model.as_ref().unwrap();
@@ -1207,12 +1143,8 @@ async fn m16_a_door_can_perform_each_user_action_on_a_child() {
         idle(&fx.user, &child).await;
     }
     model.assert_matched();
-}
 
-#[tokio::test]
-async fn m16_door_actions_keep_reach_restrictions() {
-    let fx = fixture().await;
-    write(&fx).await;
+    // The same calls on an Agent of another Workstream are refused and change nothing.
     let other = fx
         .user
         .request(

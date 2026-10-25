@@ -927,6 +927,9 @@ One Actor's exact chosen Todo identities in their original Project, bound to a c
 **RPC error data** (`RpcErrorData`):
 The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
 
+**Thrown outcome** (`outcomeOf`):
+The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
+
 **Keystroke sample** (`KeystrokeSample`):
 One opt-in R20 input identity in one Terminal. Its raw-echo workload carries an invisible OSC 777 marker (`run` plus key ordinal); receipt, physical write/flush and echo read use the Daemon monotonic clock. A duplicate echo is ambiguous, never evidence for another key. Ordinary input carries no marker.
 
