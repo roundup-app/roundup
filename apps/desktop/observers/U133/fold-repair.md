@@ -60,3 +60,6 @@ The six-minute related-file run stops at its bound after U166 spends roughly
 four minutes building the real-Daemon executables and fails its test bound.
 It is not a complete-suite pass. The reporting test that blocked broad captures
 passes alone after warm-up, without changing its timeout or retry policy.
+
+The full `just lint-web` rerun passes after the workspace install repair.
+`loop/rules.sh merge-loss` and `git diff --check` also pass.
