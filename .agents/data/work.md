@@ -12,6 +12,8 @@ Priority: 1
 Mode: implement
 ```
 
+A work order fits one 25-minute run: one module directory, about 800 changed lines, verification by one command that runs under 5 minutes; a larger ask becomes child Issues, each blocked by the one it follows.
+
 Mode is `implement` or `specify`; a specification Issue may propose new scenario headings and files, while an implementation Issue requires them on main. An omitted Mode is `implement`. An implementation Issue whose scenarios are not on main runs as `specify` first: that build run adds them, then edits the Issue's Scenarios line to name their IDs and keeps `Mode: implement`.
 
 An Issue with no `Key:` line is a request, such as a bug report: the queue builds it as `Mode: specify` with Key `issue-<number>` and Priority 50. That build run adds the request's scenarios, then edits the Issue to add the fields above (L34).
