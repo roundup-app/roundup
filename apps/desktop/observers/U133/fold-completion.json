@@ -1,0 +1,165 @@
+{
+  "agents-10.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "terminal-open.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "todo-menu.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "tree-40.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "pads.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "dense-failure.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "todo-focused.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "conflict.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "todo-selected.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "rail-focused.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "first-run.checks": {
+    "base": [],
+    "head": [],
+    "regressions": []
+  },
+  "rail-dragged.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "pad-focused.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "pad-selected.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "dense-todos.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "daemon-exits.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "pad-dragged.checks": {
+    "base": [
+      "D10",
+      "D14",
+      "D7"
+    ],
+    "head": [
+      "D14"
+    ],
+    "regressions": []
+  },
+  "rail-selected.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  },
+  "todo-dragged.checks": {
+    "base": [
+      "D10",
+      "D14",
+      "D7"
+    ],
+    "head": [
+      "D14"
+    ],
+    "regressions": []
+  },
+  "terminal-tabs.checks": {
+    "base": [
+      "D10",
+      "D7"
+    ],
+    "head": [],
+    "regressions": []
+  }
+}
