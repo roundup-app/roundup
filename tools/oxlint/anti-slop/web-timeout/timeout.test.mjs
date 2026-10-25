@@ -28,6 +28,7 @@ const cases = [
   ["different test", 'test("t3779a_other", () => {}, 90_000);', 1, "90000", [exception]],
   ["exception maximum", 'test("t3779a_real_clock", () => {}, 90_001);', 1, "90001", [exception]],
   ["missing reason", 'test("t3779a_real_clock", () => {}, 90_000);', 1, "exception", [{ ...exception, reason: "" }]],
+  ["unresolved file config", 'vi.setConfig(externalOptions); test("t3779a_default", () => {});', 1, "unresolved"],
   ["inherited file timeout", 'vi.setConfig({ testTimeout: 60_001 }); test("t3779a_default", () => {});', 1, "60001"],
   ["inherited suite timeout", 'describe("suite", { timeout: 60_001 }, () => { test("t3779a_default", () => {}); });', 1, "60001"],
   ["explicit overrides inherited", 'vi.setConfig({ testTimeout: 90_000 }); test("t3779a_override", () => {}, 60_000);', 0],
