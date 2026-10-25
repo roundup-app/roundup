@@ -1,13 +1,11 @@
 //! U3787f: actual AppKit panel operations through the same safe interface as production.
 //! Kept in s2297a's main-thread harness; libtest worker threads cannot own AppKit.
-#[cfg(target_os = "macos")]
 pub fn u3787f_panel_does_not_activate_main_window() {
     use tauri::Manager;
 
     let mut context = desktop::context();
     context.config_mut().app.windows.clear();
-    let app = tauri::Builder::default()
-        .plugin(native::capture_plugin())
+    let app = native::register_capture(tauri::Builder::default())
         .build(context)
         .unwrap();
     let main = tauri::WebviewWindowBuilder::new(
@@ -48,14 +46,12 @@ pub fn u3787f_panel_does_not_activate_main_window() {
     worker.join().unwrap().unwrap();
 }
 
-#[cfg(target_os = "macos")]
 pub fn u3787f_panel_uses_invoking_display() {
     use tauri::Manager;
 
     let mut context = desktop::context();
     context.config_mut().app.windows.clear();
-    let app = tauri::Builder::default()
-        .plugin(native::capture_plugin())
+    let app = native::register_capture(tauri::Builder::default())
         .build(context)
         .unwrap();
     let cursor = app.cursor_position().unwrap();
