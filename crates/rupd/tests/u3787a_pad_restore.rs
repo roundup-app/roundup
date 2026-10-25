@@ -108,6 +108,10 @@ async fn u3787a_restore_keeps_agent_owner_home_revision_after_reopen() {
     w.client = Client::connect(&socket).await.unwrap();
     let restored = call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(restored["pad"], original);
+    assert_eq!(
+        call(&w, "pad.read", json!({"name":"owned"})).await,
+        original
+    );
     assert_eq!(call(&w, "terminal.list", Value::Null).await, json!([]));
     assert_eq!(
         call(&w, "rail.tree", Value::Null).await[0]["attempt"],

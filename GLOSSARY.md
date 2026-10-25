@@ -896,19 +896,8 @@ It is absent without the `idle-perf` Cargo feature.
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
 
-**Pad deletion** (`pad.delete`, `DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.getDeletion`, `pad.restore`):
-A retained operation in the originating Project, owned by the authenticated deleting Actor.
-Deletion captures the authoritative Pad, including its normalized key, incarnation, exact
-text/Revision, owner and Home, within the removal transaction. An optional caller-chosen
-`operation` reconciles an unknown reply; reusing it with different guards refuses.
-`expectedIncarnation` refuses a replacement creation. `pad.getDeletion` reads the retained
-receipt without repeating deletion. Restore takes only its Project and operation, checks
-current authority, Home/owner and name availability, and reconnects the same incarnation.
-A conflict keeps the operation retryable; a consumed operation returns its receipt without
-restoring again. Explicit publication revocation survives restoration. Neither operation
-starts an Agent/Terminal, submits a draft or replays external effects.
+### Pad restoration
 
-`pads::retain` captures an authorized original within a coordinator's existing Project
-transaction; `pads::restore` reconnects its rows and consumes its operation in that
-transaction. The coordinator validates original Home/owner existence and stages mirrors
-before commit. Neither helper opens another transaction or emits an Event.
+| Code term | User label | Avoid |
+|---|---|---|
+| Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |
