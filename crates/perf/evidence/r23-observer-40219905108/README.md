@@ -103,9 +103,9 @@ or logger confounding, or supply an exact executor-enqueue timestamp.
 `replay-audit.py.txt.gz` orchestrates the existing archived Python assessors using
 only Python standard-library file, gzip, JSON and subprocess facilities. It adds
 no production probe, parser or timing test. Run it in a scratch environment after
-replacing its `source`, `out` and `scratch` paths with absolute paths; `out` and
-`scratch` must be fresh directories. It copies raw material, verifies every
-uncompressed entry in `raw-sha256.json`, decodes logs and joins physical endpoints,
+replacing its `source`, `out` and `scratch` paths with absolute paths; for the
+output paths, create an empty `out`, and leave `scratch` nonexistent. It
+copies raw material, verifies every uncompressed entry in `raw-sha256.json`, decodes logs and joins physical endpoints,
 then replays the task/thread, producer and control assessors. Source evidence is
 never overwritten. Exact subprocess arguments, output and actual statuses are
 retained as `replay-*.command`, `.stdout`, `.stderr` and `.exit`.
@@ -141,3 +141,16 @@ Decompress `executables-history.py.txt.gz` to `/tmp/r23-verification.py` and run
 member hashes and historical ceilings. Use a scratch output directory to preserve
 retained results. `executables-history.exit` is the actual status; this is offline
 verification, with no Daemon or profiler process started.
+
+
+## Validation
+
+The initial `cargo nextest run -p perf` exits 100: 100 tests pass, three launch
+fixtures fail because this fresh worktree has no built `rupd`/`rup` executables.
+`validation-tests-initial.*` retains that setup failure. `cargo build -p rupd -p rup` then exits 0; the targeted repeat exits 0 with
+all three passing (the other 100 were already passing). `validation-test-build.*`
+and `validation-tests-repeat.*` retain commands, logs and actual statuses. This
+is test setup, not a change to the observed binaries or a new R23 measurement.
+Post-merge `just lint-web` and `just lint-rust` both exit 0; their compressed logs
+and commands are retained as `validation-lint-*`. `loop/rules.sh merge-loss` and
+`git diff --check` also pass. No test file or production source changes.
