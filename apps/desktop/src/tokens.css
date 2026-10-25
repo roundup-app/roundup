@@ -82,7 +82,7 @@
   --stroke-strong: 2px;
   --stroke-check: 1.5px;
   --resize-mark-inset: 3px;
-  --scrollbar-width: 6px;
+  --terminal-scrollbar-size: 6px;
   /* The user set the window bar to 38 px (2026-10-17). */
   --header-height: 38px;
   /* U391: shared Rail footer and Terminal tab height. */
