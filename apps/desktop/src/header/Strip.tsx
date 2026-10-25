@@ -3,7 +3,7 @@ import type { ProjectsState } from "../state/projects";
 import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { CloseDialog } from "./CloseDialog";
@@ -53,6 +53,7 @@ export const Strip = (props: {
   const [cutEnd, setCutEnd] = createSignal(0);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
+  const [listElement, setListElement] = createSignal<HTMLDivElement>();
   let observer: ResizeObserver | undefined;
   const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
@@ -175,8 +176,11 @@ export const Strip = (props: {
     queueMicrotask(revealOpen);
   }));
 
-  onMount(() => {
-    if (typeof ResizeObserver === "undefined" || !list) return;
+  createEffect(() => {
+    const mounted = listElement();
+
+    if (typeof ResizeObserver === "undefined" || !mounted) return;
+    unrevealed = props.active;
 
     observer = new ResizeObserver((entries) => {
       // Edge slots resize the list while browsing hidden tabs; only a resized
@@ -187,7 +191,7 @@ export const Strip = (props: {
       measure();
     });
 
-    observer.observe(list);
+    observer.observe(mounted);
 
     for (const element of elements.values()) observer.observe(element);
     onCleanup(() => observer?.disconnect());
@@ -235,7 +239,7 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
-        <Tabs.List class="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
+        <Tabs.List class="tablist" aria-label={copy.projects} ref={(element) => { list = element; setListElement(element); onCleanup(() => setListElement(undefined)); }} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
