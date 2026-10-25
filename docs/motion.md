@@ -172,3 +172,11 @@ M1/M3–M7/M9–M11 and the full layer/row/copy capture and native scheduling pr
 remain unfinished. Existing CSS/WAAPI effects remain until their respective slices
 migrate or delete them; this partial installation is not a completed one-engine claim.
 No native or performance acceptance is claimed by the press/layout probe.
+
+The press slice's production build accounting is
+`artifacts/ux/U3010d/press-bundle.json`: immutable base/head commits, gzip-9,
+entry/eager JS, entry CSS separately, and every lazy JS chunk. Base entry/eager JS is
+521,079 bytes; this slice is 544,236, a 23,157-byte migration increase (engine plus
+integration/observer code). Both exceed 400,000; budget acceptance remains unmet.
+Motion is eager in this slice, with no lazy Motion chunk. This report preserves the
+existing performance baselines and makes no native scheduling or presentation claim.
