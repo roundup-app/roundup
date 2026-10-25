@@ -230,10 +230,21 @@ def main():
 
     def consume():
         nonlocal attached, diagnostics, snapshot, snapshot_stacks, snapshot_integrity, snapshot_final, snapshot_valid
+        compiler_warning = False
         try:
             for raw in tracer.stdout:
                 if not raw.strip():
                     continue
+                # 0.25 writes this compiler lint and its indented source excerpt
+                # to stdout even in JSON mode. Preserve it without treating the
+                # excerpt as a broken kernel event; other non-JSON stays fatal.
+                if not attached and not raw.startswith("{") and ("WARNING: Return value discarded." in raw or (compiler_warning and raw[0].isspace())):
+                    compiler_warning = True
+                    if "WARNING:" in raw and diagnostics < 16:
+                        diagnostics += 1
+                        publish({"status": "diagnostic", "detail": raw[:2048].strip()})
+                    continue
+                compiler_warning = False
                 message = json.loads(raw)
                 if message.get("type") == "attached_probes":
                     continue
@@ -286,12 +297,19 @@ def main():
     def stderr():
         nonlocal kernel_error, history_complete
         for number, raw in enumerate(tracer.stderr):
-            if any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
+            # A stream-loss summary invalidates history, not the independently
+            # verified final kernel-map snapshot (same as JSON lost_events).
+            stream_loss = raw.startswith("WARNING: Total lost event count:")
+            if stream_loss:
+                history_complete = False
+            # 0.25 warns when delete's new return value is ignored. The probes
+            # intentionally ignore it; keep actual probe warnings fatal.
+            elif any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")) and "WARNING: Return value discarded." not in raw:
                 # Even beyond the diagnostic cap, failure invalidates evidence.
                 kernel_error = True
                 history_complete = False
             if number < 16:
-                publish({"status": "error" if kernel_error else "diagnostic", "detail": raw[:2048].strip()})
+                publish({"status": "error" if kernel_error or stream_loss else "diagnostic", "detail": raw[:2048].strip()})
 
     def announce():
         nonlocal reports
@@ -324,7 +342,15 @@ def main():
     signal.signal(signal.SIGINT, interrupted)
     result = 1
     try:
-        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "-k", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        version = subprocess.check_output(["bpftrace", "--version"], text=True, timeout=5).split()[-1].lstrip("v").split(".")
+        # 0.25 reports failed map updates and stack reads by default. Its -k
+        # also reports normal map misses, overflowing capture during task scans.
+        warnings = ["-k"] if tuple(map(int, version[:2])) < (0, 25) else []
+        # Keep the original 64-byte names across bpftrace versions. On 0.25,
+        # its larger default overflows tuple allocation; keeping the 65-byte
+        # NUL-padded string on stack avoids its undersized scratch buffer too.
+        # Preserve the tracer's status when timeout relays our cleanup signal.
+        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_STRLEN=64", "BPFTRACE_ON_STACK_LIMIT=80", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--preserve-status", "--signal=TERM", "--kill-after=5s", "15m", "bpftrace", *warnings, "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE"))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         readers = [threading.Thread(target=target, daemon=True) for target in (consume, stderr, announce)]
         for reader in readers:
             reader.start()
@@ -347,8 +373,9 @@ def main():
         if tracer and tracer.poll() is None:
             # sudo forwards to the timeout supervisor, which owns only this
             # tracer. Its 15-minute watchdog also bounds a lost control channel.
+            # TERM keeps bpftrace's handler installed while final maps flush.
             try:
-                subprocess.run(["sudo", "-n", "kill", "-INT", str(tracer.pid)], timeout=5, check=False)
+                subprocess.run(["sudo", "-n", "kill", "-TERM", str(tracer.pid)], timeout=5, check=False)
                 tracer.wait(timeout=10)
             except (OSError, subprocess.TimeoutExpired) as error:
                 publish({"status": "error", "detail": f"tracer cleanup: {error}; its watchdog remains bounded to 15 minutes"})
