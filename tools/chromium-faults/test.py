@@ -36,7 +36,8 @@ def line(stream):
 
 @contextmanager
 def file_fixture():
-    with tempfile.TemporaryDirectory(prefix="u26-fault-") as directory:
+    # The burst must fault from disk: tmpfs /tmp never waits for file I/O.
+    with tempfile.TemporaryDirectory(prefix="u26-fault-", dir=os.environ.get("RUNNER_TEMP", HERE)) as directory:
         root = Path(directory)
         binary = root / "chrome"
         flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "fuse3"], text=True, timeout=10).split()
@@ -203,7 +204,7 @@ class FaultTest(unittest.TestCase):
                         events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
                         self.assertEqual(events[-1]["still_pending"], 0, events[-1])
                         self.assertTrue(events[-1]["live_state_verified"], [event for event in events if event["status"] in ("error", "finished")])
-                        self.assertFalse(events[-1]["history_complete"], events[-1])
+                        self.assertFalse(events[-1]["history_complete"])
                         self.assertTrue(any("lost_events" in event.get("detail", "") for event in events))
                         self.assertTrue(any(event.get("tid") == tid and event.get("entry_ns") == pending["entry_ns"] and event.get("status") in ("completed", "terminated") for event in events))
                 finally:
@@ -408,7 +409,7 @@ if "bpftrace" not in sys.argv:
     os.execvp(arguments[0], arguments)
 tid, entry = int(sys.argv[-2]), time.monotonic_ns()
 done = []
-signal.signal(signal.SIGTERM, lambda *_: done.append(1))
+signal.signal(signal.SIGINT, lambda *_: done.append(1))
 printf("READY\n")
 snapshot("SNAPSHOT\n", "SNAPSHOT_END\n", {str(tid): [tid, 4096, 4096, entry, 4096, 8192, 4096, 2, 49, "held"]}, {f"{tid},{entry}": "folio_wait_bit_common+307"})
 time.sleep(0.5)

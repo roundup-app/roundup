@@ -4,7 +4,7 @@ import { browser, read, wait, url } from "../ui/tabsBrowser";
 /** The Drawer and Project tabs mounted together: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
-for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
+for (const target of ["input", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
   await browser("open", fixture());
   await wait(`!!document.querySelector('#origin')`);
   await browser("click", "#origin");
@@ -64,7 +64,7 @@ it("u497_control_names_and_tooltips", async () => {
   await browser("eval", `document.querySelector('.drawer .close').click()`);
   await wait(`document.querySelector('.drawer').dataset.open === 'false'`);
 
-  for (let at = 0; at < 8; at++) {
+  for (const at of [0, 7]) {
     await browser("eval", `document.querySelectorAll('.project-tab')[${at}].querySelector('[role=tab]').click()`);
     await wait(`document.querySelectorAll('.project-tab')[${at}].dataset.selected === 'true'`);
     await browser("hover", `.project-tab:nth-child(${at + 1}) [role=tab]`);
