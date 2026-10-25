@@ -19,3 +19,20 @@ Blocker graph and append-only Touch log want transactions and queries. Markdown 
 ## Notes
 
 Terminology: the table and RPC names say Pad, never scratchpad or session (rule 6).
+
+Amended 2026-10-25 (#3961): preserve Project WAL snapshot concurrency. A retained
+Pad reader must continue seeing its old snapshot while public Pad writes commit;
+DELETE/PERSIST/TRUNCATE require that reader to leave. Synchronization strength
+cannot repair the locking conflict. Moving WAL checkpoints also retains the
+payload's eventual WAL-to-database write. See [SQLite isolation](https://sqlite.org/isolation.html)
+and [WAL mechanics](https://sqlite.org/wal.html).
+
+The selected publication I/O design in `scenarios/test-cost.md`, R3778a–R3778e,
+keeps identity/quota/access metadata in the existing WAL transaction and makes new
+payload files durable before committing their references. Existing BLOBs stay
+readable without startup conversion. This physical representation is **proposed,
+not authorized for implementation**: the user or the ownership authority in #3961 must authorize the
+payload ownership expansion and the corresponding physical-storage amendment to
+DV2 before #3942 implements it. WAL remains the accepted decision; this amendment
+permits neither a second database nor weaker publication atomicity/durability,
+Event guarantees, owner-read leases, quotas or public snapshot observers.
