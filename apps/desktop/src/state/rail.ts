@@ -92,9 +92,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
 
-  const select = (id: string | null): void => {
+  const select = (id: string | null, focus = captureFocus(true)): void => {
     batch(() => {
-      setTerminalFocus(() => captureFocus(true));
+      setTerminalFocus(() => focus);
       setRestored(false);
       setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
       reveal(selected());
@@ -145,7 +145,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
-      workstreamFocus(() => select(wanted));
+      select(wanted, workstreamFocus);
       setWorkstreamCreating(false);
       void startDoor(wanted, false);
     }
