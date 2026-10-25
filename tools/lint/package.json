@@ -1,0 +1,12 @@
+{
+  "name": "lint-boundaries",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "madge": "8.0.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "test:boundaries": "python3 setup.py web && python3 setup.py rust && node --test cycles.test.mjs && python3 -m unittest discover -s . -p \"*_test.py\""
+  }
+}

@@ -251,6 +251,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: T3797a real-tool lint observers
+        run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq
