@@ -35,7 +35,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--hairline);
+  border-top: var(--stroke-hairline) solid var(--hairline);
 }
 
 .settings-group-name {

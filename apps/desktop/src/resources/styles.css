@@ -55,8 +55,8 @@
 /* The name is for a screen reader; the icon speaks to the eye. */
 .resource-name {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--stroke-hairline);
+  height: var(--stroke-hairline);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;

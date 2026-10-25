@@ -11,7 +11,7 @@
 }
 
 .timeline-single {
-  --name-width: 0px;
+  --name-width: calc(0 * var(--space-1));
 }
 
 .timeline-header {
@@ -38,7 +38,7 @@
 .timeline-axis-ticks {
   position: relative;
   height: var(--space-5);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--stroke-hairline) solid var(--hairline);
   margin-bottom: var(--space-2);
 }
 
@@ -136,6 +136,6 @@ button.timeline-block {
 
 .timeline-line {
   position: absolute;
-  width: 1px;
+  width: var(--stroke-hairline);
   background: var(--grey);
 }

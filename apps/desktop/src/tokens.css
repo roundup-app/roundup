@@ -78,6 +78,23 @@
   /* U131: title geometry, including empty leading slots; not a space step. */
   --row-text-inset: 56px;
   --flat-tab-edge: 1px;
+  --stroke-hairline: 1px;
+  --stroke-strong: 2px;
+  --stroke-check: 1.5px;
+  --resize-mark-inset: 3px;
+  --scrollbar-width: 6px;
+  /* The user set the window bar to 38 px (2026-10-17). */
+  --header-height: 38px;
+  /* U391: shared Rail footer and Terminal tab height. */
+  --rail-actions-height: 40px;
+  --rail-name-min-width: 132px;
+  --rail-name-max-width: 252px;
+  --dialog-min-width: 360px;
+  --pad-preview-height: 360px;
+  --picker-width: 480px;
+  --drawer-min-width: 560px;
+  --ask-width: 640px;
+  --ask-menu-max-width: 320px;
 
   --radius-chip: 4px;
   --key-chip-padding: 5px;
@@ -93,6 +110,7 @@
   --button-accent-ink: #ffffff;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-instant: 0s;
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;
