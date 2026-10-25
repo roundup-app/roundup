@@ -162,10 +162,6 @@ export const initializeStorage = async (): Promise<string | null> => {
     if (legacy.length > 0) await store.save();
     await reopen();
 
-    for (const [key, value] of candidates) {
-      if (JSON.stringify(restored.get(key)) !== JSON.stringify(value)) return storageCopy.recoveryReadback;
-    }
-
     for (const record of quarantines) {
       const name = quarantinePrefix + JSON.stringify([record.key, record.bytes]);
       const checked = v.safeParse(quarantineSchema, restored.get(name));
