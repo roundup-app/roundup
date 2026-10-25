@@ -28,9 +28,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const edit = (name: string, input: HTMLInputElement) => drafts.edit(destination(name), { text: input.value },
     { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" }, "ordinary");
 
-  const commit = (name: "fontFamily" | "fontSize", value: string | number) => {
+  const commit = async (name: "fontFamily" | "fontSize", value: string | number) => {
     const revision = current(name)?.revision;
-    const cause = saveAppSettings({ [name]: value });
+    const cause = await saveAppSettings({ [name]: value });
     setFailure(cause);
 
     if (cause === null && revision) drafts.discard(revision);
@@ -61,7 +61,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     }
   });
 
-  const save = (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(saveAppSettings(patch));
+  const save = async (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(await saveAppSettings(patch));
 
   const commitSize = () => {
     const size = Number(field("fontSize"));
@@ -114,7 +114,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <ReservedLine message={sizeFailure()} />
         </div>
       </SettingsGroup>
-      <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting onFailure={setFailure} /></SettingsGroup>
+      <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup>
       <SettingsGroup name={copy.settingsAppearance}>
         <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />

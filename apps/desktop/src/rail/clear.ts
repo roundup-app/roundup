@@ -101,7 +101,7 @@ const createClearing = (app: AppSeam, events: Events, id: string, storage: Conne
         snapshot = drafts.edit(destination, { ...snapshot.value, withoutHandoff }, snapshot.selection, "ordinary");
       }
 
-      submitted = drafts.submit(snapshot.revision);
+      submitted = (await drafts.submit(snapshot.revision));
 
       if (!submitted) return;
       const revision = submitted.revision;

@@ -1,5 +1,6 @@
 import { outcomeOf } from "../app/seam";
-import { writeText } from "../app/clipboard";
+import { captureFocus, queueFocus } from "../keys/focus";
+import { CopyButton } from "../ui/CopyButton";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
@@ -110,13 +111,13 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
   const back = () => {
     setView({ kind: "list" });
-    queueMicrotask(() => document.querySelector<HTMLElement>(`[data-reaction-opener="${opener}"]`)?.focus());
+    queueFocus(() => document.querySelector<HTMLElement>(`[data-reaction-opener="${opener}"]`)?.focus());
   };
 
   const open = (next: View) => {
     opener = next.kind === "detail" ? next.id : next.kind;
     setView(next);
-    queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
+    queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
   };
 
   const selected = () => {
@@ -170,7 +171,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
         if (reveal) {
           setView({ kind: "detail", id: created.id });
-          queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
+          queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
         }
       }} onCancel={back} />
     </Show>
@@ -245,7 +246,7 @@ const Facts = (props: { reaction: Reaction }) => {
 
   const closeMessage = () => {
     setMessageId(null);
-    queueMicrotask(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
+    queueFocus(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
   };
 
   const home = () => r().home;
@@ -268,31 +269,24 @@ const Facts = (props: { reaction: Reaction }) => {
       <span>{observation()}</span>
       <ReservedLine message={copy.reactionFeedback(r().observation)} />
     </dd>
-    <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-      const owner = copyOwner();
-      void writeText(app, JSON.stringify({
+    <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
-      }, null, 2)).then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-    }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+      }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
     </Show></dd>
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
-      <ExitButton ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage} />
+      <ExitButton ref={element => queueFocus(() => element.focus())} onClick={closeMessage} />
       <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
       <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionReason(value().reason!)}` : ""}</dd>
-        <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-          const owner = copyOwner();
-          void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
-            .then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-        }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+        <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
     </section>
   </Show>;
@@ -384,12 +378,12 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     const until = resolvedAt(expiry);
     const f = form();
 
-    if (!draft || !cond || !until || unresolved() || !drafts.submit(draft.revision)) return;
+    if (!draft || !cond || !until || unresolved() || !(await drafts.submit(draft.revision))) return;
 
     await send(draft.revision, f, cond, until);
   };
 
-  const send = async (revision: string, f: Form, cond: Condition, until: string) => {
+  const send = async (revision: string, f: Form, cond: Condition, until: string, focus = captureFocus()) => {
     setFailure(null);
     setBusy(true);
 
@@ -400,7 +394,8 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
       });
 
       drafts.settle(revision, "acknowledged");
-      props.onDone(made, !disposed && !current());
+
+      if (!focus(() => props.onDone(made, !disposed && !current()))) props.onDone(made, false);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       const refused = outcomeOf(error) === "failed";
@@ -416,6 +411,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
 
     if (!draft || draft.status !== "unknown" || busy()) return;
 
+    const focus = captureFocus();
     const f = v.parse(formSchema, draft.value);
     setBusy(true);
     setFailure(null);
@@ -427,7 +423,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
         : f.kind === "pr-checks" ? { kind: "pr-checks", repository: f.repository, number: Number(f.number) }
           : { kind: "instant", at: (await app.rpc("reaction.preview", { date: f.atDate, time: f.atTime, offset: f.atOffset })).at, late: "once-before-expiry" };
 
-      await send(draft.revision, f, cond, until.at);
+      await send(draft.revision, f, cond, until.at, focus);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(copy.reactionCreationUnknown(error.message));

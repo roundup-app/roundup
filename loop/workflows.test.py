@@ -162,7 +162,7 @@ class Permissions(unittest.TestCase):
     def test_l82_a_conflict_engine_run_is_capped_and_short(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()
         engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
-        self.assertIn("timeout-minutes: ${{ needs.task.outputs.cause == 'conflict' && 15 || 105 }}", engine)
+        self.assertIn("timeout-minutes: ${{ needs.task.outputs.cause == 'conflict' && 15 || 35 }}", engine)
         self.assertIn('engine$([ "$CAUSE" = conflict ] && echo -conflict)', engine)
         task = source.split('      - id: task\n', 1)[1].split('\n  fix-run:', 1)[0]
         self.assertIn('prompt $([ "$CAUSE" = conflict ] && echo conflict)', task)

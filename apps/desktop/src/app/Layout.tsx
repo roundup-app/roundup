@@ -15,7 +15,7 @@ import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void };
+export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -106,6 +106,8 @@ export const Layout = (props: {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
     setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
   }, { defer: true }));
+  createEffect(() => { if (placement().sliding === false) setShelfSliding(false); });
+  onCleanup(() => placement().onSettle());
   let maximiseSlide: Animation | undefined;
 
   const maximised = createMemo(() => placement().maximised === true);
@@ -140,7 +142,7 @@ export const Layout = (props: {
   <div {...binding("root")} class="window" data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
-    <div class="columns" style={{ "grid-area": "1 / 1" }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
+    <div class="columns" style={{ "grid-area": "1 / 1" }}>
       <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
@@ -162,9 +164,7 @@ export const Layout = (props: {
       data-animated={placement().animated}
       hidden={!placement().rendered}
       inert={!placement().open}
-      onTransitionEnd={(event) => {
-        if (event.target === event.currentTarget && event.propertyName === "transform") { placement().onSettle(); setShelfSliding(false); }
-      }}
+      ref={element => placement().attach?.(element)}
     >
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>

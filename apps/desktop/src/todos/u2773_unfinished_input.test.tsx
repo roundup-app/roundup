@@ -28,7 +28,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_creation", async () => {
 
 it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.click(screen.getByText("Blocker"));
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
@@ -40,7 +40,7 @@ it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
 
 it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   const { app, connected } = await mountTodos([todo(1, { body: "base" })]);
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("base"));
   const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
@@ -49,7 +49,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   field.setSelectionRange(2, 5, "backward");
   fireEvent.select(field);
   connected.drawer.close("key");
-  fireEvent.click(screen.getByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(screen.getByRole("button", { name: /#1 / }), { key: "Enter" });
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("base"));
   const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(restored.selectionStart).toBe(2));
@@ -69,6 +69,8 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_settlement
   fireEvent.keyDown(field, { key: "Enter" });
   fireEvent.input(field, { target: { value: "  newer B  " } });
 
+  await waitFor(() => expect(acknowledge).toBeTypeOf("function"));
+
   if (outcome === "acknowledged") acknowledge?.(todo(1));
   else reject?.(outcome === "failed" ? new RpcError(-32003, "refused") : new Error("connection lost"));
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
@@ -84,7 +86,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   let reject: ((error: Error) => void) | undefined;
 
   app.handlers["todo.update"] = () => new Promise((resolve, fail) => { acknowledge = resolve; reject = fail; });
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
@@ -95,6 +97,8 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   const newer = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
+
+  await waitFor(() => expect(acknowledge).toBeTypeOf("function"));
 
   if (outcome === "acknowledged") acknowledge?.(todo(1));
   else reject?.(outcome === "failed" ? new RpcError(-32003, "refused") : new Error("connection lost"));
@@ -117,6 +121,7 @@ it("u2773b_todos_discard_removes_only_selected_revision_across_reopen", async ()
   await screen.findByText("Failed");
   fireEvent.input(field, { target: { value: "  newer B 🧪  " } });
   fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: "Discard this revision" }));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ title: "  newer B 🧪  " }) })));
   const path = connected.project.path;
 
   unmount();
@@ -139,13 +144,13 @@ it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.input(field, { target: { value: "  exact 🧪  " } });
-  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(await screen.findByRole("alert")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith("  exact 🧪  ");
   expect(localStorage.getItem(`roundup:drafts:${connected.project.path}`)).toBe(stored);
   writes.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  expect(connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(field.value).toBe("  exact 🧪  ");
   expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts[0].value.title).toBe("  exact 🧪  ");
   expect(app.calls.filter(call => call.method === "todo.create")).toEqual([]);
@@ -154,7 +159,7 @@ it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
 it("u2773a_todos_title_survives_escape_without_submission", async () => {
   const { app } = await mountTodos([todo(1, { title: "original" })]);
 
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
@@ -190,6 +195,7 @@ it("u2773b_todos_late_failure_settles_original_project_only", async () => {
   const newer = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.input(newer, { target: { value: "  different Project B 🧪  " } });
+  await waitFor(() => expect(reject).toBeTypeOf("function"));
   reject?.(new RpcError(-32003, "original refused"));
   await waitFor(() => expect(original.connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
   expect(newer.value).toBe("  different Project B 🧪  ");
@@ -217,7 +223,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.click(screen.getByText("Blocker"));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
@@ -230,7 +236,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
 it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
 
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   const rejections: ((error: Error) => void)[] = [];
 
@@ -293,7 +299,7 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   expect(connected.drafts.list().find(draft => draft.revision === "independent")).toEqual(independent);
   localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [independent] }));
   fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
-  expect(connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(app.calls.filter(call => call.method === "todo.create" || call.method === "todo.update")).toEqual([]);
   unmount();
   await mountTodos([], true, [], false, path);
@@ -315,13 +321,14 @@ it("u2773a_todos_live_creation_enters_recovery_only_after_hiding", async () => {
 
 it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () => {
   const { app, connected } = await mountTodos([todo(1, { title: "original" })]);
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /#1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original"));
   fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
   document.activeElement instanceof HTMLElement && document.activeElement.blur();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   field.setSelectionRange(2, 3, "backward");
@@ -342,8 +349,8 @@ it.each([
 
   const selection = { start: 2, end: 5, direction: "backward" as const };
   const a = connected.drafts.edit(destination, form, selection, "ordinary").draft;
-  connected.drafts.submit(a.revision);
-  connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision);
+  await connected.drafts.settle(a.revision, outcome);
   const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, selection, "ordinary").draft;
   const before = connected.drafts.list();
   const calls = [...app.calls];
@@ -371,7 +378,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const destination = { surface: "todos", object: "new", recipient: "a" };
   const selection = { start: 2, end: 5, direction: "backward" as const };
   const a = connected.drafts.edit(destination, { title: "  e\u0301 🧪 title  ", home: "a" }, selection, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   connected.drafts.edit(destination, { title: "newer B", home: "a" }, selection, "ordinary");
   await waitFor(() => expect(todos.isLoaded()).toBe(true));
   connected.rail.select("b");
@@ -417,8 +424,8 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   await waitFor(() => expect(todos.isLoaded()).toBe(true));
   const destination = { surface: "todos", object: "new", recipient: null };
   const a = connected.drafts.edit(destination, { title: "discard A", home: null }, null, "ordinary").draft;
-  connected.drafts.submit(a.revision);
-  connected.drafts.settle(a.revision, "failed");
+  await connected.drafts.submit(a.revision);
+  await connected.drafts.settle(a.revision, "failed");
   const b = connected.drafts.edit(destination, { title: "keep B", home: null }, null, "ordinary").draft;
   const calls = [...app.calls];
 
@@ -430,7 +437,7 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   await waitFor(() => expect(document.activeElement).toBe(field));
   // The Shelf's recovery control is mounted separately from the recovered creation editor.
   fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", description: /discard A/ })[0]!);
-  expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull();
+  expect(field.isConnected).toBe(false);
   fireEvent.keyDown(field, { key: "Escape" });
   opened.unmount();
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
@@ -448,15 +455,15 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
     originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 };
 
   const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   connected.drafts.edit(destination, { ...form, blockers: [] }, null, "ordinary");
   const before = connected.drafts.list();
   const calls = [...app.calls];
   connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
   const drawer = within(await screen.findByRole("complementary", { name: "Drawer" }));
-  expect((await drawer.findByText("captured 🧪")).textContent).toBe("  captured 🧪  ");
-  expect(drawer.getByText("e\u0301 次の行").textContent).toBe("  e\u0301\n次の行  ");
-  expect(drawer.getByRole("button", { name: "Remove blocker #2" })).toBeTruthy();
+  expect((await drawer.findByText(form.title.trim())).textContent).toBe(form.title);
+  expect(drawer.getByText(form.body.replaceAll("\n", " ").trim()).textContent).toBe(form.body);
+  expect(drawer.getByRole<HTMLButtonElement>("button", { name: "Remove blocker #2" }).disabled).toBe(false);
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
   fireEvent.click(drawer.getByRole("button", { name: "Save" }));
@@ -471,7 +478,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_sa
   const destination = { surface: "todos", object: "1", recipient: "body" };
   const form = { text: "  A 🧪\n次の行  ", base: "old base", expected_change: 7, title: "todo 1", body: "old base", done: false, blockers: [] };
   const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome === "acknowledged" ? "failed" : outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome === "acknowledged" ? "failed" : outcome);
   const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, null, "ordinary").draft;
   app.handlers["todo.update"] = () => outcome === "acknowledged" ? todo(1, { body: form.text }) : Promise.reject(new RpcError(-32003, "captured conflict"));
   connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
@@ -480,6 +487,8 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_sa
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   if (outcome === "failed") await screen.findByText("captured conflict");
+
+  if (outcome === "acknowledged") await waitFor(() => expect(app.calls.slice(calls.length)).toHaveLength(1));
   expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
 
   if (outcome === "acknowledged") await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
@@ -491,7 +500,7 @@ it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keep
   await waitFor(() => expect(todos.isLoaded()).toBe(true));
   const destination = { surface: "todos", object: "new", recipient: "a" };
   const a = connected.drafts.edit(destination, { title: "  authored 🧪  ", home: "a" }, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   const b = connected.drafts.edit(destination, { title: "newer B", home: "a" }, null, "ordinary").draft;
   connected.rail.select("b");
   const calls = [...app.calls];

@@ -11,6 +11,7 @@ import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
+import { menuProbe } from "./menuProbe";
 import type { StartedDaemon } from "./realDaemonFixture";
 
 
@@ -38,10 +39,11 @@ describe("u176 Agent names", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
     for (const count of [1, 2]) {
-      const add = await within(rail).findByLabelText("Add Agent", {}, { timeout: 30_000 });
-
-      await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-      fireEvent.click(add);
+      await waitFor(() => expect(within(rail).getByRole("button", { name: "Add Workstream" }).getAttribute("aria-disabled")).not.toBe("true"));
+      const home = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
+      fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
+      await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "add" && item.enabled)).toBe(true));
+      menuProbe.answer!("add");
       await waitFor(async () => expect(await agents()).toHaveLength(count), { timeout: 30_000 });
       await waitFor(async () => expect((await agents())[count - 1]!.status?.label).not.toBe("starting"), { timeout: 30_000 });
       await waitFor(async () => expect(await app.rpc("agent.prompt", { id: (await agents())[count - 1]!.id, text: "what should this do" })).toBeNull(), { timeout: 30_000 });
@@ -205,7 +207,7 @@ describe("u2773 Rail task destinations", () => {
     await switchTo("Right");
     await switchTo("Left");
     await openTask(); submit(); type("C");
-    expect(replies).toHaveLength(2);
+    await waitFor(() => expect(replies).toHaveLength(2));
     fireEvent.keyDown(task(), { key: "Escape" });
     await switchTo("Right");
     await openTask(); type("right work");
@@ -216,15 +218,15 @@ describe("u2773 Rail task destinations", () => {
     await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });
-    await waitFor(() => expect(screen.queryAllByLabelText("Recovered rail draft")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
+    await waitFor(() => expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map(field => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B", "A"]));
     expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
 
     if (outcome !== "acknowledged") {
-      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(["C", "B", "A"]);
-      expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome);
+      await waitFor(() => expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome));
       fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
     }
 
+    await waitFor(() => expect(draftStorage(first.dir).list().map(draft => draft.value.text)).toEqual(outcome === "acknowledged" ? ["C"] : ["B", "C"]));
     cleanup(); await mount(); await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });

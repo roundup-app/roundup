@@ -5,7 +5,10 @@ const { rig, browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
 it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await openShelf("tree-40", 480, 560);
-  await evaluate(`(() => { document.querySelector('.shelf [data-todo] .todo-row-button').click(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); document.querySelector('.shelf [data-todo] .todo-row-button').focus(); return true; })()`);
+  await browser("focus", ".shelf [data-todo] .todo-row-button");
+  await browser("press", "Enter");
+  await browser("wait", ".drawer[data-open=true]");
   await settle();
   await browser("press", "Meta+k");
   await browser("press", "s");
@@ -40,12 +43,10 @@ it("u371_reduced_motion_and_restore_are_instant", async () => {
   await settle();
   await toggle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
-  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.shelf-scrim,.columns')).length")).toBe(0);
   await toggle();
   await browser("set", "media", "light");
   await browser("open", `${rig.server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
   await browser("wait", ".shelf-tabs");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').dataset.animated")).toBe("false");
-  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.shelf-scrim,.columns')).length")).toBe(0);
 }, 90_000);

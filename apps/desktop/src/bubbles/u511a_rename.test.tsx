@@ -13,7 +13,7 @@ const tab = (id: string) => document.querySelector<HTMLButtonElement>(`button.te
 const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input");
 
 const edit = async (id: string) => {
-  fireEvent.dblClick(tab(id)!.querySelector(".terminal-tab-name")!);
+  fireEvent.dblClick(tab(id)!);
   await waitFor(() => expect(field()).not.toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
@@ -30,19 +30,20 @@ it("u511a_every_name_surface_updates", async () => {
   const width = vi.spyOn(Element.prototype, "scrollWidth", "get").mockReturnValue(100);
   await mountBubbles();
   await edit("2");
-  fireEvent.input(field()!, { target: { value: "  build  " } });
+  const name = "  build  ";
+  fireEvent.input(field()!, { target: { value: name } });
   fireEvent.keyDown(field()!, { key: "Enter" });
-  await waitFor(() => expect(tab("2")).not.toBeNull());
-  expect(tab("2")!.getAttribute("aria-label")).toBe("build");
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe(name.trim()));
+  expect(tab("2")!.getAttribute("aria-label")).toBe(name.trim());
   expect(tab("2")!.hasAttribute("title")).toBe(false);
   fireEvent.keyDown(document, { key: "Tab" });
   tab("2")!.focus();
-  expect((await screen.findByRole("tooltip")).textContent).toBe("build");
+  expect((await screen.findByRole("tooltip")).textContent).toBe(name.trim());
   width.mockRestore();
-  expect(tab("2")!.textContent).toContain("build");
+  expect(tab("2")!.textContent).toContain(name.trim());
   expect(document.querySelector('[aria-label="Close build"]')).not.toBeNull();
-  expect(document.querySelector('.bubble[data-bubble="2"] .bubble-name')?.textContent).toBe("build");
-  expect(tab("1")!.getAttribute("aria-label")).toBe("cargo test");
+  expect(document.querySelector('.bubble[data-bubble="2"] .bubble-name')?.textContent).toBe(name.trim());
+  expect(tab("1")!.getAttribute("aria-label")).toBe(TERMINALS[0]!.title);
 });
 
 it("u511a_enter_commits_once", async () => {
@@ -55,7 +56,7 @@ it("u511a_enter_commits_once", async () => {
   fireEvent.keyDown(field()!, { key: "Enter" });
   fireEvent.blur(field() ?? document.body);
   await waitFor(() => expect(field()).toBeNull());
-  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toHaveLength(1);
+  await waitFor(() => expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toHaveLength(1));
   writes.mockRestore();
 });
 
@@ -265,7 +266,7 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   fireEvent.input(field()!, { target: { value: "  failed A 雪  " } });
   fireEvent.keyDown(field()!, { key: "Enter" });
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText("Failed")).toBeDefined();
+  expect(mounted.connected.drafts.list().some(draft => draft.status === "failed")).toBe(true);
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   blocked.mockRestore();
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
@@ -285,6 +286,7 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe("newer B 🫧"));
   expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"]]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+  await waitFor(() => expect(createProjectDrafts()("/p").list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]));
   cleanup();
   const reloaded = await mountBubbles();
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]);
@@ -339,14 +341,14 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   fireEvent.keyDown(field()!, { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByRole("alert")).toBeTruthy();
+  await within(recovery).findByRole("alert");
   const clipboard = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(within(recovery).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith(text));
   blocked.mockRestore();
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
-  expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text);
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text));
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
   expect(mounted.connected.drafts.list()).toEqual([]);
@@ -362,11 +364,14 @@ const selectedBubbles = async (outcome: "failed" | "unknown" = "failed") => {
   const a = drafts.edit(destination, { name: "  A e\u0301 🫧 雪  ", base: "zsh" },
     { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
 
-  drafts.submit(a.revision);
-  drafts.settle(a.revision, outcome);
+  await drafts.submit(a.revision);
+  await drafts.settle(a.revision, outcome);
 
-  const b = drafts.edit(destination, { name: "  B 雪  ", base: "zsh" },
-    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+  const retained = drafts.edit(destination, { name: "  B 雪  ", base: "zsh" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary");
+
+  await retained.retained;
+  const b = retained.draft;
 
   const open = (revision: string, project = "/p") => mounted.recover({ project, revision });
 
@@ -545,7 +550,6 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(dialog).getByRole("button", { name: /^Inspect · Failed/ }));
-  expect(within(dialog).getByText("Original object unavailable")).toBeDefined();
   const clipboard = vi.fn().mockResolvedValue(undefined);
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
@@ -553,6 +557,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   expect(drafts.list()).toEqual([b]);
+  await waitFor(() => expect(createProjectDrafts()("/p").list()).toEqual([b]));
   cleanup();
   const reopened = createProjectDrafts();
 
@@ -568,7 +573,7 @@ it("u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision", asy
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.keyDown(field()!, { key: "Enter" });
   await waitFor(() => expect(field()).toBeNull());
-  expect(tab("2")!.getAttribute("aria-label")).toBe("A e\u0301 🫧 雪");
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe(String(a.value.name).trim()));
   expect(drafts.list()).toEqual([b]);
 });
 

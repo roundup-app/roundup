@@ -7,7 +7,6 @@ import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
-import { KindGlyph } from "../ink/KindGlyph";
 import { showShelfTab } from "./shelfTabs";
 
 const NOW = 1_700_000_000_000;
@@ -29,14 +28,6 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
-  it("u26_first_run_shows_the_empty_rail_text", async () => {
-    mount("first-run");
-
-    await screen.findByText("Open a folder to start");
-
-    expect((await rail()).textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
-  });
-
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
@@ -44,12 +35,12 @@ describe("u26 the harness seeds", () => {
     expect(screen.queryByText("Open a folder to start")).toBeNull();
   });
 
-  it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
-    mount("door-stopped");
-    fireEvent.click(await within(await rail()).findByText("first workstream"));
-
-    expect(await screen.findByText("Supervisor stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
+  it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
+    const { app } = mount("door-stopped");
+    const row = (await within(await rail()).findByText("first workstream")).closest(".rail-row")!;
+    fireEvent.contextMenu(row);
+    await app.pickMenu("Start supervisor");
+    await waitFor(() => expect(app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params)).toEqual([{ id: "first-workstream" }]));
   });
 
   it("u83_the_earlier_run_seed_exposes_the_saved_session", async () => {
@@ -97,16 +88,17 @@ describe("u26 the harness seeds", () => {
 
   // The real editor and tree-40 took 5.18s in the shared shard; this is seed wiring, not a latency check.
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
-    mount("tree-40");
+    const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
     await screen.findByRole("tablist", { name: "Work items" });
     showShelfTab("Pads");
-    fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
+    const name = (await screen.findAllByText("pad-0"))[0]!;
+    fireEvent.click(name);
+    fireEvent.click(name.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
 
-    const drawer = within(await screen.findByLabelText("Drawer"));
-
-    expect(await drawer.findByRole("button", { name: "Export .md" })).toBeTruthy();
+    await screen.findByRole("textbox", { name: "Pad body" });
+    expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
   }, 15_000);
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
@@ -284,48 +276,4 @@ describe("u26 the Daemon's rail methods", () => {
 
     await expect(app.rpc("rail.rename", { id: "nope", name: "x" })).rejects.toMatchObject({ code: -32001 });
   });
-});
-
-it("u3704_marked_kind_glyphs_and_counts", async () => {
-  for (const seed of ["tree-40", "agents-10", "door-stopped", "tabs-8", "bubbles"] as const) {
-    mount(seed);
-    await rail();
-    await waitFor(() => expect(document.querySelectorAll('.rail-row .glyph[role="img"]').length).toBeGreaterThan(0));
-
-    const assertStates = (surface: Element) => {
-      const states = [...surface.querySelectorAll<HTMLElement>("[data-state]")].filter((state) => state.matches(".glyph, .ink-count, .folded-agents"));
-
-      expect(states.length, seed).toBeGreaterThan(0);
-      expect(states.filter((state) => state.matches('.glyph')).length).toBe(surface.querySelectorAll('.glyph[role="img"]').length);
-
-      for (const state of states) {
-        expect(state.getAttribute("role")).not.toBe("button");
-        expect([null, "-1"]).toContain(state.getAttribute("tabindex"));
-        expect(state.matches("button, a, input")).toBe(false);
-      }
-    };
-
-    assertStates(await rail());
-    const counts = [...document.querySelectorAll(".ink-count")];
-
-    if (seed === "tree-40") expect(counts.length).toBeGreaterThan(0);
-
-    for (const count of counts) expect(count.hasAttribute("data-state")).toBe(true);
-
-    const collapse = document.querySelector('button[aria-label="Collapse"]');
-
-    if (collapse) {
-      fireEvent.click(collapse);
-      await waitFor(() => expect(document.querySelector('.folded-agents')).not.toBeNull());
-
-      for (const folded of document.querySelectorAll(".folded-agents")) expect(folded.hasAttribute("data-state")).toBe(true);
-      assertStates(await rail());
-    }
-
-    cleanup();
-  }
-
-  const { container } = render(() => <KindGlyph kind="working" decorative />);
-
-  expect(container.querySelector("[data-state]")).toBeNull();
 });

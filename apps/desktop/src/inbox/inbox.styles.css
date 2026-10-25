@@ -31,6 +31,6 @@
 @keyframes inbox-expand { from { height: 0; } to { height: var(--height); } }
 @keyframes inbox-collapse { from { height: var(--height); } to { height: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .inbox-item[data-arrived] { animation-name: none; animation-duration: 0s; }
-  .inbox-item [data-part="content"] { animation-name: none; animation-duration: 0s; }
+  .inbox-item[data-arrived] { animation-name: none; animation-duration: var(--duration-instant); }
+  .inbox-item [data-part="content"] { animation-name: none; animation-duration: var(--duration-instant); }
 }

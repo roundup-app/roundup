@@ -146,12 +146,14 @@ describe("u16 create a Todo", () => {
     fireEvent.keyDown(first, { key: "Enter" });
     type(await openField(), "second thought");
 
-    reject(new RpcError(-32602, "title is empty"));
+    await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
+    const refusal = new RpcError(-32602, "title is empty");
+
+    reject(refusal);
 
     await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
-    await new Promise((settle) => setTimeout(settle));
     expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "second thought");
-    expect(screen.getByText(/title is empty/).textContent).toBe("title is empty");
+    expect((await screen.findByRole("alert")).textContent).toContain(refusal.message);
   });
 
   it("u16_the_next_enter_clears_a_shown_failure", async () => {

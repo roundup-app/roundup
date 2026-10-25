@@ -1,6 +1,6 @@
 /* U3713: an opaque panel over the centre pane, clear of the title bar, with the Switcher's surface and hairline and the drawer shadow. */
 .capture.app-dialog {
-  width: min(480px, calc(100vw - var(--space-6) * 2));
+  width: min(var(--capture-width), calc(100vw - var(--space-6) * 2));
   padding: var(--space-3);
 }
 
@@ -64,4 +64,20 @@
 
 .capture-target > :last-child {
   flex: 1 1 0;
+}
+
+.capture-native {
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.capture-native p.capture-native-failure {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

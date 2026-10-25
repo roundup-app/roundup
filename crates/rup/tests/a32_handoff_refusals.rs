@@ -17,7 +17,7 @@ mod doors;
 #[allow(dead_code)]
 mod waiting;
 use clear_fixture::clear_fixture;
-use doors::{as_door, child_of, requests_holding};
+use doors::{as_door, child_of, user_texts};
 use waiting::turn_done;
 
 #[tokio::test]
@@ -132,7 +132,15 @@ async fn a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid() 
     // The Clear turn ends with the Handoff still pending.
     turn_done(model, &client, &door, "too much fluff").await;
     assert_eq!(
-        requests_holding(model, "workstream_handoff"),
+        model
+            .journal()
+            .iter()
+            .filter(|entry| {
+                user_texts(entry)
+                    .last()
+                    .is_some_and(|text| text.contains("workstream_handoff"))
+            })
+            .count(),
         1,
         "the refused Clears asked nothing; only the valid one did"
     );

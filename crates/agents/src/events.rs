@@ -1,5 +1,18 @@
 use super::*;
 
+impl Observation {
+    /// The word a log line names this Observation by; a Signal by its vendor event.
+    fn name(&self) -> &str {
+        match self {
+            Self::Signal(payload) => claude_code::event_name(payload),
+            Self::Title(_) => "title",
+            Self::Tick => "tick",
+            Self::Stopped => "stop",
+            Self::Exit { .. } => "exit",
+        }
+    }
+}
+
 pub(super) struct State {
     /// H19: a test's observer of each gate decision; absent in production.
     pub(super) gate_observer: Option<GateObserver>,

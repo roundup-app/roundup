@@ -1,3 +1,4 @@
+import { railDraftCopy } from "./copy/rail";
 import type { Observation } from "@contracts/reaction/Observation";
 import type { ObservationCause } from "@contracts/reaction/ObservationCause";
 import type { ObservationGap } from "@contracts/reaction/ObservationGap";
@@ -72,17 +73,13 @@ type CopyValue = string | number | undefined;
 
 const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
-const draftSurfaceLabels = new Map(Object.entries({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+const draftSurfaceLabels = new Map(Object.entries({ "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
 
 const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent at the scheduled time"], ["fired-late", "Sent after the scheduled time"], ["expired", "Expired before sending"], ["skipped", "Scheduled time missed; skipped as requested"], ["observing", "Watching for changes"], ["not-observing", "Waiting to start watching"], ["unavailable", "Observation unavailable"], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", "PR changed"], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
 
 const reactionDelivery = new Map([["pending", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
-
-const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
-
-const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 const importExcludedReasons = new Map<string, string>([
@@ -123,10 +120,14 @@ const importRefusals = new Map<number, string>([
   [-32010, "The conversation inbox is unavailable."],
 ]);
 
-
 const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 
+export const clockTime = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
+});
+
 export const copy = {
+  ...railDraftCopy,
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   shortcutKeys: new Map([
     ...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map(letter => [`Key${letter}`, letter]),
@@ -242,7 +243,7 @@ export const copy = {
   riskCause: { failed: "failed to save", unknown: "may not have saved", draft: "not saved for reload", left: "left unsent", gone: "original removed" },
   draftTitle: (place: string, name: string) => `${place} "${name}"`,
   riskLine: (cause: string, time: string) => `${cause} · ${time}`,
-  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`,
+  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? new Intl.RelativeTimeFormat("en-GB", { style: "short", numeric: "always" }).format(-minutes, "minute") : `${Math.floor(minutes / 60)} h ago`,
   openDraft: "Open",
   copyDraft: "Copy",
   discardRow: "Discard",
@@ -379,7 +380,7 @@ export const copy = {
   timelineOpenTerminal: (value1: CopyValue) => `Open ${value1}`,
   allow: "Allow",
   drawer: "Drawer",
-  lastTouch: (value1: CopyValue, value2: CopyValue, value3: CopyValue, value4: CopyValue) => `Last  ${value1} ${value2} ${value3}:${value4}`,
+  lastTouch: (name: string, verb: string, time: string) => `Last  ${name} ${verb} ${time}`,
   padTouch: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} ${value2} this Pad at ${value3}`,
   andMore: (value1: CopyValue) => ` and ${value1} more`,
   agentRuns: "Agent runs",
@@ -493,21 +494,6 @@ export const copy = {
   copySessionId: "Copy session id",
   copied: "Copied",
   copyFailed: "Copy failed",
-  railDraftTaskTarget: (name: string) => `Work for ${name}`,
-  railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
-  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
-  railDraftBase: (name: string) => `Original name: ${name}`,
-  railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
-  railDrafts: "Unfinished rail work",
-  railDraftConflict: "The original name changed. Your edit is retained; copy or discard it before renaming again.",
-  railDraftUnavailable: "The original target is unavailable. Copy or discard this draft.",
-  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? "Rail drafts"} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
-  railDraftRetry: "Retry storage",
-  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${railDraftStatuses.get(status) ?? "Retained"}`,
-  railDraftMissingTarget: "Unavailable target",
-  railDraftRecovered: "Recovered rail draft",
-  railDraftCopy: "Copy draft",
-  railDraftDiscard: "Discard this revision",
   task: "Task",
   taskHint: "What should the Agent do?",
   orderOf: (value1: CopyValue) => `Order of ${value1}`,
@@ -600,6 +586,7 @@ export const copy = {
   assignPadNamed: (name: CopyValue) => `assign ${name}`,
   ownersForPad: (name: CopyValue) => `Owners for ${name}`,
   padOwnerRefused: (cause: CopyValue) => `The Pad was made but stays yours: ${cause}`,
+  addTodo: "Add Todo",
   addTodoTo: (group: CopyValue) => `add todo to ${group}`,
   assignTodoNumber: (id: CopyValue) => `assign #${id}`,
   ownersFor: (id: CopyValue) => `Owners for #${id}`,
@@ -949,10 +936,9 @@ export const copy = {
 
   nothing: "Nothing",
   makeYours: "Make yours",
+  renamePadOwnership: "Make this Pad yours before renaming.",
   makePadYours: (value1: CopyValue) => `Make ${value1} yours`,
   needYou: (value1: CopyValue) => `${value1} need you`,
-
-
   centreRegion: "Centre",
   exited: "exited",
   exitedCode: (code: number) => `exited ${code}`,

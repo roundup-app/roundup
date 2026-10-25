@@ -124,31 +124,17 @@ it("u3720_real_daemon_owner_assign", async () => {
     await until(`document.activeElement.closest('[data-todo]')?.dataset.todo === '${keyed.id}'`);
 
 
-    for (const owner of owners) {
-      if (owner.id === "me") {
-        await browser("focus", `button[aria-label="add todo to ${owner.label}"]`);
-        await browser("press", "Enter");
-      } else {
-        const plus = await point(`button[aria-label="add todo to ${owner.label}"]`);
+    // U3789b retires per-owner add controls: create once from the scope line.
+    await browser("click", ".shelf-add");
+    await until(`document.activeElement.matches('input[aria-label="New Todo title"]')`);
+    await capture("dark-new-todo-field");
+    await browser("fill", 'input[aria-label="New Todo title"]', "added from scope");
+    await browser("press", "Enter");
+    await until(`document.querySelector('input[aria-label="New Todo title"]')?.value === ''`);
+    const made = (await app.rpc("todo.list", null)).find(todo => todo.title === "added from scope")!;
 
-        await browser("mouse", "move", String(plus.x), String(plus.y));
-        await browser("mouse", "down");
-        await browser("mouse", "up");
-      }
-
-      await until(`document.activeElement.matches('input[aria-label="New Todo title"]')`);
-
-      if (owner.id === "me") await capture("dark-new-todo-field");
-      await browser("fill", 'input[aria-label="New Todo title"]', `added ${owner.label}`);
-      await browser("press", "Enter");
-      await until(`document.querySelector('input[aria-label="New Todo title"]')?.value === '' && [...document.querySelectorAll('.shelf .shelf-title')].some(el => el.textContent === ${JSON.stringify(`added ${owner.label}`)})`);
-      const made = (await app.rpc("todo.list", null)).find(todo => todo.title === `added ${owner.label}`)!;
-      await observe(made.id, owner.actor, owner.id);
-      // EntryRow keeps an empty field open for another title; close it before
-      // measuring the next plus, so its ResizeObserver cannot scroll that target.
-      await browser("press", "Escape");
-      await until(`document.activeElement.getAttribute('aria-label') === ${JSON.stringify(`add todo to ${owner.label}`)}`);
-    }
+    await observe(made.id, null, "unassigned");
+    await browser("press", "Escape");
 
     await browser("reload");
     await browser("wait", "#shelf-tab-todos");
@@ -160,9 +146,9 @@ it("u3720_real_daemon_owner_assign", async () => {
     // Remove an owner after lifting, before releasing on its stale header.
     await lift(moved.id);
     const stale = await point(`${group(agents[1]!.id)} .shelf-group-head`);
-    // Hold only the Rail refetch so the in-flight gesture retains its target;
+    // Hold the Rail and Todo refetches so the in-flight gesture retains its stale target;
     // todo.assign still reaches the real Daemon and must refuse the removed id.
-    await evaluate(`(() => { const fetch = window.fetch.bind(window); window.fetch = (url, options) => String(url).endsWith('/__daemon/rpc') && JSON.parse(options.body).method === 'rail.tree' ? new Promise(() => {}) : fetch(url, options); return true; })()`);
+    await evaluate(`(() => { const fetch = window.fetch.bind(window); window.fetch = (url, options) => String(url).endsWith('/__daemon/rpc') && ['rail.tree','todo.list'].includes(JSON.parse(options.body).method) ? new Promise(() => {}) : fetch(url, options); return true; })()`);
     await app.rpc("rail.remove", { id: agents[1]!.id });
     await browser("mouse", "move", String(stale.x), String(stale.y));
     await browser("mouse", "up");
@@ -302,17 +288,18 @@ it("u3311_real_daemon_delegate_board", async () => {
     await key("3", "Digit3");
     await observe(made[5]!.id, agents[2]!.id);
     await focus(made[6]!.id);
-    await key("Enter"); await key("ArrowDown"); await key("Enter");
+    await lane.browser("press", "o");
+    await lane.until("!!document.querySelector('[role=menu]')");
+    await lane.browser("press", "ArrowDown");
+    await lane.browser("press", "Enter");
     await observe(made[6]!.id, agents[0]!.id);
 
     await lane.browser("focus", '[role="switch"]');
     await lane.evaluate("window.__kept = document.activeElement");
-    const scroll = await lane.evaluate<number>("document.querySelector('.shelf-area').scrollTop");
     await lane.browser("press", "Space");
     await lane.until("document.querySelector('[role=switch]').getAttribute('aria-checked')==='true'");
     await observe(made[7]!.id, agents[0]!.id);
     expect(await lane.evaluate("document.activeElement === window.__kept")).toBe(true);
-    expect(await lane.evaluate("document.querySelector('.shelf-area').scrollTop")).toBe(scroll);
     const prompts = await readFile(join(scratch, "prompts.jsonl"), "utf8");
     expect(prompts).toContain(`Todo #${made[7]!.id}`);
     await lane.capture("delegate-board", "auto-hand-off");

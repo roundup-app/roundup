@@ -18,7 +18,7 @@ export const SegmentGroup = <V extends string>(props: {
         <ArkSegmentGroup.Item value={segment.value} class="app-segment">
           <ArkSegmentGroup.ItemText>{segment.label}</ArkSegmentGroup.ItemText>
           <ArkSegmentGroup.ItemControl />
-          <ArkSegmentGroup.ItemHiddenInput />
+          <ArkSegmentGroup.ItemHiddenInput asChild={(input) => <input {...input()} style="" />} />
         </ArkSegmentGroup.Item>
       )}</For>
     </div>

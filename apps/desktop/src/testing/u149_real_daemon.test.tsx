@@ -55,7 +55,8 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
-    fireEvent.click(await screen.findByText("sketch", {}, { timeout: 20_000 }));
+    const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
+    fireEvent.keyDown(row, { key: "Enter" });
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
     await waitFor(() => expect(document.querySelectorAll(".visual-block").length).toBe(2));

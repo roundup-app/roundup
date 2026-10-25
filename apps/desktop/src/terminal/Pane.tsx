@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
@@ -63,7 +64,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const action = view() === "timeline" ? timelineAction : dashboardAction;
 
     setView(null);
-    queueMicrotask(() => action?.focus());
+    queueFocus(() => action?.focus());
   };
 
   createEffect(on(rail.selected, () => setView(null), { defer: true }));
@@ -152,9 +153,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored());
+      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
 
-      screens.resize(id, size);
+      if (rail.restored() || !rail.terminalFocus()(() => show(true))) show(false);
     });
   });
 
@@ -188,7 +189,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    setStorageFailure(zoomed ? storage.write(next) : storage.clear());
+    void (zoomed ? storage.write(next) : storage.clear()).then(setStorageFailure);
     refitNextFrame();
   };
 

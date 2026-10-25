@@ -16,7 +16,7 @@
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: var(--rule, 1px);
+  height: var(--rule, var(--flat-tab-edge));
   background-color: var(--hairline);
   pointer-events: none;
   z-index: 0;
@@ -62,8 +62,8 @@
   border-style: solid;
   border-top-width: 0;
   border-bottom-width: 0;
-  border-left-width: 1px;
-  border-right-width: 1px;
+  border-left-width: var(--flat-tab-edge);
+  border-right-width: var(--flat-tab-edge);
   border-top-color: var(--hairline);
   border-bottom-color: var(--hairline);
   border-left-color: var(--hairline);
@@ -76,7 +76,7 @@
 [data-flat-tab]:not([data-selected="true"])::after {
   content: "";
   flex: none;
-  width: 1px;
+  width: var(--flat-tab-edge);
 }
 
 /* The controls inside a tab take the tab's ink and paint no ground at rest, hover or press (the button hooks of buttons.css, U170); a press dims the ink (U510). */

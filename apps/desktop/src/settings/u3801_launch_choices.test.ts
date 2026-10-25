@@ -21,7 +21,7 @@ const connect = async (path = "/p", resume = false) => {
 
 it("u3801_a_chosen_mode_rides_start_resume_and_clear", async () => {
   const { app, connected } = await connect();
-  saveAppSettings({ permissionMode: "plan" });
+  await saveAppSettings({ permissionMode: "plan" });
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   await connected.app.rpc("agent.resume", { id: "agent" });
@@ -35,8 +35,8 @@ it("u3801_a_chosen_mode_rides_start_resume_and_clear", async () => {
 
 it("u3801_the_default_choice_sends_no_mode", async () => {
   const { app, connected } = await connect();
-  saveAppSettings({ permissionMode: "acceptEdits" });
-  saveAppSettings({ permissionMode: "" });
+  await saveAppSettings({ permissionMode: "acceptEdits" });
+  await saveAppSettings({ permissionMode: "" });
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   await connected.app.rpc("agent.resume", { id: "agent" });
@@ -49,7 +49,7 @@ it("u3801_the_default_choice_sends_no_mode", async () => {
 
 it("u3801_yolo_ignores_the_choice", async () => {
   const { app, connected } = await connect();
-  saveAppSettings({ permissionMode: "plan" });
+  await saveAppSettings({ permissionMode: "plan" });
   await connected.app.rpc("agent.resume", { id: "agent", mode: "yolo" });
   expect(app.calls.at(-1)?.params).toEqual({ id: "agent", mode: "yolo" });
   connected.stopTerminalScheme();
@@ -57,7 +57,7 @@ it("u3801_yolo_ignores_the_choice", async () => {
 
 it("u3802_engine_and_model_ride_a_new_agent", async () => {
   const { app, connected } = await connect();
-  saveAppSettings({ engine: "offered-engine", model: "offered-model" });
+  await saveAppSettings({ engine: "offered-engine", model: "offered-model" });
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null, model: null });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null, model: "one-off" });
@@ -67,7 +67,7 @@ it("u3802_engine_and_model_ride_a_new_agent", async () => {
     { id: "door", engine: "offered-engine", model: "offered-model" },
     { cwd: "/p", prompt: null, parent: null, engine: "offered-engine", model: "one-off" }, { id: "agent" },
   ]);
-  saveAppSettings({ engine: "", model: "" });
+  await saveAppSettings({ engine: "", model: "" });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   expect(app.calls.at(-1)?.params).toEqual({ id: "door" });
   connected.stopTerminalScheme();
@@ -76,7 +76,7 @@ it("u3802_engine_and_model_ride_a_new_agent", async () => {
 it("u3806_every_open_tab_sees_a_change", async () => {
   const first = await connect();
   const second = await connect("/other-project");
-  saveAppSettings({ permissionMode: "auto", model: "chosen" });
+  await saveAppSettings({ permissionMode: "auto", model: "chosen" });
   await first.connected.app.rpc("rail.startDoor", { id: "first" });
   await second.connected.app.rpc("rail.startDoor", { id: "second" });
   expect(first.app.calls.at(-1)?.params).toEqual({ id: "first", permissionMode: "auto", model: "chosen" });
@@ -87,7 +87,7 @@ it("u3806_every_open_tab_sees_a_change", async () => {
 
 it("u3802_a_saved_door_resumes_its_model_instead_of_the_new_agent_default", async () => {
   const { app, connected } = await connect("/p", true);
-  saveAppSettings({ engine: "new-engine", model: "new-model", permissionMode: "plan" });
+  await saveAppSettings({ engine: "new-engine", model: "new-model", permissionMode: "plan" });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   expect(app.calls.at(-1)?.params).toEqual({ id: "door", permissionMode: "plan" });
   connected.stopTerminalScheme();

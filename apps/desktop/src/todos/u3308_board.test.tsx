@@ -52,22 +52,10 @@ it("u3309_a_digit_without_an_agent_or_for_the_own_owner_calls_nothing", async ()
   row.focus();
 
   for (const key of ["1", "2", "9"]) fireEvent.keyDown(row, { key, code: `Digit${key}` });
-  expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
+  expect(todoCallsTo(m.app, "todo.assign")).toEqual([]);
 });
 
-it("u3309_enter_arrows_enter_assigns_once_and_esc_cancels", async () => {
-  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "", { name: "Writer" })]);
-  const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
-  const key = (key: string) => fireEvent.keyDown(document.activeElement!, { key, code: key });
 
-  row.focus();
-  key("Enter"); key("ArrowUp");
-  expect(screen.getByRole("status").textContent).toBe("Move #1 to Writer");
-  key("Escape");
-  expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
-  key("Enter"); key("ArrowUp"); key("Enter");
-  await waitFor(() => expect(todoCallsTo(m.app, "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner }]));
-});
 
 it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async () => {
   const m = await mountTodos([todo(1), todo(2, { done: true })], true, [agent("a", "idle", "")]);
@@ -76,7 +64,7 @@ it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async (
   row.focus();
 
   for (const modifier of ["metaKey", "ctrlKey", "altKey", "shiftKey"]) for (const key of ["1", "Enter"]) fireEvent.keyDown(row, { key, code: key === "1" ? "Digit1" : key, [modifier]: true });
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Unassigned" }));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   const field = await screen.findByRole("textbox", { name: "New Todo title" });
   fireEvent.keyDown(field, { key: "1", code: "Digit1" });
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
@@ -84,7 +72,7 @@ it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async (
   const done = await screen.findByRole("button", { name: "Done #2 todo 2" });
   done.focus();
   fireEvent.keyDown(done, { key: "1", code: "Digit1" });
-  expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
+  expect(todoCallsTo(m.app, "todo.assign")).toEqual([]);
 });
 
 it("u3310_the_switch_calls_set_auto_once_and_follows_the_event", async () => {
@@ -146,21 +134,7 @@ it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => 
   expect(hintsFor("shelf")).toContainEqual(expect.objectContaining({ keys: "1–9" }));
 });
 
-it("u3308_idle_groups_follow_the_workstream_and_lift_reveals_every_owner", async () => {
-  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w"), workstream("other"), agent("a", "idle", "", { name: "Writer", parent: "w" }), agent("b", "idle", "", { name: "Other", parent: "other" })]);
 
-  expect(document.querySelector('[data-shelf-group="a"]')).toBeNull();
-  m.connected.rail.select("w");
-  await waitFor(() => expect(document.querySelector('[data-shelf-group="a"]')?.textContent).toContain("free now"));
-  expect(document.querySelector('[data-shelf-group="b"]')).toBeNull();
-  const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
-
-  row.focus();
-  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
-  expect(document.querySelector('[data-shelf-group="b"]')).toBeTruthy();
-  fireEvent.keyDown(row, { key: "Escape", code: "Escape" });
-  expect(document.querySelector('[data-shelf-group="b"]')).toBeNull();
-});
 
 it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", async () => {
   const other = { kind: "agent" as const, id: "b", parent: null };

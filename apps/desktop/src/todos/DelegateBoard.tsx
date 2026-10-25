@@ -7,7 +7,7 @@ import { DisplayClockContext } from "../state/clock";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
-import { copy } from "../copy";
+import { clockTime, copy } from "../copy";
 
 /** U3308/U3311: the shared display clock and authoritative Todo facts also drive drag previews. */
 export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<readonly Todo[]>) => {
@@ -35,7 +35,9 @@ export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<rea
       const minutes = open.reduce((total, todo) => total + (todo.estimate_minutes ?? 0), 0);
       const missing = open.filter(todo => todo.estimate_minutes === null).length;
       const date = new Date(now() + minutes * 60_000);
-      const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+      const time = clockTime.format(date);
+
       const line = minutes === 0 ? copy.todoFreeNow : copy.todoBusyUntil(time);
 
       if (open.length > 0 && missing === open.length) return copy.todoNoEstimates;

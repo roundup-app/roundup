@@ -139,3 +139,30 @@ pub(crate) async fn send(
     }
     true
 }
+
+impl Messages {
+    /// B50: send every Message to an Agent through `inbox`. Set once, before any Message.
+    pub fn set_inbox(&self, inbox: Arc<dyn NoteInbox>) {
+        let _ = self.inner.inbox.set(inbox);
+    }
+
+    /// B50(c): the transcript of `agent` records these Messages' entries, so they are `delivered`.
+    pub fn confirm_inbox(&self, agent: &str, ids: &[u32]) {
+        confirm_ids(&self.inner, agent, ids);
+    }
+}
+
+/// Removes its Messages from `Inner::typing` when the inbox write that carries them is done.
+struct Typing<'a> {
+    set: &'a Mutex<std::collections::HashSet<u32>>,
+    ids: Vec<u32>,
+}
+
+impl Drop for Typing<'_> {
+    fn drop(&mut self) {
+        let mut set = lock(self.set);
+        for id in &self.ids {
+            set.remove(id);
+        }
+    }
+}

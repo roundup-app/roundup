@@ -52,7 +52,7 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
 };
 
 const openBody = async (id: number, body: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }), { key: "Enter" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   await within(drawer).findByRole("button", { name: /^Changes/ });
@@ -161,6 +161,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
 
   fireEvent.input(field, { target: { value: "  in memory after close 🧪  " } });
+  await waitFor(() => expect(a.connected.drafts.problem()).toMatchObject({ operation: "retain", cause: "write" }));
   a.unmount();
   writes.mockRestore();
   const reopened = await mount(one, owners);
@@ -169,7 +170,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "  in memory after close 🧪  ");
-  expect(reopened.connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(reopened.connected.drafts.problem()).toBeNull());
   expect(reopened.calls.filter(method => method === "todo.create")).toEqual([]);
 }, 60_000);
 
@@ -259,6 +260,7 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", `[aria-label="Idle #${original.id} discard by pointer"]`);
+    await browser("click", `[data-todo="${original.id}"] [aria-label="Open"]`);
     await browser("wait", ".drawer .todo-history-line");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");

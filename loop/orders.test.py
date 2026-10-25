@@ -323,6 +323,12 @@ class Orders(unittest.TestCase):
     def test_l34_duplicate_keys_block_both_orders(self):
         self.assertEqual([r['state'] for r in orders.classify([issue(),issue(2)],{},[])], ['blocked','blocked'])
 
+    def test_l96_a_key_naming_its_own_issues_repair_run_is_invalid_and_another_repair_key_builds(self):
+        rows = orders.classify([issue(5, key='repair-5'), issue(6, key='repair-inventory')], {}, [])
+        by = {r['issue']: r for r in rows}
+        self.assertEqual((by[5]['state'], by[6]['state']), ('blocked', 'ready'))
+        self.assertIn('invalid Key', by[5]['reason'])
+
     def test_l34_malformed_order_is_visible_and_not_ready(self):
         row = orders.classify([issue(body='Key: U83\nsomething to do')],{},[])[0]
         self.assertEqual(row['state'],'blocked')

@@ -1,0 +1,73 @@
+.storage-center {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.storage-center .settings-center {
+  flex: 1;
+  min-block-size: 0;
+  block-size: auto;
+}
+
+.storage-failure {
+  flex: none;
+  padding: var(--space-3);
+  background: var(--ground);
+}
+
+.storage-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 100%;
+  padding: var(--space-6);
+  box-sizing: border-box;
+  background: var(--ground);
+}
+
+.storage-gate-content {
+  display: grid;
+  gap: var(--space-3);
+  max-inline-size: var(--measure);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* Startup reserves the whole surface, so its recovery consequence can wrap. */
+.storage-gate .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.storage-gate .reserved-content > .ink {
+  overflow: visible;
+  white-space: normal;
+}
+
+.storage-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-5);
+}
+
+.storage-retained {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+
+.storage-retained button {
+  display: inline-grid;
+}
+
+.storage-copy-label {
+  grid-area: 1 / 1;
+}

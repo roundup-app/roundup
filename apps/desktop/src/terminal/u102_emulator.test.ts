@@ -33,8 +33,8 @@ it.each([false, true])("u102_xterm_keeps_scrollback_and_viewport_at_bottom_%s", 
   emulator.dispose();
 });
 
-it("u102_another_project_does_not_read_the_saved_size", () => {
-  fontSizeStorage("/one").write(18);
+it("u102_another_project_does_not_read_the_saved_size", async () => {
+  await fontSizeStorage("/one").write(18);
   expect(fontSizeStorage("/two").read()).toBeNull();
   expect(fontSizeStorage("/one").read()).toBe(18);
 });

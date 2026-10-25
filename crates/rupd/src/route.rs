@@ -56,6 +56,9 @@ impl Daemon {
                 "todo.delete"
                     | "todo.deletion"
                     | "todo.restore"
+                    | "rail.remove"
+                    | "rail.deletion"
+                    | "rail.restore"
                     | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
@@ -251,6 +254,10 @@ impl Daemon {
             }
         }
         if method == "rail.remove" {
+            let removal: contracts::agent::RemoveParams = rpc::params(params.clone())?;
+            if removal.operation.is_some() {
+                return self.remove_reversible(&conn.actor, removal).await;
+            }
             let NodeId { id } = rpc::params(params.clone())?;
             if self
                 .rail()

@@ -398,7 +398,8 @@ describe("u1 calls and events", () => {
       .filter(([path, text]) => path !== "./tauri.ts" && text.includes("@tauri-apps"))
       .map(([path]) => path);
 
-    expect(importers).toEqual([]);
+    expect(importers).toEqual(["../state/storage.ts"]);
+    expect(sourceFiles["../state/storage.ts"]!.match(/@tauri-apps[^"\n]+/g)).toEqual(["@tauri-apps/plugin-store"]);
   });
 });
 

@@ -207,3 +207,138 @@ fn read(db: &Connection, actor: &Actor, id: &DeletionId) -> Result<Deletion, Rpc
         .map(|(receipt, _)| receipt)
         .ok_or_else(|| RpcError::not_found("Pad deletion operation"))
 }
+
+impl Pads {
+    /// Retain a coordinator's already-authorized cascade, then use the existing A34
+    /// removal and file rollback guard. Kept Pads retain their original incarnation/Home.
+    pub fn retain_workstream(
+        &self,
+        db: &Connection,
+        actor: &Actor,
+        operation: &str,
+        home: &str,
+        removal: &contracts::agent::Removal,
+    ) -> Result<(), RpcError> {
+        let mut query = db
+            .prepare("SELECT name FROM pads WHERE home=? ORDER BY key")
+            .map_err(RpcError::internal)?;
+        let names = query
+            .query_map([home], |r| r.get::<_, String>(0))
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        for name in names {
+            let pad = source(db, &name)
+                .map_err(RpcError::internal)?
+                .ok_or_else(|| RpcError::not_found("Pad"))?
+                .pad;
+            let kept = pad.owner.kind == ActorKind::Agent
+                && removal.kept.iter().any(|i| {
+                    i.kind == contracts::agent::RemovalKind::Agent && i.id == pad.owner.id
+                });
+            let kind = if kept { "pad-home" } else { "pad" };
+            let participant = if kept {
+                None
+            } else {
+                Some(
+                    retain(
+                        db,
+                        actor,
+                        &DeleteParams {
+                            name: pad.name.clone(),
+                            operation: None,
+                            expected_incarnation: Some(pad.incarnation.clone()),
+                        },
+                    )?
+                    .operation,
+                )
+            };
+            db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,owner,incarnation,participant) VALUES(?,?,?,?,?,?,?)",rusqlite::params![operation,kind,pad.name,pad.home,serde_json::to_string(&pad.owner).map_err(RpcError::internal)?,pad.incarnation,participant]).map_err(RpcError::internal)?;
+        }
+        Ok(())
+    }
+
+    /// Restore the same Pad creations and stage mirrors in the coordinator's transaction.
+    /// Keep the returned paths only after commit; dropping them undoes every staged creation.
+    pub fn restore_workstream_in(
+        &self,
+        db: &Connection,
+        actor: &Actor,
+        operation: &str,
+    ) -> Result<(Vec<tempfile::TempPath>, Vec<EventData>), RpcError> {
+        let project = project(db)?;
+        let mut query = db.prepare("SELECT kind,id,home,owner,incarnation,participant FROM rail_removal_items WHERE operation=? AND kind IN ('pad','pad-home') ORDER BY id").map_err(RpcError::internal)?;
+        let rows = query
+            .query_map([operation], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                ))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        let mut files = Vec::new();
+        let mut events = Vec::new();
+        for (kind, name, home, owner, incarnation, participant) in rows {
+            let original_owner: Actor = serde_json::from_str(&owner).map_err(RpcError::internal)?;
+            for (identity, kind) in home
+                .as_deref()
+                .map(|id| (id, "workstream"))
+                .into_iter()
+                .chain(
+                    (original_owner.kind == ActorKind::Agent)
+                        .then_some((original_owner.id.as_str(), "agent")),
+                )
+            {
+                let exists:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=? AND (kind=? OR ?='agent'))",rusqlite::params![identity,kind,kind],|r|r.get(0)).map_err(RpcError::internal)?;
+                if !exists {
+                    return Err(RpcError::conflict(
+                        "original Pad Home or owner is unavailable",
+                    ));
+                }
+            }
+            if kind == "pad-home" {
+                let current = source(db, &name)
+                    .map_err(RpcError::internal)?
+                    .ok_or_else(|| RpcError::conflict("kept Pad no longer exists"))?
+                    .pad;
+                if current.incarnation != incarnation
+                    || current.home.is_some()
+                    || serde_json::to_string(&current.owner).map_err(RpcError::internal)? != owner
+                {
+                    return Err(RpcError::conflict("kept Pad changed Home or owner"));
+                }
+                db.execute(
+                    "UPDATE pads SET home=? WHERE key=?",
+                    rusqlite::params![home, store::key(&name)],
+                )
+                .map_err(RpcError::internal)?;
+            } else {
+                let (receipt, changed) = restore(
+                    db,
+                    actor,
+                    &DeletionId {
+                        project: project.clone(),
+                        operation: participant
+                            .ok_or_else(|| RpcError::internal("missing Pad participant"))?,
+                    },
+                )?;
+                let enabled:bool=db.query_row("SELECT COALESCE((SELECT value='true' FROM pad_settings WHERE key='files'),0)",[],|r|r.get(0)).map_err(RpcError::internal)?;
+                if changed && enabled {
+                    files.push(super::files::restore(
+                        &self.files_dir,
+                        &receipt.pad.name,
+                        &receipt.pad.text,
+                    )?);
+                }
+            }
+            events.push(EventData::PadChanged(PadName { name }));
+        }
+        Ok((files, events))
+    }
+}

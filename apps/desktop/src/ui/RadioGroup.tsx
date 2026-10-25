@@ -17,7 +17,7 @@ export const RadioGroup = <V extends string>(props: {
       <ArkRadioGroup.Item value={choice.value} class="app-radio">
         <ArkRadioGroup.ItemControl class="app-radio-mark" />
         <ArkRadioGroup.ItemText>{choice.label}</ArkRadioGroup.ItemText>
-        <ArkRadioGroup.ItemHiddenInput />
+        <ArkRadioGroup.ItemHiddenInput asChild={(input) => <input {...input()} style="" />} />
       </ArkRadioGroup.Item>
     )}</For>
   </ArkRadioGroup.Root>

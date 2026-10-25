@@ -1,0 +1,557 @@
+{
+  "baseline": "590f89e46a29246a6a26220b1c9048496688ad55",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "renderer": "isolated headless Chromium, device scale 1",
+  "checks": {
+    "first-run": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "agents-10": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "tree-40": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "daemon-exits": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "conflict": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "dense": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "failure": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "pads": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "terminal": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "rename": {
+      "base": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "head": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "fail",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    }
+  },
+  "regressions": [],
+  "head": {
+    "disclosureHits": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "folded": "false",
+    "completedAfterDisclosure": 0,
+    "renameFromSlot": true,
+    "padGeometry": [
+      {
+        "glyph": 1240,
+        "name": 1264,
+        "row": 1208
+      },
+      {
+        "glyph": 1240,
+        "name": 1264,
+        "row": 1208
+      },
+      {
+        "glyph": 1240,
+        "name": 1264,
+        "row": 1208
+      },
+      {
+        "glyph": 1240,
+        "name": 1264,
+        "row": 1208
+      }
+    ],
+    "terminalGeometry": {
+      "buttonWidth": 91.15625,
+      "buttonX": 301,
+      "name": 352,
+      "pair": 296
+    },
+    "rail": [
+      {
+        "indent": "calc(0 * var(--rail-step) + var(--rail-inset))",
+        "name": "backend",
+        "offset": 56
+      },
+      {
+        "indent": "calc(1 * var(--rail-step) + var(--rail-inset))",
+        "name": "auth-refactor",
+        "offset": 84
+      },
+      {
+        "indent": "calc(2 * var(--rail-step) + var(--rail-inset))",
+        "name": "token-rotation",
+        "offset": 112
+      },
+      {
+        "indent": "calc(2 * var(--rail-step) + var(--rail-inset))",
+        "name": "login-store",
+        "offset": 112
+      },
+      {
+        "indent": "calc(1 * var(--rail-step) + var(--rail-inset))",
+        "name": "migrate-db",
+        "offset": 84
+      }
+    ],
+    "todos": [
+      {
+        "id": "1",
+        "level": "1",
+        "name": {
+          "height": 16,
+          "width": 41.671875,
+          "x": 1264,
+          "y": 145
+        },
+        "row": {
+          "height": 56,
+          "width": 288,
+          "x": 1208,
+          "y": 137
+        },
+        "tick": {
+          "height": 24,
+          "width": 24,
+          "x": 1224,
+          "y": 141
+        }
+      },
+      {
+        "id": "2",
+        "level": "1",
+        "name": {
+          "height": 16,
+          "width": 41.671875,
+          "x": 1264,
+          "y": 201
+        },
+        "row": {
+          "height": 56,
+          "width": 288,
+          "x": 1208,
+          "y": 193
+        },
+        "tick": {
+          "height": 24,
+          "width": 24,
+          "x": 1224,
+          "y": 197
+        }
+      },
+      {
+        "id": "3",
+        "level": "1",
+        "name": {
+          "height": 32,
+          "width": 224,
+          "x": 1264,
+          "y": 257
+        },
+        "row": {
+          "height": 93,
+          "width": 288,
+          "x": 1208,
+          "y": 249
+        },
+        "tick": {
+          "height": 24,
+          "width": 24,
+          "x": 1224,
+          "y": 253
+        }
+      },
+      {
+        "id": "4",
+        "level": "2",
+        "name": {
+          "height": 16,
+          "width": 41.671875,
+          "x": 1280,
+          "y": 350
+        },
+        "row": {
+          "height": 80,
+          "width": 288,
+          "x": 1208,
+          "y": 342
+        },
+        "tick": {
+          "height": 24,
+          "width": 24,
+          "x": 1240,
+          "y": 346
+        }
+      }
+    ]
+  },
+  "runtime_source": "e66f1e52b6510c8be607fd52915805b7a189bf70",
+  "validation": {
+    "numTotalTests": 4070,
+    "numPassedTests": 4011,
+    "numFailedTests": 2,
+    "numPendingTests": 57,
+    "full_run_timeouts": [
+      "n5_fixture_data_is_private_and_survives_restart",
+      "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard"
+    ],
+    "isolated_retry_zero": {
+      "n5_real_daemon": 3,
+      "u463_real_daemon": 6,
+      "u511a_rename": 44
+    },
+    "lint_web": "pass",
+    "lint_rust": "pass",
+    "tokens": "pass",
+    "merge_loss": "pass"
+  }
+}

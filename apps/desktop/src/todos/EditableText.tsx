@@ -1,5 +1,7 @@
 import { outcomeOf } from "../app/seam";
-import { writeText } from "../app/clipboard";
+import { captureFocus } from "../keys/focus";
+import { queueFocus } from "../keys/focus";
+import { CopyButton } from "../ui/CopyButton";
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
@@ -11,7 +13,7 @@ import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "sol
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
-export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
+export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()), owner: v.optional(v.nullable(v.string()), null) });
 
 export const blockerSchema = v.strictObject({
   title: v.string(), body: v.string(), done: v.boolean(), blockers: v.array(v.string()), baseBlockers: v.array(v.string()), expected_change: v.nullable(v.number()),
@@ -51,15 +53,10 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  const copyDraft = async (text: string) => {
-    try { await writeText(app, text); setFailure(null); }
-    catch (error) { if (!(error instanceof Error)) throw error; setFailure(copy.copyDraftFailure(error.message)); }
-  };
-
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
+    <ReservedLine overlay={props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
     <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
@@ -69,10 +66,12 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         <span id={`todo-context-${revision}`} class="todo-draft-label" hidden>{label(record())}</span>
         <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
         <div class="todo-draft-actions">
-        <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => {
-          const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
-          void copyDraft(!record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value));
-        }}>{copy.copyField(surface)}</button>{" "}
+        <CopyButton app={app} identity={revision} class="word" aria-describedby={`todo-revision-${revision} todo-context-${revision}`}
+          text={(() => {
+            const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
+
+            return !record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value);
+          })()} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copyField(surface)}</CopyButton>{" "}
         <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => { props.onDiscard?.(revision); drafts.discard(revision); }}>{copy.discardRevision}</button>
         </div>
       </div>}</Show>;
@@ -129,6 +128,8 @@ export const EditableText = (props: {
   let shown: HTMLElement | undefined;
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
+    captureFocus(true);
+
     const saved = props.revision === undefined
       ? records().findLast(draft => draft.status === "draft" || draft.status === "failed")
       : records().find(draft => draft.revision === props.revision);
@@ -164,12 +165,13 @@ export const EditableText = (props: {
 
   const field = (started: Editing) => (element: HTMLTextAreaElement) => {
     element.value = started.text;
+    const focus = captureFocus();
     // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       fit(element);
 
       if (!alive) return;
-      element.focus({ preventScroll: true });
+      focus(() => element.focus({ preventScroll: true }));
 
       if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
     });
@@ -209,6 +211,7 @@ export const EditableText = (props: {
 
     const submit = async () => {
       if (left) return;
+      const retryFocus = captureFocus();
       left = true;
 
       if (element.value === started.form.base && !started.recovered) {
@@ -226,17 +229,27 @@ export const EditableText = (props: {
         return;
       }
 
-      if (!connected.drafts.submit(draft.revision)) {
+      const submittedValue = element.value;
+
+      if (draft.status !== "draft" && draft.status !== "failed") {
         setFailure(copy.draftStatus[draft.status]);
         left = false;
 
         return;
       }
 
+      const submission = connected.drafts.submit(draft.revision);
       setEditing(null);
 
+      if (!(await submission)) {
+        setFailure(copy.draftStatus[draft.status]);
+        left = false;
+
+        return;
+      }
+
       try {
-        await props.commit(element.value, started.form.expected_change);
+        await props.commit(submittedValue, started.form.expected_change);
         connected.drafts.settle(draft.revision, "acknowledged");
 
         if (alive) { setFailure(null); props.onSaved?.(); }
@@ -248,7 +261,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body)) startWith(started.width);
+            && (document.activeElement === null || document.activeElement === document.body)) retryFocus(() => startWith(started.width));
         }
       }
     };
@@ -259,7 +272,7 @@ export const EditableText = (props: {
 
         if (element.value !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
-        queueMicrotask(() => shown?.focus());
+        queueFocus(() => shown?.focus());
       } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
         event.preventDefault(); void submit();
       }

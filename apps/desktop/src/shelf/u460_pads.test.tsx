@@ -1,8 +1,8 @@
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { AGENT, openShelf, padOf } from "../pads/padsFixture";
+import { AGENT, openShelf, padOf, waitForReload } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
 import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
 
@@ -22,7 +22,7 @@ it("u460_agent_owned_pads_warn_and_delete_without_stopping_agents", async () => 
 it("u460_open_pad_drawer_observes_bulk_delete", async () => {
   const { app, connected } = await openShelf([padOf("notes", USER, "body")]);
   const row = await screen.findByRole("button", { name: "notes" });
-  fireEvent.click(row);
+  fireEvent.keyDown(row, { key: "Enter" });
   await screen.findByRole("button", { name: "Delete" });
   fireEvent.click(row, { metaKey: true });
   await askToDelete(1);
@@ -38,7 +38,7 @@ it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () 
   await askToDelete(1);
   state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
-  await screen.findByText(/Agents may still be writing/);
+  await waitForReload(app);
   const question = await questionDialog();
   expect(question.message).toContain("notes");
   expect(question.message).not.toContain("mine");

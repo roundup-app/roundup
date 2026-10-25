@@ -176,10 +176,11 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
       const input = document.querySelector('.switcher input');
       input.value = 'discard this query';
       input.dispatchEvent(new Event('input', { bubbles: true }));
-      [...document.querySelectorAll('.switcher button')].find(button => button.textContent === 'Discard query').focus();
     })()`);
+    await browser("wait", "--fn", "!!document.querySelector('.switcher [role=alert]')");
+    await browser("eval", "[...document.querySelectorAll('.switcher button')].find(button => button.textContent === 'Discard query').focus()");
     await browser("press", "Enter");
-    await browser("wait", "--fn", "document.activeElement === document.querySelector('.switcher input')");
+    await browser("wait", "--fn", "!!document.querySelector('.switcher [role=alert]') && document.activeElement === document.querySelector('.switcher input')");
     expect((await browser("eval", "[document.querySelector('.switcher input').value, !!document.querySelector('.switcher [role=alert]'), window.__fake.app.calls.length]")).result).toEqual(["", true, calls]);
   } finally {
     await browser("close");

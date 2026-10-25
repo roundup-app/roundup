@@ -27,7 +27,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-width: min(360px, calc(100vw - var(--space-6)));
+  min-width: min(var(--dialog-min-width), calc(100vw - var(--space-6)));
 }
 
 .app-dialog-form [data-part="title"] {
@@ -48,7 +48,7 @@
   margin: 0;
   padding: var(--space-1);
   border: 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--hairline-width) solid var(--hairline);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -125,5 +125,5 @@
 .app-dialog-positioner:has(.app-dialog[inert]) { pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] { transition-duration: 0s; }
+  :is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] { transition-duration: var(--duration-instant); }
 }

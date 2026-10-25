@@ -15,6 +15,7 @@ it.each([-32603, -32004, -32006, -32008, 42])("u3791b_connected_submit_retains_u
   fireEvent.input(field, { target: { value: " exact submitted 🌿\n " } });
   fireEvent.keyDown(field, { key: "Enter" });
   fireEvent.input(field, { target: { value: " newer work e\u0301 " } });
+  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
   reject(new RpcError(code, "refused; refresh and choose again"));
   await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "unknown")).toBe(true));
   const submitted = mounted.connected.drafts.list().find(draft => draft.status === "unknown")!;

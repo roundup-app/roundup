@@ -407,10 +407,11 @@ impl Daemon {
                         None
                     },
                     title: p.title,
-                    published_at: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map_err(RpcError::internal)?
-                        .as_millis()
+                    published_at: (u128::try_from(
+                        time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                    )
+                    .map_err(RpcError::internal)?
+                        / 1_000_000)
                         .try_into()
                         .map_err(RpcError::internal)?,
                     target,

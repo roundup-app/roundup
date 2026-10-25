@@ -152,7 +152,7 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
     fireEvent.click(screen.getByRole("button", { name: "Add Pad", hidden: true }));
     field = screen.getByLabelText("Pad name");
   } else {
-    fireEvent.click(rows[0]!);
+    fireEvent.keyDown(rows[0]!, { key: "Enter" });
     await waitFor(() => expect(document.querySelector(".todo-detail-title .todo-editable p")).not.toBeNull());
     fireEvent.dblClick(document.querySelector(".todo-detail-title .todo-editable p")!);
     field = await screen.findByLabelText("Title");

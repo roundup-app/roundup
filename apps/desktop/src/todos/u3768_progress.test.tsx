@@ -131,7 +131,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
     const mounted = await mountTodos([todo(1), todo(2)], false);
 
     if (actor === "user") {
-      fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
+      fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
       await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("checkbox", { name: "Complete todo 1" });
     }
 
@@ -143,10 +143,9 @@ describe("u3770 a finishing Todo plays one motion", () => {
       mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
     } else finish(mounted, 1);
 
-    await waitFor(() => expect(count()).toBe("1/2"));
+    await waitFor(() => expect(bar()?.getAttribute("aria-valuenow")).toBe("1"));
 
     expect(playing()).toBe(0);
-    expect(bar()?.getAttribute("aria-valuenow")).toBe("1");
     fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
     expect(document.querySelector('.shelf-groups [data-todo="1"]')).toBeNull();
   });

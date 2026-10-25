@@ -1,3 +1,4 @@
+import type { createCopyFeedback } from "./CopyButton";
 import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -79,6 +80,7 @@ export const linkEntries = (
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
   copied: () => void = () => {},
+  feedback?: ReturnType<typeof createCopyFeedback>,
 ): MenuEntry[] => {
   const attempt = async (call: (link: string) => Promise<void>, verb: "copy" | "send" = "send") => {
     try {
@@ -115,9 +117,18 @@ export const linkEntries = (
 
   return [
     children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
-    { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
-      await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link);
-    }, "copy") },
+    { id: "copy-link", label: copy.copyLink, run: () => {
+      const write = async () => {
+        const link = await linkOf(app, target).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+
+        if (link.kind === "unavailable") throw new Error(link.cause);
+
+        await writeText(app, target.kind === "deliverable" ? copy.linkNote(link.url) : link.url).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+      };
+
+      return feedback ? feedback.run(write, copied, error => fail(error.message))
+        : attempt(async link => { await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link); }, "copy");
+    } },
   ];
 };
 

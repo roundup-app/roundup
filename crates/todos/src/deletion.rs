@@ -32,12 +32,12 @@ impl Todos {
     /// Rail coordination can include this exact chosen set in its Project transaction.
     /// The caller commits all participants before publishing returned events or Touches.
     pub fn delete_in(
-        tx: &Transaction<'_>,
+        tx: &Connection,
         actor: &Actor,
         p: &DeleteParams,
         after_touch: i64,
     ) -> Result<(Deletion, Vec<EventData>), RpcError> {
-        retain(tx, actor, p, after_touch)
+        retain(tx, actor, p, after_touch, true)
     }
 
     /// Retained Home/owner identities for Daemon validation; no replacement data is accepted.
@@ -225,8 +225,15 @@ fn retain(
     actor: &Actor,
     p: &DeleteParams,
     after_touch: i64,
+    remove: bool,
 ) -> Result<(Deletion, Vec<EventData>), RpcError> {
-    if p.operation.is_empty() || p.operation.len() > 128 || p.ids.is_empty() || p.ids.len() > 10000
+    if db.is_autocommit() {
+        return Err(RpcError::internal("Todo retention requires a transaction"));
+    }
+    if p.operation.is_empty()
+        || p.operation.len() > 128
+        || (remove && p.ids.is_empty())
+        || p.ids.len() > 10000
     {
         return Err(RpcError::new(
             rpc::code::INVALID_PARAMS,
@@ -284,21 +291,24 @@ fn retain(
         };
         db.execute(&format!("INSERT INTO {retained} (operation,{columns}) SELECT ?1,{columns} FROM {live} WHERE {condition}"), params![p.operation, selected]).map_err(RpcError::internal)?;
     }
-    // Preserve T6's surviving dependent Changes. Values come from the authoritative
-    // last Change, whose blocker list is updated in the same deletion transaction.
-    db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
+    let mut unblocked = Vec::<u32>::new();
+    if remove {
+        // Preserve T6's surviving dependent Changes. Values come from the authoritative
+        // last Change, whose blocker list is updated in the same deletion transaction.
+        db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT t.id,
         json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
         json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
         ?2, ?3, ?4 FROM todos t
         WHERE t.id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=t.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,after_touch,actor_json,crate::store::now_ms()]).map_err(RpcError::internal)?;
-    let unblocked: Vec<u32> = db.prepare("SELECT DISTINCT b.todo FROM blockers b JOIN todos t ON t.id=b.blocker WHERE t.done=0 AND b.blocker IN (SELECT value FROM json_each(?1)) AND b.todo NOT IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM blockers x JOIN todos y ON y.id=x.blocker WHERE x.todo=b.todo AND y.done=0 AND x.blocker NOT IN (SELECT value FROM json_each(?1))) ORDER BY b.todo")
+        unblocked = db.prepare("SELECT DISTINCT b.todo FROM blockers b JOIN todos t ON t.id=b.blocker WHERE t.done=0 AND b.blocker IN (SELECT value FROM json_each(?1)) AND b.todo NOT IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM blockers x JOIN todos y ON y.id=x.blocker WHERE x.todo=b.todo AND y.done=0 AND x.blocker NOT IN (SELECT value FROM json_each(?1))) ORDER BY b.todo")
         .and_then(|mut q| q.query_map([&selected], |r| r.get(0))?.collect()).map_err(RpcError::internal)?;
-    db.execute(
-        "DELETE FROM todos WHERE id IN (SELECT value FROM json_each(?))",
-        [&selected],
-    )
-    .map_err(RpcError::internal)?;
+        db.execute(
+            "DELETE FROM todos WHERE id IN (SELECT value FROM json_each(?))",
+            [&selected],
+        )
+        .map_err(RpcError::internal)?;
+    }
     db.execute(
         "INSERT INTO todo_deletions(operation,actor,chosen,result) VALUES (?,?,?,?)",
         params![
@@ -332,4 +342,214 @@ fn publish(ctx: &Ctx, events: Vec<EventData>) -> Result<(), RpcError> {
         ctx.emit(event);
     }
     Ok(())
+}
+
+impl Todos {
+    /// Capture the existing A34 chosen set before the coordinator invokes its removal.
+    /// Empty sets still give the graph coordinator one retryable transaction identity.
+    pub fn retain_workstream_in(
+        db: &Connection,
+        actor: &Actor,
+        operation: &str,
+        home: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let mut query = db
+            .prepare("SELECT id,done,home,owner FROM todos WHERE home=? ORDER BY id")
+            .map_err(RpcError::internal)?;
+        let rows = query
+            .query_map([home], |r| {
+                Ok((
+                    r.get::<_, u32>(0)?,
+                    r.get::<_, bool>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, Option<String>>(3)?,
+                ))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        let mut ids = Vec::new();
+        for (id, done, home, owner) in rows {
+            if done {
+                ids.push(id);
+            } else {
+                db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,owner) VALUES(?,'todo-home',?,?,?)",params![operation,id.to_string(),home,owner]).map_err(RpcError::internal)?;
+            }
+        }
+        let after_touch = db
+            .query_row("SELECT COALESCE(MAX(seq),0) FROM touches", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        let participant: String = db
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        db.execute(
+            "INSERT INTO rail_removal_items(operation,kind,id) VALUES(?,'todo-operation',?)",
+            params![operation, participant],
+        )
+        .map_err(RpcError::internal)?;
+        retain(
+            db,
+            actor,
+            &DeleteParams {
+                operation: participant,
+                ids,
+            },
+            after_touch,
+            false,
+        )?;
+        Ok(())
+    }
+
+    /// Reconnect retained Homes only when the surviving Todo still has the placement
+    /// produced by this removal. Changed placements refuse and leave the operation intact.
+    pub fn restore_workstream_homes_in(
+        db: &Connection,
+        operation: &str,
+    ) -> Result<Vec<u32>, RpcError> {
+        let mut query=db.prepare("SELECT id,home FROM rail_removal_items WHERE operation=? AND kind='todo-home' ORDER BY CAST(id AS INTEGER)").map_err(RpcError::internal)?;
+        let rows = query
+            .query_map([operation], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        let mut ids = Vec::new();
+        for (id, home) in rows {
+            if db
+                .execute(
+                    "UPDATE todos SET home=? WHERE id=? AND home IS NULL",
+                    params![home, id],
+                )
+                .map_err(RpcError::internal)?
+                != 1
+            {
+                return Err(RpcError::conflict(
+                    "kept Todo changed Home or no longer exists",
+                ));
+            }
+            ids.push(id.parse().map_err(RpcError::internal)?);
+        }
+        Ok(ids)
+    }
+}
+
+impl Todos {
+    /// T17's authorized unassignment is part of the same graph removal, including Todos
+    /// in other Homes. Retain only these ownership edges, never their replacement data.
+    pub fn remove_owners_in(
+        db: &Connection,
+        actor: &Actor,
+        operation: &str,
+        agents: &[String],
+    ) -> Result<Vec<u32>, RpcError> {
+        let selected = serde_json::to_string(agents).map_err(RpcError::internal)?;
+        let mut q=db.prepare("SELECT id,owner FROM todos WHERE json_extract(owner,'$.kind')='agent' AND json_extract(owner,'$.id') IN (SELECT value FROM json_each(?)) ORDER BY id").map_err(RpcError::internal)?;
+        let rows = q
+            .query_map([selected], |r| {
+                Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        let mut ids = Vec::new();
+        for (id, owner) in rows {
+            db.execute("INSERT INTO rail_removal_items(operation,kind,id,owner) VALUES(?,'todo-owner',?,?)",params![operation,id.to_string(),owner]).map_err(RpcError::internal)?;
+            change_owner_in(db, actor, id, None)?;
+            ids.push(id);
+        }
+        Ok(ids)
+    }
+
+    pub fn restore_owners_in(
+        db: &Connection,
+        actor: &Actor,
+        operation: &str,
+    ) -> Result<Vec<u32>, RpcError> {
+        let mut q=db.prepare("SELECT CAST(id AS INTEGER),owner FROM rail_removal_items WHERE operation=? AND kind='todo-owner' ORDER BY CAST(id AS INTEGER)").map_err(RpcError::internal)?;
+        let rows = q
+            .query_map([operation], |r| {
+                Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?;
+        let mut ids = Vec::new();
+        for (id, owner) in rows {
+            let vacant: bool = db
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM todos WHERE id=? AND owner IS NULL)",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(RpcError::internal)?;
+            if !vacant {
+                return Err(RpcError::conflict(
+                    "Todo no longer exists or its owner changed",
+                ));
+            }
+            change_owner_in(db, actor, id, Some(&owner))?;
+            ids.push(id);
+        }
+        Ok(ids)
+    }
+}
+
+fn change_owner_in(
+    db: &Connection,
+    actor: &Actor,
+    id: u32,
+    owner: Option<&str>,
+) -> Result<(), RpcError> {
+    // Values' latest Change is the existing authoritative owner/blocker history (T17).
+    db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
+        SELECT todo,after_values,json_set(after_values,'$.owner',json(?2)),(SELECT COALESCE(MAX(seq),0) FROM touches),?3,?4
+        FROM changes WHERE seq=(SELECT MAX(seq) FROM changes WHERE todo=?1)",params![id,owner,serde_json::to_string(actor).map_err(RpcError::internal)?,crate::store::now_ms()]).map_err(RpcError::internal)?;
+    db.execute("UPDATE todos SET owner=? WHERE id=?", params![owner, id])
+        .map_err(RpcError::internal)?;
+    Ok(())
+}
+
+impl Todos {
+    /// Resolve the server-generated participant key only for the original Actor.
+    pub fn rail_operation(&self, actor: &Actor, operation: &str) -> Result<String, RpcError> {
+        let store = self.store()?;
+        let participant: String = store
+            .db
+            .query_row(
+                "SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-operation'",
+                [operation],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        receipt(&store.db, actor, &participant)?
+            .ok_or_else(|| RpcError::not_found("Todo removal"))?;
+        Ok(participant)
+    }
+
+    /// Rail insertion precedes this check in the same transaction. An unrelated missing
+    /// original Home/owner is a retryable conflict, never permission to substitute one.
+    pub fn validate_rail_targets_in(db: &Connection, operation: &str) -> Result<(), RpcError> {
+        let missing:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM deleted_todos t WHERE operation=? AND ((home IS NOT NULL AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=t.home AND kind='workstream')) OR (json_extract(owner,'$.kind')='agent' AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=json_extract(t.owner,'$.id')))))",[operation],|r|r.get(0)).map_err(RpcError::internal)?;
+        if missing {
+            return Err(RpcError::conflict(
+                "original Todo Home or owner is unavailable",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Todos {
+    /// Fill committed Rail participant events without adding synthetic read Touches.
+    pub fn rail_events(&self, ids: Vec<u32>) -> Result<Vec<EventData>, RpcError> {
+        let store = self.store()?;
+        ids.into_iter()
+            .map(|id| {
+                store
+                    .get(id)
+                    .map(|todo| EventData::TodoUpdated(todo.into()))
+            })
+            .collect()
+    }
 }

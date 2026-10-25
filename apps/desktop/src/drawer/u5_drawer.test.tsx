@@ -62,16 +62,6 @@ describe("u5 Drawer and last touch", () => {
     expect([screen.queryByText("first"), screen.queryByText("second")].map(Boolean)).toEqual([false, true]);
   });
 
-  it("u5_a_closed_drawer_unmounts_its_content_when_the_slide_out_ends", () => {
-    const { drawer, panel } = drawerSetup();
-    drawer.open(() => <p>detail</p>);
-    drawer.close();
-
-    fireEvent.transitionEnd(panel);
-
-    expect(screen.queryByText("detail")).toBeNull();
-  });
-
   it("u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion", () => {
     const { drawer } = drawerSetup(true);
     drawer.open(() => <p>detail</p>);

@@ -345,3 +345,31 @@ repair or full R3696c pass. The latest failing M4 Max A/B at `59cff55cae` predat
 several repairs now on main. Remaining startup/RSS attribution, full same-M4-Max
 acceptance with unchanged budgets, unchanged-code false-fail evidence and the
 separate later main pass remain open. No baseline rebase is justified here.
+
+### Fresh start store attribution (#4052, #3696)
+
+Linux diagnostic, not a Mac pass. Reference and head base `e2c9e2db8f94f3fc16841ed453cb5c7dfe613024`;
+AMD EPYC 7763, four CPUs, rustc 1.99.0, release `rupd`. A fresh start (`RUPD_SOCKET=$d/x.sock
+ROUNDUP_DATA_DIR=$d/data rupd $(mktemp -d)`, killed after `serving`) spends about 10.4 ms in
+`open`; the `startup: stores` line splits it into storage 2.9, base 1.5, agents 1.8, services
+2.35 and messages 1.75 ms. Temporary timers inside `storage::open` split the 2.9 ms:
+`seed_fresh` 1.85 (`reidentified` 0.6, write 0.4, `fsync` 0.8-1.2), the first connection's
+WAL setup 0.9 (`-wal`/`-shm` creation and locking, paid by any first WAL access), migration
+check 0.03. `strace -f` shows each of the 14 later `project.db` connections costing about
+0.6 ms, unchanged by this work.
+
+Cause of the 0.6 ms: `e8b68ed39` (DV2) built the image with 8 KiB pages, so it is 1,146,880
+bytes (140 pages, 135 of them under 200 non-zero bytes), not the 507,904 the section above
+measured; `reidentified` then copied all of it (`FRESH.to_vec()`, about 280 page faults) to
+patch 64 bytes. It now returns the (offset, id) patches, and `write_image` writes the immutable
+image around them: no copy, same bytes. The page size, `fsync`, link and WAL behaviour are
+unchanged, and `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` holds
+the result equal to the migrated database with no placeholder left.
+
+Thirty alternating old/new pairs (`docs/perf-startup-store-pairs.json`, raw samples, load 3.2 to
+1.2, every run exited by the harness's kill after `serving`), medians: storage 2.90 against 2.60
+ms, `open` 10.40 against 10.14 ms. About 0.3 ms saved on Linux; the Mac may differ. Not
+attributed: the 0.9 ms WAL setup and 14 connections at 0.6 ms (about 8 ms), which a later
+change must measure per store. No budget changed; R3696c's same-M4-Max gate stays on #3696.
+
+[Four idle Project connections: measured repair and regression observer (#4052)](perf-startup-connections.md).

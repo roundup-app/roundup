@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
@@ -31,20 +32,20 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
       if (open && !wasOpen) {
         savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true });
+        captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
       } else if (wasOpen && !open) {
         const stayedInDrawer = host?.contains(document.activeElement) ?? false;
         const toRefocus = savedFocus;
 
         savedFocus = null;
 
-        if (stayedInDrawer && toRefocus?.isConnected) toRefocus.focus({ preventScroll: true });
+        if (stayedInDrawer && toRefocus?.isConnected) captureFocus()(() => toRefocus.focus({ preventScroll: true }));
       }
     }),
   );
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
-  const lifetime = createSlideLifetime();
+  const lifetime = createSlideLifetime(() => [panel()]);
 
   createEffect(() => setDrawerSliding(lifetime.sliding()));
   onCleanup(() => setDrawerSliding(false));
@@ -83,7 +84,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
     when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
-    run: () => props.drawer.close("key"),
+    run: () => { captureFocus(true); props.drawer.close("key"); },
   }]);
 
   return (
@@ -103,10 +104,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         transform: isOpen() ? "translateX(0)" : "translateX(100%)",
         transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
-      onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget || (event.propertyName && event.propertyName !== "transform")) return;
-        lifetime.settle();
-      }}
+
     >
       <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
         <Icon name="x" />

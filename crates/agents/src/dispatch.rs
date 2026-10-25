@@ -36,6 +36,12 @@ impl Agents {
                 None
             };
             let mut rail = shared.rail();
+            // Lock order is rail, runs, timing: `observe_coordination` takes timing while it
+            // holds runs, so the live Status is read before timing is locked, never under it.
+            let tree = summary
+                .as_ref()
+                .map(|_| shared.presented_tree(&rail))
+                .transpose()?;
             let mut timing = shared.timing.lock().expect("measurement timing lock");
             timing.sample();
             let cause = timing.failure();
@@ -43,9 +49,8 @@ impl Agents {
             if cause.is_some() {
                 measurements.cause = cause;
             }
-            if let Some(params) = summary {
+            if let Some((params, tree)) = summary.zip(tree) {
                 // U3016i: the live Status says whether an Agent still runs.
-                let tree = shared.presented_tree(&rail)?;
                 reply(&measurement::summarize(measurements, tree, params)?)
             } else {
                 reply(&measurements)
@@ -693,7 +698,12 @@ impl Agents {
     ) -> Result<Value, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let contracts::agent::RemoveParams { id, operation } = params(value)?;
+            if operation.is_some() {
+                return Err(RpcError::forbidden(
+                    "reversible removal requires the Project Daemon",
+                ));
+            }
             shared.guard_reach(&ctx.actor, &id, false)?;
             if shared.rail().node(&id)?.kind == NodeKind::Workstream {
                 let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;

@@ -1,0 +1,68 @@
+{
+  "observed_utc": "2026-10-25T16:59:55.863314+00:00",
+  "production_reference": "066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9",
+  "observer_commit": "4adcd7b3eb56c7ba1833c69a06900a3cab1ebf83",
+  "host": "runnervmtai0g",
+  "boot_id": "41486746-3565-4689-bb26-1d2f2e9337e7",
+  "cpus": 4,
+  "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+  "git": "git version 2.55.0",
+  "profile": {
+    "release": true,
+    "lto": "thin",
+    "codegen-units": 1
+  },
+  "binary_sha256": "7d84973942567e68205b7ed7652f80371996e095b41f4c3f30ebc53a3e22d206",
+  "binary_bytes": 2646736,
+  "probe_lock_sha256": "1fd602ecb4f2f931ab05d43c1e7ec9d634d1ff3378033d7a0768ea3a5ffca82c",
+  "workspace_lock_sha256": "89e606996f9a83f7d1be3608982f0e84d22fc29d8cc8468a59e321b3b6177f10",
+  "worktrees": "worktree /home/runner/work/roundup/roundup\nHEAD 066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9\nbranch refs/heads/main\n\nworktree /tmp/roundup-gix\nHEAD a667070509cb33627c7f0651da778f1c1631d35e\nbranch refs/heads/build/rust-libraries-gix\n\n",
+  "first_build": {
+    "command": "cargo build --release --manifest-path /tmp/z3802d-probe/Cargo.toml",
+    "exit": 0,
+    "elapsed_seconds": 127,
+    "includes": "registry resolution, download and compilation of combined gix/git2 observer; not marginal production cost",
+    "raw_stdout_and_stderr": "\u001b[1m\u001b[92m    Updating\u001b[0m crates.io index\n\u001b[1m\u001b[92m     Locking\u001b[0m 133 packages to highest Rust 1.99.0 compatible versions\n\u001b[1m\u001b[92m Downloading\u001b[0m crates ...\n\u001b[1m\u001b[92m  Downloaded\u001b[0m arc-swap v1.9.3\n\u001b[1m\u001b[92m  Downloaded\u001b[0m defmt v0.3.101\n\u001b[1m\u001b[92m  Downloaded\u001b[0m core_detect v1.0.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m equivalent v1.0.3\n\u001b[1m\u001b[92m  Downloaded\u001b[0m clru v0.6.3\n\u001b[1m\u001b[92m  Downloaded\u001b[0m defmt-parser v1.1.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-macros v0.2.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-chunk v0.10.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-hashtable v0.18.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-lock v26.0.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m allocator-api2 v0.2.21\n\u001b[1m\u001b[92m  Downloaded\u001b[0m crc32fast v1.5.3\n\u001b[1m\u001b[92m  Downloaded\u001b[0m defmt-macros v1.2.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m find-msvc-tools v0.1.15\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-config-value v0.21.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-actor v0.44.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-sec v0.16.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-shallow v0.15.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-quote v0.10.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m defmt v1.2.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m faster-hex v0.10.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-fs v0.24.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-glob v0.29.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-zlib v0.4.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m hash32 v0.3.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-validate v0.13.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-attributes v0.37.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-hash v0.28.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-command v0.12.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-commitgraph v0.42.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m jiff-static v0.2.38\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-date v0.18.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-worktree-stream v0.39.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-packetline v0.24.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-url v0.40.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-discover v0.57.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-refspec v0.47.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-revision v0.52.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-traverse v0.64.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-utils v0.5.2\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-trace v0.3.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-tempfile v26.0.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-filter v0.36.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-parallel v0.50.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-revwalk v0.38.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m multiversion_no_op v1.0.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m nonempty v0.12.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-note v0.3.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-path v0.14.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-protocol v0.68.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-diff v0.70.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-error v0.5.2\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-ref v0.69.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m memmap2 v0.9.12\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-odb v0.87.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m heapless v0.8.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-object v0.66.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-transport v0.62.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m cc v1.10.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-config v0.62.2\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix-pack v0.77.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m prodash v31.0.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m git2 v0.21.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m bstr v1.13.1\n\u001b[1m\u001b[92m  Downloaded\u001b[0m gix v0.90.0\n\u001b[1m\u001b[92m  Downloaded\u001b[0m encoding_rs v0.8.42\n\u001b[1m\u001b[92m  Downloaded\u001b[0m jiff v0.2.38\n\u001b[1m\u001b[92m  Downloaded\u001b[0m libc v0.2.191\n\u001b[1m\u001b[92m  Downloaded\u001b[0m libz-sys v1.1.30\n\u001b[1m\u001b[92m  Downloaded\u001b[0m libgit2-sys v0.18.8+1.9.7\n\u001b[1m\u001b[92m  Downloaded\u001b[0m sha1dc v0.1.5\n\u001b[1m\u001b[92m  Downloaded\u001b[0m smallvec v1.16.4\n\u001b[1m\u001b[92m  Downloaded\u001b[0m syn v3.0.9\n\u001b[1m\u001b[92m  Downloaded\u001b[0m unicode-bom v2.0.3\n\u001b[1m\u001b[92m  Downloaded\u001b[0m unicode-ident v1.0.27\n\u001b[1m\u001b[92m  Downloaded\u001b[0m unicode-normalization v0.1.26\n\u001b[1m\u001b[92m   Compiling\u001b[0m libc v0.2.191\n\u001b[1m\u001b[92m   Compiling\u001b[0m regex-automata v0.4.18\n\u001b[1m\u001b[92m   Compiling\u001b[0m memchr v2.8.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m cfg-if v1.0.5\n\u001b[1m\u001b[92m   Compiling\u001b[0m parking_lot_core v0.9.12\n\u001b[1m\u001b[92m   Compiling\u001b[0m getrandom v0.4.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m scopeguard v1.2.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m smallvec v1.16.4\n\u001b[1m\u001b[92m   Compiling\u001b[0m lock_api v0.4.14\n\u001b[1m\u001b[92m   Compiling\u001b[0m fastrand v2.5.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m bstr v1.13.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m tinyvec v1.13.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m heapless v0.8.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m autocfg v1.5.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-error v0.5.2\n\u001b[1m\u001b[92m   Compiling\u001b[0m parking_lot v0.12.5\n\u001b[1m\u001b[92m   Compiling\u001b[0m unicode-normalization v0.1.26\n\u001b[1m\u001b[92m   Compiling\u001b[0m byteorder v1.5.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m prodash v31.0.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-validate v0.13.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m hash32 v0.3.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m faster-hex v0.10.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-utils v0.5.2\n\u001b[1m\u001b[92m   Compiling\u001b[0m stable_deref_trait v1.2.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-trace v0.3.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m sha1dc v0.1.5\n\u001b[1m\u001b[92m   Compiling\u001b[0m bitflags v2.13.2\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-path v0.14.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m jiff-core v0.1.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m itoa v1.0.18\n\u001b[1m\u001b[92m   Compiling\u001b[0m once_cell v1.21.4\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-hash v0.28.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m hashbrown v0.17.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-parallel v0.50.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m same-file v1.0.6\n\u001b[1m\u001b[92m   Compiling\u001b[0m rustix v1.1.5\n\u001b[1m\u001b[92m   Compiling\u001b[0m walkdir v2.5.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m jiff v0.2.38\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-hashtable v0.18.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m memmap2 v0.9.12\n\u001b[1m\u001b[92m   Compiling\u001b[0m linux-raw-sys v0.12.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-fs v0.24.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m shlex v2.0.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m find-msvc-tools v0.1.15\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-chunk v0.10.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m pkg-config v0.3.34\n\u001b[1m\u001b[92m   Compiling\u001b[0m jobserver v0.1.35\n\u001b[1m\u001b[92m   Compiling\u001b[0m cc v1.10.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m nonempty v0.12.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m proc-macro2 v1.0.107\n\u001b[1m\u001b[92m   Compiling\u001b[0m unicode-ident v1.0.27\n\u001b[1m\u001b[92m   Compiling\u001b[0m quote v1.0.47\n\u001b[1m\u001b[92m   Compiling\u001b[0m tempfile v3.27.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-tempfile v26.0.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m vcpkg v0.2.15\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-date v0.18.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-lock v26.0.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-actor v0.44.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m libz-sys v1.1.30\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-object v0.66.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-sec v0.16.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-quote v0.10.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m foldhash v0.2.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m equivalent v1.0.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m rustversion v1.0.23\n\u001b[1m\u001b[92m   Compiling\u001b[0m allocator-api2 v0.2.21\n\u001b[1m\u001b[92m   Compiling\u001b[0m crc32fast v1.5.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-ref v0.69.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m hashbrown v0.16.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-commitgraph v0.42.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m percent-encoding v2.3.2\n\u001b[1m\u001b[92m   Compiling\u001b[0m zlib-rs v0.6.8\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-url v0.40.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-revwalk v0.38.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m clru v0.6.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m syn v2.0.119\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-command v0.12.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m libgit2-sys v0.18.8+1.9.7\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-packetline v0.24.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-transport v0.62.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m arc-swap v1.9.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-shallow v0.15.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-glob v0.29.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-zlib v0.4.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-pack v0.77.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-config-value v0.21.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-macros v0.2.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m unicode-bom v2.0.3\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-config v0.62.2\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-protocol v0.68.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-odb v0.87.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-revision v0.52.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-traverse v0.64.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-discover v0.57.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-diff v0.70.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix-refspec v0.47.1\n\u001b[1m\u001b[92m   Compiling\u001b[0m log v0.4.34\n\u001b[1m\u001b[92m   Compiling\u001b[0m gix v0.90.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m git2 v0.21.0\n\u001b[1m\u001b[92m   Compiling\u001b[0m z3802d-probe v0.0.0 (/tmp/z3802d-probe)\n\u001b[1m\u001b[92m    Finished\u001b[0m `release` profile [optimized] target(s) in 2m 07s\n"
+  },
+  "repeat": {
+    "command": "CARGO_TARGET_DIR=/tmp/z3802d-probe/target bash crates/agents/evidence/z3802d/reproduce.sh",
+    "exit": 0,
+    "summary": {
+      "shell": {
+        "samples": 88,
+        "median_ns": 4432638.0,
+        "min_ns": 1832987,
+        "max_ns": 10505652
+      },
+      "gix": {
+        "samples": 88,
+        "median_ns": 350191.5,
+        "min_ns": 269756,
+        "max_ns": 473247
+      },
+      "git2": {
+        "samples": 88,
+        "median_ns": 298259.0,
+        "min_ns": 210134,
+        "max_ns": 514184
+      }
+    }
+  },
+  "observer_source_sha256": "d2b2df153ee2e0a83f7cfb8099d01ed0808075515bc9d0e8e1de5951142e9141",
+  "observer_script_sha256": "c531ee4255da63aedf1cf7e255c672cf57152f7145325b216d7bc4ac4fc58339",
+  "validation": [
+    {
+      "command": "pnpm install",
+      "exit": 0
+    },
+    {
+      "command": "just lint-web",
+      "exit": 0
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target just lint-rust",
+      "exit": 0
+    }
+  ]
+}

@@ -1,6 +1,12 @@
+import { debounce } from "@solid-primitives/scheduled";
+import { pressFeedback } from "./ui/pressFeedback";
+import { storageCopy } from "./copy/storage";
+import { writeText } from "./app/clipboard";
+import { storageProblems, retainedStorage } from "./state/storage";
+import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { applyAppAppearance } from "./settings/preferences";
+import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -203,6 +209,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    onCleanup(pressFeedback(document));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
@@ -248,6 +255,11 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  const capture = props.app.capture;
+  onMount(() => {
+    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+  });
+  onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
@@ -340,6 +352,16 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
+  const captureOwner = () => captureConnection() ?? activeConnection();
+
+  const storageFailures = createMemo(() => {
+    const open = activeConnection();
+    const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
+
+    return storageProblems().filter(problem => problem.key !== railKey);
+  });
+
   createEffect(() => {
     if (!props.prepareIdle) return;
 
@@ -394,7 +416,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle }}
+        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
             app={props.app}
@@ -443,6 +465,22 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="storage-center">
+          <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
+            <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
+          </ReservedLine></div></Show>
+          <Show when={retainedStorage().length > 0}><div class="storage-retained" role="group" aria-label={storageCopy.retained(retainedStorage().length)}>
+            <span>{storageCopy.retained(retainedStorage().length)}</span>
+            <For each={retainedStorage()}>{record => {
+              const [copied, setCopied] = createSignal(false);
+              const clearCopied = debounce(() => setCopied(false), 2000);
+
+              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => { setCopied(true); clearCopied(); }).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "hidden" : "visible" }} aria-hidden={copied()}>{storageCopy.recoveryLabel(record.key)}</span>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "visible" : "hidden" }} aria-hidden={!copied()}>{storageCopy.recoveryLabel(record.key, true)}</span>
+              </button>;
+            }}</For>
+          </div></Show>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
@@ -471,6 +509,7 @@ export const App = (props: {
           </div>
           <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
           </div>
+          </div>
         }
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
@@ -490,10 +529,11 @@ export const App = (props: {
                   <Help />
                   <Leader />
                   <InboxKey />
-                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
+                  
                 </>
               )}
             </InProject>
+            <InProject open={captureOwner()}>{(open) => <Capture onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Toasts queue={toasts} />
           </>
         }
