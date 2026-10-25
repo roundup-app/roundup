@@ -25,6 +25,7 @@ impl Terminals {
         value: Value,
     ) -> Result<Value, RpcError> {
         {
+            let received = (self.shared.clock)();
             let WriteParams { id, data } = params(value)?;
             let bytes = STANDARD
                 .decode(data)
@@ -32,7 +33,7 @@ impl Terminals {
             if ctx.actor.kind == contracts::ActorKind::Agent {
                 self.write_completed(&id, bytes).await.and(reply(&()))
             } else {
-                self.write(&id, &bytes).await.and(reply(&()))
+                self.write_at(&id, &bytes, received).and(reply(&()))
             }
         }
     }
@@ -147,5 +148,30 @@ impl Terminals {
         value: Value,
     ) -> Result<Value, RpcError> {
         reply(&self.search(&params::<SearchParams>(value)?)?)
+    }
+}
+
+impl Terminals {
+    pub(super) async fn rpc_terminal_measure(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        if ctx.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user may record keystrokes"));
+        }
+        let contracts::terminal::MeasureParams { id, run } = params(value)?;
+        let handle = self.running(&id)?;
+        let recording = recorder::Recording::new(&run)?;
+        let recorder = handle.recorder.get_or_init(|| Mutex::new(recording));
+        let recorder = recorder.lock().expect("recorder lock");
+        if recorder.run != run {
+            return Err(RpcError::conflict("Terminal already records another run"));
+        }
+        reply(&contracts::terminal::Measurement {
+            at: (self.shared.clock)(),
+            samples: recorder.samples(),
+        })
     }
 }
