@@ -192,7 +192,8 @@ it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
   fireEvent.click(row("runner"));
   const tab = await screen.findByRole("button", { name: "cargo test" });
   fireEvent.click(tab);
-  fireEvent.click(await screen.findByRole("button", { name: "Minimise" }));
+  // jsdom has no Popover API; the tab minimises without querying top-layer content.
+  fireEvent.click(tab);
   const before = pane();
   expect(before.some(([, hidden]) => hidden)).toBe(true);
   gesture(row("first-workstream"), true, true);
