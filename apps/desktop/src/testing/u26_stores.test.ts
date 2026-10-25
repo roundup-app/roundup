@@ -130,7 +130,7 @@ describe("u26 the in-memory Todos", () => {
   it("u26_deleting_a_todo_removes_it_from_the_list_and_sends_todo_deleted", async () => {
     const { app, announced } = todos([todo(1), todo(2)]);
 
-    await app.rpc("todo.delete", { id: 1 });
+    await app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [1] });
 
     expect([(await app.rpc("todo.list", null)).map((each) => each.id), announced]).toEqual([[2], [{ name: "todo.deleted", data: { id: 1 } }]]);
   });

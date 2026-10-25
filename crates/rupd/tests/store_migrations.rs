@@ -244,17 +244,12 @@ async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
     drop(rupd::Daemon::open(dir.path()).unwrap());
 
-    // Make it the Project an older version left: bubbling, deferred-action removal and Pad
-    // retention not yet run, Messages
-    // behind each wait reason, both approval Routes, and Door actions waiting, started and done.
+    // Version 37 precedes 0024-remove-bubbling.sql and deferred-action removal.
+    // Pin that historical boundary rather than counting back from the current schema.
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
         .unwrap();
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |row| row.get(0))
-        .unwrap();
-    db.execute_batch(&format!("PRAGMA user_version = {}", version - 3))
-        .unwrap();
+    db.pragma_update(None, "user_version", 37_i64).unwrap();
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,

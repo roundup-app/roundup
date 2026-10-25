@@ -127,6 +127,9 @@ impl Told {
     /// Reads one Event: what it changes for an owner Agent waits to be told.
     pub fn record(&mut self, event: &Event) {
         match &event.data {
+            EventData::TodoRestored(todo) => {
+                self.todos.insert(todo.id, (**todo).clone());
+            }
             EventData::TodoCreated(todo) => {
                 if let Some(to) = agent(&todo.owner) {
                     self.tell(to, &event.actor, todo.id, Change::Assigned);
