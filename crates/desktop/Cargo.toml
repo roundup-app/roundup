@@ -10,7 +10,7 @@ name = "roundup"
 path = "src/main.rs"
 
 [features]
-idle-perf = []
+idle-perf = ["native/idle-perf"]
 # Makes a release build load the files embedded from frontendDist instead of the dev server.
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -19,6 +19,7 @@ base64.workspace = true
 contracts = { path = "../contracts" }
 dirs = "7"
 getrandom = "0.3"
+native = { path = "../native" }
 rpc = { path = "../rpc" }
 serde.workspace = true
 serde_json.workspace = true
@@ -35,20 +36,11 @@ harness = false
 tauri-build = "2"
 
 [dev-dependencies]
+native = { path = "../native", features = ["idle-perf"] }
 rupd = { path = "../rupd" }
 tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 
-[target.'cfg(target_vendor = "apple")'.dependencies]
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["block2"] }
-block2 = "0.6"
-
-# Objective-C calls are confined to `webkit_rate.rs` and the measurement-only `idle_macos.rs`.
-[lints.rust]
-unsafe_code = "deny"
-unused = { level = "deny", priority = -1 }
-
-[lints.clippy]
-all = { level = "deny", priority = -1 }
+[lints]
+workspace = true

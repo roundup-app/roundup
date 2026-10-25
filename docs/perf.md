@@ -19,6 +19,14 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 
 Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release observations on 2026-10-14 (Ubuntu 24.04, four available CPUs, AMD EPYC 7763 64-Core Processor, rustc 1.99.0). The nine medians were 11.889899, 11.971422, 12.378832, 11.931701, 11.680185, 11.874712, 11.944743, 11.940635 and 12.034941 ms (max/median 1.037, min/median 0.978); median load per CPU was 0.60–1.20. The probe is commit `9ff3cf3e` in [#1762](https://github.com/saadshahd/roundup/pull/1762); this baseline applies to that Linux machine class, not macOS. The clock-resolution allowance is 0.001 ms, and R13's Linux threshold is 2.0 load per CPU. The 300 ms hard limit applies even when load skips the regression comparison; macOS has the hard limit until its own baseline is measured. Tests `q11_cold_plugin_materialization_keeps_the_300_ms_limit`, `q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit` and `q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median` exercise the gates with synthetic samples, never clock assertions.
 
+## Perf process specification
+
+[R25–R27](../scenarios/perf.md#perf-work-evidence) specify live RPC budget coverage,
+same-observer/same-host evidence for repairs and baseline edits, and host-specific
+measurement prerequisites. [#3848](https://github.com/roundup-app/roundup/issues/3848)
+owns implementation, including the coverage data, baseline-evidence validation and
+host table. The specification alone supplies none of those checks or measurements.
+
 ## What is enforced, and what is not
 
 Rule 7's 10% regression test is enforced for six metrics on Linux (including Q11) and five on macOS (below) — except that a time metric's regression test is skipped, loudly, when the machine is busier than its baseline's load (R13) — and is a gross tripwire for the rest. A latency miss on macOS is rerun on a quiet machine before it is believed. Measured on an isolated 2-vCPU boxd VM (AMD EPYC, load 2 to 4 from the runs themselves): 9 invocations of 11 runs each, the spread of the 9 medians against their median was
@@ -109,13 +117,21 @@ retain the boot identity, commands and statuses. Runner inventory returned HTTP
 lifetime was identified. No resource, timing invocation or profile was produced.
 #3764 remains open and #3760 blocked, with remaining work under #3720.
 
+Builder [40167225085](https://github.com/roundup-app/roundup/actions/runs/40167225085)
+also fails the unchanged preflight (exit 2): `AMD EPYC 7763 64-Core Processor`.
+[Identity and existing-host search](../crates/perf/evidence/r23-host-40167225085/README.md)
+retain the commands, boot id and statuses. Inventory returned HTTP 403 and seven
+active Builder log requests returned HTTP 404; no reachable qualified lifetime
+was identified. No resource, timing or profile was produced. #3764 stays open,
+#3760 blocked, and remaining measurement/repair work stays under #3720.
+
 For the next execution attempt, use the existing Builder facility:
 
 1. Search existing host evidence and active Actions jobs before allocating a host.
    A job name or `ubuntu-latest` label does not establish CPU identity or access.
-   This attempt's runner inventory request returned HTTP 403; job metadata exposed
+   Runner inventory requests returned HTTP 403; job metadata exposed
    no remote execution endpoint. The existing `build-issue.yml` selects
-   `ubuntu-latest` without an exact CPU selector and serializes builds of one Issue.
+   `ubuntu-24.04` without an exact CPU selector and serializes builds of one Issue.
    Dispatching another build during this one would not hand off its lifetime.
 2. On the execution host, retain the full identity commands above and execute the
    preflight in `qualification.txt`. Require exit 0 and retain the Actions run/job,
@@ -352,6 +368,16 @@ queue. This adds a same-clock boundary; it does not split queue wait from
 encoding cost, calibrate Daemon clocks, or establish a latency repair. The
 previously retained five-span reports remain historical evidence; new reports
 require both additional spans, or exit 2.
+
+The collector also requires every required hop's sample count to equal the
+rendered sample count, with finite, nonnegative, ordered p50/p95 values. Rendered
+samples plus drops must account for the requested measured keys; drops can also
+include warm-up keys. Incomplete or invalid attribution exits 2 and names the
+run and hop/count. A valid distribution with dropped keys still exits 1. The
+no-window `r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict` and
+`r20_missing_measured_keys_cannot_be_silently_skipped` regressions both failed
+before the validation repair. This changes report validation, not the input path
+or any retained native timing.
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
@@ -674,6 +700,48 @@ baseline rebase is involved. Budgets remain unchanged. The latest nine-pair
 Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
 acceptance, remaining attribution, unchanged-code false-fail evidence and the
 separate later main pass remain open.
+
+### Runtime and store startup phases (#3696)
+
+The retained `open`/`bound` line starts at entry to async `run`, after Tokio
+creates its runtime. `rupd: runtime_ms <number>` measures the default
+multi-thread runtime's creation separately; its worker count and enabled drivers
+are the same as `#[tokio::main]`. No runtime tuning is made.
+
+A `startup: stores <JSON>` record splits `Daemon::open_stores` into adjacent wall
+intervals, in milliseconds:
+
+| Field | Work included |
+|---|---|
+| `storage_ms` | Data-directory creation, fresh image preparation/synchronization, database open and migration check |
+| `base_ms` | Event log, Terminal holder, Touches and Todos |
+| `agents_ms` | Agents open, Rail recovery and timing store |
+| `services_ms` | Checkpoints, Pads, digest/publication/reaction stores and Daemon holders |
+| `messages_ms` | Module registration, Messages, Asks and starting event listeners |
+
+These intervals partition the store-open function; Project path resolution and
+legacy data relocation precede them. They do not partition process creation or
+loader work. The parent cold-start measurement still includes readiness polling
+and the first ping. Subtracting runtime and `bound` from `cold_start_ms` leaves
+all those external costs and diagnostic output, not a pure spawn measurement.
+Plugin materialization and listing-sidecar launch remain deferred and are absent
+from these intervals. Records use standard `Instant`, existing serde_json and
+the already-retained stderr descriptor; no collector or extra program is added.
+Diagnostic formatting/writing occurs after the phase samples and remains part of
+the end-to-end cold-start metric.
+
+`r3696c_cold_start_reports_runtime_and_store_phases` starts an isolated real
+Daemon, waits for the harness's first successful ping and reads the retained
+numeric records. It failed before instrumentation because the phase record was
+absent. The existing harness observer checks ping and cleanup; the perf CLI
+observer separately proves stderr survives a failed startup. Neither proves
+startup attribution.
+
+This supplies attribution for the next Mac observation, not a performance
+repair or full R3696c pass. The latest failing M4 Max A/B at `59cff55cae` predates
+several repairs now on main. Remaining startup/RSS attribution, full same-M4-Max
+acceptance with unchanged budgets, unchanged-code false-fail evidence and the
+separate later main pass remain open. No baseline rebase is justified here.
 
 ### R24 idle App observer
 
