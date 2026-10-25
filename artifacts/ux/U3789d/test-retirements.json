@@ -617,6 +617,16 @@
       "file": "apps/desktop/src/app/u3791c_rendered.test.ts",
       "cut": "Recovered Pad opens on row click",
       "replacement": "u3791c_enter_intervene_review_failure_journey selects then opens with Return; every transient/exhausted read, storage retry, Daemon recovery, draft and review-destination assertion remains."
+    },
+    {
+      "file": "apps/desktop/src/bubbles/u3756_focus.test.ts",
+      "cut": "Todo/Pad/Rail click-to-open setup and hover-only row Move control",
+      "replacement": "u3756b_older_appearance_cannot_replace_a_newer_focus_choice_drawer; both late terminal-open/newer-Drawer cases; u3756d_initial_and_explicit_terminal_focus_still_work; both rich-Pad initialization cases; u3756b_queued_todo-title_appearance_yields_to_a_newer_rail_choice; u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal retain every focus, draft, terminal-write and queue assertion through select/Return. The changed-files probe activates its actual browser control so returning to the Rail is a distinct focus choice."
+    },
+    {
+      "file": "apps/desktop/src/bubbles/u3756_focus.test.ts",
+      "cut": "u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_home: the retired web Home picker",
+      "replacement": "U3789e moves the row Move action to the native submenu, which queues no web picker focus frame. u157_a_todo_created_by_an_agent_moves_and_stays_under_its_agent retains native Home movement, owner identity and readback; u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner retains the remaining shared web picker focus-frame guard. No Home action or remaining focus assertion is removed."
     }
   ]
 }
