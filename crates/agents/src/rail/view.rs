@@ -22,6 +22,15 @@ fn load_with<T>(
     include_preparation: bool,
     mut map: impl FnMut(RailNode, u64) -> T,
 ) -> Result<Vec<T>, RpcError> {
+    // R3696c: geometric growth of these large nodes makes a forty-Workstream
+    // reply allocate 132 KB. The stored count bounds the filtered read too.
+    let capacity = db
+        .prepare_cached("SELECT count(*) FROM nodes")
+        .map_err(sql)?
+        .query_row([], |row| row.get::<_, isize>(0))
+        .map_err(sql)?
+        .cast_unsigned();
+    let mut nodes = Vec::with_capacity(capacity);
     let mut query = db.prepare_cached(NODES).map_err(sql)?;
     let rows = query
         .query_map([include_preparation], |row| {
@@ -81,7 +90,10 @@ fn load_with<T>(
             Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
         })
         .map_err(sql)?;
-    rows.collect::<Result<_, _>>().map_err(sql)
+    for row in rows {
+        nodes.push(row.map_err(sql)?);
+    }
+    Ok(nodes)
 }
 
 impl Rail {
@@ -101,8 +113,8 @@ impl Rail {
         // Sibling orders are unique (A6); equal orders across parents need no stability.
         // R3696c: avoid the stable sort's scratch copy of these large nodes.
         flat.sort_unstable_by_key(|(node, _)| node.order);
-        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
-        // for descendants once per node. A flat tree can reuse the loaded buffer.
+        // R3696c: an unnested Rail can reuse its loaded vector; a second node
+        // vector keeps the forty-Workstream reply at 112 KB even after reserving.
         if flat.iter().all(|(node, _)| node.parent.is_none()) {
             return flat
                 .into_iter()
