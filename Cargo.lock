@@ -3799,6 +3799,7 @@ dependencies = [
  "rpc",
  "rupd",
  "rusqlite",
+ "rusqlite_migration",
  "schemars 1.2.2",
  "serde_json",
  "tempfile",

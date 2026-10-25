@@ -1,4 +1,4 @@
-//! N20: current standalone stores still write and reopen; no historical fixtures.
+//! N20 standalone reopen and B3563e historical Project upgrade observers.
 use std::{path::Path, sync::Arc};
 
 use contracts::{Actor, ActorKind, Verb};
@@ -242,14 +242,7 @@ fn action_rows(db: &rusqlite::Connection) -> Vec<(i64, String, Vec<String>)> {
 #[tokio::test]
 async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
-    drop(rupd::Daemon::open(dir.path()).unwrap());
-
-    // Version 37 precedes 0024-remove-bubbling.sql and deferred-action removal.
-    // Pin that historical boundary rather than counting back from the current schema.
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
-        .unwrap();
-    db.pragma_update(None, "user_version", 37_i64).unwrap();
+    let db = storage::project(dir.path(), 37);
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,

@@ -7,6 +7,11 @@ use rusqlite::Connection;
 use serde_json::{Value, json};
 use tokio::net::UnixListener;
 
+#[allow(dead_code)]
+mod storage {
+    include!("support/store_migrations.rs");
+}
+
 fn legacy_decision_event(name: &str) -> String {
     json!({"actor": {"kind": "user", "id": "user", "parent": null}, "name": name, "data": {"id": "d1"}})
         .to_string()
@@ -15,32 +20,17 @@ fn legacy_decision_event(name: &str) -> String {
 #[tokio::test]
 async fn a3564d_existing_project_opens_without_custom_question_authority() {
     let dir = tempfile::tempdir().unwrap();
-    {
-        let daemon = Arc::new(rupd::Daemon::open(dir.path()).unwrap());
-        let socket = dir.path().join("first.sock");
-        let server = tokio::spawn(rupd::serve(
-            UnixListener::bind(&socket).unwrap(),
-            Arc::clone(&daemon),
-        ));
-        let client = Client::connect(&socket).await.unwrap();
-        client
-            .request("rail.createWorkstream", json!({"name": "kept"}))
-            .await
-            .unwrap();
-        server.abort();
-        let _ = server.await;
-    }
-
-    // Version 36 precedes 0023-remove-decisions.sql. Later migrations must not
-    // move this fixture past the authority-removal boundary it exercises.
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
+    // Version 36 is the shipped prefix before custom authority removal.
+    let db = storage::project(dir.path(), 36);
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','kept',0)",
+        [],
+    )
+    .unwrap();
+    db.execute("INSERT INTO events(event) VALUES (?1)", [json!({"actor":{"kind":"user","id":"you","parent":null},"name":"rail.changed","data":null}).to_string()])
         .unwrap();
-    db.pragma_update(None, "user_version", 36_i64).unwrap();
     db.execute_batch(
-        "CREATE TABLE decision_answers (seq INTEGER PRIMARY KEY, decision TEXT NOT NULL UNIQUE,
-            agent TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0, record TEXT NOT NULL);
-         INSERT INTO decision_answers(decision, agent, record) VALUES('d1', '1', '{}');",
+        "INSERT INTO decision_answers(decision, agent, record) VALUES('d1', '1', '{}');",
     )
     .unwrap();
     for name in ["decision.opened", "decision.cleared"] {
