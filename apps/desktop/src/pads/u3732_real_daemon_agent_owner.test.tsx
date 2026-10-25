@@ -115,7 +115,10 @@ it("u3732_real_daemon_agent_owner", async () => {
     await browser("focus", "#shelf-tab-pads");
     await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);
 
-    // Overview shows every group, so the Pad stays in view after it leaves the first Agent.
+    // An existing destination Pad keeps beta nonempty; U3789c retires empty drag targets.
+    await app.rpc("pad.create", {name:"beta destination",text:null});
+    await app.rpc("pad.setOwner", {name:"beta destination",owner:actorOf(beta.id)});
+    // Overview keeps the source visible after it leaves the first Agent.
     await browser("click", "[data-todo-root]");
     await until(`!!document.querySelector('${group(beta.id)}') || !!document.querySelector('${group(alpha.id)}')`);
     await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);

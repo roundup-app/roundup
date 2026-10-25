@@ -13,7 +13,7 @@ import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "sol
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
-export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
+export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()), owner: v.optional(v.nullable(v.string()), null) });
 
 export const blockerSchema = v.strictObject({
   title: v.string(), body: v.string(), done: v.boolean(), blockers: v.array(v.string()), baseBlockers: v.array(v.string()), expected_change: v.nullable(v.number()),
@@ -61,7 +61,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
+    <ReservedLine overlay={props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
     <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {

@@ -46,7 +46,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
-  const row = document.querySelector(`[role="treeitem"][data-id="${nodes[0]?.id}"]`);
+  const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
 
   if (row) fireEvent.click(row);
   await settle();
