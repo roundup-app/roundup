@@ -266,11 +266,11 @@ export const AskBar = (props: {
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
     <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
+        onFocusIn={(event) => { if (event.target === field && rail.workstreamCreating()) setOver(true); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
-            onFocus={() => { if (rail.workstreamCreating()) setOver(true); }}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>

@@ -263,7 +263,7 @@ it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => 
 }, 90_000);
 
 
-it.each(["rail", "ask"])("u4011_new_workstream_selection_preserves_newer_focus_%s", async choice => {
+it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_newer_focus_%s", async choice => {
   await browser("set", "media", "dark");
   await browser("open", new URL("/harness.html?seed=tree-40&renderer=dom", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-actions button')`);
@@ -303,6 +303,9 @@ it.each(["rail", "ask"])("u4011_new_workstream_selection_preserves_newer_focus_%
     if (choice === "ask") {
       await browser("click", ".ask-input");
       await wait(`document.activeElement === document.querySelector('.ask-input')`);
+    } else if (choice === "other-row") {
+      await browser("click", '.rail-row[data-id="backend"]');
+      await wait(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'backend'`);
     } else {
       // The scroll container's bottom edge is empty Rail space, outside its rows and actions.
       const point = await read<{ x: number; y: number }>(`(() => {
@@ -325,8 +328,16 @@ it.each(["rail", "ask"])("u4011_new_workstream_selection_preserves_newer_focus_%
     await capture("before");
     await read(`window.revealCreated()`);
     await wait(`!!window.startSupervisor && !!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`);
-    expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe(await read(`window.createdRow`));
+    expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe(choice === "other-row" ? "backend" : await read(`window.createdRow`));
     await read(`window.startSupervisor()`);
+
+    if (choice === "other-row") {
+      await wait(`document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')?.dataset.kind === 'working'`);
+      expect(await read(`({selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, same:document.activeElement === window.newerInput})`)).toEqual({ selected: "backend", same: true });
+
+      return;
+    }
+
     await wait(`!!document.querySelector('.pane-screen .xterm') && !!window.__terminals.get('t-' + window.createdRow + '-1')`);
     await read(`(async () => { window.finishFonts(); await window.__terminals.get('t-' + window.createdRow + '-1').ready; })()`);
     // A write acknowledgement proves the production emulator has completed readiness and rendered output.
