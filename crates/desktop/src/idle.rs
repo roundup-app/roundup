@@ -247,7 +247,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                 return;
             }
             match event {
-                tauri::RunEvent::WindowEvent { label, event, .. } => {
+                tauri::RunEvent::WindowEvent { label, event, .. } if label == "main" => {
                     let observed = match event {
                         tauri::WindowEvent::Focused(focused) => Some(json!({"focused":focused})),
                         tauri::WindowEvent::Resized(size) => Some(json!({"width":size.width,"height":size.height})),
