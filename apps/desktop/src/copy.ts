@@ -123,8 +123,11 @@ const importRefusals = new Map<number, string>([
   [-32010, "The conversation inbox is unavailable."],
 ]);
 
-
 const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
+
+export const clockTime = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
+});
 
 export const copy = {
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
@@ -379,7 +382,7 @@ export const copy = {
   timelineOpenTerminal: (value1: CopyValue) => `Open ${value1}`,
   allow: "Allow",
   drawer: "Drawer",
-  lastTouch: (value1: CopyValue, value2: CopyValue, value3: CopyValue, value4: CopyValue) => `Last  ${value1} ${value2} ${value3}:${value4}`,
+  lastTouch: (name: string, verb: string, time: string) => `Last  ${name} ${verb} ${time}`,
   padTouch: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} ${value2} this Pad at ${value3}`,
   andMore: (value1: CopyValue) => ` and ${value1} more`,
   agentRuns: "Agent runs",
