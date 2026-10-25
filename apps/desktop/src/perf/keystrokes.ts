@@ -40,12 +40,13 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
   let dispatched: Marks | null = null;
   const records = new Map<string, Pending>();
   const tails = { arrived: "", parsed: "" };
-  const marker = (key: number) => `\x1b]777;${run}-${key}\x07`;
+  const marker = (key: number) => `\x1b]777;${run}-${key}\x07${typed}`;
 
   const matching = (text: string): Pending[] => [...text.matchAll(/\x1b\]777;[a-zA-Z0-9-]+-[0-9]{1,6}\x07/g)].flatMap(match => {
-    const record = records.get(match[0]);
+    const token = match[0] + typed;
+    const record = records.get(token);
 
-    return record ? [record] : [];
+    return record && text.startsWith(typed, match.index + match[0].length) ? [record] : [];
   });
 
   const batch = (bytes?: readonly number[]): Pending[] => run === undefined
@@ -98,7 +99,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
       }),
     /** Only the opt-in raw echo workload gets an invisible identity; ordinary input is untouched. */
     frame: (text: string, id: string): string =>
-      run !== undefined && id === target() && pending && text === typed ? text + marker(pending.key) : text,
+      run !== undefined && id === target() && pending && text === typed ? marker(pending.key) : text,
     /** Called with each chunk the emulator has parsed. Only the typed character itself is the echo; anything else is the program's own output. */
     written: (bytes: Uint8Array, id: string) => {
       if (id !== target()) return;
