@@ -1,5 +1,5 @@
 import type { Deletion } from "@contracts/todo/Deletion";
-import { RpcError, type AppSeam } from "../app/seam";
+import { outcomeOf, type AppSeam } from "../app/seam";
 
 type DeletionCall = { operation: string; state: "pending"; result: Promise<Deletion> } | { operation: string; state: "unknown" };
 
@@ -37,7 +37,7 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 
       if (observed.known && observed.value) return observed.value;
 
-      if (observed.known && error instanceof RpcError && error.code !== -32004) holder.delete(identity);
+      if (observed.known && outcomeOf(error) === "failed") holder.delete(identity);
       throw error;
     }
   })();

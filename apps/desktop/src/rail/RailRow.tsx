@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
@@ -21,7 +22,6 @@ import { Trunks } from "./Trunks";
 import type { NodeRow } from "./layout";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { draftsOf } from "./persist/storage";
 import { RowIcons } from "./RowIcons";
 import type { RowActions } from "./RowIcons";
@@ -72,7 +72,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
       if (latest) props.onCancel();
     } catch (error) {
-      drafts.settle(submitted.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+      drafts.settle(submitted.revision, outcomeOf(error));
 
       if (!(error instanceof Error)) throw error;
       props.onFailure(error.message);

@@ -30,5 +30,4 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */
 export const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string =>
-  thrown.message === copy.pasteFailedTheClipboardHoldsAnImageWhich ? thrown.message
-    : copy.failed(verb === "paste" ? copy.paste : copy.copy, `${/[.!?]$/.test(thrown.message) ? thrown.message : `${thrown.message}.`} ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
+  copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
