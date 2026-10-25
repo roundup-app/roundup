@@ -25,7 +25,7 @@ const lift = async (lane: LaneBrowser, id: number) => {
 };
 
 const seedDestination = async (lane: LaneBrowser) => {
-  await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.create', {title:'destination', body:null, blockers:null}); })()`);
+  await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.create', {title:'destination', body:null, blockers:null, owner:{kind:'user',id:'you',parent:null}}); })()`);
   await lane.until(`!!document.querySelector('.shelf [data-shelf-group="me"]')`);
   await lane.resetCalls();
 };
@@ -42,7 +42,6 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     const [one] = await lane.order();
 
-    await seedDestination(lane);
     await seedDestination(lane);
     await lift(lane, one!);
     const to = await centre(lane, HEAD);
@@ -115,8 +114,8 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     const [one] = await lane.order();
 
-    await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.list"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.list"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
     await seedDestination(lane);
+    await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.list"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.list"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
     await lift(lane, one!);
     const to = await centre(lane, HEAD);
 
