@@ -177,6 +177,52 @@ fn nr10_non_github_remote_is_unavailable() {
 }
 
 #[test]
+fn z3742o_remote_hosts_keep_their_classification() {
+    for (remote, expected) in [
+        ("https://github.com/acme/widgets.git", Gap::ReadFailed),
+        (
+            "https://gitlab.example.com/acme/widgets.git",
+            Gap::NonGithubRemote,
+        ),
+        ("ssh://git@github.com/acme/widgets.git", Gap::ReadFailed),
+        (
+            "ssh://git@gitlab.example.com/acme/widgets.git",
+            Gap::NonGithubRemote,
+        ),
+        ("git@github.com:acme/widgets.git", Gap::ReadFailed),
+        ("ssh://git@github.com:22/acme/widgets.git", Gap::ReadFailed),
+        (
+            "https://git@github.com:443/acme/widgets.git",
+            Gap::ReadFailed,
+        ),
+        (
+            "https://github.com@gitlab.example.com:443/acme/widgets.git",
+            Gap::NonGithubRemote,
+        ),
+        (
+            "ssh://git@gitlab.example.com:2222/github.com/widgets.git",
+            Gap::NonGithubRemote,
+        ),
+        ("/tmp/widgets.git", Gap::ReadFailed),
+        ("https://", Gap::ReadFailed),
+    ] {
+        let gh = Gh::new(URL, HEAD, PASS, 0);
+        gh.put("view.code", "1");
+        for args in [vec!["init", "-q"], vec!["remote", "add", "origin", remote]] {
+            assert!(
+                Command::new("git")
+                    .current_dir(gh.dir.path())
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        assert_eq!(gap(gh.read()), expected, "{remote}");
+    }
+}
+
+#[test]
 fn nr10_same_pr_number_in_two_repositories_stays_distinct() {
     let a = Gh::new("https://github.com/acme/widgets/pull/42", HEAD, PASS, 0).read();
     let b = Gh::new("https://github.com/acme/gadgets/pull/42", HEAD, PASS, 0).read();

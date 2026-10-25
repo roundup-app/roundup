@@ -45,6 +45,7 @@ dependencies = [
  "time",
  "tokio",
  "unicode-normalization",
+ "url",
  "wait-timeout",
 ]
 
