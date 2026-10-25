@@ -10,6 +10,9 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
+  experiment-cache:
+    description: Opt-in isolated CI3781 Rust cache namespace; honored only on hosted Linux pull requests. A new namespace prepares an empty cache, and subsequent runs restore its saved entry.
+    default: ''
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
     default: 'true'
@@ -56,13 +59,14 @@ runs:
         toolchain: 1.99.0
         components: clippy, rustfmt
     # One key per OS for every job that builds the workspace. `check-<OS>` is the check job's own key, so Builders
-    # restore the entries main's check saved on their OS (L84). Only a push to main saves: a PR or a Builder branch would store its own 726 MB copy.
+    # restore the entries main's check saved on their OS (L84). CI3781 opt-in PRs use a separate namespace
+    # and may save it on Linux; GitHub scopes those entries to the PR merge ref, inaccessible from main.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: Swatinem/rust-cache@v2
       with:
-        shared-key: check-${{ runner.os }}
-        save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', inputs.experiment-cache) || format('check-{0}', runner.os) }}
+        save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
