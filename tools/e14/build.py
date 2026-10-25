@@ -107,6 +107,8 @@ def _proxy():
     command = [env['E14_REAL_CARGO'], *args]
     if '--timings' not in command:
         command.insert(command.index('--') if '--' in command else len(command), '--timings')
+    if not any(arg.startswith('--message-format') for arg in command):
+        command.insert(command.index('--') if '--' in command else len(command), '--message-format=json-render-diagnostics')
     traced = [env['E14_STRACE'], '-ff', '-ttt', '-s', '1048576', '-xx', '-e', 'trace=process', '-o', str(directory / 'trace'), *command]
     record = dict(command=command, tracer_command=traced, start=time.time(), exit_code=None, end=None,
                   reports=[], links=[], status='incomplete')
@@ -118,9 +120,9 @@ def _proxy():
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, interrupt)
     try:
-        with (directory / 'strace.stderr').open('w') as errors:
-            # Cargo diagnostics remain in the Actions log; nextest's JSON stdout must stay untouched.
-            child = subprocess.Popen(traced, env=env, stderr=errors, start_new_session=True)
+        with (directory / 'strace.stderr').open('w') as errors, (directory / 'cargo.stdout').open('wb') as messages:
+            # Forward Cargo's complete JSON stream unchanged after the build, before nextest can execute tests.
+            child = subprocess.Popen(traced, env=env, stdout=messages, stderr=errors, start_new_session=True)
             code = child.wait(timeout=15 * 60)
         record.update(end=time.time(), exit_code=code)
         for path in timings.glob('*.html'):
@@ -154,6 +156,9 @@ def _proxy():
             raise
         finally:
             record_path.write_text(json.dumps(record, indent=2) + '\n')
+            if (directory / 'cargo.stdout').exists():
+                sys.stdout.buffer.write((directory / 'cargo.stdout').read_bytes())
+                sys.stdout.buffer.flush()
     return code if code >= 0 else 1
 
 
@@ -175,6 +180,13 @@ def report(output):
         attempts = _links(path.parent)
         row['links'] = [r for r in attempts if r['exec_result'] == '0']
         row['exec_failures'] = [r for r in attempts if r['exec_result'] != '0']
+        messages = [json.loads(line) for line in (path.parent / 'cargo.stdout').read_text().splitlines() if line.startswith('{')]
+        finished = [m for m in messages if m.get('reason') == 'build-finished']
+        if len(finished) != 1 or not finished[0]['success']:
+            raise ValueError(f'missing or failed Cargo build-finished record: {path}')
+        row['artifacts'] = [m for m in messages if m.get('reason') == 'compiler-artifact']
+        if not row['artifacts']:
+            raise ValueError(f'missing Cargo compiler artifacts: {path}')
         row['units'] = []
         row['cargo_intervals'] = []
         for name in row['reports']:
@@ -203,6 +215,20 @@ def report(output):
                 raise ValueError(f'failed or missing linker interval: {link}')
             if any(arg.startswith('@') for arg in link['argv']):
                 raise ValueError(f'unretained linker response file: {link}')
+        for artifact in row['artifacts']:
+            outputs = [Path(name) for name in artifact['filenames'] if name == artifact['executable'] or Path(name).suffix == '.so']
+            if artifact['fresh'] or not outputs:
+                continue
+            matched = []
+            for link in row['links']:
+                output = Path(link['output'])
+                for expected in outputs:
+                    # Cargo copies unhashed binaries out of deps/build dirs after rustc links their hashed outputs.
+                    name = re.escape(expected.stem.replace('-', '_')) + r'(?:-[0-9a-f]+)?' + re.escape(expected.suffix)
+                    if output == expected or (output.parent in (expected.parent, expected.parent / 'deps') and re.fullmatch(name, output.name)):
+                        matched.append(link)
+            if not matched:
+                raise ValueError(f'missing linker observation for Cargo artifact: {artifact["package_id"]} {artifact["target"]["name"]}')
     if not packages or not any(row['links'] for row in builds):
         raise ValueError('no compiled units or linker intervals; warm/empty build is not a link observation')
     return dict(builds=builds, packages=[dict(package=key, unit_seconds=value) for key, value in sorted(packages.items(), key=lambda p: (-p[1], p[0]))])
