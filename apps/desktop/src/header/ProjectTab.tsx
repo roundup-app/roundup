@@ -30,7 +30,7 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     if (finished) return;
     finished = true;
 
-    if (field && refocus) props.onEdit(field);
+    if (field) props.onEdit(field);
     props.onDone(saved, refocus);
   };
 
