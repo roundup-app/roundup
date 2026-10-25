@@ -871,8 +871,11 @@ export type workstream_WorkstreamClearedEvent = { id: string, iteration: number,
 
 // Frozen from main c8c12a4a3, independently of the Specta outputs.
 export type todo_DeleteParams = { operation: string, ids: Array<number> };
+
 export type todo_DeletionParams = { operation: string };
+
 export type todo_DeletionState = "deleted" | "restored";
+
 export type todo_Deletion = { operation: string, deleted: Array<number>, missing: Array<number>, state: todo_DeletionState };
 
 export type Before = {
