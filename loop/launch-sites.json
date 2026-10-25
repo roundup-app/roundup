@@ -304,6 +304,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/messages/src/runtime.rs": {
+    "cleanup": "Owns no child process or child cleanup; the failure logger only writes a diagnostic.",
+    "data": "Owns no executable launch or App data; the rupd name appears only in the Message failure diagnostic.",
+    "kind": "reference"
+  },
   "crates/messages/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",

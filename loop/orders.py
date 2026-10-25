@@ -163,7 +163,8 @@ def order(issue):
         return dict(mode='specify', issue=issue['number'], url=issue['html_url'], ids=issue['title'], file='',
                     slug=f'issue-{issue["number"]}', priority=50, request=True, respecify=False)
     key = field(body, 'Key')
-    if not re.fullmatch(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', key):
+    # `repair-<number>` is the slug of the repair run of this Issue (L96); a Key of that name would run as one.
+    if not re.fullmatch(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', key) or key == f'repair-{issue["number"]}':
         raise ValueError('invalid Key')
     spec = field(body, 'Specification')
     # The Issue form displays the specification as a clickable repository link.
