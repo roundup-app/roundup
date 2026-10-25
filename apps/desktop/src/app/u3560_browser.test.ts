@@ -125,6 +125,10 @@ it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_copy_preserves_th
   await browser("press", "Control+C");
   const selected = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
   expect(selected).toBe(original);
+
+  // The independent clipboard observer is outside Ask’s focus trap.
+  if (kind === "ask") await browser("press", "Escape");
+
   await read("(() => { const field = document.createElement('textarea'); field.id='copy-observer'; document.body.append(field); field.focus(); })()");
   await browser("press", "Control+V");
   expect(await read("document.querySelector('#copy-observer').value")).toBe(original);
