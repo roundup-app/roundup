@@ -58,8 +58,28 @@ const tokenElevation = stylelint.createPlugin(elevationRule, () => (root, result
   });
 });
 
+const containerRule = 'roundup/container-token-threshold';
+
+// The built-in unit rule visits media preludes, but not container preludes.
+const containerTokenThreshold = stylelint.createPlugin(containerRule, () => async (root, result) => {
+  const queries = [];
+  root.walkAtRules(/^container$/i, query => { queries.push(query); });
+
+  for (const query of queries) {
+    const media = query.clone({ name: 'media', params: query.params.slice(query.params.indexOf('(')) });
+    media.removeAll();
+    const probe = root.clone().removeAll().append(media);
+
+    await stylelint.utils.checkAgainstRule({
+      ruleName: 'unit-disallowed-list', ruleSettings: ['px', 'ms', 's', 'rem'], root: probe,
+    }, warning => {
+      stylelint.utils.report({ ruleName: containerRule, result, node: query, message: warning.text });
+    });
+  }
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation],
+  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation, containerTokenThreshold],
   rules: {
     [focusRingRule]: true,
     [elevationRule]: true,

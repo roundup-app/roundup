@@ -1,8 +1,17 @@
+import { readFileSync } from "node:fs";
+import postcss from "postcss";
+import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
+
+const queryTokens = new Map<string, string>();
+
+postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(/^--query-/, declaration => {
+  queryTokens.set(declaration.prop, declaration.value);
+});
 
 const served = realDaemonFromEnv(process.env);
 
@@ -43,6 +52,25 @@ export default defineConfig({
   css: {
     postcss: {
       plugins: [
+        {
+          postcssPlugin: "roundup-query-tokens",
+          AtRule: {
+            container(query) {
+              const params = valueParser(query.params);
+
+              params.walk(node => {
+                if (node.type !== "function" || node.value !== "query-token") return;
+
+                const name = valueParser.stringify(node.nodes).trim();
+                const value = queryTokens.get(name);
+
+                if (!value) throw query.error(`Unknown query Token: ${name}`);
+                Object.assign(node, { type: "word", value });
+              });
+              query.params = params.toString();
+            },
+          },
+        },
         {
           postcssPlugin: "roundup-vendor-control-feedback",
           Once(root) {
