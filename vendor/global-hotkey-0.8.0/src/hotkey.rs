@@ -99,7 +99,7 @@ impl HotKey {
     }
 
     /// Returns the id associated with this hotKey
-    /// which is a hash of the string represention of modifiers and key within this hotKey.
+    /// which is a hash of the string representation of modifiers and key within this hotKey.
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -190,7 +190,7 @@ fn parse_hotkey(hotkey: &str) -> Result<HotKey, HotKeyParseError> {
                     // this code, the function either received more than one main key or
                     //  the hotkey is not in the right order
                     // examples:
-                    // 1. "Ctrl+Shift+C+A" => only one main key should be allowd.
+                    // 1. "Ctrl+Shift+C+A" => only one main key should be allowed.
                     // 2. "Ctrl+C+Shift" => wrong order
                     return Err(HotKeyParseError::InvalidFormat(hotkey.to_string()));
                 }
