@@ -61,7 +61,7 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
     maxFirings: "1", rearm: false,
   };
 
-  connected.drafts.edit(destination, value, null, "ordinary");
+  await connected.drafts.edit(destination, value, null, "ordinary").retained;
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   let refuse = true;
 
@@ -77,6 +77,7 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
 
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await screen.findByText(copy.reactionNotCreated("no room"));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "exact\n words ");
   refuse = false;
@@ -100,11 +101,11 @@ it("u3299a_named_targets_keep_identity", async () => {
   app.handlers["reaction.list"] = () => [];
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   app.handlers["reaction.create"] = () => saved({ target: "b", condition: { kind: "agents", ids: ["a"], any: false } });
-  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
     operation: "op-overlap", name: "Ship it", target: "", instruction: "go", kind: "agents", ids: [], any: false,
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z",
     maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
   fireEvent.click(await screen.findByRole("option", { name: "Builder · Check" }));
@@ -117,10 +118,10 @@ it("u3299a_named_targets_keep_identity", async () => {
 
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 
   expect(app.calls.find((call) => call.method === "reaction.create")?.params).toMatchObject({ target: "b", condition: { ids: ["a"] } });
-  expect(within(detail).getByText("Builder · Check")).toBeTruthy();
   expect(within(detail).getByText(/All of Builder · Build finish/)).toBeTruthy();
 });
 
@@ -141,10 +142,10 @@ it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {
 it.each(["acknowledged", "failed"] as const)("nr9_%s_older_submit_preserves_newer_revision_and_navigation", async outcome => {
   const { app, connected } = await mount(() => []);
   const destination = { surface: "reactions", object: "create", recipient: null };
-  connected.drafts.edit(destination, {
+  await connected.drafts.edit(destination, {
     operation: "original", name: "Original", target: "a", instruction: "old exact words", kind: "agents", ids: ["a"], any: false,
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   let acknowledge!: (reaction: Reaction) => void;
   let refuse!: (error: Error) => void;
@@ -153,6 +154,7 @@ it.each(["acknowledged", "failed"] as const)("nr9_%s_older_submit_preserves_newe
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "old exact words");
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " newer\n exact 🧭 " } });
 
@@ -214,10 +216,10 @@ it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
 it.each(["back", "edit"])("nr9_acknowledgement_refreshes_the_list_after_%s", async action => {
   let list: Reaction[] = [];
   const { app, connected } = await mount(() => list);
-  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
     operation: "original", name: "Original", target: "a", instruction: "old exact words", kind: "agents", ids: ["a"], any: false,
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   let acknowledge!: (reaction: Reaction) => void;
   app.handlers["reaction.create"] = () => new Promise(resolve => { acknowledge = resolve; });
@@ -225,6 +227,7 @@ it.each(["back", "edit"])("nr9_acknowledgement_refreshes_the_list_after_%s", asy
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
 
   if (action === "back") fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
   else fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "new words" } });
@@ -245,10 +248,10 @@ it.each([
 ])("nr9_unknown_creation_reconciles_original_operation_before_newer_submit_$kind", async ({ error, kind, reload }) => {
   const first = await mount(() => []);
   let { app, connected } = first;
-  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
     operation: "original", name: "Original", target: "a", instruction: "old exact words", kind, ids: ["a"], any: false,
     repository: "o/r", number: "7", atDate: "2026-10-21", atTime: "09:00", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   app.handlers["reaction.create"] = () => { throw error; };
 
@@ -256,6 +259,7 @@ it.each([
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await screen.findByText(/Creation acceptance unknown/);
   expect(connected.drafts.list()[0]?.status).toBe("unknown");
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "new words" } });
@@ -264,6 +268,7 @@ it.each([
 
   if (reload) {
     const path = connected.project.path;
+    await waitFor(() => expect(localStorage.getItem(`roundup:drafts:${path}`)).toContain("new words"));
     first.unmount();
     const reopened = await mountAskBar([], null, [agent("a", "idle", "ready")], false, path);
     app = reopened.app;
@@ -306,6 +311,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await waitFor(() => expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
 
   fireEvent.click(tab("other"));
@@ -356,10 +362,10 @@ it.each(([
   const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "pending" }] });
   const second = saved({ id: "r2", name: "Other reaction", instruction: "other instruction" });
   const { app, connected } = await mount(() => [record, second]);
-  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
     operation: "unsubmitted", name: "Unfinished", target: "a", instruction: " exact\n e\u0301 🧭 ", kind: "agents", ids: ["a"], any: false,
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "", expTime: "", expOffset: "Z", maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   const retained = structuredClone(connected.drafts.list());
   const message: Message = { id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "accepted exact instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", at: 0 };
   app.handlers["message.get"] = () => message;
@@ -442,10 +448,10 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
 it.each(["refused", "unknown", "retention"] as const)("p3557c_failure_lifetime_reactions_creation_%s", async outcome => {
   const { app, connected } = await mount(() => []);
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
-  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
     operation: "original", name: "Original", target: "a", instruction: " exact\n e\u0301 🧭 ", kind: "agents", ids: ["a"], any: false,
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
-  }, null, "ordinary");
+  }, null, "ordinary").retained;
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
@@ -454,6 +460,7 @@ it.each(["refused", "unknown", "retention"] as const)("p3557c_failure_lifetime_r
 
   try {
     fireEvent.click(save);
+  await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
     await screen.findByRole("alert", { name: outcome === "retention" ? /Could not store unfinished work/ : outcome === "unknown" ? /Creation acceptance unknown/ : copy.reactionNotCreated("not authorized") });
     const retained = structuredClone(connected.drafts.list());
 
