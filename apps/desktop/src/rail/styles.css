@@ -635,10 +635,6 @@
   white-space: nowrap;
 }
 
-.rail-tree [data-dnd-dragging] {
-  border-radius: var(--tree-row-radius);
-}
-
 /* U2556c: reserve actions so hover and selection never move Worktree state. */
 .worktree-chip {
   flex: none;
