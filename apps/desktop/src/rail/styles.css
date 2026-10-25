@@ -103,7 +103,7 @@
 }
 
 /* U131: reserve the same leading columns on branches and leaves. */
-.rail-row .line > .glyph {
+.rail-row .line > .row-state {
   margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
 

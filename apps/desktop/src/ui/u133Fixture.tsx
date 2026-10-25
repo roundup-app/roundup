@@ -1,3 +1,4 @@
+import { trackPress } from "./press";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { Checkbox } from "./Checkbox";
@@ -10,6 +11,8 @@ import { SegmentGroup } from "./SegmentGroup";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
+
+trackPress(document);
 
 function ChoiceControls() {
   const [radio, setRadio] = createSignal("first");
