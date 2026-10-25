@@ -190,11 +190,14 @@ seconds overlap and are neither elapsed build time nor link time. The raw HTML
 format is Cargo-version-specific; unsupported reports fail rather than yielding
 an invented ranking.
 
-`cargo_intervals` use Cargo's own Build start and DURATION; the end is derived
-from that reported duration, at Cargo's rounding precision. `build.json`'s
-`start`/`end` bracket the whole command, including tracer startup/shutdown and,
-for `cargo run`, execution of the requested program. Use the Cargo intervals
-for compilation and keep that command envelope distinct. Link records bracket
+`cargo_interval` uses raw successful Cargo CLI exec and process exit records for
+`build` and `test --no-run`. For `cargo run`, it ends at the requested program's
+successful exec after Cargo's retained `build-finished` success, before that
+program executes. These intervals include Cargo finalization/launch overhead.
+`cargo_reports` separately retains Cargo's internal build start and rounded
+chart duration; that rounded duration is never used to invent an end timestamp.
+`build.json`'s `start`/`end` bracket the whole command, including tracer
+startup/shutdown and, for `cargo run`, the requested program's execution. Link records bracket
 successful `execve` to process exit in seconds since the Unix epoch; compiler
 drivers and the actual child linker are both retained, identified by executable,
 `-o` output and the owning Cargo profile. Do not sum nested driver/linker

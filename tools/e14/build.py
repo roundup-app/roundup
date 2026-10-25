@@ -57,7 +57,7 @@ def prepare(root, output, env):
                 E14_STRACE=tracer, E14_TIMINGS=str(target / 'cargo-timings'))
 
 
-def _links(directory):
+def _executions(directory):
     links = []
     for trace in sorted(directory.glob('trace.*')):
         text = trace.read_text()
@@ -72,17 +72,9 @@ def _links(directory):
             argv = [bytes.fromhex(value.replace('\\x', '')).decode('utf-8', errors='surrogateescape')
                     for value in re.findall(r'"((?:\\x[0-9a-f]{2})*)"', execution[3])]
             executable = bytes.fromhex(execution[2].replace('\\x', '')).decode('utf-8', errors='surrogateescape')
-            if Path(executable).name in ('rustc', 'clippy-driver', 'cc1', 'cc1plus', 'lto1', 'as') or '-cc1' in argv:
-                continue
-            # Include compiler drivers and actual linkers, even custom executable names, by their output argument.
-            # rustc uses --out-dir, while C compilation uses -c; neither is a linker interval.
-            if '-o' not in argv or any(flag in argv for flag in ('-c', '-E', '-S', '--out-dir')):
-                continue
-            if Path(argv[argv.index('-o') + 1]).suffix in ('.o', '.s', '.i', '.ii', '.bc', '.ll', '.rmeta', '.rlib'):
-                continue
             row = dict(pid=int(trace.suffix[1:]), executable=executable,
-                       argv=argv, output=argv[argv.index('-o') + 1], start=float(execution[1]),
-                       exec_result=execution[4], trace=trace.name)
+                       argv=argv, output=argv[argv.index('-o') + 1] if '-o' in argv else None,
+                       start=float(execution[1]), exec_result=execution[4], trace=trace.name)
             if execution[4] != '0':
                 row.update(end=None, exit_code=None, error='exec failed')
             elif terminal:
@@ -91,6 +83,13 @@ def _links(directory):
                 row.update(end=None, exit_code=None, error='missing process exit')
             links.append(row)
     return links
+
+
+def _links(executions):
+    return [row for row in executions if row['output'] is not None
+            and Path(row['executable']).name not in ('rustc', 'clippy-driver', 'cc1', 'cc1plus', 'lto1', 'as')
+            and not any(flag in row['argv'] for flag in ('-cc1', '-c', '-E', '-S', '--out-dir'))
+            and Path(row['output']).suffix not in ('.o', '.s', '.i', '.ii', '.bc', '.ll', '.rmeta', '.rlib')]
 
 
 def _proxy():
@@ -153,7 +152,7 @@ def _proxy():
                     pass
                 child.wait(timeout=5)
                 record.update(end=time.time(), exit_code=child.returncode, status='interrupted-or-timeout')
-            attempts = _links(directory)
+            attempts = _links(_executions(directory))
             record['links'] = [r for r in attempts if r['exec_result'] == '0']
             record['exec_failures'] = [r for r in attempts if r['exec_result'] != '0']
         except (OSError, ValueError, subprocess.TimeoutExpired) as error:
@@ -182,7 +181,8 @@ def report(output):
             raise ValueError(f'invalid Cargo interval: {path}')
         if not list(path.parent.glob('trace.*')):
             raise ValueError(f'missing raw process trace: {path}')
-        attempts = _links(path.parent)
+        executions = _executions(path.parent)
+        attempts = _links(executions)
         row['links'] = [r for r in attempts if r['exec_result'] == '0']
         row['exec_failures'] = [r for r in attempts if r['exec_result'] != '0']
         messages = [json.loads(line) for line in (path.parent / 'cargo.stdout').read_text().splitlines() if line.startswith('{')]
@@ -193,7 +193,7 @@ def report(output):
         if not row['artifacts']:
             raise ValueError(f'missing Cargo compiler artifacts: {path}')
         row['units'] = []
-        row['cargo_intervals'] = []
+        row['cargo_reports'] = []
         for name in row['reports']:
             html = path.with_name(name).read_text()
             marker = re.search(r'const UNIT_DATA = ', html)
@@ -206,7 +206,7 @@ def report(output):
             seconds = float(duration[1])
             if not math.isfinite(seconds) or seconds < 0:
                 raise ValueError(f'invalid Cargo build duration: {name}')
-            row['cargo_intervals'].append(dict(start=start, end=start + seconds, seconds=seconds, profile=profile[1], report=name, source='Cargo HTML Build start + DURATION (rounded by Cargo)'))
+            row['cargo_reports'].append(dict(start=start, rounded_duration=seconds, profile=profile[1], report=name))
             units, _ = json.JSONDecoder().raw_decode(html[marker.end():])
             for unit in units:
                 if not all(key in unit for key in ('name', 'version', 'target', 'features', 'duration')) or not math.isfinite(unit['duration']) or unit['duration'] < 0:
@@ -215,7 +215,7 @@ def report(output):
                 package = unit['name'] + '@' + unit['version']
                 packages[package] = packages.get(package, 0) + unit['duration']
         for link in row['links']:
-            link['cargo_profiles'] = sorted({interval['profile'] for interval in row['cargo_intervals']})
+            link['cargo_profiles'] = sorted({interval['profile'] for interval in row['cargo_reports']})
             if link['exec_result'] != '0' or link['exit_code'] != 0 or link['end'] is None or not math.isfinite(link['end']) or link['end'] <= link['start']:
                 raise ValueError(f'failed or missing linker interval: {link}')
             if any(arg.startswith('@') for arg in link['argv']):
@@ -234,6 +234,25 @@ def report(output):
                         matched.append(link)
             if not matched:
                 raise ValueError(f'missing linker observation for Cargo artifact: {artifact["package_id"]} {artifact["target"]["name"]}')
+        starts = [execution for execution in executions if execution['exec_result'] == '0'
+                  and execution['executable'] == row['command'][0] and execution['argv'][1:] == row['command'][1:]]
+        if len(starts) != 1 or starts[0]['exit_code'] != 0 or starts[0]['end'] is None:
+            raise ValueError(f'missing successful Cargo process interval: {path}')
+        cargo = starts[0]
+        end = cargo['end']
+        boundary = 'Cargo process exit (build/test --no-run)'
+        if 'run' in row['command'][1:]:
+            facts = json.loads((output / 'facts.json').read_text())
+            workspace = Path(json.loads(facts['metadata']['stdout'])['workspace_root'])
+            programs = {Path(artifact['executable']) for artifact in row['artifacts'] if artifact['executable']}
+            transitions = [execution['start'] for execution in executions if execution['exec_result'] == '0'
+                           and (workspace / execution['executable']) in programs and cargo['start'] < execution['start'] <= end]
+            if not transitions:
+                raise ValueError(f'missing Cargo run build-to-program transition: {path}')
+            end = min(transitions)
+            boundary = 'Cargo run executable exec; build-finished success retained in cargo.stdout'
+        row['cargo_interval'] = dict(start=cargo['start'], end=end, seconds=end - cargo['start'], end_source=boundary,
+                                     trace=cargo['trace'], exit_code=cargo['exit_code'])
     if not packages or not any(row['links'] for row in builds):
         raise ValueError('no compiled units or linker intervals; warm/empty build is not a link observation')
     return dict(builds=builds, packages=[dict(package=key, unit_seconds=value) for key, value in sorted(packages.items(), key=lambda p: (-p[1], p[0]))])
