@@ -65,7 +65,7 @@ impl Store {
             Some((_, _, _, expiry)) => {
                 let expires =
                     OffsetDateTime::parse(&expiry, &Rfc3339).map_err(RpcError::internal)?;
-                if OffsetDateTime::from(crate::now()) >= expires {
+                if OffsetDateTime::now_utc() >= expires {
                     return Err(RpcError::conflict("the reaction expired; create a new one"));
                 }
                 Ok(())
