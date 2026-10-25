@@ -19,6 +19,14 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 
 Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release observations on 2026-10-14 (Ubuntu 24.04, four available CPUs, AMD EPYC 7763 64-Core Processor, rustc 1.99.0). The nine medians were 11.889899, 11.971422, 12.378832, 11.931701, 11.680185, 11.874712, 11.944743, 11.940635 and 12.034941 ms (max/median 1.037, min/median 0.978); median load per CPU was 0.60–1.20. The probe is commit `9ff3cf3e` in [#1762](https://github.com/saadshahd/roundup/pull/1762); this baseline applies to that Linux machine class, not macOS. The clock-resolution allowance is 0.001 ms, and R13's Linux threshold is 2.0 load per CPU. The 300 ms hard limit applies even when load skips the regression comparison; macOS has the hard limit until its own baseline is measured. Tests `q11_cold_plugin_materialization_keeps_the_300_ms_limit`, `q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit` and `q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median` exercise the gates with synthetic samples, never clock assertions.
 
+## Perf process specification
+
+[R25–R27](../scenarios/perf.md#perf-work-evidence) specify live RPC budget coverage,
+same-observer/same-host evidence for repairs and baseline edits, and host-specific
+measurement prerequisites. [#3848](https://github.com/roundup-app/roundup/issues/3848)
+owns implementation, including the coverage data, baseline-evidence validation and
+host table. The specification alone supplies none of those checks or measurements.
+
 ## What is enforced, and what is not
 
 Rule 7's 10% regression test is enforced for six metrics on Linux (including Q11) and five on macOS (below) — except that a time metric's regression test is skipped, loudly, when the machine is busier than its baseline's load (R13) — and is a gross tripwire for the rest. A latency miss on macOS is rerun on a quiet machine before it is believed. Measured on an isolated 2-vCPU boxd VM (AMD EPYC, load 2 to 4 from the runs themselves): 9 invocations of 11 runs each, the spread of the 9 medians against their median was
