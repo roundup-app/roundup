@@ -16,7 +16,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, daemonExit, now } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
-
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
   const period = state.period;
