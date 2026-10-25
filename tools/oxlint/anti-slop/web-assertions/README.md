@@ -2,8 +2,8 @@
 
 Normal `pnpm lint` enforces the assertion rule in `.oxlintrc.json`, checks the
 baseline against the merge base with `origin/main`, and statically checks Python.
-Its no-argument invocation also runs `assertions.test.mjs`, so `just lint-web` and
-CI reach the boundary fixtures. A targeted invocation forwards its arguments to
+Its no-argument invocation also runs `assertions.test.mjs` and the timeout
+boundary suite, so `just lint-web` and CI reach both sets of fixtures. A targeted invocation forwards its arguments to
 Oxlint and still checks the baseline and Python; it does not recursively run the
 fixture suite.
 
