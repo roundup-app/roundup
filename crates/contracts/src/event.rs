@@ -47,6 +47,13 @@ pub enum EventData {
     TodoRefRemoved(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
+    /// Accepted name change; the original incarnation remains authoritative.
+    #[serde(rename = "pad.renamed")]
+    PadRenamed {
+        incarnation: String,
+        name: String,
+        previous_name: String,
+    },
     #[serde(rename = "pad.deleted")]
     PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
