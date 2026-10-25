@@ -226,11 +226,11 @@ export const Bubbles = (props: {
     persistPlaces(next);
   };
 
-  const openRecovery = () => {
+  const openRecovery = (target?: () => HTMLElement | null | undefined) => {
     show(null);
     // Let the Terminal's dismissable layer close before the recovery layer takes focus.
     const focus = captureFocus(true);
-    setTimeout(() => focus(() => recover(true)));
+    setTimeout(() => focus(() => { target?.()?.focus(); recover(true); }));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -835,18 +835,18 @@ export const Bubbles = (props: {
         }>{_edit =>
           <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
             <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
-              onValueCommit={({ value }) => {
+              onValueCommit={async ({ value }) => {
                 const submitted = revision;
                 const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
 
                 if (!live || readOnly() || base !== nameFor(live)) {
-                  openRecovery();
+                  openRecovery(tab);
 
                   return;
                 }
 
-                if (submitted && !drafts.submit(submitted)) {
-                  openRecovery();
+                if (submitted && !(await drafts.submit(submitted))) {
+                  openRecovery(tab);
 
                   return;
                 }
@@ -858,7 +858,7 @@ export const Bubbles = (props: {
                 if (failure === null) clearItemFailure(live);
                 else setFailure({ message: failure, terminal: live });
 
-                if (failure !== null) openRecovery();
+                if (failure !== null) openRecovery(tab);
               }}
               onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
               <Editable.Context>{(api) => {

@@ -464,10 +464,12 @@ export const Todos = (props: {
 
     const draft = creation();
 
-    if (!homeExists(creationHome()) || !draft || !connected.drafts.submit(draft.revision)) return;
-    setCreationRevision(null);
     const home = creationHome();
     const recipient = creationRecipient();
+
+    if (!homeExists(home) || !draft || !(await connected.drafts.submit(draft.revision))) return;
+
+    if (creationRevision() === draft.revision) setCreationRevision(null);
     const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
 
     try {

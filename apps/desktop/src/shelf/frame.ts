@@ -3,7 +3,7 @@ import { batch, createComputed, createEffect, createSignal, on } from "solid-js"
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { copy } from "../copy";
-import { storedValue } from "../state/storage";
+import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
 export const SHELF_TABS = [
@@ -13,11 +13,11 @@ export const SHELF_TABS = [
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
-const frameSchema = v.object({
+const frameSchema = storageSchema("roundup:shelf", v.object({
   maximised: v.optional(v.boolean(), true),
   open: v.optional(v.boolean(), true),
   tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
-});
+}));
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
 const storageOf = (path: string) => storedValue(`roundup:shelf:${path}`, frameSchema);
@@ -36,7 +36,10 @@ export type ShelfFrame = {
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
-  /** The slide ended; a closed Shelf leaves the layout. */
+  /** Bind the Shelf whose browser animations retain its content. */
+  attach: (element: HTMLElement) => void;
+  sliding: Accessor<boolean>;
+  /** Release a slide on a Project switch or removal. */
   settle: () => void;
 };
 
@@ -44,20 +47,28 @@ export type ShelfFrame = {
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void, initialOpen = true): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(initialOpen);
-  const lifetime = createSlideLifetime();
+  const [element, setElement] = createSignal<HTMLElement>();
+  const lifetime = createSlideLifetime(() => [element()]);
   const [shown, setShown] = createSignal(initialOpen);
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
+  const memory = new Map<string, v.InferOutput<typeof frameSchema>>();
+
   const save = () => {
     const at = path();
 
-    if (at !== null) storageOf(at).write({ open: open(), tab: tab(), maximised: maximised() });
+    if (at !== null) {
+      const value = { open: open(), tab: tab(), maximised: maximised() };
+
+      memory.set(at, value);
+      void storageOf(at).write(value);
+    }
   };
 
   createComputed(
     on(path, (at) => {
-      const stored = at === null ? null : storageOf(at).read();
+      const stored = at === null ? null : memory.get(at) ?? storageOf(at).read();
       const restored = stored?.open ?? initialOpen;
 
       setMaximised(stored?.maximised ?? false);
@@ -117,6 +128,8 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       save();
     },
     toggle,
+    attach: setElement,
+    sliding: lifetime.sliding,
     settle: lifetime.settle,
   };
 };

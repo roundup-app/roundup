@@ -228,14 +228,14 @@ export const AskBar = (props: {
     { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
-  const send = (): void => {
+  const send = async (): Promise<void> => {
     const value = text();
 
     if (value.trim() === "") return;
 
     const draft = current();
 
-    if (!draft || !drafts.submit(draft.revision)) return;
+    if (!draft || !(await drafts.submit(draft.revision))) return;
     setFailure(null);
     const workstream = v.safeParse(v.string(), draft.value.workstream);
     const request: AskSubmission = { text: value, submission: draft.revision };

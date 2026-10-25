@@ -207,7 +207,7 @@ describe("u2773 Rail task destinations", () => {
     await switchTo("Right");
     await switchTo("Left");
     await openTask(); submit(); type("C");
-    expect(replies).toHaveLength(2);
+    await waitFor(() => expect(replies).toHaveLength(2));
     fireEvent.keyDown(task(), { key: "Escape" });
     await switchTo("Right");
     await openTask(); type("right work");
@@ -218,15 +218,15 @@ describe("u2773 Rail task destinations", () => {
     await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });
-    await waitFor(() => expect(screen.queryAllByLabelText("Recovered rail draft")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
+    await waitFor(() => expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map(field => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B", "A"]));
     expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
 
     if (outcome !== "acknowledged") {
-      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(["C", "B", "A"]);
-      expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome);
+      await waitFor(() => expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome));
       fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
     }
 
+    await waitFor(() => expect(draftStorage(first.dir).list().map(draft => draft.value.text)).toEqual(outcome === "acknowledged" ? ["C"] : ["B", "C"]));
     cleanup(); await mount(); await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });
