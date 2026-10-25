@@ -251,11 +251,11 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  const capture = props.app.capture;
   onMount(() => {
-    void props.app.capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
   });
-  onCleanup(() => { void props.app.capture?.configure(null); });
-
+  onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
