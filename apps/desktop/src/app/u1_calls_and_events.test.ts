@@ -109,7 +109,7 @@ describe("u1 calls and events", () => {
     const app = createFakeApp();
     const subscribe = app.subscribe;
     app.subscribe = async (listener, after) => {
-      if (after === 0) throw new RpcError(-32009, "after 0 is older than the log keeps; the oldest kept Event number is 5");
+      if (after === 0) throw new RpcError(-32009, "arbitrary diagnostic", { kind: "events-expired", oldest: 5 });
 
       return subscribe(listener, after);
     };
