@@ -21,8 +21,6 @@ export const WindowBar = (props: {
   const title = createMemo(() => {
     if (!props.project) return copy.roundup;
 
-    if (agent()) return `${props.project} — ${agent()!.name}`;
-
     const nodes = props.rail?.nodes ?? [];
     const id = resolvedWorkstream(nodes, props.rail?.selected() ?? null);
     const row = nodes.find((node) => node.id === id);
@@ -31,6 +29,8 @@ export const WindowBar = (props: {
 
     return props.project;
   });
+
+  const visibleTitle = () => agent() ? `${props.project} — ${agent()!.name}` : title();
 
   let writing = false;
   let written: string | undefined;
@@ -65,9 +65,9 @@ export const WindowBar = (props: {
 
   // U2228b: the visible title is cut in the middle to the box; the accessible name and `title` stay whole.
   let box: HTMLDivElement | undefined;
-  const fit = () => { if (box) middleCut(box, title()); };
+  const fit = () => { if (box) middleCut(box, visibleTitle()); };
 
-  createEffect(() => { title(); fit(); });
+  createEffect(() => { visibleTitle(); fit(); });
 
   createEffect(() => {
     if (!box?.parentElement || typeof ResizeObserver === "undefined") return;
@@ -96,8 +96,8 @@ export const WindowBar = (props: {
       <div class="traffic-lights" aria-hidden="true" />
       <div class="window-actions">{props.children}</div>
       <div class="window-identity">
-        <Tip text={title()}>
-          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
+        <Tip text={visibleTitle()}>
+          {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={visibleTitle()} ref={box} />}
         </Tip>
         <Show when={agent()?.status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show>
       </div>
