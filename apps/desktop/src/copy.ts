@@ -245,7 +245,7 @@ export const copy = {
   riskCause: { failed: "failed to save", unknown: "may not have saved", draft: "not saved for reload", left: "left unsent", gone: "original removed" },
   draftTitle: (place: string, name: string) => `${place} "${name}"`,
   riskLine: (cause: string, time: string) => `${cause} · ${time}`,
-  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`,
+  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? new Intl.RelativeTimeFormat("en-GB", { style: "short", numeric: "always" }).format(-minutes, "minute") : `${Math.floor(minutes / 60)} h ago`,
   openDraft: "Open",
   copyDraft: "Copy",
   discardRow: "Discard",
