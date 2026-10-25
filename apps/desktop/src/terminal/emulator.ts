@@ -1,7 +1,7 @@
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
-import { appSettings, appDark, followAppAppearance } from "../settings/preferences";
+import { appSettings, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
@@ -130,7 +130,7 @@ export const xtermOptions: ITerminalOptions = {
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
-    return terminalThemeFor(appDark());
+    return terminalThemeFor();
   },
 };
 
@@ -274,7 +274,7 @@ export const createXtermEmulators = (
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 
     const followScheme = () => {
-      terminal.options.theme = terminalThemeFor(appDark());
+      terminal.options.theme = terminalThemeFor();
     };
 
     const contrast = window.matchMedia?.("(prefers-contrast: more)");
