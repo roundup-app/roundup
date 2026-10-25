@@ -43,8 +43,8 @@ an exact exception for every affected test. Multiple file `vi.setConfig` values 
 checked conservatively for every test without an explicit/suite override; dynamic
 runtime ordering is not inferred. Hooks and polling deadlines are separate APIs.
 
-An exception supplies `file`, `test`, `scenario`, `process`, `reason` and `maximum`.
-The rule checks metadata completeness and the numeric maximum. Independent review
+An exception supplies `file`, `test`, `scenario`, `observer`, `reason` and `maximum`.
+`observer` names the required real process or clock. The rule checks metadata completeness and the numeric maximum. Independent review
 must verify that the named scenario really needs the stated process or clock and
 that a process-free observer cannot prove it. No production exceptions are granted
 here. In particular, merely starting a Daemon is not a process-need justification.
