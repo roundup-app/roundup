@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { clipboardFailure, writeText } from "../app/clipboard";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "../copy";
@@ -63,11 +64,12 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
         </li>}</For></ul>
       </Show>
       <Show when={props.notes.list(props.id).length > 0}><button type="button" data-button="quiet" disabled={busy()} onClick={async event => {
+        const focus = captureFocus();
         const button = event.currentTarget;
         const focused = document.activeElement === button;
         await props.notes.send(props.id);
 
-        if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) props.fallback?.();
+        if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) focus(() => props.fallback?.());
       }}>{copy.sendNotesTo(props.name)}</button></Show>
     </section>;
 };
@@ -132,7 +134,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   createEffect(() => { if (!props.notes.entries().length && !props.notes.problem()) props.onOpenChange(false); });
 
   return <Show when={any() || props.open}><Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open: next }) => { if (next) props.onOpenChange(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
-    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { trigger = element; }} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
+    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { const ref = attributes().ref; if (typeof ref === "function") ref(element); trigger = element; }} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
     <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
       <ReservedLine message={props.notes.problem()} />
