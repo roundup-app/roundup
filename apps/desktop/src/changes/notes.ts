@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
@@ -5,7 +6,6 @@ import { parse, stringify } from "flatted";
 import { draftStorage } from "../state/storage";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Message } from "@contracts/message/Message";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 
 const content = v.variant("kind", [
@@ -105,7 +105,7 @@ export const reply = async <T>(call: () => Promise<T>): Promise<{ kind: "ok"; va
   } catch (error) {
     if (!(error instanceof Error)) throw error;
 
-    return { kind: error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown", text: error.message };
+    return { kind: outcomeOf(error), text: error.message };
   } finally { clearTimeout(timer); }
 };
 

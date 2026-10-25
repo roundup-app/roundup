@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
@@ -29,7 +30,6 @@ import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
@@ -471,7 +471,7 @@ export const Rail = () => {
           endCompose();
         }
       } catch (error) {
-        retained.settle(revision.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        retained.settle(revision.revision, outcomeOf(error));
         throw error;
       } finally {
         clearTimeout(slow);

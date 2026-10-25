@@ -6,6 +6,16 @@ import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
 import type { Reason } from "@contracts/message/Reason";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
+const rpcFailures = new Map<number, string>([
+  [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
+  [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
+  [-32001, "The item is unavailable. Refresh to check again."], [-32002, "This action is not allowed. Check access before trying again."],
+  [-32003, "The item changed. Refresh before trying again."], [-32004, "The reply was lost. Check before trying again."],
+  [-32005, "The Agent is busy. Wait until it is idle."], [-32006, "Acceptance is unconfirmed. Check the Agent before trying again."],
+  [-32007, "The Agent is not running. Refresh to check again."], [-32008, "The interruption is unconfirmed. Check the Agent before trying again."],
+  [-32009, "Earlier changes are unavailable. Refresh to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
+]);
+
 const reactionCauses: Record<ObservationCause, string> = {
   "head-moved": "The PR has new commits. Create a new reaction for the current version.",
   "agent-unavailable": "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one.",
@@ -117,6 +127,7 @@ const importRefusals = new Map<number, string>([
 const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 
 export const copy = {
+  rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   shortcutKeys: new Map([
     ...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map(letter => [`Key${letter}`, letter]),
     ...[..."0123456789"].map(digit => [`Digit${digit}`, digit]),

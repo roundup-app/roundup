@@ -1,7 +1,7 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -243,11 +243,11 @@ const OrderContent = (props: OrderInput) => {
 
       if (!disposed && selected() === draft.revision) close();
     } catch (thrown) {
-      drafts.settle(draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
+      drafts.settle(draft.revision, outcomeOf(thrown));
 
       if (!disposed && node() && sequence >= shownSequence) {
         shownSequence = sequence;
-        setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+        setFailure(`${copy.theOrderCouldNotBeSaved} ${thrown instanceof Error ? thrown.message : ""}`);
       }
     }
   };

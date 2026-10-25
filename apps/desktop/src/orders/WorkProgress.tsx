@@ -6,7 +6,7 @@ import type { Reconciliation } from "@contracts/message/Reconciliation";
 import type { ResumeWorkParams } from "@contracts/message/ResumeWorkParams";
 import type { ResultProgress } from "@contracts/message/ResultProgress";
 import { openDeliverable } from "../ask/openDeliverable";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
@@ -14,13 +14,6 @@ import { IconButton } from "../ui/IconButton";
 import { Disclosure } from "../ui/Disclosure";
 
 type Read = { id: string; progress: Progress; plan: Reconciliation } | { id: string; failure: string };
-
-/** The Daemon's cause starts in lower case and may end without a stop; a note reads as a sentence. */
-const sentence = (cause: string) => {
-  const text = cause.trim();
-
-  return text === "" ? "" : `${text[0]?.toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? "" : "."}`;
-};
 
 type Phase = "idle" | "pending" | "failed" | "unknown" | "resumed" | "nothing";
 
@@ -171,12 +164,12 @@ const ProgressContent = (props: { id: string }) => {
         setResumeFailure(null);
       }
     } catch (thrown) {
-      const known = thrown instanceof RpcError && thrown.code !== INTERNAL_CODE;
+      const outcome = outcomeOf(thrown);
 
       if (!disposed) {
-        setResumeFailure(known ? "failed" : "unknown");
-        setCause(thrown instanceof Error ? thrown.message : "");
-        setPhase(known ? "failed" : "unknown");
+        setResumeFailure(outcome);
+        setCause(thrown instanceof RpcError ? `${copy.rpcFailure(thrown.code)} ${thrown.message}` : thrown instanceof Error ? thrown.message : "");
+        setPhase(outcome);
       }
     } finally {
       if (!disposed) {
@@ -229,7 +222,7 @@ const ProgressContent = (props: { id: string }) => {
           <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable"><Icon name="x" />{copy.progressUnavailable}</span></Show>
         </p>
         <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
-        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {sentence(note.action)}</p>}</For>
+        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{note.cause} {note.action}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
         <ReservedLine message={failures()[result.report.report]}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => clearReport(result.report.report)}><Icon name="x" /></IconButton></ReservedLine>
@@ -260,7 +253,7 @@ const ProgressContent = (props: { id: string }) => {
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? copy.resumeFailed(sentence(cause())) : null}
+              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() === "unknown" ? `${copy.resumeUnknown} ${cause()}` : resumeFailure() === "failed" ? copy.resumeFailed(cause()) : null}
                 status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null}><Show when={resumeFailure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>

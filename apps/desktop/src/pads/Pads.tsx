@@ -1,8 +1,8 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { Editable } from "../ui/Editable";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
@@ -147,7 +147,7 @@ export const Pads = (props: {
         // The creation reply acknowledges only its captured name; a later edit remains current.
         if (targetHome !== null) await connected.app.rpc("pad.move", { name: target, home: targetHome });
       } catch (error) {
-        connected.drafts.settle(submitted.draft.revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        connected.drafts.settle(submitted.draft.revision, outcomeOf(error));
         throw error;
       } finally {
         clearTimeout(timeout);
