@@ -75,6 +75,8 @@
   --rail-width: 288px;
   --shelf-width: 320px;
   --centre-min-width: 388px;
+  /* U131: title geometry, including empty leading slots; not a space step. */
+  --row-text-inset: 56px;
 
   --radius-chip: 4px;
   --key-chip-padding: 5px;
