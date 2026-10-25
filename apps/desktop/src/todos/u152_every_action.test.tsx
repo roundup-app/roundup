@@ -303,11 +303,17 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     expect(m.connected.drafts.list()).toEqual(retained);
 
     if (action === "dismiss") {
-      const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" });
-      const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
+      if (owner.startsWith("open_row")) {
+        fireEvent.contextMenu(rowOf(1));
+        await m.app.pickMenu("Dismiss");
+      } else {
+        const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" });
+        const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
 
-      if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
-      fireEvent.click(dismiss);
+        if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
+        fireEvent.click(dismiss);
+      }
+
       // EditableText queues blur submission in a microtask; dismissal must leave that revision unsent.
       await Promise.resolve();
       expect(writes(m.app.calls)).toEqual(writes(calls));
