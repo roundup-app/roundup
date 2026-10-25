@@ -1,0 +1,112 @@
+{
+  "historical": {
+    "events": {
+      "sched:sched_waking": 51090,
+      "sched:sched_wakeup": 51090,
+      "sched:sched_switch": 100169
+    },
+    "adapter_cpu": {
+      "n": 2200,
+      "median_ns": 3024.0,
+      "p95_ns": 4257,
+      "max_ns": 15042
+    },
+    "adapter_wall": {
+      "n": 2200,
+      "median_ns": 3024.0,
+      "p95_ns": 4257,
+      "max_ns": 15042
+    },
+    "adapter_off_cpu": {
+      "n": 2200,
+      "median_ns": 0.0,
+      "p95_ns": 0,
+      "max_ns": 0
+    },
+    "off_cpu_spans": 0,
+    "stages": {
+      "decode": {
+        "n": 2200,
+        "median_ns": 1031.0,
+        "p95_ns": 1543,
+        "max_ns": 11307
+      },
+      "extraction": {
+        "n": 2200,
+        "median_ns": 80.0,
+        "p95_ns": 120,
+        "max_ns": 471
+      },
+      "deserialization": {
+        "n": 2200,
+        "median_ns": 100.0,
+        "p95_ns": 141,
+        "max_ns": 631
+      },
+      "broadcast": {
+        "n": 2200,
+        "median_ns": 2724.0,
+        "p95_ns": 3826,
+        "max_ns": 14772
+      },
+      "offset_insert": {
+        "n": 2200,
+        "median_ns": 110.0,
+        "p95_ns": 180,
+        "max_ns": 901
+      }
+    }
+  },
+  "candidate": {
+    "events": {
+      "sched:sched_waking": 52952,
+      "sched:sched_wakeup": 52952,
+      "sched:sched_switch": 104199
+    },
+    "adapter_cpu": {
+      "n": 2200,
+      "median_ns": 2824.0,
+      "p95_ns": 3986,
+      "max_ns": 14041
+    },
+    "adapter_wall": {
+      "n": 2200,
+      "median_ns": 2824.0,
+      "p95_ns": 3986,
+      "max_ns": 14041
+    },
+    "adapter_off_cpu": {
+      "n": 2200,
+      "median_ns": 0.0,
+      "p95_ns": 0,
+      "max_ns": 0
+    },
+    "off_cpu_spans": 0,
+    "stages": {
+      "decode": {
+        "n": 2200,
+        "median_ns": 631.0,
+        "p95_ns": 1012,
+        "max_ns": 10555
+      },
+      "extraction": {
+        "n": 2200,
+        "median_ns": 40.0,
+        "p95_ns": 60,
+        "max_ns": 7321
+      },
+      "deserialization": {
+        "n": 2200,
+        "median_ns": 130.0,
+        "p95_ns": 210,
+        "max_ns": 10777
+      },
+      "broadcast": {
+        "n": 2200,
+        "median_ns": 2654.0,
+        "p95_ns": 3726,
+        "max_ns": 13450
+      }
+    }
+  }
+}
