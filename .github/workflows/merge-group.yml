@@ -16,10 +16,10 @@ defaults:
 
 jobs:
   review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo review verdict given on the PR head
   critic:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo critic verdict given on the PR head
