@@ -173,18 +173,10 @@ export class RpcError extends Error {
   }
 }
 
+const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010]);
+
 /** Only a typed refusal proves a remote mutation failed; all other throws preserve uncertainty. */
 // U3791b: this is the foreign-throw ingestion seam; even primitives must retain uncertainty.
 // oxlint-disable-next-line anti-slop/no-unknown-parameters
-export const outcomeOf = (thrown: unknown): "failed" | "unknown" => {
-  if (!(thrown instanceof RpcError)) return "unknown";
-
-  switch (thrown.code) {
-    case -32700: case -32601: case -32602:
-    case -32001: case -32002: case -32003:
-    case -32005: case -32007: case -32009: case -32010:
-      return "failed";
-    default:
-      return "unknown";
-  }
-};
+export const outcomeOf = (thrown: unknown): "failed" | "unknown" =>
+  thrown instanceof RpcError && refusals.has(thrown.code) ? "failed" : "unknown";

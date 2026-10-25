@@ -2,6 +2,8 @@ import { copy } from "../copy";
 import { PASTED_IMAGE_TYPES } from "./seam";
 import type { App, PastedImage } from "./seam";
 
+const unsupportedImage = Symbol();
+
 /** App-authored writes use the native pasteboard; editor copy retains its default selection/undo behavior. */
 export const writeText = (app: Pick<App, "writeClipboardText">, text: string): Promise<void> => app.writeClipboardText(text);
 
@@ -23,11 +25,14 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
     if (type) return { kind: "image", image: { type, bytes: new Uint8Array(await file.arrayBuffer()) } };
   }
 
-  if (images.length) throw new Error(copy.pasteFailedTheClipboardHoldsAnImageWhich);
+  if (images.length) throw new Error(copy.pasteFailedTheClipboardHoldsAnImageWhich, { cause: unsupportedImage });
 
   return { kind: "empty" };
 };
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */
-export const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string =>
-  copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
+export const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
+  if (thrown.cause === unsupportedImage) return thrown.message;
+
+  return copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
+};
