@@ -8,6 +8,7 @@ type After = {
   "HistoryParams": import("./generated/HistoryParams").HistoryParams;
   "IdentifyParams": import("./generated/IdentifyParams").IdentifyParams;
   "Kind": import("./generated/Kind").Kind;
+  "RpcErrorData": import("./generated/RpcErrorData").RpcErrorData;
   "Status": import("./generated/Status").Status;
   "SubscribeParams": import("./generated/SubscribeParams").SubscribeParams;
   "SubscribeResult": import("./generated/SubscribeResult").SubscribeResult;
@@ -155,6 +156,7 @@ type After = {
   "pad/MoveParams": import("./generated/pad/MoveParams").MoveParams;
   "pad/Pad": import("./generated/pad/Pad").Pad;
   "pad/PadName": import("./generated/pad/PadName").PadName;
+  "pad/RenameParams": import("./generated/pad/RenameParams").RenameParams;
   "pad/SetOwnerParams": import("./generated/pad/SetOwnerParams").SetOwnerParams;
   "pad/SetStorageParams": import("./generated/pad/SetStorageParams").SetStorageParams;
   "pad/WriteParams": import("./generated/pad/WriteParams").WriteParams;
@@ -166,7 +168,10 @@ type After = {
   "project/ImportCommitParams": import("./generated/project/ImportCommitParams").ImportCommitParams;
   "project/ImportDiscoverParams": import("./generated/project/ImportDiscoverParams").ImportDiscoverParams;
   "project/ImportDiscovery": import("./generated/project/ImportDiscovery").ImportDiscovery;
+  "project/ImportDisposition": import("./generated/project/ImportDisposition").ImportDisposition;
   "project/ImportExclusion": import("./generated/project/ImportExclusion").ImportExclusion;
+  "project/ImportExclusionCause": import("./generated/project/ImportExclusionCause").ImportExclusionCause;
+  "project/ImportFailure": import("./generated/project/ImportFailure").ImportFailure;
   "project/ImportList": import("./generated/project/ImportList").ImportList;
   "project/ImportListParams": import("./generated/project/ImportListParams").ImportListParams;
   "project/ImportListed": import("./generated/project/ImportListed").ImportListed;
@@ -204,6 +209,10 @@ type After = {
   "reaction/Firing": import("./generated/reaction/Firing").Firing;
   "reaction/LatePolicy": import("./generated/reaction/LatePolicy").LatePolicy;
   "reaction/Observation": import("./generated/reaction/Observation").Observation;
+  "reaction/ObservationCause": import("./generated/reaction/ObservationCause").ObservationCause;
+  "reaction/ObservationGap": import("./generated/reaction/ObservationGap").ObservationGap;
+  "reaction/ObservationHealth": import("./generated/reaction/ObservationHealth").ObservationHealth;
+  "reaction/ObservationRecovery": import("./generated/reaction/ObservationRecovery").ObservationRecovery;
   "reaction/Preview": import("./generated/reaction/Preview").Preview;
   "reaction/PreviewParams": import("./generated/reaction/PreviewParams").PreviewParams;
   "reaction/Reaction": import("./generated/reaction/Reaction").Reaction;

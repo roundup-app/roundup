@@ -1,6 +1,6 @@
 use specta::datatype::{DataType, Fields};
 
-// Serde defaults widen accepted inputs; existing TS requires these output properties.
+// Serde defaults and catch-all variants widen accepted inputs; TS retains output shapes.
 // The pinned specta-serde format has no switch to retain explicit optionality.
 pub(crate) fn defaults(ty: &mut DataType) {
     match ty {
@@ -10,6 +10,7 @@ pub(crate) fn defaults(ty: &mut DataType) {
         }
         DataType::Enum(e) => {
             for (_, v) in &mut e.variants {
+                v.attributes.remove("serde:variant:other");
                 fields(&mut v.fields);
             }
         }
@@ -194,6 +195,14 @@ pub fn types() -> specta::Types {
         .register::<crate::project::ImportPeriod>()
         .register::<crate::project::ImportDiscoverParams>()
         .register::<crate::project::ImportCandidate>()
+        .register::<crate::project::ImportExclusionCause>()
+        .register::<crate::project::ImportFailure>()
+        .register::<crate::project::ImportDisposition>()
+        .register::<crate::common::RpcErrorData>()
+        .register::<crate::reaction::ObservationCause>()
+        .register::<crate::reaction::ObservationGap>()
+        .register::<crate::reaction::ObservationRecovery>()
+        .register::<crate::reaction::ObservationHealth>()
         .register::<crate::project::ImportExclusion>()
         .register::<crate::project::ImportDiscovery>()
         .register::<crate::project::ImportListParams>()

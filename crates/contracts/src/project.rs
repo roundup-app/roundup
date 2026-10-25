@@ -161,10 +161,41 @@ pub struct ImportCandidate {
     pub revision: String,
 }
 
-/// A conversation that is not selectable, with the reason the user reads.
+/// Why a saved conversation cannot be selected. Diagnostics never determine this cause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportExclusionCause {
+    AlreadyImported,
+    AmbiguousProject,
+    MissingDirectory,
+    NoDirectory,
+    TooManyDirectories,
+    InsideWorktree,
+    DuplicateSource,
+    UnknownActivity,
+    NoCompleteRecords,
+    UnsupportedSource,
+    PreviewLimit,
+    RecordLimit,
+    SnapshotLimit,
+    MalformedRecord,
+    SubagentRecord,
+    ForeignIdentity,
+    MetadataLimit,
+    IncompleteMetadata,
+    SdkUnreadable,
+    RecordsMissing,
+    InsideRoundup,
+    LiveWithoutRecords,
+    #[serde(other)]
+    Unknown,
+}
+
+/// A conversation that is not selectable, with diagnostic details.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ImportExclusion {
     pub source: String,
+    pub cause: ImportExclusionCause,
     pub reason: String,
     /// The conversation's title, when it is known.
     pub title: Option<String>,
@@ -233,13 +264,30 @@ pub struct ImportCommitParams {
     pub selections: Vec<ImportSelection>,
 }
 
+/// Whether a per-source import failure proves refusal or leaves completion unconfirmed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportDisposition {
+    Failed,
+    Unknown,
+}
+
+/// The original RPC identity and diagnostic, plus its per-source certainty.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ImportFailure {
+    #[specta(type = specta_typescript::Number)]
+    pub code: i64,
+    pub message: String,
+    pub outcome: ImportDisposition,
+}
+
 /// One source's result: the created (or earlier created) nodes, or the cause it was refused.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ImportOutcome {
     pub source: String,
     pub workstream: Option<String>,
     pub agent: Option<String>,
-    pub error: Option<String>,
+    pub error: Option<ImportFailure>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

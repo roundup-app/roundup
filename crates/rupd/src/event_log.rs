@@ -156,7 +156,21 @@ mod tests {
 
         let expired = bus.subscribe_after(Some(oldest - 2)).err().unwrap();
         assert_eq!(expired.code, code::EVENTS_EXPIRED);
-        assert!(expired.message.contains("6"), "{}", expired.message);
+        assert_eq!(
+            expired.data,
+            Some(contracts::RpcErrorData::EventsExpired { oldest: 6 })
+        );
+        let saved = bus.saved_after(oldest - 2).unwrap_err();
+        assert_eq!(saved.code, code::EVENTS_EXPIRED);
+        assert_eq!(saved.data, expired.data);
+        for error in [expired, saved] {
+            let wire = serde_json::to_value(&error).unwrap();
+            assert_eq!(
+                wire["data"],
+                serde_json::json!({"kind":"events-expired", "oldest":6})
+            );
+            assert!(!error.message.is_empty());
+        }
         assert!(bus.subscribe_after(Some(oldest - 1)).is_ok());
         let ahead = bus.subscribe_after(Some(highest + 1)).err().unwrap();
         assert_eq!(ahead.code, code::INVALID_PARAMS);

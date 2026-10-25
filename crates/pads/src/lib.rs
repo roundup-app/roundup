@@ -4,6 +4,7 @@ mod contract_handlers;
 mod files;
 mod name;
 pub mod reference;
+mod rename;
 #[doc(hidden)]
 pub mod schema;
 pub mod section;

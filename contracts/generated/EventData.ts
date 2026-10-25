@@ -36,7 +36,13 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 /**  T27: a ref was added to the Todo; read `todo.refs`. */
 { "name": "todo.refAdded", "data": TodoId } | 
 /**  T27: a ref was removed from the Todo. */
-{ "name": "todo.refRemoved", "data": TodoId } | { "name": "pad.changed", "data": PadName } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | { "name": "rail.changed" } | 
+{ "name": "todo.refRemoved", "data": TodoId } | { "name": "pad.changed", "data": PadName } | 
+/**  Accepted name change; the original incarnation remains authoritative. */
+{ "name": "pad.renamed", "data": {
+	incarnation: string,
+	name: string,
+	previous_name: string,
+} } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | { "name": "rail.changed" } | 
 /**  A2741a: the exact destination and name committed under the Rail mutation lock. */
 { "name": "rail.renamed", "data": {
 	id: string,

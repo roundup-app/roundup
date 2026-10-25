@@ -67,6 +67,7 @@
     Method { name: "pad.create", params: "pad_CreateParams", result: "pad_Pad" },
     Method { name: "pad.read", params: "pad_PadName", result: "pad_Pad" },
     Method { name: "pad.list", params: "null", result: "pad_Pad[]" },
+    Method { name: "pad.rename", params: "pad_RenameParams", result: "pad_Pad" },
     Method { name: "pad.write", params: "pad_WriteParams", result: "pad_Pad" },
     Method { name: "pad.append", params: "pad_AppendParams", result: "pad_Pad" },
     Method { name: "pad.appendSection", params: "pad_AppendSectionParams", result: "pad_Pad" },
