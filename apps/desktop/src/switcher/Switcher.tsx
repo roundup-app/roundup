@@ -3,7 +3,7 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
-import { debounce } from "@solid-primitives/scheduled";
+import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -35,8 +35,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const restored = v.safeParse(v.string(), current()?.value.query);
   const [text, setText] = createSignal(restored.success ? restored.output : "");
-  const [copied, setCopied] = createSignal(false);
-  const clearCopied = debounce(() => setCopied(false), 2000);
+  const feedback = createCopyFeedback();
+  const copied = feedback.copied;
+  createEffect(on(() => [text(), current()?.revision], feedback.reset));
   const [copyFailure, setCopyFailure] = createSignal<{ revision: string | null } | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let restoring = false;
@@ -132,15 +133,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const copyQuery = (): void => {
     const revision = current()?.revision ?? null;
 
-    void writeText(app, text()).then(() => {
-      if (revision !== (current()?.revision ?? null)) return;
-      setCopyFailure(null);
-      setCopied(true);
-      clearCopied();
+    const query = text();
+    void feedback.run(() => writeText(app, query), () => {
+      if (revision === (current()?.revision ?? null)) setCopyFailure(null);
     }, () => {
-      if (revision !== (current()?.revision ?? null)) return;
-      setCopied(false);
-      setCopyFailure({ revision });
+      if (revision === (current()?.revision ?? null)) setCopyFailure({ revision });
     });
   };
 
