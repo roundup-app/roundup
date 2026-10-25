@@ -136,6 +136,7 @@ export const xtermOptions: ITerminalOptions = {
 export type EchoProbe = {
   /** xterm's `onData` fired: the key became bytes to send. */
   input(id: string): void;
+  encoding(id: string): void;
   encoded(id: string): void;
   /** Output bytes reached the emulator, before they are parsed. */
   arrived(bytes: Uint8Array, id: string): void;
