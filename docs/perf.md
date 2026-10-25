@@ -452,6 +452,34 @@ Successful measurements continue to report through their measured shell.
 These are recorder repairs; #3550 remains open for full-chain observations,
 the measured production repair, shared Agent/shell input proof and idle/flood acceptance.
 
+The [2026-10-25 unlocked-screen attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399443183)
+at `e4bfc80bc2bd3437d43f284c0b64aed1c08fbd8d` delivered all three reports, but
+exited 2: each Daemon hop had zero samples. The full owner report and all three
+run diagnostic directories' text are retained in
+[the observations](perf-keystroke-mac-observations.json).
+
+| Run | Load / 16 CPUs | End-to-end p50 / p95 | Dropped | Daemon-hop samples |
+| --- | --- | --- | --- | --- |
+| 1 | 2.677 / 16 | 6 / 10 ms | 0 | 0 |
+| 2 | 2.270 / 16 | 6 / 10 ms | 0 | 0 |
+| 3 | 2.120 / 16 | 6 / 10 ms | 0 | 0 |
+
+These remain invalid full-chain observations. The recorder's keyboard driver
+forced `keypress` after xterm already handled `keydown`, sending each OSC key
+identity twice. The Daemon correctly marks repeated input identities ambiguous.
+The existing no-window `r20_hop_report_accounts_for_the_echo_round_trip` now
+uses the actual driver instead of paste: before the repair its queued write
+contains two identical markers; after it, one key writes one marker and the
+complete calibrated hop distribution still holds. The driver now makes keydown
+cancelable, sends keypress only when keydown was not canceled, then sends keyup.
+The existing Rust duplicate-identity proof remains. No tests were added or cut.
+
+This repairs probe input, not production latency. The retained reports cannot
+name the dominant full-chain hop or prove R21, and no new Mac timing was run.
+Merge the recorder repair before obtaining its first valid full-chain native
+observation; #3550 remains open for that evidence, the measured repair and the
+shared Agent/shell and flood acceptance.
+
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).

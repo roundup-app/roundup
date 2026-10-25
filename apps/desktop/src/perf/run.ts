@@ -105,9 +105,15 @@ type PerfReport =
       user_agent: string;
     });
 
+/** Follow the browser's cancellation rule: xterm can send the key on keydown, so forcing keypress would write the same identity twice. */
 export const press = (textarea: HTMLTextAreaElement) => {
-  textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", keyCode: 65, bubbles: true }));
-  textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true }));
+  const down = new KeyboardEvent("keydown", { key: "a", code: "KeyA", keyCode: 65, bubbles: true, cancelable: true });
+
+  if (textarea.dispatchEvent(down)) {
+    textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true, cancelable: true }));
+  }
+
+  textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "a", code: "KeyA", keyCode: 65, bubbles: true }));
 };
 
 const hasReadyLine = (text: string) => text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`);
