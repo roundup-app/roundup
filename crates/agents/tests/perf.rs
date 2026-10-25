@@ -57,7 +57,7 @@ async fn r3696c_forty_workstreams_avoid_temporary_node_copies() {
         stats.allocations, stats.bytes_allocated
     );
     assert!(
-        stats.allocations <= 260,
+        stats.allocations <= 210,
         "forty Workstreams: {} allocations",
         stats.allocations
     );
