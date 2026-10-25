@@ -1,5 +1,8 @@
 //! S2297a (`scenarios/app.md`): the webview renders at the display's rate.
 
+#[cfg(target_os = "macos")]
+#[path = "capture_panel.rs"]
+mod capture_panel;
 mod store_durability;
 
 #[cfg(target_vendor = "apple")]
@@ -50,6 +53,8 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
 // (`harness = false`) that speaks the part of libtest's protocol nextest uses: `--list` and `--exact <name>`.
 fn main() {
     let tests: &[(&str, fn())] = &[
+        #[cfg(target_os = "macos")]
+        ("u3787f_panel_does_not_activate_main_window", capture_panel::u3787f_panel_does_not_activate_main_window),
         ("u3787f_store_migrates_all_key_families_native_reopen", store_durability::u3787f_store_migrates_all_key_families_native_reopen),
         #[cfg(target_os = "linux")]
         ("u3787f_failed_migration_keeps_recovery_native_readback", store_durability::u3787f_failed_migration_keeps_recovery_native_readback),
