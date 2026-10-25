@@ -291,6 +291,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         if (!isSortable(source)) return;
         list?.setAttribute("data-sortable-index", String(source.index));
         if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
+
         track(source, event.operation.position);
       });
     }
