@@ -902,3 +902,6 @@ It is absent without the `idle-perf` Cargo feature.
 
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**RPC error data** (`RpcErrorData`):
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
