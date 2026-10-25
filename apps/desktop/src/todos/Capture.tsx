@@ -10,7 +10,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsOf, leaderChord } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
-import { registerKeys } from "../keys/registry";
+import { modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
@@ -35,10 +35,10 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   const { drafts } = connected;
   const destination = { surface: "capture", object: "todo-capture", recipient: null };
   const targetSchema = v.object({
-    owner: v.nullable(v.object({ kind: v.literal("agent"), id: v.string(), parent: v.null() })),
-    ownerName: v.nullable(v.string()), home: v.nullable(v.string()), homeName: v.nullable(v.string()),
+    targetCaptured: v.optional(v.boolean()), targetOwner: v.optional(v.nullable(v.string())),
+    targetOwnerName: v.optional(v.nullable(v.string())), targetHome: v.optional(v.nullable(v.string())), targetHomeName: v.optional(v.nullable(v.string())),
   });
-  drafts.validate("capture", v.object({ text: v.string(), target: v.optional(targetSchema) }));
+  drafts.validate("capture", v.object({ text: v.string(), ...targetSchema.entries }));
   drafts.registerRecovery("capture", () => "available");
 
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
@@ -56,7 +56,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     return value.success ? value.output : "";
   };
 
-  const setText = (text: string) => drafts.edit(destination, { text, target: target() }, input
+  const setText = (text: string) => drafts.edit(destination, { text, targetCaptured: true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, input
     ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null, "ordinary");
 
   const recovered = () => records().filter(draft => draft.revision !== current()?.revision && draft.status !== "pending");
@@ -91,8 +91,13 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   let nativeSession = false;
   let capturedTarget: ReturnType<typeof selectedTarget> | undefined;
   const target = () => {
-    const retained = v.safeParse(targetSchema, current()?.value.target);
-    return text() !== "" && retained.success ? retained.output : capturedTarget ?? selectedTarget();
+    const retained = v.safeParse(targetSchema, current()?.value);
+    if (text() !== "" && retained.success && retained.output.targetCaptured) {
+      const value = retained.output;
+      const owner: Actor | null = value.targetOwner ? { kind: "agent", id: value.targetOwner, parent: null } : null;
+      return { owner, ownerName: value.targetOwnerName ?? null, home: value.targetHome ?? null, homeName: value.targetHomeName ?? null };
+    }
+    return capturedTarget ?? selectedTarget();
   };
   const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
@@ -198,9 +203,9 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     })();
   };
 
-  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), owner: ownerLine(), home: homeLine(), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
   const nativeShow = () => {
-    if (nativeOpen() || open()) return;
+    if (nativeOpen() || open() || modalOpen()) return;
     setSession(`${identity}:${++shows}`);
     setSequence(0);
     nativeSession = true;
@@ -222,6 +227,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         if (action.sequence < sequence()) return;
         setSequence(action.sequence);
         setText(action.text);
+      }
+      if (action.kind === "copy" || action.kind === "discard-revision") {
+        const draft = recovered().find(draft => draft.revision === action.revision);
+        if (!draft) return;
+        if (action.kind === "discard-revision") drafts.discard(draft.revision);
+        else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
       }
       if (action.kind === "file") void file(action.keepOpen);
       else if (action.kind === "discard") discard();
