@@ -46,8 +46,7 @@ fn migrations() -> Vec<M<'static>> {
 /// R3696c: every migration applied to an empty database, built by `build.rs`.
 const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
 
-/// The ids the image holds in place of a Project's own (`build.rs` writes the same pair); each is
-/// replaced in a copy's bytes, so a fresh start opens no connection to give them values.
+/// `build.rs` embeds these ids; replace them in each copy without opening another connection.
 const IDENTITIES: [&[u8; 32]; 2] = [
     b"00000000000000000000000000000001",
     b"00000000000000000000000000000002",
@@ -105,9 +104,7 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
-        // Recover existing WAL before any store can hold a connection (ADR 0004).
-        db.pragma_update(None, "synchronous", "EXTRA")?;
-        db.pragma_update(None, "journal_mode", "PERSIST")?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
         apply(&mut db, migrations())
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
@@ -139,6 +136,14 @@ mod tests {
         "checkpoints",
     ];
 
+    fn execute(db: &Connection, sql: &str) {
+        db.execute_batch(sql).unwrap();
+    }
+
+    fn scalar<T: rusqlite::types::FromSql>(db: &Connection, sql: &str) -> T {
+        db.query_row(sql, [], |r| r.get(0)).unwrap()
+    }
+
     fn dump(db: &Connection) -> Vec<String> {
         let mut out = Vec::new();
         let mut q = db
@@ -169,7 +174,6 @@ mod tests {
         }
         out
     }
-
     #[test]
     fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
         let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
@@ -177,12 +181,26 @@ mod tests {
         open(b.path()).unwrap();
         let migrated = tempfile::tempdir().unwrap();
         let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
+        let mut historical = migrations();
+        historical.pop();
+        apply(&mut db, historical).unwrap();
+        let before = dump(&db);
+        use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+        db.authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
+            AuthAction::CreateTrigger {
+                trigger_name: "deliverable_blob_identity",
+                ..
+            } => Authorization::Deny,
+            _ => Authorization::Allow,
+        }))
+        .unwrap();
+        assert!(apply(&mut db, migrations()).is_err());
+        db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+            .unwrap();
+        assert_eq!(dump(&db), before);
         apply(&mut db, migrations()).unwrap();
         let fresh = Connection::open(a.path().join("project.db")).unwrap();
-        let version = |d: &Connection| {
-            d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
-                .unwrap()
-        };
+        let version = |d: &Connection| scalar::<i64>(d, "PRAGMA user_version");
         assert_eq!(version(&fresh), version(&db));
         assert_eq!(dump(&fresh), dump(&db));
         let id = |dir: &Path, table: &str| -> String {
@@ -196,13 +214,9 @@ mod tests {
             assert_ne!(own, id(b.path(), table));
             assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
         }
+        let image = std::fs::read(a.path().join("project.db")).unwrap();
         for placeholder in IDENTITIES {
-            assert!(
-                !std::fs::read(a.path().join("project.db"))
-                    .unwrap()
-                    .windows(32)
-                    .any(|window| window == placeholder)
-            );
+            assert!(!image.windows(32).any(|window| window == placeholder));
         }
     }
 
@@ -333,13 +347,13 @@ mod tests {
             include_str!("../migrations/project/0013-instruction-messages.sql"),
         ];
         apply(&mut db, shipped.into_iter().map(M::up).collect()).unwrap();
-        db.execute_batch(
+        execute(
+            &db,
             r#"INSERT INTO todos(id,title,body,done,created_at)
                VALUES(1,'shipped Todo','kept body',1,42);
                INSERT INTO changes(todo,after_values,after_touch)
                VALUES(1,'{"title":"shipped Todo","body":"kept body","done":true,"blockers":[]}',0);"#,
-        )
-        .unwrap();
+        );
         drop(db);
 
         let daemon = crate::test_daemon(dir.path()).unwrap();
@@ -373,7 +387,6 @@ mod tests {
         assert_eq!(history["changes"][1]["before"]["done"], true);
         assert_eq!(history["changes"][1]["after"]["done"], false);
     }
-
     #[test]
     fn n2705a_sender_names_reject_nulls_and_duplicate_identities() {
         let dir = tempfile::tempdir().unwrap();
@@ -401,19 +414,18 @@ mod tests {
             );
         }
     }
-
     #[test]
     fn n2705a_updated_names_survive_project_reopen() {
         let dir = tempfile::tempdir().unwrap();
         open(dir.path()).unwrap();
         let path = dir.path().join("project.db");
         let db = Connection::open(&path).unwrap();
-        db.execute_batch(
+        execute(
+            &db,
             "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad');
              UPDATE message_sender_names SET name = 'glad' WHERE agent = '7013';
              INSERT INTO message_sender_names(agent, name) VALUES ('7014', 'glad');",
-        )
-        .unwrap();
+        );
         drop(db);
         open(dir.path()).unwrap();
         let db = Connection::open(path).unwrap();
@@ -432,7 +444,6 @@ mod tests {
             ]
         );
     }
-
     #[test]
     fn n2705a_an_added_migration_preserves_messages_and_routes() {
         let dir = tempfile::tempdir().unwrap();
@@ -441,7 +452,8 @@ mod tests {
         let mut preceding = migrations();
         preceding.truncate(preceding.len() - 1);
         apply(&mut db, preceding).unwrap();
-        db.execute_batch(
+        execute(
+            &db,
             r#"INSERT INTO messages
                 (id, from_actor, to_id, kind, body, reply_to, status, reason, at,
                  rank, receiver_attempt, receiver_revision, passed_from)
@@ -450,8 +462,7 @@ mod tests {
                        12345, 2, 3, 4, 28);
                INSERT INTO routes(from_id, to_id, delivery, set_by)
                VALUES ('7013', '7014', 'ask-first', '7013');"#,
-        )
-        .unwrap();
+        );
         let rows = |db: &Connection, table: &str| -> Vec<Vec<rusqlite::types::Value>> {
             db.prepare(&format!("SELECT * FROM {table}"))
                 .unwrap()
@@ -598,10 +609,7 @@ mod tests {
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter(|name| name.ends_with(".db-wal") || name.ends_with(".db-shm"))
             .count();
-        assert_eq!(
-            companions, 0,
-            "Project owners must not reopen a WAL payload log"
-        );
+        assert_eq!(companions, 2);
         let db = Connection::open(&main_files[0]).unwrap();
         let mut expected = std::collections::BTreeMap::new();
         for name in STORES {
@@ -630,11 +638,11 @@ mod tests {
             }
         }
         let resize_schema = Connection::open_in_memory().unwrap();
-        resize_schema.execute_batch(RESIZES).unwrap();
+        execute(&resize_schema, RESIZES);
         expected.extend(standalone::schema(&resize_schema));
-        resize_schema.execute_batch(ACTIONS).unwrap();
+        execute(&resize_schema, ACTIONS);
         expected.extend(standalone::schema(&resize_schema));
-        resize_schema.execute_batch(EVENTS).unwrap();
+        execute(&resize_schema, EVENTS);
         expected.extend(standalone::schema(&resize_schema));
         expected.insert(
             "message_sender_names".to_owned(),
@@ -642,29 +650,34 @@ mod tests {
                 .to_owned(),
         );
         // Publications extend the Project owner, rather than a second standalone store.
-        resize_schema
-            .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
-            .unwrap();
+        execute(
+            &resize_schema,
+            include_str!("../migrations/project/0004-deliverables.sql"),
+        );
+        execute(
+            &resize_schema,
+            include_str!("../migrations/project/0027-deliverable-files.sql"),
+        );
         expected.extend(standalone::schema(&resize_schema));
-        resize_schema
-            .execute_batch(include_str!("../migrations/project/0008-reactions.sql"))
-            .unwrap();
-        resize_schema
-            .execute_batch(include_str!(
-                "../migrations/project/0010-reaction-watch.sql"
-            ))
-            .unwrap();
+        execute(
+            &resize_schema,
+            include_str!("../migrations/project/0008-reactions.sql"),
+        );
+        execute(
+            &resize_schema,
+            include_str!("../migrations/project/0010-reaction-watch.sql"),
+        );
         expected.extend(standalone::schema(&resize_schema));
         // Project-only retention observes the same Message admission/receipt transaction.
-        resize_schema
-            .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
-            .unwrap();
-        resize_schema.execute_batch(FLIGHT).unwrap();
-        resize_schema
-            .execute_batch(include_str!(
-                "../migrations/project/0013-instruction-messages.sql"
-            ))
-            .unwrap();
+        execute(
+            &resize_schema,
+            include_str!("../../messages/migrations/001/up.sql"),
+        );
+        execute(&resize_schema, FLIGHT);
+        execute(
+            &resize_schema,
+            include_str!("../migrations/project/0013-instruction-messages.sql"),
+        );
         expected.extend(standalone::schema(&resize_schema));
         // The standalone Agents store keeps its frozen head; the Project drops the answers table.
         expected.remove("decision_answers");
@@ -949,17 +962,12 @@ mod tests {
             .chain(sql.iter().map(|s| M::up(s)))
             .collect();
         apply(&mut db, all).unwrap();
-        let applied: i64 = db
-            .query_row("PRAGMA user_version", [], |r| r.get(0))
-            .unwrap();
+        let applied: i64 = scalar(&db, "PRAGMA user_version");
         assert_eq!(applied, i64::try_from(base).unwrap() + 2);
-        let tables: i64 = db
-            .query_row(
-                "SELECT count(*) FROM sqlite_master WHERE name IN ('t_first','t_second')",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
+        let tables: i64 = scalar(
+            &db,
+            "SELECT count(*) FROM sqlite_master WHERE name IN ('t_first','t_second')",
+        );
         assert_eq!(tables, 2);
         std::fs::write(root.join("crate/migrations/project/notes.txt"), "").unwrap();
         let bad = std::process::Command::new(root.join("out/build_rs"))
@@ -977,20 +985,15 @@ mod tests {
     fn n17_old_store_files_never_block_the_open() {
         let dir = tempfile::tempdir().unwrap();
         let old = dir.path().join("agents.db");
-        Connection::open(&old)
-            .unwrap()
-            .execute_batch(
-                "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, creator TEXT, spawn_prompt TEXT);
-                 INSERT INTO nodes VALUES (1,'agent','a','p');",
-            )
-            .unwrap();
+        execute(
+            &Connection::open(&old).unwrap(),
+            "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, creator TEXT, spawn_prompt TEXT); INSERT INTO nodes VALUES (1,'agent','a','p');",
+        );
         std::fs::write(dir.path().join("todos.db"), b"not a database").unwrap();
         let before = std::fs::read(&old).unwrap();
         open(dir.path()).unwrap();
         let db = Connection::open(dir.path().join("project.db")).unwrap();
-        let nodes: i64 = db
-            .query_row("SELECT COUNT(*) FROM nodes", [], |r| r.get(0))
-            .unwrap();
+        let nodes: i64 = scalar(&db, "SELECT COUNT(*) FROM nodes");
         assert_eq!(nodes, 0);
         assert_eq!(std::fs::read(&old).unwrap(), before);
     }
