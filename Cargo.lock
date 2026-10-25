@@ -1016,6 +1016,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-store",
  "tempfile",
+ "time",
  "tokio",
 ]
 
