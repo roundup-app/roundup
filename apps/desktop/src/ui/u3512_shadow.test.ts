@@ -9,7 +9,7 @@ it("u3512e_shadow_lint_rejects_outside_tokens", () => {
 
   for (const [file, code, exit] of [
     ["ui/probe.css", ".panel { box-shadow: 0 2px 8px #0003 }", 2],
-    ["ui/probe.css", ".panel { box-shadow: var(--shadow-drawer) }", 2],
+    ["ui/probe.css", ".panel { box-shadow: var(--elevation) }", 2],
     ["ui/probe.css", ".panel { box-shadow: none }", 2],
     ["ui/probe.css", ".panel { @media (width > 0px) { & > div { box-shadow: none } } }", 2],
     ["tokens.css", ".panel { box-shadow: none }", 0],
