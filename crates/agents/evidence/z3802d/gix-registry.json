@@ -1,0 +1,10 @@
+{
+  "source": "https://crates.io/api/v1/crates/gix",
+  "observed": "2026-10-25",
+  "name": "gix",
+  "downloads": 53331382,
+  "version": "0.90.0",
+  "released": "2026-10-22T13:58:58.939364Z",
+  "license": "MIT OR Apache-2.0",
+  "repository": "https://github.com/GitoxideLabs/gitoxide"
+}
