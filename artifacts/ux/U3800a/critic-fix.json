@@ -1,0 +1,303 @@
+{
+  "observer": "isolated headless Chromium, fresh run profile",
+  "base": "066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9",
+  "reviewed_head": "bd792f135e9c52b820e0288831e52a33930f63c2",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "native": "unmeasured; owner observes after merge",
+  "states": {
+    "idle": {
+      "D1": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D10": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D11": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D12": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D13": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D14": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D16": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D2": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D3": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D4": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D5": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D6": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D7": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D8": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D9": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "regressions": []
+    },
+    "nested-pointer": {
+      "D1": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D10": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D11": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D12": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D13": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D14": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D16": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D2": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D3": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D4": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D5": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D6": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D7": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D8": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D9": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "regressions": []
+    },
+    "todo-pointer": {
+      "D1": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D10": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D11": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D12": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D13": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D14": {
+        "base": "fail",
+        "head": "fail"
+      },
+      "D16": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D2": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D3": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D4": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D5": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D6": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D7": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D8": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D9": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "regressions": [],
+      "D14_detail": {
+        "base": {
+          "backgroundColor": "rgb(20, 20, 22)"
+        },
+        "head": {
+          "gap": 56
+        }
+      }
+    },
+    "keyboard": {
+      "D1": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D10": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D11": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D12": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D13": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D14": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D16": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D2": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D3": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D4": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D5": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D6": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D7": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D8": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "D9": {
+        "base": "pass",
+        "head": "pass"
+      },
+      "regressions": []
+    }
+  },
+  "motion": {
+    "slot_identity_retained": true,
+    "slot_positions": [
+      454,
+      550,
+      646
+    ],
+    "sample_count": 83,
+    "animated_frame_count": 8,
+    "duration_ms": [
+      120
+    ],
+    "intermediate_translations": [
+      "0px 32px",
+      "0px 2.37096px",
+      "0px 1.03149px",
+      "0px 0.0990369px",
+      "0px 2.36793px",
+      "0px 0.392244px",
+      "0px 0.0023503px"
+    ],
+    "keyboard": "immediate; empty slot; empty hidden library feedback element",
+    "reduced_motion": {
+      "media_matches": true,
+      "slot_animations": 0,
+      "row_animations": 0
+    },
+    "video": {
+      "exit": 1,
+      "error": "No frames captured"
+    }
+  },
+  "implementation": "649b3cee0f957636bfa11217285aee3d643e8693"
+}
