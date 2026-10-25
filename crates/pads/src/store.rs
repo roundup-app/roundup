@@ -75,7 +75,7 @@ pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSo
 const FILES_SETTING: &str = "files";
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
     settings: &'static str,
 }
 
@@ -161,7 +161,7 @@ impl Store {
     /// Called only in the same transaction as `delete`, after authorization.
     pub fn record_deletion(&self, name: &str, cause: PadDeletion) -> rusqlite::Result<()> {
         self.db.execute(
-            "UPDATE pad_sources SET pad_key = NULL, deletion = ?2 WHERE pad_key = ?1",
+            "UPDATE pad_sources SET pad_key = NULL, deletion = ?2, revoked = MAX(revoked, ?2 = 'user') WHERE pad_key = ?1",
             params![
                 key(name),
                 match cause {

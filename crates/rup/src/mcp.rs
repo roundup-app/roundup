@@ -344,7 +344,18 @@ fn offered_tools() -> Vec<Offered> {
             "Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since.",
         ),
         offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
-        offered::<pad::PadName>("pad.delete", "Delete a Pad."),
+        offered::<pad::DeleteParams>(
+            "pad.delete",
+            "Delete a Pad, retaining its original creation for restoration.",
+        ),
+        offered::<pad::GetDeletionParams>(
+            "pad.getDeletion",
+            "Reconcile an unknown Pad deletion on its originating Project.",
+        ),
+        offered::<pad::DeletionId>(
+            "pad.restore",
+            "Restore your retained Pad deletion once, without replaying external effects.",
+        ),
         offered::<message::ProgressParams>(
             "message.progress",
             "Inspect retained instructions, reports, acceptance and declared verification without starting work.",
@@ -606,7 +617,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     match method {
         "todo.delete" => format!("deleted Todo {id}"),
         "deliverable.remove" => format!("removed publication {id}"),
-        "pad.delete" => format!("deleted Pad {}", field("name")),
         "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),
         "pad.setStorage" => format!(
             "{} Pad files",

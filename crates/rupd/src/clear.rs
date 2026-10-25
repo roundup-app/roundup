@@ -484,7 +484,11 @@ impl Daemon {
                 .await?;
             self.pads.delete(
                 &self.ctx(Actor::user()),
-                contracts::pad::PadName { name: pad.name },
+                contracts::pad::DeleteParams {
+                    name: pad.name,
+                    operation: None,
+                    expected_incarnation: Some(pad.incarnation),
+                },
                 pads::PadDeletion::Cleanup,
             )?;
         }

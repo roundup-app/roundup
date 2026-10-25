@@ -99,7 +99,8 @@ const answerDelete = async (accepted: boolean) => {
 };
 
 it("p3557b_delete_failed_pad_clears_its_line", async () => {
-  const { app, state, connected } = await failedSave();
+  const { app, connected } = await failedSave();
+  const remove = app.handlers["pad.delete"];
   await openPad("other");
   await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
@@ -114,9 +115,8 @@ it("p3557b_delete_failed_pad_clears_its_line", async () => {
   await answerDelete(true);
   await screen.findByText("deletion refused");
   expect(screen.getByText("cannot save failed")).toBeDefined();
-  app.handlers["pad.delete"] = () => { state.pads = [];
 
- return null; };
+  if (remove) app.handlers["pad.delete"] = remove;
 
   await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());

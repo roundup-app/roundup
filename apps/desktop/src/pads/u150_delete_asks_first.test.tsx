@@ -43,12 +43,7 @@ describe("u150 delete asks first (Pad)", () => {
   });
 
   it("u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line", async () => {
-    const { app, state, connected } = await openShelf([padOf("notes", USER, "a")]);
-    app.handlers["pad.delete"] = () => {
-      state.pads = [];
-
-      return null;
-    };
+    const { app, connected } = await openShelf([padOf("notes", USER, "a")]);
 
     await openPad("notes");
     await ask();
