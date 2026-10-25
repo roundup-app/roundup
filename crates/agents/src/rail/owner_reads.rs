@@ -1,5 +1,5 @@
 //! Schema-only read leases for Terminal ownership queries.
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -7,17 +7,38 @@ use std::sync::{
 
 use rusqlite::Connection;
 
+// R3696c: unused Projects must not pay for a Terminal-owner thread at startup.
+pub(super) struct OwnerReads {
+    path: PathBuf,
+    worker: Option<Worker>,
+}
+
+impl OwnerReads {
+    pub(super) fn open(path: &Path) -> Self {
+        Self {
+            path: path.to_owned(),
+            worker: None,
+        }
+    }
+
+    pub(super) fn wake(&mut self) {
+        self.worker
+            .get_or_insert_with(|| Worker::open(&self.path))
+            .wake();
+    }
+}
+
 // R16 attribution (#1901, r16/owner-transaction): a fresh WAL reader's lock/unlock
 // syscalls dominate the owner step. A schema-only peer lets SQLite share its local
 // read lock. It must never supply owner facts: the authoritative query stays fresh.
-pub(super) struct OwnerReads {
+struct Worker {
     wake: Option<std::sync::mpsc::SyncSender<()>>,
     pending: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
-impl OwnerReads {
-    pub(super) fn open(path: &Path) -> Self {
+impl Worker {
+    fn open(path: &Path) -> Self {
         let (wake, receive) = std::sync::mpsc::sync_channel(1);
         let pending = Arc::new(AtomicBool::new(false));
         let peer_pending = Arc::clone(&pending);
@@ -43,7 +64,7 @@ impl OwnerReads {
         }
     }
 
-    pub(super) fn wake(&self) {
+    fn wake(&self) {
         // R16 attribution (#1913): each unnecessary channel submission costs
         // 130–160 ns in the release Daemon. A pending attempt needs no further input.
         // This flag carries no owner facts and never renews the peer's deadline.
@@ -101,7 +122,7 @@ fn read_leases(
     }
 }
 
-impl Drop for OwnerReads {
+impl Drop for Worker {
     fn drop(&mut self) {
         self.wake.take();
         if let Some(thread) = self.thread.take()
