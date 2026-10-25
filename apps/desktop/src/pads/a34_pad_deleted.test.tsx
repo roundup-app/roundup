@@ -250,7 +250,8 @@ it("p3557b_failed_whitespace_save_restores_exact_editor_input", async () => {
   fireEvent.focusOut(original);
   await screen.findByText("cannot store spaces");
   connected.drawer.close("key");
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  await waitFor(() => expect(original.isConnected).toBe(false));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   const writes = app.calls.filter(call => call.method === "pad.write").length;
   const restored = await openPad("spaces");
   expect(restored.value).toBe("  ");
