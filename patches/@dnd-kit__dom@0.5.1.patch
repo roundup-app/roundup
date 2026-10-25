@@ -1,7 +1,16 @@
 diff --git a/index.cjs b/index.cjs
-index 894eb14701b4c7939439cf07a178808146ded825..cb4893b8008a108754a5a8dd97a051d99543c831 100644
+index 894eb14701b4c7939439cf07a178808146ded825..7b9ca2d9acb02fe2a88c5e517239c35ebf2805e8 100644
 --- a/index.cjs
 +++ b/index.cjs
+@@ -149,7 +149,7 @@ function createLiveRegion(id) {
+   element.style.setProperty("position", "fixed");
+   element.style.setProperty("width", "1px");
+   element.style.setProperty("height", "1px");
+-  element.style.setProperty("margin", "-1px");
++  element.style.setProperty("margin", "0");
+   element.style.setProperty("border", "0");
+   element.style.setProperty("padding", "0");
+   element.style.setProperty("overflow", "hidden");
 @@ -649,8 +649,8 @@ var CSS_RULES = `
        color: inherit;
  
@@ -14,9 +23,18 @@ index 894eb14701b4c7939439cf07a178808146ded825..cb4893b8008a108754a5a8dd97a051d9
      }
    }
 diff --git a/index.js b/index.js
-index 5641c3c3407dc82356b05f566f286bbf0d9b2892..6909de9d8ff3056da29ac6f2ea928c6bb505b738 100644
+index 5641c3c3407dc82356b05f566f286bbf0d9b2892..f5485e06bde6a14fd79b2c5fff57a27943764518 100644
 --- a/index.js
 +++ b/index.js
+@@ -148,7 +148,7 @@ function createLiveRegion(id) {
+   element.style.setProperty("position", "fixed");
+   element.style.setProperty("width", "1px");
+   element.style.setProperty("height", "1px");
+-  element.style.setProperty("margin", "-1px");
++  element.style.setProperty("margin", "0");
+   element.style.setProperty("border", "0");
+   element.style.setProperty("padding", "0");
+   element.style.setProperty("overflow", "hidden");
 @@ -648,8 +648,8 @@ var CSS_RULES = `
        color: inherit;
  

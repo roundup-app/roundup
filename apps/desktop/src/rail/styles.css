@@ -235,7 +235,7 @@
 }
 
 .rail-tree .sortable-slot {
-  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, 0px) + var(--rail-inset));
+  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, var(--length-zero)) + var(--rail-inset));
 }
 
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
@@ -426,7 +426,7 @@
   container-name: rail;
 }
 
-@container rail (width <= 252px) {
+@container rail (width <= query-token(--query-rail-actions)) {
   .rail > .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
     scrollbar-width: none;
@@ -456,7 +456,7 @@
   gap: 0;
 }
 
-@container rail (width < 220px) {
+@container rail (width < query-token(--query-rail-compact)) {
   .rail-row[data-near="true"] .door-action {
     display: none;
   }
@@ -472,7 +472,7 @@
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
-@container rail (width <= 360px) {
+@container rail (width <= query-token(--query-rail-detail)) {
   [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
     position: absolute;
     right: 0;
@@ -543,7 +543,7 @@
 }
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
-@container rail (width < 220px) {
+@container rail (width < query-token(--query-rail-compact)) {
   .rail-tree .app-tree .rail-row,
   .rail-fold,
   .rail-leaf {
@@ -669,18 +669,18 @@
   white-space: nowrap;
 }
 /* Drop optional detail before squeezing the Agent's readable name. */
-@container rail (width <= 360px) {
+@container rail (width <= query-token(--query-rail-detail)) {
   .worktree-chip[data-state="pr"] {
     display: none;
   }
 }
-@container (width < 12rem) {
+@container (width < query-token(--query-name-compact)) {
   .worktree-stale,
   .worktree-chip[data-state="ahead"] {
     display: none;
   }
 }
-@container (width < 6rem) {
+@container (width < query-token(--query-name-minimal)) {
   .worktree-chips {
     display: none;
   }

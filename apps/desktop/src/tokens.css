@@ -110,6 +110,11 @@
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-instant: 0s;
+  --query-rail-actions: 252px;
+  --query-rail-compact: 220px;
+  --query-rail-detail: 360px;
+  --query-name-compact: 12rem;
+  --query-name-minimal: 6rem;
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;
@@ -428,4 +433,24 @@ button, file-tree-container, diffs-container {
   border: 0;
   border-radius: var(--radius-drawer);
   box-shadow: var(--elevation);
+}
+
+/* Preference values flow through every consumer, including library props. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-drawer: 0s;
+    --duration-crossfade: 0s;
+    --duration-todo: 0s;
+    --duration-tick: 0s;
+    --delay-tick: 0s;
+    --duration-ring: 0s;
+    --duration-strike: 0s;
+    --delay-strike: 0s;
+    --duration-bar: 0s;
+    --duration-count: 0s;
+    --duration-toast: 0s;
+    --duration-toast-in: 0s;
+    --duration-fold: 0s;
+    --duration-scrollbar: 0s;
+  }
 }

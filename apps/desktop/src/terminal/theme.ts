@@ -17,6 +17,9 @@ export const terminalThemeFor = (): TerminalTheme => {
 
   return {
     background: value("background"), foreground: value("foreground"),
+    scrollbarSliderBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
+    scrollbarSliderHoverBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
+    scrollbarSliderActiveBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
     cursor: value("cursor"), cursorAccent: value("cursor-text"),
     selectionBackground: value("selection"), selectionForeground: value("selection-text"),
     selectionInactiveBackground: value("selection"),

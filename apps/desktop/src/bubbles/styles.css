@@ -53,7 +53,7 @@
 
 /* The library's open state is the only display rule; the popover is shown in the same turn. */
 .bubble-frame[data-state="open"] {
-  display: block !important;
+  display: block;
 }
 
 .bubble {
@@ -307,4 +307,10 @@
 .bubble-recovery.draft-recovery [data-part="title"] {
   font-size: var(--text-title);
   font-weight: 600;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root:has(.bubble:focus-within) .centre-stack::before {
+    backdrop-filter: none;
+  }
 }

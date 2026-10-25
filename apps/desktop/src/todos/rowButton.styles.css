@@ -129,32 +129,38 @@
 @keyframes todo-strike-grow { from { background-size: 0 var(--strike-thickness); } to { background-size: 100% var(--strike-thickness); } }
 @keyframes todo-strike-clear { from { background-size: 100% var(--strike-thickness); } to { background-size: 0 var(--strike-thickness); } }
 
-.todo-row[data-motion="play"] .todo-tick::before {
-  animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-motion="play"] .todo-tick::before {
+    animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+  }
 }
 
-.todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
-  animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
+    animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+  }
 }
 
 .todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark {
   stroke: var(--text);
 }
 
-.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
-  animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
+    animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
+  }
 }
 
-.todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
-  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
+    animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+  }
 }
 
-.todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
-  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .todo-strike::after { animation-name: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
+    animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+  }
 }
 
 .todo-tick:disabled { cursor: default; }
@@ -328,12 +334,10 @@
 /* U3770: the count rolls in when a finish replaces it; a mounted count carries no animation. */
 @keyframes todo-count-roll { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: none; } }
 
-.app-progress[data-motion="play"] .todo-progress-count {
-  animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .todo-progress-count { animation-name: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .app-progress[data-motion="play"] .todo-progress-count {
+    animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
+  }
 }
 
 /* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
@@ -351,9 +355,7 @@
 }
 .todo-list .todo-dependency > [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
 .todo-group-content { min-height: 0; overflow: hidden; }
-@media (prefers-reduced-motion: reduce) {
-  .todo-list .todo-dependency > [data-part="branch-content"] { transition-duration: var(--duration-instant) !important; }
-}
+
 .todo-row .row-head > [data-group-toggle] {
   position: absolute;
   z-index: 1;
@@ -371,11 +373,15 @@
 .todo-row-button .todo-now { flex: none; }
 .todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
 
-.todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
-  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
+    animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+  }
 }
-.todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
-  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+@media (prefers-reduced-motion: no-preference) {
+  .todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
+    animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+  }
 }
 
 .row-controls {
