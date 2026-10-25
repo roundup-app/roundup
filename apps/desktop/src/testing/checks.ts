@@ -542,25 +542,30 @@ const d9 = (page: Page): Measure => {
 
   return offender(page, (el, style) => {
     const steps = el.closest(".todo-row, .todo-progress") ? TODO_MOTION_SECONDS : MOTION_SECONDS;
+
     const permitted = (duration: number, fade: boolean) => duration === 0 || (reduced
       ? fade && Math.abs(duration - 0.15) <= 0.15 * 0.25
       : steps.some(step => Math.abs(duration - step) <= step * 0.25));
+
     const animations = el.getAnimations?.() ?? [];
+
     const opacityOnly = (animation: Animation) => animation.effect instanceof KeyframeEffect
       && animation.effect.getKeyframes().every(frame => Object.keys(frame).every(key => ["opacity", "offset", "computedOffset", "easing", "composite"].includes(key)));
 
     for (const animation of animations) {
       const duration = animation.effect?.getTiming().duration;
 
-      if (typeof duration === "number" && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
+      if (duration !== undefined && duration !== "auto" && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
     }
 
     const transitionFade = style.transitionProperty.split(",").every(property => property.trim() === "opacity");
     const animationFade = animations.length > 0 && animations.every(opacityOnly);
+
     const declared = [
       ...seconds(style.transitionDuration).map(duration => ({ duration, fade: transitionFade })),
       ...seconds(style.animationDuration).map(duration => ({ duration, fade: animationFade })),
     ];
+
     const bad = declared.find(({ duration, fade }) => !Number.isNaN(duration) && !permitted(duration, fade));
 
     return bad === undefined ? null : { duration: bad.duration, reduced };
