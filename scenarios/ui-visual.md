@@ -14,17 +14,17 @@ Policy: this section specifies the next implementation; it does not claim the ch
 
 The Issue’s D4/D7/D8/D9/D10 names extend existing Checks; they never erase their previous duties. Each Check still returns one U137 result, failing if either its old or new clauses fail. These are the existing anchors on main:
 
-| Check | Existing duty retained | Main anchor |
-| --- | --- | --- |
-| D1 | Token ownership | `apps/desktop/src/testing/checks.ts`, `d1` |
-| D2 | Type and space steps | `apps/desktop/src/testing/checks.ts`, `d2` |
-| D4 | Kind Glyphs, never colour alone | `apps/desktop/src/testing/checks.ts`, `d4` |
-| D5 | Text and Glyph contrast | `apps/desktop/src/testing/checks.ts`, `d5` |
-| D6 | Reachability, hover, hit targets; no focus ring | `apps/desktop/src/testing/checks.ts`, `d6` |
-| D7 | No new pressed background | `apps/desktop/src/testing/checks.ts`, `d7` |
-| D8 | Hairlines, allowed elevation, no nested filters | `apps/desktop/src/testing/checks.ts`, `d8` |
-| D9 | Duration membership and reduced motion | `apps/desktop/src/testing/checks.ts`, `d9` |
-| D10 | Aggregate of D1–D9 and scheme/preferences | `apps/desktop/src/testing/checks.ts`, `runChecks` |
+| Check | Existing duty retained | Added duty in this specification | Main anchor |
+| --- | --- | --- | --- |
+| D1 | Token ownership | — | `apps/desktop/src/testing/checks.ts`, `d1` |
+| D2 | Type and space steps | — | `apps/desktop/src/testing/checks.ts`, `d2` |
+| D4 | Kind Glyphs, never colour alone | First-frame Token press feedback | `apps/desktop/src/testing/checks.ts`, `d4` |
+| D5 | Text and Glyph contrast | — | `apps/desktop/src/testing/checks.ts`, `d5` |
+| D6 | Reachability, hover, hit targets; no focus ring | — | `apps/desktop/src/testing/checks.ts`, `d6` |
+| D7 | No new pressed background | One selection/focus/drag cue | `apps/desktop/src/testing/checks.ts`, `d7` |
+| D8 | Hairlines, allowed elevation, no nested filters | Shared row inset and baseline | `apps/desktop/src/testing/checks.ts`, `d8` |
+| D9 | Duration membership and reduced motion | Strict style lint | `apps/desktop/src/testing/checks.ts`, `d9` |
+| D10 | Aggregate of D1–D9 and scheme/preferences | Elevation, palette and native material | `apps/desktop/src/testing/checks.ts`, `runChecks` |
 
 Policy: U132’s Kind clause and U135’s preferences remain mandatory. No focus ring is introduced by this pass. U134’s new ring is on floating surfaces, never a control or focus indicator. The native Rail/Shelf material is a scoped exception to the opaque region rule; floating panels and Terminal output stay opaque. No shader or WebGL background is permitted; xterm’s existing glyph renderer is not a background.
 
