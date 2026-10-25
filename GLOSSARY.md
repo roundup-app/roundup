@@ -879,3 +879,6 @@ A user-requested system confirmation containing its title, complete consequences
 
 **Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
 The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
+
+**Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
+The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
