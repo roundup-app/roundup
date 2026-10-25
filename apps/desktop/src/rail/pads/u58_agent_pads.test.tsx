@@ -115,7 +115,7 @@ describe("u58 an Agent's Pads under it", () => {
     expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
       { method: "pad.setOwner", params: { name: "notes", owner: USER } },
     ]);
-    expect(control(rowOf("auth"))).toBeNull();
+    await waitFor(() => expect(control(rowOf("auth"))).toBeNull());
   });
 
   it("u58_the_rail_and_the_shelf_share_one_pad_list", async () => {

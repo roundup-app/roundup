@@ -23,8 +23,11 @@ const todoItem = (id: number) => `todo:${id}`;
 const padItem = (name: string) => `pad:${name}`;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, push: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settle: (item: string) => void): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
+  const owned = (item: string) => JSON.stringify([connected.project.path, item]);
+  const settle = (item: string) => settleItem(owned(item));
+  const push = (candidate: Candidate) => pushCandidate({ ...candidate, key: owned(candidate.key), item: owned(candidate.item), project: connected.project.path });
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
   const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (node.status ? [[node.id, node.status.kind] as const] : [])));
 

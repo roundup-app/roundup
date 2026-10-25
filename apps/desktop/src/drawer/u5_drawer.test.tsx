@@ -206,6 +206,34 @@ describe("u5 Drawer and last touch", () => {
     expect(screen.getByText(/^Last/).textContent).toBe("Last  a wrote 09:00");
   });
 
+  it("u3791c_rejected_actions_reach_their_owner_drawer", async () => {
+    const app = createFakeApp();
+    app.handlers["todo.get"] = () => TODO;
+    const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+    render(() => <ConnectedProjectContext.Provider value={connected}>
+      <ItemDrawer item="todo:3" read={() => connected.app.rpc("todo.get", { id: 3 })} touchedBy={event => event.name === "pad.changed"}>
+        {todo => <textarea aria-label="Retained input" value={todo.title} />}
+      </ItemDrawer>
+    </ConnectedProjectContext.Provider>);
+    const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Retained input" });
+    fireEvent.input(field, { target: { value: "  exact draft 😀\n " } });
+    field.focus();
+    let calls = 0;
+    app.handlers["provenance.history"] = () => { calls++; throw new Error("read unavailable"); };
+
+    app.emit({ name: "pad.changed", actor: AGENT, data: { name: "n" } });
+    await screen.findByRole("alert");
+    expect(calls).toBe(2);
+    expect(field.value).toBe("  exact draft 😀\n ");
+    expect(document.activeElement).toBe(field);
+    app.handlers["provenance.history"] = () => [];
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(field.value).toBe("  exact draft 😀\n ");
+    expect(app.calls.filter(call => call.method === "todo.get")).toHaveLength(1);
+    connected.stopTerminalScheme();
+  });
+
   it("u5_a_failed_read_shows_its_message_in_the_drawer_and_keeps_the_window", async () => {
     const app = createFakeApp();
     app.handlers["todo.get"] = () => Promise.reject(new RpcError(-32001, "no todo 3"));
