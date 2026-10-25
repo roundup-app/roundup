@@ -1,3 +1,5 @@
+import { storageProblems } from "./state/storage";
+import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { applyAppAppearance } from "./settings/preferences";
@@ -443,6 +445,11 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="storage-center">
+          <For each={storageProblems()}>{problem => <div class="storage-failure" role="alert">
+            <p>Could not retain saved work · {problem.key}: {problem.cause}</p>
+            <button data-button="quiet" type="button" onClick={() => void problem.retry()}>Retry saving</button>
+          </div>}</For>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
@@ -470,6 +477,7 @@ export const App = (props: {
           </Show>
           </div>
           <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
           </div>
         }
         shelf={

@@ -36,10 +36,10 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
 
   const valid = () => text().trim() !== "" && start() !== "" && end() !== "" && Number.isInteger(Number(start())) && Number.isInteger(Number(end())) && Number(start()) >= 1 && Number(end()) >= Number(start()) && Number(end()) <= lines().length && (replacing !== undefined || props.notes.list(props.id).length < 200);
 
-  return <form class="note-form" aria-label={copy.lineNote} onSubmit={event => {
+  return <form class="note-form" aria-label={copy.lineNote} onSubmit={async event => {
     event.preventDefault();
 
-    if (valid() && props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision)) props.close();
+    if (valid() && await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision)) props.close();
   }}>
     <Tabs.Root value={side()} onValueChange={({ value }) => { setSide(value === "old" ? "old" : "new"); persist(); }}>
       <Tabs.List aria-label={copy.noteSide}><Tabs.Trigger value="old">{copy.oldSide}</Tabs.Trigger><Tabs.Trigger value="new">{copy.newSide}</Tabs.Trigger></Tabs.List>

@@ -232,7 +232,9 @@ export const EditableText = (props: {
         return;
       }
 
-      if (!connected.drafts.submit(draft.revision)) {
+      const submittedValue = element.value;
+
+      if (!(await connected.drafts.submit(draft.revision))) {
         setFailure(copy.draftStatus[draft.status]);
         left = false;
 
@@ -242,7 +244,7 @@ export const EditableText = (props: {
       setEditing(null);
 
       try {
-        await props.commit(element.value, started.form.expected_change);
+        await props.commit(submittedValue, started.form.expected_change);
         connected.drafts.settle(draft.revision, "acknowledged");
 
         if (alive) { setFailure(null); props.onSaved?.(); }

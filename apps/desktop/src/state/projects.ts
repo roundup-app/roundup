@@ -4,7 +4,7 @@ import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
 import { outcomeOf, retryRead, RpcError } from "../app/seam";
 import { copy } from "../copy";
-import { storedValue } from "./storage";
+import { storageSchema, storedValue } from "./storage";
 
 /** One open Project as the strip shows it: `generation` counts reopens, so a new Daemon's connection replaces the old one whole. */
 export type OpenTab = {
@@ -49,7 +49,9 @@ export type ProjectsState = {
 };
 
 /** The open tab's path, kept in the webview's saved state beside the Rail's layout (U186). */
-const openTabStorage = () => storedValue("roundup:open-tab", v.string());
+const openTabSchema = storageSchema("roundup:open-tab", v.string());
+
+const openTabStorage = () => storedValue("roundup:open-tab", openTabSchema);
 
 const folderOf = (path: string): string => path.split("/").filter(Boolean).at(-1) ?? path;
 

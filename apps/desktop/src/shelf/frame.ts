@@ -3,7 +3,7 @@ import { batch, createComputed, createEffect, createSignal, on } from "solid-js"
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { copy } from "../copy";
-import { storedValue } from "../state/storage";
+import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
 export const SHELF_TABS = [
@@ -13,11 +13,11 @@ export const SHELF_TABS = [
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
-const frameSchema = v.object({
+const frameSchema = storageSchema("roundup:shelf", v.object({
   maximised: v.optional(v.boolean(), false),
   open: v.optional(v.boolean(), true),
   tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
-});
+}));
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
 const storageOf = (path: string) => storedValue(`roundup:shelf:${path}`, frameSchema);

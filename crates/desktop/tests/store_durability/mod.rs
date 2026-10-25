@@ -358,3 +358,66 @@ pub fn u3787f_failed_migration_keeps_recovery_native_readback() {
     assert_eq!(store.get("draft").unwrap()["revision"], 8);
     assert_eq!(fs::read(dir.path().join("legacy.json")).unwrap(), LEGACY);
 }
+
+pub fn u3787f_store_migrates_all_key_families_native_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path();
+    let records = json!({
+        "roundup:open-tab": {"version":1,"value":"/original/雪"},
+        "roundup:unseen:/original/雪": {"version":1,"value":{"agent-original":"12345678901234567890"}},
+        "roundup:drafts:/original/雪": {"version":1,"value":{"version":1,"drafts":[{
+            "revision":"original-revision",
+            "destination":{"surface":"ask","object":"original-question","recipient":"original-agent"},
+            "value":{"text":" e\u{301}\n雪 😀 "},
+            "selection":{"start":1,"end":3,"direction":"backward"},
+            "status":"pending","policy":"ordinary"
+        }]}},
+        "roundup:import:/original/雪": {"version":1,"value":{"open":true,"period":"week","selected":[{"source":"original-source","revision":"original-version","title":" 雪 "}]}},
+        "roundup:rail:/original/雪": {"version":1,"value":{"selected":"agent-original","collapsed":["original-home"]}},
+        "roundup:app-settings": {"version":1,"value":{"fontFamily":"Original font","mode":"dark"}},
+        "roundup:widths:/original/雪": {"version":1,"value":{"rail":301,"shelf":411}},
+        "roundup:shelf:/original/雪": {"version":1,"value":{"open":false,"maximised":true,"tab":"pads"}},
+        "roundup:terminal-font:/original/雪": {"version":1,"value":17}
+    });
+    {
+        let app = test_app(path);
+        let store = app
+            .store_builder("work.json")
+            .disable_auto_save()
+            .build()
+            .unwrap();
+        for (key, value) in records.as_object().unwrap() {
+            store.set(key, value.clone());
+        }
+        store.save().unwrap();
+    }
+    // A new App and store, not a read of the writer's plugin cache.
+    {
+        let app = test_app(path);
+        let store = app
+            .store_builder("work.json")
+            .disable_auto_save()
+            .build()
+            .unwrap();
+        for (key, value) in records.as_object().unwrap() {
+            assert_eq!(store.get(key), Some(value.clone()));
+        }
+        // Tombstones must survive reopen too: old legacy values cannot revive a clear.
+        store.set("roundup:open-tab", json!({"version":1,"removed":true}));
+        store.save().unwrap();
+    }
+    let app = test_app(path);
+    let store = app
+        .store_builder("work.json")
+        .disable_auto_save()
+        .build()
+        .unwrap();
+    assert_eq!(
+        store.get("roundup:open-tab"),
+        Some(json!({"version":1,"removed":true}))
+    );
+    assert_eq!(
+        store.get("roundup:drafts:/original/雪"),
+        Some(records["roundup:drafts:/original/雪"].clone())
+    );
+}

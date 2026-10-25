@@ -62,7 +62,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       return;
     }
 
-    const submitted = drafts.submit(snapshot.revision);
+    const submitted = (await drafts.submit(snapshot.revision));
 
     if (!submitted) return;
 

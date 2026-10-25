@@ -610,13 +610,13 @@ describe("u2773 Project draft integration on real Projects", () => {
     // This native seam ends the original real Daemon; the App removes its Connection.
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
-    await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
+    await waitFor(async () => expect((await app.projects()).some(project => project.path === first.dir)).toBe(false));
     expect(drafts(first.dir)).toBe(header);
     expect(header.list()).toEqual([saved, headerSaved]);
 
     if (kind === "surface") {
       expect(header.problem()).toEqual({ project: first.dir, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
-      expect(header.retry()?.operation).toBe("restore");
+      expect((await header.retry())?.operation).toBe("restore");
       expect(localStorage.getItem(key)).toBe(bytes);
     }
 
