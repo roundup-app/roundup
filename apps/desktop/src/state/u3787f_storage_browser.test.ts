@@ -56,7 +56,7 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
           const settings = await import('/src/settings/preferences.ts');
           await settings.saveAppSettings({ fontFamily: 'Original font 雪' });
         })()`);
-        await lane.browser("click", ".rail-row[data-id='agent-3']");
+        await lane.browser("click", "[data-todo-root]");
         await lane.until("(async () => (await import('/src/state/storage.ts')).storageProblems().length >= 2)()");
         await lane.until("!!document.querySelector('.storage-failure [data-button]')");
         expect(await lane.evaluate<boolean>("document.querySelector('.storage-failure [role=alert]').getAttribute('aria-label').includes(window.__failureCause)")).toBe(true);
