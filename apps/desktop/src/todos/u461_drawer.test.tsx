@@ -65,7 +65,7 @@ it("u461_delete_failure_is_retryable", async () => {
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
   await screen.findByText("Delete failed");
-  app.handlers["todo.delete"] = () => null;
+  app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
   await questionDialog();
   await answerQuestion(true);

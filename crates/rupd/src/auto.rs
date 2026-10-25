@@ -60,7 +60,8 @@ impl Daemon {
         params: Value,
     ) -> Result<Value, RpcError> {
         self.auto.start(|| self.reader());
-        let observes = method.starts_with("todo.")
+        let observes = (method.starts_with("todo.")
+            && !matches!(method, "todo.restore" | "todo.deletion"))
             || method.starts_with("workstream.")
             || matches!(
                 method,

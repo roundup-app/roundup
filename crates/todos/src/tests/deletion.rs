@@ -1,0 +1,292 @@
+use super::*;
+
+#[tokio::test]
+async fn u3787a_undo_restores_original_graph() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    h.call_as(
+        agent("maker"),
+        "todo.create",
+        json!({"title":"first", "body":"retained", "owner":agent("worker"), "estimate_minutes":17}),
+    )
+    .await
+    .unwrap();
+    h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+        .await
+        .unwrap();
+    made(&h, json!({"title":"dependent", "blockers":[1]})).await;
+    h.call("todo.move", json!({"id":1,"home":"a"}))
+        .await
+        .unwrap();
+    h.call("todo.move", json!({"id":2,"home":"b"}))
+        .await
+        .unwrap();
+    h.call("todo.comment", json!({"id":1,"body":"keep me"}))
+        .await
+        .unwrap();
+    h.call(
+        "todo.addRef",
+        json!({"id":1,"url":"roundup://pad/retained?project=k#Section"}),
+    )
+    .await
+    .unwrap();
+    let before = h.call("todo.list", Value::Null).await.unwrap();
+    let history = changes(&h, 1).await;
+    let comments = h.call("todo.comments", json!({"id":1})).await.unwrap();
+    h.call("todo.delete", json!({"operation":"chosen","ids":[1]}))
+        .await
+        .unwrap();
+    h.call("todo.restore", json!({"operation":"chosen"}))
+        .await
+        .unwrap();
+    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), before);
+    assert_eq!(changes(&h, 1).await, history);
+    assert!(
+        h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+            .await
+            .unwrap()
+            .is_null()
+    );
+    assert_eq!(
+        h.call("todo.comments", json!({"id":1})).await.unwrap(),
+        comments
+    );
+}
+
+#[tokio::test]
+async fn u3787a_replay_reconciles_only_the_successful_chosen_subset() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::new(dir.path());
+    for title in ["chosen", "unchosen"] {
+        made(&h, json!({"title":title})).await;
+    }
+    h.events();
+    let request = json!({"operation":"bulk", "ids":[1,3,1]});
+    let first = h.call("todo.delete", request.clone()).await.unwrap();
+    made(&h, json!({"title":"arrival"})).await;
+    h.events();
+    assert_eq!(
+        h.call("todo.deletion", json!({"operation":"bulk"}))
+            .await
+            .unwrap(),
+        first
+    );
+    assert_eq!(h.call("todo.delete", request.clone()).await.unwrap(), first);
+    assert!(h.events().is_empty());
+    assert_eq!(first["deleted"], json!([1]));
+    assert_eq!(first["missing"], json!([3]));
+    h.call("todo.restore", json!({"operation":"bulk"}))
+        .await
+        .unwrap();
+    h.events();
+    assert_eq!(
+        h.call("todo.delete", request).await.unwrap()["state"],
+        "restored"
+    );
+    h.call("todo.restore", json!({"operation":"bulk"}))
+        .await
+        .unwrap();
+    assert!(h.events().is_empty());
+    assert_eq!(
+        h.call("todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
+#[tokio::test]
+async fn u3787a_transaction_refusal_retains_nothing_and_deletes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    made(&h, json!({"title":"chosen"})).await;
+    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    db.pragma_update(None, "foreign_keys", true).unwrap();
+    let tx = db.transaction().unwrap();
+    Todos::delete_in(
+        &tx,
+        &Actor::user(),
+        &contracts::todo::DeleteParams {
+            operation: "coordinated".into(),
+            ids: vec![1],
+        },
+        0,
+    )
+    .unwrap();
+    tx.rollback().unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "chosen"
+    );
+    assert!(
+        h.call("todo.deletion", json!({"operation":"coordinated"}))
+            .await
+            .unwrap()
+            .is_null()
+    );
+}
+
+#[tokio::test]
+async fn u3787a_restore_collision_keeps_the_operation_retryable() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    made(&h, json!({"title":"original"})).await;
+    h.call("todo.delete", json!({"operation":"collision", "ids":[1]}))
+        .await
+        .unwrap();
+    // An external identity collision is the input this acceptance clause explicitly names.
+    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    db.execute(
+        "INSERT INTO todos(id,title,body,created_at) VALUES(1,'collision','',0)",
+        [],
+    )
+    .unwrap();
+    assert_eq!(
+        h.call("todo.restore", json!({"operation":"collision"}))
+            .await
+            .unwrap_err()
+            .code,
+        code::CONFLICT
+    );
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "collision"
+    );
+    assert_eq!(
+        h.call("todo.deletion", json!({"operation":"collision"}))
+            .await
+            .unwrap()["state"],
+        "deleted"
+    );
+    db.execute("DELETE FROM todos WHERE id=1", []).unwrap();
+    h.call("todo.restore", json!({"operation":"collision"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "original"
+    );
+}
+
+#[tokio::test]
+async fn u3787a_retained_operation_authority_refuses_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    made(&h, json!({"title":"original"})).await;
+    h.call("todo.delete", json!({"operation":"authority", "ids":[1]}))
+        .await
+        .unwrap();
+    for method in ["todo.restore", "todo.deletion", "todo.delete"] {
+        let params = if method == "todo.delete" {
+            json!({"operation":"authority", "ids":[1]})
+        } else {
+            json!({"operation":"authority"})
+        };
+        assert_eq!(
+            h.call_as(agent("other"), method, params)
+                .await
+                .unwrap_err()
+                .code,
+            code::FORBIDDEN
+        );
+    }
+    assert_eq!(
+        h.call(
+            "todo.restore",
+            json!({"operation":"authority","todos":[{"id":1,"title":"forged"}]})
+        )
+        .await
+        .unwrap_err()
+        .code,
+        code::INVALID_PARAMS
+    );
+    assert_eq!(
+        h.call("todo.delete", json!({"operation":"authority", "ids":[2]}))
+            .await
+            .unwrap_err()
+            .code,
+        code::CONFLICT
+    );
+    h.call("todo.restore", json!({"operation":"authority"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "original"
+    );
+}
+
+#[tokio::test]
+async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    for title in ["first", "second"] {
+        made(&h, json!({"title":title})).await;
+    }
+    let before = h.call("todo.list", Value::Null).await.unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER refuse_delete BEFORE DELETE ON todos WHEN OLD.id=2 BEGIN SELECT RAISE(ABORT,'refused'); END;").unwrap();
+    assert!(
+        h.call("todo.delete", json!({"operation":"refused", "ids":[1,2]}))
+            .await
+            .is_err()
+    );
+    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), before);
+    assert!(
+        h.call("todo.deletion", json!({"operation":"refused"}))
+            .await
+            .unwrap()
+            .is_null()
+    );
+    db.execute_batch("DROP TRIGGER refuse_delete;").unwrap();
+    assert_eq!(
+        h.call("todo.delete", json!({"operation":"refused", "ids":[1,2]}))
+            .await
+            .unwrap()["deleted"],
+        json!([1, 2])
+    );
+}
+
+#[tokio::test]
+async fn u3787a_coordinated_restore_refusal_rolls_back_every_participant() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    for title in ["survivor", "chosen"] {
+        made(&h, json!({"title":title})).await;
+    }
+    h.call(
+        "todo.delete",
+        json!({"operation":"coordinated-restore", "ids":[2]}),
+    )
+    .await
+    .unwrap();
+    let error = h
+        .todos
+        .restore_with(&Actor::user(), "coordinated-restore", 0, |tx| {
+            tx.execute("UPDATE todos SET title='coordinator change' WHERE id=1", [])
+                .map_err(RpcError::internal)?;
+            Err(RpcError::conflict("coordinator refused"))
+        })
+        .unwrap_err();
+    assert_eq!(error.code, code::CONFLICT);
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "survivor"
+    );
+    assert_eq!(
+        h.call("todo.deletion", json!({"operation":"coordinated-restore"}))
+            .await
+            .unwrap()["state"],
+        "deleted"
+    );
+    h.call("todo.restore", json!({"operation":"coordinated-restore"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":2})).await.unwrap()["title"],
+        "chosen"
+    );
+}

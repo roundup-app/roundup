@@ -790,20 +790,20 @@
     "kind": "reference"
   },
   "crates/perf/src/app.rs": {
-    "cleanup": "launch::finish kills and reaps the App and its owned Daemon before the temporary data dir drops; kill_on_drop covers early errors.",
-    "data": "R24 idle run sets an absolute temporary ROUNDUP_DATA_DIR for the App and resets it in the rupd wrapper script.",
+    "cleanup": "app::run sends success and failure through launch::finish, which stops the App and its owned descendants before closing the TempDir; cleanup failure retains the directory.",
+    "data": "Owns an absolute TempDir data path and isolated HOME/XDG_DATA_HOME; sets ROUNDUP_DATA_DIR on the App and resets it in the executable Daemon wrapper.",
     "issue": 1557,
     "kind": "indirect",
     "sha256": "6ae6c071698605e72b50a55942a31c87f3e3e89def4c6dd0f204a085f8d50d5b"
   },
   "crates/perf/src/idle_native.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Names rupd only to find and judge the owned process tree; launches delegate to crates/perf/src/app.rs.",
+    "cleanup": "Only observes executable hashes and the owned App process inventory; launch and cleanup belong to app::run and launch::finish.",
+    "data": "References the Daemon executable and PID for native accounting; does not launch a Daemon.",
     "kind": "reference"
   },
   "crates/perf/tests/r24.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Names rupd only to find and judge the owned process tree; launches delegate to crates/perf/src/app.rs.",
+    "cleanup": "Uses synthetic process/accounting rows; authorization guards refuse native execution before any App or Daemon launch.",
+    "data": "Daemon names are synthetic report fixtures; no built-Daemon launch.",
     "kind": "reference"
   }
 }

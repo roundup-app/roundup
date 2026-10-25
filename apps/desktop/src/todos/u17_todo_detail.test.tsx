@@ -300,10 +300,10 @@ describe("u17 Todo detail", () => {
 
   it("u17_deleting_your_own_todo_while_the_drawer_slides_out_shows_no_deleted_message", async () => {
     const { app, store } = await openDrawerOf(/#5/, shelf(), false);
-    app.handlers["todo.delete"] = async () => {
+    app.handlers["todo.delete"] = async (params) => {
       store.todos = shelf().filter((each) => each.id !== 5);
 
-      return null;
+      return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
     };
 
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
