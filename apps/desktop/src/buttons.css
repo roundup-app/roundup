@@ -242,6 +242,14 @@ button[aria-disabled="true"] {
   color: var(--surface);
 }
 
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--text);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--button-accent-ink);
+}
+
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="icon"] {
   --button-inline: 0;
 }
