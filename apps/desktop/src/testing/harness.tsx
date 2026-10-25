@@ -1,3 +1,4 @@
+import { StorageRecovery } from "../app/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
 import { createEffect, createRoot } from "solid-js";
@@ -35,7 +36,6 @@ declare global {
   }
 }
 
-useBrowserStorage(window.localStorage);
 
 window.__question = questionProbe;
 
@@ -46,6 +46,40 @@ const root = document.getElementById("root");
 if (!root) throw new Error("harness.html has no #root element");
 
 const query = new URLSearchParams(location.search);
+
+// U4086's isolated native boundary fixture uses the official plugin JS adapter and
+// production gate. This browser-only durable map makes no native filesystem claim.
+if (query.has("storage-recovery")) {
+  let cache = new Map<string, unknown>();
+  Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
+    invoke: async (command: string, args: { key: string; value: unknown }) => {
+      if (command === "plugin:resources|close") return;
+
+      if (command === "plugin:store|load") {
+        const bytes = localStorage.getItem("u4086:store");
+        cache = new Map(bytes === null ? [] : JSON.parse(bytes));
+
+        return 1;
+      }
+
+      if (command === "plugin:store|entries") return [...cache];
+
+      if (command === "plugin:store|set") { cache.set(args.key, args.value);
+
+ return; }
+
+      if (command === "plugin:store|save") {
+        if (sessionStorage.getItem("u4086:fail")) throw new Error("disk is full. Free space and retry.");
+        localStorage.setItem("u4086:store", JSON.stringify([...cache]));
+
+        return;
+      }
+
+      throw new Error(`Unexpected isolated store command: ${command}`);
+    },
+  } });
+} else useBrowserStorage(window.localStorage);
+
 
 const mount = (app: AppSeam) => {
   const reducedMotion = createRoot(() => createReducedMotion((media) => window.matchMedia(media)));
@@ -63,7 +97,7 @@ const mount = (app: AppSeam) => {
     });
   };
 
-  render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);
@@ -78,7 +112,9 @@ const mount = (app: AppSeam) => {
     window.__terminals.set(id, emulator);
 
     return emulator;
-  }} />, root);
+  }} />;
+
+  render(() => query.has("storage-recovery") ? <StorageRecovery>{content()}</StorageRecovery> : content(), root);
 };
 
 window.__checks = () => runChecks();
