@@ -517,3 +517,25 @@ it("u3037d_timeout_keeps_selection_until_refresh_verifies_it", async () => {
     expect(app.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(0);
   } finally { vi.useRealTimers(); }
 });
+
+it("u3791b_copy_depends_on_codes_not_messages_import_outcomes_keep_revisions", async () => {
+  const app = createFakeApp();
+  const drafts = draftStorage("/typed-import");
+  app.handlers["project.importDiscover"] = () => found();
+  app.handlers["project.importCommit"] = () => ({ outcomes: [
+    { source: "s1", workstream: "w1", agent: "a1", error: null },
+    { source: "s2", workstream: null, agent: null, error: { code: -32603, message: "Refresh now", outcome: "unknown" } },
+  ] });
+  const state = createImport(app, "/typed-import", () => {}, drafts);
+  state.show();
+  await waitFor(() => expect(state.verified()).toBe(true));
+  state.choose("s1", "First", "r1", true);
+  state.choose("s2", "Second", "r2", true);
+  await state.confirm();
+  expect([...state.selected()]).toEqual([["s2", { title: "Second", revision: "r2" }]]);
+  const retained = drafts.list().find(entry => entry.status === "unknown");
+  expect(retained?.destination.object).toBe("/typed-import");
+  expect(retained?.value).toMatchObject({ sources: ["s1", "s2"], revisions: ["r1", "r2"] });
+  expect(state.failed().get("s2")).toEqual({ code: -32603, message: "Refresh now", outcome: "unknown" });
+  expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(1);
+});
