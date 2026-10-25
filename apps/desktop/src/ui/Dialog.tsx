@@ -8,7 +8,7 @@ import { createComputed, createContext, createEffect, createSignal, Show, on, un
 import { modalOutside, registerKeys } from "../keys/registry";
 import "./Dialog.css";
 
-const Ownership = createContext<{ open: Accessor<boolean>; present: Accessor<boolean>; exiting: Accessor<boolean>; animated: Accessor<boolean>; settle: () => void; element: Accessor<HTMLElement | undefined>; setElement: (element: HTMLElement) => void }>();
+const Ownership = createContext<{ open: Accessor<boolean>; present: Accessor<boolean>; exiting: Accessor<boolean>; animated: Accessor<boolean>; element: Accessor<HTMLElement | undefined>; setElement: (element: HTMLElement) => void }>();
 
 /** Whether this Solid owner belongs to a Dialog, including through Portals. */
 export const dialogOwned = (): boolean => useContext(Ownership) !== undefined;
@@ -54,7 +54,8 @@ export const Dialog = {
       if (open && !previous) opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       else if (!open && previous) finalFocus = captureFocus();
     }));
-    const lifetime = createSlideLifetime();
+    const [backdrop, setBackdrop] = createSignal<HTMLElement>();
+    const lifetime = createSlideLifetime(() => [element(), backdrop()]);
     // U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades.
     onMount(() => onCleanup(trackFocusVisible()));
     const [present, setPresent] = createSignal(requested());
@@ -77,14 +78,14 @@ export const Dialog = {
     createEffect(on(lifetime.exiting, exiting => { if (!exiting && !untrack(requested)) setPresent(false); }));
     const animated = lifetime.sliding;
 
-    return <Ownership.Provider value={{ open: requested, present, element, setElement, exiting: lifetime.exiting, animated, settle: lifetime.settle }}>
+    return <Ownership.Provider value={{ open: requested, present, element, setElement, exiting: lifetime.exiting, animated }}>
       <ArkDialog.Root lazyMount {...props} finalFocusEl={() => finalFocus.target(() => props.finalFocusEl?.() ?? (opener?.isConnected ? opener : null))} unmountOnExit={false} onRequestDismiss={event => {
         props.onRequestDismiss?.(event);
 
         // A disappearing background picker is not this Dialog’s parent, even if Ark registered it earlier.
         if (!parent || event.detail.targetLayer !== parent.element()) event.preventDefault();
       }} open={requested()} onOpenChange={details => { setLocal(details.open); props.onOpenChange?.(details); }}>
-        <Show when={present()}><Portal><ArkDialog.Backdrop class="app-dialog-backdrop" hidden={!requested() && !lifetime.exiting()} data-open={requested()} data-motion={animated() ? "fade" : undefined} onTransitionEnd={lifetime.settle} /></Portal></Show>
+        <Show when={present()}><Portal><ArkDialog.Backdrop class="app-dialog-backdrop" hidden={!requested() && !lifetime.exiting()} data-open={requested()} data-motion={animated() ? "fade" : undefined} ref={setBackdrop} /></Portal></Show>
         {props.children}
       </ArkDialog.Root>
     </Ownership.Provider>;
@@ -104,7 +105,7 @@ export const Dialog = {
     registerKeys({ kind: "layer", element: () => content, active: () => owner?.open() ?? dialog().open, modal: true }, []);
 
     return <Show when={owner ? owner.present() && (dialog().open || owner.exiting()) : dialog().open}><ArkDialog.Content {...props} hidden={!dialog().open && !owner?.exiting()} inert={!(owner?.open() ?? dialog().open)} data-open={owner?.open() ?? dialog().open} data-motion={owner?.animated() ? "fade" : undefined}
-      onTransitionEnd={event => { if (event.target === content && event.propertyName === "opacity") owner?.settle(); }} ref={(element: HTMLDivElement) => {
+      ref={(element: HTMLDivElement) => {
       content = element;
       owner?.setElement(element);
       // SAFETY: every caller passes a callback ref; Ark types the prop as the union Solid allows.
