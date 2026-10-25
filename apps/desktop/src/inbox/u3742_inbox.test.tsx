@@ -27,7 +27,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   // A comment that arrives while the Inbox is open joins it; a deleted Todo's leaves it.
   m.store.comments!.set(2, [line(2, "blocked on CI")]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 2 } });
-  await within(panel()).findByRole("button", { name: /builder commented on todo 2/ });
+  await within(panel()).findByRole("button", { name: /Comment: builder, todo 2/ });
   await m.app.rpc("todo.delete", { id: 2 });
   m.app.emit({ actor: AGENT, name: "todo.deleted", data: { id: 2 } });
   await waitFor(() => expect(within(panel()).queryByRole("button", { name: /todo 2/ })).toBeNull());
@@ -38,5 +38,5 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map((call) => call.params)).toEqual([{ id: 1 }]));
   m.connected.drawer.open(() => <Inbox />);
   await within(panel()).findByText("Nobody is waiting.");
-  expect(within(panel()).queryByRole("button", { name: /commented on/ })).toBeNull();
+  expect(within(panel()).queryByRole("button", { name: /^Comment:/ })).toBeNull();
 });

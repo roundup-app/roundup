@@ -88,7 +88,7 @@ it("u3078i_open_inspect_resume_and_reconcile", async () => {
   resume.focus();
   fireEvent.click(resume);
   await waitFor(() => expect(view.getByRole("button", { name: "Try resuming again" })).toBeTruthy());
-  expect(view.getByText(/may have reached the Daemon/)).toBeTruthy();
+  expect(view.getByText(/may have reached the Agent/)).toBeTruthy();
   expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
   const reads = app.calls.filter((call) => call.method === "message.reconcileWork").length;
   fireEvent.click(view.getByRole("button", { name: "Try resuming again" }));

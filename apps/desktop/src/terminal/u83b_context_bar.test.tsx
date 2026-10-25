@@ -35,9 +35,9 @@ describe("U83b context bar", () => {
     expect(document.querySelector(".context-live")!.textContent).toBe("System prompt: 6,000 (3%)");
     fireEvent.keyDown(buttons[0]!, { key: "ArrowRight" });
     expect(document.activeElement).toBe(buttons[1]);
-    expect(document.querySelector(".context-live")!.textContent).toContain("Tools: 18,000 tokens, 9%");
+    expect(document.querySelector(".context-live")!.textContent).toContain("Tools: 18,000 (9%)");
     fireEvent.mouseEnter(screen.getByText("Files").closest("li")!);
-    expect(document.querySelector(".context-live")!.textContent).toContain("Files: 12,000 tokens");
+    expect(document.querySelector(".context-live")!.textContent).toContain("Files: 12,000");
     expect(screen.getByText("Tools").closest("li")!.hasAttribute("data-dim")).toBe(true);
     expect(screen.getByText("Files").closest("li")!.hasAttribute("data-dim")).toBe(false);
   });
