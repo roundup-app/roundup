@@ -92,12 +92,12 @@ if (query.get("daemon") === "1") {
         cwd: `packages/${"deep-folder/".repeat(10)}destination-${index}`,
         last_activity_ms: 1_792_512_000_000n - BigInt(index * 60_000),
       })),
-      excluded: [{ source: "unavailable-conversation", reason: "Source unavailable: folder no longer exists.", title: null, last_activity_ms: 1700000000000n }],
+      excluded: [{ source: "unavailable-conversation", cause: "missingDirectory", reason: "Source unavailable: folder no longer exists.", title: null, last_activity_ms: 1700000000000n }],
     });
     controls.app.handlers["project.importCommit"] = ({ selections }) => ({
       outcomes: selections.map(({ source }, index) => index === 0
         ? { source, workstream: "backend", agent: "migrate", error: null }
-        : { source, workstream: null, agent: null, error: "Source changed. Refresh and retry." }),
+        : { source, workstream: null, agent: null, error: { code: -32003, message: "Source changed. Refresh and retry.", outcome: "failed" } }),
     });
   }
 
