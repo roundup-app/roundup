@@ -469,6 +469,7 @@ discarded and no production latency improvement is claimed.
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).
+[Rail empty-history read repair and paired measurements](perf-rail-read.md).
 
 ### R24 idle App observer
 
