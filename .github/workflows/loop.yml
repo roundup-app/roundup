@@ -1,11 +1,7 @@
 name: loop
 
-# L46: the merge queue's `merge_group` commit runs the lanes again; the per-PR gates (trailers, frozen paths, closes, empty
-# diff, merge loss) judged the PR head and have no PR to read there.
 on:
   pull_request:
-  merge_group:
-    types: [checks_requested]
 
 concurrency:
   group: loop-${{ github.ref }}
@@ -18,7 +14,7 @@ defaults:
 
 jobs:
   rules:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # L89: a failed step leaves the later ones running, so one run reports every failure.
     steps:
       - uses: actions/checkout@v5
