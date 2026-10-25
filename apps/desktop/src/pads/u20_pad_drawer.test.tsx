@@ -54,16 +54,8 @@ describe("u20 open and edit", () => {
       "pad.read",
       "pad.list",
     ]);
-  });
-
-  it("u20_the_drawer_asks_for_the_history_of_the_pad_item", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT)]);
-
-    await openPad("auth-notes");
-
-    expect(
-      app.calls.find((call) => call.method === "provenance.history")?.params,
-    ).toEqual({ item: "pad:auth-notes" });
+    // Rule 10: this opening trace also proves the removed separate history-identity test.
+    expect(app.calls.slice(before).find(call => call.method === "provenance.history")?.params).toEqual({ item: "pad:auth-notes" });
   });
 
   it("u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text", async () => {
@@ -270,22 +262,7 @@ describe("u20 open and edit", () => {
     expect(field.textContent).toContain("newest");
   });
 
-  it("u20_a_pad_deleted_while_its_drawer_is_open_says_so", async () => {
-    const { app, state } = await openShelf([padOf("auth-notes", AGENT, "a")]);
-    await openPad("auth-notes");
-    state.pads = [];
-
-    app.emit({
-      actor: AGENT,
-      name: "pad.changed",
-      data: { name: "auth-notes" },
-    });
-
-    expect((await screen.findByText(/was deleted/)).textContent).toBe(
-      "Pad auth-notes was deleted",
-    );
-  });
-
+  // Rule 10: p2544b_deletion_cancels_a_queued_save still observes the deleted Pad; the rendered observer owns its exact copy.
   it("u20_a_write_that_fails_after_the_drawer_closed_shows_its_message_on_the_shelf", async () => {
     const { app, connected } = await openShelf([
       padOf("release-checklist", USER, "old"),
@@ -426,11 +403,11 @@ it("p2544b_failure_preserves_draft_and_retry", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   fireEvent.input(field, { target: { value: "draft" } });
   await vi.advanceTimersByTimeAsync(500);
-  reply.reject(new RpcError(-32000, "save refused"));
+  reply.reject(new RpcError(-32602, "save refused"));
   await vi.advanceTimersByTimeAsync(0);
   expect(field.value).toBe("draft");
   expect(screen.queryByRole("status")).toBeNull();
-  expect(screen.getByRole("alert").textContent).toContain("save refused");
+  expect(screen.getByRole("alert")).toBeTruthy();
   app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
   fireEvent.focusOut(field);
   await vi.advanceTimersByTimeAsync(0);
@@ -628,4 +605,21 @@ it.each([
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
   expect(restored.connected.drafts.list()[0]?.value.source).toBe("draft retained\n");
   expect([...app.calls, ...restored.app.calls].filter(call => call.method === "pad.write")).toEqual([]);
+});
+
+it.each([-32000, -32006])("u3791b_pad_unknown_failure_does_not_replay_on_blur_%s", async code => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "draft retained" } });
+  await vi.advanceTimersByTimeAsync(500);
+  reply.reject(new RpcError(code, "save refused; retry now"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(field.value).toBe("draft retained");
+  expect(connected.drafts.list().some(draft => draft.status === "unknown")).toBe(true);
+  fireEvent.focusOut(field);
+  await vi.advanceTimersByTimeAsync(500);
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
 });

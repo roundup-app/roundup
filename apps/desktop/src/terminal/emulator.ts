@@ -29,6 +29,8 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** K1's optional probe: Screens calls this when the queue releases an input batch for encoding. */
+  inputEncoding?: (() => void) | undefined;
   /** K1's optional probe: Screens calls this after encoding its input batch, before dispatch. */
   inputEncoded?: (() => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
@@ -134,6 +136,7 @@ export const xtermOptions: ITerminalOptions = {
 export type EchoProbe = {
   /** xterm's `onData` fired: the key became bytes to send. */
   input(id: string): void;
+  encoding(id: string): void;
   encoded(id: string): void;
   /** Output bytes reached the emulator, before they are parsed. */
   arrived(bytes: Uint8Array, id: string): void;
@@ -458,6 +461,7 @@ export const createXtermEmulators = (
         terminal.options.fontSize = size;
       },
       reset: () => terminal.write("\x1bc"),
+      inputEncoding: probe ? () => probe.encoding(id) : undefined,
       inputEncoded: probe ? () => probe.encoded(id) : undefined,
       onInput: (listener) => {
         terminal.onData((text) => {
