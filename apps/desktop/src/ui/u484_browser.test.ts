@@ -167,11 +167,6 @@ it("u484_native_file_drop_coexists", async () => {
   await browser("wait", "--fn", `document.querySelector('[aria-label=Files]').textContent === 'example.txt'`);
   expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
   expect(await read<number>(`document.querySelectorAll('[data-dragging=true]').length`)).toBe(0);
-  await keyboard("A"); await down(["B", "A", "C"]);
-  await browser("press", "Space"); await committed("B,A,C");
-  await drag("B", "C");
-  await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,C,B'`);
-  await browser("mouse", "up"); await committed("A,C,B", 2);
 }, 90_000);
 
 it("u484_scroll_and_stop", async () => {

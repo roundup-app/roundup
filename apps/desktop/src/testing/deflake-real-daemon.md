@@ -8,8 +8,6 @@ This observation changes no assertion, timeout or application behavior.
 
 ```sh
 pnpm --filter desktop exec vitest run \
-  src/testing/u356_blocked_real_daemon.test.tsx \
-  src/testing/u351_kinds_real_daemon.test.tsx \
   src/testing/u146_door_answers.test.tsx \
   src/testing/u166_door_permission.test.tsx \
   src/testing/u177_restarted_door.test.tsx

@@ -1,11 +1,7 @@
 name: loop
 
-# L46: the merge queue's `merge_group` commit runs the lanes again; the per-PR gates (trailers, frozen paths, closes, empty
-# diff, merge loss) judged the PR head and have no PR to read there.
 on:
   pull_request:
-  merge_group:
-    types: [checks_requested]
 
 concurrency:
   group: loop-${{ github.ref }}
