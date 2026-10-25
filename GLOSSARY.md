@@ -139,6 +139,12 @@ Where an item sits: a Workstream, or the Project root. Each item has one Home th
 **Contract methods** (`daemon.methods`):
 The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
 
+**Contract declaration** (`declarations`, `Method`, `METHODS`, `owner_namespace`):
+One RPC method's wire name, Rust parameter/result types, owning module, handler and explicit MCP exposure (`none`, all Agents, or Door only). It generates module selection, method metadata, TypeScript bindings and tool offers. Export runs only in the contracts command; module selection uses compiled matches.
+
+**Contract export** (`export::generate`, `export::types`, `event_data_declaration`):
+The plain Specta export of the wire types into their stable per-type paths. `Ping` and `ContractFingerprint` name the existing daemon.ping envelope; `SpawnPrompt` names agent.spawnPrompt's existing result.
+
 **Contract fingerprint**:
 A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
 
@@ -911,6 +917,9 @@ It is absent without the `idle-perf` Cargo feature.
 
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**Native integration** (`native`, `Preferences`, `Missing`):
+The sole repository-owned unsafe integration crate. Its plugin configures every Tauri Webview's WebKit refresh preference; owned Preferences carry their main-thread lifetime and expose no native pointer. Missing names a WebKit feature API gap, which preserves the platform rate. The opt-in idle evidence observer reports native application hide changes through a safe callback.
 
 **Todo deletion** (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`):
 One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.

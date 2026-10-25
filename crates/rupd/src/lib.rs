@@ -9,6 +9,9 @@ mod builtin;
 mod clear;
 mod connection;
 mod context;
+mod contract_handlers;
+#[cfg(test)]
+mod contract_tests;
 pub mod data;
 mod deliverables;
 mod digest;
