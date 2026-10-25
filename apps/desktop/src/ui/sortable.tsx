@@ -261,6 +261,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       for (const draggable of source.manager?.registry.draggables ?? []) {
         if (isSortable(draggable)) draggable.sortable.transition = { duration: draggable === source ? 0 : duration, easing };
       }
+
       slot = document.createElement("div");
       slot.className = "sortable-slot";
       slot.setAttribute("data-dnd-placeholder", "");
