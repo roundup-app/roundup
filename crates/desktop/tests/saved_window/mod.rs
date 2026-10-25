@@ -160,7 +160,7 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
                 position
             );
         }
-        #[cfg(target_os = "macos")]
+        #[cfg(target_vendor = "apple")]
         {
             let panel = native::CapturePanel::new(
                 app.clone(),
