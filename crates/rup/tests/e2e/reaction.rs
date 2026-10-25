@@ -9,11 +9,6 @@ use serde_json::{Value, json};
 use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
 
-#[allow(dead_code)]
-mod storage {
-    include!("../../../rupd/tests/support/store_migrations.rs");
-}
-
 fn definition(target: &str, instruction: &str) -> Value {
     json!({
         "operation": "op-1",
@@ -926,7 +921,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         drop(s.user);
         s.project.crash();
         {
-            storage::legacy_reaction(
+            super::daemon::storage::legacy_reaction(
                 &s.project.data_dir().join("project.db"),
                 super::REACTION_FIRINGS_V1,
             );
