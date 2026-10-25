@@ -137,6 +137,23 @@ it("u3010b_stale_completion_has_no_new_layer_effect", { retry: 0 }, async () => 
   expect(await drawerState()).toMatchObject({ open: true, sliding: false });
 });
 
+it("z3742c_a_layer_without_animations_releases_its_content", { retry: 0 }, async () => {
+  await mountDrawer();
+  await browser("click", "#drawer-trigger");
+  await waitForDrawer();
+
+  const result = await evaluate(`(async () => {
+    const o = window.__drawerObserver;
+    o.panel.style.setProperty('--duration-drawer', '0ms');
+    o.drawer.close();
+    const animations = o.animations().length;
+    await o.finished();
+    return { animations, state: o.state() };
+  })()`);
+
+  expect(result).toMatchObject({ animations: 0, state: { open: false, retained: false, sliding: false } });
+});
+
 it("z3742c_cancelling_the_current_exit_releases_its_content", { retry: 0 }, async () => {
   await mountDrawer();
   await browser("click", "#drawer-trigger");
