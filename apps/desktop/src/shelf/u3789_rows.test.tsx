@@ -409,3 +409,18 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_navigation_keeps_dr
   expect(drafts("/Users/you/harness").list().findLast(draft => draft.destination.surface === "row-name")?.value.text).toBe(text);
   expect(app.calls.filter(call => ["todo.update", "pad.rename", "todo.readHistory", "pad.read"].includes(call.method))).toEqual([]);
 });
+
+it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
+  const { app, row } = await target("todo-shelf");
+  const frame = row.closest('.shelf-row')!;
+  const tick = frame.querySelector<HTMLInputElement>('.todo-tick')!;
+  tick.focus();
+  app.handlers["todo.complete"] = () => { throw new Error("completion refused"); };
+  fireEvent.click(tick);
+  await screen.findByText("completion refused");
+  expect(tick.checked).toBe(false);
+  fireEvent.contextMenu(row);
+  await app.pickMenu("Dismiss");
+  expect(frame.querySelector('[role=alert]')).toBeNull();
+  expect(rpcCalls(app, "todo.complete")).toEqual([{ id: 1 }]);
+});
