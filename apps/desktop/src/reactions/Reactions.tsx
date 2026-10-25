@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { writeText } from "../app/clipboard";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
@@ -7,7 +8,6 @@ import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
 import { copy } from "../copy";
-import { RpcError } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
@@ -403,7 +403,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
       props.onDone(made, !disposed && !current());
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      const refused = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code);
+      const refused = outcomeOf(error) === "failed";
       drafts.settle(revision, refused ? "failed" : "unknown");
       setFailure(refused ? copy.reactionNotCreated(error.message) : copy.reactionCreationUnknown(error.message));
     } finally {

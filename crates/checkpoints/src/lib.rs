@@ -2,6 +2,7 @@
 //! The Daemon decides who is a Door; the Checkpoint is written to the Workstream of the calling Actor.
 
 mod check;
+mod contract_handlers;
 mod marks;
 mod objects;
 #[doc(hidden)]
@@ -155,10 +156,6 @@ impl Module for Checkpoints {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "checkpoint.write" => self.write(ctx, params(value)?).await,
-            "checkpoint.list" => self.list(params(value)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::checkpoints_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }

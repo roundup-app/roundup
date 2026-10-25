@@ -35,15 +35,16 @@ describe("u12 typing", () => {
 
     const emulator = emulators.get("t-a")!;
 
+    emulator.inputEncoding = () => void order.push("encoding");
     emulator.inputEncoded = () => void order.push("encoded");
 
     emulator.type(bytes(1));
     emulator.type(bytes(2));
     emulator.type(bytes(3, 4));
 
-    expect(order).toEqual(["base64:AQ==", "encoded", "AQ=="]);
+    expect(order).toEqual(["encoding", "base64:AQ==", "encoded", "AQ=="]);
     releases[0]!();
-    await vi.waitFor(() => expect(order).toEqual(["base64:AQ==", "encoded", "AQ==", "base64:AgME", "encoded", "AgME"]));
+    await vi.waitFor(() => expect(order).toEqual(["encoding", "base64:AQ==", "encoded", "AQ==", "encoding", "base64:AgME", "encoded", "AgME"]));
     releases[1]!();
   });
 
