@@ -106,3 +106,39 @@ fn too_large() -> RpcError {
         "the image is over 20 MB, so it was not saved",
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn z3799c_pruning_keeps_future_and_boundary_files() {
+        let data = tempfile::tempdir().unwrap();
+        let dir = data.path().join(FOLDER);
+        fs::create_dir(&dir).unwrap();
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let cases = [
+            ("9-future.png", now + Duration::from_secs(1), true),
+            ("8-boundary.png", now - Duration::from_secs(604_800), true),
+            ("10-expired.png", now - Duration::from_secs(604_801), false),
+        ];
+        for (name, modified, _) in cases {
+            let file = fs::File::create(dir.join(name)).unwrap();
+            file.set_modified(modified).unwrap();
+            assert_eq!(file.metadata().unwrap().modified().unwrap(), modified);
+        }
+
+        let attachments = Attachments::open_at(data.path(), now);
+
+        for (name, _, retained) in cases {
+            assert_eq!(dir.join(name).exists(), retained, "{name}");
+        }
+        let saved = attachments
+            .save(serde_json::json!({"name": "new.png", "data": "eA=="}))
+            .unwrap();
+        assert_eq!(
+            Path::new(saved["path"].as_str().unwrap()).file_name().unwrap(),
+            "10-new.png"
+        );
+    }
+}
