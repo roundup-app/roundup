@@ -179,11 +179,11 @@ perf-frames workload *args:
     cargo build --release -p perf
     ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
 
-# V1: installs the Bend that proofs/BEND_VERSION pins into proofs/.tools/ (checksum checked); a no-op once installed.
+# V1: checksum-checked Bend and Lean v4.34.0 via elan; verify both versions on every setup.
 proofs-setup:
     proofs/setup.sh
 
-# V2: prints ALL PROOFS CHECK from `bend proofs/messages/PROOF.bend` and exits 0 only then. `just check` runs it.
+# V2: ordinary proof, Lean-checked --verdict, and eight mutation refusals. `just check` runs it.
 proofs: proofs-setup
     proofs/proofs.test.sh
     proofs/check.sh
