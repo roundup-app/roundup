@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, cleanup } from "@solidjs/testing-library";
+import { fireEvent, render, screen, cleanup } from "@solidjs/testing-library";
 import * as v from "valibot";
 import { initializeStorage, storageRecovery, retainedStorage, storedValue, draftStorage, useBrowserStorage } from "./storage";
 import { StorageRecovery } from "../app/StorageRecovery";
@@ -120,6 +120,15 @@ it.each(["save", "read", "mismatch", "cleanup"])("u4086c_quarantine_failure_and_
 it("u4086d_recovery_is_per_record_and_never_clears_other_work", async () => {
   const original = new Map([["roundup:shelf:/p", '{"open":'], ["roundup:rail:/q", '{"selected":'], ["unrelated", "private bytes"], ["roundup:terminal-font:/q", "17"]]);
 
+  original.set("roundup:terminal-font:/p", "19");
+
+  for (const project of ["/p", "/q"]) {
+    original.set(`roundup:drafts:${project}`, JSON.stringify({ version: 1, drafts: [{
+      revision: `revision-${project}`, destination: { surface: "ask", object: `object-${project}`, recipient: `agent-${project}` },
+      value: { text: `exact draft ${project} 雪` }, selection: null, status: "draft", policy: "ordinary",
+    }] }));
+  }
+
   for (const [key, bytes] of original) localStorage.setItem(key, bytes);
   await initializeStorage();
   expect(await storageRecovery()!.continue()).not.toBeNull();
@@ -132,9 +141,15 @@ it("u4086d_recovery_is_per_record_and_never_clears_other_work", async () => {
   expect(retainedStorage()).toHaveLength(2);
   expect(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))).toEqual({ unrelated: "private bytes" });
   expect(storedValue("roundup:terminal-font:/q", v.number()).read()).toBe(17);
+  expect(storedValue("roundup:terminal-font:/p", v.number()).read()).toBe(19);
+
+  for (const project of ["/p", "/q"]) {
+    expect(draftStorage(project).list()).toEqual(JSON.parse(original.get(`roundup:drafts:${project}`)!).drafts);
+  }
+
   const read = vi.spyOn(Storage.prototype, "key").mockImplementationOnce(() => { throw new Error("enumeration denied"); });
   expect(await initializeStorage()).toContain("enumeration denied");
   expect(storageRecovery()).toBeNull();
   read.mockRestore();
-  await waitFor(() => expect(retainedStorage()).toHaveLength(2));
+  expect(retainedStorage()).toHaveLength(2);
 });
