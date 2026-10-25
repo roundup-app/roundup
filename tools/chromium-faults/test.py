@@ -36,9 +36,8 @@ def line(stream):
 
 @contextmanager
 def file_fixture():
-    # /tmp is tmpfs on Ubuntu 26.04: eviction there cannot create the disk
-    # fault burst that must overflow the stopped consumer's kernel buffer.
-    with tempfile.TemporaryDirectory(prefix="u26-fault-", dir=HERE) as directory:
+    # The burst must fault from disk: tmpfs /tmp never waits for file I/O.
+    with tempfile.TemporaryDirectory(prefix="u26-fault-", dir=os.environ.get("RUNNER_TEMP", HERE)) as directory:
         root = Path(directory)
         binary = root / "chrome"
         flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "fuse3"], text=True, timeout=10).split()
