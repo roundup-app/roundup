@@ -12,7 +12,7 @@
   --trees-font-family-override: var(--font-ui);
   --trees-font-size-override: var(--text-small);
   --trees-focus-ring-color-override: transparent;
-  --trees-focus-ring-width-override: 0px;
+  --trees-focus-ring-width-override: var(--length-zero);
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
   --trees-scrollbar-thumb-override: var(--scrollbar-thumb);
@@ -41,7 +41,7 @@
   --trees-status-deleted-override: currentColor;
 }
 [data-type="item"]:hover { color: var(--text); }
-[data-type="item"]:active { color: var(--ink-pressed); transition-duration: 0s; }
+[data-type="item"]:active { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
 [data-type="item"] { color: var(--grey); }
 [data-item-section="decoration"]:empty { display: none; }
 [data-item-section="content"] {
@@ -89,7 +89,7 @@
   transform: none;
   background-image: linear-gradient(var(--hairline), var(--hairline));
   background-position: left;
-  background-size: 1px 100%;
+  background-size: var(--hairline-width) 100%;
   background-repeat: no-repeat;
 }
 [data-item-section="spacing-item"] + [data-item-section="spacing-item"] { margin-left: var(--space-1); }
