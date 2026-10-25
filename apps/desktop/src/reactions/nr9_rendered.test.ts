@@ -251,7 +251,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 }, 180_000);
 
 
-it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", async () => {
+it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure_lifetime_reactions_rendered", async () => {
   const server = await appServer();
   const profile = await mkdtemp(join(tmpdir(), "p3557c-browser-"));
   const config = join(profile, "config.json");
@@ -272,7 +272,7 @@ it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", a
   };
 
   const evaluate = async (source: string) => (await browser("eval", source)).result;
-  const dir = captureDir("P3557c")!;
+  const dir = (captureDir("U3791b") ?? captureDir("P3557c"))!;
   await mkdir(dir, { recursive: true });
 
   const capture = async (step: string) => {
@@ -293,7 +293,7 @@ it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", a
         project: 'p', id: 'reaction-lifetime', name: 'Review changes', actor: { kind: 'user', id: 'you', parent: null }, home: null, target: 'agent-1',
         instruction: 'Review the saved changes', condition: { kind: 'agents', ids: ['agent-1'], any: false }, max_firings: 1, remaining: 1, rearm: false,
         expires_at: '2026-10-24T09:00:00Z', created_at: '2026-10-23T09:00:00Z', state: 'active',
-        observation: { health: 'observing', cursor: null, gap: null, recovery: null, evidence: null }, firings: [],
+        observation: { health: 'observing', health_code: 'observing', cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [],
       };
       window.__fake.app.handlers['reaction.list'] = () => [record];
       window.__fake.app.handlers['reaction.get'] = () => record;
@@ -304,6 +304,32 @@ it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", a
     await evaluate("document.querySelector('[data-reaction-opener=reaction-lifetime]').click()");
     await browser("wait", "--fn", "!!document.querySelector('.reaction-detail')");
     const baseline = await capture("before");
+    let observationChecks = baseline;
+
+    if (captureDir("U3791b")) {
+      await evaluate(`(() => {
+        const app = window.__fake.app;
+        const original = app.handlers['reaction.get']({ id: 'reaction-lifetime' });
+        const record = { ...original, observation: { ...original.observation, health: 'unavailable', health_code: 'unavailable', cause_code: 'worktree-read-failed', recovery_code: 'check', cause: 'unsupported /private/diagnostic', recovery: 'diagnostic only' } };
+        app.handlers['reaction.get'] = () => record;
+        app.handlers['reaction.list'] = () => [record];
+        [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
+      })()`);
+      await browser("wait", "--fn", "document.querySelector('.reaction-detail [role=alert]')?.textContent.includes(\"Could not read the Agent's work\")");
+      observationChecks = await capture("typed-observation-failure");
+    }
+
+    if (captureDir("U3791b")) {
+      await evaluate(`(() => {
+        const app = window.__fake.app;
+        const record = app.handlers['reaction.get']({ id: 'reaction-lifetime' });
+        record.observation.cause_code = 'unknown'; record.observation.cause = null;
+        record.observation.recovery_code = 'unknown'; record.observation.recovery = null;
+        [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
+      })()`);
+      await browser("wait", "--fn", "!document.querySelector('.reaction-detail [role=alert]')");
+    }
+
     await evaluate("[...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Run now').click()");
     await browser("wait", "--fn", "!!document.querySelector('.reaction-detail [role=alert]')");
     const failed = await capture("failure");
@@ -311,7 +337,7 @@ it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", a
     await browser("wait", "--fn", "!document.querySelector('.reaction-detail [role=alert]')");
     const cleared = await capture("cleared");
 
-    for (const checks of [baseline, failed, cleared]) {
+    for (const checks of [baseline, observationChecks, failed, cleared]) {
       for (const id of ["D2", "D5", "D6"]) expect(checks[id]).toMatchObject({ status: "pass" });
 
       for (const id of CHECK_IDS) {
