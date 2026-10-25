@@ -32,7 +32,7 @@ indent. A Terminal tab's edge is included through `--flat-tab-edge`; an
 inactive edge spacer adds no gap before its name. The rename field reserves
 the same leading column.
 
-The final runtime is `bb755bd8c`; its clean merge includes main `a33962242`.
+The final runtime is `7d3938822`; its clean merge includes main `eb0a1f867`.
 Paired observations use the baseline checkout on port 5200 and the
 implementation checkout on port 5199, the same isolated Chromium session,
 1512×950, device scale 1. Dark preference is set explicitly after starting a
@@ -60,9 +60,23 @@ unmeasured. Layout and paint remain critic evidence rather than appearance
 assertions in unit tests.
 
 The dark recordings decode at 1512×950: base 12.7 seconds/127 frames, head
-12.1 seconds/121 frames. The initial browser setup before dark preference
+12.0 seconds/120 frames. The initial browser setup before dark preference
 took effect is trimmed (1.0 seconds on base, 0.8 on head); every retained
 frame has the dark ground.
+
+## Validation
+
+Both post-merge lints, Token ownership and merge-loss pass. Focused coverage
+on the integrated head verifies 116 tests with retries disabled: 115 passed
+in the integrated run, and its resize observer passed alone after Vite's
+dependency rebuild and reload completed. The Token-table test passes fresh.
+
+The prescribed `just capture U130,U131,U132,U133,U134,U135,U136,U137` run
+completed with 3,958 passed, 57 skipped and one failed Token-table test. The
+edge Token was added after that test server started, leaving its cached CSS
+behind the updated table. This broad run is not recorded as a green pass.
+It also reported the resize test passing on retry; the final isolated run
+above has retries disabled. CI judges a fresh run on the pushed head.
 
 ## Remaining acceptance
 
