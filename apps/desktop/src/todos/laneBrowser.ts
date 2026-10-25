@@ -55,7 +55,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
   const reload = async () => {
     // A selected Workstream or scope outlives a reload; each test starts from tree-40 as the harness opens it.
     await browser("eval", "localStorage.clear()").catch(() => undefined);
-    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("wait", ".shelf-tabs");
   };
 

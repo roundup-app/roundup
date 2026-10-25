@@ -11,7 +11,7 @@ describe("u182 hover tells the count", () => {
     [[agent("a", "error", "x")], "0 need you · 1 error"],
     [[agent("a", "error", "x"), agent("b", "needs-you", "x"), agent("c", "idle", "x")], "1 need you · 1 error"],
   ])("u182_the_text_for_each_mix_%#", async (nodes, text) => {
-    await openTabs({ api: nodes });
+    await openTabs({ api: nodes, web: [] });
 
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 

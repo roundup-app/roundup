@@ -16,7 +16,8 @@ export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   const { fireEvent, screen, waitFor } = await import("@solidjs/testing-library");
   const { showShelfTab } = await import("./shelfTabs");
   const { openProjectPage, projectMenu } = await import("./menuProbe");
-  openProjectPage("view:workstreams", projectMenu.path);
+
+  if (!screen.queryByRole("tree", { name: "Rail" })) openProjectPage("view:workstreams", projectMenu.path);
   await screen.findByRole("tree", { name: "Rail" });
   fireEvent.click(document.querySelector('[data-todo-root]')!);
 

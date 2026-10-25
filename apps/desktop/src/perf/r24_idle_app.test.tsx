@@ -1,6 +1,6 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, event, info } from "../testing/nodes";
 import { fakeEmulators, subscribed } from "../terminal/paneHarness";

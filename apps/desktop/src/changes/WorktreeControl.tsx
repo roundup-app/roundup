@@ -114,7 +114,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
           <span>{count()}</span>
         </button>
       )} /></Show>
-      <ReservedLine message={failure()} status={failure() && count() > 0 ? "Changes are stale" : null}><button type="button" data-button="quiet" onClick={() => setVersion(value => value + 1)}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
+      <ReservedLine message={failure()} status={failure() && count() > 0 ? copy.changesStale : null}><button type="button" data-button="quiet" onClick={() => setVersion(value => value + 1)}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
       <Show when={count() > 0}><Popover.Positioner>
         <Popover.Content class="worktree-panel" data-diff={diff() || undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <Show when={!diff()}><div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div></Show>
