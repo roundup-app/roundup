@@ -462,9 +462,14 @@ impl Evaluator {
             return;
         }
         if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
+            let (gap, recovery) = match why.code {
+                code::NOT_FOUND => (Gap::AgentUnavailable, Recovery::ReplaceAgent),
+                code::FORBIDDEN => (Gap::AuthorityRefused, Recovery::ReplaceTarget),
+                _ => (Gap::Unknown, Recovery::Check),
+            };
             w.unavailable(
-                Gap::AuthorityRefused,
-                Recovery::ReplaceTarget,
+                gap,
+                recovery,
                 format!("authority refused: {}", why.message),
                 "the user may inspect or stop this reaction; create a new one with an authorized target",
             );

@@ -256,10 +256,10 @@ impl Watcher {
                     self.reactions.observe(
                         &saved.id,
                         Health::Unavailable,
-                        if why.code == rpc::code::NOT_FOUND {
-                            Cause::AgentUnavailable
-                        } else {
-                            Cause::AuthorityRefused
+                        match why.code {
+                            rpc::code::NOT_FOUND => Cause::AgentUnavailable,
+                            rpc::code::FORBIDDEN => Cause::AuthorityRefused,
+                            _ => Cause::Unknown,
                         },
                         Some(format!(
                             "authority refused: {}; the user may inspect or stop this reaction",
