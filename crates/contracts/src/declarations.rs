@@ -1,8 +1,11 @@
 //! One declaration supplies the method table, owning module router, TS bindings and MCP exposure.
-use crate::methods::{ExportedMethod, Method, typed};
+#[cfg(feature = "export")]
+use crate::methods::Method;
+use crate::methods::{ExportedMethod, typed};
 
 macro_rules! declarations {
     ($d:tt; $($owner:ident { $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)* })*) => {
+        #[cfg(feature = "export")]
         pub const METHODS: &[Method<'static>] = &[$($(Method {name: $wire, params: stringify!($params), result: stringify!($result)},)*)*];
         pub(crate) fn exported() -> Vec<ExportedMethod> { vec![$($(typed::<$params, $result>($wire),)*)*] }
         pub(crate) fn types() -> specta::Types { specta::Types::default() $($(.register::<$params>().register::<$result>())*)* }

@@ -35,7 +35,7 @@ class Freshness(unittest.TestCase):
                 path = checkout / "contracts/generated/Actor.ts"
                 declaration = checkout / "crates/contracts/src/declarations.rs"
                 generator = checkout / "crates/contracts/src/bin/contracts.rs"
-                for case in ("hand-edited", "missing", "extra", "stale-declaration", "generator-failure"):
+                for case in ("hand-edited", "missing", "missing-rust", "extra", "stale-declaration", "generator-failure"):
                     with self.subTest(case=case):
                         reset()
                         named = "Actor.ts"
@@ -43,6 +43,9 @@ class Freshness(unittest.TestCase):
                             path.write_text(path.read_text() + "\n// hand edit\n")
                         elif case == "missing":
                             path.unlink()
+                        elif case == "missing-rust":
+                            (path.parent / "methodTypes.rs").unlink()
+                            named = "methodTypes.rs"
                         elif case == "extra":
                             (path.parent / "extra.ts").write_text("export type Extra = null;\n")
                             named = "extra.ts"
@@ -55,6 +58,8 @@ class Freshness(unittest.TestCase):
                         code, output = run()
                         self.assertEqual(code, 1, output)
                         self.assertIn(named, output)
+                        if case == "missing-rust":
+                            self.assertEqual((path.parent / "methodTypes.rs").read_bytes(), before["contracts/generated/methodTypes.rs"])
                         if case in ("missing", "hand-edited"):
                             self.assertEqual(path.read_bytes(), before["contracts/generated/Actor.ts"], "generation must repair before reporting drift")
             finally:

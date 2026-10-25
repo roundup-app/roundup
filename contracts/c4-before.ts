@@ -1,277 +1,553 @@
 // C4: pre-migration type shapes from main e9485a975; frozen independently of the exporter.
+
 export type Actor = { kind: ActorKind, id: string, parent: string | null, };
+
 export type ActorKind = "user" | "agent" | "ext";
+
 export type Event = { seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" });
+
 export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" };
+
 export type HistoryParams = { item: string, };
+
 export type IdentifyParams = { actor: Actor, };
+
 export type Kind = "error" | "needs-you" | "blocked" | "working" | "idle" | "done";
+
 export type Status = { kind: Kind, label: string, since: number, finished: string, };
+
 export type SubscribeParams = { after?: number, };
+
 export type SubscribeResult = { head: number, };
+
 export type Touch = { actor: Actor, verb: Verb, item: string, at: number, };
+
 export type TouchedParams = { actor_id: string, };
+
 export type Verb = "read" | "wrote";
+
 export type agent_Brief = { stdout: string, };
+
 export type agent_CapturedOrder = { order: agent_Order | null, };
+
 export type agent_ChangedFile = { path: string, status: agent_ChangedStatus, line: number | null, from?: string, };
+
 export type agent_ChangedFiles = { files: Array<agent_ChangedFile>, };
+
 export type agent_ChangedStatus = "added" | "modified" | "renamed" | "deleted" | "untracked";
+
 export type agent_Channel = "pending" | "up" | "missing";
+
 export type agent_ChannelEvent = { id: string, channel: agent_Channel, };
+
 export type agent_CompareFileParams = { id: string, path: string, };
+
 export type agent_Context = { self: agent_ContextSelf, parent: agent_ContextParent | null, ask: agent_ContextAsk, peers: Array<agent_ContextPeer>, todos: Array<agent_ContextTodo>, };
+
 export type agent_ContextAsk = { to: string, };
+
 export type agent_ContextParent = { id: string, name: string, node: agent_ParentNode, };
+
 export type agent_ContextPart = { kind: agent_ContextPartKind, tokens: number, };
+
 export type agent_ContextPartKind = "system" | "tools" | "files" | "conversation" | "other";
+
 export type agent_ContextPeer = { id: string, name: string, status: Status, };
+
 export type agent_ContextSelf = { id: string, name: string, status: Status, order: agent_Order | null, };
+
 export type agent_ContextTodo = { id: number, title: string, blocked: boolean, };
+
+// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- C4 freezes this pre-migration public field name for compatibility.
 export type agent_ConversationCard = { intent?: string, shape?: string, facts?: Array<string>, outcome?: string, };
+
 export type agent_ConversationOverview = { program: string, id: string, name?: string, used?: number, limit?: number, context_parts?: Array<agent_ContextPart>, card?: agent_ConversationCard, };
+
 export type agent_CreateWorkstreamParams = { name: string, parent: string | null, order?: agent_Order, };
+
 export type agent_Digest = { children: Array<agent_DigestItem>, };
+
 export type agent_DigestEntry = { name: string, kind: Kind, last: string, todos: number, pads: Array<string>, };
+
 export type agent_DigestItem = agent_DigestEntry | { more: number, };
+
 export type agent_Extras = { skills: Array<string>, plugins: Array<string>, mcp: Array<string>, };
+
 export type agent_ExtrasAddParams = { id: string, extras: agent_Extras, };
+
 export type agent_FileComparison = { base: string, oldPath: string, newPath: string, status: agent_ChangedStatus | null, old: agent_FileContent, new: agent_FileContent, };
+
 export type agent_FileContent = { "kind": "absent", revision: string, } | { "kind": "text", revision: string, text: string, } | { "kind": "binary", revision: string, };
+
 export type agent_Inbox = "ok" | "missing" | "mismatch";
+
 export type agent_Instruction = { "kind": "order", order: agent_Order, } | { "kind": "message", message: number, text: string, };
+
 export type agent_InstructionDelivery = { id: string, revision: string, attempt: string, text: string, state: agent_InstructionState, };
+
 export type agent_InstructionRevision = { revision: string, agent: string, workstream: string | null, } & ({ "kind": "order", order: agent_Order, } | { "kind": "message", message: number, text: string, });
+
 export type agent_InstructionState = "prepared" | "uncertain" | "submitted" | "refused";
+
 export type agent_Instructions = { project: string, home: string | null, current: string | null, revisions: Array<agent_InstructionRevision>, deliveries: Array<agent_InstructionDelivery>, };
+
 export type agent_KeptItem = { id: string, kind: agent_RemovalKind, name: string, reason: agent_KeptReason, };
+
 export type agent_KeptReason = "running" | "dirty" | "ahead" | "open";
+
 export type agent_Landed = { base: string, };
+
 export type agent_MoveParams = { id: string, parent: string | null, index: number, };
+
 export type agent_NodeId = { id: string, };
+
 export type agent_NodeKind = "workstream" | "agent";
+
 export type agent_Order = { "kind": "work", title?: string, ask: string, done?: string, limits: Array<string>, } | { "kind": "clarification", question: string, };
+
 export type agent_ParentNode = "group" | "agent";
+
 export type agent_PermissionMode = "default" | "acceptEdits" | "plan" | "auto";
+
 export type agent_PromptParams = { id: string, text: string, };
+
 export type agent_RailNode = { auto?: boolean, id: string, kind: agent_NodeKind, name: string, parent: string | null, order: number, status: Status | null, attempt: string | null, status_revision: string | null, terminal_id: string | null, worktree: agent_Worktree | null, can_resume: boolean, yolo: boolean, channel: agent_Channel | null, work: agent_Order | null, stray: Array<agent_Stray>, model: string | null, effort: string | null, iteration?: number, inbox?: agent_Inbox, tool_call?: agent_ToolCall, overview?: agent_ConversationOverview, };
+
 export type agent_Removal = { removed: Array<agent_RemovedItem>, kept: Array<agent_KeptItem>, };
+
 export type agent_RemovalKind = "agent" | "todo" | "pad";
+
 export type agent_RemovedItem = { id: string, kind: agent_RemovalKind, name: string, };
+
 export type agent_RenameParams = { id: string, name: string, };
+
 export type agent_ResumeMode = "normal" | "yolo";
+
 export type agent_ResumeParams = { permissionMode?: agent_PermissionMode, id: string, mode?: agent_ResumeMode, };
+
 export type agent_RunParams = { id: string, command: Array<string>, cwd?: string, };
+
 export type agent_SetModelParams = { id: string, model: string | null, effort: string | null, confirmed: boolean, };
+
 export type agent_SetOrderParams = { id: string, order: agent_Order, captured?: agent_CapturedOrder, };
+
 export type agent_SignalOutcome = { drop: boolean, };
+
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- C4 must preserve the existing opaque Signal payload; narrowing it would invalidate the compatibility proof.
 export type agent_SignalParams = { id: string, attempt: string, payload: Record<string, unknown>, };
+
 export type agent_Skill = { name: string, description: string, };
+
 export type agent_Skills = { skills: Array<agent_Skill>, };
+
 export type agent_SpawnParams = { permissionMode?: agent_PermissionMode, engine?: string, cwd: string, prompt: string | null, parent: string | null, order?: agent_Order, name?: string, model?: string | null, effort?: string | null, scout?: boolean, specialist?: string, extras?: agent_Extras, };
+
 export type agent_StartDoorParams = { permissionMode?: agent_PermissionMode, engine?: string, id: string, model?: string, effort?: string, };
+
 export type agent_StatusEvent = { ended?: boolean, id: string, attempt: string, status_revision: string, status: Status, };
+
 export type agent_Stray = { pid: number, command: string, };
+
 export type agent_StrayEvent = { id: string, stray: Array<agent_Stray>, };
+
 export type agent_ToolCall = { tool: string, summary?: string, arguments: string, result?: string, state: agent_ToolCallState, started: number, duration_ms?: number, };
+
 export type agent_ToolCallEvent = { id: string, call: agent_ToolCall, };
+
 export type agent_ToolCallState = "running" | "done" | "failed";
+
 export type agent_WakeParams = { ids: Array<string>, any?: boolean, };
+
 export type agent_Woken = { id: number, fired: boolean, why?: string, };
+
 export type agent_Worktree = { path: string, branch: string, base: string, };
+
 export type agent_WorktreeCheckConclusion = "passed" | "failed" | "skipped" | "cancelled";
+
 export type agent_WorktreeCi = { state: agent_WorktreeCiState, stale: boolean, };
+
 export type agent_WorktreeCiState = "passed" | "failed" | "running" | "no-ci" | "conflicts" | "error" | "unknown";
+
 export type agent_WorktreeEvidence = { state: agent_WorktreeEvidenceState, stale: boolean, repository?: string, head?: string, checks: Array<agent_WorktreeRequiredCheck>, read_at?: number, revision?: string, };
+
 export type agent_WorktreeEvidenceState = "complete" | "incomplete" | "stale-head" | "unknown" | "unavailable";
+
 export type agent_WorktreePr = { number: number, stale: boolean, };
+
 export type agent_WorktreeRequiredCheck = { name: string, conclusion: agent_WorktreeCheckConclusion, };
+
 export type agent_WorktreeState = { ahead: number, behind: number, dirty: boolean, ci?: agent_WorktreeCi, pr?: agent_WorktreePr, evidence?: agent_WorktreeEvidence, };
+
 export type ask_Ask = { id: string, text: string, at: bigint, parts: Array<ask_AskPart>, submission?: string, };
+
 export type ask_AskPart = { text: string, placement: ask_Placement, state: ask_State, reason?: string, };
+
 export type ask_PickParams = { id: string, part: number, target: ask_Target, };
+
 export type ask_Placement = { "kind": "routed", workstream: string, } | { "kind": "new", title: string, workstream?: string, } | { "kind": "unclear", question: string, candidates: Array<string>, };
+
 export type ask_SendParams = { text: string, submission?: string, workstream?: string, };
+
 export type ask_State = "placing" | "waiting" | "queued" | "typed" | "failed" | "dropped";
+
 export type ask_Target = { "kind": "workstream", id: string, } | { "kind": "new", title?: string, } | { "kind": "drop" };
+
 export type attachment_SaveParams = { name: string, data: string, };
+
 export type attachment_Saved = { path: string, };
+
 export type checkpoint_Block = { "kind": "rows", title?: string, rows: Array<checkpoint_Row>, } | { "kind": "table", title?: string, head: Array<string>, rows: Array<Array<string>>, } | { "kind": "diagram", title?: string, mermaid: string, } | { "kind": "text", title?: string, text: string, };
+
 export type checkpoint_Checkpoint = { id: number, workstream: string, at: number, rewindable: boolean, title: string, blocks: Array<checkpoint_Block>, };
+
 export type checkpoint_ListParams = { workstream: string, };
+
 export type checkpoint_Row = { label: string, value: string, };
+
 export type checkpoint_WriteParams = { title: string, blocks: Array<checkpoint_Block>, };
+
 export type deliverable_Deliverable = { project: string, id: string, maker: Actor, maker_name: string, home: string | null, title: string, published_at: number, target: deliverable_PublishedTarget, };
+
 export type deliverable_DeliverableId = { project: string, id: string, };
+
 export type deliverable_ExternalAvailability = "not-checked";
+
 export type deliverable_ListParams = { home: string | null, maker: string | null, };
+
 export type deliverable_MoveParams = { project: string, id: string, home: string | null, };
+
 export type deliverable_PublicationTarget = { "kind": "pad", name: string, incarnation: string, revision: number, } | { "kind": "file", path: string, } | { "kind": "external", url: string, };
+
 export type deliverable_PublishParams = { key: string, title: string, target: deliverable_PublicationTarget, };
+
 export type deliverable_PublishedTarget = { "kind": "pad", name: string, incarnation: string, revision: number, length: number, sha256: string, } | { "kind": "file", path: string, length: number, sha256: string, } | { "kind": "external", url: string, availability: deliverable_ExternalAvailability, };
+
 export type deliverable_Resolution = { "kind": "retained", path: string, sha256: string, } | { "kind": "external", url: string, availability: deliverable_ExternalAvailability, } | { "kind": "unavailable", cause: deliverable_UnavailableCause, };
+
 export type deliverable_UnavailableCause = "missing-revision" | "integrity-failure" | "access-revoked" | "source-unknown" | "materialization-failed";
+
 export type link_LinkContent = { "kind": "deliverable", record: deliverable_Deliverable, resolution: deliverable_Resolution, } | { "kind": "pad", id: string, pad: pad_Pad, section?: link_Section, } | { "kind": "todo", id: string, todo: todo_Todo, } | { "kind": "agent", id: string, node: agent_RailNode, digest: agent_Digest | null, } | { "kind": "workstream", id: string, node: agent_RailNode, children: Array<string>, } | { "kind": "terminal", id: string, screen: terminal_Screen, };
+
 export type link_LinkUrl = { url: string, };
+
 export type link_Section = { heading: string, text: string, };
+
 export type message_AcceptResultParams = { project: string, id: string, report: string, evidence: string, };
+
 export type message_ContinuationAction = { id: string, report: string, target: message_ResultTarget, output: string, instruction: string, next: string, decision: string | null, };
+
 export type message_ContinuationBlock = { report: string, target: message_ResultTarget, cause: string, action: string, };
+
 export type message_ContinuationChoice = { id: string, request: string, actions: Array<string>, message: number, };
+
 export type message_ContinuationContext = { report: string, target: message_ResultTarget, current: boolean, confirmed: string, };
+
 export type message_Delivery = "auto" | "drop";
+
 export type message_ListParams = { to: string | null, id?: string, status: message_MessageStatus | null, };
+
 export type message_Message = { id: number, from: Actor, to: string, kind: message_MessageKind, body: string, replyTo: number | null, status: message_MessageStatus, reason: message_Reason | null, at: number, iteration?: number, };
+
 export type message_MessageId = { id: number, };
+
 export type message_MessageKind = "note" | "question";
+
 export type message_MessageStatus = "pending" | "delivered" | "dropped";
+
 export type message_Progress = { instructions: agent_Instructions, results: Array<message_ResultProgress>, };
+
 export type message_ProgressParams = { project: string, id: string, };
+
 export type message_Reason = "receiver gone" | "not accepted" | "removed" | "merged";
+
 export type message_Reconciliation = { agent: string, actions: Array<message_ContinuationAction>, blocked: Array<message_ContinuationBlock>, context: Array<message_ContinuationContext>, pending_checks: Array<message_ResultTarget>, };
+
 export type message_ReportParams = { project: string, id: string, key: string, delivery: string, target: message_ResultTarget, output: deliverable_DeliverableId, result: string, next: string, state: message_ResultState, check: message_ResultCheck, };
+
 export type message_ResolveResultParams = { project: string, id: string, report: string, source: string, };
+
 export type message_ResultAcceptance = { actor: Actor, evidence: string, };
+
 export type message_ResultCheck = { "kind": "publication", sha256: string, } | { "kind": "pr-checks", repository: string, number: number, head: string, } | { "kind": "unsupported", source: string, };
+
 export type message_ResultId = { project: string, id: string, report: string, };
+
 export type message_ResultObservation = { "verdict": "passed", revision: string, } | { "verdict": "unknown", cause: string, action: string, } | { "verdict": "resolved", source: string, authorizer: Actor, evidence: message_ResultResolution, };
+
 export type message_ResultOutcome = { "kind": "completed" } | { "kind": "not-performed" } | { "kind": "inconclusive", cause: string, };
+
 export type message_ResultProgress = { report: message_ResultReport, current: boolean, acceptances: Array<message_ResultAcceptance>, observations: Array<message_ResultObservation>, availability: deliverable_Resolution, };
+
 export type message_ResultReport = { order_revision: string | null, report: string, author: Actor, attempt: string, home: string | null, request: message_ReportParams, instruction: agent_InstructionRevision, publication: deliverable_Deliverable, };
+
 export type message_ResultResolution = { target: message_ResultTarget, revision: string, observed_at: number, outcome: message_ResultOutcome, };
+
 export type message_ResultState = "reported" | "unknown-effect";
+
 export type message_ResultTarget = { id: string, revision: string, };
+
 export type message_ResumeWork = { decision: message_ContinuationChoice | null, reconciliation: message_Reconciliation, };
+
 export type message_ResumeWorkParams = { project: string, id: string, request: string, action?: string, };
+
 export type message_Route = { from: string, to: string, delivery: message_Delivery, };
+
 export type message_SendParams = { to: string, kind: message_MessageKind, body: string, replyTo: number | null, };
+
 export type message_SetRouteParams = { from: string, to: string, delivery: message_Delivery, };
+
 export type pad_AppendParams = { name: string, text: string, };
+
 export type pad_AppendSectionParams = { name: string, heading: string, text: string, expectedRevision?: number | null, };
+
 export type pad_CreateParams = { name: string, text: string | null, };
+
 export type pad_ExportParams = { name: string, path: string, };
+
 export type pad_MoveParams = { name: string, home: string | null, };
+
 export type pad_Pad = { incarnation: string, name: string, owner: Actor, text: string, updated_at: number, revision: number, home: string | null, };
+
 export type pad_PadName = { name: string, };
+
 export type pad_SetOwnerParams = { name: string, owner: Actor, };
+
 export type pad_SetStorageParams = { files: boolean, };
+
 export type pad_WriteParams = { name: string, text: string, expectedRevision?: number | null, expectedIncarnation?: string, };
+
 export type project_AgentResources = { id: string, memory_bytes: number, cpu_percent: number, disk_bytes: number | null, };
+
 export type project_Choice = { id: string, label: string, };
+
 export type project_ClockPoint = { unix_ms: number, monotonic_ns: string, };
+
 export type project_Execution = "agent" | "tool";
+
 export type project_ImportCandidate = { source: string, title: string, cwd: string, last_activity_ms: bigint, revision: string, };
+
 export type project_ImportCommitParams = { selections: Array<project_ImportSelection>, };
+
 export type project_ImportDiscoverParams = { period: project_ImportPeriod, };
+
 export type project_ImportDiscovery = { candidates: Array<project_ImportCandidate>, excluded: Array<project_ImportExclusion>, };
+
 export type project_ImportExclusion = { source: string, reason: string, title: string | null, last_activity_ms: bigint | null, };
+
 export type project_ImportList = { candidates: Array<project_ImportListed>, excluded: Array<project_ImportExclusion>, notices: Array<string>, sdk: string, };
+
 export type project_ImportListParams = { period: project_ImportPeriod, };
+
 export type project_ImportListed = { source: string, title: string, cwd: string, last_activity_ms: bigint, revision: string, live: project_ImportLive | null, };
+
 export type project_ImportLive = { pid: number | null, cwd: string | null, name: string | null, busy: boolean | null, started_at_ms: bigint | null, };
+
 export type project_ImportOutcome = { source: string, workstream: string | null, agent: string | null, error: string | null, };
+
 export type project_ImportPeriod = "day" | "week" | "month";
+
 export type project_ImportResult = { outcomes: Array<project_ImportOutcome>, };
+
 export type project_ImportSelection = { source: string, revision: string, };
+
 export type project_Mcp = { on: boolean, };
+
 export type project_Measurement = { identity: string, source: string, source_revision: string, agent: string, attempt: string | null, home: string | null, maker: string, observed: number, value: project_MeasurementValue, coverage: Array<string>, };
+
 export type project_MeasurementContributor = { agent: string, maker: string, removed: boolean, time: project_MeasurementTime, coverage: Array<string>, };
+
 export type project_MeasurementSource = { source: string, agent: string, last_good: number | null, cause: string | null, coverage: Array<string>, };
+
 export type project_MeasurementSummary = { project: string, home: string, revision: string, cause: string | null, last_observed: number | null, time: project_MeasurementTime, coverage: Array<string>, contributors: number, rows: Array<project_MeasurementContributor>, next_offset: number | null, };
+
 export type project_MeasurementSummaryParams = { home: string, offset: number, revision: string | null, };
+
 export type project_MeasurementTime = { elapsed_ns: string | null, summed_ns: string, execution_ns: string, tools_ns: string, coordination_ns: string, other_ns: string, unmeasured_ns: string, active: boolean, coverage: Array<string>, };
+
 export type project_MeasurementValue = { "kind": "observed", activity: project_TimedActivity, clock_lifetime: string, start: project_ClockPoint | null, segments: Array<project_ObservedSegment>, state: project_TimeState, } | { "kind": "interval", category: project_Execution, clock: string, start_unix_ns: string, end_unix_ns: string, };
+
 export type project_Measurements = { project: string, cause: string | null, revision: string, contributions: Array<project_Measurement>, time_evidence: Array<project_Measurement>, sources: Array<project_MeasurementSource>, };
+
 export type project_ModelList = { engines: Array<project_Choice>, models: Array<project_Choice>, efforts: Array<project_Choice>, };
+
 export type project_ObservedSegment = { start: project_ClockPoint, end: project_ClockPoint, };
+
 export type project_OpenParams = { path: string, };
+
 export type project_PrepareParams = { path: string, };
+
 export type project_Prepared = { enrolled: Array<string>, readiness: string | null, timeout_ms: bigint | null, setup: string | null, };
+
 export type project_ProjectModels = { roles: Array<project_RoleModels>, };
+
 export type project_ProjectSettings = { worktrees: project_Worktrees, models: project_ProjectModels, mcp: project_Mcp, workstreamCap: number | null, };
+
 export type project_RenameParams = { name: string, };
+
 export type project_Requested = { "kind": "open", path: string, } | { "kind": "rename", path: string, name: string, };
+
 export type project_ResourceTotal = { memory_bytes: number, cpu_percent: number, disk_bytes: number | null, };
+
 export type project_Resources = { agents: Array<project_AgentResources>, total: project_ResourceTotal, };
+
 export type project_RoleModels = { role: string, model: string | null, effort: string | null, };
+
 export type project_TimeState = { "kind": "active" } | { "kind": "ended", at: project_ClockPoint, } | { "kind": "interrupted" };
+
 export type project_TimedActivity = { "kind": "attempt" } | { "kind": "startup" } | { "kind": "idle", status_revision: string, } | { "kind": "coordination", message: number, };
+
 export type project_Worktrees = { on: boolean, check: string | null, };
+
 export type reaction_Condition = { "kind": "agents", ids: Array<string>, any?: boolean, } | { "kind": "pr-checks", repository: string, number: number, } | { "kind": "instant", at: string, late: reaction_LatePolicy, };
+
 export type reaction_CreateParams = { operation: string, name: string, target: string, instruction: string, condition: reaction_Condition, max_firings?: number, rearm?: boolean, expires_at: string, };
+
 export type reaction_Firing = { id: string, ordinal: number, message: number, matched: boolean, evidence: string, definition: string, outcome: string, };
+
 export type reaction_LatePolicy = "once-before-expiry" | "skip";
+
 export type reaction_Observation = { health: string, cursor: number | null, gap: string | null, recovery: string | null, evidence: string | null, pinned_head?: string, cause?: string, };
+
 export type reaction_Preview = { at: string, utc: string, offset: string, };
+
 export type reaction_PreviewParams = { date: string, time: string, offset: string, };
+
 export type reaction_Reaction = { project: string, id: string, name: string, actor: Actor, home: string | null, target: string, instruction: string, condition: reaction_Condition, max_firings: number, remaining: number, rearm: boolean, expires_at: string, created_at: string, state: reaction_State, observation: reaction_Observation, firings: Array<reaction_Firing>, };
+
 export type reaction_ReactionId = { id: string, };
+
 export type reaction_RunParams = { id: string, operation: string, };
+
 export type reaction_State = "active" | "stopped" | "invalidated";
+
 export type terminal_ExitedEvent = { id: string, code: number | null, };
+
 export type terminal_Match = { offset: number, text: string, };
+
 export type terminal_OpenParams = { workstream: string | null, };
+
 export type terminal_Opened = { terminal_id: string, };
+
 export type terminal_OutputEvent = { id: string, data: string, offset: number, };
+
 export type terminal_OutputGap = { id: string, from: number, to: number, };
+
 export type terminal_OutputStarted = { offset: number, };
+
 export type terminal_Read = { from: number, next: number, text: string, truncated: boolean, };
+
 export type terminal_ReadParams = { id: string, after: number | null, reader: string | null, max: number | null, };
+
 export type terminal_ResizeParams = { id: string, cols: number, rows: number, };
+
 export type terminal_Scheme = "light" | "dark";
+
 export type terminal_SchemeParams = { scheme: terminal_Scheme, background: string, foreground: string, };
+
 export type terminal_Screen = { cols: number, rows: number, offset: number, lines: Array<string>, truncated: boolean, };
+
 export type terminal_Search = { matches: Array<terminal_Match>, truncated: boolean, next: number, };
+
 export type terminal_SearchParams = { id: string, pattern: string, after: number | null, max: number | null, };
+
 export type terminal_Snapshot = { cols: number, rows: number, after: number, data: string, };
+
 export type terminal_SpawnParams = { cwd: string, command: Array<string> | null, env: { [key in string]: string }, cols: number, rows: number, };
+
 export type terminal_TerminalId = { id: string, };
+
 export type terminal_TerminalInfo = { id: string, incarnation: string, cwd: string, title: string | null, program: string, running: boolean, exit_code: number | null, owner: string | null, };
+
 export type terminal_TitleEvent = { id: string, title: string, };
+
 export type terminal_WriteParams = { id: string, data: string, };
+
 export type todo_AssignParams = { id: number, owner: Actor | null, expected_change?: number, };
+
 export type todo_Change = { seq: number, actor: Actor | null, changed_at: number | null, handed?: Actor, before: todo_Values | null, after: todo_Values, };
+
 export type todo_Comment = { id: number, author: Actor, body: string, created_at: number, read: boolean, };
+
 export type todo_CommentParams = { id: number, body: string, };
+
 export type todo_CreateParams = { title: string, body: string | null, blockers: Array<number> | null, owner?: Actor, estimate_minutes?: number, };
+
 export type todo_HandParams = { agent: string, };
+
 export type todo_Handed = { todo: number, owner: Actor, seq: number, };
+
 export type todo_History = { changes: Array<todo_Change>, unread: number | null, };
+
 export type todo_MoveParams = { id: number, home: string | null, };
+
 export type todo_ReadHistoryParams = { id: number, through: number, };
+
 export type todo_Ref = { url: string, state: todo_RefState, };
+
 export type todo_RefParams = { id: number, url: string, };
+
 export type todo_RefState = "ok" | "missing";
+
 export type todo_ReorderParams = { id: number, before: number | null, };
+
 export type todo_SetBlockersParams = { id: number, blockers: Array<number>, expected_change?: number, };
+
 export type todo_Todo = { id: number, title: string, body: string, done: boolean, blockers: Array<number>, blocked: boolean, created_at: number, creator: Actor, home: string | null, owner: Actor | null, refs: Array<string>, estimate_minutes: number | null, };
+
 export type todo_TodoId = { id: number, };
+
 export type todo_UnreadComment = { todo: number, title: string, comment: todo_Comment, };
+
 export type todo_UpdateParams = { id: number, title: string | null, body: string | null, estimate_minutes?: number | null, expected_change?: number, };
+
 export type todo_Values = { title: string, body: string, done: boolean, blockers: Array<number>, owner: Actor | null, estimate_minutes: number | null, };
+
 export type workstream_AutoParams = { id: string, auto: boolean, };
+
 export type workstream_CapParams = { cap: number | null, };
+
 export type workstream_ClearParams = { permissionMode?: agent_PermissionMode, id: string, reason: string, without_handoff?: boolean, };
+
 export type workstream_ClearResult = { pending: boolean, };
+
 export type workstream_Files = "keep" | "restore";
+
 export type workstream_HandoffParams = { id: string, summary: string, keep_todos: Array<number>, keep_pads: Array<string>, };
+
 export type workstream_PlanAgent = { agent: string, name: string, created_after: boolean, files_changed: Array<string>, };
+
 export type workstream_QueueEntry = { workstream: string, start: workstream_StartChoice, failure?: workstream_QueueFailure, };
+
 export type workstream_QueueFailure = { code: bigint, message: string, };
+
 export type workstream_QueueMoveParams = { workstream: string, index: number, };
+
 export type workstream_QueueState = { running: number, cap: number | null, entries: Array<workstream_QueueEntry>, };
+
 export type workstream_QueuedWorkstream = { workstream: string, };
+
 export type workstream_Rewind = { checkpoint: string, files: workstream_Files, agents: Array<workstream_RewindAgent>, };
+
 export type workstream_RewindAgent = { agent: string, name: string, state: workstream_RewindState, reason?: string, };
+
 export type workstream_RewindParams = { id: string, checkpoint: number, files: workstream_Files, agent?: string, };
+
 export type workstream_RewindPlan = { agents: Array<workstream_PlanAgent>, files_changed: boolean, };
+
 export type workstream_RewindPlanParams = { id: string, checkpoint: number, agent?: string, };
+
 export type workstream_RewindState = "rewound" | "removed" | "dropped";
+
 export type workstream_Rewound = { id: string, checkpoint: number, };
+
 export type workstream_StartChoice = { "kind": "now" } | { "kind": "queued" } | { "kind": "afterTodo", todo: number, };
+
 export type workstream_StartWorkstreamParams = { id: number, name: string, start: workstream_StartChoice, };
+
 export type workstream_WorkstreamClearFailedEvent = { id: string, code: number, message: string, };
+
 export type workstream_WorkstreamClearedEvent = { id: string, iteration: number, };
+
 
 export type Before = {
   "Actor": Actor;
@@ -548,6 +824,7 @@ export type Before = {
   "workstream/WorkstreamClearFailedEvent": workstream_WorkstreamClearFailedEvent;
   "workstream/WorkstreamClearedEvent": workstream_WorkstreamClearedEvent;
 };
+
 export type BeforeRpcMethods = {
   "project.measurements": { params: null; result: project_Measurements };
   "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
