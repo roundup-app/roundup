@@ -160,5 +160,9 @@ export const createTauriApp = (): App => {
     }),
   };
 
+  if (import.meta.env.VITE_ROUNDUP_IDLE_PERF) app.recordIdleEvidence = async record => {
+    await parsedCommand(v.null(), "record_idle_evidence", { record });
+  };
+
   return app;
 };
