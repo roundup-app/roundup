@@ -2,7 +2,7 @@ import { queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { Tabs } from "../ui/Tabs";
-import { createSignal, Show, untrack } from "solid-js";
+import { createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Note, Notes, NoteFormDraft } from "./notes";
 
@@ -17,6 +17,9 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   const [end, setEnd] = createSignal(restored?.end ?? String(props.editing?.end ?? props.selection.end));
   const [text, setText] = createSignal(restored?.text ?? props.editing?.text ?? "");
   let field: HTMLTextAreaElement | undefined;
+  let disposed = false;
+
+  onCleanup(() => { disposed = true; });
 
   const persist = () => props.notes.editForm(props.id, {
     revision, comparison, replacing: replacing ?? null, side: side(), start: start(), end: end(), text: text(),
@@ -36,10 +39,12 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
 
   const valid = () => text().trim() !== "" && start() !== "" && end() !== "" && Number.isInteger(Number(start())) && Number.isInteger(Number(end())) && Number(start()) >= 1 && Number(end()) >= Number(start()) && Number(end()) <= lines().length && (replacing !== undefined || props.notes.list(props.id).length < 200);
 
-  return <form class="note-form" aria-label={copy.lineNote} onSubmit={event => {
+  return <form class="note-form" aria-label={copy.lineNote} onSubmit={async event => {
     event.preventDefault();
 
-    if (valid() && props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision)) props.close();
+    const submitted = text();
+
+    if (valid() && await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision) && !disposed && text() === submitted) props.close();
   }}>
     <Tabs.Root value={side()} onValueChange={({ value }) => { setSide(value === "old" ? "old" : "new"); persist(); }}>
       <Tabs.List aria-label={copy.noteSide}><Tabs.Trigger value="old">{copy.oldSide}</Tabs.Trigger><Tabs.Trigger value="new">{copy.newSide}</Tabs.Trigger></Tabs.List>

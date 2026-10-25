@@ -1,0 +1,18 @@
+.storage-center {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.storage-center .settings-center {
+  flex: 1;
+  min-block-size: 0;
+  block-size: auto;
+}
+
+.storage-failure {
+  flex: none;
+  padding: var(--space-3);
+  background: var(--ground);
+}
