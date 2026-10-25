@@ -17,7 +17,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createFailure } from "./failure";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
@@ -297,8 +297,8 @@ const PadBody = (props: {
 
         setSaved(!closed && !conflictActor() && currentDraft() === next.text);
       } catch (thrown) {
-        connected.drafts.settle(submission.draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
-        setPaused(!(thrown instanceof RpcError && thrown.code !== INTERNAL_CODE));
+        connected.drafts.settle(submission.draft.revision, outcomeOf(thrown));
+        setPaused(outcomeOf(thrown) === "unknown");
         // A refusal keeps the draft; only another edit or blur retries it.
         due = null;
 
