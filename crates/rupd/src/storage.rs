@@ -99,14 +99,15 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     }
 }
 
-pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
+pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     let path = dir.join("project.db");
     // A failed seed only costs the replay: the migrations below build the same database.
     let _ = seed_fresh(&path);
-    let run = || -> rusqlite::Result<()> {
+    let run = || -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, migrations())
+        apply(&mut db, migrations())?;
+        Ok(db)
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
@@ -665,8 +666,10 @@ mod tests {
         expected.remove("decision_answers");
         expected.remove("decision_answers_agent");
         expected.remove("chains");
-        let actual: std::collections::BTreeMap<_, _> =
+        let mut actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
+        // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
+        actual.remove("pad_publications_revoked");
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(migrations()).current_version(&db).unwrap(),

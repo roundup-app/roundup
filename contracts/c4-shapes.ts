@@ -152,6 +152,10 @@ type After = {
   "pad/AppendParams": import("./generated/pad/AppendParams").AppendParams;
   "pad/AppendSectionParams": import("./generated/pad/AppendSectionParams").AppendSectionParams;
   "pad/CreateParams": import("./generated/pad/CreateParams").CreateParams;
+  "pad/DeleteParams": import("./generated/pad/DeleteParams").DeleteParams;
+  "pad/Deletion": import("./generated/pad/Deletion").Deletion;
+  "pad/DeletionId": import("./generated/pad/DeletionId").DeletionId;
+  "pad/GetDeletionParams": import("./generated/pad/GetDeletionParams").GetDeletionParams;
   "pad/ExportParams": import("./generated/pad/ExportParams").ExportParams;
   "pad/MoveParams": import("./generated/pad/MoveParams").MoveParams;
   "pad/Pad": import("./generated/pad/Pad").Pad;

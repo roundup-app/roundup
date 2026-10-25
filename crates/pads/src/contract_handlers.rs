@@ -101,6 +101,24 @@ impl Pads {
         )
     }
 
+    pub(super) async fn rpc_pad_get_deletion(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.get_deletion(ctx, params(value)?)
+    }
+
+    pub(super) async fn rpc_pad_restore(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.restore(ctx, params(value)?)
+    }
+
     pub(super) async fn rpc_pad_set_storage(
         &self,
         ctx: &Ctx,
