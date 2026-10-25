@@ -790,21 +790,21 @@
     "kind": "reference"
   },
   "crates/perf/src/app.rs": {
-    "cleanup": "app::run sends success and failure through launch::finish, which stops the App and its owned descendants before closing the TempDir; cleanup failure retains the directory.",
-    "data": "Owns an absolute TempDir data path and isolated HOME/XDG_DATA_HOME; sets ROUNDUP_DATA_DIR on the App and resets it in the executable Daemon wrapper.",
+    "cleanup": "app::run sends success and failure through launch::finish, which stops and reaps the App and its owned descendants before closing the temporary profile; cleanup failure retains the directory.",
+    "data": "Shared native observer App launch owns an absolute TempDir data path and isolated HOME/XDG_DATA_HOME; sets ROUNDUP_DATA_DIR on the App and resets it in the executable Daemon wrapper.",
     "issue": 1557,
     "kind": "indirect",
     "sha256": "6ae6c071698605e72b50a55942a31c87f3e3e89def4c6dd0f204a085f8d50d5b"
   },
   "crates/perf/src/idle_native.rs": {
-    "cleanup": "Only observes executable hashes and the owned App process inventory; launch and cleanup belong to app::run and launch::finish.",
-    "data": "References the Daemon executable and PID for native accounting; does not launch a Daemon.",
+    "cleanup": "Owns and reaps native sampling commands; App and Daemon cleanup belongs to app::run and launch::finish.",
+    "data": "Connects to the App-owned Daemon socket; executable hashing and process inventory only reference rupd. Launch isolation belongs to app::run.",
     "kind": "reference"
   },
   "crates/perf/tests/r24.rs": {
-    "cleanup": "Uses synthetic process/accounting rows; authorization guards refuse native execution before any App or Daemon launch.",
-    "data": "Daemon names are synthetic report fixtures; no built-Daemon launch.",
-    "kind": "reference"
+    "cleanup": "Guard observer waits for perf-idle and just to exit; neither starts an App or Daemon without window authorization.",
+    "data": "Synthetic process identities and a temporary guard fixture; no built Daemon launch.",
+    "kind": "guard-observer"
   },
   "apps/desktop/src/pads/u3787a_restore.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
