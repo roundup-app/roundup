@@ -66,8 +66,10 @@
   --root-amber: var(--amber);
   --root-red: var(--red);
   --root-hairline: var(--hairline);
-  --shadow-drawer: 0 2px 8px rgba(0, 0, 0, 0.14);
-  --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
+  --elevation: var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient);
+  --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.12);
+  --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.12);
+  --elevation-ring: 0 0 0 .5px rgba(0, 0, 0, 0.16);
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
   --rail-width: 288px;
   --shelf-width: 320px;
@@ -180,8 +182,9 @@
     --red: #ff6b6b;
     --hairline: rgba(255, 255, 255, 0.12);
     --scrollbar-thumb: rgba(255, 255, 255, 0.3);
-    --shadow-drawer: 0 2px 8px rgba(0, 0, 0, 0.24);
-    --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
+    --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.28);
+    --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.40);
+    --elevation-ring: 0 0 0 .5px rgba(255, 255, 255, 0.20);
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
   }
 }
@@ -247,8 +250,9 @@ button, file-tree-container {
   --red: #c4262e;
   --hairline: rgba(0, 0, 0, 0.1);
   --scrollbar-thumb: rgba(0, 0, 0, 0.3);
-  --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
-  --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
+  --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.12);
+  --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.12);
+  --elevation-ring: 0 0 0 .5px rgba(0, 0, 0, 0.16);
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
 }
 
@@ -291,8 +295,9 @@ button, file-tree-container {
     --red: #ff6b6b;
     --hairline: rgba(255, 255, 255, 0.12);
     --scrollbar-thumb: rgba(255, 255, 255, 0.3);
-    --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
+    --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.28);
+    --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.40);
+    --elevation-ring: 0 0 0 .5px rgba(255, 255, 255, 0.20);
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
 }
 
@@ -382,11 +387,11 @@ button, file-tree-container {
 .shelf-scroll::after {
   box-shadow: var(--shadow-scroll)
 }
-.shelf::before {
-  box-shadow: var(--shadow-shelf)
+.shelf[data-open="true"] {
+  box-shadow: var(--elevation)
 }
 .drawer[data-open="true"] {
-  box-shadow: var(--shadow-drawer)
+  box-shadow: var(--elevation)
 }
 .pane .xterm .xterm-helper-textarea:focus-visible {
   box-shadow: none
@@ -399,7 +404,7 @@ button, file-tree-container {
 :is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu) {
   color: var(--text);
   background-color: var(--surface);
-  border: 1px solid var(--hairline);
+  border: 0;
   border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
+  box-shadow: var(--elevation);
 }
