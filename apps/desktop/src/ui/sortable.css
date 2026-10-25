@@ -16,15 +16,9 @@
   pointer-events: none;
 }
 
+/* Feedback still measures the library overlay for collisions and drag completion. */
 .sortable-overlay {
-  box-sizing: border-box;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  background: var(--ground);
-  color: var(--text);
-  padding: var(--space-2);
-  font: inherit;
+  visibility: hidden;
 }
 
 .sortable-slot {
@@ -43,21 +37,6 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .sortable-slot:not([data-keyboard="true"]) {
-    transition: opacity var(--duration-crossfade) var(--easing-out);
-
-    @starting-style {
-      opacity: 0;
-    }
-  }
-}
-
 .sortable-slot[data-ending="true"] {
   opacity: 0;
-}
-
-/* U133: a lifted Rail row must not mask the neighbouring name as it crosses it. */
-.rail [data-dnd-dragging] {
-  background-color: transparent;
 }
