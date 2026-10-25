@@ -104,14 +104,14 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     close();
   };
 
-  const file = (keepOpen: boolean) => {
+  const file = async (keepOpen: boolean) => {
     const draft = text();
     const title = draft.trim();
     const revision = current();
 
-    if (title === "" || !revision || !drafts.submit(revision.revision)) return;
-
     const { owner, home } = target();
+
+    if (title === "" || !revision || !(await drafts.submit(revision.revision))) return;
     const retry = stranded?.title === title && home !== null ? stranded : null;
 
     stranded = null;
@@ -120,9 +120,11 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     props.onFile?.();
 
-    setText("");
+    if (records().at(-1)?.revision === revision.revision) {
+      setText("");
 
-    if (!keepOpen) close();
+      if (!keepOpen) close();
+    }
 
     void (async () => {
       let made = false;
@@ -147,9 +149,10 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
-        hide();
+
+        if (!current()) hide();
       } catch (error) {
-        hide();
+        if (!current()) hide();
 
         if (made || retry) void todos.reload();
 

@@ -3,7 +3,7 @@ import { batch, createComputed, createEffect, createSignal, on } from "solid-js"
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { copy } from "../copy";
-import { storedValue } from "../state/storage";
+import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
 export const SHELF_TABS = [
@@ -13,11 +13,11 @@ export const SHELF_TABS = [
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
-const frameSchema = v.object({
+const frameSchema = storageSchema("roundup:shelf", v.object({
   maximised: v.optional(v.boolean(), false),
   open: v.optional(v.boolean(), true),
   tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
-});
+}));
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
 const storageOf = (path: string) => storedValue(`roundup:shelf:${path}`, frameSchema);
@@ -53,15 +53,22 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
+  const memory = new Map<string, v.InferOutput<typeof frameSchema>>();
+
   const save = () => {
     const at = path();
 
-    if (at !== null) storageOf(at).write({ open: open(), tab: tab(), maximised: maximised() });
+    if (at !== null) {
+      const value = { open: open(), tab: tab(), maximised: maximised() };
+
+      memory.set(at, value);
+      void storageOf(at).write(value);
+    }
   };
 
   createComputed(
     on(path, (at) => {
-      const stored = at === null ? null : storageOf(at).read();
+      const stored = at === null ? null : memory.get(at) ?? storageOf(at).read();
       const restored = stored?.open ?? true;
 
       setMaximised(stored?.maximised ?? false);

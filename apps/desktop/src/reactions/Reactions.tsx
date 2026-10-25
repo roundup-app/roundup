@@ -385,7 +385,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     const until = resolvedAt(expiry);
     const f = form();
 
-    if (!draft || !cond || !until || unresolved() || !drafts.submit(draft.revision)) return;
+    if (!draft || !cond || !until || unresolved() || !(await drafts.submit(draft.revision))) return;
 
     await send(draft.revision, f, cond, until);
   };

@@ -1,3 +1,4 @@
+import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
@@ -32,6 +33,8 @@ declare global {
     __axe: () => Promise<AxeResult>;
   }
 }
+
+useBrowserStorage(window.localStorage);
 
 window.__question = questionProbe;
 
@@ -106,7 +109,7 @@ if (query.get("daemon") === "1") {
   const selected = SELECTED.get(seed);
 
   if (selected) {
-    const failure = railStorage(controls.app.opened.project!.path).write({ selected, collapsed: [] });
+    const failure = await railStorage(controls.app.opened.project!.path).write({ selected, collapsed: [] });
 
     if (failure !== null) throw new Error(failure);
   }
