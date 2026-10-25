@@ -1,5 +1,6 @@
 //! Pads: markdown notes, app-stored or as files. Owner: pads Builder.
 
+mod contract_handlers;
 mod deletion;
 mod files;
 pub use deletion::{restore, retain};
@@ -336,33 +337,7 @@ impl Module for Pads {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "pad.create" => self.create(ctx, params(value)?),
-            "pad.read" => self.read(ctx, params(value)?),
-            "pad.list" => self.list(),
-            "pad.rename" => self.rename(ctx, params(value)?),
-            "pad.write" => self.write(ctx, params(value)?),
-            "pad.append" => self.append(ctx, params(value)?),
-            "pad.appendSection" => self.append_section(ctx, params(value)?),
-            "pad.setOwner" => self.set_owner(ctx, params(value)?),
-            "pad.move" => self.move_to(ctx, params(value)?),
-            "pad.getDeletion" => self.get_deletion(ctx, params(value)?),
-            "pad.restore" => self.restore(ctx, params(value)?),
-            "pad.delete" => self.delete(
-                ctx,
-                params(value)?,
-                if ctx.actor.kind == ActorKind::User {
-                    PadDeletion::User
-                } else if ctx.actor == Actor::daemon() {
-                    PadDeletion::Cleanup
-                } else {
-                    PadDeletion::Owner
-                },
-            ),
-            "pad.setStorage" => self.set_storage(ctx, params(value)?),
-            "pad.export" => self.export(ctx, params(value)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::pads_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 
