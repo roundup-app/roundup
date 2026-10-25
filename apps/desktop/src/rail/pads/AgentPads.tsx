@@ -1,3 +1,4 @@
+import { createCopyLabels, type createCopyFeedback } from "../../ui/CopyButton";
 import { deleteTodos } from "../../todos/deleteTodos";
 import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
@@ -109,6 +110,8 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
   const list = usePadList();
+  const copiedTodos = new Map<number, ReturnType<typeof createCopyFeedback>>();
+  const copiedPads = createCopyLabels(() => props.pads.shown() ? props.pads.owned().map(pad => pad.incarnation) : []);
   const selection = createSelection(() => props.pads.owned().map(pad => pad.name), () => connected.rail.selected() ?? "overview");
   const selected = selection.selected;
   const setSelected = selection.replace;
@@ -169,7 +172,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       { id: "move-up", label: copy.moveUp, run: () => props.pads.reorder.step(todo.id, -1) },
       { id: "move-down", label: copy.moveDown, run: () => props.pads.reorder.step(todo.id, 1) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`)),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`), () => props.pads.failure.acknowledge(`todo:${todo.id}`), copiedTodos.get(todo.id)),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
@@ -183,8 +186,13 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
   const padMenu = (name: string, event: MouseEvent) => {
     event.stopPropagation();
+    const pad = props.pads.owned().find(pad => pad.name === name);
+
+    if (!pad) return;
+
+    const item = `pad:${pad.incarnation}`;
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`)),
+      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, item), () => props.pads.failure.acknowledge(item), copiedPads().get(pad.incarnation)),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
   };
@@ -206,7 +214,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           <For each={props.pads.owned()}>
             {(pad, at) => (
               <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
-                <OwnedPad pad={pad} pads={props.pads.all} selected={selection.selected().includes(pad.name)}
+                <OwnedPad copied={copiedPads().get(pad.incarnation)?.copied()} pad={pad} pads={props.pads.all} selected={selection.selected().includes(pad.name)}
                   register={row => selection.register(pad.name, row)} pick={event => selection.click(pad.name, event)}
                   key={event => selection.key(pad.name, event)} open={event => openPad(pad.name, event)} menu={event => padMenu(pad.name, event)}
                   fail={message => showOutcome(`pad:${pad.incarnation}`, message)} />
@@ -222,6 +230,12 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                   return (
                     <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo onContextMenu={(event) => todoMenu(todo, event)}>
                       <OpenRow
+                        copyWith={feedback => {
+                          const id = todo.id;
+                          copiedTodos.set(id, feedback);
+
+                          return () => { if (copiedTodos.get(id) === feedback) copiedTodos.delete(id); };
+                        }}
                         nested
                         failWith={(show, message) => todoFailures.set(todo.id, { show, message })}
                         todo={todo}
@@ -257,6 +271,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 };
 
 const OwnedPad = (props: {
+  copied?: boolean | undefined;
   pad: Pad; pads: Accessor<readonly Pad[]>; selected: boolean;
   register: (row: HTMLButtonElement) => void; pick: (event: MouseEvent) => void; key: (event: KeyboardEvent) => void;
   open: (event: MouseEvent) => void; menu: (event: MouseEvent) => void; fail: (message: string | null) => void;
@@ -293,7 +308,7 @@ const OwnedPad = (props: {
  if (!event.repeat) open(); }
 
           if (event.key === "F2") { event.preventDefault(); rename(); }
-        }}><span style={cutName}>{props.pad.name}</span></button>
+        }}><span style={cutName}>{props.copied ? copy.copied : props.pad.name}</span></button>
     </Show>
     <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={props.open}><Icon name="right" /></IconButton></span>
   </div>;

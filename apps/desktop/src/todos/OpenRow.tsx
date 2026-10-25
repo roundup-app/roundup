@@ -1,3 +1,4 @@
+import { createCopyFeedback } from "../ui/CopyButton";
 import { NameField } from "../ui/Editable";
 import type { Accessor, JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
@@ -38,6 +39,7 @@ export type SortedRow = {
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
+  copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   lifted?: boolean;
   pressed?: boolean;
   selectionActive?: boolean;
@@ -74,6 +76,9 @@ export const OpenRow = (props: {
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
   const connected = useConnectedProject();
+  const copied = createCopyFeedback();
+  const unregisterCopy = props.copyWith?.(copied);
+  onCleanup(() => unregisterCopy?.());
   // The frame and button must unregister through the same closures that registered them.
   const sorted = untrack(() => props.sorted);
   const [editing, setEditing] = createSignal(false);
@@ -153,7 +158,7 @@ export const OpenRow = (props: {
             sorted?.button(row);
           }}
         >
-          <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
+          <span {...titleCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
         </RowButton>
         </Show>
         <span class="row-controls">

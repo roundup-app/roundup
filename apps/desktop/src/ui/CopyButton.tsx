@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on, onCleanup, splitProps, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, mapArray, on, onCleanup, splitProps, type JSX } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
@@ -40,6 +40,13 @@ export const createCopyFeedback = () => {
       }
     },
   };
+};
+
+/** Native menu feedback is retained by item identity, using Solid's keyed owner cleanup. */
+export const createCopyLabels = <T extends string | number>(ids: () => readonly T[]) => {
+  const entries = mapArray(ids, id => [id, createCopyFeedback()] as const);
+
+  return createMemo(() => new Map(entries()));
 };
 
 /** The existing native button owns activation; the App seam owns the clipboard write. */

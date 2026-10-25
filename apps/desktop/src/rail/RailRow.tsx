@@ -1,3 +1,4 @@
+import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -6,7 +7,7 @@ import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "../copy";
-import { Show, type JSX } from "solid-js";
+import { Show, onCleanup, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
@@ -102,6 +103,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 export const RailRowView = (props: {
   row: NodeRow; selected: boolean; tabbable: boolean; branch: boolean;
+  copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
@@ -109,6 +111,9 @@ export const RailRowView = (props: {
 }) => {
   const connected = useConnectedProject();
   const pads = createAgentPads(() => props.row.node);
+  const copied = createCopyFeedback();
+  const unregisterCopy = props.copyWith?.(copied);
+  onCleanup(() => unregisterCopy?.());
   let element: HTMLDivElement | undefined;
 
   const closeName = (restore = true) => { props.onEditing(false);
@@ -159,7 +164,7 @@ export const RailRowView = (props: {
     onContextMenu: (press: MouseEvent) => openOnRelease(press, (x, y) => props.onOpenMenu(x, y)),
   });
 
-  const name = () => <Show when={props.editing} fallback={<span id={`rail-name-${props.row.node.id}`} class="name" ref={cutName.ref}>{props.row.node.name}</span>}>
+  const name = () => <Show when={props.editing} fallback={<span id={`rail-name-${props.row.node.id}`} class="name" ref={cutName.ref}>{copied.copied() ? copy.copied : props.row.node.name}</span>}>
     <NameField node={props.row.node} onCommit={props.onRename} onFailure={props.onFailure} onCancel={closeName} />
   </Show>;
 

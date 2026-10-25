@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -14,7 +14,6 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
-import { failureOf } from "./failureOf";
 import { useTodoList } from "./todoList";
 import "./capture.styles.css";
 
@@ -224,7 +223,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
-            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => { setFailure(cause ? copy.copyDraftFailure(cause) : null); }); }}>{copy.copy}</button>
+            <CopyButton app={connected.app} identity={draft.revision} text={String(draft.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>
