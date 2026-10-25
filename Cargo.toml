@@ -41,6 +41,7 @@ vte = { path = "vendor/vte-0.15.0" }
 # R3696c's release startup/reply A/B and link-time tradeoff: docs/perf.md.
 [profile.release]
 lto = "thin"
+strip = "symbols"
 codegen-units = 1
 
 # The Output log feeds every byte a Terminal prints through the parser; tests run unoptimised.

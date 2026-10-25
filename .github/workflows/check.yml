@@ -284,11 +284,72 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
+  release-size:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          node: 'false'
+      - name: Build native release Daemon
+        run: cargo build --locked --release -p rupd
+      - name: C9b actual uncompressed executable
+        run: |
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          rustc -Vv > target/release-evidence/toolchain.txt
+          uname -a > target/release-evidence/host.txt
+          cp Cargo.toml target/release-evidence/Cargo.toml
+          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-${{ matrix.os }}-${{ github.run_attempt }}
+          path: target/release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+  release-web:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+      - name: Clean production desktop build
+        run: pnpm --filter desktop build
+      - name: C9c complete logical dist bytes
+        run: |
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          python3 tools/release/check.py dist apps/desktop/dist | tee target/release-evidence/dist.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-web-${{ github.run_attempt }}
+          path: |
+            target/release-evidence/
+            target/release-modules.json
+          if-no-files-found: error
+          retention-days: 30
+
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [plan, rust, mac-clippy, mac, web, chromium]
+    needs: [plan, rust, mac-clippy, mac, web, chromium, release-size, release-web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -299,7 +360,7 @@ jobs:
           jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
 
   summary:
-    needs: [plan, rust, mac-clippy, mac, web, chromium, check]
+    needs: [plan, rust, mac-clippy, mac, web, chromium, release-size, release-web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
