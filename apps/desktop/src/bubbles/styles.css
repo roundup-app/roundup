@@ -185,17 +185,29 @@
   align-items: center;
   align-self: stretch;
   min-height: var(--space-5);
-  column-gap: var(--space-3);
-  /* The name's button pad and the close control's icon inset are --space-1 each, so the name and the × both sit --space-2 from the tab's edges, as the + does. */
+  column-gap: 0;
+  /* The close control keeps its edge inset; the name reserves a leading slot. */
   padding-inline: var(--space-1);
 }
 
 .terminal-tab {
   --button-inline: var(--space-1);
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: calc(var(--row-text-inset) - var(--space-3)) auto var(--space-3);
   align-items: center;
   gap: var(--space-1);
   min-width: var(--space-5);
+}
+
+/* U131: a Terminal has no leading Kind, but reserves the same title column.
+   The empty slot also belongs to the rename field. */
+.terminal-tab::before {
+  content: "";
+}
+
+/* FlatTab's inactive edge spacers must not add gaps before the title. */
+.terminal-tab-pair [data-button="icon"] {
+  margin-inline-start: var(--space-3);
 }
 
 .terminal-tab [data-state] {
@@ -226,7 +238,7 @@
 
 /* U2234: the name's editor sits in the tab with the label's type and no box of its own. */
 .terminal-tab-editor {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
   padding-inline: var(--button-inline, var(--space-1));
   min-height: var(--space-5);

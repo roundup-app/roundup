@@ -258,9 +258,11 @@
   z-index: var(--layer-menu);
 }
 
-/* Glyph-only Todo rows share the external-blocker title column (D12). */
-.shelf-row.todo-inset {
-  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+/* U131: reserve tick and blocker slots even when absent; the row's padding
+   and column gap are included in the shared title inset. */
+.shelf-row:is(.todo-inset, .pad-inset) {
+  grid-template-columns: calc(var(--row-text-inset) - 2 * var(--space-2)) minmax(0, 1fr);
+  column-gap: var(--space-2);
 }
 
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
