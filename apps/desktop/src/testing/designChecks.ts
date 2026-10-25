@@ -14,7 +14,7 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
   const view = doc.defaultView!;
 
   const controls = [...doc.querySelectorAll('button, a[href], summary, input:is([type=checkbox], [type=radio], [type=range]), [role=button], [role=tab], [role=treeitem], [role=menuitem], [role=option]')]
-    .filter(el => !el.closest(':disabled, [aria-disabled=true], [data-disabled], .xterm, [contenteditable=true]'));
+    .filter(el => !el.closest(':disabled, [aria-disabled=true], [data-disabled], [hidden], [aria-hidden=true], [data-dnd-dragging], [data-dnd-placeholder], .xterm, [contenteditable=true]'));
 
   const feedback = rules.filter(rule => rule.selectorText.includes('[data-pressed="true"]') || rule.selectorText.includes("input:active"));
 
@@ -50,15 +50,20 @@ export function rowCueCheck(doc: Document, rules: CSSStyleRule[]) {
 
     if (!matching.length) continue;
 
-    const forbidden = ["outline", "outline-width", "box-shadow", "font-weight", "transform", "translate", "border-width", "border-radius", "margin", "padding", "opacity"]
-      .find(property => { const value = rule.style.getPropertyValue(property);
+    const forbidden = ["outline", "outline-width", "outline-offset", "box-shadow", "font-weight", "font-size", "line-height", "transform", "translate", "border", "border-width", "border-radius", "margin", "padding", "opacity", "width", "height", "gap", "filter"]
+      .find(property => {
+        const value = rule.style.getPropertyValue(property);
+        // Dnd's geometry follows the pointer; authored state decoration still has to pass.
+        const gesture = ["transform", "translate", "width", "height"].includes(property) && value.includes("var(--dnd-");
 
- return value && !["none", "0", "0px", "1"].includes(value); });
+        return value && !gesture && !["none", "0", "0px", "1", "unset", "inherit", "revert"].includes(value);
+      });
 
+    const reset = new Set(["", "none", "transparent", "unset", "inherit", "revert", "initial"]);
     const ground = rule.style.backgroundImage || rule.style.backgroundColor;
     const ink = rule.style.color;
 
-    if (forbidden || (ground && ground !== "none" && ground !== "transparent" && ink)) return result({ cue: forbidden ?? "ink and ground", rule: rule.selectorText }, nameOf(matching[0]!), false);
+    if (forbidden || (!reset.has(ground) && !reset.has(ink))) return result({ cue: forbidden ?? "ink and ground", rule: rule.selectorText }, nameOf(matching[0]!), false);
   }
 
   return result({ rows: rows.length, cue: "one selected wash; Kind ink retained" });
