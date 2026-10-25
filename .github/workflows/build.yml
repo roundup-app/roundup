@@ -51,9 +51,19 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      # L34: the closed Issues are read once an hour and kept; a pick fetches only what changed since.
+      - id: hour
+        run: echo "hour=$(date -u +%Y%m%d%H)" >>"$GITHUB_OUTPUT"
+      - id: closed
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-${{ steps.hour.outputs.hour }}
+          restore-keys: closed-issues-
       - id: pick
         env:
           GH_TOKEN: ${{ github.token }}
+          ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
           CODEX_RUNS: ${{ vars.CODEX_RUNS }}
           CLAUDE_API: ${{ vars.CLAUDE_API }}
         run: |
@@ -61,6 +71,11 @@ jobs:
           # L96: a stuck invalid order shows on the run.
           tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/pick.err" >&2
           echo "rows=$rows" >>"$GITHUB_OUTPUT"
+      - if: always() && steps.closed.outputs.cache-hit != 'true' && hashFiles('.closed-issues.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-${{ steps.hour.outputs.hour }}
 
   # Each Issue's build and its own `after` run in build-issue.yml, so one Issue's end never waits on another's.
   build:
