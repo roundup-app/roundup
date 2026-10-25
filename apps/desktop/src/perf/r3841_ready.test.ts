@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createFrameRun } from "./frame_run";
-import { createKeystrokeRun, reportTerminal, terminalReady, startFlood, SETUP_BOUND_MS } from "./run";
+import { createKeystrokeRun, reportTerminal, terminalReady, startFlood, SETUP_BOUND_MS, TYPING_BOUND_MS } from "./run";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { createComponent } from "solid-js";
@@ -386,6 +386,10 @@ it.each(["missing", "exited", "pending", "silent"])("r20_inactive_flood_is_a_nam
 
 it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", async () => {
   vi.useFakeTimers();
+  const now = performance.now.bind(performance);
+  let reads = 0;
+  // Model a ticking high-resolution clock while fake timers control the typing deadline.
+  const clock = vi.spyOn(performance, "now").mockImplementation(() => now() + reads++ / 1000);
   const app = createFakeApp();
   let producing = false;
   let shells = 0;
@@ -404,7 +408,7 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
   };
   document.addEventListener("keydown", open);
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    if (!producing) setTimeout(() => callback(performance.now()), 8);
+    if (!producing) setTimeout(() => callback(now()), 8);
 
     return 1;
   });
@@ -423,7 +427,7 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
   app.handlers["terminal.measure"] = () => ({ at: performance.now(), samples: [] });
   try {
     const done = createKeystrokeRun(app, "flood").start();
-    await vi.advanceTimersByTimeAsync(170_000);
+    await vi.advanceTimersByTimeAsync(TYPING_BOUND_MS + SETUP_BOUND_MS * 2);
     await done;
     const line = new TextDecoder().decode(Uint8Array.from(reports.flatMap(chunk => [...chunk])));
     const report = JSON.parse(line.slice(5));
@@ -432,6 +436,7 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
     expect(report.flood.bytes).toBeGreaterThan(0);
     expect(report.flood.samples.length).toBeGreaterThan(1);
   } finally {
+    clock.mockRestore();
     document.removeEventListener("keydown", open);
   }
 });

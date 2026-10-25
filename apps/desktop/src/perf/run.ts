@@ -325,11 +325,19 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
   };
 
   const measure = async () => {
-    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => { flood = await startFlood(app, input, (evidence) => { floodEvidence = evidence; }); } : undefined);
+    let floodInput: HTMLTextAreaElement | undefined;
+    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => { floodInput = input; } : undefined);
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
     const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
     const timerResolution = timerResolutionMs();
+
+    // #3550's flood can starve drawing entirely; calibrate first so it produces dropped-key evidence instead of a setup timeout.
+    if (floodInput) {
+      flood = await startFlood(app, floodInput, (evidence) => { floodEvidence = evidence; });
+      await flood.sample();
+    }
+
     const id = terminal.target();
 
     if (id === null) throw new Error("no ready Terminal for clock calibration");

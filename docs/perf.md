@@ -522,6 +522,23 @@ proof and final idle/flood observations remain open in #3550. Passing idle runs
 do not establish that the flood regression is fixed. This evidence update changes
 no production scheduling and requests no repeat of this idle baseline.
 
+### Flood recorder setup repair (#4099)
+
+At `7fbf5d6ff`, the owner's three `just perf-keystroke --flood` runs exited 2:
+`the display frames did not finish within 10000 ms`, with no flood samples and
+zero recorded bytes. The following idle control passed at p95 11 ms with zero
+drops. The full reports remain on [#3550](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6400874363).
+
+The recorder now measures `frame_ms` before starting the flood; it describes
+the display cadence before load. Flood samples begin before clock calibration
+and typing, so drawing starvation can yield dropped-key evidence instead of
+preventing measurement setup. `r20_flood_reports_activity_and_drops_when_output_stops_display_frames`
+drives the recorder through its App/DOM seams with fake time and RPC output:
+the producer receives `yes roundup-flood`, drawing then stops, and the report
+retains positive flood bytes and all 1100 keys as dropped. The test reproduced
+the display-frame timeout before the repair. No native timing improvement is
+claimed; #3550 still owns production repair and final observations.
+
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).
