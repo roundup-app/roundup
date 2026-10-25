@@ -112,14 +112,14 @@ describe("u408 the Resource strip", () => {
     app.handlers["project.resources"] = () => { throw new RpcError(-32603, "gone"); };
 
     await settle(2000);
-    expect(words()).toBe("Not updating");
+    expect(calls()).toBe(3);
     connected.rail.select("w");
     await settle(6000);
     expect(words()).toBe("");
-    expect(calls()).toBe(2);
+    expect(calls()).toBe(3);
     connected.rail.select("b");
     await settle();
-    expect(calls()).toBe(3);
+    expect(calls()).toBe(5);
   });
 
   it("u408_a_running_door_shows_its_own_values", async () => {

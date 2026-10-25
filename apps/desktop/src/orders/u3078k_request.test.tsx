@@ -49,7 +49,7 @@ const paramOf = (call: { params: unknown }) => (call.params as { id: string }).i
 const retry = async () => {
   const view = within(await screen.findByRole("region", { name: "Progress" }));
   fireEvent.click(await view.findByRole("button", { name: /Resume unfinished work|Try resuming again/ }));
-  await waitFor(() => expect(view.getByRole("button", { name: /Resume unfinished work|Try resuming again/ })).toBeTruthy());
+  await waitFor(() => expect(view.getByRole("button", { name: /Resume unfinished work|Try resuming again/ }).getAttribute("aria-disabled")).not.toBe("true"));
 };
 
 it("u3078k_a_new_agent_starts_without_the_old_request", async () => {

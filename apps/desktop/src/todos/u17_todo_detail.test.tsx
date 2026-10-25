@@ -34,6 +34,7 @@ const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true
   const mounted = await mountTodos(todos, reducedMotion);
   fireEvent.keyDown(await rowButton(title), { key: "Enter" });
   await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("region", { name: "Todo history" });
 
   return mounted;
 };

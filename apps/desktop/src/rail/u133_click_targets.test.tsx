@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
+import { chromePath, openPage } from "../testing/chromePage";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import buttonsCss from "../buttons.css?inline";
@@ -45,6 +46,27 @@ const found = <T extends Element>(look: () => T | null | undefined): Promise<T> 
   });
 
 describe("u133 click targets", () => {
+  it("u133_owned_items_keep_keyboard_focus_through_paint", async () => {
+    const executable = chromePath();
+
+    if (!executable) throw new Error("U133 needs isolated headless Chromium");
+    const page = await openPage(executable);
+
+    try {
+      await page.scheme("dark");
+      await page.load("/harness.html?seed=tree-40");
+      await page.until('() => !!document.querySelector(".rail-row[data-id=tokens] [data-pads-control]")');
+      await page.call('() => document.querySelector(".rail-row[data-id=tokens] [data-pads-control]").focus()');
+      await page.call("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+      await page.press(" ", "Space");
+
+      expect(await page.call('() => document.querySelector(".rail-row[data-id=tokens] [data-pads-control]").getAttribute("aria-expanded")')).toBe("true");
+      await page.until('() => !!document.querySelector(".rail-leaf .todo-row-button")');
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
   it("u133_export_md_is_a_button", async () => {
     await mount("tree-40");
     showShelfTab("Pads");

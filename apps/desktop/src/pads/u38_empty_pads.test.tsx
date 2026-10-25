@@ -146,7 +146,7 @@ describe("u38 empty Pads", () => {
     app.handlers["pad.list"] = () => {
       calls += 1;
 
-      return calls === 1 ? Promise.reject(new Error("boom")) : retry.promise;
+      return calls <= 2 ? Promise.reject(new Error("boom")) : retry.promise;
     };
 
     app.handlers["rail.tree"] = () => withScopeRow([]);
@@ -159,18 +159,19 @@ describe("u38 empty Pads", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect((await screen.findByText(/boom/)).textContent).toBe("boom");
+    const exhausted = await screen.findByRole("alert");
+
+    expect(calls).toBe(2);
 
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "auth-notes" } });
-    await waitFor(() => expect(calls).toBe(2));
+    await waitFor(() => expect(calls).toBe(3));
 
-    expect(screen.getByText("boom")).toBeTruthy();
-    expect(screen.queryByText("No Pads yet")).toBeNull();
+    expect(screen.getByRole("alert")).toBe(exhausted);
 
     retry.resolve([]);
 
-    expect(await screen.findByText("No Pads yet")).toBeTruthy();
-    expect(screen.queryByText(/boom/)).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(calls).toBe(3);
   });
 
   it("u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet", async () => {
