@@ -137,18 +137,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () 
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
 });
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () => {
-  const { app } = await mountTodos([todo(1)]);
-  const row = document.querySelector<HTMLElement>('[data-todo="1"]')!;
-  app.handlers["todo.complete"] = () => { throw new RpcError(-32003, FAILURE); };
-
-  fireEvent.click(await within(row).findByRole("checkbox"));
-  const place = (await within(row).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
-  fireEvent.click(within(place).getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
-});
-
-
 /** The owning surface exposes the failure and clears it after recovery. */
 const cycle = async <Shown, Cleared,>(surface: HTMLElement, show: () => Shown, hide: () => Cleared, role: "alert" | "status" = "alert") => {
   expect(within(surface).queryByRole(role)).toBeNull();

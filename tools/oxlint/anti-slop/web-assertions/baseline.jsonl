@@ -549,7 +549,6 @@
 {"file":"apps/desktop/src/rail/u521_controls.test.tsx","test":"u521_copy_preserves_content","identity":"db2db91aa5dfe9534fe8aaf01a1f6a403d2b79067c8007ab1cf38c7abbaf75d9"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_an_agent_folds_once_the_clock_passes_10_minutes_of_done","identity":"a9d3fee7641439c59bb4cfd6e9fe9cce36e0651e57d9b1aef24caaded4c78388"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_each_parent_folds_its_own_done_agents_at_its_own_depth","identity":"f38ff94f7d85df71663726b37d1baf4af226143e2355c8fd400cd33d44ce474b"}
-{"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_the_failure_line_sits_above_the_actions","identity":"6c07f85bc96bed585e366e4a1788908022211929af898a36741d489d81accd59"}
 {"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_promote_is_not_shown_on_a_door","identity":"24c5a83bd45a213deecd96e7ba2bb8a80bb917a136cbae5a843b7e5abcdf759f"}
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"nr9_create_inspect_stop_run_and_focus","identity":"5e1d62062e7de21d12de7e82c65f679d3681dac2542289086adc7b0a50b60c30"}
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"u3299a_named_targets_keep_identity","identity":"7a1641715acad809ff6ccc42843744ab8dcab64472db51371d88c77f8c7510ed"}

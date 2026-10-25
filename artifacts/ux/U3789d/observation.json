@@ -1,13 +1,13 @@
 {
   "base": "c475d1a4ff56cba3a43e99fbc10cf701478d6a31",
-  "implementation": "09262df89f2e515f8d6650fcc06b59a5eeb53272",
-  "merged_main": "a08ea61fe10e8cad63cd17de245c6b77085acaf2",
+  "implementation": "868264828e9f6f6f258f760102826e7e9b5e11d6",
+  "merged_main": "95e18aba5ecb85e7c2adda914ad7cdec908c26d2",
   "viewport": {
     "width": 1512,
     "height": 950
   },
   "scheme": "dark",
-  "observer": "isolated headless agent-browser, fresh profiles; src/shelf/u3789_browser.test.ts and src/shelf/u3789_real_daemon.test.ts",
+  "observer": "Fresh isolated headless sessions on the merged head; u3789_browser.test.ts and u3789_real_daemon.test.ts. Rendered capture rerun completed after installing ffmpeg.",
   "checks": {
     "readings": 23,
     "failures": []

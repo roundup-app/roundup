@@ -2,11 +2,8 @@
   "pr": 4002,
   "issue": 3816,
   "implementation": "09262df89f2e515f8d6650fcc06b59a5eeb53272",
-  "status": "Local implementation and validation complete; remote PR still draft at its first red commit because the App token expired.",
-  "handoff": "The existing build-issue.yml keep step pushes this branch with a fresh App token after the model exits. The draft finishing run should apply pr_body, post issue_comment, mark PR ready and arm auto-merge. No Stopped product decision and no user question.",
-  "pr_body": "Rows now select on click, open with Return/Open and rename with double-click/F2. Todo add lives on the scope line; empty item groups disappear. Resting rows reserve space for focus/selection tools, with native menus retaining the other actions.\n\n```text\nclick             \u2192 select and focus\nReturn / Open     \u2192 existing destination\ndouble-click / F2 \u2192 retained rename draft\nn / + Todo        \u2192 one-line add, folds unchanged\n```\n\nPrinciples: P3, P6, P11\nMoves: D2, D5, D6\n\nPad rename uses the identity-preserving contract already merged in #3900. U3789e also resolves U3309's Return conflict: Return opens, while o/Assign and digit hand-off remain. Current Rail nodes are Workstreams and Agents; Terminal access retains its existing destination and bubble behavior.\n\nConnected App probes cover selection/open/rename, exact drafts and targets, empty-group transitions, native attention, confirmations and menu access. Isolated headless browser and real-Daemon observers exercise the connected paths. All 57 connected row cases pass, as do the real-Daemon row/attention observers and the isolated rendered observers. Web/Rust lint, message proofs and merge-loss pass. The initial workspace capture exposed old activation/presentation callers; their repaired file/scoped reruns pass. CI judges the full pushed head.\n\nRendered evidence: [U3789d](artifacts/ux/U3789d), [add](artifacts/ux/U3789b), [rename/drag](artifacts/ux/U3789a), [empty groups](artifacts/ux/U3789c), all at 1512\u00d7950 dark. PNGs and video are left for workflow attachment; JSON readings and the [retirement map](artifacts/ux/U3789d/test-retirements.json) record retained proofs. Journey D1/D2/D3/D5/F3 acceptance stays intact. The user reports what they meet on the Mac.\n\nReuse:\n\n- Read the installed dependencies and platform menu/draft facilities first. Selected installed `@ark-ui/solid` 5.39.3: [Editable](https://ark-ui.com/docs/components/editable) supplies the editor behavior and [TreeView](https://ark-ui.com/docs/components/tree-view) supplies the existing tree interaction; [releases](https://github.com/chakra-ui/ark/releases) document maintained releases. The wrapper connects existing project draft/version contracts to Ark's input.\n- Retained installed `@dnd-kit/dom` 0.5.1 and the existing Sortable integration for recognized drags; its [package changelog](https://github.com/clauderic/dnd-kit/blob/main/packages/dom/CHANGELOG.md) records maintenance. Ark handles editing/tree interaction; dnd-kit handles existing pointer gestures. Neither replaces the other's capability. Existing native menus, key registry, selection and draft storage are reused; no new parser, store, clock or gesture state machine.\n\nCloses #3816\nScenarios: U3789a, U3789b, U3789c, U3789d, U3789e\n",
-  "issue_comment": "Implementation evidence for #4002 at `09262df89f2e515f8d6650fcc06b59a5eeb53272`:\n\n- 57 connected U3789 cases pass; exact add/rename drafts, identities, native attention and stopped-Door behavior are covered.\n- Real-Daemon row/readback, native attention, imported Resume/Start, drawing and owner hand-off observers pass.\n- 23 dark Check readings pass at 1512\u00d7950; 50 row/name boxes are unchanged across rest, hover, focus and selection. Typing changes no other row/group subtree or fold. Add/rename/complete failure captures show the action and cause.\n- Web/Rust lint, message proofs and merge-loss pass. The retirement map names retained proofs. PNGs/video remain uncommitted for workflow attachment.\n\nThe run's GitHub App token expired. The existing workflow keep step publishes the committed branch after this run; a fresh-token draft fix can install the saved PR body, mark ready and arm auto-merge. No product question remains. The user reports what they meet on the Mac.\n",
-  "validation": {
+  "status": "Local continuation validation complete.",
+  "initial_validation": {
     "connected": "57 passed in src/shelf/u3789_rows.test.tsx; final feedback subset 13 passed after its last feedback change",
     "rows": "u3789a_real_daemon_rows passed",
     "rendered": "3 passed; final feedback rendered observer passed after the final edit",
@@ -22,5 +19,34 @@
       "pnpm install"
     ],
     "full_run": "just capture U3789a,U3789b,U3789c,U3789d ran the workspace: 3848 passed, 54 failed, 57 pending. Repaired activation/presentation callers and reran affected files/cases; no full workspace green claim."
+  },
+  "continuation": {
+    "source_head": "868264828e9f6f6f258f760102826e7e9b5e11d6",
+    "base": "95e18aba5ecb85e7c2adda914ad7cdec908c26d2",
+    "author_agent": "builder-40186209935",
+    "merge_repairs": [
+      "Preserve the Pad list settled seam and explicit Return activation.",
+      "Preserve current Todo draft readiness and overlapping read rejection behavior.",
+      "Keep U3789 opacity rules and the recorded U404 presentation retirement.",
+      "Remove the obsolete U9 assertion baseline entry."
+    ],
+    "observer_results": [
+      "Isolated headless rendered observer passed; interaction video finalized with ffmpeg.",
+      "23 passing base/head Check readings; 50 row and name boxes unchanged; no group mutations or fold changes from typing.",
+      "Real Daemon calm rows and both native attention regressions passed.",
+      "317 Pad-related cases passed; the duplicate Todo dismissal case is retired in favor of u3789d_controls_keep_all_actions_dismisses_failure_from_menu.",
+      "44 Todo unfinished input cases and 3 Rail cases passed.",
+      "All 57 calm row cases and all 29 retained failure feedback cases passed with retry disabled."
+    ],
+    "checks": [
+      "just lint-rust (including ALL PROOFS CHECK)",
+      "just lint-web",
+      "loop/rules.sh merge-loss",
+      "git diff --check"
+    ],
+    "test_repairs": [
+      "Use showShelfTab to preserve an already restored Pads tab.",
+      "Retire the duplicate inline Todo Dismiss test; keep feedback, rollback, call-count and native-menu dismissal proof."
+    ]
   }
 }

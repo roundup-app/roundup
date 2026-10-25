@@ -1,3 +1,4 @@
+import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -27,7 +28,7 @@ type RowCase = typeof cases[number];
 const target = async (kind: RowCase) => {
   const controls = await open();
 
-  if (kind === "pad-shelf") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
+  if (kind === "pad-shelf") showShelfTab("Pads");
 
   if (kind === "todo-owned" || kind === "pad-owned") {
     const id = kind === "todo-owned" ? "tokens" : "agent-1";
@@ -291,7 +292,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   render(() => <App app={controls.app} drafts={createProjectDrafts()} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
-  if (kind === "pad-shelf") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
+  if (kind === "pad-shelf") showShelfTab("Pads");
 
   const selector = kind === "todo-shelf" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab [data-incarnation="fixture-1"] .pad-name';
 

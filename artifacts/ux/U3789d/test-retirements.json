@@ -500,6 +500,11 @@
       "file": "apps/desktop/src/todos/u471_copy_preservation.test.tsx",
       "test": "u471_previous_copy_assertions_are_preserved_todo_row_status_uses_sentence_case_$label",
       "retirement": "U3789e/U3789d retire row presentation requirements; AGENTS.md rule 10 retires appearance and exact-copy assertions to the rendered observer."
+    },
+    {
+      "file": "apps/desktop/src/ink/u3807_sites.test.tsx",
+      "test": "u3807_each_site_shows_its_message_in_the_reserved_line: Todo row",
+      "replacement": "u3789d_controls_keep_all_actions_dismisses_failure_from_menu proves rejected completion feedback, checkbox rollback, one completion call and dismissal through the native menu; reserved-line layout belongs to the rendered observer."
     }
   ],
   "assertion_retirements": [
