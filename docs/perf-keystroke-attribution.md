@@ -1,6 +1,6 @@
 # R20 hop attribution
 
-Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) precede this recorder and do not establish full-chain Mac timing.
+Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf.md#valid-full-chain-idle-baseline-2026-10-25).
 
 The opt-in report carries every hop's p50/p95 and sample count. Webview marks
 use `performance.now()`; receipt (before decoding), physical `write_all` plus
@@ -55,7 +55,7 @@ is claimed. Per key:
 Screens stamps encoding start before byte preparation, then completion after `toBase64` and before RPC dispatch, through the existing optional emulator probe.
 `input_to_encoding` measures queue wait; `encoding_to_encoded` measures byte preparation
 and base64. Both are required (exit 2 if absent); coarse spans remain for comparison.
-Retained native observations predate these marks. No new native timing or production latency repair is claimed.
+The valid idle baseline includes these marks. No production latency repair is claimed.
 
 The no-window `r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch`
 failed before the start mark: with a held RPC reply, queued batches preserve the order
@@ -79,8 +79,9 @@ before the validation repair. This changes report validation, not the input path
 or any retained native timing.
 
 The collector independently recomputes calibration bounds and rejects missing exchanges, invalid clocks, forged uncertainty and incomplete hop counts with exit 2.
-The quiet-Mac reports above place `parsed_to_frame` first among the recorded
-spans; full attribution and a production latency repair remain unclaimed.
+The valid quiet-Mac baseline places `parsed_to_frame` first among the full-chain
+spans (p50 4 ms; p95 7/8/8 ms). It establishes idle attribution; a production
+latency repair and attribution under another Terminal's flood remain unclaimed.
 
 The recorder accepts input, write replies, echo bytes and renders only from the
 Terminal that printed the ready line. Previously every emulator shared those
