@@ -20,6 +20,7 @@ const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 mod added {
     include!(concat!(env!("OUT_DIR"), "/added_migrations.rs"));
+    include!(concat!(env!("OUT_DIR"), "/fresh_regions.rs"));
 }
 
 /// The frozen head (1 to 10), then every `migrations/project/*.sql` that `build.rs` found.
