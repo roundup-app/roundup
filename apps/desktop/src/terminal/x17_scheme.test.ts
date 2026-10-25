@@ -2,7 +2,6 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
-import { darkTerminalTheme, lightTerminalTheme } from "./theme";
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -26,8 +25,8 @@ it("x17_connecting_tells_the_daemon_the_scheme_and_each_switch_tells_it_again", 
   window.switchTo(true);
 
   expect(schemeCalls(app)).toEqual([
-    { scheme: "light", background: lightTerminalTheme.background, foreground: lightTerminalTheme.foreground },
-    { scheme: "dark", background: darkTerminalTheme.background, foreground: darkTerminalTheme.foreground },
+    { scheme: "light", background: "#ffffff", foreground: "#4d4d4c" },
+    { scheme: "dark", background: "#282c34", foreground: "#ffffff" },
   ]);
 });
 
