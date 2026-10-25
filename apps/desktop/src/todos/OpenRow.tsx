@@ -164,6 +164,15 @@ export const OpenRow = (props: {
       glyph={<span classList={{ "row-secondary": failure() === null && !props.todo.blocked && !props.todo.done }}><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      onClick={event => {
+        if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
+
+        if (props.onPick) props.onPick(props.todo, event);
+        else { setPicked(true); rowButton?.focus(); }
+      }}
+      onDblClick={event => {
+        if (!editing() && !props.lifted && event.target instanceof Element && !event.target.closest("button, input, [role=checkbox]")) setEditing(true);
+      }}
       data-lifted={props.lifted ? "true" : undefined}
       onAnimationEnd={event => {
         if (props.groupComplete !== undefined && event.target instanceof Element && event.target.matches(".todo-tick-mark path")) props.onMotionEnd?.();

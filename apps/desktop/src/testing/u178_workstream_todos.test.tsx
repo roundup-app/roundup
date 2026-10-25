@@ -52,7 +52,7 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
 };
 
 const openBody = async (id: number, body: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }), { key: "Enter" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   await within(drawer).findByRole("button", { name: /^Changes/ });

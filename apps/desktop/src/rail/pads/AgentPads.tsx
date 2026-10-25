@@ -279,7 +279,9 @@ const OwnedPad = (props: {
 
   const close = () => { setEditing(false); queueMicrotask(() => button?.focus()); };
 
-  return <div class="pad-row-head" data-incarnation={props.pad.incarnation} data-selected={props.selected ? "true" : undefined} onContextMenu={props.menu}>
+  return <div class="pad-row-head" data-incarnation={props.pad.incarnation} data-selected={props.selected ? "true" : undefined} onContextMenu={props.menu}
+    onClick={event => { if (!editing() && event.target instanceof Element && !event.target.closest("button,input")) props.pick(event); }}
+    onDblClick={event => { if (!editing() && event.target instanceof Element && !event.target.closest("button,input")) rename(); }}>
     <Show when={!editing()} fallback={<NameField object={`pad:${props.pad.incarnation}`} name={props.pad.name} version={async () => props.pad.incarnation}
       commit={async (text, base, version) => { await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }); await list.reload(); }} close={close} fail={props.fail} />}>
       <button type="button" data-button="quiet" class="rail-pad" aria-pressed={props.selected} ref={row => { button = row; props.register(row); }}

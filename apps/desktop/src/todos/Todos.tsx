@@ -452,7 +452,7 @@ export const Todos = (props: {
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
   const create = async (title: string) => {
     setCreateFailure(null);
-    // U3733: the top field under a selected Agent makes its Todo; a group's plus keeps its own group's owner.
+    // Keep the owner captured when the scope-line field opened, even if selection changed.
     const owner: Actor | null = creationOwner() === null ? null : { kind: "agent", id: creationOwner()!, parent: null };
 
     const draft = creation();
@@ -740,13 +740,15 @@ export const Todos = (props: {
 
     if (todo === undefined) return;
 
+    const order = treeRows(ownerGroups(connected, listed(), item => item.owner).find(group => group.items.some(item => item.id === todo.id))?.items ?? []).map(row => row.todo.id);
+
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 
  if (anchor) setPicking({ id: todo.id, anchor }); } },
       ...(!todo.done ? [
-        { id: "move-up", label: copy.moveUp, enabled: open().findIndex(item => item.id === todo.id) > 0, run: () => sorted.step(todo.id, -1) },
-        { id: "move-down", label: copy.moveDown, enabled: open().findIndex(item => item.id === todo.id) < open().length - 1, run: () => sorted.step(todo.id, 1) },
+        { id: "move-up", label: copy.moveUp, enabled: order.indexOf(todo.id) > 0, run: () => sorted.step(todo.id, -1, order) },
+        { id: "move-down", label: copy.moveDown, enabled: order.indexOf(todo.id) < order.length - 1, run: () => sorted.step(todo.id, 1, order) },
       ] : []),
       { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name, run: () => moveHome(todo.id, home.home) })) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
@@ -758,7 +760,7 @@ export const Todos = (props: {
   const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id), "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
+    <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
       <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">

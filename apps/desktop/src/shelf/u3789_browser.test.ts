@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
+import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
 const shot = async (id: string, stage: string, step: string) => {
@@ -14,6 +15,8 @@ const shot = async (id: string, stage: string, step: string) => {
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
     await browser("screenshot", join(folder, `${step}.png`));
+    const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
+    writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
   }
 
   return checks;
@@ -31,6 +34,19 @@ const overview = async () => {
   await browser("click", "[data-todo-root]");
   await browser("eval", "(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
   await wait("document.querySelector('.todos-tab')");
+};
+
+const dense = async () => {
+  await browser("eval", `(async () => {
+    const rpc = window.__fake.app.rpc;
+    await rpc('todo.update', {id: 1, title: 'T'.repeat(300), body: null});
+    await rpc('rail.rename', {id: 'tokens', name: 'A'.repeat(60)});
+    await rpc('rail.rename', {id: 'payments', name: 'W'.repeat(60)});
+    const made = [];
+    for (let i = 0; i < 10; i++) made.push((await rpc('todo.create', {title: 'blocker ' + i, body: null, blockers: null})).id);
+    await rpc('todo.setBlockers', {id: 1, blockers: made});
+    await rpc('pad.rename', {name: 'a-pad-with-a-very-long-name-here', newName: 'P'.repeat(120), expectedIncarnation: 'fixture-1'});
+  })()`);
 };
 
 it("u3789a_drag_never_opens", async () => {
@@ -68,25 +84,43 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
 
       if (base) baseline.set(seed, checks);
       else {
-        for (const [id, check] of Object.entries(baseline.get(seed) ?? {})) if (check.status === "pass") expect(checks[id as keyof Checks].status, `${seed} ${id}`).toBe("pass");
+        for (const id of CHECK_IDS) if (baseline.get(seed)?.[id].status === "pass") expect(checks[id].status, `${seed} ${id}`).toBe("pass");
+      }
+
+      if (seed === "tree-40") {
+        await dense();
+        await shot("U3789d", base ? "base" : "head", "dense-rest");
+        await browser("mouse", "move", "1", "1");
+        await shot("U3789d", base ? "base" : "head", "outside");
       }
     }
   }
 
   await load("tree-40");
   await overview();
-  await browser("eval", `(async () => {
-    const rpc = window.__fake.app.rpc;
-    await rpc('todo.update', {id: 1, title: 'T'.repeat(300), body: null});
-    await rpc('rail.rename', {id: 'tokens', name: 'A'.repeat(60)});
-    await rpc('rail.rename', {id: 'payments', name: 'W'.repeat(60)});
-    const made = [];
-    for (let i = 0; i < 10; i++) made.push((await rpc('todo.create', {title: 'blocker ' + i, body: null, blockers: null})).id);
-    await rpc('todo.setBlockers', {id: 1, blockers: made});
-    await rpc('pad.rename', {name: 'a-pad-with-a-very-long-name-here', newName: 'P'.repeat(120), expectedIncarnation: 'fixture-1'});
-  })()`);
+  const directoryVideo = captureDir("U3789d");
+
+  if (directoryVideo) {
+    await browser("record", "start", join(directoryVideo, "interaction.webm"));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await wait("window.__fake && document.querySelector('.rail-tree')");
+    await overview();
+  }
+
+  await dense();
   await wait("document.querySelector('.todos-tab [data-todo=\"1\"]')");
+  await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+  const title = '.todos-tab [data-todo="1"] .todo-row-button';
+  await browser("mouse", "move", "1", "1");
+  await browser("eval", "document.activeElement.blur()");
   await shot("U3789d", "head", "dense-rest");
+  await browser("hover", title);
+  await shot("U3789d", "head", "dense-hover");
+  await browser("focus", title);
+  await shot("U3789d", "head", "dense-focus");
+  await browser("click", title);
+  await shot("U3789d", "head", "dense-selected");
   await browser("eval", `(() => {
     window.__rowMutations = [];
     const groups = document.querySelector('.todos-tab .shelf-groups');
@@ -102,13 +136,36 @@ it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   const directory = captureDir("U3789b");
 
   if (directory) writeFileSync(join(directory, "typing-observation.json"), JSON.stringify(typing) + "\n");
-  await browser("eval", "window.__fake.app.handlers['todo.create'] = () => { throw new Error('Add refused: observer failure'); }");
+  await browser("eval", "window.__fake.failNext(-32003, 'Add refused: busy')");
   await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}))");
   await wait("document.querySelector('.todos-tab [role=alert]')?.textContent.includes('Add refused')");
   await shot("U3789b", "head", "dense-failure");
   await shot("U3789c", "head", "empty-groups-absent");
   await browser("eval", "window.__rowObserver.disconnect()");
-}, 180_000);
+  await browser("press", "Escape");
+  await browser("focus", title);
+  await browser("press", "F2");
+  await wait("document.querySelector('.row-name-editor input')");
+  await browser("fill", ".row-name-editor input", "  renamed 日本語 🌱  ");
+  await shot("U3789a", "head", "dense-rename");
+  await browser("eval", "window.__fake.failNext(-32003, 'Rename refused: busy')");
+  await browser("press", "Enter");
+  await wait("document.body.textContent.includes('Rename refused: busy')");
+  await shot("U3789d", "head", "dense-rename-failure");
+  await browser("press", "Escape");
+  await browser("eval", "window.__fake.failNext(-32003, 'Complete refused: busy')");
+  await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
+  await browser("click", '.todos-tab [data-todo="2"] .todo-tick');
+  await wait("document.body.textContent.includes('Complete refused: busy')");
+  await shot("U3789d", "head", "dense-complete-failure");
+  await browser("click", ".shelf-add");
+  await browser("fill", ".todos-tab .entry-field", "accepted title");
+  await browser("press", "Enter");
+  await wait("document.querySelector('.todos-tab .entry-field')?.value === ''");
+  await shot("U3789b", "head", "submitted");
+
+  if (directoryVideo) await browser("record", "stop");
+}, 300_000);
 
 it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
   await browser("set", "viewport", "1512", "950");

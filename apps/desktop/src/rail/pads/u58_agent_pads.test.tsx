@@ -84,7 +84,7 @@ describe("u58 an Agent's Pads under it", () => {
   });
 
   it("u58_the_control_does_not_select_the_row_or_reorder_the_agents", async () => {
-    const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
+    const { app, connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
 
@@ -93,14 +93,14 @@ describe("u58 an Agent's Pads under it", () => {
   });
 
   it("u58_a_click_on_a_pad_opens_its_drawer_and_leaves_the_selection", async () => {
-    const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
+    const { app, connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
     fireEvent.keyDown(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }), { key: "Enter" });
 
     const drawer = await screen.findByLabelText("Drawer");
 
-    expect(await within(drawer).findByText("notes")).toBeTruthy();
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "notes" }]));
     expect(connected.rail.selected()).toBeNull();
   });
 

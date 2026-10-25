@@ -62,7 +62,7 @@ export const Rail = () => {
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [...(node.attempt === null && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
-        ...(rail.exitOf(node) !== null ? [{ id: "start", label: copy.startDoor, run: () => { void rail.startDoor(node.id); } }] : [])] : []),
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
   });
 

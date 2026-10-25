@@ -52,7 +52,7 @@ it("u3309_a_digit_without_an_agent_or_for_the_own_owner_calls_nothing", async ()
   row.focus();
 
   for (const key of ["1", "2", "9"]) fireEvent.keyDown(row, { key, code: `Digit${key}` });
-  expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
+  expect(todoCallsTo(m.app, "todo.assign")).toEqual([]);
 });
 
 
@@ -72,7 +72,7 @@ it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async (
   const done = await screen.findByRole("button", { name: "Done #2 todo 2" });
   done.focus();
   fireEvent.keyDown(done, { key: "1", code: "Digit1" });
-  expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
+  expect(todoCallsTo(m.app, "todo.assign")).toEqual([]);
 });
 
 it("u3310_the_switch_calls_set_auto_once_and_follows_the_event", async () => {

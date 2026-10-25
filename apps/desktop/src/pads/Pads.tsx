@@ -450,6 +450,12 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
           <ShelfRow
             ref={props.parts.ref}
             data-pad={pad.name}
+            onClick={event => {
+              if (!editing() && !props.bulk.pending() && event.target instanceof Element && !event.target.closest("button, input")) { props.selection.click(pad.incarnation, event); row?.focus(); }
+            }}
+            onDblClick={event => {
+              if (!editing() && event.target instanceof Element && !event.target.closest("button, input")) rename();
+            }}
             data-incarnation={pad.incarnation}
             data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row

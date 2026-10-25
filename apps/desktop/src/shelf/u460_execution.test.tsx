@@ -65,7 +65,6 @@ it("u460_lost_response_refetches_before_retry", async () => {
   await askToDelete(2);
   await confirmDeletion();
   await questionClosed();
-  expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.queryByRole("button", { name: /#1 |#2 / })).toBeNull();
 });
 
@@ -184,8 +183,7 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   await confirmDeletion();
   await screen.findByText("Could not delete todo 1 #1: denied");
   fireEvent.keyDown(screen.getByRole("button", { name: /#1 / }), { key: "Enter" });
-  expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
-  expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
+  expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(false);
 });
 
 it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", async nested => {

@@ -118,11 +118,28 @@ export const RailRowView = (props: {
     return (["error", "needs-you", "blocked", "working", "done"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
 
+  const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
+
+  const queuedBadge = () => {
+    const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;
+
+    return queued ? queued.entry.start.kind === "afterTodo" ? copy.afterBadge(queued.entry.start.todo) : copy.queuedBadge(queued.place) : null;
+  };
+
+  const worktreeFailure = () => connected.worktrees.read(props.row.node.id)?.failure;
+
+  const facts = () => {
+    const read = connected.worktrees.read(props.row.node.id);
+
+    return read?.failure === null ? read.state : null;
+  };
+
   const rowProps = () => ({
     class: "rail-row", "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
+    "data-worktree": props.row.node.worktree ? "true" : undefined,
     "data-editing": props.editing, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
@@ -146,6 +163,14 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state" classList={{ "row-secondary": kind() === null }}><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
+      <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
+      <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
+      <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
+        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiChip(ci().state)}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
+      </span></Show>
       <span class="row-controls">
         <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
         <Show when={!workstream()}><PadsControl pads={pads} /></Show>

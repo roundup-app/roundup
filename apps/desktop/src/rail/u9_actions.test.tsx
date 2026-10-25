@@ -287,11 +287,10 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   expect(tree).toHaveLength(1);
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-  const retry = screen.getAllByRole("button", { name: "Retry supervisor" })[0]!;
-  fireEvent.click(retry);
-  fireEvent.click(retry);
+  await chooseAction(mounted.app, "actual", "Retry supervisor");
+  await chooseAction(mounted.app, "actual", "Start supervisor");
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toHaveLength(2));
-  expect(retry.matches('[aria-disabled="true"]')).toBe(true);
+  expect(mounted.rail.doorPending("actual")).toBe(true);
   const live = door("actual", "working", "starting");
   tree.splice(0, 1, live);
   finish!(live);
@@ -304,7 +303,8 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
 it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async () => {
   const mounted = await mountRail([workstream("Reopened", {attempt:"4"})]);
   mounted.rail.select("Reopened");
-  expect(screen.getByText(/^start supervisor$/i)).toBeDefined();
+  fireEvent.contextMenu(rowOf("Reopened"));
+  expect(mounted.app.menuLabels()).toContain("Start supervisor");
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([]);
 });
@@ -316,7 +316,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   const pane = document.querySelector<HTMLElement>(".pane");
   const before = pane?.getAttribute("style") ?? null;
 
-  fireEvent.click(screen.getByRole("button", { name: /^start supervisor$/i }));
+  await chooseAction(mounted.app, "closed", "Start supervisor");
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
   await settled();
@@ -331,10 +331,11 @@ it("a24_a_late_failure_shows_the_error_and_retry_door", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getByText(/^start supervisor$/i));
+  await chooseAction(mounted.app, "closed", "Start supervisor");
 
   await waitFor(() => expect(mounted.rail.doorFailure("closed")).toBe("closed: no acknowledgement within 8s"));
-  expect(screen.getAllByText(/^retry supervisor$/i).length).toBeGreaterThan(0);
+  fireEvent.contextMenu(rowOf("closed"));
+  expect(mounted.app.menuLabels()).toContain("Retry supervisor");
   expect(mounted.rail.doorPending("closed")).toBe(false);
 });
 
@@ -346,7 +347,7 @@ it("a24_a_start_the_daemon_never_answers_fails_within_the_bound", async () => {
     mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
     mounted.rail.select("closed");
 
-    await chooseAction(mounted.app, "g", "Start supervisor");
+    void chooseAction(mounted.app, "closed", "Start supervisor");
     await vi.advanceTimersByTimeAsync(10_000);
 
     await waitFor(() => expect(mounted.rail.doorFailure("closed")).not.toBeNull());
@@ -368,7 +369,7 @@ it("a24_a_start_that_succeeds_shows_the_doors_terminal", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getAllByText(/^start supervisor$/i)[0]!);
+  await chooseAction(mounted.app, "closed", "Start supervisor");
 
   await waitFor(() => expect(document.querySelector('[data-terminal="t-closed"]')).not.toBeNull());
   expect(mounted.rail.doorFailure("closed")).toBeNull();

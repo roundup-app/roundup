@@ -290,7 +290,7 @@ describe("u370 the Shelf closes and opens", () => {
     expect(drawer.isConnected).toBe(true);
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
+    expect(tabNamed("Pads").getAttribute("aria-expanded") === "true").toBe(true);
     expect(drawer.isConnected).toBe(true);
   });
 

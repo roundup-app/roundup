@@ -872,3 +872,7 @@
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
 .rail-row:focus-within .rail-chevron,
 .rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }
+
+.rail-row[data-worktree="true"] { min-height: calc(var(--space-6) + var(--space-2)); }
+.rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
+.rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }
