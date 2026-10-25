@@ -208,10 +208,10 @@ impl Timer {
         };
         if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
             return refuse(
-                if why.code == rpc::code::NOT_FOUND {
-                    Cause::AgentUnavailable
-                } else {
-                    Cause::AuthorityRefused
+                match why.code {
+                    rpc::code::NOT_FOUND => Cause::AgentUnavailable,
+                    rpc::code::FORBIDDEN => Cause::AuthorityRefused,
+                    _ => Cause::Unknown,
                 },
                 why,
             );
