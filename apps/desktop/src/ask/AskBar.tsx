@@ -1,4 +1,7 @@
-import { captureFocus, queueFocus } from "../keys/focus";
+import { usePresence } from "@ark-ui/solid/presence";
+import { useDialog } from "@ark-ui/solid/dialog";
+import { Dialog } from "../ui/Dialog";
+import { captureFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -12,7 +15,6 @@ import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/re
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { ROW } from "../rail/rows";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
@@ -146,10 +148,21 @@ export const AskBar = (props: {
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
-  let returnTo: Element | null = null;
+
+  const [restore, setRestore] = createSignal(true);
+
+  const dialog = useDialog(() => ({
+    open: over(), modal: false, trapFocus: true, preventScroll: false,
+    closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: true,
+    initialFocusEl: () => field ?? null,
+    finalFocusEl: () => restore() || !(document.activeElement instanceof HTMLElement) ? null : document.activeElement,
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
   const shown = () => opening() !== null || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
+
+  const presence = usePresence(() => ({ present: over(), lazyMount: true, unmountOnExit: true }));
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
@@ -172,18 +185,10 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
+    setRestore(restore);
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
-
-    if (restore) {
-      const row = document.querySelector<HTMLElement>(".rail-row[data-selected=true]");
-
-      const target = returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo
-        : row?.closest<HTMLElement>(ROW) ?? row?.querySelector<HTMLElement>(ROW);
-
-      target?.focus();
-    }
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
@@ -191,13 +196,10 @@ export const AskBar = (props: {
   const open = (): void => {
     if (modalOpen()) return;
     captureFocus(true);
-    returnTo = document.activeElement;
+    setRestore(true);
     setOpening("over");
-    queueFocus(() => {
-      field?.focus();
 
-      if (field) restoreSelection(field);
-    });
+    if (field) restoreSelection(field);
   };
 
   createEffect(() => {
@@ -274,9 +276,10 @@ export const AskBar = (props: {
       <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="made-trigger">{copy.deliverables}<Icon name="down" /></button>} />
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
-    <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
-        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { returnTo = null; setOpening("home-focus"); } }}
+    <Dialog.RootProvider value={dialog}>
+    <Show when={shown() || presence().present}>
+      <section {...dialog().getContentProps()} hidden={!shown()} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; presence().ref(element); }}
+        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { setOpening("home-focus"); } }}
         onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
         <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
@@ -318,6 +321,7 @@ export const AskBar = (props: {
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>
+    </Dialog.RootProvider>
   </>);
 };
 

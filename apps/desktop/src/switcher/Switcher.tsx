@@ -1,3 +1,5 @@
+import { useDialog } from "@ark-ui/solid/dialog";
+import { Dialog } from "../ui/Dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -49,8 +51,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let savedSelection = current()?.selection ?? null;
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
-  let returnTo: Element | null = null;
-  let afterOpen: Element | null = null;
+
+  const [restore, setRestore] = createSignal(true);
+
+  const dialog = useDialog(() => ({
+    open: open(), modal: false, trapFocus: true, preventScroll: false,
+    closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: true,
+    initialFocusEl: () => input ?? null,
+    finalFocusEl: () => restore() || !(document.activeElement instanceof HTMLElement) ? null : document.activeElement,
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
+
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
 
   const openingSurvives = () => rail.selected() === opening().selected
@@ -134,13 +145,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const close = (restore: boolean): void => {
     retain();
+    setRestore(restore);
     setOpen(false);
-
-    if (restore) {
-      if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
-
-      if (document.activeElement !== returnTo && afterOpen instanceof HTMLElement && afterOpen.isConnected) afterOpen.focus();
-    }
   };
 
   const choose = (entry: Entry): void => {
@@ -183,12 +189,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const show = (): void => {
     if (modalOpen()) return;
     openingFocus = captureFocus(true);
-    returnTo = document.activeElement;
-    setOpening({ selected: rail.selected(), actions: captureActions(returnTo) });
+    setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
     props.onOpen();
-    afterOpen = document.activeElement;
     savedSelection = current()?.selection ?? null;
     restoring = true;
+    setRestore(true);
     setOpen(true);
   };
 
@@ -198,27 +203,23 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   ]);
 
   return (
+    <Dialog.RootProvider value={dialog}>
     <Show when={open()}>
-      <section class="switcher" ref={(element) => {
-        panel = element;
-        const focus = openingFocus;
-        queueMicrotask(() => {
-          focus(() => input?.focus());
-          // Restore after Ark's initial-focus frame; a dismissed opening must not touch the next field.
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!element.isConnected || !restoring || !open() || document.activeElement !== input) return;
-
-            const selection = savedSelection;
-
-            if (selection) input?.setSelectionRange(selection.start, selection.end, selection.direction);
-            restoring = false;
-          }));
-        });
-      }}>
-        <Combobox.Root focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
+      <section {...dialog().getContentProps()} class="switcher" ref={element => { panel = element; }}>
+        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
           element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
+          element.addEventListener("focus", () => {
+            // Ark selects an input after focusing it; restore the retained caret after that selection.
+            queueMicrotask(() => {
+              if (!restoring || !element.isConnected || document.activeElement !== element) return;
+              const selection = savedSelection;
+
+              if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
+              restoring = false;
+            });
+          });
           element.addEventListener("select", retain);
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
@@ -264,5 +265,6 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         </ReservedLine>
       </section>
     </Show>
+    </Dialog.RootProvider>
   );
 };

@@ -25,6 +25,8 @@ const Root = (props: {
   /** Native selection/caret access; changing the query goes through `inputValue`. Focus only on explicit opening. */
   inputRef?: (input: HTMLInputElement) => void;
   initialFocus?: ReturnType<typeof captureFocus>;
+  /** An enclosing Dialog owns focus when false. */
+  autoFocus?: boolean;
   onDismiss?: () => void;
   focusScope?: () => HTMLElement | undefined;
   onInput: (text: string) => void;
@@ -59,9 +61,11 @@ const Root = (props: {
   // https://github.com/chakra-ui/zag/blob/%40zag-js/combobox%401.45.0/packages/machines/combobox/src/combobox.machine.ts
   const machine = focusActions(combobox.machine, {
     setInitialFocus: () => {
+      if (props.autoFocus === false) return;
       requestAnimationFrame(() => initialFocus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
     },
     setFinalFocus: () => {
+      if (props.autoFocus === false) return;
       const focus = captureFocus();
       requestAnimationFrame(() => focus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
     },
