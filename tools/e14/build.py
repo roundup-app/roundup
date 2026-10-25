@@ -51,7 +51,7 @@ def prepare(root, output, env):
     (output / 'settings.json').write_text(json.dumps(dict(environment=settings, config_hashes=configs), indent=2) + '\n')
     proxy = output / 'bin/cargo'
     proxy.parent.mkdir()
-    proxy.symlink_to(Path(__file__).resolve())
+    shutil.copy2(Path(__file__).resolve(), proxy)
     return dict(env, PATH=str(proxy.parent) + os.pathsep + env['PATH'], CARGO=str(proxy),
                 E14_BUILD_OUTPUT=str(output), E14_REAL_CARGO=cargo, E14_REAL_NEXTEST=nextest,
                 E14_STRACE=tracer, E14_TIMINGS=str(target / 'cargo-timings'))
@@ -71,11 +71,16 @@ def _links(directory):
                 raise ValueError(f'truncated exec argv: {trace}')
             argv = [bytes.fromhex(value.replace('\\x', '')).decode('utf-8', errors='surrogateescape')
                     for value in re.findall(r'"((?:\\x[0-9a-f]{2})*)"', execution[3])]
+            executable = bytes.fromhex(execution[2].replace('\\x', '')).decode('utf-8', errors='surrogateescape')
+            if Path(executable).name in ('rustc', 'clippy-driver', 'cc1', 'cc1plus', 'lto1', 'as') or '-cc1' in argv:
+                continue
             # Include compiler drivers and actual linkers, even custom executable names, by their output argument.
             # rustc uses --out-dir, while C compilation uses -c; neither is a linker interval.
             if '-o' not in argv or any(flag in argv for flag in ('-c', '-E', '-S', '--out-dir')):
                 continue
-            row = dict(pid=int(trace.suffix[1:]), executable=bytes.fromhex(execution[2].replace('\\x', '')).decode('utf-8', errors='surrogateescape'),
+            if Path(argv[argv.index('-o') + 1]).suffix in ('.o', '.s', '.i', '.ii', '.bc', '.ll', '.rmeta', '.rlib'):
+                continue
+            row = dict(pid=int(trace.suffix[1:]), executable=executable,
                        argv=argv, output=argv[argv.index('-o') + 1], start=float(execution[1]),
                        exec_result=execution[4], trace=trace.name)
             if execution[4] != '0':
