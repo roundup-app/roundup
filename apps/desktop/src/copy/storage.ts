@@ -9,12 +9,13 @@ export const storageCopy = {
   restoreRetry: "Retry restoring saved work",
   saveRetry: "Retry saving",
   failure: (problems: readonly { key: string; cause: string }[]) => {
-    const labels: Record<string, string> = {
-      "open-tab": "the selected Project", unseen: "read markers", drafts: "drafts",
-      import: "imported work", rail: "Rail layout", "app-settings": "settings",
-      widths: "panel widths", shelf: "work item layout", "terminal-font": "Terminal text size",
-    };
-    const work = [...new Set(problems.map(problem => labels[problem.key.split(":")[1] ?? ""] ?? "saved work"))];
+    const labels = new Map([
+      ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "drafts"],
+      ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
+      ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
+    ]);
+
+    const work = [...new Set(problems.map(problem => labels.get(problem.key.split(":")[1] ?? "") ?? "saved work"))];
     const causes = [...new Set(problems.map(problem => problem.cause))];
 
     return `Could not save ${work.join(", ")}: ${causes.join("; ")}`;
