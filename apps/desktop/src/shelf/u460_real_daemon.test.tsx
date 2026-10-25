@@ -74,7 +74,8 @@ const selectRow = async (name: string | RegExp) => {
 };
 
 const deleteSelected = async (count: number) => {
-  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
+  if (count === 1) fireEvent.keyDown(within(screen.getByRole("tabpanel", { name: /^(Todos|Pads)/ })).getByRole("button", { pressed: true }), { key: "Backspace" });
+  else fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
   await questionDialog();
   await answerQuestion(true);
   await questionClosed();

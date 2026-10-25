@@ -1,8 +1,8 @@
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { AGENT, openShelf, padOf } from "../pads/padsFixture";
+import { AGENT, openShelf, padOf, waitForReload } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
 import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
 
@@ -24,8 +24,9 @@ it("u460_open_pad_drawer_observes_bulk_delete", async () => {
   const row = await screen.findByRole("button", { name: "notes" });
   fireEvent.keyDown(row, { key: "Enter" });
   await screen.findByRole("button", { name: "Delete" });
-  fireEvent.click(row, { metaKey: true });
-  await askToDelete(1);
+  fireEvent.click(row);
+  fireEvent.keyDown(row, { key: "Backspace" });
+  await questionDialog();
   await confirmDeletion();
   await screen.findByText(/Pad notes was deleted/);
   expect(connected.drawer.content()).not.toBeNull();
@@ -34,16 +35,19 @@ it("u460_open_pad_drawer_observes_bulk_delete", async () => {
 
 it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () => {
   const { app, state } = await openShelf([padOf("notes", USER), padOf("mine", USER)]);
-  fireEvent.click(await screen.findByRole("button", { name: "notes" }), { metaKey: true });
-  await askToDelete(1);
+  const row = await screen.findByRole("button", { name: "notes" });
+  fireEvent.click(row);
+  fireEvent.keyDown(row, { key: "Backspace" });
+  await questionDialog();
   state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
-  await screen.findByText(/Agents may still be writing/);
+  await waitForReload(app);
   const question = await questionDialog();
   expect(question.message).toContain("notes");
   expect(question.message).not.toContain("mine");
   await answerQuestion(true);
   await waitFor(() => expect(questionProbe.shown?.message).toContain("auth-refactor"));
+  expect(questionProbe.shown?.message).toContain("Agents may still be writing");
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
   await answerQuestion(true);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "notes" }]));
