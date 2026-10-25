@@ -303,9 +303,9 @@ entry/return definitions also resolve, but the broad entry pattern yields two
 addresses and perf exposes no named arguments. These definitions supply no hits,
 exact queue insertion or task identity. The pinned Tokio 1.53.1 contract exposes
 no task-identity enqueue hook; aggregate schedule-latency histograms do not supply
-one. [#4120](https://github.com/roundup-app/roundup/issues/4120) blocks #4031 with
-validated native argument/identity recovery, local/remote scheduling and byte-send
-samples plus controls for that probe set, using existing profiler capabilities.
+one. [#4122](https://github.com/roundup-app/roundup/pull/4122) subsequently completes
+#4120's native argument/identity recovery, local/remote scheduling and byte-send
+samples with controls for that probe set; see the native-identity assessment below.
 Attribution remains incomplete; #4031 and #3760 stay open under #3720. No new
 clean timing campaign, p95 correction, baseline, calibration, production repair
 or user/Mac decision is supplied. Each original clean write-metric comparison
@@ -958,3 +958,39 @@ work from useful-task CPU. Function entry/return supplies bounds, not
 linearization. Pending-read idle exclusion, overlapping branches and the
 selected-future/full-poll distinction remain. The original six clean observations
 are history only; this investigation creates no clean R16 verdict or baseline.
+
+
+### R23 synchronous observer work inside write intervals (#4031)
+
+Builder [40231825676](https://github.com/roundup-app/roundup/actions/runs/40231825676) replays #4122 offline. Scripts, original per-write intersections, commands/statuses, hashes and replay verification stay outside git in this run's `answer-4031` artifact. These are job 40227852264's two native marked profiles, not new captures on this runner. Their boot, pinned executables, request/task/thread/FD identities and all 48 controls remain unchanged.
+
+```text
+user_write_call timestamp → formatting → stderr lock → write(fd=2) → producer
+user_write_accept_return timestamp
+```
+
+The rupd-only diagnostic patch's `r23_mark` timestamps before formatting and synchronous `stderr().lock().write_all`. The analysis joins each marker endpoint to its TID, verifies both endpoints share that TID, pairs that Daemon's fd2 write entry/exit, clips syscall overlaps and intersects timestamp-sorted scheduler transitions. These observed on-CPU syscall spans include kernel/profiler execution; they are neither full logger costs nor useful-task CPU.
+
+| Pin / interval | Windows with fd2 writes / total | Interval elapsed sum (ms) | fd2 on-CPU intersection sum (ms) | fd2 runnable intersection sum (ms) |
+|---|---:|---:|---:|---:|
+| Historical / acceptance | 2200 / 2200 | 15.367262 | 3.496126 | 0 |
+| Candidate / acceptance | 2200 / 2200 | 14.232550 | 3.534575 | 0 |
+| Historical / dispatch | 2200 / 2200 | 30.472432 | 10.807384 | 0.006620 |
+| Candidate / dispatch | 2200 / 2200 | 30.542946 | 10.603102 | 0 |
+
+No intersecting syscall time is non-runnable or unknown. Full Daemon traces contain 137319 historical and 195638 candidate fd2 writes, with no unmatched fd2 entry. Acceptance lies inside dispatch: these rows overlap and must not be summed. The sums describe paced writes, not invocation p95s. Zero non-runnable syscall time does not rule out earlier lock waiting, formatting or other-task execution.
+
+| Ordinal 0 | Request / PID / marker TID | Acceptance start → end (monotonic ns) | fd2 entry → exit (ns), requested/returned bytes |
+|---|---|---|---|
+| Historical | 3353 / 64342 / 64343 | 663603690201 → 663603699545 | 663603691022 → 663603692364, 157/157 |
+| Candidate | 3355 / 77754 / 78853 | 705098266114 → 705098275408 | 705098267055 → 705098268467, 148/148 |
+
+Physical reader/writer TIDs remain separate from marker TIDs; the native assessment preserves their task/physical ordinals and pointer reuse. FD2 identifies diagnostic stderr writes, not decoded kernel-buffer payloads. Source and marker logs establish the synchronous logging path.
+
+#4082 already supplies both producer/initial-dispatch profiles and 24 alternating unmodified/instrumented controls; #4110 adds 36 recorder-state controls; #4122 adds two 24-control native probe sets. Builds/compression/analysis preceded each set. They remain separate lifetimes, not a pooled experiment. Corrected native-set request on/off ratios span 1.443–2.039; echo ratios span 1.355–1.729. All 48 native controls qualify under R13 and miss diagnostic ceilings; the 1685.683182 ms absolute cold-start miss remains. Variation supplies no universal or per-stage overhead bound. This offline analysis adds no probe set requiring controls.
+
+[Prerequisite #4128](https://github.com/roundup-app/roundup/issues/4128) blocks #4031: separate default release, diagnostic configuration, hooks without marker output and complete hooks/markers, using matching per-pin builds and repeated common/marked controls. Existing profiles cannot separate these costs. Exact LIFO/local/overflow/remote queue insertion remains within scheduling entry/return; exact candidate byte publication remains within true Chunk-send entry/return and physical-read/forward-receive bounds. Function entry is not linearization. Full spawned-task hooks exclude root/blocking tasks and enclose observer work; selected-future polls remain separate.
+
+Replay #4122's `.py.txt` scripts as `r23-identity-replay.py REPO IDENTITY_EVIDENCE NEW_SCRATCH NEW_PHYSICAL`, then `r23-identity-assess.py IDENTITY_EVIDENCE NEW_NATIVE NEW_PHYSICAL`. The run artifact adds `stderr-assess.py IDENTITY_EVIDENCE NEW_PHYSICAL NEW_STDERR`; compare `summary.json` and decompressed per-pin intersections. Inputs are the two `v2-<pin>-marked-1-attempt1-on` event/marker logs and physical-write CSVs. Hashes and original syscall times/statuses are retained; gzip timestamps are immaterial.
+
+Separately, original clean `terminal_write_p95_ms` fits its 0.0604572 ms historical-derived ceiling in all three candidate invocations; original clean `write_to_output_p95_ms` fits its 0.1230527 ms ceiling in all three. Neither establishes a Daemon-only cause. Never subtract diagnostic spans from clean p95s, charge pre-write pending-read idle time to a write, sum reply/output branches or treat acceptance as physical completion. Attribution under #4031/#3760/#3720 remains **incomplete**. R8 pins, R13's 2.0 per CPU, R15 pacing, R16 ceilings and absolute limits remain; no baseline, calibration, production repair, clean R16 verdict or user/Mac decision is supplied.
