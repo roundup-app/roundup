@@ -151,7 +151,7 @@ it("u2567d_before_the_first_tree_shows_no_all_clear", async () => {
   const mounting = mountAskBar([], null, new Promise<RailNode[]>((resolve) => { answer = resolve; }), true);
 
   await screen.findByRole("textbox", { name: "Ask" });
-  expect(document.querySelector(".overview-heading")).toBeNull();
+  expect(screen.queryByRole("region", { name: copy.projectOverview })).toBeNull();
   answer(tree());
   await mounting;
 });

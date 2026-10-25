@@ -293,8 +293,10 @@ export const Rail = (props: { requested?: boolean }) => {
       (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
   };
 
-  onMount(() => {
+  createEffect(() => {
     const tree = container();
+
+    if (!tree) return;
 
     if (tree) {
       // --rail-step is a calc(), so a probe resolves it to pixels once.
@@ -334,11 +336,11 @@ export const Rail = (props: { requested?: boolean }) => {
 
     window.addEventListener("pointerdown", press, { capture: true });
     window.addEventListener("pointermove", follow, { capture: true });
-    container()?.addEventListener("keydown", lift, { capture: true });
+    tree.addEventListener("keydown", lift, { capture: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
-      container()?.removeEventListener("keydown", lift, { capture: true });
+      tree.removeEventListener("keydown", lift, { capture: true });
     });
   });
 

@@ -113,7 +113,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   };
 
   return (<>
-    <Show when={hasView("resources")}><section class="resource-inspection" aria-label="Resources">
+    <Show when={hasView("resources")}><section class="resource-inspection" aria-label={copy.resources}>
       <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
       <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
