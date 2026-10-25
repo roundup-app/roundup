@@ -114,7 +114,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: ${{ matrix.partition == 1 }}
-          ci3781-cache: ${{ env.CI3781_CACHE }}
+          experiment-cache: ${{ env.CI3781_CACHE }}
       - name: E12 network observer dependencies
         run: |
           if ! command -v strace || ! command -v ip || ! command -v setpriv; then
