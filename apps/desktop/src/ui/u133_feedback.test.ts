@@ -42,9 +42,11 @@ it.each([
   const button = root.querySelector("button")!;
   const label = button.querySelector("span")!;
   stop = pressFeedback(document);
+
   const event = start === "pointerdown"
     ? new PointerEvent(start, { bubbles: true, composed: true, button: 0 })
     : new KeyboardEvent(start, { bubbles: true, composed: true, key: "Enter" });
+
   label.dispatchEvent(event);
   expect(button.dataset.pressed).toBe("true");
   expect(host.hasAttribute("data-pressed")).toBe(false);
