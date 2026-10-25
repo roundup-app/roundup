@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { CopyButton } from "../ui/CopyButton";
+import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { IconButton } from "../ui/IconButton";
@@ -433,6 +433,7 @@ const ownersToOffer = (connected: ConnectedProject, current: Actor) => ownersOnR
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
+  const copied = createCopyFeedback();
   const useList = usePadList();
   const [editing, setEditing] = createSignal(false);
   let row: HTMLButtonElement | undefined;
@@ -469,7 +470,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
               { id: "assign", label: copy.assign, enabled: ownersToOffer(connected, pad.owner).length > 0, run: () => { if (row) props.onAssign(pad.name, row); } },
               ...(pad.owner.kind === "user" ? [] : [{ id: "make-yours", label: copy.makeYours, run: () => props.onMakeYours(pad.name) }]),
-              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message)),
+              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message), () => props.onItemFailure(pad, null), copied),
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
             ], x, y))}
             class="pad-inset"
@@ -511,7 +512,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
 
             >
-              <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
+              <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
             <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={event => open(activationSource(event))}><Icon name="right" /></IconButton></span>
