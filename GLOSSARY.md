@@ -159,6 +159,12 @@ An Agent's saved ask to be told, once, when all or any of named Agents finish (`
 **Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
 A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant; a PR's checks pin the head observed at activation and match only complete fresh `agent.worktreeState` evidence for it, a moved head ending the reaction as `invalidated`), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
 
+**Reaction observation identity** (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`):
+Typed facts emitted where a Reaction's observation succeeds or fails. The Observation and retained Watch
+keep `cause_code`, `gap_code`, `recovery_code` and `health_code` separately from diagnostic prose,
+cursor, pinned head and evidence. `unknown`, including absent legacy identity, grants no authority
+and offers a current check; historical prose never supplies identity or a successful match.
+
 **Preview** (`reaction.preview`; user label: Time preview):
 The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
 
