@@ -146,9 +146,9 @@ it("u3720_real_daemon_owner_assign", async () => {
     // Remove an owner after lifting, before releasing on its stale header.
     await lift(moved.id);
     const stale = await point(`${group(agents[1]!.id)} .shelf-group-head`);
-    // Hold only the Rail refetch so the in-flight gesture retains its target;
+    // Hold the Rail and Todo refetches so the in-flight gesture retains its stale target;
     // todo.assign still reaches the real Daemon and must refuse the removed id.
-    await evaluate(`(() => { const fetch = window.fetch.bind(window); window.fetch = (url, options) => String(url).endsWith('/__daemon/rpc') && JSON.parse(options.body).method === 'rail.tree' ? new Promise(() => {}) : fetch(url, options); return true; })()`);
+    await evaluate(`(() => { const fetch = window.fetch.bind(window); window.fetch = (url, options) => String(url).endsWith('/__daemon/rpc') && ['rail.tree','todo.list'].includes(JSON.parse(options.body).method) ? new Promise(() => {}) : fetch(url, options); return true; })()`);
     await app.rpc("rail.remove", { id: agents[1]!.id });
     await browser("mouse", "move", String(stale.x), String(stale.y));
     await browser("mouse", "up");
