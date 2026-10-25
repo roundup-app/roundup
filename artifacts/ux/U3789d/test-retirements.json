@@ -510,6 +510,11 @@
       "file": "apps/desktop/src/todos/u17_todo_detail.test.tsx",
       "test": "u17_a_failed_history_read_keeps_current_content_editable",
       "retained": "apps/desktop/src/todos/u462_history.test.tsx: u462_failed_fetch_does_not_consume_unread_changes proves history failure keeps title editing and focus available, retry recovers history and acknowledges unread changes. The removed test duplicates that proof and assumes transport retries do not occur."
+    },
+    {
+      "file": "apps/desktop/src/shelf/u458_lifetime.test.tsx",
+      "test": "u458_selection_survives_refetch_by_identity",
+      "retained": "The same test reads aria-pressed on the refetched identity. Its redundant single-selection toolbar-copy assertion is retired by U3789d; u460_bar_counts_unique_items_and_cancel_clears_without_calls retains multi-selection cancellation."
     }
   ],
   "assertion_retirements": [

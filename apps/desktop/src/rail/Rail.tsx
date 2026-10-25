@@ -509,8 +509,7 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
-      if (failure.retry() !== null) return;
-      failure.clear();
+      if (failure.retry() === null) failure.clear();
       rail.clearWorkstreamFailure();
       rail.clearStorageFailure();
     };
