@@ -147,11 +147,14 @@ for (const list of [nested, shelf]) {
       await settled();
       expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
 
+      // Re-measure after cancellation: settling or owner groups can move rows.
+      const origin = await centre(rows, before.ids.length - 1);
+
       // Past the activation distance and back to the row's own place: no move.
-      await page.pointer("down", last.x, last.y);
-      await page.pointer("move", last.x, last.y - 12);
-      await page.pointer("move", last.x, last.y);
-      await page.pointer("up", last.x, last.y);
+      await page.pointer("down", origin.x, origin.y);
+      await page.pointer("move", origin.x, origin.y - 12);
+      await page.pointer("move", origin.x, origin.y);
+      await page.pointer("up", origin.x, origin.y);
       await settled();
       expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
     }, 60_000);
