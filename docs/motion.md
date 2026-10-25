@@ -150,7 +150,7 @@ and Ark still own activation; feedback dispatches no click and changes no backgr
 D9 observes browser animation timings as well as CSS declarations and permits only
 opacity for its reduced-motion fade exception.
 
-`apps/desktop/observers/U3010c/layout.js` is the preliminary rendered Solid probe:
+`apps/desktop/observers/U3010c/layout.eval` is the preliminary rendered Solid probe:
 evaluate it with `agent-browser eval --stdin` in a fresh headless Vite harness,
 after loading the App/choice fixture so Vite has optimized Motion. It renders a keyed
 Solid `For`, inserts/removes, reparents a row into/out of a nested `For`, then reverses

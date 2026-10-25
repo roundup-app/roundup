@@ -8,6 +8,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     const effects = new Map<Element, { animation: ReturnType<typeof animate>; restore: () => void }>();
     let pointerHeld = false;
     const stop = () => { effects.forEach(effect => { effect.animation.cancel(); effect.restore(); }); effects.clear(); };
+
     const move = (el: Element, down: boolean) => {
       if (!(el instanceof HTMLElement) || !("animate" in el)) return;
       const previous = effects.get(el);
@@ -27,9 +28,11 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       const target = new DOMMatrix(base === "none" ? undefined : base).scale(Number(scale)).toString();
       const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
       const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
+
       const animation = reduced()
-        ? animate(el, { opacity: [fromOpacity, down ? tokens.getPropertyValue("--press-opacity").trim() : "1"] }, { duration: seconds })
+        ? animate(el, { opacity: [Number(fromOpacity), down ? Number(tokens.getPropertyValue("--press-opacity")) : 1] }, { duration: seconds })
         : animate(el, { transform: [fromTransform, target] }, { duration: seconds, ease });
+
       const effect = { animation, restore };
       effects.set(el, effect);
       void animation.then(() => {
@@ -37,16 +40,21 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
         animation.cancel(); restore(); effects.delete(el);
       });
     };
+
     let pressing: Element | null = null;
+
     const clear = () => {
       const el = pressing;
+
       if (el && pointerHeld) move(el, false);
       pressing?.removeAttribute("data-pressed"); pressing = null;
       pointerHeld = false;
     };
+
     createEffect(() => {
       if (reduced()) {
         stop();
+
         if (pressing && pointerHeld) move(pressing, true);
       }
     });
@@ -70,12 +78,14 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       clear();
       pressing = el;
       pointerHeld = el !== null;
+
       if (el) move(el, true);
       el?.setAttribute("data-pressed", "true");
     };
 
     const key = (event: KeyboardEvent) => {
       pointerHeld = false; stop();
+
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       const el = control(event.composedPath()[0] ?? null);
 
@@ -104,6 +114,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     };
 
     const drag = () => { pointerHeld = false; clear(); stop(); };
+
     view.addEventListener("dragstart", drag, true);
     view.addEventListener("blur", blur, true);
     const endings = ["pointerup", "pointercancel", "lostpointercapture", "keyup"] as const;
