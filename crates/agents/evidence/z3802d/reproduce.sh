@@ -32,6 +32,7 @@ print(json.dumps({str(p.relative_to(pathlib.Path(root).parent)): hashlib.sha256(
 PYTHON
 }
 snapshot > "$probe/before.json"
+printf 'load before: '; cat /proc/loadavg
 "${CARGO_TARGET_DIR:-$probe/target}/release/z3802d-probe" bench "$probe/files/repo"
 set +e
 "${CARGO_TARGET_DIR:-$probe/target}/release/z3802d-probe" read "$probe/reftable/repo" refs/heads/main
@@ -39,6 +40,7 @@ result=$?
 set -e
 printf 'reftable comparison exit: %s\n' "$result"
 test "$result" -eq 1
+printf 'load after: '; cat /proc/loadavg
 snapshot > "$probe/after.json"
 cmp "$probe/before.json" "$probe/after.json"
 printf 'repository file contents unchanged (includes index, refs, worktree registrations): 0\n'
