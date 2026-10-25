@@ -35,11 +35,13 @@ class Addition(unittest.TestCase):
                 declaration.write_text(original.replace("    todos_methods[\"todo\"] {\n", "    todos_methods[\"todo\"] {\n" + DECLARATION))
                 handler = checkout / "crates/todos/src/dispatch.rs"
                 handler.write_text(handler.read_text() + HANDLER)
+                integration = checkout / "crates/rup/tests/mcp.rs"
+                integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp.rs"]\nmod c4_adapter;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"
                 adapter.write_text(adapter.read_text() + "\n#[cfg(test)]\nmod c4_addition;\n")
                 (adapter.parent / "mcp/c4_addition.rs").write_bytes((ROOT / "tools/contracts/fixtures/addition.rs").read_bytes())
                 run("just", "contracts")
-                run("cargo", "test", "-q", "-p", "rup", "--bin", "rup", "c4_one_declaration_reaches_every_surface")
+                run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
                 caller = checkout / "contracts/c4-addition.ts"
                 caller.write_text('''import type { RpcMethods } from "./generated/methods";
 import type { TodoId } from "./generated/todo/TodoId";
@@ -59,7 +61,7 @@ export type C4Caller = Assert<Equal<RpcMethods["project.contractProbe"], {params
                     declaration.write_text(original.replace('    todos_methods["todo"] {\n', '    todos_methods["todo"] {\n' + row))
                     run("just", "contracts")
                     env[mode] = "1"
-                    run("cargo", "test", "-q", "-p", "rup", "--bin", "rup", "c4_one_declaration_reaches_every_surface")
+                    run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
                     del env[mode]
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/methods.ts").read_text())
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/contract.ts").read_text())

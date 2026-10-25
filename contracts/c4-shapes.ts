@@ -257,6 +257,10 @@ type After = {
   "todo/SetBlockersParams": import("./generated/todo/SetBlockersParams").SetBlockersParams;
   "todo/Todo": import("./generated/todo/Todo").Todo;
   "todo/TodoId": import("./generated/todo/TodoId").TodoId;
+  "todo/DeleteParams": import("./generated/todo/DeleteParams").DeleteParams;
+  "todo/DeletionParams": import("./generated/todo/DeletionParams").DeletionParams;
+  "todo/DeletionState": import("./generated/todo/DeletionState").DeletionState;
+  "todo/Deletion": import("./generated/todo/Deletion").Deletion;
   "todo/UnreadComment": import("./generated/todo/UnreadComment").UnreadComment;
   "todo/UpdateParams": import("./generated/todo/UpdateParams").UpdateParams;
   "todo/Values": import("./generated/todo/Values").Values;
