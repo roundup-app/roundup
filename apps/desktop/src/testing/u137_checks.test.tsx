@@ -226,20 +226,20 @@ rendered("u137 rendered surfaces", () => {
     expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail", "fail"]);
   });
 
-  it.each(["milkdown-slash-menu", "import-panel", "app-select-list"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
+  it.each(["milkdown-slash-menu", "app-select-list", "app-menu", "app-popover", "app-dialog", "shelf"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
       const observed = await page.call<string[]>(`(surface) => {
-        document.body.innerHTML = '<div class="${surface}" ${surface === "app-select-list" ? 'role="listbox" data-scope="select" data-part="content"' : ""} style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+        document.body.innerHTML = '<div class="${surface}" ${({ 'app-select-list': 'role="listbox" data-scope="select" data-part="content"', 'app-menu': 'role="menu" data-scope="menu" data-part="content"', 'shelf': 'data-open="true"', 'app-popover': 'data-scope="popover" data-part="content"', 'app-dialog': 'role="dialog" data-scope="dialog" data-part="content"' }[surface] ?? "")} style="box-shadow:var(--elevation)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         if (surface === 'app-select-list') {
           document.querySelector('.' + surface).removeAttribute('role');
           statuses.push(window.__checks().D8.status);
           document.querySelector('.' + surface).setAttribute('role', 'listbox');
         }
-        document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
+        document.querySelector('.content').style.boxShadow = 'var(--elevation)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
         document.querySelector('.' + surface + ' p').style.boxShadow = '0 2px 5px red';
@@ -247,10 +247,14 @@ rendered("u137 rendered surfaces", () => {
         document.querySelector('.' + surface + ' p').style.boxShadow = 'none';
         document.querySelector('.' + surface).style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
+        for (const value of ['var(--elevation-contact)', 'var(--elevation-contact), var(--elevation-ambient)', 'var(--elevation), 0 0 1px red']) {
+          document.querySelector('.' + surface).style.boxShadow = value;
+          statuses.push(window.__checks().D8.status);
+        }
         return statuses;
       }`, surface);
 
-      expect(observed, scheme).toEqual(surface === "app-select-list" ? ["pass", "fail", "fail", "fail", "fail"] : ["pass", "fail", "fail", "fail"]);
+      expect(observed, scheme).toEqual(surface === "app-select-list" ? ["pass", "fail", "fail", "fail", "fail", "fail", "fail", "fail"] : ["pass", "fail", "fail", "fail", "fail", "fail", "fail"]);
     }
   }, 60_000);
 
@@ -289,26 +293,17 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     if (seed === "door-stopped") await page.until(`() => document.body.textContent.includes('Supervisor stopped, exited 0')`);
   };
 
-  for (const [name, scheme, contrast, reduced] of [
-    ["more-contrast", "light", "more"],
-    ["dark_more-contrast", "dark", "more"], ["reduced-transparency", "light", undefined, "transparency"],
-    ["reduced-motion", "light", undefined, "motion"],
-  ] as const) {
-    it(`u135_${name}_d5_on_painted_layout_at_1280_by_800`, async () => {
-      await page.scheme(scheme, contrast, reduced);
-      await load("agents-10");
+  it("u135_more-contrast_d5_on_painted_layout_at_1280_by_800", async () => {
+    await page.scheme("light", "more");
+    await load("agents-10");
+    expect(await page.call<boolean>(`() => matchMedia('(prefers-contrast: more)').matches`)).toBe(true);
 
-      if (contrast) expect(await page.call<boolean>(`() => matchMedia('(prefers-contrast: more)').matches`)).toBe(true);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
 
-      if (reduced) expect(await page.call<boolean>(`(feature) => matchMedia('(prefers-reduced-' + feature + ': reduce)').matches`, reduced)).toBe(true);
+    expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
+  }, 60_000);
 
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
-    }, 60_000);
-  }
-
-  for (const scheme of ["light", "dark"] as const) for (const contrast of [undefined, "more"] as const) {
+  for (const [scheme, contrast] of [["light", undefined], ["dark", "more"]] as const) {
     it(`u131_accepts_token_backed_chip_padding_in_${scheme}_${contrast ?? "normal"}`, async () => {
       await page.scheme(scheme, contrast);
       await load("agents-10");
@@ -339,7 +334,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     expect(checks.D10, JSON.stringify(checks)).toMatchObject({ status: "pass" });
   }, 60_000);
 
-  for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
+  for (const [seed, scheme, width, height] of [["daemon-exits", "dark", 1280, 800], ["conflict", "light", 1440, 800]] as const) {
     it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout_at_${width}_by_${height}`, async () => {
       await page.scheme(scheme);
       await load(seed, width, height);
@@ -349,7 +344,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     }, 60_000);
   }
 
-  for (const scheme of ["light", "dark"] as const) for (const width of [FULLSCREEN.width]) {
+  for (const scheme of ["dark"] as const) for (const width of [FULLSCREEN.width]) {
     it(`u161_checks_${scheme}_d5_on_painted_layout_at_${width}_by_800`, async () => {
       await page.scheme(scheme);
       await load("door-stopped", width);

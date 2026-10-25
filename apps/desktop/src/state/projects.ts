@@ -33,6 +33,7 @@ export type ProjectsState = {
   reopen(path: string): Promise<void>;
   /** True from a `reopen` call until it answers, so a second click cannot ask for a second Daemon. */
   reopening: Accessor<boolean>;
+  connected(path: string, generation: number): void;
   /** Ends the Project's Daemon and drops its tab; the tab to its left opens (U184). */
   close(path: string): Promise<void>;
   /** Last authoritative name for an open original, excluding pending optimistic names. */
@@ -89,7 +90,10 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     setLoaded(true);
   })();
 
-  void app.onDaemonExited((exit) => update(exit.path, (tab) => ({ ...tab, exit: { code: exit.code }, reopenFailure: null })));
+  void app.onDaemonExited(({ path, ...exit }) => update(path, (tab) => ({
+    ...tab, exit, reopenFailure: null,
+    generation: exit.recovery === "connecting" ? tab.generation + 1 : tab.generation,
+  })));
 
   const openPath = async (path: string) => {
     const project = await app.openProject(path);
@@ -109,6 +113,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     active,
     failure,
     reopening,
+    connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { ...tab, exit: null, reopenFailure: null } : tab),
     select: (path) => {
       if (tabs().some((tab) => tab.project.path === path)) show(path);
     },
@@ -143,7 +148,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
       try {
         const project = await app.openProject(path);
 
-        update(path, (tab) => ({ project, exit: null, reopenFailure: null, generation: tab.generation + 1 }));
+        update(path, (tab) => ({ project, exit: tab.exit, reopenFailure: null, generation: tab.generation + 1 }));
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 

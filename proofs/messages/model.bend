@@ -11,13 +11,13 @@ type Route is Data:
 
 # B37 projection (docs/messages.md, lifecycle-to-model mapping): Idle/World.idle denote
 # delivery readiness, not the literal Kind. A current Attempt with a running Terminal at
-# idle or error after StopFailure supplies Idle; live error is not Exit. Send uses that
+# idle or error after StopFailure supplies Idle; live error is not ReceiverExit. Send uses that
 # readiness for new Messages; Idle flushes pending ones in their existing ranks. Routes
 # only deliver or drop.
 # A Busy refusal supplies no Type effect and preserves pending work:
 # Rust rolls back its pre-send record, whereas this model records and sends atomically.
 # Busy clears readiness until a subsequent Idle. Actual current-Attempt ending (even with
-# last Kind error), done or removal supplies Exit; gone blocks later Idle and Send.
+# last Kind error), done or removal supplies ReceiverExit; gone blocks later Idle and Send.
 # Filter older-Attempt/stale-revision observations before step: they supply no event for
 # the current receiver and cannot reopen it or end a resumed Attempt. A new Attempt has
 # a new receiver generation; final Message ids never revive. A35 projections below apply
@@ -29,7 +29,7 @@ type Ev is Data:
   Send{from_user: Bool, route: Route}
   Idle{}
   Busy{}
-  Exit{}
+  ReceiverExit{}
   UserDrop{id: Nat}
   Restart{alive: Bool}
 
@@ -187,7 +187,7 @@ def step(e: Ev, s: World) -> World:
       idle_ev(s)
     case Busy{}:
       busy_ev(s)
-    case Exit{}:
+    case ReceiverExit{}:
       exit_(s)
     case UserDrop{id}:
       user_drop(id, s)
@@ -205,7 +205,7 @@ def run(evs: +List<Ev>, s: World) -> World:
       run(rest, step(e, s))
 
 # A35: durable reservation projects temporary stop/error, next Attempt and reopen to Busy,
-# never Exit (final receiver ending). A final removal bypasses the reservation. Releasing
+# never ReceiverExit (final receiver ending). A final removal bypasses the reservation. Releasing
 # after matching SessionStart/first-prompt acknowledgement supplies Idle when ready,
 # including B37 live error.
 # This projection is shared with Rust's restart_event; ordinary step and all laws stay intact.
@@ -217,7 +217,7 @@ def restart_event(reserved: Bool, e: Ev) -> Ev:
       match e:
         case Idle{}:
           Busy{}
-        case Exit{}:
+        case ReceiverExit{}:
           Busy{}
         case Restart{alive}:
           Busy{}
@@ -289,7 +289,7 @@ def store_journal(s: ReservationStore) -> PromptJournal:
     case Stored{reserved, journal}:
       journal
 
-# A35 retirement is distinct from ordinary final Exit and a retained restart. The durable
+# A35 retirement is distinct from ordinary final ReceiverExit and a retained restart. The durable
 # selected state never becomes eligible again, even after completion/reopen.
 type Retirement is Data:
   Removing{}
