@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -145,13 +146,25 @@ export type AppSeam = App & ProjectCalls;
 
 export const INTERNAL_CODE = -32603;
 
+/** Unknown or malformed optional data cannot authorize Event recovery; keep the error identity. */
+export const rpcFailureSchema = v.object({
+  code: v.number(),
+  message: v.string(),
+  data: v.fallback(v.optional(v.object({
+    kind: v.literal("events-expired"),
+    oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
+  })), undefined),
+});
+
 /** A failed call: the Daemon's own `code` and `message`, or INTERNAL when Tauri, a plugin or a malformed answer failed. */
 export class RpcError extends Error {
   readonly code: number;
+  readonly data: RpcErrorData | undefined;
 
-  constructor(code: number, message: string) {
+  constructor(code: number, message: string, data?: RpcErrorData) {
     super(message);
     this.name = "RpcError";
     this.code = code;
+    this.data = data;
   }
 }
