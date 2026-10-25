@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import deadline  # noqa: E402
 import orders  # noqa: E402
 import push  # noqa: E402
 
@@ -317,10 +318,10 @@ def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
         if rights is not None:
             subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
         with open(events, 'w') as log, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
+                                                        text=True, env=env, start_new_session=True) as run:
             run.stdin.write(prompt)
             run.stdin.close()
-            for line in run.stdout:
+            for line in deadline.lines(run, deadline.ends):
                 log.write(line)
                 log.flush()
                 try:
@@ -379,12 +380,12 @@ def claude_env():
     empty, which Claude Code would read as a login. Exits with an error annotation when `ANTHROPIC_API_KEY` is empty or a
     step still holds the Max token."""
     if not switched():
-        return os.environ
+        return {**os.environ, **deadline.BASH_LIMITS}
     if not os.environ.get('ANTHROPIC_API_KEY'):
         raise SystemExit('::error::CLAUDE_API is set but the secret ANTHROPIC_API_KEY is empty')
     if os.environ.get('CLAUDE_CODE_OAUTH_TOKEN'):
         raise SystemExit('::error::CLAUDE_API is set but this step holds CLAUDE_CODE_OAUTH_TOKEN')
-    return {name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}
+    return {**deadline.BASH_LIMITS, **{name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}}
 
 
 def log_cost(label, cost):
