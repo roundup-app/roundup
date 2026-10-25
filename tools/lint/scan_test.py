@@ -25,7 +25,7 @@ class Lints(unittest.TestCase):
         self.directory.cleanup()
 
     def git(self, *args):
-        return subprocess.run(['git', *args], cwd=self.root, check=True, capture_output=True, text=True).stdout
+        return subprocess.run(['git', *args], cwd=self.root, check=True, capture_output=True, text=True, timeout=180).stdout
 
     def write(self, path, text):
         file = self.root / path
@@ -38,7 +38,7 @@ class Lints(unittest.TestCase):
 
     def scan(self, section, status, *args):
         result = subprocess.run([sys.executable, HERE / 'scan.py', section, '--root', self.root, '--base', 'HEAD', *args],
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, timeout=180)
         self.assertEqual(result.returncode, status, result.stdout + result.stderr)
         return result.stdout + result.stderr
 
@@ -69,6 +69,11 @@ class Lints(unittest.TestCase):
             self.write(path, prefix + 'x\n' * 1001)
         self.write('.gitattributes', 'attr.any linguist-generated=true\nattrb.any -diff\n')
         self.scan('size', 0)
+
+    def test_t3797a_size_cap_respects_git_forced_text(self):
+        self.write('handwritten.any', '\0' + 'x\n' * 1001)
+        self.write('.gitattributes', 'handwritten.any diff\n')
+        self.assertIn('1001', self.scan('size', 1))
 
     def test_t3797a_size_cap_checks_revision_attributes(self):
         self.write('ordinary', 'x\n' * 1001)
@@ -137,6 +142,7 @@ class Lints(unittest.TestCase):
     def test_t3797a_python(self):
         self.write('loop/a_test.py', 'print("correct")\n')
         self.scan('ruff', 0)
+        self.write('.gitignore', 'loop/a_test.py\n')
         self.write('loop/a_test.py', 'import os\n')
         self.baseline('ruff')
         self.scan('ruff', 0)
@@ -196,7 +202,7 @@ class Lints(unittest.TestCase):
     def cargo(self, license='MIT', dependencies=''):
         self.write('Cargo.toml', '[package]\nname="fixture"\nversion="0.1.0"\nedition="2024"\nlicense="' + license + '"\n' + dependencies)
         self.write('src/lib.rs', 'pub fn fixture() {}\n')
-        subprocess.run(['cargo', 'generate-lockfile'], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(['cargo', 'generate-lockfile'], cwd=self.root, check=True, capture_output=True, timeout=120)
 
     def test_t3797a_dependency_policy_licenses(self):
         for license, status in [('MIT OR Apache-2.0', 0), ('GPL-3.0-only', 1)]:
@@ -220,11 +226,24 @@ class Lints(unittest.TestCase):
         self.baseline('dependencies')
         self.scan('dependencies', 0)
 
+    def test_t3797a_lint_failures_configuration(self):
+        self.write('test.rs', 'fn f() {}')
+        isolated = self.root / 'runner/tools/lint'
+        isolated.mkdir(parents=True)
+        shutil.copyfile(HERE / 'scan.py', isolated / 'scan.py')
+        rules = json.loads((HERE / 'rules.json').read_text())
+        rules['sleep-poll'] = {'kind': 'invalid_kind'}
+        (isolated / 'rules.json').write_text(json.dumps(rules))
+        (self.root / 'runner/node_modules').symlink_to(HERE.parent.parent / 'node_modules', target_is_directory=True)
+        result = subprocess.run([sys.executable, isolated / 'scan.py', 'ast', '--root', self.root], capture_output=True, text=True, timeout=180)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('invalid_kind', result.stderr)
+
     def test_t3797a_lint_failures_missing_tool(self):
         isolated = self.root / 'isolated'
         isolated.mkdir()
         shutil.copyfile(HERE / 'scan.py', isolated / 'scan.py')
-        result = subprocess.run([sys.executable, isolated / 'scan.py', 'ruff', '--root', self.root], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, isolated / 'scan.py', 'ruff', '--root', self.root], capture_output=True, text=True, timeout=180)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn('ruff', result.stderr)
 

@@ -15,7 +15,7 @@ SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
 
 def run(args, root, statuses=(0,)):
-    result = subprocess.run([str(a) for a in args], cwd=root, capture_output=True, text=True)
+    result = subprocess.run([str(a) for a in args], cwd=root, capture_output=True, text=True, timeout=180)
     if result.returncode not in statuses:
         raise RuntimeError(f'{args[0]} (exit {result.returncode}): {result.stderr or result.stdout}')
     return result
@@ -32,20 +32,20 @@ def tracked(root):
     return run(['git', 'ls-files', '-z'], root).stdout.rstrip('\0').split('\0')
 
 
-def generated(root, path, data, attributes):
+def is_generated(root, path, data, attributes):
     # Same predicate as Check 3's generated(), using the checked tree, not staged changes.
     name = Path(path).name
     lock = re.search(r'\.lock($|b$|\.)|-lock\.', name) or name in ('npm-shrinkwrap.json', 'Package.resolved', 'go.sum')
     return ('/vendor/' in f'/{path}' or '/node_modules/' in f'/{path}' or lock
-            or attributes.get(path, False) or b'\0' in data[:8000]
+            or attributes.get(path, False)
             or re.search(rb'@generated|Code generated .*DO NOT EDIT', b'\n'.join(data.split(b'\n')[:5])))
 
 
 def attributes(root, paths):
     result = subprocess.run(['git', 'check-attr', '-z', '--stdin', 'linguist-generated', 'linguist-vendored'],
-                            input='\0'.join(paths) + '\0', cwd=root, capture_output=True, text=True, check=True)
+                            input='\0'.join(paths) + '\0', cwd=root, capture_output=True, text=True, check=True, timeout=30)
     fields = result.stdout.rstrip('\0').split('\0')
-    result = {fields[i]: True for i in range(0, len(fields), 3) if fields[i + 2] in ('set', 'true')}
+    result = {fields[i]: True for i in range(0, len(fields), 3) if fields[i + 2].startswith(('set', 'true'))}
     empty = run(['git', 'hash-object', '-w', '-t', 'tree', '/dev/null'], root).stdout.strip()
     stats = run(['git', 'diff', '--numstat', '-z', '--no-renames', '--no-ext-diff', '--no-textconv', empty, '--'], root).stdout
     for stat in stats.rstrip('\0').split('\0'):
@@ -76,7 +76,7 @@ def inventory(section, root):
                 continue
             data = os.fsencode(os.readlink(file)) if file.is_symlink() else file.read_bytes()
             count = data.count(b'\n')
-            if count > 1000 and not generated(root, path, data, attrs):
+            if count > 1000 and not is_generated(root, path, data, attrs):
                 result.append({'path': path, 'ceiling': count})
         return result
     if section == 'ast':
@@ -88,13 +88,13 @@ def inventory(section, root):
         attrs = attributes(root, paths)
         rows = []
         for ext, language, ids in [('.rs', 'Rust', ['sleep-poll']), ('.ts', 'TypeScript', ['dom-clone', 'style-override']), ('.tsx', 'Tsx', ['dom-clone', 'style-override'])]:
-            files = [p for p in paths if p.endswith(ext) and (root / p).is_file() and not generated(root, p, (root / p).read_bytes(), attrs)]
+            files = [p for p in paths if p.endswith(ext) and (root / p).is_file() and not is_generated(root, p, (root / p).read_bytes(), attrs)]
             if not files:
                 continue
             config = '\n---\n'.join(json.dumps({'id': key, 'language': language, 'message': key, 'severity': 'error', 'rule': rules[key]}) for key in ids).replace('$CSS_PROPERTY', json.dumps(css)[1:-1])
             # Bound argv size without changing which tracked files are scanned.
             for start in range(0, len(files), 150):
-                output = run([HERE.parent.parent / 'node_modules/.bin/ast-grep', 'scan', '--inline-rules', config, '--json=compact', '--no-ignore=hidden', '--no-ignore=vcs', '--', *files[start:start+150]], root, (0, 1))
+                output = run([HERE.parent.parent / 'node_modules/.bin/ast-grep', 'scan', '--inline-rules', config, '--json=compact', '--no-ignore=hidden', '--no-ignore=dot', '--no-ignore=exclude', '--no-ignore=global', '--no-ignore=parent', '--no-ignore=vcs', '--', *files[start:start+150]], root, (0, 1))
                 for match in json.loads(output.stdout):
                     rows.append((match['ruleId'], match['file'], match['text'], '', str(match['range']['start']['line'] + 1) + ':' + str(match['range']['start']['column'] + 1)))
         return occurrences(rows)
@@ -116,7 +116,7 @@ def inventory(section, root):
             raise RuntimeError(f'typos: {output.stderr or output.stdout}')
         return occurrences(rows)
     if section == 'ruff':
-        output = run([binary('ruff'), 'check', 'loop', '--isolated', '--select', 'E4,E7,E9,F', '--output-format', 'json'], root, (0, 1))
+        output = run([binary('ruff'), 'check', 'loop', '--isolated', '--no-respect-gitignore', '--select', 'E4,E7,E9,F', '--output-format', 'json'], root, (0, 1))
         rows = []
         for match in json.loads(output.stdout):
             path = str(Path(match['filename']).relative_to(root))

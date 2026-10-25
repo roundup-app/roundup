@@ -15,19 +15,21 @@ The first rollout independently scans the unchanged merge base when that revisio
 
 ## Initial evidence
 
-Implementation base: `e70c57f55` (all-platform graph, all Cargo features).
+Implementation base: `b2d337467` (all-platform graph, all Cargo features).
 
 | Inventory | Exact entries |
 | --- | ---: |
 | Oversized tracked files, every extension | 31 |
 | Sleep-loop calls (DOM cloning/style overrides: zero) | 146 |
-| typos diagnostics (binary notices excluded) | 163 |
+| typos diagnostics (binary notices excluded) | 164 |
 | Ruff E4,E7,E9,F in frozen loop Python | 8 |
 | Duplicate crate versions across 48 crate names | 112 |
 | RustSec advisory/crate/version triples | 3 |
 | Type-containing cycles before / after | 5 / 0 |
 
-Each first-run recipe rechecks this inventory against the actual unmodified base; this table is descriptive, not trusted input. The five chains in the scenario all disappear by typing the Rail draft adapter from its existing `draftStorage` holder instead of the connected Project composition. Callers and runtime expressions stay the same.
+Each first-run recipe rechecks this inventory against the actual unmodified base; this table is descriptive, not trusted input. Three cached samples including pnpm startup on this shared runner: madge 26.264/23.261/24.903 s, exit 1 with all five cycles; fallow 1.908/2.247/2.039 s, exit 0 with none. These samples ran alongside the related App suite; they establish type-edge coverage, not isolated performance. The extra TypeScript parse check ensures an invalid source never looks acyclic.
+
+The five chains in the scenario all disappear by typing the Rail draft adapter from its existing `draftStorage` holder instead of the connected Project composition. Callers and runtime expressions stay the same.
 
 ## SPDX and advisory policy
 
@@ -43,4 +45,4 @@ Installed fallow remains responsible for dead code and duplicates. Its architect
 
 [cargo-deny 0.20.2](https://github.com/EmbarkStudios/cargo-deny/releases/tag/0.20.2) (2026-07-09), [Ruff 0.17.2](https://github.com/astral-sh/ruff/releases/tag/0.17.2) (2026-10-22), and [typos 1.51.1](https://github.com/crate-ci/typos/releases/tag/v1.51.1) (2026-10-06) provide their respective analyses. `releases.json` pins release URLs and SHA-256 checksums for Linux/macOS on both architectures. Recipe setup installs into ignored local directories, without global installs.
 
-For the inventory adapter, [reviewdog](https://github.com/reviewdog/reviewdog/releases) and [diff-cover/diff-quality](https://github.com/Bachmann1234/diff_cover/releases) were considered. Both are maintained diff-based reporters; neither enforces stale exact-occurrence removal, ceiling shrinkage, or exception-file subset checks against a merge base. Tool-native file/rule/word ignores also lack those capabilities. Python's standard JSON/subprocess/temporary-directory facilities and Git's tracking/attributes/worktree plumbing implement only that missing ratchet, without a second parser or dead-code checker.
+For the inventory adapter, [reviewdog](https://github.com/reviewdog/reviewdog/releases) and [diff-cover/diff-quality](https://github.com/Bachmann1234/diff_cover/releases) were considered. reviewdog v0.21.2 shipped 2026-09-18 and diff-cover v10.6.0 shipped 2026-09-22. Both are maintained diff-based reporters; neither enforces stale exact-occurrence removal, ceiling shrinkage, or exception-file subset checks against a merge base. Tool-native file/rule/word ignores also lack those capabilities. Python's standard JSON/subprocess/temporary-directory facilities and Git's tracking/attributes/worktree plumbing implement only that missing ratchet, without a second parser or dead-code checker.

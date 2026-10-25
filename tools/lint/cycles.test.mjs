@@ -22,7 +22,7 @@ for (const [name, files, status] of [
       writeFileSync(join(root, 'apps/desktop/tsconfig.json'), '{"compilerOptions":{"jsx":"preserve"}}');
 
       for (const [path, source] of Object.entries(files)) writeFileSync(join(root, 'apps/desktop/src', path), source);
-      const result = spawnSync(process.execPath, [new URL('./cycles.mjs', import.meta.url).pathname, root], { encoding: 'utf8' });
+      const result = spawnSync(process.execPath, [new URL('./cycles.mjs', import.meta.url).pathname, root], { encoding: 'utf8', timeout: 10000 });
       assert.equal(result.status, status, result.stdout + result.stderr);
 
       if (status === 1) assert.match(result.stdout, /a\.ts/);
