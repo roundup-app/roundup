@@ -34,15 +34,18 @@ impl Recording {
         })
     }
 
-    pub(super) fn receive(&mut self, bytes: &[u8], received: f64) -> Result<Vec<Sample>, RpcError> {
+    pub(super) fn receive(&mut self, bytes: &[u8], received: f64) -> Vec<Sample> {
         let mut queued = Vec::new();
         for found in self.marker.find_iter(bytes) {
             // The regexp accepts only ASCII, so every matched marker is UTF-8.
             let token = String::from_utf8(found.as_bytes().to_vec()).expect("ASCII marker");
-            if self.samples.contains_key(&token) || self.samples.len() >= 4096 {
-                return Err(RpcError::conflict(
-                    "duplicate sample or keystroke recorder full",
-                ));
+            if let Some(sample) = self.samples.get(&token) {
+                sample.lock().expect("sample lock").ambiguous = true;
+                continue;
+            }
+            // Recorder exhaustion leaves missing evidence, never a refused or reordered user write.
+            if self.samples.len() >= 4096 {
+                continue;
             }
             let sample = Arc::new(Mutex::new(KeystrokeSample {
                 token: token.clone(),
@@ -54,7 +57,7 @@ impl Recording {
             self.samples.insert(token, Arc::clone(&sample));
             queued.push(sample);
         }
-        Ok(queued)
+        queued
     }
 
     pub(super) fn read(&mut self, bytes: &[u8], at: f64) {
