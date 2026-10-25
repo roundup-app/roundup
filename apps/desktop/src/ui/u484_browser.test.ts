@@ -89,6 +89,7 @@ const drag = async (id: string, target: string) => {
 
 it("u490a_original_place_drop_makes_no_commit", async () => {
   await load();
+
   const origin = await read<{ x: number; y: number }>(`(() => {
     const box = document.querySelector('[aria-label="Move C"]').getBoundingClientRect();
     return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
@@ -102,7 +103,7 @@ it("u490a_original_place_drop_makes_no_commit", async () => {
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[data-id=C]').dataset.dragging === 'false' && !document.querySelector('.sortable-slot')`);
   expect(await order()).toEqual(["A", "B", "C"]);
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
   expect(await read<string>(`document.activeElement?.getAttribute('aria-label')`)).toBe("Move C");
 }, 30_000);
 

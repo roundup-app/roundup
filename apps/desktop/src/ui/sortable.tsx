@@ -369,6 +369,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     // The extra gap can leave OptimisticSorting's index on a neighbour after the pointer returns.
     // Use the library's lift shape to keep that return in the original slot, preserving horizontal depth.
     const index = isSortable(source) ? pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : source.index : null;
+
     const final = tree && inside && !event.canceled && isSortable(source)
       ? resolve(tree, String(source.id), index ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
       : null;
