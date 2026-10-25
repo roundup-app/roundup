@@ -224,22 +224,6 @@
   white-space: nowrap;
 }
 
-/* Keep the selection wash uniform under a line that clips across inline controls. */
-.shelf-row.todo-inset[data-selected="true"] {
-  background-image: linear-gradient(var(--selected), var(--selected));
-  background-size: auto;
-}
-
-.shelf-row.todo-inset[data-selected="true"]::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: calc(var(--space-1) / 2);
-  background-color: var(--accent);
-  pointer-events: none;
-}
-
 .todo-row .row-head { min-width: 0; display: flex; align-items: start; }
 .todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
 
@@ -272,7 +256,7 @@
 .todo-row[role="treeitem"]:hover {
   color: var(--text);
 }
-.todo-row[role="treeitem"]:active {
+.todo-row[role="treeitem"]:active:not([data-dnd-dragging]) {
   color: var(--ink-pressed);
   transition-duration: 0s;
 }

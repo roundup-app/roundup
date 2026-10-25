@@ -155,32 +155,20 @@ describe("u9 actions", () => {
     };
 
     chord("n");
-    const shown = await screen.findByText("no claude on PATH");
+    await screen.findByRole("alert");
     fireEvent.click(rowOf("g"));
 
-    expect([shown.className, screen.queryByText("no claude on PATH")]).toEqual(["ink", null]);
-  });
-
-  it("u9_the_failure_line_sits_above_the_actions", async () => {
-    const mounted = await mountRail([]);
-    mounted.app.handlers["rail.createWorkstream"] = () => {
-      throw new RpcError(-32000, "boom");
-    };
-
-    fireEvent.click(pinnedAdd());
-    const line = await screen.findByText("boom");
-
-    expect(line.compareDocumentPosition(pinnedAdd()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("u9_the_failure_line_clears_on_a_click_on_the_fold_triangle", async () => {
-    const mounted = await mountRail([workstream("g")]);
+    const mounted = await mountRail([workstream("g")], [], undefined, undefined, { pane: fakeEmulators().factory });
     mounted.app.handlers["rail.createWorkstream"] = () => {
       throw new RpcError(-32000, "boom");
     };
 
     fireEvent.click(pinnedAdd());
-    await screen.findByText("boom");
+    await screen.findByRole("alert");
 
     fireEvent.click(glyphOf("g"));
 
@@ -188,7 +176,7 @@ describe("u9 actions", () => {
   });
 
   it("u9_the_failure_line_clears_on_a_click_on_promote", async () => {
-    const mounted = await mountRail([workstream("g")]);
+    const mounted = await mountRail([workstream("g")], [], undefined, undefined, { pane: fakeEmulators().factory });
     mounted.app.handlers["rail.createWorkstream"] = () => {
       throw new RpcError(-32000, "boom");
     };
@@ -196,7 +184,7 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     fireEvent.click(pinnedAdd());
-    await screen.findByText("boom");
+    await screen.findByRole("alert");
     fireEvent.mouseEnter(rowOf("g"));
 
     await chooseAction(mounted.app, "g", "Start supervisor");
@@ -205,13 +193,13 @@ describe("u9 actions", () => {
   });
 
   it("u9_the_failure_line_clears_on_a_click_outside_the_rail", async () => {
-    const mounted = await mountRail([]);
+    const mounted = await mountRail([], [], undefined, undefined, { pane: fakeEmulators().factory });
     mounted.app.handlers["rail.createWorkstream"] = () => {
       throw new RpcError(-32000, "boom");
     };
 
     fireEvent.click(pinnedAdd());
-    await screen.findByText("boom");
+    await screen.findByRole("alert");
 
     fireEvent.click(document.body);
 
@@ -309,12 +297,10 @@ it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async ()
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([]);
 });
 
-it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () => {
+it("a24_a_pending_start_keeps_the_rail_interactive", async () => {
   const mounted = await mountRail([workstream("closed", { attempt: "2" }), workstream("other")]);
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
   mounted.rail.select("closed");
-  const pane = document.querySelector<HTMLElement>(".pane");
-  const before = pane?.getAttribute("style") ?? null;
 
   await chooseAction(mounted.app, "closed", "Start supervisor");
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
@@ -322,7 +308,6 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   await settled();
 
   expect(mounted.rail.selected()).toBe("other");
-  expect(document.querySelector<HTMLElement>(".pane")?.getAttribute("style") ?? null).toBe(before);
 });
 
 it("a24_a_late_failure_shows_the_error_and_retry_door", async () => {

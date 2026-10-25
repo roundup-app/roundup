@@ -319,7 +319,6 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
-    <ReservedLine overlay message={rail.failure()} />
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>

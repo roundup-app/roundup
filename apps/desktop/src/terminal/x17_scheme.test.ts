@@ -52,3 +52,28 @@ it("x17_ending_the_connection_stops_following_the_window", async () => {
 
   expect(schemeCalls(app)).toHaveLength(1);
 });
+
+
+it("u3791c_rejected_actions_reach_their_owner_scheme", async () => {
+  const window = scheme(false);
+  const app = createFakeApp();
+  let refused = true;
+
+
+  app.handlers["terminal.scheme"] = () => {
+    if (refused) throw new Error("scheme unavailable");
+
+    return null;
+  };
+
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+  expect(schemeCalls(app)).toHaveLength(1);
+  expect(connected.terminalScheme.failure()).not.toBeNull();
+  refused = false;
+  await connected.terminalScheme.retry();
+  expect(connected.terminalScheme.failure()).toBeNull();
+  expect(schemeCalls(app)).toHaveLength(2);
+  connected.stopTerminalScheme();
+  window.switchTo(true);
+  expect(schemeCalls(app)).toHaveLength(2);
+});

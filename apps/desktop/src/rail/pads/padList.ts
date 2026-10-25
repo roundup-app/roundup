@@ -13,6 +13,8 @@ export type PadList = {
   /** The message of the newest `pad.list` if it failed, until a later one succeeds. */
   failure: Accessor<string | null>;
   reload: () => Promise<void>;
+  /** Joins the current read without issuing another RPC. */
+  settled: () => Promise<void>;
 };
 
 type Shared = { list: PadList; users: number; dispose: () => void };
@@ -88,7 +90,7 @@ const open = (connected: ConnectedProject): Shared => {
 
     void reload();
 
-    return { list: { pads, loaded, failure, reload }, users: 0, dispose };
+    return { list: { pads, loaded, failure, reload, settled: () => latest }, users: 0, dispose };
   });
 };
 

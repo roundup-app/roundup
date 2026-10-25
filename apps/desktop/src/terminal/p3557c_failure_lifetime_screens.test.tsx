@@ -7,9 +7,6 @@ import { mountPane } from "./paneHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const press = (target: Element, key: string) =>
-  target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key, metaKey: true }));
-
 it.each(["dismissal", "clipboard success keeps output failure"] as const)("p3557c_failure_lifetime_screens_%s", async (action) => {
   const { app, connected, container } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
@@ -30,4 +27,24 @@ it.each(["dismissal", "clipboard success keeps output failure"] as const)("p3557
     await waitFor(() => expect(app.calls.length).toBeGreaterThan(calls));
     expect(screen.getByRole("alert", { name: "terminal.output: channel refused" })).toBeTruthy();
   }
+});
+
+
+it("u3791c_terminal_replacement_keeps_failure_ownership", async () => {
+  const { app, connected, screens, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
+  app.outputFailure = new RpcError(-32603, "first connection failure");
+  connected.rail.select("a");
+  await waitFor(() => expect(screens().failure("t-a")).not.toBeNull());
+  app.outputFailure = new RpcError(-32603, "second connection failure");
+  connected.rail.select("b");
+  await waitFor(() => expect(screens().failure("t-b")).not.toBeNull());
+  expect(screens().failure("t-a")).toBeNull();
+  const current = screens().failure("t-b");
+  screens().dismiss("t-a");
+  expect(screens().failure("t-b")).toBe(current);
+  app.clipboardFailure = new Error("clipboard permission refused");
+  emulators.get("t-b")!.selectedText = "exact clipboard input";
+  await screens().copy("t-b");
+  screens().dismiss("t-b");
+  expect(screens().failure("t-b")).toBe(current);
 });

@@ -11,6 +11,7 @@ const open = async (body: string, done = false) => {
   fireEvent.click(await screen.findByText("Unassigned").catch(() => screen.findByRole("button", { name: "1 done" })));
   fireEvent.keyDown(await screen.findByRole("button", { name: /Ship/ }), { key: "Enter" });
   await within(panel()).findByText("Blocker");
+  await within(panel()).findByRole("region", { name: "Todo history" });
 
   return mounted;
 };
