@@ -70,6 +70,7 @@ order: agent_Order | null, };
 
 export type agent_ContextTodo = { id: number, title: string, blocked: boolean, };
 
+// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- C4 preserves ConversationCard.shape, the A2681c domain term in GLOSSARY.md.
 export type agent_ConversationCard = { intent?: string, shape?: string, facts?: Array<string>, outcome?: string, };
 
 export type agent_ConversationOverview = { program: string, id: string, name?: string, 
@@ -198,6 +199,7 @@ export type agent_SetOrderParams = { id: string, order: agent_Order, captured?: 
 
 export type agent_SignalOutcome = { drop: boolean, };
 
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- C4 freezes the pre-migration opaque signal payload contract for bidirectional comparison.
 export type agent_SignalParams = { id: string, attempt: string, payload: Record<string, unknown>, };
 
 export type agent_Skill = { name: string, 
