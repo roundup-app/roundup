@@ -99,7 +99,8 @@ it.each(["save", "read", "mismatch", "cleanup"])("u4086c_quarantine_failure_and_
 
   if (failure === "read") entries.mockImplementationOnce(async () => [...cache]).mockRejectedValueOnce(new Error("read denied"));
 
-  if (failure === "mismatch") entries.mockImplementationOnce(async () => [...cache]).mockResolvedValueOnce([]);
+  if (failure === "mismatch") entries.mockImplementationOnce(async () => [...cache]).mockImplementationOnce(async () =>
+    [...cache].map(([name]): [string, unknown] => [name, { key, bytes: "different retained bytes" }]));
   const remove = vi.spyOn(Storage.prototype, "removeItem");
 
   if (failure === "cleanup") remove.mockImplementationOnce(() => { throw new Error("interrupted cleanup"); });
@@ -147,9 +148,14 @@ it("u4086d_recovery_is_per_record_and_never_clears_other_work", async () => {
     expect(draftStorage(project).list()).toEqual(JSON.parse(original.get(`roundup:drafts:${project}`)!).drafts);
   }
 
-  const read = vi.spyOn(Storage.prototype, "key").mockImplementationOnce(() => { throw new Error("enumeration denied"); });
-  expect(await initializeStorage()).toContain("enumeration denied");
-  expect(storageRecovery()).toBeNull();
-  read.mockRestore();
-  expect(retainedStorage()).toHaveLength(2);
+  localStorage.setItem("roundup:shelf:/unreadable", '{"open":');
+
+  for (const operation of ["key", "getItem"] as const) {
+    const read = vi.spyOn(Storage.prototype, operation).mockImplementationOnce(() => { throw new Error("storage read denied"); });
+    expect(await initializeStorage()).toContain("storage read denied");
+    expect(storageRecovery()).toBeNull();
+    read.mockRestore();
+    expect(localStorage.getItem("roundup:shelf:/unreadable")).toBe('{"open":');
+    expect(retainedStorage()).toHaveLength(2);
+  }
 });
