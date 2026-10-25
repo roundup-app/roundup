@@ -1,7 +1,7 @@
 import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import { chromePath, openPage } from "../testing/chromePage";
 import tokenCss from "../tokens.css?raw";

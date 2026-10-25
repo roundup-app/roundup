@@ -1,7 +1,7 @@
 import { leaderKey } from "../../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { App } from "../../App";
+import { RequestedApp as App } from "../../testing/requestedApp";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { seedApp } from "../../testing/seeds";
 import type { SeedName } from "../../testing/seeds";

@@ -244,3 +244,9 @@
   z-index: 1;
   background-color: var(--sunken);
 }
+
+/* Requested Project navigation uses one row within the Rail. */
+.rail .strip {
+  flex: none;
+  height: var(--rail-actions-height);
+}

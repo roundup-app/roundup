@@ -12,12 +12,12 @@ export const probeMenu = (items: MenuItem[]): Promise<string | null> => new Prom
   menuProbe.answer = resolve;
 });
 
-type ProjectMenuProbe = { path: string | null };
+type ProjectMenuProbe = { path: string | null; items: MenuItem[] };
 
-export const projectMenu: ProjectMenuProbe = { path: null };
+export const projectMenu: ProjectMenuProbe = { path: null, items: [] };
 
 /** Deliver the native host's captured Project command through the fake App seam. */
-export const openProjectPage = (command: "import-work" | "project-settings", path: string | null = document.querySelector(".project-tab") ? projectMenu.path : "/p") => {
+export const openProjectPage = (command: string, path: string | null = document.querySelector(".project-tab") ? projectMenu.path : "/p") => {
   if (path === null) return;
 
   window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path, command } }));

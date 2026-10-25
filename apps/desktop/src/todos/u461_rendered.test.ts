@@ -253,7 +253,7 @@ it("u3789a_real_daemon_rows", async () => {
     await app.rpc("pad.move", { name: pad.name, home: home.id });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await until(`document.querySelector('.rail-row[data-id="${home.id}"]')`);
     await evaluate(`(() => {
       window.__rowCalls = [];

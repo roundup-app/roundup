@@ -2,7 +2,7 @@ import { questionProbe } from "../testing/menuProbe";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";

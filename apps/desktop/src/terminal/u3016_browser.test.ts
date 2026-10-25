@@ -55,7 +55,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     writeFileSync(join(folder, `${source}.jsonl`), "");
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1&renderer=dom`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&renderer=dom`);
     await until(`!!document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')`);
     await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
     await until("!!document.querySelector('.measurement-action button')");
@@ -109,7 +109,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await capture("measured-waits");
     await app.rpc("agent.stop", { id: home.id });
     await real.restart();
-    await browser("open", `${real.base}/harness.html?daemon=1&renderer=dom`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&renderer=dom`);
     await until(`!!document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')`);
     await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
     await until("!!document.querySelector('.measurement-action button')");

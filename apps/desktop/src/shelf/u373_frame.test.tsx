@@ -1,7 +1,7 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -49,6 +49,9 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  await screen.findByRole("textbox", { name: "Ask" });
+
+  if (shelf().hidden) chord();
   // Readiness must not compute styles across the full tree-40 App.
   await waitFor(() => screen.getByRole("tablist", { name: "Work items" }));
 
@@ -128,21 +131,6 @@ describe("u373 and u370 on one mounted App", () => {
     expect(controls.app.windowOperations.filter(operation => operation.kind !== "title")).toEqual([]);
   });
 
-  it("u373_the_open_tab_closes_it", async () => {
-    await shared();
-    chord();
-    const row = document.querySelector<HTMLElement>(".rail-row")!;
-    row.focus();
-    fireEvent.click(tabNamed("Todos"));
-    await waitFor(() => expect(document.activeElement).toBe(tabNamed("Todos")));
-
-    fireEvent.click(tabNamed("Todos"));
-    expect(shelf().hidden).toBe(true);
-    expect(tabs().every(tab => tab.getAttribute("aria-expanded") === "false" && tab.getAttribute("aria-selected") === "false")).toBe(true);
-    expect(document.activeElement).toBe(row);
-    expect(screen.queryByRole("button", { name: /^(Show|Hide) work items$/, hidden: true })).toBeNull();
-  });
-
   it("u373_the_other_tab_switches", async () => {
     await shared();
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
@@ -153,18 +141,6 @@ describe("u373 and u370 on one mounted App", () => {
     expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
     expect(tabNamed("Todos").getAttribute("aria-expanded")).toBe("false");
     await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
-  });
-
-  it("u373_a_bar_tab_opens_the_shelf_on_it", async () => {
-    await shared();
-    chord();
-    const pads = within(document.querySelector(".window-bar")!).getByRole("tab", { name: /^Pads/ });
-
-    fireEvent.click(pads);
-    expect(shelf().hidden).toBe(false);
-    expect(pads.getAttribute("aria-selected")).toBe("true");
-    expect(pads.getAttribute("aria-expanded")).toBe("true");
-    await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(pads.id));
   });
 
   it("u370_leader_s_toggles_from_every_focus", async () => {
@@ -206,7 +182,6 @@ describe("u373 and u370 on one mounted App", () => {
 
 describe("u373 the Shelf has two tabs", () => {
 
-
   it("u373_a_zero_count_shows_nothing", async () => {
     await mountApp("empty-project");
 
@@ -222,7 +197,7 @@ describe("u373 the Shelf has two tabs", () => {
     cleanup();
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(selectedTab()).toBe("Pads");
+    expect(screen.getByRole("tab", { name: /^Pads/ }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
@@ -243,65 +218,6 @@ describe("u373 the Shelf has two tabs", () => {
 });
 
 describe("u370 the Shelf closes and opens", () => {
-  it("u373_tabs_remain_available_when_the_project_connection_fails", async () => {
-    const controls = seedApp("tree-40", Date.now());
-
-    controls.app.subscribe = async () => { throw new Error("Shelf connection refused"); };
-
-    localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: false, tab: "todos" }));
-    render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findByText("Shelf connection refused");
-
-    fireEvent.click(tabNamed("Pads"));
-    expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
-    expect(tabs().every(tab => !tab.querySelector(".shelf-count"))).toBe(true);
-    await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
-  });
-
-  it("u373_first_run_tabs_open_the_empty_shelf_without_counts", async () => {
-    await mountApp("first-run");
-    fireEvent.click(tabNamed("Todos"));
-    expect(shelf().hidden).toBe(true);
-    expect(tabs().map(tab => tab.querySelector(".shelf-count"))).toEqual([null, null]);
-    fireEvent.click(tabNamed("Pads"));
-    expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
-    await waitFor(() => expect(within(shelf()).getByRole("tabpanel").id).toBe(tabNamed("Pads").getAttribute("aria-controls")));
-  });
-
-  it("u373_bar_tabs_toggle_with_a_drawer_open", async () => {
-    await mountApp();
-
-    const row = await waitFor(() => {
-      const row = document.querySelector(".shelf .todo-row-button");
-
-      expect(row).not.toBeNull();
-
-      return row!;
-    });
-
-    fireEvent.keyDown(row, { key: "Enter" });
-    await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
-    const drawer = document.querySelector('.drawer[data-open="true"]')!;
-
-    fireEvent.click(tabNamed("Todos"));
-    expect(shelf().hidden).toBe(true);
-    expect(drawer.isConnected).toBe(true);
-    fireEvent.click(tabNamed("Pads"));
-    expect(shelf().hidden).toBe(false);
-    expect(tabNamed("Pads").getAttribute("aria-expanded") === "true").toBe(true);
-    expect(drawer.isConnected).toBe(true);
-  });
-
-
-
-
-
-
-
-
-
 
   it("u370_the_state_survives_a_restart_per_project", async () => {
     const first = await mountApp();

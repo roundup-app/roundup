@@ -43,7 +43,7 @@ export const AskBar = (props: {
   const reactions = createReactions();
   const madeScope = shelfScope(connected);
   const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
-  const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
+  const over = () => (["ask-history", "reactions", "made"].some(connected.hasView) && rail.selected() !== null) || opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
@@ -149,13 +149,15 @@ export const AskBar = (props: {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => opening() !== null || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
+  const shown = () => opening() !== null || rail.selected() === null || ["ask-history", "reactions", "made"].some(connected.hasView);
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
   });
 
   asks.load();
+  const [treeReady, setTreeReady] = createSignal(false);
+  void rail.settled().then(() => setTreeReady(true));
 
   const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.name, label: node.name })));
 
@@ -172,6 +174,7 @@ export const AskBar = (props: {
   });
 
   const close = (restore: boolean): void => {
+    if (["ask-history", "reactions", "made"].some(connected.hasView)) ["ask-history", "reactions", "made"].forEach(connected.hideView);
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
@@ -270,7 +273,7 @@ export const AskBar = (props: {
   };
 
   return (<>
-    <Show when={rail.selected() !== null && (deliverables.records().some(record => madeScope.includes(record.home, record.maker)) || deliverables.failure() !== null)}><div class="made-context"><Popover.Root closeOnEscape closeOnInteractOutside positioning={{ placement: "top-start", strategy: "fixed" }}>
+    <Show when={connected.hasView("made") && rail.selected() !== null && (deliverables.records().some(record => madeScope.includes(record.home, record.maker)) || deliverables.failure() !== null)}><div class="made-context"><Popover.Root closeOnEscape closeOnInteractOutside positioning={{ placement: "top-start", strategy: "fixed" }}>
       <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="made-trigger">{copy.deliverables}<Icon name="down" /></button>} />
       <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root></div></Show>
@@ -314,22 +317,27 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
-        <AskRows keys={scope} onOpened={() => close(false)} />
+        <Show when={connected.view()}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
+
+ if (current) connected.hideView(current); }}>{copy.close}</button></Show>
+        <Show when={treeReady() && !over() && !connected.drawer.content()}><ProjectOverview /></Show>
+        <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
+        <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>
+        <Show when={connected.hasView("ask-history")}><AskRows keys={scope} onOpened={() => close(false)} /></Show>
       </section>
     </Show>
   </>);
 };
 
 const ProjectOverview = () => {
-  const { rail } = useConnectedProject();
+  const { rail, hasView } = useConnectedProject();
   const attention = createMemo(() => attentionOrder(rail.nodes));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
-  const under = (id: string | null) => attention().filter((node) => resolvedWorkstream(rail.nodes, node.id) === id);
+  const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
-  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
+  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
@@ -339,7 +347,7 @@ const ProjectOverview = () => {
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
     <ul class="overview-list">
-      <For each={workstreams()}>{(node) => <li>
+      <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
         {entry(node)}
         <Show when={under(node.id).length > 0}><ul class="overview-attention">
           <For each={under(node.id)}>{(agent) => <li>{entry(agent, true)}</li>}</For>
@@ -348,13 +356,14 @@ const ProjectOverview = () => {
           <For each={called(node.id)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
         </ul></Show>
       </li>}</For>
-      <For each={under(null)}>{(node) => <li>{entry(node, true)}</li>}</For>
-      <For each={called(null)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
+      <For each={hasView("workstreams") ? attention().filter(node => node.kind !== "workstream" && resolvedWorkstream(rail.nodes, node.id) === null) : attention()}>{(node) => <li>{entry(node, true)}</li>}</For>
+      <For each={hasView("workstreams") ? called(null) : []}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
     </ul>
   </section>;
 };
 
-const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => void }) => {
+const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolean; select: () => void }) => {
+  const status = () => props.status ? props.node.status : null;
   const [cut, setCut] = createSignal(false);
   let name: HTMLSpanElement | undefined;
   const measure = () => setCut(!!name && name.scrollWidth > name.clientWidth);
@@ -374,11 +383,11 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     const tip = trigger();
 
     return <button {...focus} onClick={props.select} type="button" class="overview-entry"
-      aria-label={[props.node.name, props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")}
+      aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
-      <Tip text={props.node.status ? LABELS[props.node.status.kind] : ""} disabled={!props.node.status}>{(trigger) =>
-        <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={props.node.status?.kind} data-tone={props.node.status?.kind === "error" ? "red" : undefined}>
-          <Show when={props.node.status}>{(status) => <KindGlyph kind={status().kind} />}</Show>
+      <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
+        <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status()?.kind} data-tone={status()?.kind === "error" ? "red" : undefined}>
+          <Show when={status()}>{(status) => <KindGlyph kind={status().kind} />}</Show>
         </span>
       }</Tip>
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>

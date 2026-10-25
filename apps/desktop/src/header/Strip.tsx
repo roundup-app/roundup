@@ -32,6 +32,7 @@ const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
 /** The header's strip (U179): one tab per open Project in the order they were opened, then a quiet `+`. */
 export const Strip = (props: {
   tabs: StripTab[];
+  requested?: boolean;
   active: string | null;
   onSelect: (path: string) => void;
   /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
@@ -229,7 +230,7 @@ export const Strip = (props: {
   );
 
   return (
-    <div class="strip" onFocusIn={(press) => {
+    <Show when={props.requested !== false}><div class="strip" onFocusIn={(press) => {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
       <div class="strip-scroll">
@@ -273,6 +274,6 @@ export const Strip = (props: {
 
         return props.onClose(path);
       }} />
-    </div>
+    </div></Show>
   );
 };

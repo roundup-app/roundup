@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { SEEDS, seedApp } from "../testing/seeds";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";

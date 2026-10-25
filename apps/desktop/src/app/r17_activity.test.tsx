@@ -5,7 +5,7 @@ import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { measurementFixture } from "../testing/measurementFixture";

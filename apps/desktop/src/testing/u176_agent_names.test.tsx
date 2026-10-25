@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";

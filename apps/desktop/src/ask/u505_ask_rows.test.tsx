@@ -8,7 +8,7 @@ import { chromePath } from "../testing/chromePage";
 import { cleanup, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { event } from "../testing/nodes";
-import { ask, mountAskBar, rowTexts } from "./askFixture";
+import { ask, mountAskBar as mountQuietAskBar, rowTexts } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -68,8 +68,9 @@ describe("u505 an Ask row shows progress from Agent state", () => {
   it("u505_selecting_a_row_selects_its_workstream", async () => {
     await observe(async (browser, origin) => {
       for (const activation of ["click", "Enter"]) {
-        await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+        await browser("open", new URL("/harness.html?seed=tree-40&view=workstreams", origin).href);
         await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+        await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
         await browser("eval", `(() => {
           window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed",
             data: {ask: {id: "native", at: "1", text: "ship it", parts: [{text: "ship it",
@@ -105,8 +106,9 @@ describe("u505 an Ask row shows progress from Agent state", () => {
 
   it("u505_arrows_move_between_openable_rows", async () => {
     await observe(async (browser, origin) => {
-      await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+      await browser("open", new URL("/harness.html?seed=tree-40&view=workstreams", origin).href);
       await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+        await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
       await browser("eval", `(() => {
         const parts = [
           {text: "first", placement: {kind: "routed", workstream: "backend"}, state: "queued"},
@@ -143,4 +145,19 @@ describe("u505 an Ask row shows progress from Agent state", () => {
     await waitFor(() => expect(document.querySelector(".ask-reason")?.textContent).toBe("the Door ended before this reached it"));
     expect(rowTexts()).toEqual(["go | ops | Failed"]);
   });
+});
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => { const mounted = await mountQuietAskBar(...args); mounted.connected.showView("ask-history");
+
+ return mounted; };
+
+
+it("u2539b_history_shows_each_doors_current_status_once", async () => {
+  const { app } = await mountAskBar(Array.from({ length: 12 }, (_, n) => ask(`history-${n}`, n, [
+    { text: `Authored request ${n}`, placement: { kind: "routed", workstream: "ops" }, state: "typed" },
+  ])));
+
+  expect(document.querySelectorAll(".ask-row")).toHaveLength(12);
+  expect(document.querySelectorAll(".ask-kind")).toHaveLength(1);
+  expect(app.calls.filter(call => call.method === "ask.send" || call.method === "terminal.write")).toHaveLength(0);
 });

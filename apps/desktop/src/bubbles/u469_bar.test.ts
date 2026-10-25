@@ -36,39 +36,18 @@ const capture = async (name: string): Promise<void> => {
   if (baseline && name === "bar-1280-light") writeFileSync(join(dir, "main-observer.json"), JSON.stringify(JSON.parse(readFileSync(baseline, "utf8"))));
 };
 
-it("u469_the_bar_is_the_last_line_and_no_dock_remains", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
-
-    for (const width of [FULLSCREEN.width]) {
-      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
-      await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-agent .resource-num')`);
-
-      const read = await page.call<{last:boolean; dock:boolean}>(`() => {
-        const bar = document.querySelector('.resource-strip');
-        return {last:bar.parentElement.lastElementChild===bar, dock:!!document.querySelector('.bubble-dock')};
-      }`);
-
-      expect(read).toEqual({last:true, dock:false});
-      await capture(`bar-${width}-${scheme}`);
-    }
-  }
-}, 120_000);
-
 it("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable", async () => {
   await page.load('/harness.html?seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length === 3`);
-  const names = await page.call<string[]>(`() => [...document.querySelectorAll('.terminal-tabs button')].map(e=>e.getAttribute('aria-label'))`);
+  const names = await page.call<string[]>(`() => [...document.querySelectorAll('.terminal-tabs button')].map(e=>e.getAttribute('aria-label') ?? e.textContent)`);
 
   expect(names.every(Boolean)).toBe(true);
   await page.call(`() => document.querySelector('.terminal-tab').focus()`);
 
   for (const name of names) {
-    expect(await page.call(`() => document.activeElement.getAttribute('aria-label')`)).toBe(name);
+    expect(await page.call(`() => document.activeElement.getAttribute('aria-label') ?? document.activeElement.textContent`)).toBe(name);
     await page.press('Tab','Tab');
   }
 

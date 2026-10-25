@@ -70,7 +70,7 @@ afterAll(async () => {
 
 const openApp = async (bound = true) => {
   await browser("set", "viewport", "1280", "800");
-  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40${bound ? "&bound=1" : ""}`);
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40&view=workstreams&items=1${bound ? "&bound=1" : ""}`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
   await settle();
   expect(await evaluate(`document.querySelector('[data-layout-root]').dataset.scope === 'splitter'`)).toBe(bound);

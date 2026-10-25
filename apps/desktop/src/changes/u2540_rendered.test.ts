@@ -168,7 +168,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     const app = createServedApp(real.base);
     const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Recovery", order: { kind: "work", ask: "inspect", limits: [] } });
     await writeFile(join(node.worktree!.path, "same.ts"), "exact work\n");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await browser("eval", `document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
@@ -188,11 +188,12 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+    const retained = await browser("eval", "document.querySelector('.note-form textarea').value");
     await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
     await press("Recover Changes drafts");
     await wait("!!document.querySelector('.note-recovery')");
-    expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain("retain this exact");
+    expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain(retained);
     await capture("real-recovery-actions", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-recovery.png");
     // The densest established seed exposes a retention failure without truncating a note.

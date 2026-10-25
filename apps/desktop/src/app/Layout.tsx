@@ -29,8 +29,10 @@ export const Layout = (props: {
    */
   tabs?: JSX.HTMLAttributes<HTMLDivElement>;
   rail: JSX.Element;
+  railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
+  shelfTabs?: JSX.Element;
   shelfPlacement?: ShelfPlacement;
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
@@ -137,7 +139,7 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
@@ -166,6 +168,7 @@ export const Layout = (props: {
         if (event.target === event.currentTarget && event.propertyName === "transform") { placement().onSettle(); setShelfSliding(false); }
       }}
     >
+      {props.shelfTabs}
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>
           <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={shelfFocus() ? CHORDS.find(row => row.keys === "M") : undefined} onClick={event => placement().onMaximise?.(activationSource(event))}>

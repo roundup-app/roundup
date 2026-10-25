@@ -53,7 +53,7 @@ afterAll(async () => {
 const load = async (base: string, seed: string, width: number, scheme: string) => {
   await browser("set", "viewport", String(width), "800");
   await browser("set", "media", scheme);
-  await browser("open", `${base}harness.html?seed=${seed}`);
+  await browser("open", `${base}harness.html?seed=${seed}&view=workstreams&items=1&tabs=1`);
   await wait("Boolean(window.__fake && document.querySelector('.window'))");
   await evaluate("localStorage.clear()");
   await browser("reload");
@@ -104,8 +104,8 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
   expect(await evaluate("!!document.activeElement?.closest('.project-tab') && document.querySelector('.shelf').dataset.open === 'true'")).toBe(true);
   await browser("focus", '.rail-row[data-id="payments"]');
   await evaluate("window.__backdropReturn = document.activeElement; window.__backdropStart = window.__fake.app.calls.length");
-  // The Hint line is in the scrim's existing dismissal target. Its press closes only the Shelf.
-  await pressAt(".hint-line");
+  // The changes strip is in the scrim's existing dismissal target. Its press closes only the Shelf.
+  await pressAt(".resource-strip");
   await wait("document.querySelector('.shelf').hidden && !document.querySelector('.shelf-scrim')");
   expect(await evaluate(`({focus:document.activeElement === window.__backdropReturn, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ focus: true, mutations: [] });
 }, 120_000);

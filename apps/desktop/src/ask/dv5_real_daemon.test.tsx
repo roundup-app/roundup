@@ -14,7 +14,7 @@ import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
 import { createSignal } from "solid-js";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createProjectDrafts } from "../state/connectedProject";
 

@@ -117,7 +117,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     ]);
 
     const openRealPad = async () => {
-      await browser("open", `${real.base}/harness.html?daemon=1`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
       await browser("click", `[data-id='${home.id}'] [data-part=branch-control]`);
 

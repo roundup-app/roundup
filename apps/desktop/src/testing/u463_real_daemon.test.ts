@@ -73,7 +73,7 @@ const width = 1280;
     const { real, browser, wait, activate, app } = fixture;
 
     try {
-      await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
       await wait(`document.body.textContent.includes('Open a folder to start')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
@@ -88,10 +88,10 @@ const width = 1280;
       })()`);
 
       await activate('[aria-label="Centre"] button');
-      await wait(`document.body.textContent.includes('New Workstream')`);
+      await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      await activate(".pane-action");
+      await activate('[aria-label="Add Workstream"]');
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
       await wait(`!!document.querySelector('.pane-screen textarea')`);
@@ -140,7 +140,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
   const { real, browser, wait, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
     await browser("set", "viewport", String(width), "800");
     await wait(`document.body.textContent.includes('Open a folder to start')`);
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
@@ -153,7 +153,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`document.body.textContent.includes('Open a folder to start')`);
     await activate('[aria-label="Centre"] button');
-    await wait(`!!document.querySelector('.pane-action')`);
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
   } finally { await fixture.close(); }
@@ -164,9 +164,9 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
   const { real, browser, wait, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", String(width), "800");
-    await wait(`!!document.querySelector('.pane-action')`);
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
@@ -231,13 +231,13 @@ it("u2773g_journey_retains_unfinished_work", async () => {
   })()`);
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("document.body.textContent.includes('Open a folder to start')");
     await activate('[aria-label="Centre"] button');
-    await wait("!!document.querySelector('.pane-action')");
-    await activate(".pane-action");
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
+    await activate('[aria-label="Add Workstream"]');
     const door = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
     await wait("[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('Reviewed result'))");
     expect(await evaluate("document.querySelector('.project-tab').dataset.path")).toBe(real.dir);
@@ -258,7 +258,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await app.rpc("rail.rename", { id: door.id, name: "renamed original" });
     await wait("document.querySelector('.rail-row .name')?.textContent === 'renamed original'");
     // The opt-in first-run chooser is intentionally empty on every load; reopen the selected Project through its normal harness route.
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.rail-row')");
     await openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe(ask);
@@ -312,7 +312,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await press("Close");
     await wait("!document.querySelector('.note-batch [role=alert]')");
     await browser("open", "about:blank");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.worktree-control')");
     await press(current.worktree!.branch);
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
@@ -379,7 +379,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
 
   try {
     await writeFile(join(node.worktree!.path, "result.txt"), "changed result\nsecond line\n");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await form();
@@ -391,7 +391,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
       if (navigation === "reload") await browser("reload");
       else {
         await browser("open", "about:blank");
-        await browser("open", `${real.base}/harness.html?daemon=1`);
+        await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       }
 
       await form();
@@ -414,7 +414,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     await mkdir(bucket, { recursive: true });
     await writeFile(join(bucket, "00000001-1111-4111-8111-111111111111.jsonl"), stamped);
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("!!document.querySelector('.todo-project-root')");
@@ -464,7 +464,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     // A fresh page cannot reuse the old connection after a Daemon restart.
     await browser("open", "about:blank");
     await real.restart();
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
     await activate(`.rail-row[data-id="${child.id}"] .name`);
     await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
@@ -482,7 +482,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     if (captures) {
       await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
-      await browser("open", `${real.base}/harness.html?seed=import-candidates`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=import-candidates`);
       await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
       await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await wait("document.querySelectorAll('.import-check').length === 10");
