@@ -400,11 +400,13 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
   create.onclick = () => {
     document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div><textarea class="xterm-helper-textarea"></textarea>');
   };
+
   const open = (event: KeyboardEvent) => {
     if (event.key !== "t") return;
     shells += 1;
     document.body.insertAdjacentHTML("beforeend", `<section class="bubble" data-bubble="shell-${shells}"><textarea class="xterm-helper-textarea"></textarea></section>`);
   };
+
   document.addEventListener("keydown", open);
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     if (!producing) setTimeout(() => callback(performance.now()), 8);
@@ -414,6 +416,7 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
   app.handlers["terminal.read"] = ({ id }) => ({ from: 0, next: 20, text: id === "shell-1" && producing ? "roundup-flood\n" : "ready\n", truncated: false });
   app.handlers["terminal.write"] = ({ id, data }) => {
     const chunk = fromBase64(data);
+
     if (id === "shell-1") {
       expect(new TextDecoder().decode(chunk)).toBe("yes roundup-flood\n");
       producing = true;
@@ -421,9 +424,11 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
 
     return null;
   };
+
   app.handlers["terminal.list"] = () => [info("shell-1"), info("shell-2")];
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: bytes += 64000, data: "" });
   app.handlers["terminal.measure"] = () => ({ at: performance.now(), samples: [] });
+
   try {
     const done = createKeystrokeRun(app, "flood").start();
     await vi.advanceTimersByTimeAsync(170_000);
