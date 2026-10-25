@@ -16,11 +16,11 @@ export function pressFeedback(doc: Document): () => void {
     pressing?.setAttribute("data-pressed", "true");
   };
 
-  const pointer = (event: PointerEvent) => { if (event.button === 0) begin(control(event.target)); };
+  const pointer = (event: PointerEvent) => { if (event.button === 0) begin(control(event.composedPath()[0] ?? null)); };
 
   const key = (event: KeyboardEvent) => {
     if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
-    const el = control(event.target);
+    const el = control(event.composedPath()[0] ?? null);
 
     if (!el) return;
     const space = event.key === " " && !el.matches('a[href], [role=option]');
@@ -29,13 +29,21 @@ export function pressFeedback(doc: Document): () => void {
     if (space || enter) begin(el);
   };
 
-  const leave = (event: PointerEvent) => { if (pressing && event.target instanceof Node && pressing.contains(event.target) && (!(event.relatedTarget instanceof Node) || !pressing.contains(event.relatedTarget))) clear(); };
+  const leave = (event: PointerEvent) => {
+    const target = event.composedPath()[0];
+
+    if (pressing && target instanceof Node && pressing.contains(target) && (!(event.relatedTarget instanceof Node) || !pressing.contains(event.relatedTarget))) clear();
+  };
 
   const view = doc.defaultView!;
   doc.addEventListener("pointerdown", pointer, true);
   doc.addEventListener("pointerout", leave, true);
   doc.addEventListener("keydown", key, true);
-  const blur = (event: Event) => { if (event.target === event.currentTarget || (event.target instanceof Node && pressing?.contains(event.target))) clear(); };
+  const blur = (event: Event) => {
+    const target = event.composedPath()[0];
+
+    if (target === event.currentTarget || (target instanceof Node && pressing?.contains(target))) clear();
+  };
 
   view.addEventListener("blur", blur, true);
   const endings = ["pointerup", "pointercancel", "keyup", "dragstart"] as const;
