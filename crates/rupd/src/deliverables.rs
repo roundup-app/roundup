@@ -731,5 +731,17 @@ fn pad_state(db: &Connection, incarnation: &str) -> rusqlite::Result<pads::PadSo
     if id.to_string() != incarnation {
         return Ok(pads::PadSourceState::Unknown);
     }
+    // Restoring source data never grants access to an explicitly revoked publication.
+    let revoked: bool = db
+        .query_row(
+            "SELECT revoked FROM pad_sources WHERE incarnation=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .unwrap_or(false);
+    if revoked {
+        return Ok(pads::PadSourceState::Deleted(pads::PadDeletion::User));
+    }
     pads::source_state(db, id)
 }

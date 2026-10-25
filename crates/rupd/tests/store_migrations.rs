@@ -244,13 +244,16 @@ async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
     drop(rupd::Daemon::open(dir.path()).unwrap());
 
-    // Make it the Project an older version left: the two latest migrations not yet run, Messages
+    // Make it the Project an older version left: bubbling, deferred-action removal and Pad
+    // retention not yet run, Messages
     // behind each wait reason, both approval Routes, and Door actions waiting, started and done.
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("DROP TABLE pad_deletions; ALTER TABLE pad_sources DROP COLUMN revoked;")
+        .unwrap();
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    db.execute_batch(&format!("PRAGMA user_version = {}", version - 2))
+    db.execute_batch(&format!("PRAGMA user_version = {}", version - 3))
         .unwrap();
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,

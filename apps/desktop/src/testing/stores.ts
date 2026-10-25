@@ -1,6 +1,8 @@
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
+import type { Deletion } from "@contracts/pad/Deletion";
+import type { DeleteParams } from "@contracts/pad/DeleteParams";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Change } from "@contracts/todo/Change";
 import type { Comment } from "@contracts/todo/Comment";
@@ -223,31 +225,74 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 };
 
 /** The Pad methods over `store.pads`, with the Provenance history `store.history`; each write also sends `pad.changed`. */
-export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => ({
-  "pad.list": () => store.pads.map((pad) => ({ ...pad })),
-  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => pad.name === name, `pad ${name}`) }),
-  "pad.create": ({ name, text }) => {
-    if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
+export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => {
+  const project = crypto.randomUUID();
+  const deletions = new Map<string, { receipt: Deletion; actor: string; request: string }>();
 
-    if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
+  const retained = (operation: string) => {
+    const entry = deletions.get(operation);
 
-    const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
-    store.pads = [...store.pads, created];
-    announce({ name: "pad.changed", data: { name } });
+    if (!entry) throw new RpcError(NOT_FOUND, "Pad deletion operation not found");
 
-    return { ...created };
-  },
-  "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 })),
-  "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
-  "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
-  "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
-  "pad.delete": ({ name }) => {
-    find(store.pads, (pad) => pad.name === name, `pad ${name}`);
-    store.pads = store.pads.filter((pad) => pad.name !== name);
-    announce({ name: "pad.changed", data: { name } });
+    if (entry.actor !== JSON.stringify(actor())) throw new RpcError(-32002, "deletion belongs to another Actor");
 
-    return null;
-  },
-  "pad.export": () => null,
-  "provenance.history": () => store.history,
-});
+    return entry;
+  };
+
+  return {
+    "pad.list": () => store.pads.map((pad) => ({ ...pad })),
+    "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => pad.name === name, `pad ${name}`) }),
+    "pad.create": ({ name, text }) => {
+      if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
+
+      if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
+
+      const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
+      store.pads = [...store.pads, created];
+      announce({ name: "pad.changed", data: { name } });
+
+      return { ...created };
+    },
+    "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 })),
+    "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
+    "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
+    "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
+    "pad.delete": (p: DeleteParams) => {
+      if (p.operation && deletions.has(p.operation)) {
+        const entry = retained(p.operation);
+
+        if (entry.request !== JSON.stringify(p)) throw new RpcError(CONFLICT, "deletion operation already used");
+
+        return structuredClone(entry.receipt);
+      }
+
+      const pad = find(store.pads, (pad) => pad.name === p.name, `pad ${p.name}`);
+
+      if (actor().kind !== "user" && JSON.stringify(pad.owner) !== JSON.stringify(actor())) throw new RpcError(-32002, "only the owner may delete this Pad");
+
+      if (p.expectedIncarnation && p.expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "Pad creation changed");
+      const receipt: Deletion = { project, operation: p.operation ?? crypto.randomUUID(), pad: structuredClone(pad), restored: false };
+      deletions.set(receipt.operation, { receipt, actor: JSON.stringify(actor()), request: JSON.stringify(p) });
+      store.pads = store.pads.filter((item) => item !== pad);
+      announce({ name: "pad.changed", data: { name: pad.name } });
+
+      return structuredClone(receipt);
+    },
+    "pad.getDeletion": ({ operation }) => structuredClone(retained(operation).receipt),
+    "pad.restore": (id) => {
+      if (id.project !== project) throw new RpcError(-32002, "deletion belongs to another Project");
+      const { receipt } = retained(id.operation);
+
+      if (receipt.restored) return structuredClone(receipt);
+
+      if (store.pads.some((pad) => pad.name.normalize("NFD").toLowerCase() === receipt.pad.name.normalize("NFD").toLowerCase())) throw new RpcError(CONFLICT, "Pad name is in use");
+      store.pads = [...store.pads, structuredClone(receipt.pad)];
+      receipt.restored = true;
+      announce({ name: "pad.changed", data: { name: receipt.pad.name } });
+
+      return structuredClone(receipt);
+    },
+    "pad.export": () => null,
+    "provenance.history": () => store.history,
+  };
+};

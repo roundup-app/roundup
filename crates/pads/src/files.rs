@@ -42,3 +42,16 @@ fn refused(err: io::Error, name: &str) -> RpcError {
     };
     RpcError::new(code, format!("pad file {name}.md: {err}"))
 }
+
+/// Create a mirror without replacing any existing file. Dropping the path rolls it back;
+/// keep it only after SQLite commits, so a refused restore leaves both holders unchanged.
+pub fn restore(dir: &Path, name: &str, text: &str) -> Result<tempfile::TempPath, RpcError> {
+    std::fs::create_dir_all(dir).map_err(|e| refused(e, name))?;
+    let mut temp = NamedTempFile::new_in(dir).map_err(|e| refused(e, name))?;
+    temp.write_all(text.as_bytes())
+        .map_err(|e| refused(e, name))?;
+    let target = path(dir, name);
+    temp.persist_noclobber(&target)
+        .map_err(|e| refused(e.error, name))?;
+    tempfile::TempPath::try_from_path(target).map_err(|e| refused(e, name))
+}
