@@ -10,7 +10,6 @@
     {"path": "crates/agents/tests/scenarios/resume.rs", "ceiling": 1641, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/tests/scenarios/worktrees.rs", "ceiling": 2028, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/desktop/tests/app.rs", "ceiling": 2197, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/messages/src/lib.rs", "ceiling": 1976, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/pads/tests/pads.rs", "ceiling": 1581, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/src/cli.rs", "ceiling": 1167, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/a34.rs", "ceiling": 1182, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
