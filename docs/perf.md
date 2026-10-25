@@ -470,20 +470,24 @@ cross-process subtraction is involved; a report without every hop is invalid
 | --- | --- |
 | `keydown_to_input` | `keydown` → xterm `onData` |
 | `input_to_dispatch` | `onData` → `terminal.write` called; retained coarse span for the earlier reports |
-| `input_to_encoded` | `onData` → base64 encoding completed; includes the input queue's wait for the previous write's reply |
+| `input_to_encoded` | `onData` → base64 encoding completed; retained coarse queue-plus-encoding span |
+| `input_to_encoding` | `onData` → the queue releases this batch for encoding; includes waiting for the previous write reply |
+| `encoding_to_encoded` | byte preparation and base64 encoding, after the queue releases the batch |
 | `encoded_to_dispatch` | base64 encoding completed → `terminal.write` called |
 | `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
 | `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
 | `parsed_to_frame` | parsed → the next render |
 | `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
 
-Screens stamps completed encoding of each dispatched batch through the existing
-optional emulator probe, after `toBase64` returns and before the RPC call. Queued
-keys are stamped when their batch is encoded, not when they first enter the
-queue. This adds a same-clock boundary; it does not split queue wait from
-encoding cost, calibrate Daemon clocks, or establish a latency repair. The
-previously retained five-span reports remain historical evidence; new reports
-require both additional spans, or exit 2.
+Screens stamps encoding start before byte preparation, then completion after `toBase64` and before RPC dispatch, through the existing optional emulator probe.
+`input_to_encoding` measures queue wait; `encoding_to_encoded` measures byte preparation
+and base64. Both are required (exit 2 if absent); coarse spans remain for comparison.
+Retained native observations predate these marks. Daemon calibration and a production repair remain outstanding.
+
+The no-window `r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch`
+failed before the start mark: with a held RPC reply, queued batches preserve the order
+start → actual base64 conversion → complete → dispatch. `r20_hop_report_accounts_for_the_echo_round_trip`
+proves separate 7 ms queue and 2 ms encoding spans with an injected clock, not native timing.
 
 The collector also requires every required hop's sample count to equal the
 rendered sample count, with finite, nonnegative, ordered p50/p95 values. Rendered
