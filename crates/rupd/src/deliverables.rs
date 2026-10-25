@@ -680,7 +680,7 @@ mod tests {
     async fn dv2_publication_allows_project_operations_and_owner_reads() {
         let dir = tempfile::tempdir().unwrap();
         let daemon = std::sync::Arc::new(
-            crate::Daemon::open_stores(dir.path(), dir.path(), |agents| agents).unwrap(),
+            crate::test_daemon_with_agents(dir.path(), |agents| agents).unwrap(),
         );
         let socket = dir.path().join("rpc.sock");
         let listener = tokio::net::UnixListener::bind(&socket).unwrap();
