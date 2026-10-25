@@ -652,7 +652,9 @@ Opening `Agents` created a `Terminal owner reads` thread even when no Terminal
 ownership lookup followed. `Rail::terminal_owner` now initializes that same
 helper on its first lookup, using standard `Option::get_or_insert_with` under
 its existing exclusive borrow. The helper's bounded channel, read lease,
-query, deadline and shutdown remain unchanged. Its database path is retained
+query and active deadline remain unchanged. Its channel's `recv_timeout`
+replaces the lease sleep, allowing disconnection to release it at shutdown.
+The retired sleep's exact lint-debt entry is removed, with no new exception. Its database path is retained
 as a `PathBuf`, including for non-UTF-8 paths.
 
 The Linux kernel observer
