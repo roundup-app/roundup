@@ -1,0 +1,50 @@
+{
+  "base": "c475d1a4ff56cba3a43e99fbc10cf701478d6a31",
+  "implementation": "09262df89f2e515f8d6650fcc06b59a5eeb53272",
+  "merged_main": "a08ea61fe10e8cad63cd17de245c6b77085acaf2",
+  "viewport": {
+    "width": 1512,
+    "height": 950
+  },
+  "scheme": "dark",
+  "observer": "isolated headless agent-browser, fresh profiles; src/shelf/u3789_browser.test.ts and src/shelf/u3789_real_daemon.test.ts",
+  "checks": {
+    "readings": 23,
+    "failures": []
+  },
+  "geometry": {
+    "dense-hover": {
+      "rows": 50,
+      "changed": []
+    },
+    "dense-focus": {
+      "rows": 50,
+      "changed": []
+    },
+    "dense-selected": {
+      "rows": 50,
+      "changed": []
+    }
+  },
+  "typing": {
+    "before": [
+      [
+        "unassigned",
+        "true"
+      ]
+    ],
+    "folds": [
+      [
+        "unassigned",
+        "true"
+      ]
+    ],
+    "mutations": []
+  },
+  "failure_captures": [
+    "U3789b/head/dense-failure.png",
+    "U3789d/head/dense-rename-failure.png",
+    "U3789d/head/dense-complete-failure.png"
+  ],
+  "native_observation": "The user reports what they meet on the Mac."
+}
