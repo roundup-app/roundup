@@ -82,22 +82,6 @@ async fn subagent(f: &Fixture, parent: &str) -> RailNode {
         .unwrap()
 }
 
-async fn selected_copy(f: &Fixture, node: &RailNode) -> String {
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
-        .await;
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let paths = copies(f, &cwd_from_node(node));
-            if let Some(path) = paths.first() {
-                return path.file_stem().unwrap().to_string_lossy().into_owned();
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap()
-}
-
 #[tokio::test]
 async fn a35_selected_lifecycle_retries_without_announcements_or_repeating_completed_steps() {
     let (f, door, _) = fixture(true).await;

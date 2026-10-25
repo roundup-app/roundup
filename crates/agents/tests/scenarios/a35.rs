@@ -703,5 +703,21 @@ async fn a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first()
     reserved_prompt(true).await;
 }
 
+async fn selected_copy(f: &Fixture, node: &RailNode) -> String {
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let paths = copies(f, &cwd_from_node(node));
+            if let Some(path) = paths.first() {
+                return path.file_stem().unwrap().to_string_lossy().into_owned();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
 #[path = "a35/coordinated.rs"]
 mod coordinated;
