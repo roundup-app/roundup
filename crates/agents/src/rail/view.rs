@@ -1,14 +1,16 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
-// R3696c: SQLite evaluates the uncorrelated empty-history check once per read;
-// forty Workstreams otherwise execute 1728 VM instructions (docs/perf-rail-read.md).
-const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
+// R3696c: the empty-history predicate inside the node loop costs 1292 VM steps
+// for forty Workstreams. CROSS JOIN keeps the visibility gate outside that loop.
+const NODES: &str = "WITH visible AS (
+ SELECT nodes.* FROM (SELECT 1 WHERE ?1 OR NOT EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
+ UNION ALL
+ SELECT nodes.* FROM (SELECT 1 WHERE NOT ?1 AND EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
+ WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
+) SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM nodes
-                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources)
-                    OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
-                    AND (workstream=nodes.id OR agent=nodes.id))";
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto, finished FROM visible";
 
 pub(super) fn load_nodes(
     db: &Connection,
