@@ -1,9 +1,8 @@
 import { useDialog } from "@ark-ui/solid/dialog";
-import { Dialog } from "../ui/Dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import * as v from "valibot";
 import { copy } from "../copy";
@@ -52,16 +51,21 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
 
-  const [restore, setRestore] = createSignal(true);
+  let opener: Element | null = null;
 
-  const dialog = useDialog(() => ({
-    open: open(), modal: false, trapFocus: true, preventScroll: false,
-    closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: true,
-    onRequestDismiss: event => event.preventDefault(),
-    initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => restore() || !(document.activeElement instanceof HTMLElement) ? null : document.activeElement,
-    onOpenChange: details => { if (!details.open) close(true); },
-  }));
+  const dialog = createMemo(() => {
+    if (!open()) return null;
+    const [value, dispose] = createRoot(dispose => [useDialog(() => ({
+      defaultOpen: true, modal: false, trapFocus: false, preventScroll: false,
+      closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: false,
+      onRequestDismiss: event => event.preventDefault(),
+      initialFocusEl: () => openingFocus.target(() => input),
+      onOpenChange: details => { if (!details.open) close(true); },
+    })), dispose] as const);
+    onCleanup(dispose);
+
+    return value;
+  });
 
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
 
@@ -146,8 +150,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const close = (restore: boolean): void => {
     retain();
-    setRestore(restore);
     setOpen(false);
+
+    // Zag restores only through its trap, after a timer; U2580a requires synchronous return.
+    if (restore && opener instanceof HTMLElement && opener.isConnected) opener.focus();
   };
 
   const choose = (entry: Entry): void => {
@@ -189,12 +195,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const show = (): void => {
     if (modalOpen()) return;
+    opener = document.activeElement;
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
     props.onOpen();
     savedSelection = current()?.selection ?? null;
     restoring = true;
-    setRestore(true);
     setOpen(true);
   };
 
@@ -204,9 +210,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   ]);
 
   return (
-    <Dialog.RootProvider value={dialog}>
     <Show when={open()}>
-      <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
+      <section {...dialog()?.().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
         <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
@@ -266,6 +271,5 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         </ReservedLine>
       </section>
     </Show>
-    </Dialog.RootProvider>
   );
 };
