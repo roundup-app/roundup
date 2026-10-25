@@ -12,7 +12,12 @@ tar -xzf "$probe_bin/cargo-mutants.tar.gz" -C "$probe_bin"
 "$probe_bin/cargo-mutants" mutants --version
 printf '%s\n' "$(date --utc --iso-8601=ns) tool-start" >> "$probe_evidence/stages.txt"
 set +e
-"$probe_bin/cargo-mutants" mutants --in-diff "$probe_evidence/pr-4028.diff" --in-place --test-tool nextest --test-workspace false --output "$probe_evidence"
+cargo build -p rupd -p rup
+probe_build_status=$?
+printf '%s\n' "$probe_build_status" > "$probe_evidence/build.exit"
+if [ "$probe_build_status" -ne 0 ]; then exit "$probe_build_status"; fi
+printf '%s\n' "$(date --utc --iso-8601=ns) mutation-start" >> "$probe_evidence/stages.txt"
+"$probe_bin/cargo-mutants" mutants --cap-lints true --in-diff "$probe_evidence/pr-4028.diff" --in-place --test-tool nextest --test-workspace false --output "$probe_evidence"
 probe_status=$?
 printf '%s\n' "$probe_status" > "$probe_evidence/tool.exit"
 printf '%s\n' "$(date --utc --iso-8601=ns) tool-end" >> "$probe_evidence/stages.txt"
