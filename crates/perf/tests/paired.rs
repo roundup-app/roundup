@@ -109,14 +109,14 @@ impl Environment for Fixture {
         }
         Ok(Build {
             reference: reference.into(),
-            rupd: format!("/{side}/rupd").into(),
+            daemon: format!("/{side}/daemon").into(),
             rup: format!("/{side}/rup").into(),
             hashes: format!("{side}-hash"),
         })
     }
     async fn measure(&mut self, build: &Build, _: usize) -> Result<Report, Error> {
         self.events
-            .push(format!("measure-{}", build.rupd.display()));
+            .push(format!("measure-{}", build.daemon.display()));
         if self.fail == Some("observer") {
             return Err("incompatible observer RPC".into());
         }
@@ -151,10 +151,10 @@ async fn r16_uncalibrated_builder_uses_same_job_pair() {
             "refs",
             "build-base",
             "build-head",
-            "measure-/base/rupd",
-            "measure-/head/rupd",
-            "measure-/base/rupd",
-            "measure-/head/rupd"
+            "measure-/base/daemon",
+            "measure-/head/daemon",
+            "measure-/base/daemon",
+            "measure-/head/daemon"
         ]
     );
     assert!(result.passed && result.clean);

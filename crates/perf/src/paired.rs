@@ -20,7 +20,7 @@ pub struct Identity {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Build {
     pub reference: String,
-    pub rupd: PathBuf,
+    pub daemon: PathBuf,
     pub rup: PathBuf,
     pub hashes: String,
 }
@@ -140,7 +140,7 @@ pub async fn collect(
         env.build(&references[0], "base").await?,
         env.build(&references[1], "head").await?,
     ];
-    if builds[0].rupd == builds[1].rupd || builds[0].rup == builds[1].rup {
+    if builds[0].daemon == builds[1].daemon || builds[0].rup == builds[1].rup {
         return Err("pair: builds do not have separate binary locations".into());
     }
     let mut invocations = Vec::new();
