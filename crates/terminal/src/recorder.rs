@@ -24,7 +24,7 @@ impl Recording {
         {
             return Err(invalid("invalid keystroke run identity"));
         }
-        let marker = regex::bytes::Regex::new(&format!("\x1b\\]777;{run}-[0-9]{{1,6}}\x07"))
+        let marker = regex::bytes::Regex::new(&format!("\x1b\\]777;{run}-[0-9]{{1,6}}\x07a"))
             .map_err(RpcError::internal)?;
         Ok(Self {
             run: run.into(),

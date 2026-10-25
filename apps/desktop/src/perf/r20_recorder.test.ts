@@ -82,7 +82,7 @@ it("r20_hop_report_accounts_for_the_echo_round_trip", async () => {
   render();
 
   const report = JSON.parse(JSON.stringify(recorder.report(
-    [{ token: "\x1b]777;test-0\x07", received: 110, written: 114, read: 116, ambiguous: false }],
+    [{ token: "\x1b]777;test-0\x07a", received: 110, written: 114, read: 116, ambiguous: false }],
     [{ sent: 0, daemon: 101, received: 2 }, { sent: 30, daemon: 131, received: 32 }], 1, 0,
   )));
 

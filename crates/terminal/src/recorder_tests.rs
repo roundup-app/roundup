@@ -127,7 +127,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
         .await
         .unwrap();
     time.store(102, Ordering::SeqCst);
-    let bytes = b"a\x1b]777;test-0\x07";
+    let bytes = b"\x1b]777;test-0\x07a";
     assert_eq!(
         terminals
             .call(
@@ -188,16 +188,16 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
     let serialized: Value = serde_json::from_str(&serde_json::to_string(&report).unwrap()).unwrap();
     assert_eq!(
         serialized["samples"],
-        json!([{"token":"\u{1b}]777;test-0\u{7}", "received":102.0,"written":107.0,"read":111.0,"ambiguous":false}])
+        json!([{"token":"\u{1b}]777;test-0\u{7}a", "received":102.0,"written":107.0,"read":111.0,"ambiguous":false}])
     );
 }
 
 #[test]
 fn r20_duplicate_echo_is_ambiguous_and_missing_echo_stays_missing() {
     let mut recorder = Recording::new("test").unwrap();
-    recorder.receive(b"a\x1b]777;test-0\x07a\x1b]777;test-1\x07", 1.0);
-    recorder.read(b"noise a\x1b]777;test-0\x07", 2.0);
-    recorder.read(b"\x1b]777;test-0\x07", 3.0);
+    recorder.receive(b"\x1b]777;test-0\x07a\x1b]777;test-1\x07a", 1.0);
+    recorder.read(b"noise a\x1b]777;test-0\x07a", 2.0);
+    recorder.read(b"\x1b]777;test-0\x07a", 3.0);
     let samples = recorder.samples();
     assert!(samples[0].ambiguous);
     assert_eq!(samples[1].read, None);

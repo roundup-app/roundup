@@ -406,8 +406,9 @@ use `performance.now()`; receipt (before decoding), physical `write_all` plus
 that clock with its samples. Normal Terminals hold no recording; normal writes
 still acknowledge enqueue, with unchanged ordering and reply serialization.
 
-The raw `cat` workload echoes `a` followed by an invisible OSC 777 marker with a
-run nonce and key ordinal. The probe adds this marker at xterm's `onData`, before
+The raw `cat` workload echoes an invisible OSC 777 marker with a run nonce and
+key ordinal, followed by `a`. The character ends the framed identity, so even a
+split output chunk cannot render it before its identity can be attributed. The probe adds this marker at xterm's `onData`, before
 the production queue and base64 conversion; it never changes ordinary builds or
 vendor input. This adds marker-byte overhead to the measured workload, so these
 reports must not be treated as equivalent to the retained unmarked native runs.
