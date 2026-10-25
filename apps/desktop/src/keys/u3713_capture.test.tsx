@@ -223,14 +223,26 @@ it("u3714_a_filed_capture_opens_the_shelf_and_stays_visible_once_acknowledged", 
 
 it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
   let requested = () => {};
+
   let action: (event: import("../app/seam").CaptureAction) => void = () => {};
+
   const snapshots: import("../app/seam").CaptureState[] = [];
+
   const capture: import("../app/seam").CapturePort = {
     configure: vi.fn(async () => {}), show: vi.fn(async () => {}), dismiss: vi.fn(async () => {}),
     publish: async state => { snapshots.push(state); }, act: async () => {},
-    onRequested: async listener => { requested = listener; return () => { requested = () => {}; }; },
-    onAction: async listener => { action = listener; return () => {}; }, onState: async () => () => {},
+    onRequested: async listener => {
+      requested = listener;
+
+      return () => { requested = () => {}; };
+    },
+    onAction: async listener => {
+      action = listener;
+
+      return () => {};
+    }, onState: async () => () => {},
   };
+
   const { app, connected } = await mount(undefined, undefined, capture);
   connected.rail.select("w");
   requested();
@@ -242,7 +254,7 @@ it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
   await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
   expect(capture.show).toHaveBeenCalledTimes(1);
   expect(callsTo(app, "todo.create")[0]!.params).toMatchObject({ title: "native draft 雪" });
-  expect(field()).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
   cleanup();
   requested();
   expect(capture.show).toHaveBeenCalledTimes(1);
@@ -250,14 +262,26 @@ it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
 
 it("u3787f_native_dismiss_retains_exact_work_and_refuses_the_previous_session", async () => {
   let requested = () => {};
+
   let action: (event: import("../app/seam").CaptureAction) => void = () => {};
+
   const snapshots: import("../app/seam").CaptureState[] = [];
+
   const capture: import("../app/seam").CapturePort = {
     configure: async () => {}, show: async () => {}, dismiss: async () => {},
     publish: async state => { snapshots.push(state); }, act: async () => {},
-    onRequested: async listener => { requested = listener; return () => {}; },
-    onAction: async listener => { action = listener; return () => {}; }, onState: async () => () => {},
+    onRequested: async listener => {
+      requested = listener;
+
+      return () => {};
+    },
+    onAction: async listener => {
+      action = listener;
+
+      return () => {};
+    }, onState: async () => () => {},
   };
+
   const { app, connected } = await mount(undefined, undefined, capture);
   connected.rail.select("w");
   requested();
@@ -292,12 +316,13 @@ it("u3787f_global_capture_registers_and_releases_through_the_shell_event_adapter
   vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
   const requests: unknown[] = [];
   mockIPC((command, args) => { if (command === "plugin:capture-panel|control") requests.push(args); }, { shouldMockEvents: true });
+
   try {
     const port = createTauriApp().capture!;
     await mount(undefined, undefined, port);
     await emit("capture-requested");
     await waitFor(() => expect(requests).toContainEqual({ request: { kind: "show" } }));
-    expect(field()).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
     cleanup();
     const shows = requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}').length;
     await emit("capture-requested");

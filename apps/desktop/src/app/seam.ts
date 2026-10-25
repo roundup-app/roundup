@@ -99,6 +99,7 @@ export const captureStateSchema = v.object({
   recovered: v.array(v.object({ revision: v.string(), text: v.string(), status: v.string(), label: v.string() })),
   retention: v.boolean(), failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
 });
+
 export const captureActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("ready") }),
   v.object({ kind: v.literal("edit"), session: v.string(), sequence: v.number(), text: v.string() }),
@@ -109,8 +110,11 @@ export const captureActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("discard-revision"), session: v.string(), revision: v.string() }),
   v.object({ kind: v.literal("retry"), session: v.string() }),
 ]);
+
 export type CaptureState = v.InferOutput<typeof captureStateSchema>;
+
 export type CaptureAction = v.InferOutput<typeof captureActionSchema>;
+
 export type CapturePort = {
   configure(press: string | null): Promise<void>;
   show(): Promise<void>;

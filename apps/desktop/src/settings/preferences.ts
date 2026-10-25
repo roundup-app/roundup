@@ -39,10 +39,13 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
   const pending = saving.then(async () => {
     const before = appSettings();
     const replacement = captured.quickAdd !== undefined && captured.quickAdd !== before.quickAdd;
+
     try {
       if (replacement && capture) await capture.configure(captured.quickAdd!);
       const failure = await storage().write({ ...before, ...captured });
+
       if (failure && replacement && capture) await capture.configure(before.quickAdd);
+
       return failure;
     } catch (error) {
       return String(error);
