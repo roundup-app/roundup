@@ -32,8 +32,8 @@
   font: inherit;
 }
 
-/* U133: keyboard focus must not imply selection of a second Agent. */
-.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected] {
+/* U133: pointer focus on a disclosure must not paint a second selected row. */
+.app-tree :is([data-part="branch-control"], [data-part="item"]):is([data-selected], :focus-visible, :has(:focus-visible)) {
   background-image: var(--tree-row-cue);
 }
 
@@ -41,7 +41,3 @@
   color: var(--text);
 }
 
-.app-tree :is([data-part="branch-control"], [data-part="item"]):has(:focus-visible):not([data-selected], [data-dnd-dragging]) .name,
-.app-tree :is([data-part="branch-control"], [data-part="item"]):focus-visible:not([data-selected], [data-dnd-dragging]) .name {
-  color: var(--accent);
-}
