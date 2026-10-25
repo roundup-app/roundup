@@ -343,6 +343,13 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  const storageFailures = createMemo(() => {
+    const open = activeConnection();
+    const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
+
+    return storageProblems().filter(problem => problem.key !== railKey);
+  });
+
   createEffect(() => {
     if (!props.prepareIdle) return;
 
@@ -447,8 +454,8 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
-          <Show when={storageProblems().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageProblems())}>
-            <button data-button="quiet" type="button" onClick={() => void Promise.all(storageProblems().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
+          <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
+            <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
