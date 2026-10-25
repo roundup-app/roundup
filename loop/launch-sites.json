@@ -788,5 +788,22 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/perf/src/app.rs": {
+    "cleanup": "launch::finish kills and reaps the App and its owned Daemon before the temporary data dir drops; kill_on_drop covers early errors.",
+    "data": "R24 idle run sets an absolute temporary ROUNDUP_DATA_DIR for the App and resets it in the rupd wrapper script.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "6ae6c071698605e72b50a55942a31c87f3e3e89def4c6dd0f204a085f8d50d5b"
+  },
+  "crates/perf/src/idle_native.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Names rupd only to find and judge the owned process tree; launches delegate to crates/perf/src/app.rs.",
+    "kind": "reference"
+  },
+  "crates/perf/tests/r24.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Names rupd only to find and judge the owned process tree; launches delegate to crates/perf/src/app.rs.",
+    "kind": "reference"
   }
 }
