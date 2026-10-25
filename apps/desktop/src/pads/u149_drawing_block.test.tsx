@@ -124,7 +124,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     await openPad("note");
 
     await waitFor(() => expect(document.querySelectorAll(".visual-error")).toHaveLength(1));
-    expect(document.querySelector(".visual-error")?.textContent).toBe("Drawing: Not an Excalidraw scene");
+    expect(document.querySelector(".visual-error")?.textContent).toBe("Drawing: This file is not an Excalidraw scene. Choose another file.");
   });
 
   it("u149_a_pad_changed_with_a_new_drawing_renders_it", async () => {

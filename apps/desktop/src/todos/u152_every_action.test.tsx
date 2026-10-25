@@ -280,7 +280,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(within(drawer()).getByRole("button", { name: "Comment" }));
     } else if (owner === "todo_refs") {
       m.app.handlers["todo.removeRef"] = refuse;
-      fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove link to notes" }));
+      fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove notes link" }));
     } else {
       m.app.clipboardWrite = refuse;
       fireEvent.click(await within(drawer()).findByRole("button", { name: /^Changes/ }));

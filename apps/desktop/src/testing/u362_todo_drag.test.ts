@@ -226,9 +226,9 @@ run('u2716a Project overview band', () => {
       window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
     }`);
     await page.until(`() => parseInt(document.querySelector('${overview} h2')?.textContent) === 2`);
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 2 need you');
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-description')`)).toBe('2 need you');
     await page.call(`() => window.__fake.setStatus(window.__attentionAgent, 'working', 'busy')`);
     await page.until(`() => parseInt(document.querySelector('${overview} h2')?.textContent) === 1`);
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 1 needs you');
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-description')`)).toBe('1 needs you');
   }, 60_000);
 });

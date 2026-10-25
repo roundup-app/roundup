@@ -103,7 +103,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
-  await waitFor(() => expect(screen.getByText("Its folder is no longer there")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("Its directory is no longer there.")).toBeTruthy());
   expect(screen.getByText(/copy refused/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
@@ -250,11 +250,11 @@ it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
   const dialog = screen.getByRole("region", { name: "Import work" });
 
   expect(within(screen.getByRole("list", { name: "Conversations" })).getAllByRole("listitem")).toHaveLength(2);
-  expect(within(dialog).queryByText("Already imported")).toBeNull();
+  expect(within(dialog).queryByText("It was already imported.")).toBeNull();
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await within(dialog).findByText("Already imported");
+  await within(dialog).findByText("It was already imported.");
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await waitFor(() => expect(within(dialog).queryByText("Already imported")).toBeNull());
+  await waitFor(() => expect(within(dialog).queryByText("It was already imported.")).toBeNull());
 });
 
 it("u3083b_no_line_without_excluded", async () => {

@@ -17,7 +17,7 @@ export const copy = {
   agentsAndTerminals: "Workstreams and Agents",
   /** @prose */
   appearHereOnePerRow: "Each appears below, nested by indent.",
-  openAFolderToStart: shared.openAFolderToStart,
+  openAFolderToStart: "Open Project",
   chooseFolder: "Choose Project…",
   /** @prose */
   agentsAddThemAsThey: "Agents add Todos as they plan.",

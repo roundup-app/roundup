@@ -7,9 +7,9 @@ afterEach(cleanup);
 
 describe("u182 hover tells the count", () => {
   it.each([
-    [[agent("a", "needs-you", "x"), agent("b", "needs-you", "x")], "2 need you · 0 error"],
-    [[agent("a", "error", "x")], "0 need you · 1 error"],
-    [[agent("a", "error", "x"), agent("b", "needs-you", "x"), agent("c", "idle", "x")], "1 need you · 1 error"],
+    [[agent("a", "needs-you", "x"), agent("b", "needs-you", "x")], "2 need you; 0 have errors."],
+    [[agent("a", "error", "x")], "0 need you; 1 have errors."],
+    [[agent("a", "error", "x"), agent("b", "needs-you", "x"), agent("c", "idle", "x")], "1 need you; 1 have errors."],
   ])("u182_the_text_for_each_mix_%#", async (nodes, text) => {
     await openTabs({ api: nodes });
 
@@ -37,7 +37,7 @@ describe("u182 hover tells the count", () => {
     fireEvent.keyDown(document.body, { key: "Tab" });
     tab("api").focus();
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("api1 need you · 0 error");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("api1 need you; 0 have errors.");
 
     tab("api").blur();
 

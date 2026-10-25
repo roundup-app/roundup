@@ -530,7 +530,8 @@ export const Rail = () => {
       data-button="quiet"
       data-todo-root
       aria-pressed={rail.selected() === null}
-      aria-label={copy.overviewLabel(attention())}
+      aria-label={copy.overviewLabel}
+      aria-description={attention() ? copy.needYou(attention()) : undefined}
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => rail.select(null)}

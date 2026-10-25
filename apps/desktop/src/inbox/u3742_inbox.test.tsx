@@ -18,7 +18,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   const m = await mountTodos([todo(1, { title: "Ship" }), todo(2)], true, [agent("a", "idle", "Idle", { name: "builder" })]);
   m.store.comments!.set(1, [line(1, "which branch?")]);
   m.connected.drawer.open(() => <Inbox />);
-  const row = await within(panel()).findByRole("button", { name: /builder commented on Ship/ });
+  const row = await within(panel()).findByRole("button", { name: /Comment: builder, Ship/ });
   expect(within(row).getByText("which branch?")).toBeTruthy();
   // The row is read from `todo.unread`, makes no Message call and sets no Rail Kind.
   expect(todoCallsTo(m.app, "todo.unread").length).toBeGreaterThan(0);
@@ -33,7 +33,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   await waitFor(() => expect(within(panel()).queryByRole("button", { name: /todo 2/ })).toBeNull());
 
   // Activating the row opens the Todo's Drawer, which marks it read, and the row leaves the Inbox.
-  fireEvent.click(within(panel()).getByRole("button", { name: /builder commented on Ship/ }));
+  fireEvent.click(within(panel()).getByRole("button", { name: /Comment: builder, Ship/ }));
   await within(panel()).findByRole("region", { name: /^Comments · 1$/ });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map((call) => call.params)).toEqual([{ id: 1 }]));
   m.connected.drawer.open(() => <Inbox />);

@@ -34,7 +34,7 @@ describe("u26 the harness seeds", () => {
 
     await screen.findByText("Open Project");
 
-    expect((await rail()).textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
+    expect((await rail()).textContent).toBe("Workstreams and AgentsEach appears below, nested by indent.");
   });
 
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {

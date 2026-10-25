@@ -110,7 +110,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await activate('.rail [data-todo-root]');
-    await wait("document.querySelector('.reaction-empty')?.textContent.includes('No named reactions')");
+    await wait("document.querySelector('.reaction-empty')?.textContent.includes('No reactions')");
     await capture("empty");
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await browser("set", "viewport", "1512", "950");

@@ -79,7 +79,7 @@ it("u3078i_open_inspect_resume_and_reconcile", async () => {
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/p/output.txt", line: null }]));
   expect(app.calls.filter((call) => call.method === "deliverable.resolve").at(-1)?.params).toEqual({ project: "/p", id: "output-r-login" });
   fireEvent.click(view.getByRole("button", { name: "Open notes v1" }));
-  expect((await view.findByRole("alert")).textContent).toContain("retained revision is missing");
+  expect((await view.findByRole("alert")).textContent).toContain("published copy is missing");
   expect(app.openedTargets.length).toBe(1);
   expect(wrote(app)).toEqual([]);
 

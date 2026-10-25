@@ -62,7 +62,7 @@ it("u3309_enter_arrows_enter_assigns_once_and_esc_cancels", async () => {
 
   row.focus();
   key("Enter"); key("ArrowUp");
-  expect(screen.getByRole("status").textContent).toBe("Move #1 to Writer");
+  expect(screen.getByRole("status").textContent).toBe("Move #1: Writer");
   key("Escape");
   expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(0);
   key("Enter"); key("ArrowUp"); key("Enter");

@@ -19,16 +19,16 @@ it("u2572a_searches_destinations_then_grouped_actions", async () => {
   await show();
   fireEvent.input(field()!, { target: { value: " NeW " } });
   await waitFor(() => expect([...document.querySelectorAll('.switcher [role="option"]')].map((row) => row.querySelector('.switcher-name')?.textContent)).toEqual([
-    "new-onboarding", "renew-token", "New Agent", "new-shell", "New Agent", "Start an Agent with a prompt.", "New Terminal",
+    "new-onboarding", "renew-token", "New Agent", "new-shell", "New Agent", "New Terminal",
   ]));
   const groups = within(document.querySelector(".switcher")!).getAllByRole("group", { name: "Actions" });
 
   expect(groups).toHaveLength(1);
   expect(within(groups[0]!).getAllByRole("option").map((row) => row.getAttribute("data-value"))).toEqual([
-    "action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T",
+    "action:chord:⌘N", "action:chord:⌘T",
   ]);
   expect([...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')].map((row) => row.dataset.value)).toEqual([
-    "ws", "a", "b", "terminal:7", "action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T",
+    "ws", "a", "b", "terminal:7", "action:chord:⌘N", "action:chord:⌘T",
   ]);
 });
 

@@ -172,7 +172,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   const m = await mountTodos([{ ...todo(1, { title: "Ship" }) }], true, structuredClone(NODES));
   m.store.comments!.set(1, [{ id: 1, author: { kind: "agent", id: "a", parent: null }, body: "which branch?", created_at: 1, read: false }]);
   m.connected.drawer.open(() => <Inbox />);
-  const row = await within(groupOf("Needs you")).findByRole("button", { name: /alpha commented on Ship/ });
+  const row = await within(groupOf("Needs you")).findByRole("button", { name: /Comment: alpha, Ship/ });
   // The unread comment row follows the Agent rows and makes no Message call.
   expect(within(row).getByText("which branch?")).toBeTruthy();
   expect(groupOf("Needs you").lastElementChild!.contains(row)).toBe(true);

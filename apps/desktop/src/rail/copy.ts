@@ -80,7 +80,7 @@ export const copy = {
   noLimit: "No limit",
   /** @prose */
   capRefusal: "Choose a whole number greater than zero.",
-  overviewLabel: shared.needYou,
+  overviewLabel: "Overview, Project root",
   workstreamsHead: "WORKSTREAMS",
   askingTheDoor: "Asking the supervisor…",
   addWorkstream: "Add Workstream",
@@ -92,7 +92,7 @@ export const copy = {
   rowActions: "Row actions",
   addAgentLabel: "Add Agent",
   clearWorkstream: "Clear Workstream…",
-  openFolder: shared.openAFolderToStart,
+  openFolder: "Open directory",
   openInEditor: "Open in editor",
   startingDoor: "Starting supervisor…",
   doorDidNotStart: "Supervisor start failed",

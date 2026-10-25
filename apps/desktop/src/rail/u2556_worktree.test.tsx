@@ -16,7 +16,7 @@ it("u2556c_chips_are_accessible_state", async () => {
   expect(document.querySelector(".worktree-chip")).toBeNull();
   app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false, ci: { state: "failed", stale: false }, pr: { number: 2531, stale: true } });
   setNow(100_000_000_000_000);
-  const chip = await screen.findByLabelText("9 ahead of Base");
+  const chip = await screen.findByLabelText("9 ahead");
   const ci = await screen.findByLabelText("CI failed");
   const pr = screen.getByLabelText("PR #2531, stale");
 
@@ -57,7 +57,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   setNow(100_000_000_000_000);
   fireEvent.input(field, { target: { value: "my draft" } });
   finish({ ahead: 4, behind: 0, dirty: false, ci: { state: "running", stale: false } });
-  await screen.findByLabelText("4 ahead of Base");
+  await screen.findByLabelText("4 ahead");
   expect(screen.getByLabelText("CI running")).toBeTruthy();
   expect(document.activeElement).toBe(field);
   expect(field instanceof HTMLInputElement && field.value).toBe("my draft");
@@ -83,8 +83,8 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   fireEvent.click(screen.getByRole("button", { name: "topic" }));
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
-  await screen.findByLabelText("11 ahead of Base");
-  await screen.findByText("11 ahead, 3 behind, dirty");
+  await screen.findByLabelText("11 ahead");
+  await screen.findByText("The branch is 11 ahead and 3 behind, dirty.");
   expect(screen.getByLabelText("CI running, stale").dataset.state).toBe("running");
   expect(screen.getByText("Running, stale")).toBeTruthy();
   expect(screen.getAllByText("#42")).toHaveLength(2);
@@ -109,12 +109,12 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   setNow(100_000_000_000_000);
   fireEvent.click(screen.getByRole("button", { name: "topic" }));
   expect((await screen.findByRole("alert")).textContent).toContain("worktree_missing: /p/a");
-  expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead of Base");
+  expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead");
   const unavailable = await screen.findByRole("img", { name: "Worktree state unavailable" });
   expect(unavailable.dataset.state).toBe("unavailable");
   failed = false;
   setNow(100_000_000_015_000);
-  await screen.findByText("5 ahead, 2 behind");
+  await screen.findByText("The branch is 5 ahead and 2 behind.");
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByRole("img", { name: "Worktree state unavailable" })).toBeNull();
 });
@@ -125,7 +125,7 @@ it.each(["passed", "no-ci", "conflicts", "error", "unknown"] as const)("u2556c_c
   app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state, stale: false } });
   setNow(100_000_000_000_000);
   await waitFor(() => expect(rowOf("a").querySelector(`[data-state="${state}"]`)).toBeTruthy());
-  expect(rowOf("a").querySelector(`[data-state="${state}"]`)?.getAttribute("aria-label")).toBe(state === "no-ci" ? "No CI" : `CI ${state}`);
+  expect(rowOf("a").querySelector(`[data-state="${state}"]`)?.getAttribute("aria-label")).toBe(state === "no-ci" ? "None" : `CI ${state}`);
 });
 
 it("u2556b_unavailable_and_stale_are_explained", async () => {

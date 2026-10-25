@@ -39,7 +39,7 @@ describe("u184 close with a question", () => {
     const dialog = await questionDialog();
 
     expect(`${dialog.title} ${dialog.message}`).toContain("Close api?");
-    expect(`${dialog.title} ${dialog.message}`).toContain("5 Agents run: a, b, c and 2 more.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("There are 5 running Agents: a, b, c and 2 more.");
     expect(`${dialog.title} ${dialog.message}`).toContain("Closing stops them.");
     expect(app.closed).toEqual([]);
 

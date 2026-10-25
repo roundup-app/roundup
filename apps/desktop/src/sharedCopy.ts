@@ -15,8 +15,6 @@ const orderLimits = "Limits";
 
 const text = "Text";
 
-const openAFolderToStart = "Open Project";
-
 const unavailableAgent = "Unavailable Agent";
 
 const settingsTerminal = "Terminal";
@@ -205,7 +203,7 @@ export const copy = {
   askDropped: "Dropped",
   worktreeStale,
   riskLine: (cause: CopyValue, time: CopyValue) => `${cause} · ${time}`,
-  needYou: (count: CopyValue) => `${count} need you`,
+  needYou: (count: CopyValue) => `${count} ${count === 1 ? "needs" : "need"} you`,
 
 
 
@@ -216,7 +214,6 @@ export const copy = {
   triageWorkstream: triageWorkstream,
   orderLimits: orderLimits,
   text: text,
-  openAFolderToStart: openAFolderToStart,
 
   unavailableAgent: unavailableAgent,
   settingsTerminal: settingsTerminal,

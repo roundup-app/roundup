@@ -158,7 +158,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal name recove
       mounted.setListed(TERMINALS);
       mounted.app.emit(event({ name: "terminal.changed" }));
       await mounted.connected.rail.settled();
-    }, "The original name changed");
+    }, "The original name has changed");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () => {

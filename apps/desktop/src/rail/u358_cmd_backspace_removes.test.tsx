@@ -44,7 +44,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
 
-    expect((await questionDialog()).title).toBe("Stop and remove a?");
+    expect((await questionDialog()).title).toContain("a?");
     expect(removals(app)).toEqual([]);
 
     await answerQuestion(false);

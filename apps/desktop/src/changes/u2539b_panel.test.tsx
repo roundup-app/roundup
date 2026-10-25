@@ -16,7 +16,7 @@ describe("U2539b", () => {
     fireEvent.click(control());
 
     expect(await screen.findByText("main")).toBeTruthy();
-    expect(await screen.findByText(`${STATE.ahead} ahead, ${STATE.behind} behind, dirty`)).toBeTruthy();
+    expect(await screen.findByText(`The branch is ${STATE.ahead} ahead and ${STATE.behind} behind, dirty.`)).toBeTruthy();
     expect(screen.getAllByText("roundup/a").length).toBeGreaterThan(0);
   });
 

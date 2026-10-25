@@ -32,7 +32,7 @@ describe("U83b context bar", () => {
     await open({ ...base, used: 84000, context_parts: split });
     const buttons = screen.getAllByRole("button", { name: /Tools|System prompt/ });
     buttons[0]!.focus();
-    expect(document.querySelector(".context-live")!.textContent).toBe("System prompt: 6,000 tokens, 3% of the limit");
+    expect(document.querySelector(".context-live")!.textContent).toBe("System prompt: 6,000 (3%)");
     fireEvent.keyDown(buttons[0]!, { key: "ArrowRight" });
     expect(document.activeElement).toBe(buttons[1]);
     expect(document.querySelector(".context-live")!.textContent).toContain("Tools: 18,000 tokens, 9%");

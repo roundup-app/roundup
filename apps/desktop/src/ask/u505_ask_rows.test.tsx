@@ -56,7 +56,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       typed,
     ]);
 
-    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | Sent", "later | lead | Queued for the supervisor"]));
+    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | Sent", "later | lead | Queued for supervisor"]));
 
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
     await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Sent"));

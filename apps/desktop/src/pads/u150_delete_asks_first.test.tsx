@@ -29,7 +29,7 @@ describe("u150 delete asks first (Pad)", () => {
 
     await ask();
 
-    expect(`${questionProbe.shown?.title}${questionProbe.shown?.message}`).toContain("auth-refactor owns it; you may delete any Pad");
+    expect(`${questionProbe.shown?.title}${questionProbe.shown?.message}`).toContain("auth-refactor owns it. You may delete any Pad.");
   });
 
   it("u150_a_dirty_draft_adds_the_unsaved_warning", async () => {

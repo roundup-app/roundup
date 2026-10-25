@@ -310,7 +310,7 @@ it("u2773c_bubbles_external_change_keeps_original", async () => {
   expect(field()!.value).toBe("  original e\u0301 🫧  ");
   fireEvent.keyDown(field()!, { key: "Enter" });
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(within(recovery).getByText(/original name has changed/)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
   mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, incarnation: "replacement" } : terminal));
   mounted.app.emit(event({ name: "terminal.changed" }));
@@ -468,7 +468,7 @@ it("u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal", async ()
   fireEvent.input(field()!, { target: { value: "my edit" } });
   fireEvent.keyDown(field()!, { key: "Enter" });
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(within(recovery).getByText(/original name has changed/)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
   expect(drafts.list().find(draft => draft.value.name === "my edit")?.value.base).toBe("zsh");
   expect(drafts.list()).toContainEqual(b);
