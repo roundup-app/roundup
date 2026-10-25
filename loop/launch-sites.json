@@ -788,5 +788,22 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/perf/src/app.rs": {
+    "cleanup": "Delegates success/failure to launch::finish, which stops and reaps owned children before removing the temporary profile; unresolved cleanup retains data.",
+    "data": "Shared native observer App launch creates absolute temporary data, HOME and XDG paths; the Daemon wrapper reapplies ROUNDUP_DATA_DIR at the executable boundary.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "6ae6c071698605e72b50a55942a31c87f3e3e89def4c6dd0f204a085f8d50d5b"
+  },
+  "crates/perf/src/idle_native.rs": {
+    "cleanup": "Owns and reaps native sampling commands; App and Daemon cleanup belongs to app::run and launch::finish.",
+    "data": "Connects to the App-owned Daemon socket; executable hashing and process inventory only reference rupd. Launch isolation belongs to app::run.",
+    "kind": "reference"
+  },
+  "crates/perf/tests/r24.rs": {
+    "cleanup": "Guard observer waits for perf-idle and just to exit; neither starts an App or Daemon without window authorization.",
+    "data": "Synthetic process identities and a temporary guard fixture; no built Daemon launch.",
+    "kind": "guard-observer"
   }
 }
