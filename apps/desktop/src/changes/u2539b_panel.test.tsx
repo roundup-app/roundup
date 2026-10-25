@@ -73,12 +73,13 @@ describe("U2539b", () => {
     await waitFor(() => expect(calls("agent.changedFiles")).toBe(2));
   });
 
-  it("u2539b_no_changes_says_so", async () => {
-    await mountControl(() => ({ files: [] }));
+  it("u2539b_empty_changes_mount_no_control_or_view", async () => {
+    const { calls } = await mountControl(() => ({ files: [] }));
 
-    fireEvent.click(control());
-
-    expect(await screen.findByText("No changes")).toBeTruthy();
+    await waitFor(() => expect(calls("agent.changedFiles")).toBeGreaterThan(0));
+    await waitFor(() => expect(document.querySelector(".worktree-control")).toBeNull());
+    expect(document.querySelector(".worktree-panel")).toBeNull();
+    expect(document.querySelector("file-tree-container")).toBeNull();
   });
 
   it("u2539b_a_failed_call_shows_one_failure_line", async () => {
