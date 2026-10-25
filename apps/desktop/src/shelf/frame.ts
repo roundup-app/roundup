@@ -36,7 +36,10 @@ export type ShelfFrame = {
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
-  /** The slide ended; a closed Shelf leaves the layout. */
+  /** Bind the Shelf whose browser animations retain its content. */
+  attach: (element: HTMLElement) => void;
+  sliding: Accessor<boolean>;
+  /** Release a slide on a Project switch or removal. */
   settle: () => void;
 };
 
@@ -44,7 +47,8 @@ export type ShelfFrame = {
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(true);
-  const lifetime = createSlideLifetime();
+  const [element, setElement] = createSignal<HTMLElement>();
+  const lifetime = createSlideLifetime(() => [element()]);
   const [shown, setShown] = createSignal(true);
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
@@ -117,6 +121,8 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       save();
     },
     toggle,
+    attach: setElement,
+    sliding: lifetime.sliding,
     settle: lifetime.settle,
   };
 };
