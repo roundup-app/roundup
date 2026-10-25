@@ -294,7 +294,7 @@ describe("U2773 Order forms on real Projects", () => {
     const ask = await open(original.id);
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
     fireEvent.input(ask, { target: { value: "  memory through closed Project é 🧭\n" } });
-    await within(document.querySelector<HTMLElement>(".order-drawer")!).findByRole("alert");
+    await within(ask.form!).findByRole("alert");
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
     await questionDialog();
@@ -308,7 +308,7 @@ describe("U2773 Order forms on real Projects", () => {
     calls.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn" || method === "terminal.write")).toEqual([]);
-    await waitFor(() => expect(within(document.querySelector<HTMLElement>(".order-drawer")!).queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(within(screen.getByLabelText<HTMLTextAreaElement>("Ask").form!).queryByRole("alert")).toBeNull());
     vi.restoreAllMocks();
   }, 90_000);
 
