@@ -30,7 +30,7 @@ patchedDependencies:
     hash: cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e
     path: patches/@zag-js__splitter@1.45.0.patch
   '@zag-js/toast@1.45.0':
-    hash: 48efb6f6327db92ae526cb8ff2a881a8fe570fc170d5195eb7bebc899b0a94d7
+    hash: f6ad19bbe0bb72311ceda46e8681b4a61668d56b9d6a31bb7aa7f0b8679ad732
     path: patches/@zag-js__toast@1.45.0.patch
   overlayscrollbars@2.17.0:
     hash: 48ea6e1b4ef70e00b426ff0f9c65fe4f2a63755b5e029d009e8a072c884b39cd
@@ -5436,7 +5436,7 @@ snapshots:
       '@zag-js/tabs': 1.45.0
       '@zag-js/tags-input': 1.45.0
       '@zag-js/timer': 1.45.0
-      '@zag-js/toast': 1.45.0(patch_hash=48efb6f6327db92ae526cb8ff2a881a8fe570fc170d5195eb7bebc899b0a94d7)
+      '@zag-js/toast': 1.45.0(patch_hash=f6ad19bbe0bb72311ceda46e8681b4a61668d56b9d6a31bb7aa7f0b8679ad732)
       '@zag-js/toc': 1.45.0
       '@zag-js/toggle': 1.45.0
       '@zag-js/toggle-group': 1.45.0
@@ -8021,7 +8021,7 @@ snapshots:
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
-  '@zag-js/toast@1.45.0(patch_hash=48efb6f6327db92ae526cb8ff2a881a8fe570fc170d5195eb7bebc899b0a94d7)':
+  '@zag-js/toast@1.45.0(patch_hash=f6ad19bbe0bb72311ceda46e8681b4a61668d56b9d6a31bb7aa7f0b8679ad732)':
     dependencies:
       '@zag-js/anatomy': 1.45.0
       '@zag-js/core': 1.45.0
