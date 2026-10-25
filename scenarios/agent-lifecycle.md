@@ -57,7 +57,7 @@ Proposed safety law `a3795e_cleanup_only_after_end`: over every trace, each dest
 
 ## Gates and existing checks
 
-These numbered Checks hold on `origin/main` at `5c30fdf35`; they are preservation references, not claims that the proposed laws or observers pass:
+These numbered Checks hold on `origin/main` at `a1d2169e3`; they are preservation references, not claims that the proposed laws or observers pass:
 
 | Check | Main holder | Required preservation |
 |---|---|---|
