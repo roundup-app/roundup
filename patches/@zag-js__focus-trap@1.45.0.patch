@@ -1,0 +1,103 @@
+diff --git a/dist/focus-trap.js b/dist/focus-trap.js
+index 2261cfbce98f4cc75052e9b1c2f9e1b0d4e623e2..6a4e5d4cc7186b8fe927a601806bfb131e1b05de 100644
+--- a/dist/focus-trap.js
++++ b/dist/focus-trap.js
+@@ -292,14 +292,12 @@ var FocusTrap = class {
+       const returnFocus = this.getOption(options, "returnFocus", "returnFocusOnDeactivate");
+       onDeactivate?.();
+       const finishDeactivation = () => {
+-        delay(() => {
+-          if (returnFocus && this.isSafeToOverrideFocus()) {
+-            const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+-            const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
+-            this.tryFocus(returnFocusNode, focusOptions);
+-          }
+-          onPostDeactivate?.();
+-        });
++        if (returnFocus && this.isSafeToOverrideFocus()) {
++          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
++          const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
++          this.tryFocus(returnFocusNode, focusOptions);
++        }
++        onPostDeactivate?.();
+       };
+       if (returnFocus && checkCanReturnFocus) {
+         const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+diff --git a/dist/focus-trap.mjs b/dist/focus-trap.mjs
+index d6a14c6650abf859bd5c907f3297cad2e7b0838b..2ff9226dc00770cc9f93ee4b41146700f0abab7f 100644
+--- a/dist/focus-trap.mjs
++++ b/dist/focus-trap.mjs
+@@ -286,14 +286,12 @@ var FocusTrap = class {
+       const returnFocus = this.getOption(options, "returnFocus", "returnFocusOnDeactivate");
+       onDeactivate?.();
+       const finishDeactivation = () => {
+-        delay(() => {
+-          if (returnFocus && this.isSafeToOverrideFocus()) {
+-            const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+-            const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
+-            this.tryFocus(returnFocusNode, focusOptions);
+-          }
+-          onPostDeactivate?.();
+-        });
++        if (returnFocus && this.isSafeToOverrideFocus()) {
++          const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
++          const focusOptions = this.lastInteractionType === "keyboard" ? { focusVisible: true } : void 0;
++          this.tryFocus(returnFocusNode, focusOptions);
++        }
++        onPostDeactivate?.();
+       };
+       if (returnFocus && checkCanReturnFocus) {
+         const returnFocusNode = this.getReturnFocusNode(this.state.nodeFocusedBeforeActivation);
+diff --git a/dist/index.js b/dist/index.js
+index 8435c37bf017a44902a4991cf3debd90725765e0..254ab8f9de116b611cd955c76fd8ec850ce7cb44 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -28,7 +28,9 @@ var import_dom_query = require("@zag-js/dom-query");
+ var import_focus_trap = require("./focus-trap.js");
+ function trapFocus(el, options = {}) {
+   let trap;
+-  const cleanup = (0, import_dom_query.raf)(() => {
++  let cancelled = false;
++  queueMicrotask(() => {
++    if (cancelled) return;
+     const elements = Array.isArray(el) ? el : [el];
+     const resolvedElements = elements.map((e) => typeof e === "function" ? e() : e).filter((e) => e != null);
+     if (resolvedElements.length === 0) return;
+@@ -50,7 +52,7 @@ function trapFocus(el, options = {}) {
+   });
+   return function destroy() {
+     trap?.deactivate();
+-    cleanup();
++    cancelled = true;
+   };
+ }
+ // Annotate the CommonJS export names for ESM import in node:
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 9d36bd2968c52b9f3df0d44f3c6a4b605d619444..ef370d103ffc829419df3c31bfba82a048817b69 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,11 +1,13 @@
+ import "./chunk-QZ7TP4HQ.mjs";
+ 
+ // src/index.ts
+-import { getDocument, raf } from "@zag-js/dom-query";
++import { getDocument } from "@zag-js/dom-query";
+ import { FocusTrap } from "./focus-trap.mjs";
+ function trapFocus(el, options = {}) {
+   let trap;
+-  const cleanup = raf(() => {
++  let cancelled = false;
++  queueMicrotask(() => {
++    if (cancelled) return;
+     const elements = Array.isArray(el) ? el : [el];
+     const resolvedElements = elements.map((e) => typeof e === "function" ? e() : e).filter((e) => e != null);
+     if (resolvedElements.length === 0) return;
+@@ -27,7 +29,7 @@ function trapFocus(el, options = {}) {
+   });
+   return function destroy() {
+     trap?.deactivate();
+-    cleanup();
++    cancelled = true;
+   };
+ }
+ export {

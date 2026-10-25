@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createMemo, createRoot, createSignal, on, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import * as v from "valibot";
 import { copy } from "../copy";
@@ -16,13 +16,6 @@ import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
 import "./styles.css";
-
-const focusTarget = (): void => {
-  const target = document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
-    ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
-
-  target?.focus();
-};
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
@@ -51,23 +44,20 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
 
-  let opener: Element | null = null;
-
-  const dialog = createMemo(() => {
-    if (!open()) return null;
-
-    const [value, dispose] = createRoot(dispose => [useDialog(() => ({
-      defaultOpen: true, modal: false, trapFocus: false, preventScroll: false,
-      closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: false,
-      onRequestDismiss: event => event.preventDefault(),
-      initialFocusEl: () => openingFocus.target(() => input),
-      onOpenChange: details => { if (!details.open) close(true); },
-    })), dispose] as const);
-
-    onCleanup(dispose);
-
-    return value;
-  });
+  let chosenPane = false;
+  let chosenTerminal: string | null = null;
+  const dialog = useDialog(() => ({
+    open: open(), modal: false, trapFocus: true, preventScroll: false,
+    restoreFocus: true, closeOnInteractOutside: true,
+    "aria-label": copy.switcherLabel,
+    initialFocusEl: () => openingFocus.target(() => input),
+    finalFocusEl: () => chosenPane
+      ? document.querySelector<HTMLElement>(chosenTerminal
+        ? `[data-bubble="${chosenTerminal}"] textarea`
+        : '.thread[data-mode="thread"] .thread-composer textarea:not(:disabled), .pane-screen textarea, .pane-screen [tabindex]')
+      : null,
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
 
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
 
@@ -152,13 +142,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const close = (restore: boolean): void => {
     retain();
+    chosenPane = !restore;
     setOpen(false);
-
-    // Zag restores only through its trap, after a timer; U2580a requires synchronous return.
-    if (restore && opener instanceof HTMLElement && opener.isConnected) opener.focus();
   };
 
-  const choose = (entry: Entry): void => {
+  const choose = (entry: Entry): void => batch(() => {
+    chosenTerminal = entry.terminal?.id ?? null;
     close(false);
     props.onFailure(null);
 
@@ -172,8 +161,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     const node = entry.node!;
 
     rail.select(node.id);
-    focusTarget();
-  };
+  });
 
   const chooseValue = (value: string | null): void => {
     const action = opening().actions.find((candidate) => candidate.value === value);
@@ -197,7 +185,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const show = (): void => {
     if (modalOpen()) return;
-    opener = document.activeElement;
+    chosenPane = false;
+    chosenTerminal = null;
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
     props.onOpen();
@@ -213,7 +202,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   return (
     <Show when={open()}>
-      <section {...dialog()?.().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
+      <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
         <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
