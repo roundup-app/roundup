@@ -28,7 +28,7 @@ jobs:
       group: build-${{ inputs.issue }}
       cancel-in-progress: false
     runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_ISSUES || '[]'), inputs.issue) && format('["self-hosted","boxd","roundup-build-{0}-{1}-{2}"]', inputs.issue, github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
-    timeout-minutes: 120
+    timeout-minutes: 60
     permissions:
       contents: read
       issues: read
@@ -72,7 +72,7 @@ jobs:
           # 3: another run or a person took the Issue since the pick; that ends this job with no run.
           [ "$code" != 3 ] || exit 0
           [ "$code" = 0 ] || exit "$code"
-          if [[ "$SLUG" == repair-* ]]; then
+          if [[ "$SLUG" == "repair-$ISSUE" ]]; then
             # L96: a repair run edits its Issue and opens no PR.
             printf '\nOpen no PR; edit Issue #%s. Your Author-Agent id is builder-%s.\n' "$ISSUE" "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
           else
@@ -85,8 +85,8 @@ jobs:
       - id: engine
         name: Run Claude Code, then Codex
         if: steps.task.outputs.due == 'true'
-        # L23: inside the job's two hours, so `keep` runs after the longest run.
-        timeout-minutes: 105
+        # L23: a backstop for `deadline.py`, which ends the engine at 25 minutes; inside the job's hour, so `keep` runs after it.
+        timeout-minutes: 35
         env:
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
           CODEX_ONLY: ${{ vars.CODEX_ONLY }}

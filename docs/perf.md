@@ -474,11 +474,53 @@ complete calibrated hop distribution still holds. The driver now makes keydown
 cancelable, sends keypress only when keydown was not canceled, then sends keyup.
 The existing Rust duplicate-identity proof remains. No tests were added or cut.
 
-This repairs probe input, not production latency. The retained reports cannot
-name the dominant full-chain hop or prove R21, and no new Mac timing was run.
-Merge the recorder repair before obtaining its first valid full-chain native
-observation; #3550 remains open for that evidence, the measured repair and the
-shared Agent/shell and flood acceptance.
+This repairs probe input, not production latency. The invalid reports above
+remain retained; the first valid full-chain observation follows.
+
+### Valid full-chain idle baseline (2026-10-25)
+
+After #4047 merged, the [Mac observation at
+`e2c9e2db8f94f3fc16841ed453cb5c7dfe613024`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399945881)
+exited 0. The [retained observations](perf-keystroke-mac-observations.json)
+include the complete report, console output and all three diagnostic directories'
+text. All earlier observations remain. The command was
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`
+under `caffeinate -dis`, after a `--runs 0` prebuild (expected exit 2).
+
+The host was an Apple M4 Max, 16 CPUs, 64 GiB, macOS 26.0.1 (25A362), on
+AC power with `powermode 0` (automatic), no Low Power Mode line, unlocked and
+untouched. Each run has 1000 measured keys, zero drops, WebGL, device pixel
+ratio 2 and 1 ms timer resolution. All loads meet R20's quiet-machine threshold.
+
+| Run | Load / CPU | End-to-end p50 / p95 | `parsed_to_frame` p50 / p95 | `dispatch_to_echo_event` p50 / p95 | Calibration uncertainty | Mean frame |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 5.4346 / 16 = 0.340 | 6 / 10 ms | 4 / 7 ms | 1 / 3 ms | ±1.308 ms | 8.322 ms |
+| 2 | 3.4297 / 16 = 0.214 | 6 / 10 ms | 4 / 8 ms | 1 / 3 ms | ±1.601 ms | 8.339 ms |
+| 3 | 3.3442 / 16 = 0.209 | 6 / 11 ms | 4 / 8 ms | 2 / 4 ms | ±2.000 ms | 8.339 ms |
+
+**Dominant hop: `parsed_to_frame`.** Its p95 is 7/8/8 ms, versus the next
+largest recorded span's 4 ms (`write_reply`, which overlaps the echo round trip).
+This lead exceeds each run's reported calibration uncertainty. The dominant hop
+uses the webview clock alone; its quantization is 1 ms. Cross-clock uncertainty
+is reported separately above. Percentiles of overlapping spans are not additive;
+these figures do not allocate exclusive shares of the end-to-end p95.
+
+The Daemon receipt, physical write, echo read and encoding boundaries each have
+1000 samples per run. Their p50/p95, calibration exchanges, renderer and timing
+metadata are in the retained JSON. The original one-in-flight write queue is
+still present. The largest cross-clock hop p95 is 2.075 ms; the measured queue
+wait p95 is at most 1 ms. These idle results give no evidence for removing reply
+serialization or replacing base64. The dominant wait is consistent with the
+8.3 ms frame cadence; this is an inference, not proof of a production bottleneck.
+
+These are before-repair idle observations. The reported slowdown beside another
+Terminal's `yes` output has no full-chain native attribution yet.
+[#4067](https://github.com/roundup-app/roundup/issues/4067) supplies the missing
+isolated flood observer before another native request. R20's repeatable
+Solo comparisons and R21's measured production repair, shared Agent/shell path
+proof and final idle/flood observations remain open in #3550. Passing idle runs
+do not establish that the flood regression is fixed. This evidence update changes
+no production scheduling and requests no repeat of this idle baseline.
 
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
@@ -660,6 +702,16 @@ calibration, baseline, production repair or Mac observation is supplied.
 ### R23 producer/dispatch continuation (#4032)
 
 
+[Builder 40208780160](../crates/perf/evidence/r23-host-40208780160/README.md)
+retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
+Original commands, statuses, runner/job identity, matching before/after boot IDs,
+load/background processes, toolchain, shell and settings are retained. Runner
+inventory returned HTTP 403 (exit 1); available job metadata and launch inputs
+identify no accessible qualified target. No producer/dispatch collection or
+controls ran. #4032 remains incomplete; this miss supplies no timing observation,
+attribution or overhead bound.
+
+
 [Builder 40206540231](../crates/perf/evidence/r23-host-40206540231/README.md)
 retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
 Before/after boot IDs match; original commands, statuses, load/background processes,
@@ -774,3 +826,17 @@ order/parent, commit counts, focus, click behavior and identical ordered absolut
 from the file drop. This requests no repeat of the separate Pragmatic probe. A compatibility failure fails the candidate;
 missing observations leave qualification incomplete. Quit only this App and retain owned-child cleanup evidence.
 Publish returned results to #3772, its drag work Issue #3540 and #3841; leave failures and unmeasured stages visible.
+
+### Full-chain flood recorder
+
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json`
+selects a separate, App-opened, run-owned `/usr/bin/yes roundup-flood` Terminal
+beside the same 1000-key full-chain observer. The default remains idle typing.
+Reports retain the flood Terminal's visible/folded state, raw byte offsets,
+measured output rate and every run's diagnostics. Missing, exited or silent
+producers and build/runner workload mismatches invalidate the observation.
+See [workload conditions and retained evidence](perf-keystroke-attribution.md#full-chain-output-flood-r20r21-recorder).
+
+The no-window implementation does not measure or repair #3550's 129–136 ms
+flood slowdown. Its native flood observation follows this implementation's
+merge; the valid quiet idle baseline above cannot choose that repair.
