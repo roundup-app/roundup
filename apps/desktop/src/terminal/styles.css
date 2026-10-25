@@ -96,7 +96,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-width: var(--stroke-strong);
+  border-width: var(--stroke-width);
   border-style: solid;
   border-color: var(--accent);
   pointer-events: none;

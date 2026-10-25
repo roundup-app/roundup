@@ -171,7 +171,7 @@
 .measurement-segment {
   display: block;
   flex-basis: 0;
-  min-width: var(--stroke-hairline);
+  min-width: var(--hairline-width);
   height: 100%;
 }
 

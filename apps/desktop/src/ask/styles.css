@@ -32,7 +32,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: var(--radius-row);
-  border: var(--stroke-hairline) solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
 }
 
 .ask-input {
@@ -47,7 +47,7 @@
   font: inherit;
   color: inherit;
   background: var(--ground);
-  border: var(--stroke-hairline) solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
 }
 
@@ -150,7 +150,7 @@
 .app-mentions-panel {
   box-sizing: border-box;
   width: max-content;
-  max-width: min(var(--ask-menu-max-width), var(--available-width));
+  max-width: min(var(--ask-menu-width), var(--available-width));
   padding: var(--space-1);
 }
 
@@ -173,8 +173,8 @@
 /* The picker's visible label would repeat its trigger; the accessible name stays. */
 .ask-choices .app-select-label {
   position: absolute;
-  width: var(--stroke-hairline);
-  height: var(--stroke-hairline);
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
 }
@@ -354,8 +354,8 @@
   flex-shrink: 0;
   width: 0.4em;
   height: 0.4em;
-  border-right: var(--stroke-check) solid currentColor;
-  border-bottom: var(--stroke-check) solid currentColor;
+  border-right: var(--tick-border-width) solid currentColor;
+  border-bottom: var(--tick-border-width) solid currentColor;
   transform: rotate(-45deg);
 }
 
