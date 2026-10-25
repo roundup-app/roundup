@@ -1,17 +1,17 @@
 import type { ITheme } from "@xterm/xterm";
-import tokens from "../tokens.css?inline";
+import "../tokens.css";
 
 /** An emulator theme that always names the two colours the Daemon reports to a program (X17). */
 export type TerminalTheme = ITheme & { background: string; foreground: string };
 
-// Resolve the same Terminal Tokens CSS uses, including for X17 before a pane is attached.
-const theme = (dark: boolean): TerminalTheme => {
-  const column = dark ? tokens.split(/:root\[data-mode=["']?dark["']?\]/)[1]! : tokens;
+/** Read the window's resolved Tokens, including before a Terminal attaches for X17. */
+export const terminalThemeFor = (): TerminalTheme => {
+  const styles = getComputedStyle(document.documentElement);
 
   const value = (name: string): string => {
-    const colour = new RegExp(`--terminal-${name}:\\s*([^;]+);`).exec(column)![1]!.trim();
+    const colour = styles.getPropertyValue(`--terminal-${name}`).trim();
 
-    // Vite shortens hex in production CSS; terminal.scheme requires #rrggbb.
+    // Production CSS can shorten hex; terminal.scheme requires #rrggbb.
     return colour.replace(/^#([a-f\d])([a-f\d])([a-f\d])$/i, "#$1$1$2$2$3$3");
   };
 
@@ -27,10 +27,3 @@ const theme = (dark: boolean): TerminalTheme => {
     brightCyan: value("bright-cyan"), brightWhite: value("bright-white"),
   };
 };
-
-export const lightTerminalTheme = theme(false);
-
-export const darkTerminalTheme = theme(true);
-
-/** The theme for the window's colour scheme. */
-export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);
