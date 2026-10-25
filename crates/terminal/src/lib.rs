@@ -9,6 +9,9 @@ mod integration;
 mod output;
 mod pty;
 mod scheme;
+mod screen;
+
+use screen::{ScreenParser, ScreenState, Seen};
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -155,50 +158,6 @@ struct Entry {
     screen: Arc<Mutex<ScreenState>>,
 }
 
-struct ScreenState {
-    parser: ScreenParser,
-    after: u64,
-    /// X13: the last megabyte of output; its end is `after`.
-    log: output::Log,
-    /// X16: where each reader's next `terminal.read` begins; it ends with the Terminal.
-    cursors: std::collections::HashMap<String, u64>,
-    snapshot_available: bool,
-    scrollback_rows: usize,
-    cols: u16,
-    rows: u16,
-    /// X17: the program turned on mode 2031 and gets a notice when the scheme changes.
-    scheme_notices: bool,
-}
-
-enum ScreenParser {
-    Pending,
-    Active(Box<vt100::Parser<Seen>>),
-    Failed,
-}
-
-impl ScreenState {
-    fn ensure_parser(&mut self) -> Option<&mut vt100::Parser<Seen>> {
-        if matches!(&self.parser, ScreenParser::Pending) {
-            let (rows, cols, scrollback) = if self.snapshot_available {
-                (self.rows, self.cols, self.scrollback_rows)
-            } else {
-                (TITLE_ROWS, TITLE_COLS, 0)
-            };
-            self.parser = ScreenParser::Active(Box::new(vt100::Parser::new_with_callbacks(
-                rows,
-                cols,
-                scrollback,
-                Seen::default(),
-            )));
-        }
-        match &mut self.parser {
-            ScreenParser::Active(parser) => Some(parser),
-            ScreenParser::Pending | ScreenParser::Failed => None,
-        }
-    }
-}
-
-/// State shared with each Terminal's reader thread.
 struct Shared {
     bus: Bus,
     table: Mutex<BTreeMap<u64, Entry>>,
@@ -491,7 +450,7 @@ impl Terminals {
             None => writer,
         };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let snapshot_available = snapshot_size_supported(params.cols, params.rows);
+        let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
         let scrollback = if snapshot_available {
             SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))
         } else {
@@ -655,7 +614,7 @@ impl Terminals {
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available
-            && snapshot_size_supported(cols, rows)
+            && screen::snapshot_size_supported(cols, rows)
             && (matches!(&state.parser, ScreenParser::Pending)
                 || state.scrollback_rows * usize::from(cols) <= SNAPSHOT_MAX_HISTORY_CELLS)
         {
@@ -688,7 +647,7 @@ impl Terminals {
             .ensure_parser()
             .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
         let (rows, cols) = parser.screen().size();
-        let data = formatted_snapshot(parser.screen())?;
+        let data = screen::formatted_snapshot(parser.screen())?;
         Ok(Snapshot {
             cols,
             rows,
@@ -784,7 +743,9 @@ impl Terminals {
             }
             drop(program);
             // portable-pty returns right after SIGKILL; a second kill must already see the program gone.
-            reap(&handle.program).map(drop).map_err(RpcError::internal)
+            pty::reap(&handle.program)
+                .map(drop)
+                .map_err(RpcError::internal)
         })
         .await
         .map_err(RpcError::internal)?
@@ -905,86 +866,6 @@ impl Terminals {
 
 /// Collects what the parser sees that the Daemon acts on: window titles (OSC 0 and 2) and the colour
 /// requests of X17. vt100 stitches sequences split across reads.
-#[derive(Default)]
-struct Seen {
-    titles: Vec<String>,
-    requests: Vec<scheme::Request>,
-}
-
-impl vt100::Callbacks for Seen {
-    fn set_window_title(&mut self, _: &mut vt100::Screen, title: &[u8]) {
-        self.titles
-            .push(String::from_utf8_lossy(title).into_owned());
-    }
-
-    fn unhandled_csi(
-        &mut self,
-        _: &mut vt100::Screen,
-        first: Option<u8>,
-        second: Option<u8>,
-        params: &[&[u16]],
-        last: char,
-    ) {
-        self.requests
-            .extend(scheme::from_csi(first, second, params, last));
-    }
-
-    /// vt100 splits an OSC on every `;` and only reports a title that is a single piece, so a
-    /// title containing `;` arrives here and would otherwise be dropped.
-    fn unhandled_osc(&mut self, _: &mut vt100::Screen, params: &[&[u8]]) {
-        if let [b"0" | b"2", pieces @ ..] = params {
-            self.titles
-                .push(String::from_utf8_lossy(&pieces.join(&b';')).into_owned());
-        }
-        self.requests.extend(scheme::from_osc(params));
-    }
-}
-
-fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, RpcError> {
-    let visible = screen.state_formatted();
-    let alternate = screen.alternate_screen();
-    let prefix = if alternate {
-        b"\x1b[?1049h".as_slice()
-    } else {
-        &[]
-    };
-    if prefix.len() + visible.len() > SNAPSHOT_MAX_BYTES {
-        return Err(RpcError::conflict(
-            "terminal visible screen exceeds snapshot limit",
-        ));
-    }
-
-    let mut history = Vec::new();
-    if !alternate {
-        let mut prior = screen.clone();
-        prior.set_scrollback(SNAPSHOT_SCROLLBACK);
-        let count = prior.scrollback();
-        let (_, cols) = prior.size();
-        for offset in (1..=count).rev() {
-            prior.set_scrollback(offset);
-            let row = prior.rows(0, cols).next().unwrap_or_default();
-            let mut line = row.into_bytes();
-            line.extend_from_slice(b"\r\n");
-            history.push(line);
-        }
-    }
-    let mut total = prefix.len() + visible.len() + history.iter().map(Vec::len).sum::<usize>();
-    while total > SNAPSHOT_MAX_BYTES {
-        total -= history.remove(0).len();
-    }
-    let mut data = Vec::with_capacity(total);
-    data.extend_from_slice(prefix);
-    for line in history {
-        data.extend_from_slice(&line);
-    }
-    data.extend_from_slice(&visible);
-    Ok(data)
-}
-
-fn snapshot_size_supported(cols: u16, rows: u16) -> bool {
-    u32::from(cols) * u32::from(rows) <= SNAPSHOT_MAX_CELLS
-}
-
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
 fn check_program(params: &SpawnParams) -> Result<(), RpcError> {
     let argv = params.command.as_deref().unwrap_or_default();
