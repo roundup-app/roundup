@@ -248,7 +248,7 @@ async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     // retention not yet run, Messages
     // behind each wait reason, both approval Routes, and Door actions waiting, started and done.
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("DROP TABLE pad_deletions; ALTER TABLE pad_sources DROP COLUMN revoked;")
+    db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
         .unwrap();
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))
