@@ -1,3 +1,4 @@
+import { focusActions } from "./focusActions";
 import { captureFocus } from "../keys/focus";
 import * as menu from "@zag-js/menu";
 import { normalizeProps, useMachine } from "@zag-js/solid";
@@ -42,32 +43,25 @@ export const Menu = {
     const environment = useEnvironmentContext();
 
     // Zag 1.45 focusMenu/focusTrigger: https://github.com/chakra-ui/zag/blob/main/packages/machines/menu/src/menu.machine.ts
-    const machine: typeof menu.machine = {
-      ...menu.machine,
-      implementations: {
-        ...menu.machine.implementations,
-        actions: {
-          ...menu.machine.implementations?.actions,
-          focusMenu: ({ scope }) => {
-            const focus = opening ? initialFocus : captureFocus();
-            opening = false;
-            requestAnimationFrame(() => focus(() => {
-              const target = getInitialFocus({
-                root: content() ?? null, enabled: !content()?.contains(scope.getActiveElement()),
-                filter: node => !node.role?.startsWith("menuitem"),
-              });
+    const machine = focusActions(menu.machine, {
+      focusMenu: ({ scope }) => {
+        const focus = opening ? initialFocus : captureFocus();
+        opening = false;
+        requestAnimationFrame(() => focus(() => {
+          const target = getInitialFocus({
+            root: content() ?? null, enabled: !content()?.contains(scope.getActiveElement()),
+            filter: node => !node.role?.startsWith("menuitem"),
+          });
 
-              if (target) target.focus({ preventScroll: true });
-            }));
-          },
-          focusTrigger: ({ context, event }) => {
-            if (context.get("isSubmenu") || context.get("anchorPoint") || event.restoreFocus === false) return;
-            const focus = returnFocus;
-            queueMicrotask(() => focus(() => { if (element()?.isConnected) element()?.focus({ preventScroll: true }); }));
-          },
-        },
+          if (target) target.focus({ preventScroll: true });
+        }));
       },
-    };
+      focusTrigger: ({ context, event }) => {
+        if (context.get("isSubmenu") || context.get("anchorPoint") || event.restoreFocus === false) return;
+        const focus = returnFocus;
+        queueMicrotask(() => focus(() => { if (element()?.isConnected) element()?.focus({ preventScroll: true }); }));
+      },
+    });
 
     const service = useMachine(machine, () => ({ id, dir: locale().dir, getRootNode: environment().getRootNode, ...options, loopFocus: props.loopFocus ?? false, closeOnSelect: props.closeOnSelect ?? true, composite: props.composite ?? true, typeahead: props.typeahead ?? true, positioning: props.positioning ?? {}, open: control.open(), onOpenChange: control.change }));
     const api = createMemo(() => menu.connect(service, normalizeProps));

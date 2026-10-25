@@ -1,3 +1,4 @@
+import { focusActions } from "./focusActions";
 import * as combobox from "@zag-js/combobox";
 import { normalizeProps, useMachine } from "@zag-js/solid";
 import { useLocaleContext } from "@ark-ui/solid/locale";
@@ -56,22 +57,15 @@ const Root = (props: {
   // Zag 1.45's open entry schedules focus regardless of autoFocus. Ark's useCombobox fixes
   // that machine, so retain it through RootProvider and guard only its focus actions.
   // https://github.com/chakra-ui/zag/blob/%40zag-js/combobox%401.45.0/packages/machines/combobox/src/combobox.machine.ts
-  const machine: typeof combobox.machine = {
-    ...combobox.machine,
-    implementations: {
-      ...combobox.machine.implementations,
-      actions: {
-        ...combobox.machine.implementations?.actions,
-        setInitialFocus: () => {
-          requestAnimationFrame(() => initialFocus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
-        },
-        setFinalFocus: () => {
-          const focus = captureFocus();
-          requestAnimationFrame(() => focus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
-        },
-      },
+  const machine = focusActions(combobox.machine, {
+    setInitialFocus: () => {
+      requestAnimationFrame(() => initialFocus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
     },
-  };
+    setFinalFocus: () => {
+      const focus = captureFocus();
+      requestAnimationFrame(() => focus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
+    },
+  });
 
   const service = useMachine(machine, () => ({
     id, ids: { label: field?.().ids.label, input: field?.().ids.control },
@@ -82,6 +76,7 @@ const Root = (props: {
     inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
+    onOpenChange: details => { if (!details.open) dismiss?.(); },
     onValueChange: details => { const [value] = details.value;
 
       if (value !== undefined) props.onSelect(value); },
@@ -122,6 +117,7 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   const [query, setQuery] = createSignal("");
   const [highlight, setHighlight] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
+  let content: HTMLDivElement | undefined;
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
   return <Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
@@ -130,8 +126,8 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>
       <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
     </Popover.Trigger>
-    <Portal><Popover.Positioner><Popover.Content class="choice-picker" aria-label={props.label} onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
-      <Root items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
+    <Portal><Popover.Positioner><Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
+      <Root focusScope={() => content} onDismiss={() => setOpen(false)} items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
         onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => item.label} />
     </Popover.Content></Popover.Positioner></Portal>
   </Popover.Root>;
