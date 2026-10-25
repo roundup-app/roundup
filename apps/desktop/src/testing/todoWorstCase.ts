@@ -26,7 +26,7 @@ export const mountTodoWorstCase = (controls: Controls) => {
     controls.actAs({kind: "user", id: "you", parent: null});
     const before = await app.rpc("todo.list", null);
 
-    for (const todo of before) await app.rpc("todo.delete", {id: todo.id});
+    for (const todo of before) await app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [todo.id] });
     const amount = worst ? Number(count.value) : 8;
     const titles = ["Review the deployment plan ".repeat(12).slice(0, 300), "J", "🧭", "確認してから変更を公開する", "Confirm that all deployment checks pass".padEnd(40, ".")];
     const blockers: number[] = [];

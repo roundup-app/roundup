@@ -1,3 +1,4 @@
+import { deleteTodos } from "../../todos/deleteTodos";
 import { contextMenu, linkEntries, openOnRelease } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
@@ -143,7 +144,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
-    remove: (id) => failureOf(() => connected.app.rpc("todo.delete", { id })),
+    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
     reload: async () => {
       await props.pads.todos.reload();
 
