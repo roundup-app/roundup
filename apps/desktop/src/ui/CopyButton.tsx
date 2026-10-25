@@ -1,0 +1,63 @@
+import { createEffect, createSignal, on, onCleanup, splitProps, type JSX } from "solid-js";
+import { debounce } from "@solid-primitives/scheduled";
+import { writeText } from "../app/clipboard";
+import type { App } from "../app/seam";
+import { copy } from "../copy";
+
+/** Clipboard feedback belongs to one mounted control and the latest acknowledged attempt. */
+export const createCopyFeedback = () => {
+  const [copied, setCopied] = createSignal(false);
+  let revision = 0;
+  let disposed = false;
+  let cancelDeadline = () => {};
+
+  const reset = () => { revision++; cancelDeadline(); setCopied(false); };
+
+  onCleanup(() => { disposed = true; reset(); });
+
+  return {
+    copied,
+    reset,
+    run: async (write: () => Promise<void>, success: () => void, failure: (error: Error) => void) => {
+      reset();
+      const current = revision;
+
+      try {
+        await write();
+
+        if (disposed || revision !== current) return;
+
+        setCopied(true);
+        const duration = getComputedStyle(document.documentElement).getPropertyValue("--duration-copy").trim();
+        const clear = debounce(() => setCopied(false), parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000));
+        cancelDeadline = clear.clear;
+        clear();
+        success();
+      } catch (error) {
+        if (!disposed && revision === current) failure(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  };
+};
+
+/** The existing native button owns activation; the App seam owns the clipboard write. */
+export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
+  app: Pick<App, "writeClipboardText">;
+  text: string;
+  identity?: unknown;
+  onSuccess?: (() => void) | undefined;
+  onFailure: (error: Error) => void;
+}) => {
+  const [local, rest] = splitProps(props, ["app", "text", "identity", "children", "onSuccess", "onFailure"]);
+  const feedback = createCopyFeedback();
+  createEffect(on(() => [local.text, local.identity, local.app], feedback.reset));
+
+  const write = () => {
+    const text = local.text;
+    const success = local.onSuccess;
+    const failure = local.onFailure;
+    void feedback.run(() => writeText(local.app, text), () => success?.(), failure);
+  };
+
+  return <button type="button" data-button="quiet" {...rest} onClick={write}>{feedback.copied() ? copy.copied : local.children}</button>;
+};

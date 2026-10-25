@@ -1,4 +1,4 @@
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { copy } from "../copy";
@@ -8,7 +8,6 @@ import { useConnectedProject } from "../state/connectedProject";
 
 const STATES = { running: copy.toolCallRunning, done: copy.toolCallDone, failed: copy.toolCallFailed } as const;
 
-const COPIED_MS = 1500;
 
 /** Whole seconds under a minute, then minutes and seconds (as the step line of U456 reads). */
 const elapsed = (ms: number): string => {
@@ -22,30 +21,13 @@ const elapsed = (ms: number): string => {
 /** U3780c: the plain text a fold shows, with its own `Copy`. */
 const Payload = (props: { label: string; text: string | undefined }): JSX.Element => {
   const { app } = useConnectedProject();
-  const [state, setState] = createSignal<"idle" | "copied" | "failed">("idle");
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  onCleanup(() => clearTimeout(timer));
-
-  const write = async (text: string) => {
-    try {
-      await writeText(app, text);
-      setState("copied");
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      setState("failed");
-    }
-
-    clearTimeout(timer);
-    timer = setTimeout(() => setState("idle"), COPIED_MS);
-  };
+  const [failed, setFailed] = createSignal(false);
 
   return <section class="call-payload">
     <header class="call-payload-head">
       <h3 class="call-payload-label">{props.label}</h3>
       <Show when={props.text !== undefined}>
-        <button type="button" data-button="quiet" class="call-copy" onClick={() => void write(props.text!)}>{state() === "copied" ? copy.toolCallCopied : state() === "failed" ? copy.toolCallCopyFailed : copy.toolCallCopy}</button>
+        <CopyButton app={app} text={props.text!} class="call-copy" onSuccess={() => setFailed(false)} onFailure={() => setFailed(true)}>{failed() ? copy.toolCallCopyFailed : copy.toolCallCopy}</CopyButton>
       </Show>
     </header>
     <Show when={props.text !== undefined} fallback={<p class="call-none">{copy.toolCallNoResult}</p>}><pre class="call-text">{props.text}</pre></Show>
