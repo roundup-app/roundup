@@ -74,54 +74,56 @@ Earlier attribution stays in [the main record](perf-macos-startup.md).
 
 ## Reuse of the loaded Rail buffer (#3696)
 
-`Rail::tree_with` retained the loaded nodes and allocated a second vector for
-traversal output. The existing no-process allocation observer measures
-**132,294 → 99,334 temporary bytes** and **244 → 243 allocations** for forty
-Workstreams. Traversal now swaps each next sibling into a visited prefix of the
-loaded vector, keeping its finish count beside it. Standard iterator collection
-reuses that storage for the returned nodes. Selecting the minimum sibling order
-preserves A6 without rotating large node slices or allocating a second tree.
-Unreachable nodes are discarded as before, and presentation remains parent-first.
+`Rail::tree_with` scanned for descendants once per node and allocated a second
+vector for traversal output even when every node was a root. The forty-Workstream
+fixture has no children. A flat tree now presents the sorted nodes directly with
+standard iterator collection, reusing the loaded buffer. Nested trees keep the
+existing traversal; no query, cache, graph representation or library is added.
 
-`r3696c_forty_workstreams_avoid_temporary_node_copies` tightens its byte cap from
-150,000 to 100,000. It fails on the original path and passes on the repair; the
-260-allocation cap still catches the separate finish-map regression. This file
-contains only that observer, so no redundant test is removed. Existing A6 tree
-ordering and move tests, R16 conversation availability and U3566c finish-count
-coverage retain their behavioral proofs. No timing instrumentation is committed.
+The existing no-process allocation observer measures **132,294 → 99,334 temporary
+bytes** and **244 → 243 allocations** per reply. Its 100,000-byte cap is committed
+before implementation and fails on the original path. The 260-allocation cap
+remains because it catches the separate finish-map regression. This file holds
+only that observer, so no redundant test is removed. Existing A6 ordering/move,
+R16 conversation-availability and U3566c finish-count tests retain their
+behavioral proofs. No timing instrumentation is committed.
 
 The [raw paired report](perf-rail-buffer-pairs.json) retains all eighteen
-observations, exits, loads, executable hashes, source hashes, host/toolchain facts
-and the temporary timing patch. Before is `907c9e005eb40068ff4e012dec3a0b6e63494250`;
-after is `a9c47c97115335320185f20d8323de1883ef80df` before merging newer main.
-Both use the existing forty-Workstream fixture, instrumented System allocator and
-release profile. Reproduction uses the `RAIL_PROBE=1` procedure above; the test's
-allocation assertions follow the timed batches.
+observations, exits, loads, executable/source hashes, host/toolchain facts and the
+temporary timing patch. Before is `8b164b2c30c056bb10e351b3866e46c7d3ca4849`;
+after is `35b6697c2ae3ca549f76b0413a127432b3ac8e0a`. Both have the same
+Rust source apart from the flat-tree branch and the stricter allocation cap;
+allocation assertions run after the timed batches. Reproduction uses the
+`RAIL_PROBE=1` procedure above and each reference's existing test fixture.
 
-| Pair | Separate output buffer, µs/reply | Reused buffer, µs/reply |
+| Pair | Descendant traversal, µs/reply | Direct flat presentation, µs/reply |
 |---|---:|---:|
-| 1 | 46.116 | 46.602 |
-| 2 | 46.281 | 47.252 |
-| 3 | 45.958 | 46.508 |
-| 4 | 47.034 | 46.351 |
-| 5 | 46.331 | 46.775 |
-| 6 | 45.646 | 47.136 |
-| 7 | 46.555 | 46.647 |
-| 8 | 46.415 | 47.721 |
-| 9 | 47.395 | 46.170 |
-| Median of pair medians | 46.331 | 46.647 |
+| 1 | 45.851 | 43.463 |
+| 2 | 46.374 | 43.800 |
+| 3 | 45.302 | 43.458 |
+| 4 | 46.038 | 43.965 |
+| 5 | 46.471 | 43.491 |
+| 6 | 45.060 | 43.870 |
+| 7 | 45.988 | 44.012 |
+| 8 | 45.132 | 43.776 |
+| 9 | 45.196 | 44.462 |
+| Median of pair medians | 45.851 | 43.800 |
 
-Linux x86_64, AMD EPYC 9V45, four affinity CPUs, rustc 1.99.0; one-minute load
-1.023–1.064 (0.256–0.266/CPU). Builds and tests were stopped throughout all pairs;
-order alternates, every exit is 0, and none is retried or skipped. These are
-median batch means, not request p95s. They show no material latency improvement
-(0.7% higher median); the established saving is 32,960 temporary bytes per reply,
-not idle RSS. The observation excludes startup and socket transport.
+All nine pairs improve. The median saving is
+2.051 µs
+(4.5%). Linux x86_64,
+AMD EPYC 9V45, four affinity CPUs, rustc 1.99.0; one-minute load
+1.191–1.445
+(0.298–0.361/CPU). Builds and tests were stopped
+throughout all pairs; order alternates, every exit is 0, and none is retried or
+skipped. These are median batch means, not request p95s; they include presentation,
+JSON serialization and the instrumented System allocator, and exclude startup
+and socket transport. The 32,960-byte saving is temporary allocation, not idle RSS.
 
 Budgets remain unchanged. The latest M4 Max report at `477a3ce93`
 ([retained result](https://github.com/roundup-app/roundup/issues/3696#issuecomment-6396742823))
 still fails cold start at 9.543 ms against 8.110 and Rail 40 at 0.164 ms against
-0.149, with writes and RSS passing. This allocation repair establishes neither a
-Mac latency pass nor startup attribution or a baseline rebase. Full same-M4-Max
-acceptance, unchanged-code false-fail evidence and the separate later main pass
-remain open on #3696.
+0.149, with writes and RSS passing. This repair establishes neither a Mac pass
+nor startup attribution or a baseline rebase. Remaining startup/Rail attribution,
+full same-M4-Max acceptance, unchanged-code false-fail evidence and the separate
+later main pass remain open on #3696.
