@@ -103,8 +103,8 @@ describe("u2 first run", () => {
   it("u3_a_failed_rail_refetch_shows_the_message_in_ink_in_the_centre", async () => {
     const app = createFakeApp();
     app.opened.project = PROJECT;
-    const { container } = renderApp(app);
-    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
+    renderApp(app);
+    await screen.findByRole("tree", { name: "Rail" });
     app.handlers["rail.tree"] = () => Promise.reject(new RpcError(-32603, "daemon is gone"));
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
