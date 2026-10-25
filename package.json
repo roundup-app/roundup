@@ -16,10 +16,12 @@
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.300",
+    "@ast-grep/cli": "0.51.0",
     "@copilotkit/aimock": "1.45.1",
     "@oxlint/plugins": "1.86.0",
     "fallow": "^3.34.0",
     "lefthook": "2.2.2",
+    "madge": "8.0.0",
     "oxlint": "1.86.0",
     "stylelint": "17.16.0",
     "stylelint-declaration-strict-value": "1.12.1",
@@ -34,6 +36,11 @@
       "@copilotkit/aimock@1.45.1": "patches/@copilotkit__aimock@1.45.1.patch",
       "@xterm/addon-fit@0.11.0": "patches/@xterm__addon-fit@0.11.0.patch",
       "overlayscrollbars@2.17.0": "patches/overlayscrollbars@2.17.0.patch"
+    },
+    "overrides": {
+      "madge>typescript": "5.9.3",
+      "detective-typescript>typescript": "5.9.3",
+      "tsconfig-paths>typescript": "5.9.3"
     }
   }
 }
