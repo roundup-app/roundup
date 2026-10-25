@@ -1,7 +1,5 @@
-import { storageCopy } from "./copy/storage";
-import { ReservedLine } from "./ink/ReservedLine";
-import { initializeStorage } from "./state/storage";
-import { createResource, createRoot, Show } from "solid-js";
+import { StorageRecovery } from "./app/StorageRecovery";
+import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
@@ -45,19 +43,11 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
 
 const app = keystrokes?.traced(tauri) ?? tauri;
 
-const RestoredApp = () => {
-  const [result, { refetch }] = createResource(initializeStorage);
-
-  return <Show when={!result.loading} fallback={<div class="storage-failure"><ReservedLine status={storageCopy.restoring} /></div>}>
-    <Show when={result() === null} fallback={<div class="storage-failure"><ReservedLine message={result()}><button data-button="quiet" type="button" onClick={() => void refetch()}>{storageCopy.restoreRetry}</button></ReservedLine></div>}>
-      <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />
-    </Show>
-  </Show>;
-};
-
 // The panel never initializes storage, opens Projects or mounts another App.
 if (new URLSearchParams(location.search).has("capture") && tauri.capture) {
   render(() => <CapturePanel port={tauri.capture!} />, root);
-} else render(() => <RestoredApp />, root);
+} else render(() => <StorageRecovery>
+  <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />
+</StorageRecovery>, root);
 
 void keystrokes?.start();
