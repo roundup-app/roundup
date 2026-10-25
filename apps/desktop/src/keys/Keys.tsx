@@ -30,7 +30,7 @@ export const Keys = () => {
       when: (press) => {
         const row = rowOf(press.target);
 
-        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && (press.key === "F2" || padsControlFor(row, press.key) !== null);
+        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && !row.classList.contains("sortable-source") && (press.key === "F2" || padsControlFor(row, press.key) !== null);
       },
       run: (press) => {
         const row = rowOf(press.target);
