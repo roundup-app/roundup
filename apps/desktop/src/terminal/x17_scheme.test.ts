@@ -2,18 +2,19 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
-import { darkTerminalTheme, lightTerminalTheme } from "./theme";
 
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); delete document.documentElement.dataset.mode; });
 
 const scheme = (dark: boolean) => {
+  // jsdom does not evaluate prefers-color-scheme; the explicit selector resolves the same Tokens.
+  document.documentElement.dataset.mode = dark ? "dark" : "light";
   let change: () => void = () => {};
 
   const query = { matches: dark, addEventListener: (_: string, listener: () => void) => { change = listener; }, removeEventListener: () => { change = () => {}; } };
 
   vi.stubGlobal("matchMedia", () => query);
 
-  return { switchTo: (next: boolean) => { query.matches = next; change(); } };
+  return { switchTo: (next: boolean) => { query.matches = next; document.documentElement.dataset.mode = next ? "dark" : "light"; change(); } };
 };
 
 const schemeCalls = (app: ReturnType<typeof createFakeApp>) => app.calls.filter((call) => call.method === "terminal.scheme").map((call) => call.params);
@@ -26,8 +27,8 @@ it("x17_connecting_tells_the_daemon_the_scheme_and_each_switch_tells_it_again", 
   window.switchTo(true);
 
   expect(schemeCalls(app)).toEqual([
-    { scheme: "light", background: lightTerminalTheme.background, foreground: lightTerminalTheme.foreground },
-    { scheme: "dark", background: darkTerminalTheme.background, foreground: darkTerminalTheme.foreground },
+    { scheme: "light", background: "#ffffff", foreground: "#4d4d4c" },
+    { scheme: "dark", background: "#282c34", foreground: "#ffffff" },
   ]);
 });
 

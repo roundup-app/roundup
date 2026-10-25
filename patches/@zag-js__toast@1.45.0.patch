@@ -103,7 +103,7 @@ index 3c07601b97c0ffa11ddee572728f31d840307c56..3811f65eaab887a2ca4266db4e83df09
        clearMouseEventTimer({ refs }) {
          refs.get("ignoreMouseTimer").cancel();
 diff --git a/dist/toast.machine.js b/dist/toast.machine.js
-index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..d6920baea56728471610c583e42866aa570d9b7c 100644
+index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..eea94330f212d345edb1378f7f46c4135635644a 100644
 --- a/dist/toast.machine.js
 +++ b/dist/toast.machine.js
 @@ -125,8 +125,8 @@ var machine = (0, import_core.createMachine)({
@@ -151,7 +151,15 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..d6920baea56728471610c583e42866aa
            const rootEl = dom.getRootEl(scope);
            if (!rootEl) return;
            const syncHeight = () => {
-@@ -212,9 +217,8 @@ var machine = (0, import_core.createMachine)({
+@@ -205,6 +210,7 @@ var machine = (0, import_core.createMachine)({
+             const item = { id: prop("id"), height };
+             setHeight(prop("parent"), item);
+           };
++          syncHeight();
+           const win = scope.getWin();
+           const observer = new win.MutationObserver(syncHeight);
+           observer.observe(rootEl, {
+@@ -212,9 +218,8 @@ var machine = (0, import_core.createMachine)({
              subtree: true,
              characterData: true
            });
@@ -162,7 +170,7 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..d6920baea56728471610c583e42866aa
        }
      },
      guards: {
-@@ -222,11 +226,6 @@ var machine = (0, import_core.createMachine)({
+@@ -222,11 +227,6 @@ var machine = (0, import_core.createMachine)({
        shouldPersist: ({ computed }) => computed("shouldPersist")
      },
      actions: {
@@ -175,7 +183,7 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..d6920baea56728471610c583e42866aa
          queueMicrotask(() => {
            const rootEl = dom.getRootEl(scope);
 diff --git a/dist/toast.machine.mjs b/dist/toast.machine.mjs
-index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..6fa8ab221fdaac8389d5db82a81a8f763c7d9a27 100644
+index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..3b6e070ef07908452603025dc0a4289a5cc51619 100644
 --- a/dist/toast.machine.mjs
 +++ b/dist/toast.machine.mjs
 @@ -91,8 +91,8 @@ var machine = createMachine({
@@ -223,7 +231,15 @@ index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..6fa8ab221fdaac8389d5db82a81a8f76
            const rootEl = dom.getRootEl(scope);
            if (!rootEl) return;
            const syncHeight = () => {
-@@ -178,9 +183,8 @@ var machine = createMachine({
+@@ -171,6 +176,7 @@ var machine = createMachine({
+             const item = { id: prop("id"), height };
+             setHeight(prop("parent"), item);
+           };
++          syncHeight();
+           const win = scope.getWin();
+           const observer = new win.MutationObserver(syncHeight);
+           observer.observe(rootEl, {
+@@ -178,9 +184,8 @@ var machine = createMachine({
              subtree: true,
              characterData: true
            });
@@ -234,7 +250,7 @@ index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..6fa8ab221fdaac8389d5db82a81a8f76
        }
      },
      guards: {
-@@ -188,11 +192,6 @@ var machine = createMachine({
+@@ -188,11 +193,6 @@ var machine = createMachine({
        shouldPersist: ({ computed }) => computed("shouldPersist")
      },
      actions: {
