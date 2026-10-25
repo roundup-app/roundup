@@ -215,6 +215,22 @@ R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured ca
 
 [Host attempts, qualified observations and reproduction instructions](perf-r23-execution.md).
 
+[Producer-observer attempt 40193504693](../crates/perf/evidence/r23-host-40193504693/README.md)
+failed the unchanged exact-9V45 preflight (exit 2): `Intel(R) Xeon(R) 6973P-C`.
+Runner inventory was inaccessible (HTTP 403, exit 1); the existing Builder inputs
+provide no exact-model selector. No qualified target was identified and no
+collection ran. #4032 remains the execution prerequisite of #4031 under #3760
+and #3720; producer/initial-dispatch capture, isolated repeated controls and their
+assessment remain incomplete. This host record completes none of those Issues.
+
+[Producer-observer attempt 40196101407](../crates/perf/evidence/r23-host-40196101407/README.md)
+also failed the unchanged preflight (exit 2): `AMD EPYC 7763 64-Core Processor`.
+Runner inventory returned HTTP 403 (exit 1); job metadata and existing launch
+inputs identify no reachable qualified target. The matching boot IDs, commands,
+outputs, statuses and machine/load/process records are retained. No collection
+ran: #4032, #4031 and #3760 remain incomplete under #3720. This supplies no new
+producer/dispatch observation, repeated control, overhead bound or timing verdict.
+
 ### R23 paired write conclusions (#3760)
 
 [Paired measurements, reference commits, ceilings, compatibility failures and profile qualifications](perf-r23-writes.md#r23-paired-write-conclusions-3760).

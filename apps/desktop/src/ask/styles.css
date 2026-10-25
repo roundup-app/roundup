@@ -23,7 +23,7 @@
 
 .ask-bar[data-mode="over"] {
   position: absolute;
-  top: var(--space-5);
+  top: calc(var(--space-6) + var(--space-5));
   left: 50%;
   z-index: var(--layer-popover);
   width: min(640px, calc(100% - var(--space-5)));
@@ -309,6 +309,11 @@
 
 .ask-compose {
   padding-bottom: var(--line);
+}
+
+/* An empty floating composer needs no reserved failure line; a failure still has its place. */
+.ask-bar[data-mode="over"] .ask-compose:has(.ask-send-status[data-empty="true"]) {
+  padding-bottom: 0;
 }
 
 /* U3780b, U3780c: the Agent's tool call line, after AffectUI's Tool Call Card (MIT, https://www.affectui.com/components/tool-call-card), under our Tokens. */

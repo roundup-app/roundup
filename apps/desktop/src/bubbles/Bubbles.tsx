@@ -826,7 +826,7 @@ export const Bubbles = (props: {
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}
-                onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) start(); }}>
+                onDblClick={() => start()}>
                 <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
                 <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
               </button>
