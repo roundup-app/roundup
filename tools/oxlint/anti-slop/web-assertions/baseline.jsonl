@@ -549,7 +549,6 @@
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream","identity":"6cd29781bc3871d684c5fbc0b731f31cb87473d41d7073d347fc4c4563a40d42"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"91dbf1adf1390a1884af999ac18b944293a87770f4ab059dfed0a288728c26f4"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"fa7ee3309df6a767c299562e68534f662dd6b96a5dc11aa78f605863dea522c9"}
-{"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u529 ⌘K switches to an Agent or Terminal by name > u529_cmd_k_lists_agents_doors_groups_and_terminals_and_filters_as_you_type","identity":"68e1a9fc720cdd523fdc8b704912ca5dd987ef8f851c70edc2837d4c9d54fe0a"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"ae2644be8e5e1a6163a0fff0832ecbecdacfbd69ec97791c2ff0e4f2df8dacc2"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"c4624e5e55ec24894524697014c998e9a67ab4b8067bc03b999dd96b22b877d9"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"e60fd2ba870b6b76306b13e9b4a5deaf211765157b93a07417a3bd47dd3a15ee"}

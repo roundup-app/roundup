@@ -1,11 +1,12 @@
 import { debounce } from "@solid-primitives/scheduled";
+import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./copy/storage";
 import { writeText } from "./app/clipboard";
 import { storageProblems, retainedStorage } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { applyAppAppearance } from "./settings/preferences";
+import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -208,6 +209,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    onCleanup(pressFeedback(document));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
@@ -253,6 +255,11 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  const capture = props.app.capture;
+  onMount(() => {
+    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+  });
+  onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
@@ -344,6 +351,9 @@ export const App = (props: {
 
     return path === null ? undefined : connections().get(path);
   });
+
+  const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
+  const captureOwner = () => captureConnection() ?? activeConnection();
 
   const storageFailures = createMemo(() => {
     const open = activeConnection();
@@ -519,10 +529,11 @@ export const App = (props: {
                   <Help />
                   <Leader />
                   <InboxKey />
-                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
+                  
                 </>
               )}
             </InProject>
+            <InProject open={captureOwner()}>{(open) => <Capture onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Toasts queue={toasts} />
           </>
         }
