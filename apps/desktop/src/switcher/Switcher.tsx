@@ -55,6 +55,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const dialog = createMemo(() => {
     if (!open()) return null;
+
     const [value, dispose] = createRoot(dispose => [useDialog(() => ({
       defaultOpen: true, modal: false, trapFocus: false, preventScroll: false,
       closeOnEscape: false, closeOnInteractOutside: false, restoreFocus: false,
@@ -62,6 +63,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       initialFocusEl: () => openingFocus.target(() => input),
       onOpenChange: details => { if (!details.open) close(true); },
     })), dispose] as const);
+
     onCleanup(dispose);
 
     return value;
