@@ -40,7 +40,7 @@ jobs:
   # (L82): it blocks merge and starts no fix run. Every other event passes.
   approved:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: write
       statuses: read
@@ -65,7 +65,7 @@ jobs:
   plan:
     needs: approved
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
       web: ${{ steps.plan.outputs.web }}
@@ -120,7 +120,7 @@ jobs:
       fail-fast: false
       matrix:
         partition: [1, 2, 3, 4, 5]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
@@ -218,7 +218,7 @@ jobs:
       fail-fast: false
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
@@ -272,7 +272,7 @@ jobs:
   check:
     needs: [plan, rust, mac-clippy, mac, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
