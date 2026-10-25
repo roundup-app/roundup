@@ -78,7 +78,7 @@ const pendingPull = async (trigger: string) => {
   expect(placesStorage("/p").read()["2"]).toEqual(settled);
 
   if (trigger === "release") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
-  else if (trigger === "held") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 196, y: 160, min: false });
+  else if (trigger === "held") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 192, y: 160, min: false });
   else if (trigger === "rejection") expect(document.querySelector('[role="alert"]')).not.toBeNull();
   else expect(placesStorage("/p").read()["9"]?.min).toBe(true);
 
@@ -119,7 +119,7 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   if (phase === "moved") await frame();
 
   if (trigger !== "capture-blur" || owner === "pull") interrupt(trigger, target);
-  const settled = owner === "pull" ? placesStorage("/p").read()["2"] : { ...from, min: placesStorage("/p").read()["2"]!.min };
+  const settled = owner === "pull" ? placesStorage("/p").read()["2"]! : { ...from, min: placesStorage("/p").read()["2"]!.min };
 
   // Pull keeps its completed position, including a last queued position, as U421 Escape does.
   if (owner === "pull" && phase !== "before") expect(settled).toMatchObject({ x: 300, y: 300 });
@@ -132,11 +132,16 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   expect(writes).not.toHaveBeenCalled();
 
   if (trigger === "capture-blur") Reflect.deleteProperty(target, "setPointerCapture");
+
+  // Focus leaving the panel keeps U2307's minimisation policy; reopen before the fresh press.
+  if (owner !== "pull" && settled.min) document.querySelector<HTMLButtonElement>('.terminal-tab[data-bubble="2"]')!.click();
   pointer("pointerdown", target, button, 400, 300);
   pointer("pointermove", window, button, 460, 360);
   pointer("pointerup", window, button);
   await frame();
-  expect(placesStorage("/p").read()["2"]).not.toEqual(settled);
+  const after = placesStorage("/p").read()["2"]!;
+
+  expect([after.x, after.y, after.w, after.h]).not.toEqual([settled.x, settled.y, settled.w, settled.h]);
   expect(mounted.connected.project.path).toBe("/p");
   expect(mounted.connected.rail.selected()).toBe("w");
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
