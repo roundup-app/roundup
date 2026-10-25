@@ -453,6 +453,8 @@ export const Bubbles = (props: {
       }
 
       end();
+      id = null;
+      openedId = null;
     };
 
     onCleanup(() => { disposed = true; cancel(); });
