@@ -253,6 +253,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const field = await openPad("release-checklist");
     fireEvent.input(field, { target: { value: "submitted" } });
     fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.input(field, { target: { value: "mine, typing" } });
     state.pads = [{ ...padOf("release-checklist", USER, "submitted"), revision: 2 }];
     app.emit({ actor: USER, name: "pad.changed", data: { name: "release-checklist" } });
@@ -398,6 +399,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "new" } });
     fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "newer" } });
     reply.resolve(padOf("release-checklist", USER, "new"));
@@ -462,6 +464,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "mine, edited" } });
     fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "mine, edited" } });
     reply.resolve(padOf("release-checklist", USER, "mine, edited"));
@@ -574,14 +577,15 @@ it("u2773a_pads_restores_exact_work", async () => {
   const record = connected.drafts.list().find(draft => draft.destination.surface === "pads" && draft.destination.object === "fixture-retained");
   expect(record?.value).toMatchObject({ originalName: "retained", source: "  unfinished 🌱 é\nsecond\n\n", base: "  original\n\n" });
   connected.drawer.close("key");
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  await waitFor(() => expect(field.isConnected).toBe(false));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   const before = app.calls.filter(call => call.method === "pad.write").length;
   const reopened = await openPad("retained");
   expect(reopened.value).toBe("unfinished 🌱 é\nsecond");
   expect([reopened.selectionStart, reopened.selectionEnd, reopened.selectionDirection]).toEqual([2, 9, "backward"]);
   fireEvent.focusOut(reopened);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
-  expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Resume" }).disabled).toBe(false);
 });
 
 it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves_other_revisions_%s", async (outcome) => {
@@ -592,6 +596,8 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves
   fireEvent.input(field, { target: { value: "revision A 🌱" } });
   fireEvent.focusOut(field);
   fireEvent.input(field, { target: { value: "revision B é" } });
+
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
 
   if (outcome === "acknowledged") reply.resolve({ ...padOf("settlement", USER, "revision A 🌱"), revision: 2 });
   else reply.reject(outcome === "failed" ? new RpcError(-32602, "refused") : new Error("disconnected"));
@@ -633,7 +639,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
 
   fireEvent.input(field, { target: { value: "recoverable é 🪁" } });
   const body = within(document.querySelector<HTMLElement>(".pad-body")!);
-  expect(body.getByRole("alert")).toBeTruthy();
+  await body.findByRole("alert");
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(stored);
   const clipboard = vi.fn(async () => {});
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
@@ -642,7 +648,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   writes.mockRestore();
   const before = app.calls.filter(call => call.method === "pad.write").length;
   fireEvent.click(body.getByRole("button", { name: "Retry storage only" }));
-  expect(connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).value.source).toBe("recoverable é 🪁");
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
 
@@ -653,7 +659,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   });
 
   fireEvent.input(field, { target: { value: "selected" } });
-  fireEvent.click(body.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(await body.findByRole("button", { name: "Discard this revision" }));
   expect(connected.drafts.list()).toEqual([]);
   expect(field.value).toBe("base");
   failedAgain.mockRestore();
@@ -668,6 +674,7 @@ it("u2773b_pads_late_failure_keeps_original_Project", async () => {
   fireEvent.input(field, { target: { value: "A é" } });
   fireEvent.focusOut(field);
   fireEvent.input(field, { target: { value: "B 🪁" } });
+  await waitFor(() => expect(first.app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   cleanup();
   const other = await openShelf([padOf("same-name", USER, "other base")], false, false, "/second");
   const otherField = await openPad("same-name");

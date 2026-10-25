@@ -51,21 +51,3 @@ ceilings and workloads.
 Vendoring adds upstream code in one dependency directory. It avoids a new
 runtime holder, protocol, parser or cache; the authored production repair is
 confined to the existing cache function.
-
-## Z3802c: rusqlite 0.41.0 does not carry the repair (2026-10-25)
-
-Pin and vendor stay. Source: https://static.crates.io/crates/rusqlite/rusqlite-0.41.0.crate
-(SHA-256 `9c026b4444579e8d754556c6c75d040d69c4a44283cdb648ab8a8d5965c2cfa8`).
-
-- Missing capability: `grep -rn with_cached_rows rusqlite-0.41.0/src` exits 1.
-  Upstream has no scoped cached rows, so `crates/agents/src/rail/view.rs` (the
-  one caller) cannot compile against it and the `r16_cached_rows_*` probes
-  have nothing to port to.
-- Missing correction: `StatementCache::get` in 0.41.0 `src/cache.rs` still calls
-  `set_statement_cache_key(trimmed)` on the warm arm, replacing the key on every
-  checkout.
-- SQLx stays rejected for the reasons above: it cannot supply rusqlite's types to
-  `rusqlite_migration`.
-
-Remove this patch when a release carries both; rerun the `r16_cached_rows_*`
-tests, `just perf` and the owner-read observer then.

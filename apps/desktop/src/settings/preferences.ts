@@ -1,10 +1,10 @@
 import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
-import { storedValue } from "../state/storage";
+import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
 import type { AppSeam } from "../app/seam";
 
-const schema = v.object({
+const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
   engine: v.fallback(v.string(), ""),
   model: v.fallback(v.string(), ""),
@@ -15,13 +15,13 @@ const schema = v.object({
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
-});
+}));
 
 type Preferences = v.InferOutput<typeof schema>;
 
-const storage = () => storedValue("roundup:app-settings", schema);
-
 const [revision, changed] = createSignal(0);
+
+const storage = () => storedValue("roundup:app-settings", schema, () => changed(value => value + 1));
 
 /** One app-wide record; each untrusted field defaults independently. A revision notifies all open Project tabs. */
 export const appSettings = (): Preferences => {
@@ -31,12 +31,20 @@ export const appSettings = (): Preferences => {
 };
 
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
-export const saveAppSettings = (patch: Partial<Preferences>): string | null => {
-  const failure = storage().write({ ...appSettings(), ...patch });
+let saving: Promise<unknown> = Promise.resolve();
 
-  if (failure === null) changed(value => value + 1);
+export const saveAppSettings = (patch: Partial<Preferences>): Promise<string | null> => {
+  const captured = structuredClone(patch);
 
-  return failure;
+  const pending = saving.then(async () => {
+    const failure = await storage().write({ ...appSettings(), ...captured });
+
+    return failure;
+  });
+
+  saving = pending;
+
+  return pending;
 };
 
 /** Own the root's explicit scheme for this App lifetime. System continues using the native media query. */
