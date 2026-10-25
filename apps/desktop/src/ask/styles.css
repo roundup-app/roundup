@@ -26,28 +26,28 @@
   top: calc(var(--space-6) + var(--space-5));
   left: 50%;
   z-index: var(--layer-popover);
-  width: min(640px, calc(100% - var(--space-5)));
+  width: min(var(--ask-width), calc(100% - var(--space-5)));
   max-height: calc(100% - var(--space-6) - var(--hint-row-height) - var(--rail-actions-height));
   transform: translateX(-50%);
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: var(--radius-row);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
 }
 
 .ask-input {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  min-height: 32px;
-  max-height: 160px;
+  min-height: var(--space-6);
+  max-height: var(--order-field-max-height);
   field-sizing: content;
   resize: none;
   padding: var(--space-2);
   font: inherit;
   color: inherit;
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
 }
 
@@ -150,13 +150,13 @@
 .app-mentions-panel {
   box-sizing: border-box;
   width: max-content;
-  max-width: min(320px, var(--available-width));
+  max-width: min(var(--ask-menu-width), var(--available-width));
   padding: var(--space-1);
 }
 
 .app-mentions {
   margin: 0;
-  max-height: 160px;
+  max-height: var(--order-field-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -173,8 +173,8 @@
 /* The picker's visible label would repeat its trigger; the accessible name stays. */
 .ask-choices .app-select-label {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
 }
@@ -354,8 +354,8 @@
   flex-shrink: 0;
   width: 0.4em;
   height: 0.4em;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  border-right: var(--tick-border-width) solid currentColor;
+  border-bottom: var(--tick-border-width) solid currentColor;
   transform: rotate(-45deg);
 }
 

@@ -201,19 +201,9 @@
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"87b2aad02b44a4a5866c160bd110189a2b4e10a7187de21a7bca5b947e38e4cb"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"p3557c_failure_lifetime_note_batch_retention: %s","identity":"06fa138bd216e3515eafb27a28f84ca9413ad242f27b54f09ece909fa57f39eb"}
 {"file":"apps/desktop/src/copy.test.ts","test":"u471_action_labels_describe_the_existing_action_retry_supervisor","identity":"2c98d1bf38b9ca791006f7174c4dc354b08f1ba45868a1b84fd61e9b9d69c3e2"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_latest_action_owns_layer_lifetime","identity":"ea92ecb6848e1efd6ef9841b8a3a47dceb91569d2e1ed43134341e3bc9223813"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_latest_action_owns_layer_lifetime","identity":"e62298afcfa5494c05e81ca149fa0ed4ac81dfeba8690fa79c4e22b1ad02ffb8"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_latest_action_owns_layer_lifetime","identity":"e31d336f2ecc8fca4dd0f625e68319eb901c87b9ae53c9f67b327409af13b70d"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_stale_completion_has_no_new_layer_effect","identity":"26fa93d538bbd1e31d150e8d47158239f361ba36c2146c69b8db0acbd3ef2da2"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_exit_preserves_draft_and_submit_identity","identity":"307283a8ec8c4e879a4437ceb6c0b52f12b31cf34afeb6d791594bd74584350c"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_preference_change_preserves_destination_and_focus","identity":"b391ae63a92b5fabd9113404fc3578411972782faa6d4d598cce577a07c14f14"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_preference_change_preserves_destination_and_focus","identity":"84ef112e1bc918f8e0f1b01395929565fdacc781c0a0a46e8104840a36a8b215"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_preference_change_preserves_destination_and_focus","identity":"e371afe273e75960be475e402843089b203e3883b854080e709335aeeb120ed2"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"u3010b_preference_change_preserves_destination_and_focus","identity":"0b05b83944e78c3275037957e46420caf6e4ed7e1f204d38b94de6c297d3a8fe"}
 {"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"p3557c_failure_lifetime_draft_recovery_%s","identity":"de2731ee971ab1cbc593f8231c0bd3a9bd52f1fd7af34ba596c67bf99fc3c720"}
 {"file":"apps/desktop/src/drawer/u430_browser.test.py","test":"main","identity":"3288f6d5da1c159a3f31caae45ad8950f79acd6ed776ae5e1fd5026d32d8322a"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_the_drawer_shows_a_light_close_word_that_closes_it","identity":"d9f39510e74ffc740ff85e4259d88ea64fe9e2e93c29ba1a0a82e0dd16283aae"}
-{"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_a_closed_drawer_unmounts_its_content_when_the_slide_out_ends","identity":"fbec224319fcdb73a5febf79dde683d2324a9294fcc974614f4a3359d38789c8"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion","identity":"b8cd6c6f8d3b6b5ed71c7820273d499d391fe8228552ab38fdcb4d2fcffa84b4"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_the_last_touch_line_is_from_the_history_fetched_before_the_read","identity":"da8ce82e6785ceb61a3aa66ea1daf4cb92739cbda0c587114f1be3eeb86f216d"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u190_the_last_touch_line_is_the_newest_read_when_an_older_read_resolves_last","identity":"bca851ae2c3df8b67f7ac51896bb0da2b9d50c622c6ddae51f5d4d5189b3d47a"}

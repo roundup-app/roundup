@@ -23,6 +23,8 @@ lint-rust:
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
+    tools/library-reuse.test.sh
+    tools/library-reuse.sh
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
