@@ -394,3 +394,18 @@ it.each(["return", "open"])("u3789d_controls_keep_native_attention_destination_%
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("migrate");
   expect(app.calls.filter(call => ["agent.spawn","agent.resume","rail.startDoor"].includes(call.method))).toEqual([]);
 });
+
+it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_navigation_keeps_draft_and_chosen_focus_%s", async kind => {
+  const { row, drafts, app } = await target(kind);
+  row.focus();
+  fireEvent.keyDown(row, { key: "F2" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const text = "  leave e\u0301 日本語 🌱  ";
+  fireEvent.input(field, { target: { value: text } });
+  const next = document.querySelector<HTMLElement>('.rail-row[data-id="tokens"]')!;
+  next.focus();
+  await settled();
+  expect(document.activeElement).toBe(next);
+  expect(drafts("/Users/you/harness").list().findLast(draft => draft.destination.surface === "row-name")?.value.text).toBe(text);
+  expect(app.calls.filter(call => ["todo.update", "pad.rename", "todo.readHistory", "pad.read"].includes(call.method))).toEqual([]);
+});
