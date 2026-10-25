@@ -4,15 +4,11 @@ mod config;
 mod daemon;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
-#[cfg(all(any(test, feature = "idle-perf"), target_vendor = "apple"))]
-mod idle_macos;
 mod menu;
 mod open;
 mod paste;
 mod state;
 mod store;
-#[cfg(target_vendor = "apple")]
-pub mod webkit_rate;
 mod window;
 
 use std::path::{Path, PathBuf};
@@ -34,7 +30,7 @@ pub fn build<R: Runtime>(
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
     #[cfg(target_vendor = "apple")]
-    let builder = builder.plugin(webkit_rate::plugin());
+    let builder = builder.plugin(native::plugin());
     #[cfg(feature = "idle-perf")]
     let builder = builder.plugin(idle::plugin());
     builder
