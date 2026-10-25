@@ -84,7 +84,8 @@ class Release(unittest.TestCase):
         fifo.mkdir()
         import os
         os.mkfifo(fifo / "stream")
-        for path in [self.root / "missing", empty, linked, root_link, fifo, self.file("file", 1)]:
+        self.file("zero/empty.js", 0)
+        for path in [self.root / "missing", empty, self.root / "zero", linked, root_link, fifo, self.file("file", 1)]:
             with self.subTest(path=path):
                 result = self.run_check("dist", path)
                 self.assertEqual(result.returncode, 2, result.stdout)
