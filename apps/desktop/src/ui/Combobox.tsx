@@ -76,7 +76,7 @@ const Root = (props: {
     inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
-    onOpenChange: details => { if (!details.open) dismiss?.(); },
+    onOpenChange: details => { if (!details.open && details.reason === "escape-key") dismiss?.(); },
     onValueChange: details => { const [value] = details.value;
 
       if (value !== undefined) props.onSelect(value); },
