@@ -2,18 +2,17 @@
 use crate::Actor;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
 /// A Pad target binds the source incarnation returned by pad.read and its expected Revision.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-#[ts(export, export_to = "deliverable/")]
 pub enum PublicationTarget {
     Pad {
         name: String,
         // A recreated name is not the selected Pad.
         incarnation: String,
-        #[ts(type = "number")]
+        #[specta(type = specta_typescript::Number)]
         revision: u64,
     },
     /// Relative to the maker's authorized root, never an arbitrary absolute file.
@@ -22,31 +21,29 @@ pub enum PublicationTarget {
     External { url: String },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "deliverable/")]
 pub struct PublishParams {
     pub key: String,
     pub title: String,
     pub target: PublicationTarget,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-#[ts(export, export_to = "deliverable/")]
 pub enum PublishedTarget {
     Pad {
         name: String,
         incarnation: String,
-        #[ts(type = "number")]
+        #[specta(type = specta_typescript::Number)]
         revision: u64,
-        #[ts(type = "number")]
+        #[specta(type = specta_typescript::Number)]
         length: u64,
         sha256: String,
     },
     File {
         path: String,
-        #[ts(type = "number")]
+        #[specta(type = specta_typescript::Number)]
         length: u64,
         sha256: String,
     },
@@ -56,15 +53,13 @@ pub enum PublishedTarget {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "deliverable/")]
 pub enum ExternalAvailability {
     NotChecked,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "deliverable/")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Deliverable {
     pub project: String,
     pub id: String,
@@ -72,39 +67,35 @@ pub struct Deliverable {
     pub maker_name: String,
     pub home: Option<String>,
     pub title: String,
-    #[ts(type = "number")]
+    #[specta(type = specta_typescript::Number)]
     pub published_at: i64,
     pub target: PublishedTarget,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "deliverable/")]
 pub struct DeliverableId {
     pub project: String,
     pub id: String,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "deliverable/")]
 pub struct ListParams {
     pub home: Option<String>,
     pub maker: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
-#[ts(export, export_to = "deliverable/")]
 pub struct MoveParams {
     pub project: String,
     pub id: String,
     pub home: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "deliverable/")]
 pub enum UnavailableCause {
     MissingRevision,
     IntegrityFailure,
@@ -113,9 +104,8 @@ pub enum UnavailableCause {
     MaterializationFailed,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-#[ts(export, export_to = "deliverable/")]
 pub enum Resolution {
     Retained {
         path: String,
