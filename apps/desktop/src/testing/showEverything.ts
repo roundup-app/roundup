@@ -15,10 +15,12 @@ export const showEverything = async (connected: ConnectedProject): Promise<void>
 export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   const { fireEvent, screen, waitFor } = await import("@solidjs/testing-library");
   const { showShelfTab } = await import("./shelfTabs");
+  const { openProjectPage, projectMenu } = await import("./menuProbe");
+  openProjectPage("view:workstreams", projectMenu.path);
   await screen.findByRole("tree", { name: "Rail" });
   fireEvent.click(document.querySelector('[data-todo-root]')!);
 
-  if (!document.querySelector('[role="tab"][aria-selected="true"]')) showShelfTab("Todos");
+  showShelfTab("Todos");
 
   await waitFor(() => {
     if (!document.querySelector(".shelf [data-shelf-group], .shelf .empty-state")) throw new Error("Shelf list has not loaded");

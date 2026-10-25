@@ -525,3 +525,6 @@ code {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
 }
+
+.window[data-rail="closed"] .columns { grid-template-columns: minmax(0, 1fr); }
+.window[data-rail="closed"] :is(.rail, .rail-edge) { display: none; }

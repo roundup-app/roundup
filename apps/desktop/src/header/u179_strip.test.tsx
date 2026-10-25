@@ -40,7 +40,7 @@ describe("u179 the header is the strip", () => {
     expect(tab("web").getAttribute("aria-selected")).toBe("true");
     expect(tab("api").getAttribute("aria-selected")).toBe("false");
     expect(within(tab("api")).getByRole("img").getAttribute("aria-label")).toBe("Needs you");
-    expect(within(tab("web")).getByRole("img").getAttribute("aria-label")).toBe("Error");
+    expect(within(tab("web")).queryByRole("img")).toBeNull();
   });
 
   it("u179_a_tab_shows_nothing_else_until_hover", async () => {
@@ -51,13 +51,5 @@ describe("u179 the header is the strip", () => {
     expect(document.querySelector(".tab-close")?.getAttribute("data-visible")).toBe("false");
   });
 
-  it("u449_the_first_run_header_has_the_plus_and_roundup", async () => {
-    render(() => <App app={createFakeApp()} reducedMotion={() => false} clock={() => 0} />);
 
-    await screen.findByText("Open a folder to start");
-
-    expect(within(header()).getByRole("heading", { name: "roundup" })).toBeTruthy();
-    expect(within(header()).getByRole("button", { name: "Open a folder" })).toBeTruthy();
-    expect((projectTabs()[0] ?? null)).toBeNull();
-  });
 });

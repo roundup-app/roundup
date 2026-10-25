@@ -1,3 +1,5 @@
+import { LEADER } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { captureFocus } from "../keys/focus";
 import { createCutTitle } from "../ui/cutTitle";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
@@ -17,11 +19,11 @@ import { DiffReader } from "./DiffReader";
 import { ChangedTree } from "./ChangedTree";
 import "./styles.css";
 
-type Read = { failure: null; changed: ChangedFiles } | { failure: string } | null;
+type Read = { failure: null; changed: ChangedFiles } | { failure: string; changed?: ChangedFiles } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
 const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void; recover: () => void }) => {
-  const { app, worktrees } = useConnectedProject();
+  const { app, worktrees, rail } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
   const facts = () => {
@@ -55,45 +57,65 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   const [editing, setEditing] = createSignal<Note>();
   const [diff, setDiff] = createSignal(false);
 
-  createEffect(on(() => [open(), version()] as const, ([now]) => {
-    if (!now) return;
+  const close = () => { setOpen(false); setDiff(false); setEditing(undefined); };
 
-    let current = true;
+  let generation = 0;
 
-    setRead(previous => previous?.failure ? previous : null);
+  const refresh = async () => {
+    const request = ++generation;
+    let changed: ChangedFiles | undefined;
+    const failure = await failureOf(async () => { changed = await app.rpc("agent.changedFiles", { id: props.id }); });
 
-    let loaded: Read = null;
+    if (request !== generation) return;
+    setRead(previous => {
+      if (failure === null && changed) return { failure: null, changed };
+      const failed: Read = { failure: failure! };
 
-    void failureOf(async () => {
-      const [, changed] = await Promise.all([worktrees.refresh(props.id), app.rpc("agent.changedFiles", { id: props.id })]);
+      if (previous?.changed) failed.changed = previous.changed;
 
-      loaded = { failure: null, changed };
-    }).then((failure) => {
-      if (current) setRead(failure === null ? loaded : { failure });
+      return failed;
     });
 
-    onCleanup(() => { current = false; });
-  }));
+    if (changed?.files.length === 0 && open()) {
+      close();
+      queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex], .ask-input")?.focus());
+    }
+  };
 
-  const close = () => { setOpen(false); setDiff(false); setEditing(undefined); };
+  onCleanup(() => { generation++; });
+  createEffect(on(() => [state(), version()] as const, () => { void refresh(); }));
+
+  const node = () => rail.nodes.find(node => node.id === props.id);
+  createEffect(on(() => node()?.status_revision, (next, before) => {
+    const kind = node()?.status?.kind;
+
+    if (before !== undefined && next !== before && (kind === "done" || kind === "error" || kind === "idle")) void refresh();
+  }));
+  const count = () => read()?.changed?.files.length ?? 0;
 
   const branchCut = createCutTitle(() => props.worktree.branch);
   const baseCut = createCutTitle(() => props.worktree.base);
 
   let viewButton: HTMLButtonElement | undefined;
-  const openPanel = () => { treeFocus = captureFocus(true); props.onOpen(); setOpen(true); };
+
+  const openPanel = () => { treeFocus = captureFocus(true); props.onOpen(); setOpen(true);
+
+ if (state()) void worktrees.refresh(props.id); else void refresh(); };
+
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "C")!, capture: () => ({ available: () => count() > 0, invoke: openPanel }) }]);
 
   createEffect(() => { if (props.recoveryOpen) close(); });
 
   return (
     <Popover.Root initialFocus={treeFocus} closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
-      <Popover.Trigger asChild={(trigger) => (
-        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
+      <Show when={count() > 0}><Popover.Trigger asChild={(trigger) => (
+        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} data-stale={read()?.failure ? "true" : undefined} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
-          <span class="worktree-branch">{props.worktree.branch}</span>
+          <span>{count()}</span>
         </button>
-      )} />
-      <Popover.Positioner>
+      )} /></Show>
+      <ReservedLine message={failure()} status={failure() && count() > 0 ? "Changes are stale" : null}><button type="button" data-button="quiet" onClick={() => setVersion(value => value + 1)}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
+      <Show when={count() > 0}><Popover.Positioner>
         <Popover.Content class="worktree-panel" data-diff={diff() || undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <Show when={!diff()}><div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div></Show>
           <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { treeFocus = captureFocus(true); setEditing(undefined); setDiff(false); }} onClose={close} recover={props.recover} />}>
@@ -115,13 +137,12 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
-          <ReservedLine message={failure()}><button type="button" data-button="quiet" onClick={() => { treeFocus = captureFocus(); treeFocus(() => {}); setVersion(value => value + 1); }}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
           <Show when={read()} keyed>
             {(value) => {
 
-              if (value.failure !== null) return null;
+              if (!value.changed) return null;
 
-              if (value.changed.files.length === 0) return <p class="worktree-none">{copy.noChanges}</p>;
+              if (value.changed.files.length === 0) return null;
 
               return <><ChangedTree initialFocus={treeFocus} root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" ref={element => { viewButton = element; }} disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
@@ -129,20 +150,21 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
         <NoteBatch fallback={() => viewButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
           </Show>
         </Popover.Content>
-      </Popover.Positioner>
+      </Popover.Positioner></Show>
     </Popover.Root>
   );
 };
 
 /** U2539b: the bottom bar's one control for the selected Agent's Worktree; none for an Agent without one. */
 export const WorktreeControl = () => {
-  const { rail, app, project, drafts } = useConnectedProject();
+  const { rail, app, project, drafts, hasView, hideView, showView } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
   const names = new Map<string, string>();
 
   createEffect(() => { for (const node of rail.nodes) names.set(node.id, node.name); });
 
-  const [recoveryOpen, setRecoveryOpen] = createSignal(false);
+  const recoveryOpen = () => hasView("notes");
+  const setRecoveryOpen = (open: boolean) => { if (open) showView("notes"); else hideView("notes"); };
 
   const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
     () => {

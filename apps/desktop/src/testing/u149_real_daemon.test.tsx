@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { showEverythingInApp } from "./showEverything";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { bundledRenderers, useRenderers } from "../pads/visualKinds";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";

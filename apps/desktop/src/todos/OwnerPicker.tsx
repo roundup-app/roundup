@@ -1,5 +1,12 @@
-import type { captureFocus } from "../keys/focus";
-import { For, Show } from "solid-js";
+import { Combobox } from "../ui/Combobox";
+import { LEADER } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
+import { rowButtonOf } from "./triage";
+import type { TodosState } from "./state";
+import type { ConnectedProject } from "../state/connectedProject";
+import { ownersOnRail, sameOwner } from "../shelf/scope";
+import { captureFocus } from "../keys/focus";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Actor } from "@contracts/Actor";
@@ -50,3 +57,48 @@ export const OwnerPicker = <Id extends number | string>(props: {
     </Portal>
   </Menu.Root>
 );
+
+/** U2539b: the retained Todo selection is captured before the owner filter takes focus. */
+export const OwnerCommand = (props: {
+  active: Accessor<boolean>;
+  selected: () => number | undefined;
+  todos: TodosState;
+  connected: ConnectedProject;
+  assign: (id: number, owner: Actor | null) => Promise<void>;
+}) => {
+  const [assigning, setAssigning] = createSignal<number | null>(null);
+  const [ownerQuery, setOwnerQuery] = createSignal("");
+  const [ownerHighlight, setOwnerHighlight] = createSignal<string | null>(null);
+  let ownerPanel: HTMLElement | undefined;
+  let ownerFocus = captureFocus();
+
+  const eligible = (id: number | undefined | null) => {
+    const current = id == null ? undefined : props.todos.byId().get(id);
+
+    return ownersOnRail(props.connected).filter(owner => owner.actor?.kind === "agent" && current && !sameOwner(owner.actor, current.owner));
+  };
+
+  const ownerMatches = () => eligible(assigning()).filter(owner => owner.name.toLowerCase().includes(ownerQuery().toLowerCase()));
+  createEffect(() => { if (!ownerMatches().some(owner => owner.id === ownerHighlight())) setOwnerHighlight(ownerMatches()[0]?.id ?? null); });
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => {
+    const id = props.selected();
+
+    return { available: () => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0,
+      invoke: () => { if (id !== undefined) { ownerFocus = captureFocus(true); setOwnerQuery(""); setAssigning(id); } } };
+  } }]);
+  registerKeys({ kind: "layer", element: () => ownerPanel, active: () => assigning() !== null, modal: true }, [
+    { chords: ["Escape"], run: () => { const id = assigning(); setAssigning(null);
+
+ if (id !== null) rowButtonOf(id)?.focus(); } },
+  ]);
+
+  return <>      <Show when={assigning() !== null}><section class="switcher" ref={ownerPanel}>
+        <Combobox.Root items={ownerMatches().map(owner => ({ value: owner.id, label: owner.name }))} inputValue={ownerQuery()} onInput={setOwnerQuery} highlightedValue={ownerHighlight()} onHighlightChange={setOwnerHighlight} initialFocus={ownerFocus} focusScope={() => ownerPanel} onDismiss={() => setAssigning(null)} label={copy.assignTodo} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} onSelect={value => {
+          const id = assigning(); const owner = ownerMatches().find(owner => owner.id === value);
+          setAssigning(null);
+
+          if (id !== null && owner && props.todos.byId().get(id)?.done === false) void props.assign(id, owner.actor);
+        }} />
+      </section></Show>
+</>;
+};

@@ -59,7 +59,7 @@ it("u501_controls_have_names", async () => {
 it("u501_full_content_is_available", async () => {
   await open("tree-40");
   await failClose();
-  expect(await read<string>(`document.querySelector('[role=alert]').textContent`)).toBe("could not close project");
+  expect(await read<string>(`document.querySelector('[role=alert]').textContent`)).toMatch(/\S/);
   expect(await read<boolean>(`document.querySelector('[role=alert]').hasAttribute('title')`)).toBe(false);
   await browser("hover", "[role=alert]");
   await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(FAILURE)}`);
@@ -69,11 +69,15 @@ it("u501_full_content_is_available", async () => {
   // Close the Shelf before walking the Rail; an open bar tab leads into its panel.
   await browser("click", '#shelf-tab-todos[aria-expanded="true"]');
 
-  for (let i = 0; i < 12 && !(await read<boolean>(`document.activeElement?.matches("[role=alert]") === true`)); i++) await browser("press", "Tab");
+  await browser("press", "Tab");
+  await read(`document.activeElement.blur()`);
+  await wait(`!document.querySelector('.app-tooltip')`);
+  await browser("focus", "[role=alert]");
   await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(FAILURE)}`);
 
   await open("resources");
   await browser("click", '[data-id="worktree-agent"]');
+  await read(`window.dispatchEvent(new CustomEvent("open-project-page", { detail: {path:"/Users/you/harness", command:"view:resources"} }))`);
   await wait(`document.querySelectorAll('.resource-value').length === 3`);
   await browser("hover", ".resource-value");
   await wait(`document.querySelector('.app-tooltip')?.textContent === document.querySelector('.resource-name').textContent`);

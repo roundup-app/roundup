@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportResult } from "@contracts/project/ImportResult";
 import { draftStorage } from "../state/storage";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";

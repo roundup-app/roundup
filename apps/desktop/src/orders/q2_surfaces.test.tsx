@@ -1,7 +1,7 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { OrderDrawer } from "./OrderDrawer";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import type { Order } from "@contracts/agent/Order";

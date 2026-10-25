@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { runAxe } from "./axe";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "./seeds";

@@ -46,6 +46,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, exit);
+  connected.showView("terminal-tabs");
   const emulators = fakeEmulators();
 
   if (selected !== null) connected.rail.select(selected);

@@ -16,7 +16,7 @@ const layout = (width: number) => {
 
 const facts = async () => {
   await mountControl();
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
 
   return await waitFor(() => {
     const dds = [...document.querySelectorAll<HTMLElement>(".worktree-facts dd")];

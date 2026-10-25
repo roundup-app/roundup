@@ -14,7 +14,7 @@ export const SHELF_TABS = [
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
 const frameSchema = v.object({
-  maximised: v.optional(v.boolean(), false),
+  maximised: v.optional(v.boolean(), true),
   open: v.optional(v.boolean(), true),
   tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
 });
@@ -41,11 +41,11 @@ export type ShelfFrame = {
 };
 
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
-export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void): ShelfFrame => {
+export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void, initialOpen = true): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(initialOpen);
   const lifetime = createSlideLifetime();
-  const [shown, setShown] = createSignal(true);
+  const [shown, setShown] = createSignal(initialOpen);
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
@@ -58,7 +58,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   createComputed(
     on(path, (at) => {
       const stored = at === null ? null : storageOf(at).read();
-      const restored = stored?.open ?? true;
+      const restored = stored?.open ?? initialOpen;
 
       setMaximised(stored?.maximised ?? false);
       setAnimated(false);

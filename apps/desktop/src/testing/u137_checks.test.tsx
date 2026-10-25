@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
 import { chromePath, openPage, FULLSCREEN } from "./chromePage";

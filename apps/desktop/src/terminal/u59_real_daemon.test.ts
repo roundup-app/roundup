@@ -34,7 +34,7 @@ run("u59 on the real Daemon", () => {
   /** A cold dev server may reload the page once it has bundled its dependencies, or a loaded runner may stall it, so the page is loaded again when the rail has not come up. */
   const openHarness = async () => {
     for (let attempt = 1; ; attempt += 1) {
-      await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
+      await page.load(`${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1280, 800);
 
       try {
         await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`, 20_000);
@@ -97,7 +97,7 @@ run("u59 on the real Daemon", () => {
     };
 
     try {
-      await page.load(`${selectionDaemon.base}/harness.html?daemon=1`, 1512, 950);
+      await page.load(`${selectionDaemon.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1512, 950);
       await until("!!document.querySelector('.terminal-new')");
       await click(".terminal-new");
       await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
@@ -140,7 +140,7 @@ it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () =
     const expected = await journal("#host .xterm-screen", true);
     const bytes = expected.bytes.flat();
     expect(bytes.length).toBeGreaterThan(0);
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.terminal-new')");
     await browser("click", ".terminal-new");
     await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");

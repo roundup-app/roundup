@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { RpcError } from "./seam";

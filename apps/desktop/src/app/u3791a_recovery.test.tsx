@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "../terminal/Pane";
 import { RpcError } from "./seam";

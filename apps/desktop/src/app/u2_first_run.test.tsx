@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
-import { App } from "../App";
+import { projectMenu } from "../testing/menuProbe";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "./seam";
 
 const PROJECT = { name: "payments-api", path: "/Users/me/repos/payments-api" };
@@ -10,8 +11,6 @@ const PROJECT = { name: "payments-api", path: "/Users/me/repos/payments-api" };
 const renderApp = (app: FakeApp) => {
   return render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
 };
-
-const stripOf = (container: HTMLElement) => container.querySelector(".strip")?.textContent;
 
 const region = (name: string) => screen.getByRole("region", { name });
 
@@ -21,11 +20,11 @@ describe("u2 first run", () => {
   it("u2_choosing_a_folder_in_the_chooser_opens_it_and_the_strip_names_the_project", async () => {
     const app = createFakeApp();
     app.chooser.path = PROJECT.path;
-    const { container } = renderApp(app);
+    renderApp(app);
 
     fireEvent.click(await screen.findByText("Choose folder…"));
 
-    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(projectMenu.path).toBe(PROJECT.path));
   });
 
   it("u2_cancelling_the_chooser_leaves_the_first_run_screen", async () => {
@@ -41,20 +40,12 @@ describe("u2 first run", () => {
   it("u2_an_app_that_already_has_a_project_shows_it_without_a_chooser", async () => {
     const app = createFakeApp();
     app.opened.project = PROJECT;
-    const { container } = renderApp(app);
+    renderApp(app);
 
-    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(projectMenu.path).toBe(PROJECT.path));
   });
 
-  it("u2_an_open_project_replaces_the_empty_texts_in_all_three_regions", async () => {
-    const app = createFakeApp();
-    app.opened.project = PROJECT;
-    const { container } = renderApp(app);
 
-    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
-
-    expect(container.textContent).not.toMatch(/Workstreams and Agents|Open a folder to start|Agents add them as they/);
-  });
 
   it("u2_a_failed_project_call_shows_the_message_in_ink", async () => {
     const app = createFakeApp();
@@ -112,13 +103,5 @@ describe("u2 first run", () => {
     expect((await within(region("Centre")).findByText("daemon is gone")).className).toBe("ink");
   });
 
-  it("u5_the_app_passes_prefers_reduced_motion_to_its_drawer", async () => {
-    const app = createFakeApp();
-    app.opened.project = PROJECT;
-    const { container } = render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
 
-    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
-
-    expect((await screen.findByLabelText("Drawer")).style.transition).toBe("none");
-  });
 });

@@ -181,7 +181,7 @@ it("u2773a_todos_real_browser_reload_restores_without_creation", async () => {
   const before = await app.rpc("todo.list", null);
 
   try {
-    await browser("open", `${one.base}/harness.html?daemon=1`);
+    await browser("open", `${one.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", "[aria-label^='add todo to']");
     await browser("click", "[aria-label^='add todo to']");
@@ -254,7 +254,7 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
   const original = await app.rpc("todo.create", { title: "discard by pointer", body: "keep this base", blockers: null });
 
   try {
-    await browser("open", `${one.base}/harness.html?daemon=1`);
+    await browser("open", `${one.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');

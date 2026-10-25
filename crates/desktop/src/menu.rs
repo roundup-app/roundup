@@ -61,7 +61,28 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         if let Err(error) = app.emit("open-app-settings", ()) {
             eprintln!("desktop: could not open Settings: {error}");
         }
-    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings") {
+    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
+        || event.id().0.starts_with("view:")
+        || event.id().0.starts_with("action:")
+    {
+        let enabled = app
+            .menu()
+            .and_then(|menu| menu.get("project-menu"))
+            .and_then(|item| match item {
+                MenuItemKind::Submenu(project) => project.get(event.id().0.as_str()),
+                _ => None,
+            })
+            .and_then(|item| {
+                if let MenuItemKind::MenuItem(item) = item {
+                    item.is_enabled().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(false);
+        if !enabled {
+            return;
+        }
         let selected = app.state::<ProjectMenu>();
         let path = selected.0.lock().expect("Project menu lock");
         if let Some(path) = path.as_ref()
@@ -85,6 +106,7 @@ pub struct ProjectMenu(Mutex<Option<String>>);
 pub fn select_project_menu<R: Runtime>(
     app: AppHandle<R>,
     path: Option<String>,
+    items: Option<Vec<Item>>,
 ) -> Result<(), RpcError> {
     let menu = app.menu().ok_or_else(|| internal("No application menu"))?;
     let Some(MenuItemKind::Submenu(project)) = menu.get("project-menu") else {
@@ -95,6 +117,17 @@ pub fn select_project_menu<R: Runtime>(
             return Err(internal("No Project command"));
         };
         item.set_enabled(path.is_some()).map_err(internal)?;
+    }
+    if let Some(items) = items {
+        let previous = project.items().map_err(internal)?;
+        for item in previous.into_iter().skip(2) {
+            project.remove(&item).map_err(internal)?;
+        }
+        for item in items {
+            project
+                .append(&kind(&app, &item).map_err(internal)?)
+                .map_err(internal)?;
+        }
     }
     *app.state::<ProjectMenu>()
         .0
@@ -300,7 +333,7 @@ mod tests {
                 .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap())
         });
         for path in [None, Some("/A"), Some("/B"), None] {
-            select_project_menu(app.handle().clone(), path.map(str::to_owned)).unwrap();
+            select_project_menu(app.handle().clone(), path.map(str::to_owned), None).unwrap();
             let before = received.lock().unwrap().len();
             for item in &items {
                 assert_eq!(item.is_enabled().unwrap(), path.is_some());
@@ -324,5 +357,53 @@ mod tests {
                 assert_eq!(replies.len(), before);
             }
         }
+    }
+    #[test]
+    fn u2539b_native_menu_projects_the_task_chords() {
+        use std::sync::Arc;
+        use tauri::Listener;
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&received);
+        app.listen("open-project-page", move |event| {
+            observed
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
+        });
+        for path in ["/A", "/B"] {
+            let mut unavailable = item("action:leader:A", "Assign Todo", Some("⌘K A"), None);
+            unavailable.enabled = false;
+            select_project_menu(
+                app.handle().clone(),
+                Some(path.to_owned()),
+                Some(vec![
+                    item("action:leader:C", "Review changes", Some("⌘K C"), None),
+                    unavailable,
+                ]),
+            )
+            .unwrap();
+            let menu = app.menu().unwrap();
+            let MenuItemKind::Submenu(project) = menu.get("project-menu").unwrap() else {
+                panic!("Project submenu");
+            };
+            let changes = plain(project.get("action:leader:C").unwrap());
+            assert_eq!(changes.text().unwrap(), "Review changes\t⌘K C");
+            for id in ["action:leader:C", "action:leader:A"] {
+                app_chosen(app.handle(), &MenuEvent { id: id.into() });
+            }
+        }
+        assert_eq!(
+            *received.lock().unwrap(),
+            vec![
+                serde_json::json!({"path": "/A", "command": "action:leader:C"}),
+                serde_json::json!({"path": "/B", "command": "action:leader:C"}),
+            ]
+        );
     }
 }

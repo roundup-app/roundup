@@ -889,7 +889,7 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 An expandable App region with a named trigger; closing it retains its content.
 
 **Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
-The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+The native actions for the selected Project: import, settings, requested views and the shortcut registry's actions. Each activation keeps that Project's identity; an unavailable action cannot run. Opening a view changes no Daemon data and starts no Agent.
 
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status

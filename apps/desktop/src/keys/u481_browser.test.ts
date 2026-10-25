@@ -35,7 +35,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
 }, 90_000);
 
 afterAll(async () => {
@@ -45,7 +45,7 @@ afterAll(async () => {
 const wait = async (expression: string) => browser("wait", "--fn", expression);
 
 const load = async () => {
-  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("click", ".rail-row");
   await wait(`!!document.querySelector('.pane-screen')`);

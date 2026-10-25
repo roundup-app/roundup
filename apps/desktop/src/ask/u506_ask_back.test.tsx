@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { ask, mountAskBar } from "./askFixture";
+import { ask, mountAskBar as mountQuietAskBar } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -77,3 +77,7 @@ describe("u506 an unclear row asks back", () => {
     }
   });
 });
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => { const mounted = await mountQuietAskBar(...args); mounted.connected.showView("ask-history");
+
+ return mounted; };

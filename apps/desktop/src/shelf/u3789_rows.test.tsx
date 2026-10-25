@@ -3,7 +3,7 @@ import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { SeedName } from "../testing/seeds";
 import { seedApp } from "../testing/seeds";

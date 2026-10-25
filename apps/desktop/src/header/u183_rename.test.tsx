@@ -1,6 +1,6 @@
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot, createSignal } from "solid-js";
 import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";

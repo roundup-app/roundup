@@ -6,7 +6,7 @@ import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -15,8 +15,6 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
-import { KeyHint } from "../keys/KeyHint";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -309,20 +307,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected() === null && (notice() === null || notice()?.kind === "command")}>
-          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
-            <div class="pane-empty pane-door">
-              <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
-              <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
-                <Icon name="plus" />{copy.newWorkstreamWord}</button>
-              <ul class="pane-empty-keys">
-                <For each={CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut)}>{(row) => (
-                  <li><KeyHint chipAfter keys={row.keys}>{row.what}</KeyHint></li>
-                )}</For>
-              </ul>
-            </div>
-          </Show>
-        </Show>
         <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
         </Show>

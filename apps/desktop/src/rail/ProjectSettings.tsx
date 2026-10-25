@@ -17,7 +17,7 @@ export const ProjectSettingsView = () => {
   let disposed = false;
   let stop: (() => void) | undefined;
   void app.onProjectPage(({ path, command }) => {
-    if (path !== project.path) return;
+    if (path !== project.path || (command !== "import-work" && command !== "project-settings")) return;
     const selected = rail.selected();
     batch(() => {
       settingsView.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body, command, () => rail.select(selected));

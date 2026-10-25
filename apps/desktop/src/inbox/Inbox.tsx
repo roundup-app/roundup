@@ -4,7 +4,7 @@ import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
-import { leaderChord } from "../keys/chords";
+import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
@@ -180,9 +180,9 @@ export const Inbox = () => {
 
 /** `⌘K I` opens the Inbox as the Drawer. */
 export const InboxKey = () => {
-  const { drawer } = useConnectedProject();
+  const { drawer, showView } = useConnectedProject();
 
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("I"), run: () => drawer.open(() => <Inbox />, "key") }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "I")!, capture: () => ({ available: () => true, invoke: () => { showView(null); drawer.open(() => <Inbox />, "key"); } }) }]);
 
   return null;
 };

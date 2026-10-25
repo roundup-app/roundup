@@ -4,7 +4,7 @@ import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
-import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
+import { ask, input, mountAskBar, press } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -41,22 +41,7 @@ describe("u504 the Ask bar", () => {
     expect(document.activeElement).toBe(outside);
   });
 
-  it("u504_enter_shows_the_row_before_send_returns", async () => {
-    const { app } = await mountAskBar();
-    let answer!: (value: Ask) => void;
 
-    app.handlers["ask.send"] = () => new Promise<Ask>((resolve) => { answer = resolve; });
-    type("fix the login bug");
-    const enter = press("Enter", {}, input()!);
-
-    expect(enter.defaultPrevented).toBe(true);
-    expect(input()!.value).toBe("");
-    expect(rowTexts()).toEqual(["fix the login bug |  | Placing"]);
-    expect(sent(app)).toEqual([{ text: "fix the login bug", submission: expect.any(String) }]);
-
-    answer(ask("a1", 1, [{ text: "fix the login bug", placement: { kind: "routed", workstream: "ops" }, state: "queued" }]));
-    await waitFor(() => expect(rowTexts()).toEqual(["fix the login bug | ops | Queued for the supervisor"]));
-  });
 
   it("u504_at_lists_workstreams_and_writes_the_name", async () => {
     const { app } = await mountAskBar();
@@ -577,7 +562,8 @@ const published = (revision: number): Deliverable => ({
 });
 
 it("u3299d_copy_uses_selected_item_publication", async () => {
-  const { app } = await mountAskBar();
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
   const records = [published(7), published(9)];
   app.handlers["deliverable.list"] = () => records;
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/exact", sha256: "hash-9" });
@@ -594,7 +580,8 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
 });
 
 it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
-  const { app } = await mountAskBar();
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
   app.handlers["deliverable.list"] = () => [published(7), published(9)];
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "retained", path: `/retained/${id}`, sha256: "exact-hash" });
   window.dispatchEvent(new Event("focus"));

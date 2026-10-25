@@ -24,7 +24,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
     daemon.handlers["terminal.list"] = () => [];
   }
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("workstreams")} />);
 
   return { app, view };
 };
@@ -40,7 +40,7 @@ export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = 
 
 export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
 
-export const header = (): HTMLElement => screen.getByRole("banner");
+export const header = (): HTMLElement => screen.getByRole("region", { name: "Rail" });
 
 export const rowSelected = (id: string): string | null => document.querySelector(`[role=treeitem][data-id="${id}"]`)?.getAttribute("aria-selected") ?? null;
 

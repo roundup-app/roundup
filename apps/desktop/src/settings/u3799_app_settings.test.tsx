@@ -10,7 +10,7 @@ import { rowOf } from "../rail/railFixture";
 import { workstream } from "../testing/nodes";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
