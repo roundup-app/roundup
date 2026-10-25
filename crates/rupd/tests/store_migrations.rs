@@ -284,9 +284,11 @@ async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
         include_str!("../migrations/project/0023-measurement-no-tokens-or-money.sql"),
         include_str!("../migrations/project/0023-remove-decisions.sql"),
     ];
-    rusqlite_migration::Migrations::new(shipped.into_iter().map(rusqlite_migration::M::up).collect())
-        .to_latest(&mut db)
-        .unwrap();
+    rusqlite_migration::Migrations::new(
+        shipped.into_iter().map(rusqlite_migration::M::up).collect(),
+    )
+    .to_latest(&mut db)
+    .unwrap();
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,
