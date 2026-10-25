@@ -317,15 +317,6 @@
 {"file":"apps/desktop/src/inbox/u3770_inbox.test.tsx","test":"p3557c_failure_lifetime_inbox_%s","identity":"9ed38f09db09e2d8cb4c93ddf714ff245c75f4e444a4f448cf48608a76e9c197"}
 {"file":"apps/desktop/src/inbox/u3770_inbox.test.tsx","test":"p3557c_failure_lifetime_inbox_%s","identity":"0d0ab061b3f7e14aef5861b8f0d922e5998ab7a883457bb9b97fd35a259cc14a"}
 {"file":"apps/desktop/src/ink/u3807_reserved_line.test.tsx","test":"u3807_a_new_status_replaces_the_previous_status_in_the_same_place","identity":"e52166fab2f9a277a0c270ba379917b93a51af6e80dd5c65d0809997488adaea"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: $site","identity":"f96a9b40c04481190051a2a3f47a9313fa85083f177c1c12beb0151486b668a7"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: $site","identity":"565ad3139934ddb3730da427ddfb791d1c8473b87f35087d93fe99a5c6504f36"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: Ask send","identity":"3957f2895e33288fd58da27ba699226e55dd69ddd410a37fa3dfb560a6fdbb6e"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"<helper:cycle>","identity":"bf5e5462501906aada2d53ff8aad40d1f1910ca06bd6a5db3de350b3cb2846e0"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"<helper:cycle>","identity":"014c21474de649fb502a853c86ab79ba3f50743999dd72c2810fb578743cca53"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"<helper:cycle>","identity":"902985a5b294d165067a5866d74af75bdeb0f178096756a978a5a9780cb6c9fd"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: Order spawn failure","identity":"6b7cdc34ade142bb576dd191037f8a7217775efc12211036f399033cc2729ba0"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete","identity":"aa9ce05098b9614fafe3de3153dbbaafb20727ce625df8ffc65a31b8f86bb820"}
-{"file":"apps/desktop/src/ink/u3807_sites.test.tsx","test":"u3807_each_site_shows_its_message_in_the_reserved_line: App %s","identity":"61a23d265cde085f36281fd47e6710cb90254069edeb56a783483ea2b1861525"}
 {"file":"apps/desktop/src/ink/u501_browser.test.ts","test":"u501_full_content_is_available","identity":"c62c45bfeabc1b81a0c2c7426658bc38c506741b300d2808f50a55b28ed27189"}
 {"file":"apps/desktop/src/ink/u501_copy_preserves_content.test.tsx","test":"u501_copy_preserves_content","identity":"86c0cbdb8b3ea842898a678ed51c76413af056c45e7cef0493ad3cb78e270027"}
 {"file":"apps/desktop/src/ink/u80_error_line.test.tsx","test":"u80_a_failure_announces_one_line_and_keeps_the_whole_message_in_its_tooltip","identity":"5cf4ae1172d7d0fc5ef216bc9a75ce4faf38176e57302f135a93d200738b608d"}
@@ -608,10 +599,6 @@
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_each_parent_folds_its_own_done_agents_at_its_own_depth","identity":"f38ff94f7d85df71663726b37d1baf4af226143e2355c8fd400cd33d44ce474b"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_a_collapsed_group_shows_a_light_agent_count","identity":"ead67681045f8e8cb9a14ae41c5df66e356ec1bdefa27c2c8bd2d8d453997863"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_the_folded_count_counts_agents_not_children","identity":"a3146f57390d068bd8db9b54a4c762e7db8ab615f973ca978bb5d3a9a2fc4c74"}
-{"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_the_failure_line_sits_above_the_actions","identity":"6c07f85bc96bed585e366e4a1788908022211929af898a36741d489d81accd59"}
-{"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_the_failure_line_clears_on_a_click_on_the_fold_triangle","identity":"1e4cb8e24bd63017c71649e236e287ddaf91a5d02ecd0f2ab59aa1bff3ee86e6"}
-{"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_the_failure_line_clears_on_a_click_on_promote","identity":"460446635ff5bb1e7cebd1f5b6587548ad6c8e8a0679d6f6c15fc1ebe545602f"}
-{"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_the_failure_line_clears_on_a_click_outside_the_rail","identity":"bfdf34116ac921e1ef55f1da67ee5fbd3e259865f9cd6f0bae94cf3ac7e9da5f"}
 {"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_promote_is_not_shown_on_a_door","identity":"24c5a83bd45a213deecd96e7ba2bb8a80bb917a136cbae5a843b7e5abcdf759f"}
 {"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9_selecting_a_reopened_workstream_offers_start_without_launching","identity":"e70f5a4122eea7253b6e779f14d94162430e72fc04d7bc0ca2c70808a87528cb"}
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"nr9_create_inspect_stop_run_and_focus","identity":"5e1d62062e7de21d12de7e82c65f679d3681dac2542289086adc7b0a50b60c30"}
