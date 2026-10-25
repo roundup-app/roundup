@@ -4,13 +4,16 @@ import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
+import { buildModules } from "./budgets/build";
+
 const served = realDaemonFromEnv(process.env);
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
 // stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
 export default defineConfig({
-  plugins: [solid(), ...(served ? [realDaemon(served)] : []), {
+  build: { manifest: true },
+  plugins: [solid(), buildModules(), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
     configureServer(server) {
