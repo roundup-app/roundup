@@ -2,6 +2,7 @@
 
 mod comments;
 mod cycle;
+mod deletion;
 mod dispatch;
 mod handoff;
 mod history;

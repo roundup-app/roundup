@@ -226,3 +226,37 @@ mod tests {
         assert_eq!(schema["required"], serde_json::json!(["title"]));
     }
 }
+
+/// A caller-captured key binds one exact chosen set in its original Project.
+/// Retry only with the same key and ids after an unknown transport outcome.
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteParams {
+    pub operation: String,
+    pub ids: Vec<u32>,
+}
+
+/// Selects retained Daemon data, never a caller-authored replacement snapshot.
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeletionParams {
+    pub operation: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum DeletionState {
+    Deleted,
+    Restored,
+}
+
+/// Acknowledged successful subset and absent chosen ids. RPC refusal acknowledges no
+/// deletion; a lost reply is unknown until todo.deletion or equal-key replay responds.
+/// A null reconciliation has no retained operation: retry the SAME key, never a new one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct Deletion {
+    pub operation: String,
+    pub deleted: Vec<u32>,
+    pub missing: Vec<u32>,
+    pub state: DeletionState,
+}

@@ -9,6 +9,7 @@ use tokio::sync::broadcast::Receiver;
 use super::*;
 
 mod comments;
+mod deletion;
 mod estimate;
 mod history;
 mod home;

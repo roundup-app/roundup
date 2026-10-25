@@ -86,6 +86,7 @@ type Holder = {
   stream: Stream | null;
   complete: boolean;
   shownSize: Size | null;
+  resizeSize: Size | null;
 };
 
 type FailureEntry = { message: string; order: number };
@@ -140,16 +141,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
   };
 
-  const resize = (id: string, size: Size, changedOnly = false): void => {
+  const resize = (id: string, size: Size, changedOnly = true): void => {
     const holder = holders.get(id);
 
-    if (holder && !holder.ready) return;
+    if (disposed || (holder && !holder.ready)) return;
 
-    if (changedOnly && holder?.shownSize?.cols === size.cols && holder.shownSize.rows === size.rows) return;
+    if (changedOnly && holder?.resizeSize?.cols === size.cols && holder.resizeSize.rows === size.rows) return;
 
-    if (holder?.shownSize) holder.shownSize = size;
+    if (holder) { holder.shownSize = size; holder.resizeSize = size; }
 
-    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size }));
+    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
+      // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+      if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
+    });
   };
 
   const reflow = (id: string, holder: Holder): void => {
@@ -431,15 +435,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
-  const attempt = async (id: string, call: Promise<unknown>): Promise<void> => {
+  const attempt = async (id: string, call: Promise<unknown>): Promise<boolean> => {
     try {
       await call;
 
       setFailure(id, "live", null);
+
+      return true;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(id, "live", thrown.message);
+
+      return false;
     }
   };
 
@@ -504,10 +512,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
+    emulator.onResize?.((size) => {
+      if (holder.stream?.open) resize(id, size);
+    });
 
     void emulator.ready?.then(() => {
       if (disposed) return;

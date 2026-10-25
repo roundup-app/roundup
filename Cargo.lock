@@ -632,6 +632,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "wait-timeout",
 ]
 
 [[package]]
@@ -993,12 +994,10 @@ name = "desktop"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
- "block2",
  "contracts",
  "dirs",
  "getrandom 0.3.4",
- "objc2",
- "objc2-foundation",
+ "native",
  "rpc",
  "rupd",
  "serde",
@@ -2698,6 +2697,16 @@ dependencies = [
  "serde",
  "thiserror 2.0.21",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "native"
+version = "0.0.0"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-foundation",
+ "tauri",
 ]
 
 [[package]]
