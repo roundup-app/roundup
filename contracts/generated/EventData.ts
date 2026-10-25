@@ -28,7 +28,9 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 /**  A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`. */
 { "name": "terminal.changed" } | 
 /**  B53: the Daemon answered a Show request; the App selects the Terminal's owner so the user sees it. */
-{ "name": "terminal.shown", "data": TerminalId } | { "name": "todo.created", "data": Todo } | { "name": "todo.updated", "data": Todo } | { "name": "todo.unblocked", "data": TodoId } | { "name": "todo.deleted", "data": TodoId } | 
+{ "name": "terminal.shown", "data": TerminalId } | { "name": "todo.created", "data": Todo } | { "name": "todo.updated", "data": Todo } | 
+/**  Data restoration only: consumers must not replay creation or external effects. */
+{ "name": "todo.restored", "data": Todo } | { "name": "todo.unblocked", "data": TodoId } | { "name": "todo.deleted", "data": TodoId } | 
 /**  T20: a comment was added to the Todo; read `todo.comments`. */
 { "name": "todo.commented", "data": TodoId } | 
 /**  T23: the Todo's comments were marked read. */

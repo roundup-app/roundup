@@ -60,9 +60,10 @@ describe("u13 size", () => {
   });
 
   it("u13_a_burst_of_window_resizes_calls_resize_once_per_animation_frame", async () => {
-    const { app, connected } = await mountPane([node("a")], [info("t-a")]);
+    const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    emulators.get("t-a")!.size = { cols: 120, rows: 40 };
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new Event("resize"));

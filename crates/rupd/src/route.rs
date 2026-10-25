@@ -53,7 +53,10 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
-                "message.progress"
+                "todo.delete"
+                    | "todo.deletion"
+                    | "todo.restore"
+                    | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
                     | "message.verifyResult"
@@ -143,6 +146,20 @@ impl Daemon {
                 | "agent.brief"
         ) {
             self.before_prompt_effect(&conn.actor, method).await?;
+        }
+        if method == "todo.restore" {
+            let p: contracts::todo::DeletionParams = rpc::params(params.clone())?;
+            if conn.actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden("only the user restores deleted Todos"));
+            }
+            for target in self.todos.restore_targets(&conn.actor, &p.operation)? {
+                self.require_owner(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
+            for target in self.todos.restore_homes(&conn.actor, &p.operation)? {
+                self.require_workstream(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
