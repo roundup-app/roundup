@@ -3,6 +3,7 @@ import { ReservedLine } from "./ink/ReservedLine";
 import { initializeStorage } from "./state/storage";
 import { createResource, createRoot, Show } from "solid-js";
 import { render } from "solid-js/web";
+import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
 import { createTauriApp } from "./app/tauri";
@@ -54,6 +55,9 @@ const RestoredApp = () => {
   </Show>;
 };
 
-render(() => <RestoredApp />, root);
+// The panel never initializes storage, opens Projects or mounts another App.
+if (new URLSearchParams(location.search).has("capture") && tauri.capture) {
+  render(() => <CapturePanel port={tauri.capture!} />, root);
+} else render(() => <RestoredApp />, root);
 
 void keystrokes?.start();
