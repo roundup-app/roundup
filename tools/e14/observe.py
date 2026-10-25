@@ -115,6 +115,11 @@ def evidence(directory):
     metadata = json.loads((directory / "lane.json").read_text())
     if metadata["exit_code"] != 0:
         raise ValueError(f"{directory}: lane failed with exit {metadata['exit_code']}")
+    if "build_observation" in metadata:
+        if metadata["build_observation"]["status"] != "valid":
+            raise ValueError(f"{directory}: invalid build observation")
+        import build
+        build.report(directory / "build")
     rows = json.loads((directory / "lifecycle.json").read_text())
     if not rows:
         raise ValueError(f"{directory}: missing lifecycle evidence")
@@ -168,6 +173,8 @@ def run(args):
     import psutil  # Installed only for observation, not for report validation.
 
     root = Path.cwd()
+    if args.build_observation and (args.base or not args.lane.startswith("rust") or platform.system() != "Linux" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"):
+        raise ValueError("build observation requires an unchanged full Rust lane on hosted Linux (empty BASE)")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)  # Never reuse stale passing evidence.
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
@@ -180,6 +187,10 @@ def run(args):
         cache["paths"][name] = {"exists": path.exists(), "mtime_ns": path.stat().st_mtime_ns if path.exists() else None}
     locks = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in ("Cargo.lock", "pnpm-lock.yaml")}
     env = os.environ.copy()
+    if args.build_observation:
+        import build
+        env = build.prepare(root, output / "build", env)
+        observer["build.py"] = hashlib.sha256(Path(__file__).with_name("build.py").read_bytes()).hexdigest()
     env["E14_RUST_EVENTS"] = str(output / "rust-events")
     env["E14_LIFECYCLE"] = str(output / "web.json")
     if args.lane.startswith("rust"):
@@ -197,6 +208,11 @@ def run(args):
                             "image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion"), "type": os.environ.get("RUNNER_ENVIRONMENT", "local"),
                             "run": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT")},
                     memory={"source": "psutil.virtual_memory: total - available (whole runner, all processes)", "psutil": psutil.__version__, "sample_interval_ms": 50})
+    if args.build_observation:
+        metadata["build_observation"] = {"status": "incomplete", "path": "build"}
+        metadata["runner"].update(architecture=platform.machine(), cpu_model=json.loads((output / "build/facts.json").read_text())["cpu_model"],
+                                  repository=os.environ.get("GITHUB_REPOSITORY"), job=os.environ.get("GITHUB_JOB"), workflow_sha=os.environ.get("GITHUB_SHA"),
+                                  run_url=f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}")
     # Sampling in the supervising process means an observer error cannot be lost in a thread. Samples stay in
     # memory until the lane ends: a write() during the build's debug-info flood blocks in the kernel's dirty-page
     # throttle for over a second, and the gap check would then fail the lane for the disk, not the sampler.
@@ -236,6 +252,16 @@ def run(args):
         (output / "memory.jsonl").write_bytes(args.memory_log.read_bytes())
         metadata["memory"]["coverage"] = "from before CI setup through test command completion"
         (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    if args.build_observation:
+        try:
+            compiled = build.report(output / "build")
+            (output / "build/summary.json").write_text(json.dumps(compiled, indent=2) + "\n")
+            metadata["build_observation"]["status"] = "valid"
+        except (OSError, ValueError, KeyError) as error:
+            metadata["build_observation"].update(status="invalid", error=str(error))
+            raise
+        finally:
+            (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
     report_flaky(args.lane, output)
     if metadata["exit_code"]:
         return metadata["exit_code"] if metadata["exit_code"] > 0 else 1
@@ -325,6 +351,7 @@ def main():
     lane.add_argument("--output", type=Path, required=True)
     lane.add_argument("--shards", type=int, default=sum(name.startswith("web") for name in LANES), help="The web shard count the lane's number is one of")
     lane.add_argument("--cache-state", required=True, help="Actual restore hits/misses and keys, or explicit cold-cache preparation")
+    lane.add_argument("--build-observation", action="store_true", help="CI3781: opt-in hosted Linux Cargo timings and passive linker exec/exit evidence; full Rust lanes only")
     lane.add_argument("--memory-log", type=Path, help="Whole-job collector started before CI setup")
     collector = sub.add_parser("memory")
     collector.add_argument("--output", type=Path, required=True)
