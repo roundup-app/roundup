@@ -4,25 +4,42 @@ use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::sync::{MutexGuard, TryLockError};
+use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 use wait_timeout::ChildExt;
 
 use super::Git;
 
+struct Hold<'a>(&'a (Mutex<bool>, Condvar));
+
+impl Drop for Hold<'_> {
+    fn drop(&mut self) {
+        let (lock, released) = self.0;
+        *lock.lock().unwrap_or_else(|err| err.into_inner()) = false;
+        // Wake every contender: a single notified waiter may already have expired.
+        released.notify_all();
+    }
+}
+
 impl Git {
-    fn hold(&self) -> Result<MutexGuard<'_, ()>, String> {
-        if self.deadline.is_none() {
-            return Ok(self.lock.lock().unwrap_or_else(|err| err.into_inner()));
-        }
-        loop {
-            self.check_deadline()?;
-            match self.lock.try_lock() {
-                Ok(hold) => return Ok(hold),
-                Err(TryLockError::Poisoned(err)) => return Ok(err.into_inner()),
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(5)),
+    fn hold(&self) -> Result<Hold<'_>, String> {
+        let (lock, released) = &*self.lock;
+        let held = lock.lock().unwrap_or_else(|err| err.into_inner());
+        let mut held = match self.deadline {
+            Some(deadline) => {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                released
+                    .wait_timeout_while(held, remaining, |held| *held)
+                    .unwrap_or_else(|err| err.into_inner())
+                    .0
             }
-        }
+            None => released
+                .wait_while(held, |held| *held)
+                .unwrap_or_else(|err| err.into_inner()),
+        };
+        self.check_deadline()?;
+        *held = true;
+        Ok(Hold(&self.lock))
     }
 
     pub(super) fn check_deadline(&self) -> Result<(), String> {
@@ -63,6 +80,7 @@ impl Git {
         // Files avoid pipe backpressure and inherited hook pipes keeping collection alive.
         let mut stdout = tempfile::tempfile().map_err(|err| err.to_string())?;
         let mut stderr = tempfile::tempfile().map_err(|err| err.to_string())?;
+        self.check_deadline()?;
         let mut child = command
             .stdout(stdout.try_clone().map_err(|err| err.to_string())?)
             .stderr(stderr.try_clone().map_err(|err| err.to_string())?)
