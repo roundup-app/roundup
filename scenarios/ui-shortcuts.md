@@ -50,7 +50,19 @@ Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` an
 
 **U2238 the direct keys.** Given an open Project, when the user presses `⌘N`, `⇧⌘N` or `⌘T`, then each does what U32 and U33 say, wherever focus is (a Terminal included), and the webview handles it so a Terminal never sees it. U32's chord rules hold unchanged: Caps Lock neutral, key repeat acts once, other modifier sets do nothing. Tests: the existing `u32_` and `u165_` observers stay passing; no new test repeats them.
 
+Definition (relocated): **chordsFor**:
+The matching spellings of one displayed Help chord.
+
+Definition (relocated): **registerKeys**:
+Register a KeyScope's chords, guards and actions for its owner's lifetime.
+
+Definition (relocated): **KeyScope**:
+The owner of a shortcut: the App, a region containing keyboard focus, or an active layer.
+
 **U2239 the leader takes the next key.** Given an open Project and no modal layer, when the user presses `⌘K` (the same chord rules as U32), then roundup waits for one key and nothing else happens. The next key, matched by key position as U32 says and with Caps Lock neutral, runs one action and ends the wait:
+
+Definition (relocated): **Leader**:
+`⌘K`: it waits for one more key from the `LEADER` table (`LeaderKey`, `leaderChord`), or ends on any other key (U2239). The `leader` KeyScope holds those keys' actions; `armLeader`, `endLeader`, `leaderArmed` and `modalOpen` are its state.
 
 | Key | Action |
 |---|---|

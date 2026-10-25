@@ -41,6 +41,30 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 
 **U471 surface catalogues separate code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
 
+Definition (relocated): **App copy catalogue** (`copy`):
+The single collection of App-authored labels and parameterised prose, separate from code terms and authored values.
+
+| Code term | User label in App prose |
+| --- | --- |
+| Door | supervisor |
+| Shelf | work items |
+| Handoff | summary |
+
+| Existing action label | User label |
+| --- | --- |
+| Start Door | Start supervisor |
+| Retry Door | Retry supervisor |
+| Clear without Handoff | Clear without a summary |
+| Clear (prompt submit) | Clear and keep a summary |
+
+Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
+
+Definition (relocated): **User label**:
+App-authored words describing an action or content. A label may differ from its code term; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content stay as written. Other domain terms keep their current user spelling until explicitly mapped.
+
+Definition (relocated): **Code term**:
+The name used by identifiers, types and RPC methods. Rule 6 applies to public code names.
+
 - **Language policy (policy).** `GLOSSARY.md` distinguishes code terms, used by identifiers and RPC methods, from user labels, used by the App. A user label describes the action or content and may differ from its code term. AGENTS.md's first paragraph states that distinction. Existing code names and wire values remain unchanged. The glossary records the mappings below; other domain terms keep their current user spelling until an explicit user-label mapping replaces it. The distinction does not relax rule 6 for public code names.
 - **Catalogue.** `u471_every_app_authored_string_comes_from_the_catalogue` asserts that all App-authored visible text and accessible names, including errors, statuses, hints, tooltips, placeholders, section heads and generated prose, come from surface-owned copy modules and one shared copy module under `apps/desktop/src`. Components and helpers consume their own surface’s entries or parameterised formatters; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content pass through unchanged. Wire enums, CSS classes and test expectations are not UI copy. The test scans production sources, reports each uncatalogued literal with file and line, and covers JSX text, UI attributes and strings passed through helpers, not only imports.
 - **Labels.** `u471_action_labels_describe_the_existing_action` renders and activates every old/new pair below, asserting the new visible and accessible names and the same command, arguments and state transitions. All production occurrences, accessible-name queries and affected scenario quotes change together. No control, status, failure text or accessible name disappears during extraction.

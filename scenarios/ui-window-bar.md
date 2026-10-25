@@ -12,6 +12,12 @@ All new rendered observers use 1280×800 and 1600×800. Behavioral assertions re
 
 **U449 one row spans the window above every region.** Given the U26 harness with `first-run`, `agents-10`, `tabs-8` and `tree-40`, then:
 
+Definition (relocated): **window-bar**:
+The native App plugin for current-window title writes, drag and zoom. Its permissions are `window-bar:allow-set-window-title`, `window-bar:allow-drag-window` and `window-bar:allow-zoom-window` (U449–U451); none accepts a target window.
+
+Definition (relocated): **Window bar**:
+The App’s shared row for native traffic lights, Project tabs and the centred Project — Workstream title.
+
 - **Row.** No separate native title row or second Project-tab row is present; the native buttons and webview strip share one row on macOS. Asserted in `u449_window_configuration_uses_one_title_row` (native setup); actual native placement is the policy observation in U451.
 - **Long title.** A title too long for its allocated box has its full text as its accessible name and `title`. Asserted in `u449_long_title_keeps_its_full_name`. Use eight 40-character Project names, a 300-character Workstream name, marks on the second and eighth tabs, rename active, and a failed rename or exited Daemon in separate cases; the failure text and `Reopen` remain visible in their own space below the bar if the strip has no room.
 - **Checks.** Moves D2 (type and spacing, `docs/design-system.md:126`), D5 (contrast, `docs/design-system.md:129`) and D6 (targets and states, `docs/design-system.md:130`). The title and bar use existing Tokens only; webview text meets 4.5:1 against its ground and controls keep their 24 px minimum hit height and visible focus in dark. No Check passing on `main` regresses. The design critic judges these Checks, styles and the visible failure in the densest fixture above (AGENTS.md rule 10); `u449_long_title_keeps_its_full_name` proves the full title text.
@@ -20,6 +26,15 @@ Observer: `u449_` cases in `apps/desktop/src/header/` use the rendered U26 harne
 
 **U450 the title follows the open Project and selected Workstream.** Given the App, when the open Project or selected Rail row changes, then:
 
+Definition (relocated): **windowTitleHandler**:
+The fake App's optional title-write response, which can reject or hold writes pending (U450).
+
+Definition (relocated): **windowOperations**:
+The fake App's ordered record of title writes, drag requests and zoom requests (U450/U451).
+
+Definition (relocated): **setWindowTitle**:
+The App seam write (`set_window_title`) of the full native title of the current window (U450); failures are RpcError.
+
 - **Text.** With no Project open the title is `roundup`. With an open Project and no selected Workstream it is that Project's current name. With a Workstream row, its Door, an Agent nested under that Door, or a Terminal belonging to that Workstream selected, it is `<Project> — <Workstream>` using their current names. Follow the selected row's Workstream ancestry, never the last Workstream clicked or an Agent's name; a Project-root row without a Workstream uses the Project name alone. Asserted in `u450_title_uses_the_selected_rows_workstream`, with one case per row kind and the no-Project and no-Workstream cases.
 - **Updates.** Switching tabs or using U186's keys reads that Project's restored selection, renaming the Project or Workstream updates the title after the successful response/event, removing the selected Workstream drops its name, and closing the last Project restores `roundup`. A failed rename keeps the old title and U80's failure visible. A background Project's events never replace the open Project's title. Asserted in `u450_switch_restores_the_projects_title`, `u450_successful_renames_update_the_title`, `u450_removed_selection_has_no_stale_title`, `u450_last_close_restores_roundup`, `u450_failed_rename_keeps_the_title` and `u450_background_events_do_not_change_the_title`.
 - **Native title.** The full, untruncated text is also the window's title after each update, including first run. Older in-flight updates cannot overwrite a newer selection. A window-title write failure is surfaced as U80's failure and does not undo the user's selection. Asserted in `u450_full_title_reaches_the_window`, `u450_latest_selection_wins` (complete two pending writes in reverse order), and `u450_window_title_failure_is_visible`; the native title observer in U451 checks the actual Window menu and Mission Control.
@@ -27,6 +42,12 @@ Observer: `u449_` cases in `apps/desktop/src/header/` use the rendered U26 harne
 Observer: `u450_` in `apps/desktop/src/header/` tests title derivation and changes against the fake App with recorded title writes, failures and delayed responses. The production window adapter gets a test that asserts the full text reaches its native setter: `u450_native_setter_receives_the_full_text` beside that adapter. Policy: the actual native title read-back is the Mac observation in U451; a fake write or `document.title` alone is not native evidence. Policy: selection and tab changes introduce no timer or network round trip before the visible title changes.
 
 **U451 the row behaves as a Mac window bar.** Given the App's one row on macOS, then:
+
+Definition (relocated): **zoomWindow**:
+The App seam request (`zoom_window`) to toggle zoom of the current native window (U451).
+
+Definition (relocated): **dragWindow**:
+The App seam request (`drag_window`) to start dragging the current native window (U451).
 
 - **Traffic lights.** The native close, minimise and zoom buttons are visible and clickable inside the reserved area. Actual buttons are the native policy observation below.
 - **Drag and zoom.** A pointer drag on empty row space, including unused space to the right of the title, requests a window drag. A double-click there requests the window's zoom action. Clicking, double-clicking or dragging on a tab, rename field, `+`, overflow edge or any other control does not initiate either window action; a tab-name double-click still renames it (U183). Asserted in `u451_empty_space_requests_drag`, `u451_empty_space_double_click_requests_zoom` and `u451_controls_do_not_drag_or_zoom` against the window adapter, including a double-click on a tab name. Actual movement and zoom are native policy observations.

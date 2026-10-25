@@ -4,6 +4,9 @@ Webview only: `apps/desktop/src/shelf/`. Issue #1117, the user's “yes, match t
 
 **U465 Shelf tabs have the Rail's icon heads.** Given an open Shelf on `agents-10`, `tree-40` and `empty-project` (U26), light and dark for behavioral observers (captures and critic Check readings use dark only, U3725), at 1512×950 and Shelf widths 240 px and 320 px (U390), when the user selects each tab by pointer and keyboard, then:
 
+Definition (relocated): **Section head**:
+The icon, capital label and trailing rule that name a section of the Rail or Shelf.
+
 - **Tabs.** The Shelf keeps its `tablist` named `Shelf`, two `tab` buttons in Todos/Pads order and one linked `tabpanel`; exactly one tab has `aria-selected="true"` and `tabIndex=0`, the other has `tabIndex=-1`. The icons add no accessible-name words or focus stops. Pointer selection, Left/Right with wrap and Home/End select and focus the corresponding tab and show only its list. No tab-switch animation. Test: `u465_heads_keep_tab_roles_focus_and_keys`; existing `u373_` behavior stays passing.
 - **Checks.** All values are existing Tokens; every Check passing on the same main baseline stays passing, including when `__fake.failNext` rejects a Todo add on `tree-40` and its failure text is visible. The design critic judges these Checks (AGENTS.md rule 10); `u465_heads_keep_tab_roles_and_panel_links` asserts the tab roles.
 

@@ -32,6 +32,9 @@ Cost observer (TC1): `i7_a_daemon_that_never_answers_exits_1_in_ten_seconds` nee
 - **A caller resumes.** A caller that keeps the `seq` of the last Event it handled and passes it as `--after` on the next run, once with `--follow` killed mid-stream and once without, receives every Event once across the runs, including Events saved while it was down and across a Daemon restart (D12). `i9_a_restarted_caller_loses_and_repeats_nothing`.
 - **Fixed output.** `--follow` flushes each line as it prints it, so a pipe reads it at once; a closed stdout pipe ends it with exit 0; Terminal output never appears (D10). `i9_each_line_is_flushed_and_terminal_output_is_absent`.
 
+Definition (relocated): **Event head** (`head`):
+The highest Event number saved when an `events.subscribe` was accepted, 0 for an empty log: its answer is `{head}`, and `rup events` without `--follow` stops once it has printed that Event (`scenarios/cli.md` I9).
+
 Policy: `rup events` adds no timer, poll or retry: it waits on the Daemon's stream, and a lost connection is exit 1 with the last printed `seq` on stderr (`rup: connection lost after event <seq>; resume with --after <seq>`), so the caller, not `rup`, decides to reconnect. The 10 s `CALL_TIMEOUT` (I4) covers the subscribe answer only, not the stream.
 
 

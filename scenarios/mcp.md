@@ -8,11 +8,20 @@ ADR 0007: the Daemon serves MCP to Agents through a stdio shim, so every call is
 
 **M2 a call is a Touch by that Agent.** When the client calls `todo_create {title: "x"}`, then the Todo exists, its `wrote` Touch has actor `{kind: agent, id: <agent-id>, parent: null}`, and the tool result's text is the method's JSON result. A Daemon error, such as `pad_write` on a Pad another Agent owns, comes back as a tool result with `isError: true`. Its text is the Daemon's error as JSON, `{code, message}` (`-32002` is `FORBIDDEN`). The shim maps no code to a name, so it needs nothing new in `crates/rpc`. After such an error the server keeps serving.
 
+Definition (relocated): **Actor**:
+The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
+
 **M3 no Daemon, no hang.** When no Daemon answers at start, `rup mcp` exits non-zero with one stderr line naming the socket path. When the Daemon goes away later, the next call makes it exit non-zero; it never waits forever. Claude Code then reports the server as failed instead of hanging a turn.
 
 Cost observer (TC1): the two mute-Daemon `m3_` exit tests need the built `rup mcp` process and its real call clock: an in-process error cannot prove exit status, one-line stderr or runtime shutdown while stdin stays open.
 
 **M4 the tool list matches the real client's schema.** Given `rup mcp <agent-id>`, when a client lists tools, then every `tools/list` reply is `{ttlMs, cacheScope, tools, nextCursor?}` with `ttlMs` an integer of at least 0 and `cacheScope` either `public` or `private`: the schema of the interactive Claude Code 2.1.288, read from its binary (the headless 2.1.283 has the same schema and accepts the older reply). That client rejects a reply without them after `/mcp` reconnects: "Reconnected to roundup, but fetching tools failed: Invalid result for tools/list", with the issues `expected number, received undefined` at `ttlMs` and `invalid_value` with `values [ public, private ]` at `cacheScope`. Two checks prove it. `m4_` over stdio validates every reply (the full list, and the empty list a request with a cursor gets, since this server pages nothing) against that schema, which the test holds as a copy extracted from the installed binary, with the extraction command and `claude --version` in a comment that names what a changed schema would break. The interactive reconnect itself is a laptop check by QA or the user, as S7's window is: it needs a browser sign-in that a boxd VM's token does not satisfy. It runs `/mcp` against `rup mcp` on 2.1.288, shows the base binary rejected and the head accepted with `mcp__roundup__todo_list` listed, and is recorded in the PR. The same schema holds for every tool added later.
+
+Definition (relocated): **Hook**:
+One `($, e, next)` function an Extension registers.
+
+Definition (relocated): **Extension**:
+A directory with a manifest and one module.
 
 An Agent does through its server everything the user does in the App, one tool per method (#671). The user said: "The agent and the mcp should enable these and should enable everything the human can do in the app". M1's four omitted methods (`todo.delete`, `todo.reorder`, `pad.export`, `pad.setStorage`) and T10's "not offered over MCP" are narrowed by M5: they become tools. M1 still holds for naming, schemas, the null-params rule and the Touch of M2. The exceptions below are the only methods left to the user, each with its reason.
 
@@ -55,7 +64,13 @@ Changing this list is a scenario change (rule 4). Kept unless the user says othe
 - Project-wide, no node: `rail_tree`, `rail_createWorkstream`, `todo_*`, `pad_*`, `route_list`, `checkpoint_list`, `project_get`, `project_setWorktrees`, `project_open`, `project_rename`, `provenance_*`. A Todo, a Pad (its owner rules, P3) and a Project setting have no node.
 A call whose node is outside the Reach is `FORBIDDEN` naming the node (M2), after `NOT_FOUND` for an unknown id, changes nothing, emits no event and logs no Touch. A call that succeeds logs a `wrote` Touch on `rail:<id>` by the Agent. Tests (`m7_`): `m7_a_door_stops_its_subagent`, `m7_a_door_cannot_stop_another_workstreams_agent`, `m7_an_agent_cannot_stop_or_remove_itself`, `m7_a_workstream_an_agent_created_is_in_its_reach`, `m7_a_sibling_subagent_is_outside_reach`, `m7_the_user_has_no_reach_limit`, `m7_a_forbidden_call_changes_nothing_and_logs_no_touch`, `m7_the_creator_survives_a_restart`.
 
+Definition (relocated): **Reach** (`Agents::guard_reach`):
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
+
 **M8 an Agent opens and names a Project.** Contract change (the Contract recipe of `.agents/builder.md`; `GLOSSARY.md` holds **Reach**). After #653's implementation (S8 several Daemons, U179 the strip): the App refuses a second Project today (S1, S5), and a Daemon cannot reach the App directly. So a request goes out as an Event. New Daemon methods `project.open {path}` and `project.rename {name}`, both returning `null`, and the Event `project.requested {kind: "open", path}` or `{kind: "rename", path, name}`, where `path` of a rename is this Project's folder. Given an Agent `m` calling `project_open {path}` or `project_rename {name}` (M5), then: `path` that is not absolute is `INVALID_PARAMS`; a `path` that is not an existing directory is `NOT_FOUND`; `name` is S10's rule (1 to 40 characters, no line break, else `INVALID_PARAMS` naming the limit; empty or all space is `INVALID_PARAMS` here, since the tool has no "folder name again" form). A valid call emits the Event once, logs a `wrote` Touch on `project:<path>` by the caller, and returns at once: the answer means asked, not done, because the Daemon cannot see what the App does. The webview, which subscribes to each open Project (U180), answers `project.requested` with the App seam: `open_project {path}` (S8: a path whose Daemon runs only becomes the open tab, as `+` does) or `rename_project {path, name}` (S10), and shows U80's `✕ <message>` line when either fails; nothing but this Event makes the webview open a Project. The user's own `+` and F2 are unchanged. Tests: `m8_project_open_validates_and_emits_the_event_once`, `m8_project_rename_validates_the_name_like_s10`, `m8_the_event_is_a_touch_by_the_agent`, in `crates/rupd`, and Vitest `m8_the_webview_answers_a_requested_open_with_open_project`, `m8_a_failed_open_shows_the_error_line`, `m8_a_requested_rename_calls_rename_project`. Blocked by the implementation of #653.
+
+Definition (relocated): **project.requested**:
+The Event an Agent's `project_open` or `project_rename` emits, because a Daemon cannot reach the App; the webview answers it with `open_project` or `rename_project` (`scenarios/mcp.md` M8).
 
 **M9 a Door's Brief names the new tools.** Amends E1 and B24 (the Brief must claim only what `rup mcp` offers, so both change with M5 in one PR). Given a Door's Brief, then it names `rail_createWorkstream` with `rail_startDoor` as the way to make a Workstream (a Workstream is made by the two, never nested, and its Door asks the user what it is for, O3), `project_open` for a Project, `agent_stop`/`agent_prompt` for the Agents in its Reach (M7), and says every tool it names acts in its Reach or the Project; an ordinary Agent's Brief names the Project-wide and own-Reach tools, and no Door guidance. The Brief names no tool the shim does not offer and omits none it offers to that Agent, and E1's test that compares the Brief's names with the actual MCP list covers the new ones. Observer: the real Daemon and a fake `claude` that reads the Brief from argv, answers "make a Workstream called x" with `rail_createWorkstream` and `rail_startDoor` over its real `rup mcp`, and `rail.tree` shows the Workstream with its Door started; whether a model chooses them is provider-dependent (E7). Tests: `m9_a_doors_brief_names_the_workstream_and_project_tools`, `m9_the_brief_names_exactly_the_tools_offered`, `m9_a_door_asked_for_a_workstream_makes_one`.
 
@@ -66,6 +81,12 @@ A call whose node is outside the Reach is `FORBIDDEN` naming the node (M2), afte
 - **List and event.** `checkpoint.list {workstream}` returns that Workstream's Checkpoints, oldest first, and `checkpoint.written` carries the one written; both survive a Daemon restart as Messages do. A Touch `wrote` on `checkpoint:<workstream>:<id>` by the Door is logged (M2). Asserted in `m10_list_returns_checkpoints_in_order_after_a_restart` and `m10_write_emits_the_event_and_logs_a_touch`.
 - **Brief.** A Door's Brief names `checkpoint_write`, says to write one when the work reaches a point worth marking (an Agent's work finished or merged, a change of direction, a decision made), to run `reduce` on every string and lay out Blocks the `show-me` way, and to repeat nothing the user already reads in the Door's Terminal (#688, Q1 to Q5 of #676). No other Agent's Brief names it (M9). Asserted in `m10_a_doors_brief_names_checkpoint_write_and_no_other_does`.
 - **Kept.** M5 lists `checkpoint_write` and `checkpoint_list` among its Tools, and `m5_` passes with both; `message.*` and every earlier test pass unchanged. Asserted in `m5_` passing as written.
+
+Definition (relocated): **Block**:
+One part of a Checkpoint that the Door chooses: `rows` (label and value), `table`, `diagram` (Mermaid source) or `text`, each with an optional title (M10).
+
+Definition (relocated): **Checkpoint**:
+A short card of facts a Door writes when its Workstream's work reaches a point worth marking, `{id, workstream, at, title, blocks}` (M10). Not a Message: it has no Route, status or delivery. Written with `checkpoint.write`, listed with `checkpoint.list`.
 
 Tests (`m10_`) in `crates/rup/tests/` against an in-process Daemon as `ping.rs` does; no `claude`. Not rewinding to a Checkpoint (#808).
 
@@ -98,6 +119,9 @@ Tests (`m13_`) in `crates/rup/tests/` against an in-process Daemon as `ping.rs` 
 - **Read only** (M13) is narrowed to "the three read tools write nothing"; Terminal writes log no Touch for the same reason (X11), but `route_set` logs a `wrote` Touch by the caller on the Route (M2). Test: `m14_route_set_is_a_touch_by_the_agent`, `m13_` passing as written.
 - **Brief.** Every role's Brief names the seven tools and says that `route_set` acts on others, never on the Agent itself, and that a Terminal it starts is its own to close. M11's rule holds. Tests: `e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists`, `m9_the_brief_names_exactly_the_tools_offered` and `m11_no_role_is_offered_a_tool_its_brief_does_not_name` passing.
 - **Kept.** M1's other tests, M2, M7 and M13 pass unchanged; the offered tools of a role grow by exactly these seven. Observer: the real Daemon and a fake `claude` that calls `terminal_spawn` then `terminal_write` over its real `rup mcp`, and `terminal.read` shows the typed text; no real `claude`.
+
+Definition (relocated): **Show request** (`terminal.show`, event `terminal.shown`):
+A Door's ask that the App show a Terminal in its Reach: the Daemon emits `terminal.shown {id}` and the App selects the Terminal's owner. It reads, writes and starts nothing.
 
 
 **M15 Terminal commands obey the calling Agent's Bash rules.** Narrows M14's Terminal access and A4's blanket MCP permission allow; keeps F2's Door tool allowlist and M11's deferred tool loading. Implementation scope: `crates/agents/src/claude_code/` and `crates/rup`, including their tests. No new RPC method, contract type, App seam command or public domain term. The existing Reach checks still apply. No Message or Route behaviour changes; laws M1 to M10 of `scenarios/proofs.md` are unchanged.
@@ -142,6 +166,9 @@ Given an Agent calling an offered tool through the built `rup mcp <agent-id>` ov
 **Observer (policy).** Run the stdio acknowledgement regression with real Claude and aimock in an isolated temporary config and Project. In aimock's request log, find the model request after a unit tool use and match its `tool_result` by tool-use id: the text names the affected item and is not `null`. Record the command, tested commit, pinned Claude/aimock versions and matching log excerpt in the implementation PR. This observer complements the stdio regression; a fake `claude` alone does not satisfy it. The MCP scenario regressions and Checks 1–3 pass before implementation is ready.
 
 **M2219 an Agent can run with no roundup MCP server.** Amends A11, E1 and M11; contract change (rule 4, the Contract recipe of `.agents/builder.md`). Found by the owner: "MCP is not allowed at work". After #2214, every tool `rup mcp` offers is also a `rup` command. Ownership: `crates/agents/src/claude_code/launch.rs` and `brief.rs`, `crates/contracts` (`ProjectSettings`), `crates/rupd`.
+
+Definition (relocated): **Mcp**:
+The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
 
 Given the MCP setting resolves to off for an Agent's Project, when the Adapter prepares that Agent (a Door, a Subagent or a root Agent), then:
 

@@ -6,6 +6,9 @@ D1 and D7 are in `crates/rupd`. D2 to D7 are end-to-end tests of the whole Daemo
 
 **D1 attached.** Given `rupd <project> --attached`, when its stdin closes, then it exits within a bound the test names, and every program it started in a Terminal is gone. Without `--attached`, a closed stdin changes nothing; CI starts `rupd &` with no stdin. The App passes `--attached`, so no Daemon and no Agent outlives the App, even when the App crashes. The Daemon frees a Terminal's pseudo-terminal when its program ends (`crates/terminal/src/lib.rs:144`), so `openpty` exhaustion (`kern.tty.ptmx_max` on macOS, 511 on the `macos-latest` runner) comes only from tests of several packages opening Terminals at once.
 
+Definition (relocated): **Daemon**:
+`rupd`, the local process everything else is a client of.
+
 **D2 Status end to end.** Given a Daemon whose fake `claude` feeds these hook payloads, in order, to the hook command in its `--settings` file: `SessionStart`, `UserPromptSubmit` (prompt "fix the refresh race"), `PermissionRequest`, `PostToolUse`, `Stop`. `ROUNDUP_RUP_BIN` is the built `rup`. When a subscribed client calls `agent.spawn`, then it receives that Agent's `agent.status` Kinds `idle, working, needs-you, working, idle` in order, and `rail.tree` names the Agent `fix-refresh-race` (A9).
 
 **D3 Todos over MCP end to end.** Given the same Daemon with a fake `claude` that starts the `roundup` server from its `--mcp-config` file and calls `todo_create {title: "split checkout"}` over it, then `todo.list` holds that Todo and `provenance.history {item: "todo:1"}` names that Agent.
@@ -44,6 +47,12 @@ Validation failures are reported on the Work Issue, one row per failed command o
 | `just perf` skips any required R16 latency measurement | 0 | No complete latency observation; rerun on a qualified host |
 
 **D10 every event but Terminal output is saved, numbered once.** Module: `crates/rupd` (the log table is a migration in `project.db`, as the Messages and Todos tables are, N16), `crates/rpc` (`Bus`), `crates/contracts` (`Event`). Given a Daemon, when any Module emits an Event (Terminal output is no Event, X14), then the Daemon saves it in `project.db` in the same step that publishes it, with an Event number (`seq`): a positive integer that rises by one per saved Event, never repeats, and is on the Event every subscriber sees. Terminal output is no Event (X14), so it is never saved or numbered, and `terminal.read` is unchanged. Given a Daemon killed (D6) and reopened on the same Project, then its next Event number is the old highest plus one. `d10_every_event_but_terminal_output_is_saved_and_numbered` and `d10_numbers_never_repeat_across_a_reopen` assert this. Policy: the number is the log's own row id, so no second counter can drift from the log; the log's size is bounded by D11's window, never by a timer.
+
+Definition (relocated): **Event number** (`seq`):
+The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
+
+Definition (relocated): **Event log**:
+The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
 
 **D11 `events.subscribe` resumes from a number and loses nothing.** Module: `crates/rupd`, `crates/rpc` (`Client`), the App's callers. `events.subscribe` takes an optional `after` (an Event number). Policy: the log keeps the last 10 000 Events (`EVENT_WINDOW`); this one number is the window, and nothing prunes by age.
 - **Replay then live.** Given saved Events 1 to 20 and a subscribe with `after: 12`, then the subscriber receives Events 13 to 20 in order from the log, then every later Event live, with no gap and no repeat, including an Event saved while the replay ran. `d11_replay_then_live_has_no_gap_and_no_repeat` emits during a replay held at a signal and asserts the numbers received are exactly one run.

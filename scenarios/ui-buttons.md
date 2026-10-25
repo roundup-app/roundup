@@ -38,6 +38,30 @@ Tests are named `u170_` to `u172_` in `apps/desktop/src/app/` against the fake A
 
 **U474 the App reuses component behaviour.** Given the App's Solid build, when the foundation is installed, then `@ark-ui/solid` is a production dependency of `apps/desktop`, and `apps/desktop/src/ui/` exports Dialog, AlertDialog, Menu, Tooltip and IconButton (`u474_dependency_and_exports`, dependency inspection and imports exercised by package typecheck). Dialog and AlertDialog compose Ark Dialog (AlertDialog sets `role="alertdialog"`); Menu and Tooltip compose their Ark components. The wrappers own Token styling and App defaults; the library owns focus, dismissal, keyboard navigation and ARIA. No wrapper implements a second focus trap or keyboard state machine (policy, inspected in the diff). IconButton requires a string `aria-label` in its TypeScript props: omitting it fails type checking and supplying it succeeds (`u474_icon_button_requires_a_name`, a compile-time fixture exercised by the package typecheck). Its rendered button has that accessible name and `data-button="icon"` (`u474_icon_button_has_its_name`).
 
+Definition (relocated): **Collapsible**:
+An expandable App region with a named trigger; closing it retains its content.
+
+Definition (relocated): **IconButton**:
+An App button of the icon kind, named for its action for assistive technology.
+
+Definition (relocated): **Tabs**:
+A Token-styled set of named App views, with one selected view and its panel visible at a time.
+
+Definition (relocated): **Tooltip**:
+A Token-styled explanation shown on hover or focus of an App control.
+
+Definition (relocated): **Menu**:
+A Token-styled list of App actions opened from a control.
+
+Definition (relocated): **AlertDialog**:
+A Dialog asking permission before a destructive action; dismissal cancels the action.
+
+Definition (relocated): **Dialog**:
+A Token-styled question or panel in the App that holds focus until dismissed.
+
+Definition (relocated): **Button kind**:
+One of five looks every button of the App takes, named by its `data-button`: `primary`, `quiet`, `add`, `row-action`, `icon`; each is defined once, from Tokens, in `apps/desktop/src/buttons.css` (`docs/design-system.md`, "Click targets"). A row is not a button.
+
 Given the five wrappers on an isolated fixture, when keyboard and pointer drive them, then Dialog opens with a linked title and description, traps Tab and returns focus on Escape (`u474_dialog_focus_returns`); AlertDialog exposes `alertdialog` with its linked title and description (`u474_alert_dialog_is_named`); Menu opens from its trigger, arrows move between items, Enter invokes the focused item once and Escape returns focus to the trigger (`u474_menu_keyboard`); Tooltip opens on hover and keyboard focus, links its text to the trigger and disappears on leave or blur (`u474_tooltip_pointer_and_keyboard`). These are behavioural tests under `apps/desktop/src/ui/`, using library behaviour rather than mocked Ark components. Keep Solid, vanilla CSS, `tokens.css` and the five button kinds (policy). Every new public wrapper name is defined in `GLOSSARY.md` in the implementation PR (policy).
 
 **U475 CloseDialog uses AlertDialog.** Given a Project with running Agents, when its Project tab's close control opens CloseDialog, then Cancel receives focus; Tab from Cancel reaches Stop and close, Tab again reaches Cancel, and Shift+Tab from Cancel reaches Stop and close (`u475_close_dialog_wraps_focus`). Escape, Cancel and a click outside each close the question, return focus to the connected opener and make no `close_project` call (`u475_close_dialog_cancels`). Stop and close makes exactly one call for that Project (`u475_close_dialog_stops_once`). A rejected close keeps the Project tab and visibly shows the returned error (`u475_close_failure_is_visible`). Existing U184 text, running-Agent count, overflow and Project selection behaviour remain unchanged (regression: existing `u184_` tests).
@@ -67,11 +91,17 @@ Observer: isolated headless Chromium on `just harness`, fresh test profile, 1512
 
 **U483 shared TreeView preserves caller rows and library navigation.** Given an isolated Solid fixture importing TreeView from `apps/desktop/src/ui/index.tsx`, with Alpha → Beta → Cedar (three levels), sibling Delta under Alpha and root sibling Echo, initially collapsed, when the caller renders its own row label, decorative Glyph and named row action through the wrapper's composition API, then the same content remains present after expansion and a controlled selection/expansion update; stable caller ids identify nodes (`u483_row_composition`, planned in `apps/desktop/src/ui/u483_browser.test.ts`). The wrapper composes Ark TreeView; Ark owns ARIA, focus, traversal, expansion and typeahead. It forwards collection, controlled values/change callbacks and part composition without a parallel interaction state machine (policy, implementation diff review). This fixture demonstrates composition only; it imports no Rail or Todo implementation (policy).
 
+Definition (relocated): **TreeView**:
+A shared navigable hierarchy preserving caller-rendered rows.
+
 Given that fixture, when Tab enters the tree, then focus is Alpha; Right expands Alpha without moving focus; Right moves to Beta; Right expands Beta; Right moves to Cedar; Left returns to Beta; Left collapses Beta; Down reaches Delta, Up returns to Beta; Left on collapsed Beta reaches Alpha; End reaches Echo; Home returns to Alpha. Typing `e` focuses Echo; typing `c` while Beta is collapsed does not focus Cedar. Assertions read the focused node after every key and visible descendants after each expansion/collapse (`u483_three_level_keyboard_walk`, same planned browser file).
 
 Given the fixture named `Project tree`, when rendered and expanded by keyboard, then it exposes one `tree` named `Project tree`, treeitems named Alpha, Beta, Cedar, Delta and Echo when visible, levels 1/2/3 for Alpha/Beta/Cedar, and `aria-expanded` false/true matching each branch's collapse/expansion. Leaves have no `aria-expanded`; decorative Glyphs do not alter names; the caller row action has its own accessible name (`u483_tree_semantics_and_names`, same planned browser file). Accessible-name assertions use the browser accessibility tree or role queries, not textContent alone.
 
 **U484 shared Sortable delegates drag behaviour.** Narrowed by U3800a–c (`ui-drag.md`): their flat drag/keyboard/cancel, native path coexistence and drop appearance replace the overlapping clauses below; external-drop and scroll/stop acceptance remains. Test replacements land with implementation, not this specification. Policy: U3800a–c also supersede U485's prior Sortable library selection and sensor requirement for this migration.
+
+Definition (relocated): **Sortable**:
+A shared reorderable region with named drag handles and caller-owned committed order. With its `tree` contract it reports a drop as a **Sortable drop**.
 
  Given Sortable exported from `apps/desktop/src/ui/index.tsx` and an isolated Solid fixture with stable ids A, B, C, caller-rendered labels and separately named drag handles, when pointer input drags A after C and releases, then the caller receives exactly one committed order B,C,A and the rendered order agrees; clicking the caller row action still invokes it once and does not reorder (`u484_pointer_reorder`, planned in `apps/desktop/src/ui/u484_browser.test.ts`). Given a fresh A,B,C fixture, when Space lifts A's focused handle, ArrowDown moves it one position and Space drops it, then exactly one committed order B,A,C is received and focus stays on A's handle (`u484_keyboard_reorder`, same planned browser file). Sortable exposes stable identity, caller row/handle composition, a scroll-container reference and committed-order notification; the caller owns durable data. Preview order is not a committed mutation (policy, interface and diff review).
 
@@ -84,6 +114,9 @@ Given 40 rows in a bounded overflow container, when a held pointer enters its bo
 Given a consumer-owned native `dragover`/`drop` handler on the sortable region and a real browser File in DataTransfer, when a native file drag enters and drops on a row, then the handler receives that File exactly once, can preventDefault to accept it, and no Sortable session or reorder commit occurs; internal pointer and keyboard reorder still work afterwards (`u484_native_file_drop_coexists`, same planned browser file). Sortable must not swallow native file events or replace consumer drop handlers (policy).
 
 **U535 shared Sortable reports a drop's parent and index.** Narrowed by U3800a–c (`ui-drag.md`): unique tree, click-suppression and callback proofs below remain; overlapping flat behavior moves to their combined fixture. Their shared-library migration supersedes the historical no-consumer-migration and sensor restrictions below.
+
+Definition (relocated): **Sortable drop**:
+Where a dropped Sortable row lands: `{id, parent, index}`, with `index` counting the parent's other children; the Rail's `rail.move` takes the same three (U535).
 
  Narrows U484 for rows that have a parent. Given Sortable exported from `apps/desktop/src/ui/index.tsx` with its optional `tree` contract (the caller's rows in display order as `{id, parent}`, one `indent` in pixels, `nests(id)` saying whether a row can hold children, `onMove` and `onPreview`) and an isolated Solid fixture of roots P, Q, R with P's children P1 and P2, where `nests` is true for P and Q only, when a drag of R is released in the gap below P2, then the pointer's horizontal position picks the parent from the ones that gap allows: at root depth `onMove` receives exactly `{id: "R", parent: null, index: 1}`, and one `indent` further right it receives exactly `{id: "R", parent: "P", index: 2}`; the index counts siblings without the dragged row (`u535_pointer_sets_parent`, planned in `apps/desktop/src/ui/u535_browser.test.ts`). Given R released in the gap below Q, when the pointer is past one `indent` right of Q, then `onMove` receives `{id: "R", parent: "Q", index: 0}`, the first child of a row that shows none; the same release below P2 two `indent`s right is clamped to parent P, since P2 does not nest (`u535_first_child_and_clamp`, same planned browser file).
 

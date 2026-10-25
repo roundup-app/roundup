@@ -9,6 +9,9 @@ Module: `apps/desktop` (the webview) and `crates/desktop` (the Tauri host, one A
 - **Keys.** `ContextMenu` or `⇧F10` with focus in the Rail opens the native menu under the focused row and selects it, as U56 says; with focus in the pane the keys reach the Terminal. Test: `u2694a_the_menu_key_opens_the_focused_rows_menu_and_the_pane_keeps_it`.
 - **Reuse (rule 9).** Selected: Tauri's menu API (`tauri`/`muda`). Rejected: the in-app Ark UI menu, which is not a system menu and so is not read by VoiceOver as one (`AXMenu`). The PR carries the `Reuse:` section.
 
+Definition (relocated): **Context menu** (`show_context_menu`):
+The macOS system menu (`NSMenu`) a right-click or `ContextMenu` key opens on a Rail row, a Project tab, a Terminal tab, a Pad or a Todo; the webview builds its items and the host pops it up (U2694a).
+
 **U2694b the items of each object.** Each object's menu lists its existing actions, in this order, with Rename wherever the object can be renamed. A disabled item is shown greyed, never hidden.
 
 | Object | Items (chord shown) |

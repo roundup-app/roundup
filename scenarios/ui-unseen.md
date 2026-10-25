@@ -6,6 +6,12 @@ Work order: [#3566](https://github.com/saadshahd/roundup/issues/3566). Journey: 
 
 **U3566a a finish waits to be read.** Given two Agents in an open Project, with A selected and B `working`, when B publishes an `idle` Status, then B's Rail row exposes an unseen state; selecting B clears it. Required CI guard: `u3566a_unselected_finish_is_unseen_until_selected`, one integration test through the fake App seam rendering the real App, emitting `agent.status` and selecting the real Rail row. Assert the accessible state appears and disappears, not its colour, size, CSS or exact copy.
 
+Definition (relocated): **Unseen** (`unseen`, user label: Unread result):
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, result acceptance and unseen output in a plain Terminal.
+
+Definition (relocated): **Unseen** (`unseen`, `UnseenState`; user label: Unread result):
+An Agent whose finish count is above the count the user has read, kept by the App per original Project and Agent. Opening the Agent, or displaying its pane in the visible, focused, active Project, reads it. A folded Workstream and a Project tab show it when any Agent below or in them is unseen. Never Terminal unseen output (U3704) and never counted by the Dock badge.
+
 Given the same setup, the following cases are asserted by `u3566a_only_unviewed_finishes_wait`, a parameterized App-seam observer beside the guard:
 
 | Action | Result |
@@ -24,6 +30,12 @@ Given an unseen Agent, opening its pane by Rail pointer selection, Rail keyboard
 Given an unseen finish alongside `needs-you` and `error`, then all existing attention Glyphs, counts and tab actions remain available; the finish mark is additional passive state, never a replacement. Clicking the Project tab selects that Project under its existing contract; the unseen mark adds no jump action. The Dock badge still counts only `needs-you` and `error` across open Projects, with none at zero (U10 in `scenarios/ui.md`, heading “U10 Dock badge”, and U182 in `scenarios/project-tabs.md`, heading “U182 hover tells the count”). Observer: `u3566b_unseen_is_separate_from_attention`, checking accessible states, navigation and badge calls for unseen-only and mixed states. Policy: U182's attention tooltip and attention-jump rules are unchanged; unseen alone does not create that tooltip or count.
 
 **U3566c reload preserves seen state and discovers missed finishes.** Given an unseen Agent and another whose latest finish was viewed, when the webview reloads with the same App storage, then the first stays unseen until viewed and the second stays seen. An automatically restored selection in an inactive Project or blurred window does not acknowledge a finish; a restored pane actually displayed in the visible, focused active Project does. Given a finish during the reload gap, including a finish followed by another `working` turn, then reconnecting discovers it even when its Status event has left the bounded replay log. Observer: `u3566c_reload_reconciles_finishes_with_seen_state`, a parameterized App-seam test remounting with retained storage and authoritative trees, including a newer finish after an earlier one was seen. Distinct Projects' seen records never acknowledge each other's Agents.
+
+Definition (relocated): **Finish count** (`finished`):
+The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
+
+Definition (relocated): **Finish count** (`Status.finished`):
+The Agent's published finishes: a canonical nonnegative decimal string that rises once per direct `working` to `idle` or `done` Status transition, across Attempts and reopen (U3566c). It says a turn ended, not that its result was accepted.
 
 Policy, Contract recipe: add only `finished` to Status, a canonical nonnegative decimal string counting this Agent's published finishes, starting at `"0"`. It increases once for each direct `working` → `idle` or `done` transition, before that Status is published; other transitions, duplicate observations and reads do not increase it. The count belongs to the Agent identity, survives Attempts and Daemon reopen, and never resets on resume. A reconstructed `done` at reopen is not an observed finish. Synthetic Workstream aggregate Statuses carry `"0"`; a Door's own Status carries its own count. A plain Terminal has no such Status. `rail.tree` and `agent.status` carry the same authoritative count. Use no timestamp comparison and infer no finish from Terminal bytes or prose.
 

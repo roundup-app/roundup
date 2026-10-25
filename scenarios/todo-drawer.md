@@ -14,6 +14,21 @@ Moves: D2, D5, D6 (D2 `docs/design-system.md:126`, D5 `docs/design-system.md:129
 
 **T15 a Todo keeps its changes without enlarging lists.** Given a Todo created after history storage is installed, when its body, title, done state or blocker list changes, then its durable history holds creation's initial values followed by each successful change in mutation order. Each change identifies the changed field and its before and after values, including full multiline bodies and blocker identities; changing title and body together is one change with both fields. No-op writes, rejected writes, reads, reorder and Home changes add no history entry. Deleting a blocker records its removal in each surviving affected Todo; merely completing a blocker and changing derived `blocked` does not record a blocker-list change. Tests: `t15_initial_values_and_field_changes`, `t15_combined_update_is_one_change`, `t15_noops_and_rejections_add_nothing`, `t15_reads_reorder_and_move_add_nothing` and `t15_deleted_blocker_is_recorded`.
 
+Definition (relocated): **Read History** (`todo.readHistory`, `ReadHistoryParams`):
+log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
+
+Definition (relocated): **Change** (`Change`):
+initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
+
+Definition (relocated): **Values** (`Values`):
+a Todo's title, body, done state and blocker identities, as kept by a Change.
+
+Definition (relocated): **Get History** (`todo.getHistory`):
+fetch one Todo's History and its previous read boundary without logging a read Touch.
+
+Definition (relocated): **History** (`History`):
+the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+
 Cost observer (TC1): `t15_list_and_rail_do_not_load_history` needs the real Project Daemon with history storage made unavailable from a separate database connection: both public list paths answer while the history request fails. The storage-only list test cannot prove Daemon dispatch avoids history.
 
 Given stored history or a database predating history, when the Daemon restarts or migrates that database, then stored changes retain their values and order; an old Todo has its current values as a baseline, with no invented past changes. Missing Todos return NOT_FOUND from the history read. A successful persisted mutation and its history cannot disagree after restart; failure to persist history must not leave an unrecorded successful mutation. Tests: `t15_restart_retains_history`, `t15_old_database_has_current_baseline`, `t15_unknown_todo_is_not_found` and `t15_history_failure_leaves_no_unrecorded_mutation`.
