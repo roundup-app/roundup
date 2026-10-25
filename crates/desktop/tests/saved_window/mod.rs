@@ -68,8 +68,12 @@ fn observe(
     .build(context)
     .unwrap();
     let handle = app.handle().clone();
+    let (ready, startup) = mpsc::channel();
     let worker = std::thread::spawn(move || {
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Tauri emits Ready after setup finishes constructing the webview;
+            // the earlier restore event alone does not make it discoverable yet.
+            startup.recv_timeout(Duration::from_secs(5)).unwrap();
             let before_reveal = restored.recv_timeout(Duration::from_secs(5)).unwrap();
             let main = handle.get_webview_window("main").unwrap();
             if !main.is_maximized().unwrap() && !main.is_fullscreen().unwrap() {
@@ -94,7 +98,14 @@ fn observe(
         handle.exit(i32::from(outcome.is_err()));
         outcome
     });
-    assert_eq!(app.run_return(|_, _| {}), 0);
+    assert_eq!(
+        app.run_return(move |_, event| {
+            if matches!(event, tauri::RunEvent::Ready) {
+                ready.send(()).unwrap();
+            }
+        }),
+        0
+    );
     worker.join().unwrap().unwrap();
 }
 
