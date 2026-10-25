@@ -3,7 +3,6 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
@@ -700,13 +699,8 @@ fn parse_creator(text: &str) -> serde_json::Result<Actor> {
 }
 
 pub(super) fn now_ms() -> i64 {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 impl super::Todos {
