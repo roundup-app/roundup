@@ -790,8 +790,8 @@
     "kind": "reference"
   },
   "crates/perf/src/app.rs": {
-    "cleanup": "Delegates success/failure to launch::finish, which stops and reaps owned children before removing the temporary profile; unresolved cleanup retains data.",
-    "data": "Shared native observer App launch creates absolute temporary data, HOME and XDG paths; the Daemon wrapper reapplies ROUNDUP_DATA_DIR at the executable boundary.",
+    "cleanup": "app::run sends success and failure through launch::finish, which stops and reaps the App and its owned descendants before closing the temporary profile; cleanup failure retains the directory.",
+    "data": "Shared native observer App launch owns an absolute TempDir data path and isolated HOME/XDG_DATA_HOME; sets ROUNDUP_DATA_DIR on the App and resets it in the executable Daemon wrapper.",
     "issue": 1557,
     "kind": "indirect",
     "sha256": "6ae6c071698605e72b50a55942a31c87f3e3e89def4c6dd0f204a085f8d50d5b"

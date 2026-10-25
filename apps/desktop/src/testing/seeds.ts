@@ -321,7 +321,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
       if (todo.home !== workstream.id) continue;
 
       if (todo.done) {
-        await app.handlers["todo.delete"]?.({ id: todo.id });
+        await app.handlers["todo.delete"]?.({ operation: crypto.randomUUID(), ids: [todo.id] });
         result.removed.push({ id: String(todo.id), kind: "todo", name: todo.title });
       } else {
         await app.handlers["todo.move"]?.({ id: todo.id, home: null });
