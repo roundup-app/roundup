@@ -30,7 +30,7 @@ jobs:
       github.event.workflow_run.display_title != 'Draft check' &&
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       issues: read
@@ -67,7 +67,7 @@ jobs:
     name: 'critic #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -173,7 +173,7 @@ jobs:
   post:
     needs: [task, critic-run]
     if: ${{ !cancelled() && needs.task.outputs.pr != '' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: write
       contents: read
