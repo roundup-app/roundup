@@ -455,8 +455,8 @@
   display: none;
 }
 
-/* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
-.rail-row[data-near="true"] .line > .rail-pads-control {
+/* U133: hiding the focused disclosure drops native focus before its activation key. */
+.rail-row[data-near="true"] .line > .rail-pads-control:not(:focus-within) {
   display: none;
 }
 
