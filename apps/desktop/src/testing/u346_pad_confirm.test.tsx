@@ -293,3 +293,24 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     await second.stop();
   }
 }, 240_000);
+
+it("u3789a_generated_App_contract_renames_through_the_real_Daemon", async () => {
+  const { startRealDaemon } = await import("./realDaemonFixture");
+  const { createServedApp } = await import("./realSeam");
+  const real = await startRealDaemon({});
+
+  try {
+    const app = createServedApp(real.base);
+    const original = await app.rpc("pad.create", { name: "Notes", text: "exact\n text 🌱\n" });
+    const home = await app.rpc("rail.createWorkstream", { name: "Home", parent: null });
+    await app.rpc("pad.move", { name: original.name, home: home.id });
+    await expect(app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: "stale" })).rejects.toMatchObject({ code: -32003 });
+    const renamed = await app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: original.incarnation });
+    const expected = { ...original, name: "Plan", home: home.id };
+    expect(renamed).toEqual(expected);
+    await real.restart();
+    expect(await createServedApp(real.base).rpc("pad.read", { name: "Plan" })).toEqual(expected);
+  } finally {
+    await real.stop();
+  }
+}, 120_000);

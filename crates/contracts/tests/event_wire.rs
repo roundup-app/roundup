@@ -3,7 +3,6 @@ use contracts::message::{Message, MessageKind, MessageStatus, Reason};
 use contracts::todo::Todo;
 use contracts::{Actor, Event, EventData};
 use serde_json::json;
-use ts_rs::TS;
 
 #[test]
 fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
@@ -117,10 +116,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
 #[test]
 fn r16_event_data_keeps_the_generated_typescript_shape() {
     let committed = include_str!("../../../contracts/generated/EventData.ts");
-    assert!(committed.contains(&format!(
-        "export {}",
-        EventData::decl(&ts_rs::Config::default())
-    )));
+    assert!(committed.contains(&contracts::export::event_data_declaration().unwrap().0));
 }
 
 #[test]

@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
 use crate::common::Actor;
 use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 #[serde(tag = "name", content = "data")]
-#[ts(export)]
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
     WorkstreamUpdated(workstream::AutoParams),
@@ -29,6 +28,9 @@ pub enum EventData {
     TodoCreated(Box<todo::Todo>),
     #[serde(rename = "todo.updated")]
     TodoUpdated(Box<todo::Todo>),
+    /// Data restoration only: consumers must not replay creation or external effects.
+    #[serde(rename = "todo.restored")]
+    TodoRestored(Box<todo::Todo>),
     #[serde(rename = "todo.unblocked")]
     TodoUnblocked(todo::TodoId),
     #[serde(rename = "todo.deleted")]
@@ -47,6 +49,13 @@ pub enum EventData {
     TodoRefRemoved(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
+    /// Accepted name change; the original incarnation remains authoritative.
+    #[serde(rename = "pad.renamed")]
+    PadRenamed {
+        incarnation: String,
+        name: String,
+        previous_name: String,
+    },
     #[serde(rename = "pad.deleted")]
     PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
@@ -85,12 +94,11 @@ pub enum EventData {
     WorkstreamQueueChanged,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct Event {
     /// The Event number: set on every saved Event (D10).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional, type = "number")]
+    #[specta(optional, type = specta_typescript::Number)]
     pub seq: Option<u64>,
     pub actor: Actor,
     #[serde(flatten)]

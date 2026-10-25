@@ -107,12 +107,13 @@ impl Bus {
         };
         let (oldest, highest) = log.bounds()?;
         if after + 1 < oldest {
-            return Err(RpcError::new(
-                crate::error::code::EVENTS_EXPIRED,
-                format!(
+            return Err(RpcError {
+                code: crate::error::code::EVENTS_EXPIRED,
+                data: Some(contracts::RpcErrorData::EventsExpired { oldest }),
+                message: format!(
                     "after {after} is older than the log keeps; the oldest kept Event number is {oldest}"
                 ),
-            ));
+            });
         }
         let mut events = Vec::new();
         let mut last = after;
@@ -144,13 +145,14 @@ impl Bus {
                     ));
                 }
                 Some(after) if after + 1 < oldest => {
-                    return Err(RpcError::new(
-                        crate::error::code::EVENTS_EXPIRED,
-                        format!(
+                    return Err(RpcError {
+                        code: crate::error::code::EVENTS_EXPIRED,
+                        data: Some(contracts::RpcErrorData::EventsExpired { oldest }),
+                        message: format!(
                             "after {after} is older than the log keeps; the oldest kept Event number is {oldest}: start without `--after`, or pass `--after {}`",
                             oldest - 1
                         ),
-                    ));
+                    });
                 }
                 Some(after) => after,
                 None => highest,
@@ -313,4 +315,16 @@ pub fn json<T: Serialize>(value: &T) -> Result<Reply, RpcError> {
 /// Encode a result.
 pub fn reply<T: Serialize>(value: &T) -> Result<Value, RpcError> {
     serde_json::to_value(value).map_err(RpcError::internal)
+}
+
+/// Expand an owning module's declarations into its existing async dispatcher.
+#[macro_export]
+macro_rules! dispatch_methods {
+    ([$this:ident, $ctx:ident, $method:ident, $value:ident]
+     $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
+        match $method {
+            $($wire => $this.$handler($ctx, $method, $value).await,)*
+            _ => Err($crate::RpcError::method_not_found($method)),
+        }
+    };
 }

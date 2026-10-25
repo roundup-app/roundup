@@ -46,6 +46,10 @@ describe("k1 and u3010e the probes are opt-in at build time", () => {
     expect(await normal()).not.toContain("roundup-frame-recorder");
   }, 60_000);
 
+  it("r24_a_normal_build_excludes_the_idle_producer_and_its_native_command", async () => {
+    expect(await normal()).not.toContain("record_idle_evidence");
+  }, 60_000);
+
   it("k1_a_build_made_with_VITE_ROUNDUP_PERF_carries_it", async () => {
     expect(await measurement()).toContain("roundup-keystroke-probe");
   }, 60_000);
@@ -54,3 +58,14 @@ describe("k1 and u3010e the probes are opt-in at build time", () => {
     expect(await measurement()).toContain("roundup-frame-recorder");
   }, 60_000);
 });
+
+it("r24_an_idle_build_carries_evidence_without_typing_or_frame_drivers", async () => {
+  vi.stubEnv("VITE_ROUNDUP_IDLE_PERF", "1");
+  vi.stubEnv("VITE_ROUNDUP_PERF", "1");
+
+  const code = await bundled();
+
+  expect(code).toContain("record_idle_evidence");
+  expect(code).not.toContain("roundup-keystroke-probe");
+  expect(code).not.toContain("roundup-frame-recorder");
+}, 60_000);

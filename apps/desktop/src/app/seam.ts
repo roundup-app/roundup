@@ -1,4 +1,6 @@
 import * as v from "valibot";
+import type { RpcErrorData } from "@contracts/RpcErrorData";
+import type { IdleEvidence } from "../perf/idle";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -11,7 +13,12 @@ export const projectPageSchema = v.object({ path: v.string(), command: v.picklis
 /** One entry of `projects`, in tab order (S8): `running` is false once that Project's Daemon exited. */
 export const listedProjectSchema = v.object({ name: v.string(), path: v.string(), running: v.boolean() });
 
-const daemonExitSchema = v.object({ code: v.nullable(v.number()) });
+const daemonExitSchema = v.object({
+  code: v.nullable(v.number()),
+  /** Omitted only after automatic recovery is exhausted. */
+  recovery: v.optional(v.picklist(["waiting", "connecting"])),
+  cause: v.optional(v.string()),
+});
 
 /** The `daemon-exited` event, which names the Project whose Daemon ended (S8). */
 export const daemonExitedSchema = v.object({ path: v.string(), ...daemonExitSchema.entries });
@@ -62,9 +69,10 @@ export type ProjectCalls = {
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
 
-/** The Tauri commands the App registers (`crates/desktop`), every one of them; `m5_every_app_action_has_a_tool_or_a_reason` reads this table and fails for a command without an MCP tool or a reason. */
+/** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
   "projects",
+  "record_idle_evidence",
   "select_project_menu",
   "open_project",
   "close_project",
@@ -88,6 +96,8 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** R24 measurement builds alone provide this bounded native evidence sink. */
+  recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
@@ -140,13 +150,33 @@ export type AppSeam = App & ProjectCalls;
 
 export const INTERNAL_CODE = -32603;
 
+/** Unknown or malformed optional data cannot authorize Event recovery; keep the error identity. */
+export const rpcFailureSchema = v.object({
+  code: v.number(),
+  message: v.string(),
+  data: v.fallback(v.optional(v.object({
+    kind: v.literal("events-expired"),
+    oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
+  })), undefined),
+});
+
 /** A failed call: the Daemon's own `code` and `message`, or INTERNAL when Tauri, a plugin or a malformed answer failed. */
 export class RpcError extends Error {
   readonly code: number;
+  readonly data: RpcErrorData | undefined;
 
-  constructor(code: number, message: string) {
+  constructor(code: number, message: string, data?: RpcErrorData) {
     super(message);
     this.name = "RpcError";
     this.code = code;
+    this.data = data;
   }
 }
+
+const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010]);
+
+/** Only a typed refusal proves a remote mutation failed; all other throws preserve uncertainty. */
+// U3791b: this is the foreign-throw ingestion seam; even primitives must retain uncertainty.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export const outcomeOf = (thrown: unknown): "failed" | "unknown" =>
+  thrown instanceof RpcError && refusals.has(thrown.code) ? "failed" : "unknown";

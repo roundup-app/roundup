@@ -13,11 +13,136 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 
 **H15's hook cost.** `rup signal` cost 3.8 ms wall and 4.3 ms CPU per call on architect-swarm's Mac before H15 (read by hand, not committed), about 760 ms wall for the 200 calls (`PreToolUse` and `PostToolUse`) a 100-tool-use loop makes. The replay rule in `crates/agents/tests/state_events.rs`, which also replays each fixture's titles and compares the whole Status, finds no event in `STATE_EVENTS` prunable: `PreToolUse`'s Signal is what lets A2's star hold (`crates/agents/src/claude_code/mod.rs`) tell a star that may precede a dialog from one that may not. `STATE_EVENTS` keeps all nine events and a tool use still costs two `rup signal` calls. The one saving is a current-thread runtime in `crates/rup/src/main.rs`, so `rup signal` runs one OS thread (`h15_rup_signal_never_runs_more_than_one_os_thread`, `crates/rup/tests/signal.rs`). `hook_loop_ms` is the wall time of 200 sequential `rup signal` calls against a fresh Daemon; it is limit-only, with no baseline and no R13 skip. Its `limit` of 2000 ms is a gross tripwire, not a saving: the figure was read by hand and is not committed. The end-to-end check, with the real settings `agent.spawn` writes, is `h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle` (`crates/rup/tests/e2e.rs`).
 
-`just perf` runs a fresh Daemon 11 times, takes each metric's median, prints the range and each run's load average, writes `target/perf.json` and exits 1 on a miss. Run it on a quiet machine: load is printed so a noisy run can be thrown away. A metric fails above its `limit`, or above its OS's `baseline` by more than 10% plus its `noise` allowance.
+`just perf` runs a fresh Daemon 11 times, takes each metric's median, prints the range and each run's load average, writes `target/perf.json` and exits 1 on a miss. Run it on a quiet machine; retain busy runs with their load and skip reasons, then repeat them without counting them as clean evidence. A metric fails above its `limit`, or above its OS's `baseline` by more than 10% plus its `noise` allowance.
 
 **Q11's cold plugin materialization.** Each release `perf` run materializes the pinned plugin bundle into a new empty temporary directory. Only `plugins::materialize` is timed; `bundle.validate()` must then succeed or the observer exits 2. The median is printed as `cold_plugin_materialization_ms` and retained in `target/perf.json`. Its rule 7 limit remains 300 ms on every OS at every load. Regression above the recorded Linux baseline by more than 10% plus the clock-resolution allowance fails (exit 1), using the same R13 load rule as other latencies. `just check` verifies empty-directory materialization and validation without a wall-clock assertion (`q11_cold_materialization_produces_a_valid_bundle`).
 
-Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release observations on 2026-10-14 (Ubuntu 24.04, four available CPUs, AMD EPYC 7763 64-Core Processor, rustc 1.99.0). The nine medians were 11.889899, 11.971422, 12.378832, 11.931701, 11.680185, 11.874712, 11.944743, 11.940635 and 12.034941 ms (max/median 1.037, min/median 0.978); median load per CPU was 0.60–1.20. The probe is commit `9ff3cf3e` in [#1762](https://github.com/saadshahd/roundup/pull/1762); this baseline applies to that Linux machine class, not macOS. The clock-resolution allowance is 0.001 ms, and R13's Linux threshold is 2.0 load per CPU. The 300 ms hard limit applies even when load skips the regression comparison; macOS has the hard limit until its own baseline is measured. Tests `q11_cold_plugin_materialization_keeps_the_300_ms_limit`, `q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit` and `q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median` exercise the gates with synthetic samples, never clock assertions.
+Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release observations on 2026-10-14 (Ubuntu 24.04, four available CPUs, AMD EPYC 7763 64-Core Processor, rustc 1.99.0). The nine medians were 11.889899, 11.971422, 12.378832, 11.931701, 11.680185, 11.874712, 11.944743, 11.940635 and 12.034941 ms (max/median 1.037, min/median 0.978); median load per CPU was 0.60–1.20. The probe is commit `9ff3cf3e` in [#1762](https://github.com/saadshahd/roundup/pull/1762); this baseline applies to that Linux machine class, not macOS. The clock-resolution allowance is 0.001 ms, and R13's Linux threshold is 2.0 load per CPU. The 300 ms hard limit applies even when load skips the regression comparison; macOS has the hard limit until its own baseline is measured. Tests `r8_the_committed_limits_are_rule_sevens_budgets` and `r9_a_value_at_a_committed_limit_passes_and_the_next_one_fails`, `q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit` and `q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median` exercise the gates with synthetic samples, never clock assertions.
+
+## Perf work and evidence (R25–R27)
+
+The live `contracts::methods::METHODS` table is checked by `r25_every_method_has_a_perf_disposition` against `methods` arrays in `crates/perf/budgets.json` and the JSON list below. Metadata adds no metric and waives no R7 measurement. Off-path is a workload disposition, never a claim that a method is fast. Review a changed method's disposition against its behavior.
+
+Every perf repair PR carries a table with metric/unit, before/after values, reference commits, exact observer command, host class, physical host identity and run/session identity. Compare the same observer command on one host in one session, changing only reference binaries or repaired code. Retain reports, failures, skips and exit codes. Isolate probe changes by running old/new probes against the same binaries before attributing a difference. Another host or command supplies diagnosis, never the required pair.
+
+The existing `budget` test target validates every added, changed or removed baseline against the actual Git base/head, independently of R8's pins. CI's `BASE` selects the main-side parent of its tested merge; a local branch uses `git merge-base origin/main HEAD`. On main, compare its first parent. Unreadable Git versions fail. Unchanged baselines need no new evidence.
+
+Commit `crates/perf/baseline-pairs.json` beside `budgets.json` for baseline edits. It is an array with one matching entry per changed metric/class and old/new value. Additions/removals explicitly use `null`; omitted fields fail. For example (schema only, **not measurement evidence**):
+
+```json
+[{
+  "metric": "ping_p95_ms", "class": "linux-9v45", "old": null, "new": 0.025,
+  "before": {"metric": "ping_p95_ms", "class": "linux-9v45", "measurement": 0.024, "unit": "ms", "reference": "<full before commit id>", "command": "just perf --runs 11", "host": "<physical VM identity>", "session": "<one observation session>", "report": "crates/perf/evidence/before.json"},
+  "after": {"metric": "ping_p95_ms", "class": "linux-9v45", "measurement": 0.025, "unit": "ms", "reference": "<full after commit id>", "command": "just perf --runs 11", "host": "<same VM identity>", "session": "<same observation session>", "report": "crates/perf/evidence/after.json"}
+}]
+```
+
+Each report path must exist in the tested Git head and repeat its observation's fields exactly. Use `ms` or `MB`, full 40-character reference commits and distinct report paths. Reports can retain additional raw samples, exit codes, hashes and artifact paths; preserve the original observer output alongside those report facts. Measurements need not equal baselines: R16 calibration uses nine clean invocation medians. This pair is necessary evidence, never permission to raise a baseline. R16's diagnosis, calibration, provenance and independent observations, R8's pins and R13's load qualification still apply. The PR body table remains required policy even with committed evidence. This change supplies no baseline or performance pass.
+
+### Execution hosts
+
+| Issue | Host class | What runs where |
+|---|---|---|
+| [#3696](https://github.com/roundup-app/roundup/issues/3696) | `macos` | Write latency and full perf acceptance on the same qualified Mac; code work consumes its retained evidence. |
+| [#3550](https://github.com/roundup-app/roundup/issues/3550) | `macos` | `just perf-keystroke` in the real release App webview on the required Mac. |
+| [#3013](https://github.com/roundup-app/roundup/issues/3013) | `macos` | Native motion observation in the App on the required Mac. |
+| [#3720](https://github.com/roundup-app/roundup/issues/3720) | `linux-9v45` | Same-host historical/current regression diagnosis and measured repair. |
+| [#3760](https://github.com/roundup-app/roundup/issues/3760) | `linux-9v45` | Paired write-path timing and profiles on one qualified 9V45 host. |
+| [#3971](https://github.com/roundup-app/roundup/issues/3971) | `linux-9v45` | Isolate write-stage scheduling and historical output-adapter cost for #3760. |
+| [#3764](https://github.com/roundup-app/roundup/issues/3764) | `linux-9v45` | Qualify the execution lifetime and run dependent probes within that lifetime. |
+| [#3706](https://github.com/roundup-app/roundup/issues/3706) | `linux-9v45` | R16 diagnosis, calibration and independent observer evidence on 9V45. |
+| [#3848](https://github.com/roundup-app/roundup/issues/3848) | `any` | Live-method and committed-evidence Rust checks; no machine-specific measurement. |
+
+`any` means the result does not require a particular host; it never substitutes for unavailable hardware. Same-class and same-Mac requirements remain. Before code work whose acceptance needs an unavailable host, its Builder creates or reuses a scoped measurement Issue naming host, exact commands, reference commits and retained evidence, then a code Issue natively blocked by it. The measurement Issue owns observations; the code Issue consumes them. Reuse existing measurement prerequisites. Host qualification alone completes no observation, and a probe requiring a qualified host lifetime runs within it. The seven Issues above and their acceptance are unchanged here; their Builders own those splits, preserving dependencies and ownership. Unavailable hardware is an execution prerequisite. Only an observation the user's Mac alone can produce uses the Mac-request rule.
+
+## Off the hot path
+
+These exact method keys explain exclusions from the measured workload. Adding a
+method without a measured mapping or non-empty reason fails live coverage.
+
+```json
+{
+  "project.measurements": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.measurementSummary": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "deliverable.publish": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.list": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
+  "deliverable.get": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.resolve": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
+  "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
+  "ask.send": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.", "ask.list": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
+  "ask.pick": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
+  "daemon.methods": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "link.read": "External link reading depends on external content and is absent from the isolated perf workload.",
+  "daemon.identify": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "events.subscribe": "Subscription setup is outside the timed calls; write-to-output measures delivery on an already subscribed connection.",
+  "provenance.history": "History inspection is user-requested and absent from the measured steady workload.", "provenance.touched": "History inspection is user-requested and absent from the measured steady workload.",
+  "terminal.open": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.close": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "terminal.resize": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.kill": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "terminal.scheme": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.show": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "terminal.list": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.snapshot": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "terminal.outputStop": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.screen": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "terminal.read": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.search": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
+  "todo.create": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.get": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.listHanded": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.getHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.readHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.list": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.update": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.complete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.reopen": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.setBlockers": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.assign": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.hand": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.move": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.reorder": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.delete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.deletion": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.restore": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.comment": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.comments": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.unread": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.markCommentsRead": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.addRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "todo.removeRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.refs": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "pad.create": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.read": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.list": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.rename": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.write": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.append": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.appendSection": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setOwner": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.move": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.delete": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.export": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setStorage": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "agent.spawn": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.extras": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.extras_add": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.stop": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.prompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.interrupt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.worktreeState": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.changedFiles": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.compareFile": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.land": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.discard": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.context": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.brief": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.skills": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.digest": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.wake": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "reaction.create": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.preview": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
+  "reaction.list": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.get": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
+  "reaction.stop": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.run": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
+  "agent.spawnPrompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setOrder": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.instructions": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.channelUp": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "rail.list": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
+  "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "rail.createWorkstream": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.move": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
+  "rail.rename": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.startDoor": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
+  "agent.run": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "project.setWorktrees": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setMcp": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "project.setPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.getPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "project.importDiscover": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "import.list": "Saved-conversation import is explicit user work and absent from the isolated perf workload.",
+  "project.importCommit": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.prepareDirectory": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "project.get": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setModels": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "models.list": "Vendor model discovery is configuration work, absent from the isolated perf workload.",
+  "project.resources": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.open": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "project.rename": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
+  "attachment.save": "Attachment persistence is absent from the fixed Terminal echo and Rail-read workload.",
+  "message.progress": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.report": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "message.acceptResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.verifyResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "message.resolveResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.reconcileWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "message.resumeWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.send": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "message.get": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.list": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "message.drop": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
+  "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
+  "checkpoint.write": "Checkpoint persistence and inspection are absent from the fixed perf workload.", "checkpoint.list": "Checkpoint persistence and inspection are absent from the fixed perf workload.",
+  "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
+  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "workstream.clear": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.rewindPlan": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.handoff": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "todo.startWorkstream": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
+  "workstream.queue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.dequeue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "workstream.queueMove": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.startNow": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "project.setWorkstreamCap": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload."
+}
+```
 
 ## What is enforced, and what is not
 
@@ -33,7 +158,7 @@ Rule 7's 10% regression test is enforced for six metrics on Linux (including Q11
 | `cold_start_ms` | 3.08 | 0.57 | limit 300 ms only: its median varies 3x between identical invocations, so no 10% test can hold |
 | `rail_tree_10_p95_ms` | 1.66 | 0.51 | limit 2 ms only (about 8x its median): same reason |
 
-`noise` is an absolute floor for the clock's resolution, not slack: it is 0.05 MB on a 1.6 MB metric and 1 microsecond on latencies of 25 to 265 microseconds. The worst observed ratio (1.13, `ping`) is a 0.5 microsecond overshoot that the floor covers; with only 9 invocations, one false fail in a few dozen runs is expected, so rerun before believing a single fail. The `linux-boxd` baselines are the medians of those 9 invocations and are valid for that VM class only. The `macos` baselines are in the next section; the `limit`s hold anywhere. To accept a new baseline, copy the medians from `target/perf.json` into `budgets.json` under the OS name (`macos`) or Linux class key (`linux-boxd`, `linux-9v45`, `linux-7763`, `linux-9v74`, `linux-8573c`, `linux-8370c`) in the same PR that explains why. See `scenarios/perf.md` (R1 to R10).
+`noise` is an absolute floor for the clock's resolution, not slack: it is 0.05 MB on a 1.6 MB metric and 1 microsecond on latencies of 25 to 265 microseconds. The worst observed ratio (1.13, `ping`) is a 0.5 microsecond overshoot that the floor covers; with only 9 invocations, one false fail in a few dozen runs is expected, so rerun before believing a single fail. The `linux-boxd` baselines are the medians of those 9 invocations and are valid for that VM class only. The `macos` baselines are in the next section; the `limit`s hold anywhere. Accept a baseline only after the R16 diagnosis, calibration and independent observations below, with R26 committed paired evidence and the repair table above. Keep OS/class keys and provenance separate; copying one run's medians and explaining them does not establish a baseline.
 
 ## Linux Builder classes (R16 specification)
 
@@ -82,62 +207,53 @@ R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured ca
 
 ### R23 execution lifetime (#3764)
 
-[#3764](https://github.com/saadshahd/roundup/issues/3764) remains open: Builder
-[40127972413](https://github.com/saadshahd/roundup/actions/runs/40127972413)
-at `f82fd7499a07f81a8dd42947b2b9d3c353c15905` has exact model
-`AMD EPYC 7763 64-Core Processor`, so its R23 host preflight exits 2.
-The commands, full identity, statuses and existing-host search are retained in
-[`r23-host-40127972413`](../crates/perf/evidence/r23-host-40127972413/README.md).
-No R23 timing or profile was collected. The earlier 9V45 diagnosis below predates
-R23's candidate and supplies neither a live host nor an R23 observation.
+[Host attempts, qualified observations and reproduction instructions](perf-r23-execution.md).
 
-Builder [40131015578](https://github.com/saadshahd/roundup/actions/runs/40131015578)
-also failed the exact-model preflight (exit 2): its model is
-`Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz`. Ubuntu 24.04, x86_64,
-four online/available CPUs and affinity `0-3` match, but do not qualify that CPU.
-[Full identity and existing-host search](../crates/perf/evidence/r23-host-40131015578/README.md)
-retain the commands and statuses. No reachable qualified lifetime was identified;
-runner inventory returned HTTP 403 and active sibling logs HTTP 404. No resource,
-R23 timing or profile was produced. #3764 remains open and #3760 stays blocked;
-remaining measurement/repair work stays under #3720.
+### R23 paired write conclusions (#3760)
 
-Builder [40133799182](https://github.com/saadshahd/roundup/actions/runs/40133799182)
-again reports `AMD EPYC 7763 64-Core Processor`; the unchanged standalone preflight
-exits 2. [Identity and search evidence](../crates/perf/evidence/r23-host-40133799182/README.md)
-retain the boot identity, commands and statuses. Runner inventory returned HTTP
-403 and two active Builder log requests returned HTTP 404; no reachable qualified
-lifetime was identified. No resource, timing invocation or profile was produced.
-#3764 remains open and #3760 blocked, with remaining work under #3720.
+The [retained 9V45 lifetime](../crates/perf/evidence/r23-host-40170055163/README.md)
+compares historical `2029ed2c4ee606d26e73c858c4d7c93130df36e0` with candidate
+`50e546c1a3ce74689738b08a3dfe273895f9ae31` using one compatible probe.
+Three ordered pairs each contain eleven fresh Daemons, with median load/CPU
+0.6325–1.3150 and neither write metric skipped. Values below are invocation
+medians in milliseconds; ratios use the unrounded reports.
 
-For the next execution attempt, use the existing Builder facility:
+| Pair | Historical write | Candidate write | Ratio | Historical output | Candidate output | Ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 0.054052 | 0.055794 | 1.032228 | 0.112005 | 0.110897 | 0.990108 |
+| 2 | 0.053530 | 0.056035 | 1.046796 | 0.110526 | 0.111509 | 1.008894 |
+| 3 | 0.054162 | 0.053080 | 0.980023 | 0.110957 | 0.111127 | 1.001532 |
 
-1. Search existing host evidence and active Actions jobs before allocating a host.
-   A job name or `ubuntu-latest` label does not establish CPU identity or access.
-   This attempt's runner inventory request returned HTTP 403; job metadata exposed
-   no remote execution endpoint. The existing `build-issue.yml` selects
-   `ubuntu-latest` without an exact CPU selector and serializes builds of one Issue.
-   Dispatching another build during this one would not hand off its lifetime.
-2. On the execution host, retain the full identity commands above and execute the
-   preflight in `qualification.txt`. Require exit 0 and retain the Actions run/job,
-   runner name and `/proc/sys/kernel/random/boot_id` to identify the lifetime.
-   Exit 2 means stop before timing; never substitute another CPU class.
-3. Keep that host alive through #3760's observations. Build historical
-   `2029ed2c4ee606d26e73c858c4d7c93130df36e0` and candidate
-   `50e546c1a3ce74689738b08a3dfe273895f9ae31` there with the same toolchain and
-   release settings (`cargo build --release -p rupd -p rup -p perf`). Retain
-   executable SHA-256 hashes and #3760's compatibility diff before measuring.
-4. Execute #3760's compatible probe commands in order historical-1, candidate-1,
-   historical-2, candidate-2, historical-3, candidate-3, eleven fresh Daemons each.
-   Retain reports, logs, statuses, failed attempts and busy-pair repeats. Collect
-   both diagnostic profiles separately from these timing invocations. Keep all
-   evidence under `crates/perf/evidence/` and link it on #3760 before the job ends.
-   If another run cannot execute on this same live host, the qualifying run must
-   collect these observations itself; an identity-only handoff is incomplete.
+`terminal_write_p95_ms`: historical median 0.054052; ceiling
+0.054052 × 1.10 + 0.001 = **0.0604572 ms**. All three candidates fit.
+`write_to_output_p95_ms`: historical median 0.110957; ceiling
+0.110957 × 1.10 + 0.001 = **0.1230527 ms**. All three candidates fit,
+and all six invocation medians are below the unchanged 16 ms absolute limit.
+Cold start and extra RSS invocation medians also stay below 300 ms and 150 MB.
+These are complete-observer comparisons; they establish no Daemon-only repair.
+The older diagnosis below measures a different candidate and incompatible probes.
 
-R23 in `scenarios/perf.md` governs workloads, load qualification, ceilings and
-attribution. #3760 owns probe compatibility and per-metric conclusions; remaining
-measurement and repair work stays linked to #3720. This failed preflight establishes
-no calibration, performance pass or completed host prerequisite.
+All six exits remain 1: each misses the explicitly diagnostic copied-boxd
+ceilings for ping, RSS and write-to-output. Their raw values, ceilings, statuses,
+startup logs and all failed attempts remain retained. No copied value becomes
+a 9V45 baseline. H15 is excluded after the writes for both references, so this
+supplies no full perf pass, calibration or relaxation of R16 step 3.
+
+[Compatibility assessment, calculation command and profile analysis](../crates/perf/evidence/r23-host-40170055163/assessment.md)
+explain the unresolved attribution. Historical Events require probe-side output
+adaptation; its cost was not isolated. Separate perf/strace recordings include
+RPC, PTY and delivery work, but combine setup, Rail, ping and write phases.
+Their CPU samples show JSON decoding, allocation and scheduling work; overlapping
+syscall wall times cannot assign per-write waiting. Whole-invocation profiling
+overhead is +8.4% historical / +9.5% candidate; profiles never count as timing pairs.
+
+[Reproduction commands](../crates/perf/evidence/r23-host-40170055163/reproduce.txt)
+require a newly qualified 9V45 lifetime; this assessment collected no substitute
+measurements on its 9V74 host. **Attribution remains incomplete**:
+[#3971](https://github.com/roundup-app/roundup/issues/3971) blocks #3760 to isolate
+adapter cost and request/reply, PTY and output-delivery stages, linked under
+[#3720](https://github.com/roundup-app/roundup/issues/3720). #3760 stays open;
+R8 pins, R13 qualification, R15 pacing, R16 ceilings and macOS behavior are unchanged.
 
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
@@ -180,7 +296,7 @@ macOS cold start is stable (1.07) where the Linux VM's was not (3.08), so it is 
 
 **A latency miss on macOS is rerun on a quiet machine before it is believed; a memory miss is believed at any load.**
 
-**Real regression or noise.** Look at the load printed for each run first. A real regression moves the median above the ceiling in three reruns at the load of the baseline (up to about 0.45 per core) and does not track the load; noise falls back under the ceiling when the machine quiets, and the miss and the load rise together. A memory miss is real whatever the load. Re-baseline only with a PR that says why (copy the medians from `target/perf.json`).
+**Real regression or noise.** Look at the load printed for each run first. A real regression moves the median above the ceiling in three reruns at the load of the baseline (up to about 0.45 per core) and does not track the load; noise falls back under the ceiling when the machine quiets, and the miss and the load rise together. A memory miss is real whatever the load. A new baseline requires R16 diagnosis/calibration and R26 same-host paired evidence, never copying a single report's medians.
 
 ## Keystroke-to-render in WKWebView
 
@@ -338,20 +454,34 @@ cross-process subtraction is involved; a report without every hop is invalid
 | --- | --- |
 | `keydown_to_input` | `keydown` → xterm `onData` |
 | `input_to_dispatch` | `onData` → `terminal.write` called; retained coarse span for the earlier reports |
-| `input_to_encoded` | `onData` → base64 encoding completed; includes the input queue's wait for the previous write's reply |
+| `input_to_encoded` | `onData` → base64 encoding completed; retained coarse queue-plus-encoding span |
+| `input_to_encoding` | `onData` → the queue releases this batch for encoding; includes waiting for the previous write reply |
+| `encoding_to_encoded` | byte preparation and base64 encoding, after the queue releases the batch |
 | `encoded_to_dispatch` | base64 encoding completed → `terminal.write` called |
 | `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
 | `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
 | `parsed_to_frame` | parsed → the next render |
 | `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
 
-Screens stamps completed encoding of each dispatched batch through the existing
-optional emulator probe, after `toBase64` returns and before the RPC call. Queued
-keys are stamped when their batch is encoded, not when they first enter the
-queue. This adds a same-clock boundary; it does not split queue wait from
-encoding cost, calibrate Daemon clocks, or establish a latency repair. The
-previously retained five-span reports remain historical evidence; new reports
-require both additional spans, or exit 2.
+Screens stamps encoding start before byte preparation, then completion after `toBase64` and before RPC dispatch, through the existing optional emulator probe.
+`input_to_encoding` measures queue wait; `encoding_to_encoded` measures byte preparation
+and base64. Both are required (exit 2 if absent); coarse spans remain for comparison.
+Retained native observations predate these marks. Daemon calibration and a production repair remain outstanding.
+
+The no-window `r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch`
+failed before the start mark: with a held RPC reply, queued batches preserve the order
+start → actual base64 conversion → complete → dispatch. `r20_hop_report_accounts_for_the_echo_round_trip`
+proves separate 7 ms queue and 2 ms encoding spans with an injected clock, not native timing.
+
+The collector also requires every required hop's sample count to equal the
+rendered sample count, with finite, nonnegative, ordered p50/p95 values. Rendered
+samples plus drops must account for the requested measured keys; drops can also
+include warm-up keys. Incomplete or invalid attribution exits 2 and names the
+run and hop/count. A valid distribution with dropped keys still exits 1. The
+no-window `r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict` and
+`r20_missing_measured_keys_cannot_be_silently_skipped` regressions both failed
+before the validation repair. This changes report validation, not the input path
+or any retained native timing.
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
@@ -565,3 +695,292 @@ in the Mac's RSS rise. The saving is heap allocation on Linux, not a measured
 Mac RSS saving. No baseline changes or full R3696c pass are claimed. Startup,
 Rail, same-M4-Max observations, unchanged-code false-fail evidence and the
 separate later main pass remain outstanding.
+
+
+### Finish counts in the Rail read (#3696)
+
+The ordinary forty-Workstream reply still read `nodes` twice: once for the
+nodes and once for their finish counts, constructing an id-keyed map for the
+second read. PR #3864 selects `finished` with the node and carries it through
+the existing traversal. Presentation visits only reachable nodes, in the same
+order as before; no result is cached. The public Rail and RPC replies stay the
+same. The callback is internal to the existing Rail module.
+
+The existing no-process allocation observer,
+`r3696c_forty_workstreams_avoid_temporary_node_copies`, measures 290 allocations /
+176,266 bytes on `a1d2169e3` and 245 allocations / 172,230 bytes after this
+repair. Its cap is tightened from 400 to 260: it fails on the original path
+and passes on the repair. This file holds only that observer, so no redundant
+test is removed. Existing Rail ordering and
+`u3566c_finish_count_survives_attempts_and_reopen` cover the returned facts.
+
+Release probe: Linux x86_64, AMD EPYC 9V74, four available CPUs, rustc 1.99.0.
+Use the allocation observer's fixture and instrumented system allocator, then
+replace its measured call/assertion with seven batches of 10,000 awaited
+`Module::call_reply("rail.tree", null)` calls, black-boxing every reply and
+reporting elapsed time per call. Build both revisions before measuring. With
+builds and tests stopped, three alternating before/after invocations gave
+these median batch means (microseconds per reply):
+
+| Pair | Separate finish map | Combined read |
+|---|---:|---:|
+| 1 | 77.023 | 67.238 |
+| 2 | 78.204 | 67.546 |
+| 3 | 76.847 | 67.110 |
+
+One-minute load at invocation start ranged from 3.77 to 5.57 (0.94–1.39 per CPU).
+This is about 13% less local reply work, including live presentation and JSON
+serialization under the allocation observer. It excludes the Daemon's socket
+transport and is not the end-to-end Mac metric or evidence of idle RSS savings.
+Budgets are unchanged. The latest nine-pair M4 Max A/B at `59cff55cae` remains
+the failing acceptance evidence; remaining startup/RSS attribution, full
+same-M4-Max gate, unchanged-code false-fail evidence and the separate later
+main pass remain open. This repair justifies no baseline rebase.
+
+### Rail sort scratch space (#3696)
+
+The stable sort in `Rail::tree_with` allocates scratch space for the loaded
+`RailNode` values. A6 requires sibling orders to be unique; ties between
+nodes with different parents do not affect parent-first traversal. Rust's
+standard `sort_unstable_by_key` therefore preserves the reply order without
+that scratch allocation. No traversal, cache or sorting implementation is
+added.
+
+On Linux x86_64 (AMD EPYC 9V45, four available CPUs, rustc 1.99.0), the existing
+`r3696c_forty_workstreams_avoid_temporary_node_copies` observer measures 245
+allocations / 172,230 allocated bytes on `f32419986`, and 244 / 132,294 after
+this repair: 39,936 fewer temporary bytes per reply. Its new 150,000-byte cap
+fails on the original path and passes on the repair. The existing
+260-allocation cap remains because it catches the separate finish-map
+regression. No test in this file repeats either proof or is removed. Existing
+A6 Rail tests cover ordering and moves.
+
+Release probe: replace the allocation observer's measured call/assertions with
+seven batches of 10,000 awaited `Module::call_reply("rail.tree", null)` calls,
+black-boxing each reply and retaining the instrumented allocator. Build both
+revisions before measuring. Three alternating before/after invocations with
+builds and tests stopped produced median batch means (microseconds per reply):
+
+| Pair | Stable sort | In-place sort |
+|---|---:|---:|
+| 1 | 51.856 | 51.729 |
+| 2 | 51.524 | 51.555 |
+| 3 | 51.700 | 51.744 |
+
+One-minute load at invocation start ranged from 3.80 to 4.81 on four CPUs.
+These timings show no material speed change; the measured saving is allocation.
+They include presentation/JSON and exclude socket transport.
+
+This is temporary request allocation, not idle RSS attribution or a Mac timing
+pass. Budgets remain unchanged. Full same-M4-Max acceptance, remaining
+startup/RSS attribution, unchanged-code false-fail evidence and the separate
+later main pass remain open; this repair justifies no baseline rebase.
+
+### Deferred Terminal-owner worker (#3696)
+
+Opening `Agents` created a `Terminal owner reads` thread even when no Terminal
+ownership lookup followed. `Rail::terminal_owner` now initializes that same
+helper on its first lookup, using standard `Option::get_or_insert_with` under
+its existing exclusive borrow. The helper's bounded channel, read lease,
+query and active deadline remain unchanged. Its channel's `recv_timeout`
+replaces the lease sleep, allowing disconnection to release it at shutdown.
+The retired sleep's exact lint-debt entry is removed, with no new exception. Its database path is retained
+as a `PathBuf`, including for non-UTF-8 paths.
+
+The Linux kernel observer
+`r3696c_opening_agents_starts_no_owner_worker` counts `/proc/self/task`
+entries around the public `Agents::open_with` call. On `e65989178`, startup
+increased the count from two threads to three and failed; after the repair
+the count stays unchanged and passes. It runs in a separate integration-test
+binary without a Tokio runtime, child program or clock, so other test workers
+do not contaminate the count. Existing Terminal-owner tests cover lookup
+freshness and serialization with the helper active. No existing test was
+removed: the new file contains only this startup observer.
+
+This removes one thread creation from unused Project startup and idle life;
+it does not measure milliseconds saved or resident stack pages. It is not
+attribution of the entire Mac startup/RSS gap. No listing-sidecar change or
+baseline rebase is involved. Budgets remain unchanged. The latest nine-pair
+Mac A/B at `59cff55cae` remains the failing acceptance evidence; full M4 Max
+acceptance, remaining attribution, unchanged-code false-fail evidence and the
+separate later main pass remain open.
+
+### Runtime and store startup phases (#3696)
+
+The retained `open`/`bound` line starts at entry to async `run`, after Tokio
+creates its runtime. `rupd: runtime_ms <number>` measures the default
+multi-thread runtime's creation separately; its worker count and enabled drivers
+are the same as `#[tokio::main]`. No runtime tuning is made.
+
+A `startup: stores <JSON>` record splits `Daemon::open_stores` into adjacent wall
+intervals, in milliseconds:
+
+| Field | Work included |
+|---|---|
+| `storage_ms` | Data-directory creation, fresh image preparation/synchronization, database open and migration check |
+| `base_ms` | Event log, Terminal holder, Touches and Todos |
+| `agents_ms` | Agents open, Rail recovery and timing store |
+| `services_ms` | Checkpoints, Pads, digest/publication/reaction stores and Daemon holders |
+| `messages_ms` | Module registration, Messages, Asks and starting event listeners |
+
+These intervals partition the store-open function; Project path resolution and
+legacy data relocation precede them. They do not partition process creation or
+loader work. The parent cold-start measurement still includes readiness polling
+and the first ping. Subtracting runtime and `bound` from `cold_start_ms` leaves
+all those external costs and diagnostic output, not a pure spawn measurement.
+Plugin materialization and listing-sidecar launch remain deferred and are absent
+from these intervals. Records use standard `Instant`, existing serde_json and
+the already-retained stderr descriptor; no collector or extra program is added.
+Diagnostic formatting/writing occurs after the phase samples and remains part of
+the end-to-end cold-start metric.
+
+`r3696c_cold_start_reports_runtime_and_store_phases` starts an isolated real
+Daemon, waits for the harness's first successful ping and reads the retained
+numeric records. It failed before instrumentation because the phase record was
+absent. The existing harness observer checks ping and cleanup; the perf CLI
+observer separately proves stderr survives a failed startup. Neither proves
+startup attribution.
+
+This supplies attribution for the next Mac observation, not a performance
+repair or full R3696c pass. The latest failing M4 Max A/B at `59cff55cae` predates
+several repairs now on main. Remaining startup/RSS attribution, full same-M4-Max
+acceptance with unchanged budgets, unchanged-code false-fail evidence and the
+separate later main pass remain open. No baseline rebase is justified here.
+
+### R24 idle App observer
+
+`perf-idle` implements the six-phase release observer; its Linux tests establish parsing and comparison only. **No native idle measurement or calibration is recorded here.** Existing budgets and ADR 0001's WKWebView remain unchanged. #3777 delivered release-profile acceptance; its implementation #3807 must merge before a real calibration. Apply R27's host-split policy above before code work.
+
+```text
+Linux: recorded samples → protocol/membership/accounting/limits/report tests
+Mac:   isolated release App → ten: focused → unfocused → hidden
+                              one: focused → unfocused → hidden
+       → Activity Monitor cross-check → cursor attribution → calibration
+```
+
+An authorized local agent checks out the implementation commit named in the
+separate measurement work order, installs the frozen dependencies, and verifies
+#3807 is on that checkout. Stop other builds/tests for the observation. Never use
+personal App data, a real vendor executable, sudo, App Nap overrides or the
+keystroke/frame workload. `ROUNDUP_ALLOW_WINDOW` must be exactly `1`; both the
+recipe and direct executable refuse missing authorization before building,
+launching or changing focus, and refuse a non-macOS host even with opt-in.
+Linux/CI agents never set it.
+
+Before the round, create `target/perf-idle-host.json` with this schema, replacing
+all descriptions with actual host facts (this example is **not evidence**):
+
+```json
+{
+  "display_power": "display model, resolution, scale and Hz; AC/battery; Low Power Mode; keep fixed for all six phases",
+  "release": "source profile settings, toolchain and build configuration after #3807; same binaries for both counts",
+  "accounting_verified": "macOS version; verify local top -c d IDLEW interval counts and one-core %CPU; verify footprint -f bytes auxiliary phys_footprint ledger; retain commands/output and tool versions",
+  "cursor_enabled": true
+}
+```
+
+Verify the host's local `man top` and `man footprint` against those commands and
+retain that verification beside the report. The observer refuses unknown formats,
+missing metrics and denied commands; never interpret them as zero. Platform
+`top` uses `-c d` for interval event counts and one-core CPU; the initial block
+has invalid since-launch accounting and is discarded. `-F -R` avoids framework
+and memory-map traversal during CPU sampling. All included PIDs are selected by
+repeated `-pid PID`; each block must contain all of them. Receipt timestamps
+supply elapsed intervals, including nonuniform ones; gaps above 2.5 s invalidate
+the phase. At least 60 s of subsequent intervals is required. Only after top is
+stopped does `footprint -p PID -f bytes` acquire each per-process auxiliary
+`phys_footprint` ledger. Its `phys_footprint_peak`, RSS and derived totals are not
+accepted. Formatted K/M/G values use binary units; reports use decimal MB.
+
+Exact release commands (the recipe runs these after its guards):
+
+```sh
+pnpm install --frozen-lockfile
+VITE_ROUNDUP_IDLE_PERF=1 pnpm --filter desktop exec vite build --outDir "$PWD/target/perf-idle-dist" --emptyOutDir
+TAURI_CONFIG="$(jq -nc --arg dist "$PWD/target/perf-idle-dist" '{build: {frontendDist: $dist}}')" \
+  cargo build --release -p rupd -p rup -p desktop \
+    --features desktop/custom-protocol,desktop/idle-perf --target-dir target/perf-idle-app
+cargo build --release -p perf --bin perf-idle
+ROUNDUP_ALLOW_WINDOW=1 just perf-idle --host target/perf-idle-host.json
+# Or reuse that exact build without rebuilding:
+ROUNDUP_ALLOW_WINDOW=1 target/release/perf-idle --host target/perf-idle-host.json
+```
+
+The commands above are a **needs-mac handoff**, never instructions for a Linux
+Builder. Allow roughly ten minutes plus state changes. Each console prompt names
+the Agent count and requested state. Focus the selected Terminal with its normal
+blinking cursor; for unfocused, focus another window while leaving roundup fully
+visible; for hidden, use native App hide. Do not type into the workload. The
+observer waits for actual native/webview evidence, then settles at least five
+seconds and samples. It retains transitions, output and non-idle Status as errors.
+After ten Agents it removes nine, retaining the same selected Agent/Terminal.
+Renderer, CSS/physical dimensions, scale, executable hashes and declared
+configuration must agree. Hidden `document.visibilityState` is recorded as
+observed: an AppKit hide receipt does not imply a hidden webview document.
+After the final sample, unhide, wait five seconds and quit only this run's App
+normally within the prompted deadline; the final renderer checkpoint must drain
+before exit. A kill, timeout, partial journal or missing checkpoint is exit 2.
+
+Process discovery uses installed sysinfo inventories/start identities and a
+read-only libSystem responsibility query through Python's standard `ctypes`.
+The [same platform lookup is used by Chromium](https://chromium.googlesource.com/chromium/src/+/refs/tags/134.0.6998.28/base/process/process_info_mac.mm).
+It admits roundup, its owned rupd and every associated WebKit WebContent/GPU/
+Networking helper once, including XPC helpers parented by launchd. Vendor/shell
+children and unrelated helpers are excluded. Shared responsible ancestors cannot
+prove ownership: when a direct executable launch inherits a terminal's
+responsibility and a reparented helper has that same ancestor, collection refuses
+with unresolved ownership rather than counting another App's helpers. A missing
+platform symbol also refuses. Retain that failed round; repair an unsupported
+host association in a scoped observer Issue rather than using sudo or guessing.
+Absent helper roles have explicit inventory evidence; PID loss/reuse or changed
+membership invalidates the observation. Each top block also checks the complete
+WebKit start-identity inventory, so a helper born during sampling cannot be hidden
+by the fixed PID selection; any change, including an unrelated helper, conservatively
+invalidates the phase and retains the inventory.
+
+Recipe build failures retain command traces, stdout/stderr, actual build status
+and an exit-2 report under `target/perf-idle-build.XXXXXX/`.
+Each attempt needs a fresh destination, for example
+`--out target/perf-idle-round-2.json`. Never delete or overwrite a failed round.
+The default report is `target/perf-idle.json`; its exclusive sibling directory
+`target/perf-idle.evidence/` holds:
+
+| Raw evidence | Meaning |
+|---|---|
+| `host.json`, `command-NNNN.{json,stdout,stderr}` | Declared settings; exact command/args, monotonic acquisition start/end, actual status or spawn/deadline error, unmodified output |
+| `app-idle.jsonl`, App/Daemon stdout/stderr, `lifecycle.json` | #3862's sequenced native/application/webview records, completion checkpoint and run-owned cleanup outcome |
+| `fake-launches.jsonl`, `setup-COUNT-TERMINAL.json` | Fake launch evidence and pre-sample Terminal setup output (including blinking-block cursor sequence) |
+| `inventory-N.json` | Complete process inventory, starts and responsibility results; excluded PIDs retained |
+| `COUNT-STATE-top.{json,jsonl,events.jsonl,stderr}` | Exact delta-mode argv/status, each raw line with observer receipt time, sequenced Daemon events and stderr |
+| `COUNT-STATE-timing.json`, `COUNT-STATE.json`, output reads | Stable interval bounds, measured phase and output cursors; footprint commands have per-PID acquisition bounds |
+
+Observer time is monotonic seconds from before App launch. Producer `at_us` and
+renderer `at_ms` have separate origins; the first App receipt bounds the native
+origin and renderer time is bounded by launch and receipt. Any invalid event whose
+possible time overlaps the stable interval invalidates it, even if delivered
+only after unhide. No convenient endpoint can erase a transient change.
+
+Stdout and the JSON report retain all six phase slots, values, raw paths, limits,
+source commit, executable SHA256 hashes, release/host/tool facts and every failure.
+Incomplete or invalid observations take exit 2 precedence over numeric misses,
+which remain listed. Valid unfocused/hidden phases require tree CPU strictly below
+0.5% of one core and each PID at most one idle wake-up/s. Focused figures have no
+invented numeric ceiling. Paired states report ten/one ledger bytes and
+`(ten - one) / 9`, including negative results. Provisional memory aims are strictly
+below 300,000,000 ten-Agent bytes and 10,000,000 extra bytes per Agent in every
+state; a valid miss exits 1 and never rewrites a budget. Numeric success exits 0
+with native validation/calibration explicitly pending.
+
+[Mac measurement #3939](https://github.com/roundup-app/roundup/issues/3939)
+requires the same-run, same-PID Activity Monitor
+Memory and Energy cross-check with units, refresh intervals and timestamps;
+explain rounding/timing differences, and leave unexplained disagreement incomplete.
+Energy Impact is neither CPU percentage nor wake-up count. Use Web Inspector
+Timelines or Instruments with cursor enabled/disabled to attribute focused wakes.
+Retain all six release reports and repeats, then confirm or reset the initial
+memory aims here with justification. File measured repairs in their owning
+modules with same-observer/same-Mac before/after evidence; #3802 consumes these
+measurements and this observer selects no allocator.
+
+
+Release profile measurements: [code generation comparison](perf-release-profile.md).

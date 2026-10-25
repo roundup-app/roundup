@@ -4,6 +4,7 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+mod contract_handlers;
 mod integration;
 mod output;
 mod scheme;
@@ -1147,61 +1148,7 @@ impl Module for Terminals {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "terminal.spawn" => {
-                // M14: a Terminal an Agent starts is owned by it; the user's and an Extension's is ownerless (X1).
-                let spawned = if ctx.actor.kind == contracts::ActorKind::Agent {
-                    self.spawn_owned(params(value)?, &ctx.actor.id).await?
-                } else {
-                    self.spawn(params(value)?).await?
-                };
-                reply(&TerminalId { id: spawned.id })
-            }
-            "terminal.write" => {
-                let WriteParams { id, data } = params(value)?;
-                let bytes = STANDARD
-                    .decode(data)
-                    .map_err(|err| invalid(format!("data is not base64: {err}")))?;
-                if ctx.actor.kind == contracts::ActorKind::Agent {
-                    self.write_completed(&id, bytes).await.and(reply(&()))
-                } else {
-                    self.write(&id, &bytes).await.and(reply(&()))
-                }
-            }
-            "terminal.resize" => {
-                let ResizeParams { id, cols, rows } = params(value)?;
-                self.resize(&id, cols, rows).await.and(reply(&()))
-            }
-            "terminal.close" => {
-                let TerminalId { id } = params(value)?;
-                self.close(&id).await.and(reply(&()))
-            }
-            "terminal.kill" => {
-                let TerminalId { id } = params(value)?;
-                self.kill(&id).await.and(reply(&()))
-            }
-            "terminal.scheme" => self.set_scheme(params(value)?).await.and(reply(&())),
-            "terminal.show" => {
-                let TerminalId { id } = params(value)?;
-                self.screen(&id)?;
-                self.shared
-                    .bus
-                    .emit(Actor::daemon(), EventData::TerminalShown(TerminalId { id }));
-                reply(&())
-            }
-            "terminal.list" => reply(&self.list()),
-            "terminal.snapshot" => {
-                let TerminalId { id } = params(value)?;
-                reply(&self.snapshot(&id)?)
-            }
-            "terminal.screen" => {
-                let TerminalId { id } = params(value)?;
-                reply(&self.read_screen(&id, None)?)
-            }
-            "terminal.read" => reply(&self.read(&params::<ReadParams>(value)?)?),
-            "terminal.search" => reply(&self.search(&params::<SearchParams>(value)?)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::terminal_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 

@@ -8,7 +8,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 **U171 every kind shows every state.** Given the Tokens in both schemes for the disabled-behavior test and in dark only for critic Check readings (U3725), then the design critic judges that the disabled tone is 4.5:1 against the ground and the sunken surface and that the pressed surface differs from the hover surface (AGENTS.md rule 10). A disabled button stays focusable and keeps `aria-disabled`, never the `disabled` attribute, so its reason can be read as its `title`. Test: `u510_disabled_behavior_is_preserved`.
 
-**U172 the sidebar's hierarchy.** Given the Rail and the Shelf on the seeds `agents-10` and `tree-40` (U26) in both schemes for non-capture observers (captures and critic Check readings use dark only, U3725), when a test reads the rendered tree and computed style, then:
+**U172 the sidebar's hierarchy.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Given the Rail and the Shelf on the seeds `agents-10` and `tree-40` (U26) in both schemes for non-capture observers (captures and critic Check readings use dark only, U3725), when a test reads the rendered tree and computed style, then:
 
 > Amended by U403 and U404: the Workstream row has no badge, value or head and leads with its chevron, and the Item row's title is regular weight with no description line in the Rail.
 
@@ -18,7 +18,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 Test: `u172_` against the fake App seam: structure, order and text by role and `data-` attribute, the persisted collapse by remounting.
 
-**U173 the sidebar reads as elegant, well designed and tasteful.** Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in dark, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
+**U173 the sidebar reads as elegant, well designed and tasteful.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in dark, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
 
 > Amended by U403 and U404: lines 2 and 4 read the new rows, with a chevron and no badge or value.
 
@@ -137,7 +137,7 @@ For visible changes, capture paired base/head artifacts at 1512×950, dark: init
 
 Reuse decision (policy): select installed [Ark Solid Tabs](https://ark-ui.com/docs/components/tabs), whose parts and controlled value API provide library-owned tab semantics and interaction without a second dependency. Maintenance checked 2026-10-15: [Ark registry](https://registry.npmjs.org/@ark-ui%2fsolid) 5.39.3 released 2026-10-05. Considered [Kobalte Tabs](https://kobalte.dev/docs/core/components/tabs/), supporting controlled values, linked panels and keyboard navigation; [registry](https://registry.npmjs.org/@kobalte%2fcore) 0.13.14 released 2026-09-07. Kobalte is not selected because it fails this work order's required Ark composition and would introduce another interaction foundation alongside installed Ark. No custom Tabs state machine is authorized. Verify the installed Solid APIs rather than assuming another framework's composition syntax (policy).
 
-**U510 ghost, icon and disclosure buttons use ink feedback without hover boxes.** Work Issue: #2173. Journey stages: Enter, Understand, Intervene and Review (`.agents/data/journey.md`, heading “What must work”). This is implementation acceptance; this specification changes no rendered surface (policy).
+**U510 ghost, icon and disclosure buttons use ink feedback without hover boxes.** U3010b M2 (`scenarios/ui-motion.md`) adds Token-driven pointer press scale without adding a background; key actions remain instant. Work Issue: #2173. Journey stages: Enter, Understand, Intervene and Review (`.agents/data/journey.md`, heading “What must work”). This is implementation acceptance; this specification changes no rendered surface (policy).
 
 Scope (policy): App-wide shared button styling and its caller hooks under `apps/desktop/src`, the button state documentation in `docs/design-system.md`, and the behavioral observers affected by this change. “Ghost” means the existing quiet, add and row-action kinds; icon buttons and text-with-chevron disclosure triggers are included regardless of their existing kind. Keep the five kinds, shared Ark wrappers, accessible names, tooltip behavior and actions. No new interaction primitive, state machine, App command or RPC method is needed. Primary actions without a disclosure, row selection/drop surfaces, tab selection surfaces and panel backgrounds keep their existing behavior. A selected or toggled control may retain its persistent state surface, but hover and momentary press add no local fill or box (policy).
 

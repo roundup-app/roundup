@@ -28,7 +28,7 @@ pub(crate) fn send_status(from_user: bool, route: Delivery) -> MessageStatus {
 
 /// B9: the ids `step` drops when the receiver is gone.
 pub(crate) fn gone_drops(open: &[Message]) -> Vec<u32> {
-    step(&view(open), Event::Exit).0.dropped
+    step(&view(open), Event::ReceiverExit).0.dropped
 }
 
 /// B30, B7: the ids `step` delivers at an `idle`, in order, from these `pending` Messages.

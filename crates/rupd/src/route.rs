@@ -53,7 +53,10 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
-                "message.progress"
+                "todo.delete"
+                    | "todo.deletion"
+                    | "todo.restore"
+                    | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
                     | "message.verifyResult"
@@ -130,114 +133,47 @@ impl Daemon {
         self.start_pushes();
         self.start_queue();
         let namespace = method.split('.').next().unwrap_or_default();
-        if matches!(method, "daemon.identify" | "events.subscribe") {
-            return builtin::call(self, conn, namespace, method, &params)
-                .expect("connection-state methods are built in");
-        }
-        if matches!(method, "terminal.output" | "terminal.outputStop") {
-            return self.terminal_output(conn, method, params).await;
-        }
-        if matches!(method, "workstream.rewind" | "workstream.rewindPlan") {
-            // The wire reader selects only for an Agent; the Door's authority is decided here for every caller.
-            let children = self.rewind_children(&conn.actor, method, &params).await?;
-            return self
-                .rewind_call(&conn.actor, method, params, children)
-                .await;
-        }
-        if matches!(method, "agent.context" | "agent.brief") {
-            return self.awareness(conn, method, params).await;
-        }
-        self.before_prompt_effect(&conn.actor, method).await?;
-        if matches!(
+        // These transport/awareness calls already preceded prompt effects; preserve that policy.
+        if !matches!(
             method,
-            "message.progress"
-                | "message.report"
-                | "message.acceptResult"
-                | "message.verifyResult"
-                | "message.resolveResult"
+            "daemon.identify"
+                | "events.subscribe"
+                | "terminal.output"
+                | "terminal.outputStop"
+                | "workstream.rewind"
+                | "workstream.rewindPlan"
+                | "agent.context"
+                | "agent.brief"
         ) {
-            return self
-                .evidence_call(
-                    conn,
-                    method,
-                    params,
-                    time::OffsetDateTime::now_utc().unix_timestamp(),
-                )
-                .await;
+            self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if resume::is_resume_method(method) {
-            return self.resume_call(conn, method, params).await;
+        if method == "todo.restore" {
+            let p: contracts::todo::DeletionParams = rpc::params(params.clone())?;
+            if conn.actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden("only the user restores deleted Todos"));
+            }
+            for target in self.todos.restore_targets(&conn.actor, &p.operation)? {
+                self.require_owner(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
+            for target in self.todos.restore_homes(&conn.actor, &p.operation)? {
+                self.require_workstream(&serde_json::to_value(target).map_err(RpcError::internal)?)
+                    .await?;
+            }
         }
-        if namespace == "deliverable" {
-            return self.deliverable_call(conn, method, params).await;
-        }
-        if namespace == "reaction" {
-            return self.reaction_call(conn, method, params).await;
-        }
-        if method == "attachment.save" {
-            return self.attachments.save(params);
-        }
-        if method == "link.read" {
-            return self.link_read(conn, params).await;
-        }
-        if method == "todo.refs" {
-            return self.todo_refs(params);
+        let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
+        if owner == "daemon" {
+            return contracts::daemon_methods!(rpc::dispatch_methods, self, conn, method, params);
         }
         if method == "todo.addRef" {
             self.require_ref_target(&params)?;
         }
-        if method == "project.resources" {
-            return self.project_resources().await;
-        }
-        match method {
-            "workstream.clear" => return self.clear(&conn.actor, params).await,
-            "workstream.handoff" => return self.handoff(&conn.actor, params).await,
-            _ => {}
-        }
-        if method == "agent.skills" {
-            return self.skills(params).await;
-        }
         if method == "checkpoint.write" {
             self.require_door(&conn.actor).await?;
         }
-        if method == "agent.digest" {
-            return self.digest(conn, params).await;
-        }
-        if method == "agent.wake" {
-            let waker = self
-                .waker()
-                .ok_or_else(|| RpcError::internal("messages are not open"))?;
-            return rpc::reply(&waker.ask(&conn.actor, params).await?);
-        }
-        if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
-            return outcome;
-        }
-        if matches!(
-            method,
-            "todo.startWorkstream"
-                | "workstream.queue"
-                | "workstream.dequeue"
-                | "workstream.queueMove"
-                | "workstream.startNow"
-                | "project.setWorkstreamCap"
-        ) {
-            // P9: a start spends usage, so only the user's own choice changes what starts.
-            if method != "workstream.queue" && conn.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden(
-                    "only the user starts a Workstream or changes the Queue",
-                ));
-            }
-            return self.queuer().call(&conn.actor, method, params).await;
-        }
-        // X12: the Agents module resolves Workstream and Project ownership.
-        let namespace = if method == "terminal.open" {
-            "agent"
-        } else {
-            namespace
-        };
         let module = self
             .modules
-            .get(namespace)
+            .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
         if matches!(method, "todo.move" | "pad.move") {
             if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
