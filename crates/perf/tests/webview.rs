@@ -13,7 +13,7 @@ fn hops() -> serde_json::Value {
 }
 
 fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
-    json!({ "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
+    json!({ "n": 1000, "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
 }
 
 #[test]
@@ -122,4 +122,51 @@ fn r20_hop_report_accounts_for_the_echo_round_trip() {
     let (exit, failures) = judge_runs(&[no_hops], 16.0);
     assert_eq!(exit, 2);
     assert!(failures[0].contains("hop attribution"));
+}
+
+#[test]
+fn r20_invalid_hop_distributions_cannot_authorize_a_latency_verdict() {
+    for name in perf::webview::HOPS {
+        for invalid in [
+            json!({"n": 1, "p50": 1, "p95": 2}),
+            json!({"n": 1001, "p50": 1, "p95": 2}),
+            json!({"n": 999.5, "p50": 1, "p95": 2}),
+            json!({"n": 1000, "p50": -1, "p95": 2}),
+            json!({"n": 1000, "p50": -2, "p95": -1}),
+            json!({"n": 1000, "p50": 3, "p95": 2}),
+            json!({"n": 1000, "p50": null, "p95": 2}),
+            json!({"n": 1000, "p50": 1, "p95": "2"}),
+        ] {
+            let mut invalid_report = report(16.7, 0);
+            invalid_report["hops"][name] = invalid;
+            let (exit, failures) = judge_runs(&[report(16.7, 0), invalid_report], 16.0);
+            assert_eq!(exit, 2, "accepted invalid {name}: {failures:?}");
+            assert!(
+                failures
+                    .iter()
+                    .any(|message| message.contains("run 2") && message.contains(name)),
+                "{failures:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r20_missing_measured_keys_cannot_be_silently_skipped() {
+    for invalid_n in [json!(null), json!(-1), json!(0), json!(999), json!(1001), json!(999.5)] {
+        let mut invalid_report = report(16.7, 0);
+        invalid_report["n"] = invalid_n;
+        let (exit, failures) = judge_runs(&[invalid_report], 16.0);
+        assert_eq!(exit, 2, "accepted an inconsistent sample count");
+        assert!(failures[0].contains("sample count"), "{failures:?}");
+    }
+
+    // A rendered subset is still a valid observation when the rest were dropped;
+    // it must retain a budget failure rather than turn into an observer error.
+    let mut dropped = report(16.7, 1);
+    dropped["n"] = json!(999);
+    for name in perf::webview::HOPS {
+        dropped["hops"][name]["n"] = json!(999);
+    }
+    assert_eq!(judge_runs(&[dropped], 16.0).0, 1);
 }
