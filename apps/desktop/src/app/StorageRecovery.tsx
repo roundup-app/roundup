@@ -1,7 +1,6 @@
 import { createResource, createSignal, Show, type JSX } from "solid-js";
 import { initializeStorage, storageRecovery } from "../state/storage";
 import { storageCopy } from "../copy/storage";
-import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 import "../state/storage.css";
 
@@ -21,7 +20,7 @@ export const StorageRecovery = (props: { children: JSX.Element }) => {
 
   return <Show when={!result.loading} fallback={<div class="storage-failure"><ReservedLine status={storageCopy.restoring} /></div>}>
     <Show when={result() === null} fallback={<div class="storage-gate"><div class="storage-gate-content">
-      <div class="ink" role="alert" data-kind="error" data-tone="red"><Icon name="x" />{result()}</div>
+      <ReservedLine message={result()} />
       <div class="storage-gate-actions">
       <button data-button="quiet" type="button" aria-disabled={pending()} aria-description={pending() ? storageCopy.restoring : undefined} onClick={() => { if (!pending()) void refetch(); }}>{storageCopy.restoreRetry}</button>
       <Show when={storageRecovery()}>{record => <button data-button="quiet" type="button" aria-disabled={pending()} aria-description={pending() ? storageCopy.restoring : undefined} onClick={() => void proceed()}>{storageCopy.continue(record().key)}</button>}</Show>
