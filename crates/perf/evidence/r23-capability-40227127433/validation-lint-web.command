@@ -1,1 +1,0 @@
-just lint-web
