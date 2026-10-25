@@ -1,6 +1,9 @@
 import { useBrowserStorage } from "../state/storage";
+import { beforeEach } from "vitest";
 
 useBrowserStorage(window.localStorage);
+
+beforeEach(() => useBrowserStorage(window.localStorage));
 
 // jsdom has no layout, so it has no scrollIntoView; the Rail calls it on a jump.
 Element.prototype.scrollIntoView ??= () => undefined;

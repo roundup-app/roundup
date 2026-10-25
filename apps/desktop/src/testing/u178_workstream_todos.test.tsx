@@ -161,6 +161,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
 
   fireEvent.input(field, { target: { value: "  in memory after close 🧪  " } });
+  await waitFor(() => expect(a.connected.drafts.problem()).toMatchObject({ operation: "retain", cause: "write" }));
   a.unmount();
   writes.mockRestore();
   const reopened = await mount(one, owners);
@@ -169,7 +170,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "  in memory after close 🧪  ");
-  expect(reopened.connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(reopened.connected.drafts.problem()).toBeNull());
   expect(reopened.calls.filter(method => method === "todo.create")).toEqual([]);
 }, 60_000);
 

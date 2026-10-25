@@ -265,10 +265,13 @@ fn traced_save(name: &str, interrupt: bool) {
         let stderr = child.stderr.take().unwrap();
         let (ready, receiver) = std::sync::mpsc::channel();
         let observer = std::thread::spawn(move || {
+            let mut ready = Some(ready);
+            // Closing this pipe lets strace detach and resume the stopped writer before it is killed.
             for line in BufReader::new(stderr).lines() {
-                if line.unwrap().contains("SIGSTOP") {
+                if line.unwrap().contains("SIGSTOP")
+                    && let Some(ready) = ready.take()
+                {
                     ready.send(()).unwrap();
-                    return;
                 }
             }
         });

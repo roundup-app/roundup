@@ -70,7 +70,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     const parsed = v.safeParse(form, entry.value);
 
     return parsed.success ? [{ revision: entry.revision, status: entry.status, ...parsed.output }] : [];
-  });
+  }).sort((a, b) => Number(Boolean(b.external)) - Number(Boolean(a.external)));
 
   const hasConflict = () => choices().length > 1 && (choices().some(entry => entry.external) || choices().filter(entry => entry.status === "draft").length > 1);
   const value = () => ({ external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
@@ -78,12 +78,20 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   // The Import record is a second writer's input, not a cache we may replace blindly.
   // Retain it in the existing Project revision holder before advancing our baseline.
   const readExternal = async () => {
+    const failure = await store.refresh();
+
+    if (failure !== null) {
+      setRestoreFailure(true);
+
+      return null;
+    }
+
     const result = store.restore();
 
     if (result.status === "failed") {
       setRestoreFailure(true);
 
-      return false;
+      return null;
     }
 
     const saved = result.status === "restored" ? result.value : null;
@@ -99,37 +107,48 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       const external = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
       const known = choices().some(entry => JSON.stringify({ period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
 
-      if (!known) drafts?.edit(destination, { ...external, external: true }, null, "ordinary", null);
+      if (!known && drafts) await drafts.edit(destination, { ...external, external: true }, null, "ordinary", null).retained;
     }
 
     baseline = next;
     setRestoreFailure(false);
 
-    return true;
+    return { saved };
   };
 
-  const persist = async (edit = true) => {
-    const reading = readExternal();
+  let saving: Promise<void> = Promise.resolve();
+
+  const persist = (edit = true) => {
     const retained = edit ? drafts?.edit(destination, value(), null, "ordinary", draftRevision ?? null) : null;
 
     if (retained) draftRevision = retained.draft.revision;
 
     const next = { revision: draftRevision, open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) };
 
-    if (!await reading) return;
+    const pending = saving.then(async () => {
+      const reading = await readExternal();
 
-    const problem = retained ? await retained.retained : drafts?.problem();
+      if (reading === null) return;
 
-    if (problem) {
-      setRetentionFailure(problem.cause);
+      if (retained) await retained.retained;
 
-      return;
-    }
+      const problem = drafts?.problem();
 
-    const failure = await store.write(next);
-    setRetentionFailure(failure);
+      if (problem) {
+        setRetentionFailure(problem.cause);
 
-    if (!failure) baseline = JSON.stringify(next);
+        return;
+      }
+
+      const failure = await store.write(next, reading.saved);
+      setRetentionFailure(failure);
+
+      if (!failure) baseline = JSON.stringify(next);
+    });
+
+    saving = pending;
+
+    return pending;
   };
 
   const restoreChoice = (revision: string) => {
@@ -144,7 +163,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
       setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
     });
-    persist(false);
+
+    return persist(false);
   };
 
   const refresh = async () => {
@@ -202,15 +222,13 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         const remaining = choices().at(-1);
 
         if (remaining) {
-          restoreChoice(remaining.revision);
-
-          return;
+          return restoreChoice(remaining.revision);
         }
 
         setSelected(new Map()); setPeriodSignal("week"); setVerified(false);
       }
 
-      persist(false);
+      return persist(false);
     },
     reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened) => {
       app = nextApp;
@@ -221,6 +239,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       setVerified(false);
     },
     retryStorage: async () => {
+      await saving;
       await drafts?.retry();
 
       await persist(false);
@@ -247,7 +266,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       setOpen(false);
       setLoading(false);
-      persist(false);
+
+      return persist(false);
     },
     refresh,
     setPeriod: (next: ImportPeriod) => { if (pending() || next === period()) return; setSelected(new Map()); setFailed(new Map()); setPeriodSignal(next); persist(); void refresh(); },
@@ -257,7 +277,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       if (chosen) next.set(source, { revision, title });
       else next.delete(source);
       setSelected(next);
-      persist();
+
+      return persist();
     },
     confirm: async () => {
       if (pending() || !verified() || selected().size === 0) return;

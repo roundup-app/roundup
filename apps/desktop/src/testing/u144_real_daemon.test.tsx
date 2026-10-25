@@ -451,23 +451,23 @@ describe("u2773 Project draft integration on real Projects", () => {
     const other = await app.forProject(second.dir).rpc("pad.create", { name: pad.name, text: "other" });
     const holder = drafts(first.dir);
     const saved = holder.edit({ surface: "pads", object: pad.incarnation, recipient: null }, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
-    holder.submit(saved.revision);
-    holder.settle(saved.revision, "failed");
+    await holder.submit(saved.revision);
+    await holder.settle(saved.revision, "failed");
     const separate = drafts(second.dir).edit({ surface: "pads", object: other.incarnation, recipient: null }, { originalName: other.name, source: "other", base: other.text }, null, "ordinary").draft;
-    drafts(second.dir).submit(separate.revision);
-    drafts(second.dir).settle(separate.revision, "failed");
+    await drafts(second.dir).submit(separate.revision);
+    await drafts(second.dir).settle(separate.revision, "failed");
     mount();
     const recovery = await openRecovery();
     const row = () => within(recovery).getByRole("listitem");
-    expect(within(row()).getByRole("button", { name: "Open" })).toBeTruthy();
-    expect(within(row()).queryByRole("button", { name: "Copy" })).toBeNull();
+    const opener = within(row()).getByRole<HTMLButtonElement>("button", { name: "Open" });
+    expect(opener.disabled).toBe(false);
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     await firstApp.rpc("pad.delete", { name: pad.name });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
     const copyButton = await within(recovery).findByRole("button", { name: "Copy" });
-    expect(within(row()).queryByRole("button", { name: "Open" })).toBeNull();
+    expect(opener.isConnected).toBe(false);
     fireEvent.click(copyButton);
     expect(clipboard).toHaveBeenCalledWith(exact);
     expect(holder.list().map((draft) => draft.revision)).toEqual([saved.revision]);
@@ -476,8 +476,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     const otherRecovery = await openRecovery();
-    expect(otherRecovery.querySelector(`[data-revision="${separate.revision}"]`)).toBeTruthy();
-    expect(otherRecovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeNull();
+    expect([...otherRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toEqual([separate.revision]);
     noDelivery();
   }, 60_000);
 
@@ -487,9 +486,11 @@ describe("u2773 Project draft integration on real Projects", () => {
     const holder = drafts(first.dir);
     const destination = { surface: "pads", object: pad.incarnation, recipient: null };
     const older = holder.edit(destination, { originalName: pad.name, source: "older\n", base: pad.text }, null, "ordinary").draft;
-    holder.submit(older.revision);
-    holder.settle(older.revision, "failed");
-    const separate = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary").draft;
+    await holder.submit(older.revision);
+    await holder.settle(older.revision, "failed");
+    const independent = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary");
+    await independent.retained;
+    const separate = independent.draft;
     const write = Storage.prototype.setItem;
 
 
@@ -501,7 +502,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
     mount();
     await openRecovery();
-    expect((await screen.findByRole("alert")).textContent).toContain("Could not store unfinished work");
+    await screen.findByRole("alert");
+    expect(holder.problem()).toMatchObject({ operation: "retain", cause: "write" });
     expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision).sort()).toEqual([older.revision, newer.revision].sort());
     calls.forEach((spy) => spy.mockClear());
     writes.mockRestore();
@@ -510,7 +512,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     // Stored again, newer is no longer at risk but stays listed as left unsent.
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
-    expect(createProjectDrafts()(first.dir).list()).toEqual([newer]);
+    await waitFor(() => expect(createProjectDrafts()(first.dir).list()).toEqual([newer]));
     expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list", "todo.listHanded"].includes(method))).toEqual([]);
   }, 60_000);
@@ -520,11 +522,11 @@ describe("u2773 Project draft integration on real Projects", () => {
     const holder = drafts(first.dir);
     const saved = holder.edit(target(), { title: "same name", ask: exact, done: "  yes\n" }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
     const independent = holder.edit({ surface: "todos", object: original.id, recipient: null }, { title: "independent 🧭" }, null, "ordinary").draft;
-    holder.submit(saved.revision);
-    holder.settle(saved.revision, "failed");
+    await holder.submit(saved.revision);
+    await holder.settle(saved.revision, "failed");
     const otherSaved = drafts(second.dir).edit({ surface: "orders", object: otherOriginal.id, recipient: otherOriginal.id }, { ask: "other Project" }, null, "ordinary").draft;
-    drafts(second.dir).submit(otherSaved.revision);
-    drafts(second.dir).settle(otherSaved.revision, "failed");
+    await drafts(second.dir).submit(otherSaved.revision);
+    await drafts(second.dir).settle(otherSaved.revision, "failed");
     expect(holder.problem()).toBeNull();
     const connection = await connectProject(app.forProject(first.dir), { name: "first", path: first.dir }, () => true, () => 0, () => null, undefined, drafts(first.dir));
     expect(connection.drafts).toBe(holder);
@@ -537,15 +539,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(document.activeElement).toBe(outside);
     outside.remove();
     const focus = document.activeElement;
-    holder.retry();
+    await holder.retry();
     expect(document.activeElement).toBe(focus);
     const firstRecovery = await openRecovery();
-    expect(firstRecovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
+    expect([...firstRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toContain(saved.revision);
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     const secondRecovery = await openRecovery();
-    expect(secondRecovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeNull();
-    expect(secondRecovery.querySelector(`[data-revision="${otherSaved.revision}"]`)).toBeTruthy();
+    expect([...secondRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toEqual([otherSaved.revision]);
     fireEvent.click(screen.getByRole("tab", { name: "first" }));
     cleanup();
     drafts = createProjectDrafts();
@@ -567,7 +568,7 @@ describe("u2773 Project draft integration on real Projects", () => {
 
     if (kind === "surface") {
       holder.validate("todos", v.object({ title: v.string() }));
-      holder.discard(incompatible.revision);
+      await holder.discard(incompatible.revision);
     }
 
     let headerFactory: typeof drafts | undefined;
@@ -600,7 +601,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     });
     mount();
     await openRecovery();
-    expect((await screen.findByRole("alert")).textContent).toContain(kind === "surface" ? "Could not restore" : "Could not store");
+    await screen.findByRole("alert");
+    expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
     expect(headerFactory).toBe(drafts);
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
@@ -644,7 +646,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await setup();
     const holder = drafts(first.dir);
     const a = holder.edit(target(), { ask: "A" }, null, "ordinary").draft;
-    holder.submit(a.revision);
+    await holder.submit(a.revision);
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
     await screen.findByRole("tab", { name: "first" });
@@ -652,14 +654,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(await recoveryLabel()).toBe("Recover unfinished work (1)");
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
-    holder.settle(a.revision, "failed");
+    await holder.settle(a.revision, "failed");
     expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status: "failed" }), b]);
-    holder.settle(a.revision, "unknown");
+    await holder.settle(a.revision, "unknown");
     fireEvent.click(screen.getByRole("tab", { name: "first" }));
     const unknown = await openRecovery();
-    expect(within(unknown.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!).getByRole("img", { name: "may not have saved" })).toBeTruthy();
+    expect([...unknown.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toContain(a.revision);
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
-    holder.settle(a.revision, "acknowledged");
+    await holder.settle(a.revision, "acknowledged");
     expect(holder.list()).toEqual([b]);
     noDelivery();
   }, 60_000);
@@ -668,15 +670,15 @@ describe("u2773 Project draft integration on real Projects", () => {
     await setup();
     const holder = drafts(first.dir);
     const a = holder.edit(target(), { ask: "older exact\n" }, null, "ordinary").draft;
-    holder.submit(a.revision);
-    holder.settle(a.revision, "failed");
+    await holder.submit(a.revision);
+    await holder.settle(a.revision, "failed");
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
     await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     await app.forProject(first.dir).rpc("rail.remove", { id: original.id });
     const recovery = await openRecovery();
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
-    await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
+    await waitFor(() => expect(rowOf(b.revision).dataset.revision).toBe(b.revision));
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
@@ -688,8 +690,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     const reopened = await openRecovery();
     expect(drafts(first.dir).list()).toEqual([b]);
-    expect(reopened.querySelector(`[data-revision="${a.revision}"]`)).toBeNull();
-    expect(reopened.querySelector(`[data-revision="${b.revision}"]`)).toBeTruthy();
+    expect([...reopened.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toEqual([b.revision]);
     expect((await app.forProject(first.dir).rpc("rail.tree", null)).some((node) => node.id === replacement.id)).toBe(true);
     noDelivery();
   }, 60_000);

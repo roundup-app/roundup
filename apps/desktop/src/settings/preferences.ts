@@ -19,9 +19,9 @@ const schema = storageSchema("roundup:app-settings", v.object({
 
 type Preferences = v.InferOutput<typeof schema>;
 
-const storage = () => storedValue("roundup:app-settings", schema);
-
 const [revision, changed] = createSignal(0);
+
+const storage = () => storedValue("roundup:app-settings", schema, () => changed(value => value + 1));
 
 /** One app-wide record; each untrusted field defaults independently. A revision notifies all open Project tabs. */
 export const appSettings = (): Preferences => {
@@ -38,8 +38,6 @@ export const saveAppSettings = (patch: Partial<Preferences>): Promise<string | n
 
   const pending = saving.then(async () => {
     const failure = await storage().write({ ...appSettings(), ...captured });
-
-    if (failure === null) changed(value => value + 1);
 
     return failure;
   });

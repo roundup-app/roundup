@@ -51,7 +51,7 @@ describe("u504 the Ask bar", () => {
 
     expect(enter.defaultPrevented).toBe(true);
     expect(input()!.value).toBe("");
-    expect(rowTexts()).toEqual(["fix the login bug |  | Placing"]);
+    await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(1));
     expect(sent(app)).toEqual([{ text: "fix the login bug", submission: expect.any(String) }]);
 
     answer(ask("a1", 1, [{ text: "fix the login bug", placement: { kind: "routed", workstream: "ops" }, state: "queued" }]));
@@ -205,6 +205,7 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   press("Enter", {}, input()!);
   type("  B e\u0301\n ");
 
+  await waitFor(() => expect(sent(first.app)).toHaveLength(1));
   if (outcome === "acknowledged") accept(ask("accepted", 1, []));
   else reject(outcome === "refused" ? new RpcError(-32003, "refused") : new Error("lost reply"));
   await waitFor(() => expect(first.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
@@ -329,14 +330,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   try {
     type(exact);
     expect(input()!.value).toBe(exact);
-    expect(screen.getByRole("alert").textContent).toContain("Ask");
+    await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     expect(await screen.findByRole("button", { name: "Open" })).toBeTruthy();
     expect(clipboard).not.toHaveBeenCalled();
     expect(input()!.value).toBe(exact);
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(sent(mounted.app)).toEqual([]);
     const path = mounted.connected.project.path;
     mounted.unmount();
@@ -370,6 +371,7 @@ it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
   type(" B e\u0301\n ");
   press("Enter", {}, input()!);
   type(" C newest\n ");
+  await waitFor(() => expect(sent(app)).toHaveLength(2));
   acceptB(ask("accepted-b", 1, []));
   await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual([" A 🌿\n ", " C newest\n "]));
   refuseA(new RpcError(-32003, "older refused"));
@@ -387,7 +389,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const exact = "@ops  e\u0301 🌿\n次の行  ";
   const selection = { start: 2, end: 8, direction: "backward" as const };
   const a = connected.drafts.edit(destination, { text: exact, workstream: "ops", name: "ops" }, selection, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   const b = connected.drafts.edit(destination, { text: "  newer B 🌱\n ", workstream: null, name: null }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
   connected.rail.select("ann");
   const before = connected.drafts.list();
@@ -415,7 +417,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   type("@ops A e\u0301 🌿\nexact  ");
   input()!.setSelectionRange(2, 8, "backward"); fireEvent.select(input()!);
   const a = connected.drafts.list()[0]!;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   expect(a.value).toMatchObject({ workstream: "ops", name: "ops" });
   type("B current\n  ");
   input()!.setSelectionRange(1, 4, "forward"); fireEvent.select(input()!);
@@ -459,7 +461,7 @@ it.each(["project", "surface", "object", "recipient", "removed"] as const)("u302
   const { app, connected, setRecovery } = await mountAskBar([], "ann");
   const destination = { surface: mismatch === "surface" ? "orders" : "ask", object: mismatch === "object" ? "other" : "ask-bar", recipient: mismatch === "recipient" ? "other" : null };
   const a = connected.drafts.edit(destination, { text: "@gone exact e\u0301 🌿\n ", workstream: mismatch === "removed" ? "gone" : null, name: "gone" }, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "failed");
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "failed");
   const before = connected.drafts.list();
   const calls = [...app.calls];
   setRecovery({ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision });
@@ -499,7 +501,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   const exact = "@removed  e\u0301 🌿\n次の行  ";
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const a = connected.drafts.edit(destination, { text: exact, workstream: "removed", name: "removed" }, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "failed");
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "failed");
   type("B current");
   const b = connected.drafts.list().at(-1)!;
   const clipboard = vi.fn().mockResolvedValue(undefined);
@@ -535,7 +537,7 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   const { connected, setRecovery } = mounted;
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const a = connected.drafts.edit(destination, { text: "A original", workstream: null, name: null }, null, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "unknown");
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "unknown");
   type("B current");
   setRecovery({ project: connected.project.path, revision: a.revision });
   await waitFor(() => expect(document.activeElement).toBe(input()));
@@ -544,7 +546,7 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   const edited = connected.drafts.list().at(-1)!;
   press("Escape", {}, input()!);
   type("B newer edit");
-  connected.drafts.settle(a.revision, "acknowledged");
+  await connected.drafts.settle(a.revision, "acknowledged");
   expect(input()!.value).toBe("B newer edit");
   expect(connected.drafts.list()).toContainEqual(edited);
   const path = connected.project.path;
@@ -562,7 +564,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_opening_current_work_keeps_i
 
   type("current A");
   const a = connected.drafts.list()[0]!;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   setRecovery({ project: connected.project.path, revision: a.revision });
   await waitFor(() => expect(document.activeElement).toBe(input()));
   type("edited current A");

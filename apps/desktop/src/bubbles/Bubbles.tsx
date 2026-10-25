@@ -226,7 +226,10 @@ export const Bubbles = (props: {
     persistPlaces(next);
   };
 
-  const openRecovery = () => {
+  let recoveryTarget: (() => HTMLElement | null | undefined) | undefined;
+
+  const openRecovery = (target?: () => HTMLElement | null | undefined) => {
+    recoveryTarget = target;
     show(null);
     // Let the Terminal's dismissable layer close before the recovery layer takes focus.
     const focus = captureFocus(true);
@@ -840,13 +843,13 @@ export const Bubbles = (props: {
                 const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
 
                 if (!live || readOnly() || base !== nameFor(live)) {
-                  openRecovery();
+                  openRecovery(tab);
 
                   return;
                 }
 
                 if (submitted && !(await drafts.submit(submitted))) {
-                  openRecovery();
+                  openRecovery(tab);
 
                   return;
                 }
@@ -858,7 +861,7 @@ export const Bubbles = (props: {
                 if (failure === null) clearItemFailure(live);
                 else setFailure({ message: failure, terminal: live });
 
-                if (failure !== null) openRecovery();
+                if (failure !== null) openRecovery(tab);
               }}
               onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
               <Editable.Context>{(api) => {
@@ -901,7 +904,7 @@ export const Bubbles = (props: {
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
-      <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
+      <Dialog.Root instant finalFocusEl={() => recoveryTarget?.()} open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
           <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>

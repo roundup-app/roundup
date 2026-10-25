@@ -1,3 +1,4 @@
+import { storageCopy } from "./copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
 import { load } from "@tauri-apps/plugin-store";
@@ -30,6 +31,8 @@ let initialized = false;
 
 let writes: Promise<unknown> = Promise.resolve();
 
+let adapterRevision = 0;
+
 const [failures, setFailures] = createSignal<{ key: string; cause: string; retry: () => Promise<string | null> }[]>([]);
 
 /** Recoverable pending operations, with full foreign causes; no draft contents are logged. */
@@ -49,8 +52,10 @@ const reopen = async () => {
 
 /** The isolated browser harness uses the same validated interface, with no native durability claim. */
 export const useBrowserStorage = (adapter: Storage) => {
+  adapterRevision++;
   browser = adapter;
   initialized = true;
+  writes = Promise.resolve();
   setFailures([]);
 };
 
@@ -82,12 +87,12 @@ export const initializeStorage = async (): Promise<string | null> => {
         // Validate even a superseded legacy record: invalid bytes remain recoverable.
         value = JSON.parse(bytes);
       } catch (error) {
-        return `Could not restore ${key}: ${error instanceof Error ? error.message : String(error)}`;
+        return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
       }
 
       const parsed = v.safeParse(schemas.get(family)!, value);
 
-      if (!parsed.success) return `Could not restore ${key}: ${parsed.issues.map(issue => issue.message).join("; ")}`;
+      if (!parsed.success) return storageCopy.restoreFailure(parsed.issues.map(issue => issue.message).join("; "));
       legacy.push({ key, bytes });
 
       if (!restored.has(key)) candidates.push([key, { version: 1, value }]);
@@ -117,7 +122,7 @@ export const initializeStorage = async (): Promise<string | null> => {
 
     return null;
   } catch (error) {
-    return `Could not restore saved work: ${(error instanceof Error ? error.message : String(error))}`;
+    return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
   }
 };
 
@@ -126,7 +131,8 @@ type Restore<T> =
   | { status: "restored"; value: T }
   | { status: "failed"; cause: "unreadable" | "invalid" };
 
-export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>) => {
+/** onRetained runs after a successful write or retry, so views observe only acknowledged values. */
+export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>, onRetained?: () => void) => {
   const restore = (): Restore<T> => {
     if (!initialized) return { status: "failed", cause: "unreadable" };
 
@@ -160,6 +166,8 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
   };
 
   const commit = (value: T | null, remove: boolean, expected?: T | null): Promise<string | null> => {
+    const revision = adapterRevision;
+
     // Capture before queuing; a caller's later mutation must never alter an older save.
     let bytes: string;
     let record: string;
@@ -172,21 +180,22 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
     } catch (error) { return Promise.resolve((error instanceof Error ? error.message : String(error))); }
 
     const pending = writes.then(async () => {
+      if (revision !== adapterRevision) return storageCopy.replaced;
       let base: T | null = expected ?? null;
       let failure: string | null = null;
 
       try {
-        if (!initialized) throw new Error("Saved work has not finished restoring");
+        if (!initialized) throw new Error(storageCopy.notRestored);
 
         if (!browser) await reopen();
         const current = restore();
 
-        if (current.status === "failed") throw new Error(`Could not read ${key}: ${current.cause}`);
+        if (current.status === "failed" && (current.cause === "unreadable" || expected !== undefined)) throw new Error(storageCopy.readFailure(current.cause));
         const saved = current.status === "restored" ? current.value : null;
         base = expected === undefined ? saved : expected;
 
         if (expected !== undefined && JSON.stringify(saved) !== JSON.stringify(expected)
-          && JSON.stringify(saved) !== bytes) throw new Error("Stored work changed before persistence");
+          && JSON.stringify(saved) !== bytes) throw new Error(storageCopy.changed);
 
         if (browser) {
           for (let attempt = 0; ; attempt++) {
@@ -196,13 +205,16 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
             } catch (error) { if (attempt === 1) throw error; }
           }
         } else {
-          if (!plugin) throw new Error("Saved work has not finished restoring");
+          if (!plugin) throw new Error(storageCopy.notRestored);
           await plugin.set(key, JSON.parse(record));
           await plugin.save();
           restored.set(key, JSON.parse(record));
         }
       } catch (error) { failure = (error instanceof Error ? error.message : String(error)); }
 
+      if (revision !== adapterRevision) return failure;
+
+      if (failure === null) onRetained?.();
       setFailures(previous => [
         ...previous.filter(entry => entry.key !== key),
         ...(failure === null ? [] : [{ key, cause: failure, retry: () => commit(remove ? null : v.parse(schema, JSON.parse(bytes)), remove, base) }]),
@@ -394,7 +406,7 @@ export const draftStorage = (project: string) => {
     if (failure !== null) {
       setFailures(previous => previous.map(entry => entry.key === `roundup:drafts:${project}`
         ? { ...entry, retry: async () => (await retry())?.cause ?? null } : entry));
-      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: failure === "Stored work changed before persistence" ? "changed" : "write" };
+      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: failure === storageCopy.changed ? "changed" : "write" };
 
       return structuredClone(problem);
     }

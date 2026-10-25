@@ -195,18 +195,18 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     } else setProblem(await storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").retained);
   };
 
-  const accepted = (id: string, submission: Submission, message: Message) => {
+  const accepted = async (id: string, submission: Submission, message: Message) => {
     const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
   };
 
-  const settle = (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {
+  const settle = async (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {
     const current = recipient(id);
 
-    retain(id, { ...current, submissions: current.submissions.map(value => value.revision === submission.revision ? { ...submission, status, text } : value) });
+    await retain(id, { ...current, submissions: current.submissions.map(value => value.revision === submission.revision ? { ...submission, status, text } : value) });
 
     if (status === "failed") putState(id, { kind: "failed", text, submission: submission.revision, notes: item ? submission.notes.map(note => note.id) : null });
   };
@@ -341,17 +341,17 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const prior = await history(connection, id);
 
       if (prior.kind !== "ok") {
-        settle(id, submission, "failed", prior.text, false);
+        await settle(id, submission, "failed", prior.text, false);
 
         return;
       }
 
       submission.previous = prior.value.map(message => message.id);
-      retain(id, { ...recipient(id), submissions: recipient(id).submissions.map(value => value.revision === submission.revision ? { ...submission } : value) });
+      await retain(id, { ...recipient(id), submissions: recipient(id).submissions.map(value => value.revision === submission.revision ? { ...submission } : value) });
       const result = await reply(() => connection.rpc("message.send", { to: id, kind: "note", body: submission.body, replyTo: null }));
 
-      if (result.kind === "ok") accepted(id, submission, result.value);
-      else settle(id, submission, result.kind, result.kind === "unknown" ? copy.notesUnknown(result.text) : result.text);
+      if (result.kind === "ok") await accepted(id, submission, result.value);
+      else await settle(id, submission, result.kind, result.kind === "unknown" ? copy.notesUnknown(result.text) : result.text);
     },
     reconcile: async (id: string) => {
       const current = state(id);
@@ -364,7 +364,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       // A failed metadata write can leave a null baseline even after an accepted send.
       if (submission.previous === null) {
-        settle(id, submission, "unknown", copy.notesNoBaseline);
+        await settle(id, submission, "unknown", copy.notesNoBaseline);
 
         return;
       }
@@ -372,8 +372,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const previous = submission.previous;
       const found = result.value.find(message => !previous.includes(message.id) && message.from.kind === "user" && message.from.id === "you" && message.to === id && message.kind === "note" && message.body === submission.body);
 
-      if (found) accepted(id, submission, found);
-      else settle(id, submission, "unknown", copy.notesNotFound);
+      if (found) await accepted(id, submission, found);
+      else await settle(id, submission, "unknown", copy.notesNotFound);
     },
   };
 
