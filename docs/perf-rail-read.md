@@ -267,3 +267,63 @@ Rail 40 at 0.162 ms against 0.149
 This Linux comparison establishes no M4 Max pass, baseline rebase, startup or
 idle-RSS saving. Budgets are unchanged. Full R3696c acceptance, the owner's
 unchanged-code false-fail evidence and separate later main pass remain on #3696.
+
+
+## Borrowed resume availability (#3696)
+
+The Rail query computed `conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL`
+for every node. The existing instruction observer measures **1,115 → 835 VM
+instructions** when the row mapper instead checks the two borrowed values for
+NULL. Its cap tightens from 1,150 to 900 in the preceding red commit; the original
+query fails that bound. No conversation text is copied or exposed, and no query,
+cache, schema, visibility predicate or caller changes. The shifted Auto and
+finish-count columns retain their values.
+
+`r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order`
+retains the complete, absent and partial conversation proof; existing resume,
+unpublished-import, Auto and finish-count tests pass in the 816-test Agents run.
+The edited file contains only the distinct instruction observer, so no redundant
+test is removed. Allocation remains **203 allocations / 69,126 bytes** per reply.
+
+The [raw alternating report](perf-rail-resume-pairs.json) retains all eighteen
+invocations, exits, batch values, loads, source/executable hashes, physical host
+identity and the exact temporary observer patch. Before is `1b42b13551b92e1660601413e8836eb27b446e77`; after is
+`c95e3596ff4c5093a92d8f1508275d0d401378cb`, before the later clean merge of main. Both release binaries run the
+same seven batches of 10,000 awaited `Module::call_reply("rail.tree", null)` calls,
+including live presentation, JSON serialization and the instrumented System
+allocator. Builds, lints and other test runs are stopped throughout measurement.
+Every invocation exits 0; none is retried or skipped. No timing code is committed.
+
+| Pair | SQL predicates, µs/reply | Borrowed null states, µs/reply |
+|---|---:|---:|
+| 1 | 59.864 | 59.083 |
+| 2 | 59.354 | 59.510 |
+| 3 | 60.056 | 58.992 |
+| 4 | 59.230 | 59.115 |
+| 5 | 59.556 | 59.571 |
+| 6 | 59.212 | 60.004 |
+| 7 | 59.316 | 59.171 |
+| 8 | 59.602 | 59.048 |
+| 9 | 59.095 | 59.091 |
+| Median of pair medians | 59.354 | 59.115 |
+
+The median difference is **0.239 µs (0.4%)**; six pairs improve and
+three regress. This comparison does **not** establish a reliable end-to-end
+speedup or a request-p95 improvement. It establishes the removal of 280 SQLite
+instructions without an allocation increase. The M4 Max remains the acceptance
+observer. Host: Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz, Linux x86_64, four affinity CPUs,
+rustc 1.99.0 (b940084d7 2026-09-28); one-minute load 1.999–4.219.
+
+Reproduce by temporarily applying the report's `observer_patch` to each source
+reference's existing `crates/agents/tests/perf.rs`. Build both first with
+`cargo test --release -p agents --test perf --no-run`, copy their emitted binaries,
+then alternate `RAIL_PROBE=1 <binary> --nocapture` nine times, reversing the first
+reference each pair. These are batch means, not socket request p95s, cold start
+or idle RSS.
+
+The latest M4 Max observation at `824693391b` still fails cold start at 9.480 ms
+against 8.110 and Rail 40 at 0.154 ms against 0.149
+([retained Mac result](https://github.com/roundup-app/roundup/issues/3696#issuecomment-6404379394)).
+Budgets remain unchanged. Cold-start repair, full R3696c Mac acceptance, the
+owner's unchanged-code false-fail evidence and the separate later main pass
+remain on #3696. This change establishes no baseline rebase or Mac gate pass.
