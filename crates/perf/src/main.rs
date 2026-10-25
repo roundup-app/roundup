@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use clap::Parser;
 use perf::gate::{conclude, read_budgets};
 use perf::measure::one_run;
+mod paired_host;
 use sysinfo::System;
 
 /// Measure the Daemon against rule 7 and fail when a metric misses `budgets.json`.
@@ -19,6 +20,9 @@ struct Args {
     /// Fresh Daemons to measure; each metric is the median over them.
     #[arg(long, default_value_t = 11)]
     runs: usize,
+    /// Alternating base/head invocations on an uncalibrated Builder.
+    #[arg(long, default_value_t = 1)]
+    pairs: usize,
     /// Calls per latency measurement.
     #[arg(long, default_value_t = 1000)]
     calls: usize,
@@ -38,6 +42,57 @@ fn absolute(path: &str) -> std::io::Result<PathBuf> {
     std::path::absolute(path)
 }
 
+async fn sample(
+    runs: usize,
+    calls: usize,
+    rupd: &std::path::Path,
+    rup: &std::path::Path,
+    out: &std::path::Path,
+) -> Result<perf::budget::Report, perf::paired::Error> {
+    let cpus = std::thread::available_parallelism()?.get();
+    let mut loads = Vec::new();
+    let mut per_run: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+
+    for turn in 1..=runs {
+        let load = System::load_average().one;
+
+        let log = out.with_extension(format!("startup-{turn}.log"));
+        if let Some(parent) = log.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // Open before the cold-start timer; a direct file descriptor needs no collector
+        // task or pipe drain and survives an observer error before perf.json is written.
+        let stderr = std::fs::File::create(&log)?;
+        eprintln!(
+            "run {turn}/{}: load {load:.1} on {cpus} cpus; Daemon log {}",
+            runs,
+            log.display()
+        );
+        loads.push(load);
+
+        for (name, value) in one_run(rupd, rup, calls, stderr.into()).await? {
+            per_run.entry(name).or_default().push(value);
+        }
+    }
+
+    if loads.is_empty() {
+        return Err("no load figures recorded".into());
+    }
+    Ok(perf::budget::Report {
+        os: std::env::consts::OS.into(),
+        class: None,
+        cpus,
+        runs: loads.len(),
+        loads,
+        metrics: per_run
+            .iter()
+            .map(|(name, values)| (name.clone(), perf::budget::median(values)))
+            .collect(),
+        per_run,
+        skipped: Vec::new(),
+    })
+}
+
 async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
     if args.flood {
         let report = perf::flood::observe(std::time::Duration::from_secs(args.flood_timeout)).await;
@@ -53,36 +108,86 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
         return Ok(report.passed());
     }
     let budgets = read_budgets(&args.budgets)?;
-    let cpus = std::thread::available_parallelism()?.get();
-    let mut loads = Vec::new();
-    let mut per_run: BTreeMap<String, Vec<f64>> = BTreeMap::new();
-
-    for turn in 1..=args.runs {
-        let load = System::load_average().one;
-
-        let log = args.out.with_extension(format!("startup-{turn}.log"));
-        if let Some(parent) = log.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        // Open before the cold-start timer; a direct file descriptor needs no collector
-        // task or pipe drain and survives an observer error before perf.json is written.
-        let stderr = std::fs::File::create(&log)?;
-        eprintln!(
-            "run {turn}/{}: load {load:.1} on {cpus} cpus; Daemon log {}",
-            args.runs,
-            log.display()
-        );
-        loads.push(load);
-
-        for (name, value) in one_run(&args.rupd, &args.rup, args.calls, stderr.into()).await? {
-            per_run.entry(name).or_default().push(value);
-        }
-    }
-
-    // R16: after the runs, so a missing input still fails with its own name first.
-    if loads.is_empty() {
+    if args.runs == 0 {
         return Err("no load figures recorded".into());
     }
+    // Keep R10's missing binary error before machine selection.
+    if !args.rupd.is_file() {
+        return Err(format!("rupd not found at {}", args.rupd.display()).into());
+    }
+    let default_rupd = absolute("target/release/rupd")?;
+    if cfg!(target_os = "linux") && args.rupd == default_rupd {
+        let classes = args.budgets.with_file_name("classes.json");
+        let provenance = if classes.try_exists()? {
+            perf::machine::read_provenance(&classes)?
+        } else {
+            perf::machine::Provenance::new()
+        };
+        let selection = perf::machine::comparison(&perf::machine::read(), &provenance, &budgets)?;
+        if matches!(selection, perf::machine::Comparison::Paired(_)) {
+            if let Some(parent) = args.out.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let mut host = paired_host::Host {
+                args,
+                root: std::env::current_dir()?,
+                owned: tempfile::tempdir()?,
+                checkouts: Vec::new(),
+                commands: Vec::new(),
+                observer: None,
+            };
+            let result = perf::paired::collect(selection, &budgets, args.pairs, &mut host).await;
+            match result {
+                Ok(Some(pair)) => {
+                    #[derive(serde::Serialize)]
+                    struct Evidence<'a> {
+                        #[serde(flatten)]
+                        pair: &'a perf::paired::Pair,
+                        observer: &'a Option<paired_host::Observer>,
+                        commands: &'a [String],
+                        calls: usize,
+                        runs_per_invocation: usize,
+                        exit: u8,
+                    }
+                    let evidence = Evidence {
+                        pair: &pair,
+                        observer: &host.observer,
+                        commands: &host.commands,
+                        calls: args.calls,
+                        runs_per_invocation: args.runs,
+                        exit: u8::from(!pair.passed),
+                    };
+                    std::fs::write(&args.out, serde_json::to_vec_pretty(&evidence)?)?;
+                    println!(
+                        "class {:?} observer {} commands {:?}",
+                        pair.class,
+                        serde_json::to_string(&host.observer)?,
+                        host.commands
+                    );
+                    for build in &pair.builds {
+                        println!("{} hashes {}", build.reference, build.hashes);
+                    }
+                    for line in perf::paired::render(&pair) {
+                        println!("{line}");
+                    }
+                    return Ok(pair.passed);
+                }
+                Err(error) => {
+                    std::fs::write(
+                        &args.out,
+                        serde_json::to_vec_pretty(
+                            &serde_json::json!({"mode": "paired", "exit": 2, "error": error.to_string(), "commands": host.commands}),
+                        )?,
+                    )?;
+                    return Err(error);
+                }
+                Ok(None) => unreachable!("paired selection"),
+            }
+        }
+    }
+    let measured = sample(args.runs, args.calls, &args.rupd, &args.rup, &args.out).await?;
+    let per_run = measured.per_run;
+    let loads = measured.loads;
 
     let class = if cfg!(target_os = "linux") {
         // R16: each class's baseline provenance sits beside the budgets.
