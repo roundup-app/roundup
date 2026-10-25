@@ -72,7 +72,7 @@ jobs:
           # 3: another run or a person took the Issue since the pick; that ends this job with no run.
           [ "$code" != 3 ] || exit 0
           [ "$code" = 0 ] || exit "$code"
-          if [[ "$SLUG" == repair-* ]]; then
+          if [[ "$SLUG" == "repair-$ISSUE" ]]; then
             # L96: a repair run edits its Issue and opens no PR.
             printf '\nOpen no PR; edit Issue #%s. Your Author-Agent id is builder-%s.\n' "$ISSUE" "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
           else
