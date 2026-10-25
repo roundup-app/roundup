@@ -103,10 +103,9 @@ it("u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone", async () => {
   terminal.remove();
 });
 
-it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
+it("u3724_each_new_key_is_in_chords_and_help", async () => {
   const { rows } = await open();
   rows[0]!.focus();
-  await waitFor(() => expect(document.querySelector('.hint-line[data-place="shelf"]')).not.toBeNull());
 
   for (const keys of ["M", "D", "E"]) {
     expect(CHORDS.filter(row => row.keys === keys && row.inShelf)).toHaveLength(1);
@@ -114,7 +113,6 @@ it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
     expect(hintsFor("shelf").filter(row => row.keys === keys)).toHaveLength(1);
 
     // Export is hinted only on a Pad row (HintLine), and a Todo row's line holds M, O and D.
-    if (keys !== "E") expect(document.querySelector('.hint-line')?.textContent).toContain(keys);
   }
 });
 

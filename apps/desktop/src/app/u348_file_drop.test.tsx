@@ -43,7 +43,7 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
   }
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={factory} />);
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(names.length));
+  await waitFor(() => expect(screen.getAllByRole("tab").filter(tab => tab.closest('[aria-label="Projects"]'))).toHaveLength(names.length));
   await waitFor(() => expect(document.querySelectorAll(".rail-row").length).toBe((trees[names.at(-1)!] ?? []).length));
 
   const index = (element: Element, selector: string) => [...document.querySelectorAll(selector)].indexOf(element);

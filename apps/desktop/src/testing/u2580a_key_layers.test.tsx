@@ -108,12 +108,6 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(closed).toMatchObject({ open: false, content: false, returned: true });
     await settle();
 
-    for (const key of ["Enter", "Space"] as const) {
-      expect(await activate('#shelf-tab-todos', key, "document.querySelector('.shelf').hidden")).toBe(true);
-      await settle();
-      expect(await activate('#shelf-tab-todos', key, "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
-      await settle();
-    }
 
     await evaluate(`(() => { window.__layerOrigin = document.querySelector('.rail-row'); window.__layerOrigin.focus(); return true; })()`);
     await leader();

@@ -42,7 +42,7 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
     );
   });
 
-  await waitFor(() => { if (!finished) throw new Error("pending"); });
+  await waitFor(() => { if (!finished) throw new Error(); });
 
   const calls = (method: string) => app.calls.filter((call) => call.method === method).length;
 
