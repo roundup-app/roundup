@@ -267,6 +267,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
+      // Until the first swap the slot stands over the row's own cell and its room trails the list, so a nudge that returns to it is no move (U490a).
+      slot.style.marginBlock = `${-box.height}px ${box.height}px`;
       slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
 
@@ -288,6 +290,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
         list?.setAttribute("data-sortable-index", String(source.index));
+
+        if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
         track(source, event.operation.position);
       });
     }
