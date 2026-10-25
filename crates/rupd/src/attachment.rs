@@ -24,6 +24,10 @@ pub(crate) struct Attachments {
 impl Attachments {
     /// Removes the files older than 7 days, and counts on from the highest `<n>` left.
     pub(crate) fn open(data: &Path) -> Self {
+        Self::open_at(data, time::OffsetDateTime::now_utc().into())
+    }
+
+    fn open_at(data: &Path, now: SystemTime) -> Self {
         let dir = data.join(FOLDER);
         let mut highest = 0;
         if let Ok(entries) = fs::read_dir(&dir) {
@@ -32,7 +36,7 @@ impl Attachments {
                     .metadata()
                     .and_then(|meta| meta.modified())
                     .ok()
-                    .and_then(|at| SystemTime::now().duration_since(at).ok());
+                    .and_then(|at| now.duration_since(at).ok());
                 if age.is_some_and(|age| age > KEEP) {
                     let _ = fs::remove_file(entry.path());
                     continue;
@@ -137,7 +141,9 @@ mod tests {
             .save(serde_json::json!({"name": "new.png", "data": "eA=="}))
             .unwrap();
         assert_eq!(
-            Path::new(saved["path"].as_str().unwrap()).file_name().unwrap(),
+            Path::new(saved["path"].as_str().unwrap())
+                .file_name()
+                .unwrap(),
             "10-new.png"
         );
     }
