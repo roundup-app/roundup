@@ -12,7 +12,7 @@ import { fromBase64 } from "../terminal/base64";
 
 afterEach(() => { cleanup(); document.body.replaceChildren(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it("r20_the_real_app_setup_reaches_the_ready_shell_before_measurement", async () => {
+it.each(["idle", "flood"] as const)("r20_the_real_app_setup_reaches_the_ready_shell_before_measurement (%s)", async (workload) => {
   localStorage.clear();
   const app = createFakeApp();
   const emulators = fakeEmulators();
@@ -40,7 +40,7 @@ it("r20_the_real_app_setup_reaches_the_ready_shell_before_measurement", async ()
   };
 
   app.handlers["terminal.open"] = () => {
-    const shell = info("shell", { owner: "w" });
+    const shell = info(`shell-${terminals.length}`, { owner: "w" });
 
     terminals.push(shell);
 
@@ -67,10 +67,15 @@ it("r20_the_real_app_setup_reaches_the_ready_shell_before_measurement", async ()
 
   render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
   await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
-  const input = await terminalReady(app, terminal);
-  expect(terminal.target()).toBe("shell");
+  const opened: string[] = [];
+  const input = await terminalReady(app, terminal, workload === "flood" ? async (flood) => {
+    opened.push(flood.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!);
+    expect(terminal.target()).toBeNull();
+  } : undefined);
+  expect(terminal.target()).toBe(workload === "flood" ? "shell-2" : "shell-1");
+  expect(opened).toEqual(workload === "flood" ? ["shell-1"] : []);
   expect(input).toBe(document.activeElement);
-  expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: "w" }]);
+  expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual(Array.from({ length: workload === "flood" ? 2 : 1 }, () => ({ workstream: "w" })));
 });
 
 it("r20_setup_failure_without_a_ready_target_reports_its_named_step", async () => {
