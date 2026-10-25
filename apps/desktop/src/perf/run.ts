@@ -248,7 +248,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
       // Setup can fail before any bubble exists; the collector also reads shells opened directly in the isolated Project.
       const shell = await bounded(app.rpc("terminal.open", { workstream: null }), SETUP_BOUND_MS, "the diagnostic Terminal");
 
-      id = shell.id;
+      id = shell.terminal_id;
       let after = 0;
       let tail = "\n";
       const end = performance.now() + SETUP_BOUND_MS;
