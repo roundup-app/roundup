@@ -80,7 +80,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   let firstTree = true;
 
-  const save = () => setStorageFailure(storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
+  const save = async () => setStorageFailure(await storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
 
   const reveal = (id: string | null) => {
     if (id === null) return;

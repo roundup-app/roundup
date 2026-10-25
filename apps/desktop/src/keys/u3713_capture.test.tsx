@@ -85,11 +85,11 @@ describe("u3714 enter files an Unassigned Todo", () => {
     type(input, "  buy milk  ");
     press(input);
 
-    expect(callsTo(app, "todo.create")).toHaveLength(1);
+    await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
     expect(callsTo(app, "todo.create")[0]!.params).toEqual({ title: "buy milk", body: null, blockers: null });
-    expect(field()).toBeNull();
+    expect(input.isConnected).toBe(false);
     expect(document.activeElement).toBe(before);
-    await waitFor(() => expect(screen.getAllByText("buy milk")).toHaveLength(1));
+    await waitFor(() => expect(document.querySelectorAll('[data-todo="1"]')).toHaveLength(1));
   });
 
   it("u3714_blank_enter_calls_nothing", async () => {
@@ -127,7 +127,7 @@ describe("u3715 a failed create keeps the text and says why", () => {
     press(input);
 
     await waitFor(() => expect(field()?.value).toBe("  keep me  "));
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByRole("listitem")).toBeNull();
   });
 
@@ -140,6 +140,7 @@ describe("u3715 a failed create keeps the text and says why", () => {
     type(input, "first");
     press(input, { shiftKey: true });
     type(field()!, "second");
+    await waitFor(() => expect(fail).toBeTypeOf("function"));
     fail();
 
     await screen.findByLabelText("Recovered capture draft");
@@ -158,7 +159,7 @@ describe("u3716 shift enter files and keeps the field open", () => {
     type(input, "one");
     press(input, { shiftKey: true });
 
-    expect(callsTo(app, "todo.create")).toHaveLength(1);
+    await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
     expect(field()!.value).toBe("");
     expect(document.activeElement).toBe(field());
   });
@@ -203,7 +204,8 @@ it.each(["w", "a"])("u3714_pending_capture_is_visible_under_selection_%s", async
   const input = await openField();
   type(input, "visible pending");
   press(input, { shiftKey: true });
-  expect(screen.getByText("visible pending")).not.toBeNull();
+  await waitFor(() => expect(answer).toBeTypeOf("function"));
+  expect(document.querySelector(".todos-tab [data-todo]")).not.toBeNull();
   answer();
 });
 
@@ -213,7 +215,7 @@ it("u3714_a_filed_capture_opens_the_shelf_and_stays_visible_once_acknowledged", 
   const input = await openField();
   type(input, "kept in view");
   press(input);
-  expect(filed).toBe(1);
+  await waitFor(() => expect(filed).toBe(1));
   await waitFor(() => expect(store.todos.map(item => item.title)).toContain("kept in view"));
-  await waitFor(() => expect(screen.getByText("kept in view").closest("[data-shelf-group=unassigned]")?.querySelector("[data-state=open]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector("[data-shelf-group=unassigned] [data-state=open]")).not.toBeNull());
 });

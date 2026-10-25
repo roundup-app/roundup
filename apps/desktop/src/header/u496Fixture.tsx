@@ -1,3 +1,4 @@
+import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "../testing/menuProbe";
 import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
@@ -9,6 +10,8 @@ import { Strip } from "./Strip";
 import type { StripTab } from "./tab";
 import "../tokens.css";
 import "../styles.css";
+
+useBrowserStorage(window.localStorage);
 
 const app = createFakeApp();
 
