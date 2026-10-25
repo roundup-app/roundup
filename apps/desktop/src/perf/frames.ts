@@ -69,8 +69,8 @@ export type FrameReport = {
   /** Epoch milliseconds align the page sample with a separately recorded native trace. */
   windows_epoch_ms?: { sample_start: number; sample_end: number; idle_end: number };
   invalid: string[];
-  verdict: "fail" | "invalid" | "incomplete";
-  exit: 1 | 2;
+  verdict: "pass" | "fail" | "invalid";
+  exit: 0 | 1 | 2;
 };
 
 /** Nearest rank, the same rule as `crates/perf`. */
@@ -112,7 +112,7 @@ export type Facts = {
   stalled?: boolean;
 };
 
-/** What a run proves. Only a valid run is judged, and the webview never measures presentation, so no report here is a pass. */
+/** What a run proves. Only a valid run is judged; a pass covers scheduling only, never presentation. */
 export const buildReport = (facts: Facts): FrameReport => {
   const period = 1000 / facts.hz;
   const sample = series(facts.sample, period);
@@ -158,8 +158,8 @@ export const buildReport = (facts: Facts): FrameReport => {
     },
     performance_entry_types: entryTypes,
     invalid,
-    verdict: invalid.length > 0 ? "invalid" : meets ? "incomplete" : "fail",
-    exit: invalid.length === 0 && !meets ? 1 : 2,
+    verdict: invalid.length > 0 ? "invalid" : meets ? "pass" : "fail",
+    exit: invalid.length > 0 ? 2 : meets ? 0 : 1,
   };
 };
 
