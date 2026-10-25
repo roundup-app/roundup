@@ -682,7 +682,7 @@ creates its runtime. `rupd: runtime_ms <number>` measures the default
 multi-thread runtime's creation separately; its worker count and enabled drivers
 are the same as `#[tokio::main]`. No runtime tuning is made.
 
-A `rupd: startup <JSON>` record splits `Daemon::open_stores` into adjacent wall
+A `startup: stores <JSON>` record splits `Daemon::open_stores` into adjacent wall
 intervals, in milliseconds:
 
 | Field | Work included |
@@ -707,8 +707,9 @@ the end-to-end cold-start metric.
 `r3696c_cold_start_reports_runtime_and_store_phases` starts an isolated real
 Daemon, waits for the harness's first successful ping and reads the retained
 numeric records. It failed before instrumentation because the phase record was
-absent. No other test in its new file duplicates this observation. The existing
-perf CLI observer separately proves stderr survives a failed startup.
+absent. The existing harness observer checks ping and cleanup; the perf CLI
+observer separately proves stderr survives a failed startup. Neither proves
+startup attribution.
 
 This supplies attribution for the next Mac observation, not a performance
 repair or full R3696c pass. The latest failing M4 Max A/B at `59cff55cae` predates
