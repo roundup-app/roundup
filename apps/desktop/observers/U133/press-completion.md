@@ -49,9 +49,8 @@ D8 retains elevation/hairline duties and adds local inset/visible-mark readings.
   Its cold U463 first-run timeout passes alone with warm binaries and retries
   disabled. The broad run is incomplete, not a passing full-suite claim.
 - `just lint-rust`, Stylelint, type checks, source lint, Token scan and
-  `merge-loss` pass. `just lint-web` reaches one inherited boundary failure:
-  main `0ab132eb3` has 1,455 lines in `loop/builder.py` against its recorded
-  ceiling of 1,453. That file equals `origin/main`; L118 freezes it for this run.
+  `merge-loss` pass. `just lint-web` passes after main `9f0295fb6` brings
+  #4098's size-ceiling repair. This PR authors no loop-machinery changes.
 - PR #3948 is retained through #4005 and subsequent merged continuations;
   #4049's choice-machine repair is included. No existing test was cut: the
   edited choice test only narrows its blur target after adding fixture controls.
@@ -59,3 +58,19 @@ D8 retains elevation/hairline duties and adds local inset/visible-mark readings.
 This completes #3824's scoped press/baseline slice. #4068–#4072 retain the
 remaining whole-pass acceptance, including strict lint, palette/accent and
 native material. This observer makes no native rendering or launch-cost claim.
+
+## Reproduce
+
+Serve the base and head worktrees on ports 5200 and 5199 after `pnpm install`.
+Share the head's `ui/u133Fixture.tsx` with the base, removing its feedback import
+and onMount registration; copy `testing/designChecks.ts` to the base as a
+measurement-only module. From the repo root run:
+
+```sh
+pnpm --filter desktop exec python3 observers/U133/observe.py --browser agent-browser --output ../../artifacts/ux/U133/completion
+```
+
+`--side head` needs no base checkout. `--phase` limits observations to rows,
+controls, failure or the Rail Return/blur probe. Keep the same renderer and
+pixel ratio; `record start` recreates its context, so the driver restores dark
+mode and viewport before recording the real drag.
