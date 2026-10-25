@@ -1,9 +1,9 @@
-import type { App, AppSeam, ProjectCalls } from "../app/seam";
-import type { WriteParams } from "@contracts/terminal/WriteParams";
+import type { App, AppSeam } from "../app/seam";
+import type { Calibration, Exchange } from "./calibration";
 import { toBase64 } from "../terminal/base64";
-import { createXtermEmulators } from "../terminal/emulator";
+import { createRecorder } from "./recorder";
 import type { Emulator } from "../terminal/emulator";
-import { PATIENCE_MS, WARMUP_KEYS, createKeystrokeProbe, typeKeys } from "./keystrokes";
+import { PATIENCE_MS, WARMUP_KEYS, typeKeys } from "./keystrokes";
 import type { HopSummary, Summary } from "./keystrokes";
 
 const KEYS = 1000;
@@ -95,6 +95,7 @@ type PerfReport =
   | (Summary & {
       hops: Record<string, HopSummary>;
       hop_uncertainty_ms: number;
+      calibration: Calibration;
       keys: number;
       patience_ms: number;
       renderer: "webgl" | "dom";
@@ -234,20 +235,10 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
 export const createKeystrokeRun = (app: AppSeam) => {
-  const probe = createKeystrokeProbe(() => performance.now(), "a", () => terminal.target());
-  let webgl: boolean | null = null;
-
-  const terminal = reportTerminal(
-    createXtermEmulators({
-      input: probe.input,
-      encoding: probe.encoding,
-      encoded: probe.encoded,
-      arrived: probe.arrived,
-      written: probe.written,
-      rendered: probe.rendered,
-      renderer: (used) => (webgl = used),
-    }),
-  );
+  const run = crypto.randomUUID();
+  const recorder = createRecorder(() => performance.now(), run, () => terminal.target());
+  const { probe } = recorder;
+  const terminal = reportTerminal(recorder.createEmulator);
 
   const report = async (body: PerfReport) => {
     const id = terminal.target();
@@ -265,16 +256,31 @@ export const createKeystrokeRun = (app: AppSeam) => {
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
     const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
     const timerResolution = timerResolutionMs();
+    const id = terminal.target();
+
+    if (id === null) throw new Error("no ready Terminal for clock calibration");
+    const exchanges: Exchange[] = [];
+
+    const exchange = async () => {
+      const sent = performance.now();
+      const measured = await bounded(app.rpc("terminal.measure", { id, run }), SETUP_BOUND_MS, "Daemon keystroke clock");
+
+      if (measured.at === null) throw new Error("invalid Daemon clock reading");
+      exchanges.push({ sent, daemon: measured.at, received: performance.now() });
+
+      return measured;
+    };
+
+    await exchange();
     const end = performance.now() + TYPING_BOUND_MS;
 
     await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
+    const measured = await exchange();
     await report({
-      ...probe.summary(WARMUP_KEYS),
-      hops: probe.hops(WARMUP_KEYS),
-      hop_uncertainty_ms: timerResolution,
+      ...recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS),
       keys: KEYS,
       patience_ms: PATIENCE_MS,
-      renderer: webgl ? "webgl" : "dom",
+      renderer: recorder.webgl() ? "webgl" : "dom",
       frame_ms: frame,
       timer_resolution_ms: timerResolution,
       device_pixel_ratio: window.devicePixelRatio,
@@ -282,23 +288,8 @@ export const createKeystrokeRun = (app: AppSeam) => {
     });
   };
 
-  /** The App's own `terminal.write` calls stamp the dispatch and the Daemon's answer; every call goes through unchanged. */
-  const traced = <T extends Pick<ProjectCalls, "rpc">>(calls: T): T => ({
-    ...calls,
-    rpc: (method, params) => {
-      if (method !== "terminal.write") return calls.rpc(method, params);
-
-      // SAFETY: the generated RPC contract ties params to method; TypeScript cannot narrow that generic pair together.
-      const { id } = params as WriteParams;
-
-      probe.dispatched(id);
-
-      return calls.rpc(method, params).finally(() => probe.replied(id));
-    },
-  });
-
   return {
-    traced: (real: App): App => ({ ...real, forProject: (path) => traced(real.forProject(path)) }),
+    traced: (real: App): App => ({ ...real, forProject: (path) => recorder.traced(real.forProject(path)) }),
     createEmulator: terminal.createEmulator,
     start: async () => {
       try {
