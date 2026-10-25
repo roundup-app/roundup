@@ -114,6 +114,7 @@ export const Bubble = (props: {
     const move = (event: PointerEvent) => {
       if (event.pointerId !== undefined && event.pointerId !== start.pointerId) return;
       pointer = { x: event.clientX, y: event.clientY };
+
       if (framed) pending ??= requestAnimationFrame(apply);
       else apply();
     };
@@ -125,6 +126,7 @@ export const Bubble = (props: {
       restoreResize = undefined;
 
       if (pending !== null) cancelAnimationFrame(pending);
+
       if (restore) props.setPlace(id, from);
       else if (pending !== null) apply();
       pending = null;
@@ -134,8 +136,11 @@ export const Bubble = (props: {
 
     const cancel = () => finish(true);
     const up = (event: PointerEvent) => { if (event.pointerId === undefined || event.pointerId === start.pointerId) finish(false); };
+
     const cancelled = (event: PointerEvent) => { if (event.pointerId === undefined || event.pointerId === start.pointerId) cancel(); };
+
     const focus = (event: FocusEvent) => { if (event.target !== target) cancel(); };
+
     const options = { signal: listeners.signal };
 
     window.addEventListener("pointermove", move, options);
