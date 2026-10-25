@@ -84,3 +84,37 @@ above has retries disabled. CI judges a fresh run on the pushed head.
 complete press/cancellation and extended Check observers, strict lint and all
 existing repairs, palette/system accent, native material/fallback and the
 Mac/performance observations. This slice changes no native window setup.
+
+## Completion refresh
+
+Fix run `builder-40191473795` merged main `eb4a16fdb` cleanly into
+`56a96a70544c2c89a6e2170a2a655cca2375c1a4`. No runtime edit or conflict
+resolution was needed. `completion.json` records the immutable revisions
+and the Check comparison.
+
+Fresh isolated headless agent-browser captures at 1512×950, dark, scale 1
+are under `artifacts/ux/U131/completion/{base,head}/`. Eleven pairs cover
+the five required seeds, dense plain/nested/long Todos, a selected Todo with
+its Drawer, failed completion, Pads, a newly opened Terminal and rename.
+Every previously passing Check remains passing; D2/D5/D6 pass throughout.
+D12 still fails on both revisions when Pads are visible. The failure text
+“Offline. Reconnect.” remains fully visible. Images remain uncommitted.
+
+Measured local title offsets on this refresh:
+
+| Surface | Main | Integrated head |
+| --- | --- | --- |
+| Plain / nested blocked Todo | 32 / 56 px | 56 / 56 px |
+| Pad | 32 px | 56 px |
+| Newly opened Terminal / rename | 9 / 21 px | 56 / 56 px |
+
+Todo offsets subtract only the existing tree-depth indent. These are
+rendered geometry readings; the earlier raster observation remains separate.
+
+Both `just lint-web` and `just lint-rust` pass, including `ALL PROOFS CHECK`.
+`merge-loss`, `git diff --check` and the paired capture delta pass. Seven
+focused files pass all 160 tests with `--retry=0 --maxWorkers=1`: U130 Tokens,
+U135 schemes, U137 Checks, Terminal tabs, Todo nesting/actions and Pad rename.
+The prescribed broad capture invocation and broad related-style selection
+were interrupted (exit 130), not reported as green; CI judges the full push.
+The remaining acceptance above stays on #3824.
