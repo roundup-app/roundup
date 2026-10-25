@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as v from "valibot";
-import { rpcFailureSchema } from "../app/seam";
+import { rpcFailureSchema } from "../app/seam.ts";
 import type { Plugin } from "vite";
 
 /** What the dev server serves of one running `rupd` (U144). */
