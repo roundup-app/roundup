@@ -1,0 +1,24 @@
+{
+  "calls": [
+    {
+      "method": "project.importCommit",
+      "params": {
+        "selections": [
+          {
+            "revision": "revision-0",
+            "source": "source-0"
+          }
+        ]
+      }
+    }
+  ],
+  "failure": "Import completion is unconfirmed. Keep your choices; Refresh to check before importing again.",
+  "importDisabled": true,
+  "retained": {
+    "roundup:drafts:/Users/you/harness": "{\"version\":1,\"drafts\":[{\"revision\":\"9191bcd9-5e84-42e0-932e-e0701b092b1e\",\"destination\":{\"surface\":\"import\",\"object\":\"/Users/you/harness\",\"recipient\":null},\"value\":{\"external\":false,\"period\":\"week\",\"sources\":[\"source-0\"],\"revisions\":[\"revision-0\"],\"titles\":[\"Conversation 0\"]},\"selection\":null,\"policy\":\"ordinary\",\"status\":\"unknown\"},{\"revision\":\"2af3253f-f1e6-4933-9f83-12c2da35d442\",\"destination\":{\"surface\":\"import\",\"object\":\"/Users/you/harness\",\"recipient\":null},\"value\":{\"external\":false,\"period\":\"week\",\"sources\":[\"source-0\"],\"revisions\":[\"revision-0\"],\"titles\":[\"Conversation 0\"]},\"selection\":null,\"policy\":\"ordinary\",\"status\":\"draft\"}]}",
+    "roundup:import:/Users/you/harness": "{\"revision\":\"2af3253f-f1e6-4933-9f83-12c2da35d442\",\"open\":true,\"period\":\"week\",\"selected\":[{\"source\":\"source-0\",\"revision\":\"revision-0\",\"title\":\"Conversation 0\"}]}"
+  },
+  "selected": [
+    "Conversation 0src2 d agoImport completion is unconfirmed. Keep your choices; Refresh to check before importing again."
+  ]
+}

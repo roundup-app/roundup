@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use contracts::project::ImportExclusionCause;
 use rpc::RpcError;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
@@ -29,6 +30,7 @@ pub struct ImportCandidate {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImportExclusion {
     pub source: String,
+    pub cause: ImportExclusionCause,
     pub reason: String,
     /// The source file's modified time, which names the conversation when no title is known.
     pub modified_ms: Option<i64>,
@@ -81,7 +83,7 @@ enum Scan {
     Member(ImportCandidate),
     OtherProject,
     Out,
-    Excluded(String),
+    Excluded(ImportExclusionCause, String),
 }
 
 impl Launcher {
@@ -254,12 +256,14 @@ impl Launcher {
             match scan {
                 _ if counts[&source] > 1 => out.excluded.push(ImportExclusion {
                     source,
+                    cause: ImportExclusionCause::DuplicateSource,
                     reason: "duplicate source identity".into(),
                     modified_ms,
                 }),
                 Scan::Member(candidate) => out.candidates.push(candidate),
-                Scan::Excluded(reason) => out.excluded.push(ImportExclusion {
+                Scan::Excluded(cause, reason) => out.excluded.push(ImportExclusion {
                     source,
+                    cause,
                     reason,
                     modified_ms,
                 }),
@@ -356,7 +360,7 @@ impl Launcher {
                 Scan::Member(candidate) if candidate.revision == revision => {
                     return Ok((candidate, bytes));
                 }
-                Scan::Excluded(reason) => {
+                Scan::Excluded(_, reason) => {
                     return Err(RpcError::conflict(format!(
                         "cannot import {source}: {reason}; Refresh to try again"
                     )));
@@ -396,12 +400,16 @@ fn scan(
     retained: Option<&mut Vec<u8>>,
 ) -> Result<Scan, RpcError> {
     if !is_uuid(stem) {
-        return Ok(Scan::Excluded("unsupported source name".into()));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::UnsupportedSource,
+            "unsupported source name".into(),
+        ));
     }
     let metadata = path.metadata().map_err(|err| io_error(path, err))?;
     let len = metadata.len();
     if retained.is_none() && len > MAX_PREVIEW {
         return Ok(Scan::Excluded(
+            ImportExclusionCause::PreviewLimit,
             "source exceeds 4,000,000,000 byte preview limit".into(),
         ));
     }
@@ -454,10 +462,13 @@ fn scan_records(
     let preview = retained.is_none();
     let (input, len) = input;
     if preview && len > MAX_PREVIEW {
-        return Ok(Scan::Excluded(format!(
-            "{}: source exceeds 4,000,000,000 byte preview limit",
-            path.display()
-        )));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::PreviewLimit,
+            format!(
+                "{}: source exceeds 4,000,000,000 byte preview limit",
+                path.display()
+            ),
+        ));
     }
     #[cfg(not(any(test, feature = "test-support")))]
     let _ = launcher;
@@ -500,7 +511,10 @@ fn scan_records(
                 .map_err(|err| io_error(path, err))?
                 .is_empty()
         {
-            return Ok(Scan::Excluded("record exceeds 8 MiB limit".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::RecordLimit,
+                "record exceeds 8 MiB limit".into(),
+            ));
         }
         if line.last() != Some(&b'\n') {
             break;
@@ -509,6 +523,7 @@ fn scan_records(
         if let Some(bytes) = &mut retained {
             if bytes.len() + line.len() > MAX_SNAPSHOT {
                 return Ok(Scan::Excluded(
+                    ImportExclusionCause::SnapshotLimit,
                     "conversation exceeds 512 MiB import limit".into(),
                 ));
             }
@@ -519,22 +534,37 @@ fn scan_records(
         }
         // Serde structs also accept arrays; vendor records must be objects.
         if line.trim_ascii_start().first() != Some(&b'{') {
-            return Ok(Scan::Excluded("malformed record".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::MalformedRecord,
+                "malformed record".into(),
+            ));
         }
         // Unknown fields use Serde's IgnoredAny: inspect framing without
         // materializing payloads or validating their UTF-8. Selected snapshots
         // still go through Value so every complete payload is validated at commit.
         if !preview && serde_json::from_slice::<Value>(&line).is_err() {
-            return Ok(Scan::Excluded("malformed record".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::MalformedRecord,
+                "malformed record".into(),
+            ));
         }
         let Ok(record) = serde_json::from_slice::<Metadata>(&line) else {
-            return Ok(Scan::Excluded("malformed record".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::MalformedRecord,
+                "malformed record".into(),
+            ));
         };
         if record.is_sidechain == Some(true) {
-            return Ok(Scan::Excluded("subagent record".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::SubagentRecord,
+                "subagent record".into(),
+            ));
         }
         if record.session_id.as_deref().is_some_and(|id| id != stem) {
-            return Ok(Scan::Excluded("identity does not match source".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::ForeignIdentity,
+                "identity does not match source".into(),
+            ));
         }
         let cwd = record
             .cwd
@@ -543,7 +573,10 @@ fn scan_records(
             .map(PathBuf::from)
             .filter(|cwd| !cwds.contains(cwd));
         if cwd.is_some() && cwds.len() >= 64 {
-            return Ok(Scan::Excluded("too many recorded directories".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::TooManyDirectories,
+                "too many recorded directories".into(),
+            ));
         }
         let mut next_titles = [custom.as_deref(), agent.as_deref(), ai.as_deref()];
         let title = match record.kind.as_deref() {
@@ -570,7 +603,10 @@ fn scan_records(
                 .map(str::len)
                 .sum::<usize>();
         if metadata_bytes > MAX_METADATA {
-            return Ok(Scan::Excluded("metadata exceeds 8 MiB limit".into()));
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::MetadataLimit,
+                "metadata exceeds 8 MiB limit".into(),
+            ));
         }
         if let Some(cwd) = cwd {
             cwds.push(cwd);
@@ -594,13 +630,19 @@ fn scan_records(
     }
     check()?;
     if consumed != len {
-        return Ok(Scan::Excluded(format!(
-            "{}: incomplete metadata coverage; source ended before captured size",
-            path.display()
-        )));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::IncompleteMetadata,
+            format!(
+                "{}: incomplete metadata coverage; source ended before captured size",
+                path.display()
+            ),
+        ));
     }
     if !complete {
-        return Ok(Scan::Excluded("no complete records".into()));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::NoCompleteRecords,
+            "no complete records".into(),
+        ));
     }
     let mut inside = Vec::new();
     let mut outside = false;
@@ -609,19 +651,29 @@ fn scan_records(
             Ok(real) if real.starts_with(project) => inside.push(real),
             Ok(_) => outside = true,
             Err(err) if cwd.starts_with(project) => {
-                return Ok(Scan::Excluded(format!(
-                    "missing directory {}: {err}",
-                    cwd.display()
-                )));
+                return Ok(Scan::Excluded(
+                    ImportExclusionCause::MissingDirectory,
+                    format!("missing directory {}: {err}", cwd.display()),
+                ));
             }
             Err(_) => outside = true,
         }
     }
     match (inside.as_slice(), outside) {
         ([], true) => return Ok(Scan::OtherProject),
-        ([], false) => return Ok(Scan::Excluded("no recorded working directory".into())),
+        ([], false) => {
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::NoDirectory,
+                "no recorded working directory".into(),
+            ));
+        }
         ([_], false) => {}
-        _ => return Ok(Scan::Excluded("ambiguous Project membership".into())),
+        _ => {
+            return Ok(Scan::Excluded(
+                ImportExclusionCause::AmbiguousProject,
+                "ambiguous Project membership".into(),
+            ));
+        }
     }
     let cwd = &inside[0];
     let relative = cwd.strip_prefix(project).unwrap_or(Path::new(""));
@@ -631,10 +683,16 @@ fn scan_records(
         .is_some_and(|c| c.as_os_str() == ".roundup")
         || in_linked_worktree(cwd, project)
     {
-        return Ok(Scan::Excluded("inside a Worktree".into()));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::InsideWorktree,
+            "inside a Worktree".into(),
+        ));
     }
     let Some(latest) = latest else {
-        return Ok(Scan::Excluded("activity unknown or in the future".into()));
+        return Ok(Scan::Excluded(
+            ImportExclusionCause::UnknownActivity,
+            "activity unknown or in the future".into(),
+        ));
     };
     if latest < now_ms.saturating_sub(period_ms) {
         return Ok(Scan::Out);

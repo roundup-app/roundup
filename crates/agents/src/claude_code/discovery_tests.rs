@@ -41,8 +41,8 @@ async fn u3065_root_project_keeps_cwd_exclusions() {
     let config = root.path().join("config");
     let mut expected = Vec::new();
     for (index, (cwd, reason)) in [
-        (&linked, "inside a Worktree"),
-        (&missing, "missing directory"),
+        (&linked, ImportExclusionCause::InsideWorktree),
+        (&missing, ImportExclusionCause::MissingDirectory),
     ]
     .into_iter()
     .enumerate()
@@ -60,7 +60,7 @@ async fn u3065_root_project_keeps_cwd_exclusions() {
     assert_eq!(found.excluded.len(), expected.len());
     for (got, (source, reason)) in found.excluded.iter().zip(expected) {
         assert_eq!(got.source, source);
-        assert!(got.reason.starts_with(reason), "{}", got.reason);
+        assert_eq!(got.cause, reason);
     }
 }
 
@@ -163,7 +163,7 @@ async fn u2875a_activity_is_not_file_mtime() {
         found
             .excluded
             .iter()
-            .any(|e| e.source == fourth && e.reason.starts_with("missing directory"))
+            .any(|e| e.source == fourth && e.cause == ImportExclusionCause::MissingDirectory)
     );
     assert!(
         found
@@ -682,7 +682,7 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     )
     .unwrap();
     assert!(
-        matches!(result, Scan::Excluded(reason) if reason.contains("source.jsonl") && reason.contains("incomplete metadata coverage"))
+        matches!(result, Scan::Excluded(ImportExclusionCause::IncompleteMetadata, reason) if reason.contains("source.jsonl") && reason.contains("incomplete metadata coverage"))
     );
     // The same reader seam enforces the ceiling before invoking Read.
     let input = std::io::empty();
@@ -697,7 +697,7 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     )
     .unwrap();
     assert!(
-        matches!(result, Scan::Excluded(reason) if reason.contains("source.jsonl") && reason.contains("preview limit"))
+        matches!(result, Scan::Excluded(ImportExclusionCause::PreviewLimit, reason) if reason.contains("source.jsonl") && reason.contains("preview limit"))
     );
 }
 
