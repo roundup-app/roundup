@@ -36,9 +36,9 @@ class Addition(unittest.TestCase):
                 handler = checkout / "crates/todos/src/dispatch.rs"
                 handler.write_text(handler.read_text() + HANDLER)
                 integration = checkout / "crates/rup/tests/mcp.rs"
-                integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp.rs"]\nmod c4_adapter;\n')
+                integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"
-                adapter.write_text(adapter.read_text() + "\n#[cfg(test)]\nmod c4_addition;\n")
+                (adapter.parent / "mcp/c4_adapter.rs").write_text(adapter.read_text() + "\n#[cfg(test)]\nmod c4_addition;\n")
                 (adapter.parent / "mcp/c4_addition.rs").write_bytes((ROOT / "tools/contracts/fixtures/addition.rs").read_bytes())
                 run("just", "contracts")
                 run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
