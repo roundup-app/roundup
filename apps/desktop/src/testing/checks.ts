@@ -553,9 +553,9 @@ const d9 = (page: Page): Measure => {
       && animation.effect.getKeyframes().every(frame => Object.keys(frame).every(key => ["opacity", "offset", "computedOffset", "easing", "composite"].includes(key)));
 
     for (const animation of animations) {
-      const duration = animation.effect?.getTiming().duration;
+      const duration = Number(animation.effect?.getTiming().duration);
 
-      if (duration !== undefined && duration !== "auto" && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
+      if (!Number.isNaN(duration) && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
     }
 
     const transitionFade = style.transitionProperty.split(",").every(property => property.trim() === "opacity");

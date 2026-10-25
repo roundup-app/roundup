@@ -2,42 +2,59 @@ import { animate } from "motion";
 import { createEffect, createRoot } from "solid-js";
 import type { Accessor } from "solid-js";
 
+const releases = new WeakMap<Element, () => void>();
+
+/** Ends feedback before the existing drag owner measures and lifts its source. */
+export function clearPress(element: Element): void {
+  releases.get(element)?.();
+  element.removeAttribute("data-pressed");
+}
+
 /** Adds transient feedback only; the platform and Ark retain all activation semantics. */
 export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => false): () => void {
   return createRoot(dispose => {
     const effects = new Map<Element, { animation: ReturnType<typeof animate>; restore: () => void }>();
     let pointerHeld = false;
-    const stop = () => { effects.forEach(effect => { effect.animation.cancel(); effect.restore(); }); effects.clear(); };
+    const stop = () => { effects.forEach((effect, el) => { effect.animation.cancel(); effect.restore(); releases.delete(el); }); effects.clear(); };
 
     const move = (el: Element, down: boolean) => {
       if (!(el instanceof HTMLElement) || !("animate" in el)) return;
+      const visual = el.matches("input") ? el.closest<HTMLElement>(".app-checkbox, .app-radio, .app-segment") ?? el : el;
       const previous = effects.get(el);
-      const computed = getComputedStyle(el);
+      const computed = getComputedStyle(visual);
       const fromTransform = computed.transform === "none" ? new DOMMatrix().toString() : computed.transform;
       const fromOpacity = computed.opacity;
-      const transform = el.style.transform;
-      const opacity = el.style.opacity;
-      const restore = previous?.restore ?? (() => { el.style.transform = transform; el.style.opacity = opacity; });
+      const transform = visual.style.transform;
+      const opacity = visual.style.opacity;
+      const restore = previous?.restore ?? (() => { visual.style.transform = transform; visual.style.opacity = opacity; });
       previous?.animation.cancel();
       restore();
       const tokens = getComputedStyle(doc.documentElement);
       const duration = tokens.getPropertyValue(reduced() ? "--duration-reduced" : "--duration-press").trim();
       const seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
       const scale = down ? tokens.getPropertyValue("--scale-press").trim() : "1";
-      const base = getComputedStyle(el).transform;
+      const base = getComputedStyle(visual).transform;
       const target = new DOMMatrix(base === "none" ? undefined : base).scale(Number(scale)).toString();
       const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
       const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
 
       const animation = reduced()
-        ? animate(el, { opacity: [Number(fromOpacity), down ? Number(tokens.getPropertyValue("--press-opacity")) : 1] }, { duration: seconds })
-        : animate(el, { transform: [fromTransform, target] }, { duration: seconds, ease });
+        ? animate(visual, { opacity: [Number(fromOpacity), down ? Number(tokens.getPropertyValue("--press-opacity")) : 1] }, { duration: seconds })
+        : animate(visual, { transform: [fromTransform, target] }, { duration: seconds, ease });
 
       const effect = { animation, restore };
       effects.set(el, effect);
+      releases.set(el, () => {
+        effect.animation.cancel();
+        effect.restore();
+        effects.delete(el);
+        releases.delete(el);
+
+        if (pressing === el) { pointerHeld = false; pressing = null; }
+      });
       void animation.then(() => {
         if (effects.get(el) !== effect || down) return;
-        animation.cancel(); restore(); effects.delete(el);
+        animation.cancel(); restore(); effects.delete(el); releases.delete(el);
       });
     };
 
