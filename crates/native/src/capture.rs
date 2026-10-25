@@ -1,6 +1,6 @@
 //! The panel's Objective-C class, handles and thread obligations never leave this module.
 use std::sync::mpsc;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, plugin::TauriPlugin};
+use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_nspanel::{ManagerExt, WebviewWindowExt};
 use tauri_plugin_positioner::{Position, WindowExt};
 
@@ -168,13 +168,8 @@ impl<R: Runtime> CapturePanel<R> {
 }
 
 /// Register the selected native libraries without granting their JS command permissions.
-pub fn capture_plugin<R: Runtime>() -> TauriPlugin<R> {
-    tauri::plugin::Builder::new("capture-panel")
-        .setup(|app, _| {
-            app.plugin(tauri_nspanel::init())?;
-            app.plugin(tauri_plugin_positioner::init())?;
-            Ok(())
-        })
+pub fn register_capture<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    let lifetime = tauri::plugin::Builder::new("capture-panel")
         .on_event(|app, event| {
             if matches!(event, tauri::RunEvent::Exit)
                 && let Err(error) =
@@ -184,5 +179,10 @@ pub fn capture_plugin<R: Runtime>() -> TauriPlugin<R> {
                 eprintln!("desktop: could not release Capture panel: {error}");
             }
         })
-        .build()
+        .build();
+    // Builder composition avoids taking AppHandle's plugin lock inside another plugin's setup.
+    builder
+        .plugin(tauri_nspanel::init())
+        .plugin(tauri_plugin_positioner::init())
+        .plugin(lifetime)
 }

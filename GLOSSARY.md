@@ -952,7 +952,7 @@ The App seam’s classification of a thrown value: `failed` only for a known RPC
 |---|---|---|
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |
 
-**Capture panel** (`CapturePanel`, `CapturePanelState`, `capture_plugin`):
+**Capture panel** (`CapturePanel`, `CapturePanelState`, `register_capture`):
 The native integration's one reusable Todo Capture NSPanel. Its safe owner holds only a
 Tauri App handle; creation, placement, visibility observations and release run on the
 main thread. `CapturePanelState` reports actual visibility and whether AppKit allows

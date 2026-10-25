@@ -81,7 +81,7 @@ storage, panel or native look-and-feel acceptance and requires no new Mac reques
 
 ## Capture panel integration (U3787f, in progress)
 
-`capture_plugin` registers pinned tauri-nspanel 2.1.1 and positioner 2.4.0. Neither
+`register_capture` registers pinned tauri-nspanel 2.1.1 and positioner 2.4.0. Neither
 plugin receives JS command permissions. `CapturePanel` contains only an AppHandle;
 its operations dispatch to the main thread, returning actual native observations.
 The private macro-generated class may become key after deliberate interaction, but
