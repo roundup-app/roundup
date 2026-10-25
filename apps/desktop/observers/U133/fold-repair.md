@@ -45,3 +45,18 @@ The prescribed broad capture command failed before the desktop suite:
 `reporting/results.test.mjs` exceeded its subprocess bound (`pnpm ETIMEDOUT`).
 This is not a full-suite pass. The focused behavioral and paired rendered
 observations above are independent of that command.
+
+All 30 paired isolated-control first-frame probes change colour or opacity;
+`fold-press-frames.json` records each pair. The isolated fixture's floating-menu
+layout retains the same D3/D6/D8/D10 failures on both revisions; it is not an
+App surface capture. The real App's menu passes those Checks.
+
+`just lint-rust` passes, including `ALL PROOFS CHECK`. Web lint initially fails
+only because the local workspace omitted madge; reinstalling the workspace
+repairs that dependency and `pnpm lint:cycles` passes with zero cycles. The
+complete web lint rerun is recorded separately on completion.
+
+The six-minute related-file run stops at its bound after U166 spends roughly
+four minutes building the real-Daemon executables and fails its test bound.
+It is not a complete-suite pass. The reporting test that blocked broad captures
+passes alone after warm-up, without changing its timeout or retry policy.
