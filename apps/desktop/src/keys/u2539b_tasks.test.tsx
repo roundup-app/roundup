@@ -52,6 +52,27 @@ it("u2539b_landing_mounts_only_ask_and_attention", async () => {
   await waitFor(() => expect(document.querySelector(".pane-screen [data-terminal]")).not.toBeNull());
 });
 
+it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
+  const { connected } = await mount();
+  fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
+  await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
+  expect(screen.getByRole("heading", { level: 1 }).getAttribute("aria-label")).toContain("Agent 0");
+  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  await waitFor(() => expect(connected().rail.selected()).toBeNull());
+  expect(screen.getByRole("textbox", { name: "Ask" })).toBeTruthy();
+});
+
+it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
+  const { app } = await mount();
+  const other = app.of("/project0");
+  other.handlers["rail.tree"] = () => [agent("other", "needs-you", "ready")];
+  other.handlers["terminal.list"] = () => [info("t-other", { owner: "other" })];
+  other.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  const attention = await screen.findByRole("button", { name: /project0.*Needs you/ });
+  fireEvent.click(attention);
+  await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
+});
+
 it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
   openProjectPage(`view:${view}`, "/p");
