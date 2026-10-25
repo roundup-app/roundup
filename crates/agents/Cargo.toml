@@ -28,6 +28,7 @@ terminal = { path = "../terminal" }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["process"] }
 unicode-normalization = "0.1"
+url = "2"
 time = { version = "0.3.55", features = ["parsing"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
