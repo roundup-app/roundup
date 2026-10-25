@@ -69,8 +69,8 @@ const pendingPull = async (trigger: string) => {
   await frame();
   await frame();
 
-  if (trigger === "pressed") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
-  pointer("pointermove", window, 2, trigger === "pressed" ? 500 : 700, trigger === "pressed" ? 160 : 500);
+  if (trigger === "pressed" || trigger === "element-blur") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
+  pointer("pointermove", window, 2, (trigger === "pressed" || trigger === "element-blur") ? 500 : 700, (trigger === "pressed" || trigger === "element-blur") ? 160 : 500);
   pointer("pointerup", window, 2);
   await frame();
   expect(bubbleCalls(mounted.app, "terminal.open")).toHaveLength(1);
@@ -78,7 +78,7 @@ const pendingPull = async (trigger: string) => {
   expect(placesStorage("/p").read()["2"]).toEqual(settled);
 
   if (trigger === "release") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 136, y: 192, min: false });
-  else if (trigger === "pressed") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 192, y: 160, min: false });
+  else if (trigger === "pressed" || trigger === "element-blur") expect(placesStorage("/p").read()["9"]).toMatchObject({ x: 192, y: 160, min: false });
   else if (trigger === "rejection") expect(document.querySelector('[role="alert"]')).not.toBeNull();
   else expect(placesStorage("/p").read()["9"]?.min).toBe(true);
 
@@ -119,6 +119,17 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   if (phase === "moved") await frame();
 
   if (trigger !== "capture-blur" || owner === "pull") interrupt(trigger, target);
+
+  // S3806a permits incidental element blur while the gesture retains ownership.
+  if (trigger === "element-blur") {
+    pointer("pointermove", window, button, 650, 500);
+    pointer("pointerup", window, button);
+    await frame();
+    const after = placesStorage("/p").read()["2"]!;
+    expect([after.x, after.y, after.w, after.h]).not.toEqual([from.x, from.y, from.w, from.h]);
+
+    return;
+  }
   const settled = owner === "pull" ? placesStorage("/p").read()["2"]! : { ...from, min: placesStorage("/p").read()["2"]!.min };
 
   // Pull keeps its completed position, including a last queued position, as U421 Escape does.
@@ -147,4 +158,20 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
   expect(mounted.app.calls.filter(call => /agent\.(prompt|spawn)|message\.send/.test(call.method))).toEqual([]);
+});
+
+it.each([".rail-row", ".resource-strip"])("s3806a_pull_survives_terminal_blur_from_a_press_on_%s", async (selector) => {
+  const mounted = await mountBubbles("a");
+  const terminal = document.createElement("textarea");
+  mounted.container.append(terminal);
+  terminal.focus();
+  const target = document.querySelector<HTMLElement>(selector)!;
+  expect(target).not.toBeNull();
+  pointer("pointerdown", target, 2, 140, 600);
+  terminal.blur();
+  pointer("pointermove", window, 2, 720, 460);
+  pointer("pointerup", window, 2, 720, 460);
+  await frame();
+  expect(placesStorage("/p").read()["1"]).toMatchObject({ min: false });
+  expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
