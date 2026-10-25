@@ -50,6 +50,7 @@ page readiness at 41043.893 ms and 41493.480 ms.
 `apps/desktop/src/testing/u362_todo_drag.test.ts:76` comparison (TS2367: `"light"`
 and `"dark"` have no overlap). This observer-only evidence change does not edit
 that file or weaken the check.
+`just lint-rust` exits **0**.
 
 No product behavior or App surface changes; no Principle gate or design Check
 moves. U26's existing kernel-fault and isolated headless Chromium suites are the
