@@ -1,6 +1,6 @@
 # Native motion run: the owner's Mac runbook
 
-For U3010d (#3013). One command per workload, one paste back. This document claims no result.
+For U3010d (#3013). Native scheduling procedure and retained owner observations; no displayed-frame claim.
 
 ## Build
 
