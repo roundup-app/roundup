@@ -92,6 +92,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const notice = createMemo(() => {
     if (props.notice != null) return { kind: "notice" as const, message: props.notice };
 
+    if (rail.commandFailure.surface() === "pane") return { kind: "command" as const, message: rail.commandFailure.message() };
+
     const stored = storageFailure();
 
     if (stored !== null) return { kind: "storage" as const, message: stored };
@@ -306,7 +308,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected() === null && notice() === null}>
+        <Show when={selected() === null && (notice() === null || notice()?.kind === "command")}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">
               <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
@@ -320,7 +322,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
             </div>
           </Show>
         </Show>
-        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && notice() === null}>
+        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
         </Show>
         <Show when={closedAgent()}>
@@ -346,7 +348,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
-        <ReservedLine message={props.notice ?? (rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : notice()?.message)}>
+        <ReservedLine message={notice()?.message}>
           <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
           <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>

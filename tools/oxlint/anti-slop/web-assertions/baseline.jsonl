@@ -402,15 +402,6 @@
 {"file":"apps/desktop/src/orders/q2_surfaces.test.tsx","test":"U2773 Order forms on real Projects > u3021c_orders_selected_open_uses_original_real_project_and_refuses_removed_node","identity":"9c54f7a61d7d1b63d7874051e2be263738b76540ecbbc1f4339b83f1e82daa34"}
 {"file":"apps/desktop/src/orders/q2_surfaces.test.tsx","test":"U2773 Order forms on real Projects > u3021c_orders_selected_open_uses_original_real_project_and_refuses_removed_node","identity":"9eb0c815fa3b2fa306e552077a0d835e307091579658df84ec8367973dfdf42c"}
 {"file":"apps/desktop/src/orders/q2_surfaces.test.tsx","test":"U2773 Order forms on real Projects > u2773a_orders_project_reopen_keeps_memory_after_retention_failure","identity":"b9db1548ef77389f7b308c48d7115f0c5c7a670cfc2be9a661f0645f07eac321"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"bef4db13379e2e66362519f97fd4e615059f9bcb0261d82ce804c73323feb501"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"7fe8141a97f11530b33ae7e6c2af72fb4677a01504cc52531c764e62c5233146"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"9fb7b9d704b0fb46ea2babc4bb1ecfb3ce70dcc7e5cac8f00ea00cb5ae04f7ae"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"6813a7bd3000360d4ee28f9316672fcfe4533ac7493ed74d4c31149397747a24"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"82fd31212af81d346ebdeb46aea802e03439287edba26099f0a3b12525808ffb"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"fb300f8faa4b20bc761d0293fc7d40ecfa664754ec0860e65ea5e511cb446baa"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"0136d57dd600f8ab6e7f05f8a6d8228590a4da2d927d100322155242c074c31f"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"1e5d890d1c6159912243c548bca1a380a4eecc7111eb773e9db6a9328116f95e"}
-{"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"u3078i_open_inspect_resume_and_reconcile","identity":"a377e45909cc744537ba1dee633c700dc8d4ace1b05f101e5e34288b6969c3ab"}
 {"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"p3557c_failure_lifetime_work_progress: %s","identity":"12dfd3889a1cf2aeb8332ec33be3742fc716a79031a66e1f9ffa0216773a6f39"}
 {"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"p3557c_failure_lifetime_work_progress: %s","identity":"cdcce0bb91b05354aa3037840e01ebf466ccfcd610be1558bbce1c52cc7da019"}
 {"file":"apps/desktop/src/orders/u3078i_progress.test.tsx","test":"p3557c_failure_lifetime_work_progress: %s","identity":"c0e5ef6f95958f09980d6bec23d209384a751b69c51599646933b40c894af1b5"}
