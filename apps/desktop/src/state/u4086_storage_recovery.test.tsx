@@ -89,7 +89,7 @@ it.each(keys.flatMap(key => ["{\"open\":", key === "app-settings" || key.startsW
   expect(retainedStorage()).toEqual([{ key, bytes }]);
 });
 
-it.each(["save", "read", "mismatch", "cleanup"])("u4086c_quarantine_failure_and_interruption_preserve_recovery %s", async failure => {
+it.each(["save", "read", "mismatch", "restart-read", "cleanup"])("u4086c_quarantine_failure_and_interruption_preserve_recovery %s", async failure => {
   const key = "roundup:shelf:/p";
   const bytes = '{"open":';
   localStorage.setItem(key, bytes);
@@ -101,6 +101,8 @@ it.each(["save", "read", "mismatch", "cleanup"])("u4086c_quarantine_failure_and_
 
   if (failure === "mismatch") entries.mockImplementationOnce(async () => [...cache]).mockImplementationOnce(async () =>
     [...cache].map(([name]): [string, unknown] => [name, { key, bytes: "different retained bytes" }]));
+  if (failure === "restart-read") entries.mockImplementationOnce(async () => [...cache])
+    .mockImplementationOnce(async () => [...cache]).mockRejectedValueOnce(new Error("reopen denied"));
   const remove = vi.spyOn(Storage.prototype, "removeItem");
 
   if (failure === "cleanup") remove.mockImplementationOnce(() => { throw new Error("interrupted cleanup"); });
@@ -110,6 +112,7 @@ it.each(["save", "read", "mismatch", "cleanup"])("u4086c_quarantine_failure_and_
   expect(await operation).not.toBeNull();
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(storedValue(key, v.unknown()).restore().status).toBe("failed");
+  expect(storageRecovery()).not.toBeNull();
   remove.mockRestore();
   await initializeStorage();
 
