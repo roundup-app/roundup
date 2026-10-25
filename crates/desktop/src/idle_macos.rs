@@ -11,11 +11,11 @@ use std::{cell::RefCell, ptr::NonNull};
 use tauri::{Runtime, WebviewWindow};
 
 type Token = Retained<ProtocolObject<dyn NSObjectProtocol>>;
-struct Observers(Vec<Token>);
+struct Observers([Option<Token>; 2]);
 impl Drop for Observers {
     fn drop(&mut self) {
         let center = NSNotificationCenter::defaultCenter();
-        for token in &self.0 {
+        for token in self.0.iter().flatten() {
             // SAFETY: tokens are the exact observer objects returned by this center.
             unsafe {
                 let object: &AnyObject = (**token).as_ref();
@@ -24,7 +24,7 @@ impl Drop for Observers {
         }
     }
 }
-thread_local! { static OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers(Vec::new())) }; }
+thread_local! { static OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers([None, None])) }; }
 
 pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
     let center = NSNotificationCenter::defaultCenter();
@@ -33,10 +33,13 @@ pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
     let application: Retained<AnyObject> = unsafe { msg_send![application, sharedApplication] };
     let hidden: bool = unsafe { msg_send![&*application, isHidden] };
     super::idle::application(&window, "initial", hidden);
-    for (name, hidden) in [
+    for (index, (name, hidden)) in [
         ("NSApplicationDidHideNotification", true),
         ("NSApplicationDidUnhideNotification", false),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let observed = window.clone();
         let block = RcBlock::new(move |_notification: NonNull<NSNotification>| {
             super::idle::application(&observed, name, hidden)
@@ -50,6 +53,13 @@ pub(super) fn watch<R: Runtime>(window: WebviewWindow<R>) {
                 &block,
             )
         };
-        OBSERVERS.with(|observers| observers.borrow_mut().0.push(token));
+        OBSERVERS.with(|observers| {
+            if let Some(previous) = observers.borrow_mut().0[index].replace(token) {
+                // SAFETY: replacement removes exactly the token this center previously returned.
+                unsafe {
+                    center.removeObserver((&*previous).as_ref());
+                }
+            }
+        });
     }
 }
