@@ -71,9 +71,9 @@ int main(int argc, char **argv) {
         printf("MAPPED %d %ld %lx\n", getpid(), syscall(SYS_gettid), (unsigned long)address);
         if (getchar() != 'G') return 2;
         char value = address[17];
+        printf("VALUE %c\n", value);
         munmap((void *)address, 4096);
         close(fd);
-        printf("VALUE %c\n", value);
         return value == 'Q' ? 0 : 3;
     }
     struct fuse_operations ops = { .getattr = attributes, .read = read_file, .init = ready };
