@@ -12,14 +12,61 @@ dark, 1512×950, device scale 1. On `tree-40`, open the Overview's Unassigned
 group. Measure each title from its own row edge, subtracting only
 `(aria-level - 1) × 16` for the existing Todo tree indent.
 
-| Before | Required after |
+| Before | After |
 | --- | --- |
-| Plain Todo title: 32 CSS px | One shared inset |
-| Blocked Todo title: 56 CSS px after tree indent | Same inset with room for tick and blocker mark |
-| Entry title: 56 CSS px | Same inset with empty slots reserved |
-| Pad and Terminal names use separate geometry | Read the shared Token, including Terminal rename |
+| Plain Todo title: 32 CSS px | 56 CSS px |
+| Blocked Todo title: 56 CSS px after tree indent | 56 CSS px, with tick and blocker space retained |
+| Done-fold title: 56 CSS px | 56 CSS px |
+| Pad title: 32 CSS px; Terminal name: 21 CSS px | 56 CSS px each, including Terminal rename |
 
 The change reserves the existing blocker row's leading space. It keeps the
 tick-only Todo and its native target, the blocker mark and tree indentation.
 Paint and geometry are critic observations; existing behavioral tests cover
 Todo completion, Pad opening and Terminal selection/rename.
+
+## Rendered comparison
+
+`--row-text-inset` is 56 CSS px in both schemes. Shelf Todo, Pad and done-fold
+names share it. The nested blocked Todo keeps its existing 16 CSS px tree
+indent. A Terminal tab's edge is included through `--flat-tab-edge`; an
+inactive edge spacer adds no gap before its name. The rename field reserves
+the same leading column.
+
+The final runtime is `bb755bd8c`; its clean merge includes main `a33962242`.
+Paired observations use the baseline checkout on port 5200 and the
+implementation checkout on port 5199, the same isolated Chromium session,
+1512×950, device scale 1. Dark preference is set explicitly after starting a
+recording, since that command creates a new browser context.
+
+Artifacts are under `artifacts/ux/U131/inset/{base,head}/`: the five named
+seeds, the dense Todo list, open Todo Drawer, Pad list, Terminal tabs and
+rename, keyboard focus, Pad selection, visible failed completion and both
+lists after a pointer drag/drop. The failure reads “Offline. Reconnect.”
+The recordings show the pointer interaction; after-drop screenshots do not
+claim a held drag pose or first-frame press timing. Images and videos are
+uncommitted.
+
+The paired readings and measured insets are summarized in `row-inset.json`.
+All 16 pairs retain every passing Check; D2, D5 and D6 pass throughout. The
+Pad list's existing D12 failure is 32 on base and 56 on head, including its
+focus, selection and after-drop views. No Check was weakened.
+
+Decoded PNG samples of the plain Todo, Pad and Terminal name have their first
+ink pixel at local offset 56 on head (base: 32, 32 and 21). The scan compares
+each title's first line to the adjacent neutral ground and counts a pixel
+when a channel differs by more than four levels. This is a raster reading,
+separate from the CSS text-box readings. Glyph optical baselines remain
+unmeasured. Layout and paint remain critic evidence rather than appearance
+assertions in unit tests.
+
+The dark recordings decode at 1512×950: base 12.7 seconds/127 frames, head
+12.1 seconds/121 frames. The initial browser setup before dark preference
+took effect is trimmed (1.0 seconds on base, 0.8 on head); every retained
+frame has the dark ground.
+
+## Remaining acceptance
+
+#3824 remains open for Rail integration, optical Glyph baseline measurement,
+complete press/cancellation and extended Check observers, strict lint and all
+existing repairs, palette/system accent, native material/fallback and the
+Mac/performance observations. This slice changes no native window setup.
