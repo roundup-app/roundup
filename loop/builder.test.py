@@ -173,6 +173,31 @@ class Prompt(unittest.TestCase):
                     builder.call('api', 'x')
                 self.assertEqual(run.call_count, 1)
 
+    def test_l23_gh_waits_out_one_rate_limit_then_fails_loud(self):
+        limited = (1, '', 'gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+        quota = lambda remaining, reset: (0, json.dumps(dict(resources=dict(core=dict(remaining=remaining, reset=reset)))), '')
+
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(builder.time, 'sleep') as sleep, redirect_stderr(io.StringIO()):
+            with patch.object(builder.subprocess, 'run', gh(limited, quota(0, time.time() + 90), (0, 'ok', ''))) as run:
+                self.assertEqual(builder.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_args_list[1].args[0], ['gh', 'api', 'rate_limit'])
+            self.assertTrue(80 <= sleep.call_args.args[0] <= 91)
+            with patch.object(builder.subprocess, 'run', gh(limited, quota(0, time.time() + 3600), (0, 'ok', ''))):
+                builder.call('api', 'x')
+            self.assertEqual(sleep.call_args.args[0], 300)
+            with patch.object(builder.subprocess, 'run', gh(limited, quota(0, time.time() + 1), limited)) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    builder.call('api', 'x')
+                self.assertEqual(run.call_count, 3)
+            secondary = (1, '', 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 42')
+            with patch.object(builder.subprocess, 'run', gh(secondary, (0, 'ok', ''))) as run:
+                builder.call('api', 'x')
+                self.assertEqual(run.call_count, 2)
+            self.assertEqual(sleep.call_args.args[0], 42)
+
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
@@ -1647,6 +1672,27 @@ class Review(unittest.TestCase):
         with GitHub(run=dict(status='in_progress', attempt=1, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')
         self.assertEqual(github.writes, [])
+
+    def test_l24_pick_reruns_the_pre_run_of_a_head_whose_review_or_critic_never_posted(self):
+        def passed(ago=3600, run=55):
+            return [dict(name='pre', workflowName='pre', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(ago),
+                         detailsUrl=f'https://x/actions/runs/{run}/job/9')]
+
+        review = dict(context='review', state='SUCCESS', targetUrl='https://x/actions/runs/1')
+        critic = dict(context='critic', state='SUCCESS', targetUrl='https://x/actions/runs/2')
+        going = dict(name='review', workflowName='review', status='IN_PROGRESS', conclusion=None)
+        prs = [pr(number=1, statusCheckRollup=passed()),
+               pr(number=2, statusCheckRollup=passed() + [review]),
+               pr(number=3, statusCheckRollup=passed(run=56) + [review]),
+               pr(number=4, statusCheckRollup=passed() + [review, critic]),
+               pr(number=5, statusCheckRollup=passed() + [going]),
+               pr(number=6, statusCheckRollup=passed(ago=60)),
+               pr(number=7, isDraft=True, statusCheckRollup=passed()),
+               pr(number=8, isCrossRepository=True, statusCheckRollup=passed()),
+               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]),
+               pr(number=10, statusCheckRollup=[review])]
+        with patch.object(builder, 'touches_desktop', side_effect=lambda number: number == 3):
+            self.assertEqual(builder.stranded(prs, NOW), [(1, '55'), (3, '56')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:

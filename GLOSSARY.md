@@ -159,6 +159,12 @@ An Agent's saved ask to be told, once, when all or any of named Agents finish (`
 **Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
 A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant; a PR's checks pin the head observed at activation and match only complete fresh `agent.worktreeState` evidence for it, a moved head ending the reaction as `invalidated`), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
 
+**Reaction observation identity** (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`):
+Typed facts emitted where a Reaction's observation succeeds or fails. The Observation and retained Watch
+keep `cause_code`, `gap_code`, `recovery_code` and `health_code` separately from diagnostic prose,
+cursor, pinned head and evidence. `unknown`, including absent legacy identity, grants no authority
+and offers a current check; historical prose never supplies identity or a successful match.
+
 **Preview** (`reaction.preview`; user label: Time preview):
 The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
 
@@ -332,6 +338,13 @@ One creation of a Pad, identified by a Project-scoped never-reused **incarnation
 
 **Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`):
 The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
+
+**Pad rename** (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`):
+An owner-authorized name change of the same Pad incarnation in its original Project,
+guarded by its exact original name and incarnation. `newName` is the accepted spelling,
+unique under the existing Unicode/case-folding rules. Text, Revision, owner, Home and
+content timestamp stay the same. `PadRenamed` records the incarnation and its original
+and accepted names. Renaming creates no alias or redirect for existing name-based Refs.
 
 **Pad source state** (`PadSourceState`, `source_state`):
 The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
@@ -892,3 +905,6 @@ The Project's native process owner waits (`waiting`) after a failure, then asks 
 
 **Todo deletion** (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`):
 One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
+
+**RPC error data** (`RpcErrorData`):
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.

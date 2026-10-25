@@ -137,6 +137,7 @@ pub const METHODS: &[Method] = &[
     m("pad.create", "pad_CreateParams", "pad_Pad"),
     m("pad.read", "pad_PadName", "pad_Pad"),
     m("pad.list", "null", "pad_Pad[]"),
+    m("pad.rename", "pad_RenameParams", "pad_Pad"),
     m("pad.write", "pad_WriteParams", "pad_Pad"),
     m("pad.append", "pad_AppendParams", "pad_Pad"),
     m("pad.appendSection", "pad_AppendSectionParams", "pad_Pad"),
