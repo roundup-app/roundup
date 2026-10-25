@@ -20,6 +20,15 @@
     },
     {
       "match": {
+        "userMessage": "advance again",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting for the next Handoff."
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
       },
       "response": {

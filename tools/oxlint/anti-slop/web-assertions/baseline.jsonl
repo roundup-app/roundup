@@ -430,11 +430,6 @@
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_pad_deleted_marks_an_open_drawer_as_deleted","identity":"8c0fd441208954ad958400cfe5409cc5fa0c1872581ad9cc275574559d904934"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_an_older_pad_list_reply_cannot_restore_a_deleted_pad","identity":"787cf07c777da184aad9ff273887b1df279e92e1cbd35a0ca9b397ffe87f7deb"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_pad_deleted_refreshes_the_open_drawers_touch_history","identity":"96a67a4aa7ba43435570760d47c325345c7c4e957e9413f171cddd794495029c"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_delete_failed_pad_clears_its_line","identity":"2411740a01914ecd98b2e73d7e21a5e4039889c3c6a65d74cb9e83089281f051"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_delete_failed_pad_clears_its_line","identity":"90de9ac011033a8fef4ecc710e0231e8aa177b3ce9d661b709ec0b48b8ddf5b7"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_delete_failed_pad_clears_its_line","identity":"6fee7cae5f12b8803033bf1fe0feb5a3bba844fddfd738938f44c437dfd738ac"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_delete_failed_pad_clears_its_line","identity":"454f7a76ebbcebaa9ea17800b1ee943c2340618d05a8312607fedd77ad858d7d"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_delete_failed_pad_clears_its_line","identity":"7b9ac81337b729309973c321ea1f6396f569e8af5180f6b6a6cfc8b4a0dd44ba"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_success_clears_same_pad_failure","identity":"752301f6b544560baf88ee01ce9698f04cbda532d9ce5d988d499d6a858e63a4"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_success_clears_same_pad_failure","identity":"1974495d51b134b7ce4bdc072a506136967f8bd0d589275b25048f62a7634aa8"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_dismiss_keeps_draft: closed=%s","identity":"0caf0fa1c4af002bab3efc2587af9a7406765730e9950e4a69b6b61b90c2c084"}
@@ -465,7 +460,6 @@
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"u149 a Drawing renders and edits in the Pad > u149_a_body_the_canvas_cannot_load_shows_its_text_and_one_error_and_writes_nothing","identity":"b726fa049a8da2ea6882404a9423e2b8a166d9017e6b8451a5194d22055c7fe2"}
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"u149 a Drawing renders and edits in the Pad > u149_a_scene_without_elements_is_rejected_with_one_error","identity":"f163057e4e301f1357d95db314233374bdfa9033922d1758e0a959086a125034"}
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"%s","identity":"97653550ed483e4cb1dfaaef651920fdee5d4e5a054e7cc39a5464454741151c"}
-{"file":"apps/desktop/src/pads/u150_delete_asks_first.test.tsx","test":"u150 delete asks first (Pad) > u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line","identity":"bb8b803965dd1082f67e80da936dbc65be72c357e67fc46f2e93bac7c2bb888b"}
 {"file":"apps/desktop/src/pads/u150_delete_asks_first.test.tsx","test":"u150 delete asks first (Pad) > u150_an_error_keeps_the_drawer_and_the_pad","identity":"6a7006321fe43305a9b56a4aafab738ff7c4e86fa106ad393418190331795a84"}
 {"file":"apps/desktop/src/pads/u18_pad_list.test.tsx","test":"u18 list and ownership > u18_clicking_◈_calls_pad_setOwner_with_the_user_and_the_mark_becomes_◇","identity":"b9d3f37e53505b77569ced6843b1e68b2cc24d80fe764c57084e8f0ad43ef2bf"}
 {"file":"apps/desktop/src/pads/u18_pad_list.test.tsx","test":"u18 list and ownership > u18_a_refused_owner_change_shows_the_message_in_ink","identity":"99a57fa8f485eddef902d365f763b1dffc7efa3cad1fbf324052539854c4bd7c"}
