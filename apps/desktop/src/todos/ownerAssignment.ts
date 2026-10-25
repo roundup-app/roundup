@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
 import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
@@ -19,7 +20,8 @@ export const createOwnerAssignment = (source: {
 }) => {
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [arriving, setArriving] = createSignal<readonly string[]>([]);
-  const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
+  const [regrouped, regroup] = createSignal<{ id: number; owner: Actor | null; focus: ReturnType<typeof captureFocus> } | null>(null);
+  const setRegrouped = (request: { id: number; owner: Actor | null; focus?: ReturnType<typeof captureFocus> } | null) => regroup(request && { ...request, focus: request.focus ?? captureFocus() });
 
   createEffect(() => {
     const request = regrouped();
@@ -37,7 +39,7 @@ export const createOwnerAssignment = (source: {
       const button = rowButtonOf(id);
 
       if (button) {
-        button.focus();
+        request.focus(() => button.focus());
         setRegrouped(null);
         setRevealed(null);
       }
@@ -60,6 +62,7 @@ export const createOwnerAssignment = (source: {
   }));
 
   const assign = async (id: number, owner: Actor | null) => {
+    const focus = captureFocus();
     const advance = source.advance();
     const message = await failureOf(() => source.connected.app.rpc("todo.assign", { id, owner }));
 
@@ -69,7 +72,7 @@ export const createOwnerAssignment = (source: {
     else if (message === null) {
       // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
       setRevealed(ownersOnRail(source.connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
-      setRegrouped({ id, owner });
+      regroup({ id, owner, focus });
     }
   };
 
