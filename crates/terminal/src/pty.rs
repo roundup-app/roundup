@@ -2,7 +2,11 @@ use super::*;
 
 /// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
 /// thread of its own instead of one from the pool `kill` also needs.
-pub(super) fn type_queued(number: u64, queued: mpsc::Receiver<Input>, mut writer: Box<dyn Write + Send>) {
+pub(super) fn type_queued(
+    number: u64,
+    queued: mpsc::Receiver<Input>,
+    mut writer: Box<dyn Write + Send>,
+) {
     for input in queued {
         match input {
             Input::Bytes(bytes) => {
@@ -21,7 +25,7 @@ pub(super) fn type_queued(number: u64, queued: mpsc::Receiver<Input>, mut writer
 }
 
 /// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
-fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
+pub(super) fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
     loop {
         let status = program.lock().expect("terminal program lock").try_wait()?;
         match status {
@@ -100,4 +104,3 @@ pub(super) fn pump(
     drop(output);
     shared.finish(number, code);
 }
-
