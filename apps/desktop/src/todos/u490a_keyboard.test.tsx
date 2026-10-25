@@ -40,7 +40,7 @@ const mountNested = async (todos: Todo[]) => {
     </ConnectedProjectContext.Provider>
   ));
   await connected.rail.settled();
-  fireEvent.click(await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: /work items$/ })));
+  fireEvent.click(await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: /(Pads|Todos|work items)$/ })));
 
   return { app, store };
 };

@@ -53,7 +53,7 @@ describe("u184 close with a question", () => {
 
     const dialog = await questionDialog();
 
-    expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("There is 1 running Agent: solo.");
     expect(dialog.cancelLabel).toBe("Back");
   });
 

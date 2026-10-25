@@ -8,7 +8,7 @@ import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
 import type { Reason } from "@contracts/message/Reason";
 const checkObservation = "Refresh to check current observation.";
 
-const activityUnreadable = "Agent activity could not be read. Nothing matched during that gap.";
+const activityUnreadable = "Agent activity could not be read. No condition was met during that gap.";
 
 const firingSourceMissing = "The accepted firing has no source record. Restore its evidence before checking again.";
 
@@ -57,9 +57,9 @@ const reactionRecoveries: Record<ObservationRecovery, string> = {
   "check": checkObservation,
   "reconciled": "Current Agent activity is available again; the earlier gap remains.",
   "replace-agent": "Stop this reaction and create one with an available Agent.",
-  "replace-target": "Inspect or stop this reaction; create a new one with an authorized Agent.",
+  "replace-target": "Inspect or stop this reaction. Create one with an authorized Agent.",
   "restore-evidence": "Restore the accepted firing\u2019s source evidence before checking again.",
-  "retry-acceptance": "Check the Agent and storage; observation retries within the saved bound and expiry.",
+  "retry-acceptance": "Check the Agent and storage. It will try again within the saved bound and expiry.",
   "retry-storage": "Check storage; the next observation retries saving progress.",
   "reconcile": "Check current Agent activity; the earlier gap remains."
 };
@@ -67,7 +67,7 @@ const reactionRecoveries: Record<ObservationRecovery, string> = {
 const reactionReasons: Record<Reason, string> = {
   "receiver gone": "The original Agent is no longer available. Choose an available Agent for new work.",
   "not accepted": "The Agent did not accept this Message. Check the Agent before retrying.",
-  "removed": "You removed this Message before delivery.",
+  "removed": "You chose to remove this Message before delivery.",
   "merged": "A newer summary includes it."
 };
 

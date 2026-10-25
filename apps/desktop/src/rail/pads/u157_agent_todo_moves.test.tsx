@@ -38,7 +38,7 @@ describe("u157 a Todo created by an Agent", () => {
       </ConnectedProjectContext.Provider>
     ));
     await connected.rail.settled();
-    fireEvent.click(await waitFor(() => within(rowOf("auth")).queryByRole("button", { name: /work items$/ }) ?? Promise.reject(new Error("no control"))));
+    fireEvent.click(await waitFor(() => within(rowOf("auth")).queryByRole("button", { name: /(Pads|Todos|work items)$/ }) ?? Promise.reject(new Error("no control"))));
 
     const nested = screen.getByRole("tree", { name: "Rail" }).querySelector<HTMLElement>('[data-todo="1"]')!;
 

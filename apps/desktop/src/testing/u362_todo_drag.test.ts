@@ -217,6 +217,7 @@ run('u2716a Project overview band', () => {
     }`);
     await page.until(`() => Boolean(document.querySelector('${overview} h2')) && !/\\d/.test(document.querySelector('${overview} h2').textContent)`);
     expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root');
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-description')`)).toBeNull();
     await page.call(`() => {
       const nodes = window.__overviewNodes;
       const door = nodes.find(n => n.kind === 'workstream' && n.status);

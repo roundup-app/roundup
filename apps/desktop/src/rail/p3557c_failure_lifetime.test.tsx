@@ -78,7 +78,7 @@ const mountItems = async (kind: "pad" | "todo") => {
   for (const each of store.todos) mounted.app.emit(event({ name: "todo.created", data: each }));
   mounted.app.handlers["todo.complete"] = refuse;
   mounted.app.clipboardWrite = () => Promise.reject(new Error(REFUSED));
-  fireEvent.click(await within(rowOf("auth")).findByRole("button", { name: /work items$/ }));
+  fireEvent.click(await within(rowOf("auth")).findByRole("button", { name: /(Pads|Todos|work items)$/ }));
 
   const leaf = async (n: number) => kind === "pad"
     ? (await screen.findByRole("button", { name: n === 1 ? "notes" : "plan" })).closest("[data-leaf]")!
