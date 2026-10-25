@@ -993,3 +993,6 @@ Retain all six release reports and repeats, then confirm or reset the initial
 memory aims here with justification. File measured repairs in their owning
 modules with same-observer/same-Mac before/after evidence; #3802 consumes these
 measurements and this observer selects no allocator.
+
+
+Release profile measurements: [code generation comparison](perf-release-profile.md).
