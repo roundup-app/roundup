@@ -14,7 +14,7 @@ const setup = parse(readFileSync(join(import.meta.dirname, 'action.yml'), 'utf8'
 // Use the exact action downloaded by Actions, including its defaults and complete key builder.
 // Locally: RUST_CACHE_ACTION_PATH=/path/to/Swatinem/rust-cache/v2 node --test .github/actions/setup/cache.test.mjs
 const actionPath = process.env.RUST_CACHE_ACTION_PATH
-  ?? join(dirname(process.env.GITHUB_WORKSPACE), '_actions/Swatinem/rust-cache/v2');
+  ?? join(dirname(dirname(process.env.GITHUB_WORKSPACE)), '_actions/Swatinem/rust-cache/v2');
 const action = parse(readFileSync(join(actionPath, 'action.yml'), 'utf8'));
 const bundle = readdirSync(join(actionPath, 'dist')).find(name => name.startsWith('cleanup-'));
 const { C: CacheConfig } = await import(pathToFileURL(join(actionPath, 'dist', bundle)));
@@ -104,5 +104,24 @@ test('ci4018_experiment_titles_keep_valid_distinct_cache_keys', async () => {
     for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key];
     Object.assign(process.env, before);
     rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('ci4018_other_paths_retain_cache_selection_and_save_rules', async () => {
+  const ordinary = { event_name: 'pull_request', ref: 'refs/pull/4018/merge', event: { pull_request: { title: 'ordinary change', number: 4018 } } };
+  for (const [github, runner, shared, save, enabled, base] of [
+    [ordinary, { os: 'Linux', environment: 'github-hosted' }, 'check-Linux', 'false', 'true', 'HEAD^1'],
+    [{ event_name: 'push', ref: 'refs/heads/main' }, { os: 'Linux', environment: 'github-hosted' }, 'check-Linux', 'true', 'true', ''],
+    [{ event_name: 'workflow_dispatch', ref: 'refs/heads/main' }, { os: 'Linux', environment: 'github-hosted' }, 'check-Linux', 'false', 'true', ''],
+    [undefined, { os: 'macOS', environment: 'github-hosted' }, 'check-macOS', 'false', 'true', ''],
+    [undefined, { os: 'Linux', environment: 'self-hosted' }, null, null, 'false', ''],
+  ]) {
+    const actual = await cacheInputs('CI3781 experiment: a,b', 4018, 'head', { ...(github && { github }), runner });
+    assert.equal(actual.enabled, enabled);
+    assert.equal(actual.base, base);
+    if (enabled === 'true') {
+      assert.equal(actual.inputs['shared-key'], shared);
+      assert.equal(actual.inputs['save-if'], save);
+    }
   }
 });
