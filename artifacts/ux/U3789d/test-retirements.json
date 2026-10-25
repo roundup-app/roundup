@@ -592,6 +592,31 @@
       "file": "apps/desktop/src/shelf/u458_selection.test.tsx",
       "cut": "Single-selection bulk Cancel setup",
       "replacement": "u460_multi_selection_cancel_clears_without_calls retains cancellation and zero deletion calls for the actual bulk toolbar; u458_hidden_rows_and_context_changes_clear_selection and u3789a_selection_keeps_ranges_and_disclosures_plain_click_replaces_selection retain single-selection lifetime."
+    },
+    {
+      "file": "apps/desktop/src/shelf/bulkQuestionHarness.ts; apps/desktop/src/shelf/u460_real_daemon.test.tsx",
+      "cut": "Single-row Delete 1 toolbar setup",
+      "replacement": "Single selection uses Backspace; multi-selection still uses the bulk button. u460_deleted_pad_updates_do_not_recreate_it retains both storage modes, owner write/append refusal and explicit recreation; u460_deleted_rows_stay_absent_after_reopening_the_project retains authoritative restart readback. Shared u460 Pad ownership, frozen-target and partial retry assertions remain."
+    },
+    {
+      "file": "apps/desktop/src/ink/u3807_sites.test.tsx",
+      "cut": "Single-row initial bulk toolbar fixture",
+      "replacement": "u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete starts with two selections and retains one failed target for retry. Its failure announcement and clearing assertions remain; all other site observers remain."
+    },
+    {
+      "file": "apps/desktop/src/ink/u3807_sites.test.tsx",
+      "cut": "Any background click dismisses a failed Rail rename",
+      "replacement": "u3807_each_site_shows_its_message_in_the_reserved_line: Rail retains failure announcement and explicit Dismiss clearing. u3789d_failed_rail_rename_keeps_retry_after_selection_changes proves navigation retains its original retry draft."
+    },
+    {
+      "file": "apps/desktop/src/shelf/u460_pads.test.tsx",
+      "cut": "Ownership-change warning text in the retired single-selection toolbar",
+      "replacement": "u460_question_tracks_pad_owner_changes_without_expanding_targets joins the authoritative Pad refetch, then retains the native warning, renewed confirmation and exact original deletion target assertions."
+    },
+    {
+      "file": "apps/desktop/src/app/u3791c_rendered.test.ts",
+      "cut": "Recovered Pad opens on row click",
+      "replacement": "u3791c_enter_intervene_review_failure_journey selects then opens with Return; every transient/exhausted read, storage retry, Daemon recovery, draft and review-destination assertion remains."
     }
   ]
 }

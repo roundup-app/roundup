@@ -453,7 +453,7 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   await waitFor(() => expect(document.activeElement).toBe(recovered));
   expect(recovered.value).toBe(text);
-  expect(rpcCalls(app, "rail.rename")).toEqual([{ id: "tokens", name: text.trim() }]);
+  expect(rpcCalls(app, "rail.rename")).toEqual([{ id: "tokens", name: "exact 日本語 🌱" }]);
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });

@@ -118,7 +118,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Rail", async () => {
   fireEvent.input(field, { target: { value: "renamed" } });
   fireEvent.keyDown(field, { key: "Enter" });
   await within(surface).findByRole("alert");
-  fireEvent.click(document.body);
+  fireEvent.click(within(surface).getByRole("button", { name: "Dismiss" }));
   expect(within(surface).queryByRole("alert")).toBeNull();
 });
 
@@ -320,17 +320,17 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   let failure: string | null = FAILURE;
 
   const Site = () => {
-    const [selected, setSelected] = createSignal<readonly number[]>([1]);
+    const [selected, setSelected] = createSignal<readonly number[]>([1, 2]);
 
-    const bulk = createBulkDelete({ app: createFakeApp(), selected, targets: () => [{ id: 1, label: "Ship" }], context: () => "p", noun: "Todos",
-      replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), remove: async () => failure === null ? new Promise(() => {}) : failure, reload: async () => null });
+    const bulk = createBulkDelete({ app: createFakeApp(), selected, targets: () => [{ id: 1, label: "Ship" }, { id: 2, label: "Review" }], context: () => "p", noun: "Todos",
+      replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), remove: async id => id === 2 ? null : failure === null ? new Promise(() => {}) : failure, reload: async () => null });
 
     return <bulk.Bar />;
   };
 
   const view = render(() => <Site />);
   const surface = view.container;
-  fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
+  fireEvent.click(within(surface).getByRole("button", { name: "Delete 2" }));
   await questionDialog();
   await answerQuestion(true);
   await within(surface).findByRole("alert");
