@@ -89,7 +89,7 @@ web-durations run:
 
 # Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
 contracts:
-    cargo run --quiet -p contracts --bin contracts
+    cargo run --quiet -p contracts --features export --bin contracts
 
 contracts-test:
     python3 -m unittest discover -s tools/contracts

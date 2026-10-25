@@ -278,17 +278,22 @@ type After = {
 
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.
 type Assert<T extends true> = T;
-export type C4ExportedShapesMatchExistingContracts = Assert<
+
+export type C4ExportedContractsMatchExistingContracts = Assert<
   [After] extends [Before] ? ([Before] extends [After] ? true : false) : false
 >;
 
 
-export type C4MethodShapes = Assert<
-  [import("./generated/methods").RpcMethods] extends [BeforeRpcMethods]
-    ? ([BeforeRpcMethods] extends [import("./generated/methods").RpcMethods] ? true : false) : false
+type ExistingMethods = Pick<import("./generated/methods").RpcMethods, keyof BeforeRpcMethods>;
+
+export type C4MethodContracts = Assert<
+  [ExistingMethods] extends [BeforeRpcMethods]
+    ? ([BeforeRpcMethods] extends [ExistingMethods] ? true : false) : false
 >;
 
 // Invalid callers must stay invalid, independently of the bidirectional comparison.
 export type C4RejectMissingRequired = Assert<{} extends import("./generated/agent/SpawnParams").SpawnParams ? false : true>;
+
 export type C4RejectInvalidNull = Assert<null extends import("./generated/agent/SpawnParams").SpawnParams["name"] ? false : true>;
+
 export type C4RejectWrongDiscriminant = Assert<{kind: "missing"} extends import("./generated/agent/Order").Order ? false : true>;

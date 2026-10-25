@@ -1,5 +1,8 @@
 //! Typed metadata for the single RPC declarations.
+#[cfg(feature = "export")]
 pub use crate::declarations::METHODS;
+#[cfg(not(feature = "export"))]
+pub const METHODS: &[Method<'static>] = include!("../../../contracts/generated/methodTypes.rs");
 use specta::{Format, Type};
 use std::collections::BTreeSet;
 
@@ -15,6 +18,16 @@ pub(crate) struct ExportedMethod {
     pub params: String,
     pub result: String,
     imports: BTreeSet<(String, String)>,
+}
+
+impl ExportedMethod {
+    pub(crate) fn method(&self) -> Method<'_> {
+        Method {
+            name: self.name,
+            params: &self.params,
+            result: &self.result,
+        }
+    }
 }
 
 pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> ExportedMethod {

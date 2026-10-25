@@ -1,6 +1,8 @@
 use specta::datatype::{DataType, Fields};
 
-pub fn defaults(ty: &mut DataType) {
+// Serde defaults widen accepted inputs; existing TS requires these output properties.
+// The pinned specta-serde format has no switch to retain explicit optionality.
+pub(crate) fn defaults(ty: &mut DataType) {
     match ty {
         DataType::Struct(s) => {
             s.attributes.remove("serde:container:default");
@@ -350,10 +352,23 @@ pub fn generate(root: &std::path::Path) -> Result<(), Box<dyn std::error::Error 
         root.join("methods.ts"),
         crate::methods::render_typescript(&exported),
     )?;
+    let methods: Vec<_> = exported
+        .iter()
+        .map(crate::methods::ExportedMethod::method)
+        .collect();
     std::fs::write(
         root.join("contract.ts"),
-        crate::methods::render_contract_typescript(),
+        crate::methods::render_contract_typescript_of(&methods),
     )?;
+    let mut rust = String::from("// @generated from the RPC declarations. Do not edit.\n&[\n");
+    for method in &methods {
+        rust.push_str(&format!(
+            "    Method {{ name: {:?}, params: {:?}, result: {:?} }},\n",
+            method.name, method.params, method.result
+        ));
+    }
+    rust.push_str("]\n");
+    std::fs::write(root.join("methodTypes.rs"), rust)?;
     std::fs::write(
         root.join("agentTime.ts"),
         crate::common::render_agent_time_typescript(),

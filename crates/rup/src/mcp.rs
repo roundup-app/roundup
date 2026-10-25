@@ -324,7 +324,7 @@ pub(crate) async fn display_data(
 pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
-        .any(|m| m.name == method && m.result == "()");
+        .any(|m| m.name == method && m.result == "null");
     if !unit {
         return result.to_string();
     }
