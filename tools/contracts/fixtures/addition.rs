@@ -56,13 +56,13 @@ async fn c4_one_declaration_reaches_every_surface() {
     let shim = Shim {socket, actor: Actor {kind: ActorKind::Agent, id: "fixture-agent".into(), parent: None}, tools: tools(false), gone};
     let service = tokio::spawn(async move { shim.serve(transport).await.unwrap().waiting().await });
     let client = ().serve(client).await.unwrap();
-    let outcome = client.call_tool(CallToolRequestParams::new("todo_contractProbe").with_arguments(JsonObject::from_iter([("id".into(), 41.into())]))).await;
+    let outcome = client.call_tool(CallToolRequestParams::new("todo_contractProbe").with_arguments(JsonObject::from_iter([("id".into(), 51.into())]))).await;
     if removed {
         assert!(outcome.is_err());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
     } else {
         let result: CallToolResult = outcome.unwrap();
-        assert_eq!(result.content[0].as_text().unwrap().text, "{\"id\":42}");
+        assert_eq!(result.content[0].as_text().unwrap().text, "{\"id\":52}");
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
     client.cancel().await.unwrap();
