@@ -418,6 +418,24 @@ Daemon stamps, echo identity, calibration bounds, retained hops and window-free
 proofs. The native observations above are unchanged; #3550 still owns full-chain
 native evidence and the production repair.
 
+The [2026-10-25 full-chain attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6396746360)
+at `477a3ce93f937cb734b4a69d6a0cb710ebfd3293` exited 2: all three quiet-Mac
+runs timed out collecting a complete PERF line. Its complete report and console
+output are retained in [the observations](perf-keystroke-mac-observations.json).
+No hop timings or latency verdict can be derived from it.
+
+Keystroke runs now retain a separate `perf-keystroke-*` diagnostics directory
+beside `--out` for every run, listed in the saved report's `diagnostics` array.
+It holds App stdout/stderr, Daemon stderr, collection phase and raw Terminal
+output, and lifecycle/cleanup results; a failed launch still keeps its logs.
+Temporary App data is still removed. A setup failure before a ready Bubble
+opens a Project-owned diagnostic shell, waits for its raw-tty ready line, and
+prints the original named setup error through it. This shell starts no Agent.
+Failure to open or ready that shell still exits 2 with collector diagnostics.
+Successful measurements continue to report through their measured shell.
+These are recorder repairs; #3550 remains open for full-chain observations,
+the measured production repair, shared Agent/shell input proof and idle/flood acceptance.
+
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).
@@ -564,6 +582,31 @@ Release profile measurements: [code generation comparison](perf-release-profile.
 ### R23 correlated write capture (#3976)
 
 [Correlated capture, adapter timings, probe isolation and remaining attribution gaps](perf-r23-writes.md#r23-correlated-write-capture-3976).
+
+### R23 task/queue execution lifetime (#3991)
+
+[Qualified lifetime, raw task/queue/syscall recordings and executable material](../crates/perf/evidence/r23-queues-40186616032/README.md)
+retains both pinned references on Builder 40186616032's exact R16 9V45 host.
+[Reproduction](../crates/perf/evidence/r23-queues-40186616032/reproduce.txt) and
+[controls/statuses](../crates/perf/evidence/r23-queues-40186616032/controls.md)
+include every failed attempt, both prior probe variants against identical
+Daemon executables, separate scheduler-only observations and syscall tracepoints
+that exclude the recorder's own events. Matching executables, raw records,
+PID/TID/FD associations and CLOCK_MONOTONIC task/queue markers are retained.
+
+Each marked capture joins 2200 writes; filtered physical endpoints retain 2200
+one-byte PTY writes and reads per reference. Input acceptance is enqueue
+acknowledgment. Producer input enqueue remains bounded by user-call entry and
+acceptance return; output publication remains bounded by physical PTY read exit
+and forward receive. Delegated wake markers precede logging and original wake,
+and selected-future polls are not whole-runtime task polls. CPU execution,
+thread runnable delay, physical blocking and unresolved runtime-task delay stay
+separate. Observer-perturbed stages cannot be transferred to clean p95s.
+
+#3983 owns assessment of these records; #3760 and #3720 retain their acceptance.
+The six original clean observations, #3982's four controls/recordings and #3975's
+offline extraction are reused. No new clean pair, aggregate CPU table, stage p95,
+calibration, baseline, production repair or Mac observation is supplied.
 
 ### Terminal readiness repair and U3800 Mac handoff (#3841)
 
