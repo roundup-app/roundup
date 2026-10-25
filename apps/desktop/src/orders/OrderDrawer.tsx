@@ -37,7 +37,7 @@ const SessionId = (props: { id: string }) => {
   const idText = createUniqueId();
 
   return <>
-    <CopyButton app={app} text={props.id} failureLabel={copy.copyFailed} class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{props.id}</CopyButton>
+    <CopyButton app={app} text={props.id} class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{props.id}</CopyButton>
     <span id={idText} class="overview-id-note">{props.id}</span>
     <ReservedLine message={failure()} ><Show when={failure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => { setFailure(null); }}><Icon name="x" /></IconButton></Show></ReservedLine>
   </>;
