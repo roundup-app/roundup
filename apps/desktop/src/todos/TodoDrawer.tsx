@@ -185,7 +185,7 @@ export const TodoDrawer = (props: {
       if (!drafts.list().some(draft => draft.revision === waiting.revision)) return;
 
       if (readFailure !== null || !change) {
-        drafts.submit(waiting.revision);
+        (await drafts.submit(waiting.revision));
         drafts.settle(waiting.revision, "failed");
         setFailure(readFailure ?? copy.originalUnverified);
 
@@ -197,7 +197,7 @@ export const TodoDrawer = (props: {
       const draft = drafts.edit(destination, { ...origin, title: change.after.title, body: change.after.body,
         done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: change.seq }, null, "ordinary").draft;
 
-      drafts.submit(draft.revision);
+      (await drafts.submit(draft.revision));
 
       try {
         setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers, expected_change: change.seq }));
@@ -230,14 +230,16 @@ export const TodoDrawer = (props: {
       return;
     }
 
-    if (!drafts.submit(draft.revision)) {
+    const target = props.id;
+
+    if (!(await drafts.submit(draft.revision))) {
       setFailure(copy.draftStatus[draft.status]);
 
       return;
     }
 
     try {
-      setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
+      setAnswered(await app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
       drafts.settle(draft.revision, "acknowledged");
       clearFailure();
     } catch (error) {

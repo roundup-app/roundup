@@ -860,3 +860,21 @@ fn n17_old_store_files_never_block_the_open() {
     assert_eq!(nodes, 0);
     assert_eq!(std::fs::read(&old).unwrap(), before);
 }
+
+/// R3696c: these stores have no startup recovery and `storage::open` already initialized WAL.
+/// Holding SQLite's read lock closed detects an eager schema read without a timing threshold.
+#[test]
+fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = open(dir.path()).unwrap();
+    db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
+    db.execute_batch("BEGIN EXCLUSIVE").unwrap();
+    let path = dir.path().join("project.db");
+    let bus = rpc::Bus::new();
+    let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
+    let _todos =
+        todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
+    let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
+    let _checkpoints = checkpoints::Checkpoints::open(dir.path())
+        .expect("Checkpoints must not read the schema yet");
+}
