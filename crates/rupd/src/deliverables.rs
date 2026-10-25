@@ -42,7 +42,7 @@ impl Publications {
                 .map_err(RpcError::internal)?;
             if let PublishedTarget::Pad { incarnation, .. } = record.target
                 && matches!(
-                    pad_state(&db, &incarnation).map_err(RpcError::internal)?,
+                    pad_state(&db, &incarnation, &record.id).map_err(RpcError::internal)?,
                     pads::PadSourceState::Deleted(pads::PadDeletion::User)
                         | pads::PadSourceState::Unknown
                 )
@@ -402,7 +402,7 @@ fn resolve(db: &Connection, cache: &Path, record: &Deliverable) -> Result<Resolu
             sha256,
             ..
         } => {
-            match pad_state(db, incarnation).map_err(RpcError::internal)? {
+            match pad_state(db, incarnation, &record.id).map_err(RpcError::internal)? {
                 pads::PadSourceState::Deleted(pads::PadDeletion::User) => {
                     return unavailable(UnavailableCause::AccessRevoked);
                 }
@@ -724,7 +724,11 @@ impl FileSource {
     }
 }
 
-fn pad_state(db: &Connection, incarnation: &str) -> rusqlite::Result<pads::PadSourceState> {
+fn pad_state(
+    db: &Connection,
+    incarnation: &str,
+    publication: &str,
+) -> rusqlite::Result<pads::PadSourceState> {
     let Ok(id) = incarnation.parse::<i64>() else {
         return Ok(pads::PadSourceState::Unknown);
     };
@@ -734,8 +738,8 @@ fn pad_state(db: &Connection, incarnation: &str) -> rusqlite::Result<pads::PadSo
     // Restoring source data never grants access to an explicitly revoked publication.
     let revoked: bool = db
         .query_row(
-            "SELECT revoked FROM pad_sources WHERE incarnation=?1",
-            [id],
+            "SELECT access_revoked FROM deliverables WHERE id=?1",
+            [publication],
             |r| r.get(0),
         )
         .optional()?

@@ -34,7 +34,7 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
     // Make it the Project an older version left: the Decision table, rows and events return and
     // the schema predates Decision removal, 0024, 0025 and Pad retention.
     let db = Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("DROP TABLE pad_deletions; ALTER TABLE pad_sources DROP COLUMN revoked;")
+    db.execute_batch("DROP TABLE pad_deletions; DROP TRIGGER pad_publications_revoked;")
         .unwrap();
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))

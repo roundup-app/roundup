@@ -10,7 +10,6 @@ CREATE TABLE pad_deletions (
     pad_key TEXT NOT NULL,
     restored INTEGER NOT NULL DEFAULT 0 CHECK(restored IN (0,1))
 );
-ALTER TABLE pad_sources ADD COLUMN revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0,1));
 -- A restore reconnects the retained source before inserting its row. Normal creation
 -- still allocates exactly one new incarnation; a restored source never allocates one.
 DROP TRIGGER pad_source_created;

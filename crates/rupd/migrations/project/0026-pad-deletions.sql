@@ -10,11 +10,18 @@ CREATE TABLE pad_deletions (
     pad_key TEXT NOT NULL,
     restored INTEGER NOT NULL DEFAULT 0 CHECK(restored IN (0,1))
 );
-ALTER TABLE pad_sources ADD COLUMN revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0,1));
 -- A restore reconnects the retained source before inserting its row. Normal creation
 -- still allocates exactly one new incarnation; a restored source never allocates one.
 DROP TRIGGER pad_source_created;
 CREATE TRIGGER pad_source_created AFTER INSERT ON pads
 WHEN NOT EXISTS (SELECT 1 FROM pad_sources WHERE pad_key=NEW.key) BEGIN
     INSERT INTO pad_sources(pad_key) VALUES(NEW.key);
+END;
+-- Revoke only publications that exist at deletion, in that same transaction.
+-- Restoring this incarnation must allow new publications without reauthorizing old ones.
+CREATE TRIGGER pad_publications_revoked AFTER UPDATE OF deletion ON pad_sources
+WHEN NEW.deletion = 'user' BEGIN
+    UPDATE deliverables SET access_revoked = 1
+    WHERE json_extract(record, '$.target.kind') = 'pad'
+      AND json_extract(record, '$.target.incarnation') = CAST(NEW.incarnation AS TEXT);
 END;
