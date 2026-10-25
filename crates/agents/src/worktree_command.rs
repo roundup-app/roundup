@@ -24,21 +24,21 @@ impl Drop for Hold<'_> {
 impl Git {
     fn hold(&self) -> Result<Hold<'_>, String> {
         let (lock, released) = &*self.lock;
-        let held = lock.lock().unwrap_or_else(|err| err.into_inner());
-        let mut held = match self.deadline {
+        let busy = lock.lock().unwrap_or_else(|err| err.into_inner());
+        let mut busy = match self.deadline {
             Some(deadline) => {
                 let remaining = deadline.saturating_duration_since(Instant::now());
                 released
-                    .wait_timeout_while(held, remaining, |held| *held)
+                    .wait_timeout_while(busy, remaining, |busy| *busy)
                     .unwrap_or_else(|err| err.into_inner())
                     .0
             }
             None => released
-                .wait_while(held, |held| *held)
+                .wait_while(busy, |busy| *busy)
                 .unwrap_or_else(|err| err.into_inner()),
         };
         self.check_deadline()?;
-        *held = true;
+        *busy = true;
         Ok(Hold(&self.lock))
     }
 
