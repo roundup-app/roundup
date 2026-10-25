@@ -7,6 +7,7 @@ import { event } from "../testing/nodes";
 import { createNoteQueue } from "./noteQueue";
 
 const recipients = ["a", "b"] as const;
+
 const change = fc.record({
   id: fc.integer({ min: 1, max: 12 }),
   recipient: fc.constantFrom(...recipients),
@@ -20,6 +21,7 @@ it("z3802g_note_events_match_reference_fold", async () => {
     const events = await connectEvents(app);
     const notes = createNoteQueue(app, events, () => null);
     const history: Message[] = [];
+
     // Every run crosses recipients, repeats an event and transitions one id through all statuses.
     const sequence = [
       { id: 2, recipient: "b", status: "pending", body: "二" },
@@ -37,6 +39,7 @@ it("z3802g_note_events_match_reference_fold", async () => {
         kind: "note", replyTo: null, at: history.length, reason: null,
         status: item.status,
       };
+
       history.push(message);
       const name = message.status === "pending" ? "message.sent" : message.status === "delivered" ? "message.delivered" : "message.dropped";
       app.emit(event({ name, data: message }));
@@ -47,6 +50,7 @@ it("z3802g_note_events_match_reference_fold", async () => {
         const expected = latest.filter((row) => row.to === recipient && row.status === "pending").sort((a, b) => a.id - b.id);
         expect(notes.rows(recipient)).toEqual(expected);
       }
+
       expect(app.calls).toEqual([]);
     }
   }), { numRuns: 128, seed: 3802 });
