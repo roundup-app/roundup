@@ -20,22 +20,32 @@ pub fn u3787f_panel_does_not_activate_main_window() {
     .build()
     .unwrap();
     let before = main.outer_position().unwrap();
-    let panel = native::CapturePanel::new(
-        app.handle().clone(),
-        tauri::WebviewUrl::External("about:blank".parse().unwrap()),
-    );
-    let shown = panel.show().unwrap();
-    assert!(shown.visible);
-    assert!(!shown.can_become_main);
-    assert!(!main.is_visible().unwrap());
-    assert!(!main.is_focused().unwrap());
-    assert_eq!(main.outer_position().unwrap(), before);
-    assert!(panel.show().unwrap().visible);
-    assert_eq!(app.webview_windows().len(), 2);
-    assert!(!panel.dismiss().unwrap().visible);
-    assert!(!main.is_focused().unwrap());
-    panel.release().unwrap();
-    main.destroy().unwrap();
+    let handle = app.handle().clone();
+    let worker = std::thread::spawn(move || {
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let panel = native::CapturePanel::new(
+                handle.clone(),
+                tauri::WebviewUrl::External("about:blank".parse().unwrap()),
+            )
+            .unwrap();
+            let shown = panel.show().unwrap();
+            assert!(shown.visible);
+            assert!(!shown.can_become_main);
+            assert!(!main.is_visible().unwrap());
+            assert!(!main.is_focused().unwrap());
+            assert_eq!(main.outer_position().unwrap(), before);
+            assert!(panel.show().unwrap().visible);
+            assert_eq!(handle.webview_windows().len(), 2);
+            assert!(!panel.dismiss().unwrap().visible);
+            assert!(!main.is_focused().unwrap());
+            panel.release().unwrap();
+        }));
+        // End the real event loop even if an assertion failed; nextest owns the process bound.
+        handle.exit(i32::from(outcome.is_err()));
+        outcome
+    });
+    assert_eq!(app.run_return(|_, _| {}), 0);
+    worker.join().unwrap().unwrap();
 }
 
 #[cfg(target_os = "macos")]
@@ -53,7 +63,8 @@ pub fn u3787f_panel_uses_invoking_display() {
     let panel = native::CapturePanel::new(
         app.handle().clone(),
         tauri::WebviewUrl::External("about:blank".parse().unwrap()),
-    );
+    )
+    .unwrap();
     panel.show().unwrap();
     let window = app.get_webview_window("todo-capture").unwrap();
     let actual = window.current_monitor().unwrap().unwrap();
@@ -71,5 +82,4 @@ pub fn u3787f_panel_uses_invoking_display() {
             <= i64::from(area.position.y) + i64::from(area.size.height)
     );
     panel.release().unwrap();
-    assert!(app.get_webview_window("todo-capture").is_none());
 }

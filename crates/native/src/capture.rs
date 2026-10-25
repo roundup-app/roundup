@@ -34,8 +34,14 @@ pub struct CapturePanel<R: Runtime> {
 }
 
 impl<R: Runtime> CapturePanel<R> {
-    pub fn new(app: AppHandle<R>, url: WebviewUrl) -> Self {
-        Self { app, url }
+    pub fn new(app: AppHandle<R>, url: WebviewUrl) -> Result<Self, String> {
+        if app
+            .try_state::<tauri_nspanel::WebviewPanelManager<R>>()
+            .is_none()
+        {
+            return Err("Capture panel integration is not registered".into());
+        }
+        Ok(Self { app, url })
     }
 
     /// Create once, place on the cursor's display, and order front without activating the App.
@@ -56,12 +62,21 @@ impl<R: Runtime> CapturePanel<R> {
                         .skip_taskbar(true)
                         .build()
                         .map_err(|error| error.to_string())?;
-                    let panel = window
-                        .to_panel::<NativeCapturePanel>()
-                        .map_err(|error| error.to_string())?;
-                    panel
+                    let panel = match window.to_panel::<NativeCapturePanel>() {
+                        Ok(panel) => panel,
+                        Err(error) => {
+                            window.destroy().map_err(|error| error.to_string())?;
+                            return Err(error.to_string());
+                        }
+                    };
+                    if let Err(error) = panel
                         .add_style_mask(tauri_nspanel::panel::NSWindowStyleMask::NonactivatingPanel)
-                        .map_err(|error| error.to_string())?;
+                    {
+                        if let Some(window) = panel.to_window() {
+                            window.destroy().map_err(|error| error.to_string())?;
+                        }
+                        return Err(error.to_string());
+                    }
                     panel.set_floating_panel(true);
                     panel.set_hides_on_deactivate(true);
                     panel
@@ -163,7 +178,8 @@ pub fn capture_plugin<R: Runtime>() -> TauriPlugin<R> {
         .on_event(|app, event| {
             if matches!(event, tauri::RunEvent::Exit)
                 && let Err(error) =
-                    CapturePanel::new(app.clone(), WebviewUrl::App("index.html".into())).release()
+                    CapturePanel::new(app.clone(), WebviewUrl::App("index.html".into()))
+                        .and_then(|panel| panel.release())
             {
                 eprintln!("desktop: could not release Capture panel: {error}");
             }
