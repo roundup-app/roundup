@@ -688,7 +688,7 @@ export const Rail = (props: { requested?: boolean }) => {
                             aria-level={view().depth + 1}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
-                            <KindGlyph kind="done" decorative /> {view().count}{copy.doneCount}</button>
+                            <KindGlyph kind="done" decorative /><span class="rail-fold-name">{view().count}{copy.doneCount}</span></button>
                         </div>
                       )}
                     </Show>

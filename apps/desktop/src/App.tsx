@@ -1,5 +1,6 @@
 import { KindGlyph } from "./ink/KindGlyph";
 import { MARKS, markOf } from "./header/tab";
+import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./copy/storage";
 import { storageProblems } from "./state/storage";
 import "./state/storage.css";
@@ -210,6 +211,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    onCleanup(pressFeedback(document));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
