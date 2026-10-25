@@ -10,7 +10,7 @@ export const createIdleRun = (send: ((record: IdleEvidence) => Promise<void>) | 
   const evidence = createIdleEvidence(document, window, now, send);
 
   const createEmulator = createXtermEmulators({
-    input() {}, encoded() {}, arrived() {}, written() {}, rendered() {},
+    input() {}, encoding() {}, encoded() {}, arrived() {}, written() {}, rendered() {},
     renderer: evidence.renderer,
   });
 
