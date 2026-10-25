@@ -191,6 +191,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   fireEvent.input(editing, { target: { value: "edited A 🌱" } });
   connected.drawer.close("key");
   const { draftStorage } = await import("../state/storage");
+  await waitFor(() => expect(draftStorage(connected.project.path).list().some(draft => draft.value.name === editing.value)).toBe(true));
   const durable = draftStorage(connected.project.path).list();
   expect(durable).toContainEqual(b);
   expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);

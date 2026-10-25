@@ -1,4 +1,4 @@
-import { storageCopy } from "./state/copy";
+import { storageCopy } from "./copy/storage";
 import { Tip } from "./ui/Tip";
 import { storageProblems } from "./state/storage";
 import "./state/storage.css";

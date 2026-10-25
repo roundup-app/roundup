@@ -1,4 +1,4 @@
-import { storageCopy } from "./copy";
+import { storageCopy } from "../copy/storage";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
 import { load } from "@tauri-apps/plugin-store";

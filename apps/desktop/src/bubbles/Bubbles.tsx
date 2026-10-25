@@ -226,14 +226,11 @@ export const Bubbles = (props: {
     persistPlaces(next);
   };
 
-  let recoveryTarget: (() => HTMLElement | null | undefined) | undefined;
-
   const openRecovery = (target?: () => HTMLElement | null | undefined) => {
-    recoveryTarget = target;
     show(null);
     // Let the Terminal's dismissable layer close before the recovery layer takes focus.
     const focus = captureFocus(true);
-    setTimeout(() => focus(() => recover(true)));
+    setTimeout(() => focus(() => { target?.()?.focus(); recover(true); }));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -904,7 +901,7 @@ export const Bubbles = (props: {
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
-      <Dialog.Root instant finalFocusEl={() => recoveryTarget?.()} open={recovering()} onOpenChange={details => recover(details.open)}>
+      <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
           <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>

@@ -149,9 +149,10 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
-        hide();
+
+        if (!current()) hide();
       } catch (error) {
-        hide();
+        if (!current()) hide();
 
         if (made || retry) void todos.reload();
 

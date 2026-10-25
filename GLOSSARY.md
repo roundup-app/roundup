@@ -553,12 +553,13 @@ The Daemon coordinator's durable protection of a selected later Agent's existing
 **Route**:
 A sender→receiver pair with a delivery value: `auto | drop`.
 
-**Saved work** (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`):
+**Saved work** (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`):
 The App's nine validated key families in the official native store. Initialization commits and
 reads back migration before editors exist; only an awaited save acknowledges persistence.
 A view's retention callback runs only after an acknowledged write or retry.
 A cleared record retains its migration marker. Recovery preserves legacy bytes, committed
 records and pending memory. The isolated browser adapter makes no native durability claim.
+`storageCopy` holds restoration and retention labels and causes in `copy/storage.ts`.
 
 **Draft** (`draftStorage`):
 Unsubmitted user-entered content and selections belonging to one original Project,
