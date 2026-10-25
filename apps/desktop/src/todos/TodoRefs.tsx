@@ -1,7 +1,7 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { activationSource } from "../keys/registry";
 import { PadDrawer } from "../pads/PadDrawer";
 import { usePadList } from "../rail/pads/padList";

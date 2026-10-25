@@ -4,7 +4,7 @@ import * as v from "valibot";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Order } from "@contracts/agent/Order";
 import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { Icon } from "../ink/Icon";

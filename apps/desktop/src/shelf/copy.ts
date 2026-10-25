@@ -1,0 +1,30 @@
+import { copy as shared } from "../sharedCopy";
+
+/** App-authored copy owned by this surface (U471). */
+export const copy = {
+  todos: shared.todos,
+  pads: shared.pads,
+  shelfLabel: shared.leaderShortShelf,
+  overview: shared.overview,
+  refresh: shared.importRefresh,
+  draftStatus: shared.draftStatus,
+  keep: shared.keep,
+  cancel: shared.cancel,
+  comma: shared.comma,
+  ownedBy: shared.ownedBy,
+  delete: shared.delete,
+  pad: shared.pad,
+  doneCount: shared.doneCount,
+  clear: shared.clear,
+  couldNotDelete: "Could not delete",
+  colon: ": ",
+  shelfDeletion: "Work items deletion",
+  selected: " selected",
+  deleteWord: "Delete ",
+  agentsMayStillBeWritingDeletingDoesNot: ". Agents may still be writing; deleting does not stop them",
+  todo: shared.todo,
+  questionMark: shared.questionMark,
+  addTodoTo: shared.addTodoTo,
+  me: shared.me,
+  unassigned: shared.unassigned,
+} as const;

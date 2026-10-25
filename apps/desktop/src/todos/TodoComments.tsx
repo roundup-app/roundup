@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Comment } from "@contracts/todo/Comment";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Collapsible } from "../ui/Collapsible";

@@ -2,7 +2,7 @@ import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
 const placeAt = (focus: Element | null): HintPlace | null =>

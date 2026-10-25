@@ -13,7 +13,7 @@ export const noInlineDeleteConfirmationRule = defineRule({
   createOnce(context) {
     return {
       Property(node) {
-        if (!context.filename.replaceAll("\\", "/").endsWith("/apps/desktop/src/copy.ts")) return;
+        if (!/\/apps\/desktop\/src\/(?:.*\/copy|sharedCopy|copy)\.ts$/.test(context.filename.replaceAll("\\", "/"))) return;
         const name = node.key.type === "Identifier" ? node.key.name : node.key.type === "Literal" ? node.key.value : null;
 
         if (retired.has(String(name))) context.report({ node, messageId: "retired" });

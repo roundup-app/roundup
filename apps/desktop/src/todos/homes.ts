@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { isWorkstream, railOrder } from "../rail/layout";
 

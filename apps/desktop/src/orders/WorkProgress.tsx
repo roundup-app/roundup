@@ -7,7 +7,7 @@ import type { ResumeWorkParams } from "@contracts/message/ResumeWorkParams";
 import type { ResultProgress } from "@contracts/message/ResultProgress";
 import { openDeliverable } from "../ask/openDeliverable";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";

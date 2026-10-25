@@ -1,6 +1,6 @@
 import { clipboardFailure, writeText } from "../app/clipboard";
 import { createCutTitle } from "../ui/cutTitle";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { ReservedLine } from "../ink/ReservedLine";

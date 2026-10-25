@@ -1,5 +1,5 @@
 import { KeyHint } from "./KeyHint";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSignal, For } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
 import { placeOf } from "./places";

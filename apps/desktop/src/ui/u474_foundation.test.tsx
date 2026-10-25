@@ -10,7 +10,9 @@ import { Menu } from "./Menu";
 import { Tooltip } from "./Tooltip";
 import { CHORDS } from "../keys/chords";
 import { Tip } from "../ui/Tip";
-import { copy } from "../copy";
+import { copy } from "../bubbles/copy";
+import { copy as copyRail } from "../rail/copy";
+import { copy as copyKeys } from "../keys/copy";
 import { IconButton } from "./IconButton";
 
 afterEach(cleanup);
@@ -96,21 +98,21 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
 it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"]])("u2570b_unkeyed_tooltips_keep_their_content_%s_%s", async (wrapper, input) => {
   render(() => wrapper === "icon"
     ? <IconButton aria-label={copy.minimise}>−</IconButton>
-    : <Tip text={copy.openFolder}>{(trigger) => <button {...trigger()} aria-label={copy.openFolder}>folder</button>}</Tip>);
-  const button = screen.getByRole("button", { name: wrapper === "icon" ? copy.minimise : copy.openFolder });
+    : <Tip text={copyRail.openFolder}>{(trigger) => <button {...trigger()} aria-label={copyRail.openFolder}>folder</button>}</Tip>);
+  const button = screen.getByRole("button", { name: wrapper === "icon" ? copy.minimise : copyRail.openFolder });
 
   if (input === "hover") fireEvent.pointerMove(button, { pointerType: "mouse" });
   else { fireEvent.keyDown(document, { key: "Tab" }); button.focus(); }
 
   const tip = await screen.findByRole("tooltip");
 
-  expect(tip.textContent).toBe(wrapper === "icon" ? copy.minimise : copy.openFolder);
+  expect(tip.textContent).toBe(wrapper === "icon" ? copy.minimise : copyRail.openFolder);
   expect(tip.querySelector("kbd")).toBeNull();
 });
 
 it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
-  render(() => <IconButton aria-label={copy.newAgent} chord={CHORDS[0]}>+</IconButton>);
-  const button = screen.getByRole("button", { name: copy.newAgent });
+  render(() => <IconButton aria-label={copyKeys.newAgent} chord={CHORDS[0]}>+</IconButton>);
+  const button = screen.getByRole("button", { name: copyKeys.newAgent });
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();

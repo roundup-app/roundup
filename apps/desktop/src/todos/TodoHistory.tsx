@@ -1,6 +1,6 @@
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";

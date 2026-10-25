@@ -3,7 +3,7 @@ import "./Select.css";
 import { Portal } from "solid-js/web";
 import { Popover } from "./Popover";
 import ChevronDown from "lucide-solid/icons/chevron-down";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
 import { createMemo, createSignal, createUniqueId, For, type JSX } from "solid-js";
 

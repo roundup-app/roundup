@@ -1,5 +1,5 @@
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";

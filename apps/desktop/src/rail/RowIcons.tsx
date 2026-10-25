@@ -1,5 +1,5 @@
 import { CHORDS } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { CHORDS } from "../keys/chords";
 import { RowIcons } from "./RowIcons";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { agent, workstream } from "../testing/nodes";
 import { itemOf, mountRail, rowOf } from "./railFixture";
 

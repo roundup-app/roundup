@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";

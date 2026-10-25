@@ -3,7 +3,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { createSignal, For, onCleanup, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";

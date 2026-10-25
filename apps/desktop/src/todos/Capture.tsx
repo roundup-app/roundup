@@ -2,7 +2,7 @@ import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsOf, leaderChord } from "../keys/chords";

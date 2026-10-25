@@ -6,7 +6,7 @@ import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { RpcError } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";

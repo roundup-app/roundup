@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "../keys/copy";
 import { USER } from "../testing/nodes";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 

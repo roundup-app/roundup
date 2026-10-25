@@ -3,7 +3,7 @@ import type { ActivationSource } from "../keys/registry";
 import { createMemo, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createToast } from "../ui/Toast";
 import { KindGlyph } from "../ink/KindGlyph";
 import type { Chime } from "./chime";

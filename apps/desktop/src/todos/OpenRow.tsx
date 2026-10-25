@@ -8,7 +8,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { createNear } from "../ink/near";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";

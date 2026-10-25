@@ -1,7 +1,7 @@
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import * as v from "valibot";
 import { ProjectDraftsContext } from "../state/connectedProject";
 import { Portal } from "solid-js/web";

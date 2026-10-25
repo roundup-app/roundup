@@ -1,5 +1,5 @@
 import prettyMilliseconds from "pretty-ms";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** The top two units of a duration; unavailable is `—`, never zero. */
 export const duration = (ns: string | null) => {

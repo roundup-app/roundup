@@ -8,7 +8,7 @@ import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsOf, chordsFor } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { failureOf } from "./failureOf";
 
 /** U3720: a hand-off unfolds its destination and restores the moved row's focus after the authoritative refetch. */

@@ -133,7 +133,8 @@ it("u3016d_observations_update_one_live_view", async () => {
 });
 
 import { openTabs, path, tab } from "../header/stripFixture";
-import { copy } from "../copy";
+import { copy } from "./copy";
+import { copy as copyAsk } from "../ask/copy";
 import { RpcError } from "../app/seam";
 
 it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", async () => {
@@ -145,7 +146,7 @@ it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", 
   fireEvent.click(document.querySelector('.rail [data-id="home"] [data-part="branch-control"]')!);
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="home"]')?.getAttribute("aria-selected")).toBe("true"));
   fireEvent.keyDown(window,{key:"/",code:"Slash",metaKey:true});
-  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copy.askBarLabel });
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copyAsk.askBarLabel });
   const text = "@home exact\ne\u0301 😀 \t ";
   fireEvent.input(field, { target: { value: text } });
   expect(field.value).toBe(text);
@@ -158,14 +159,14 @@ it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", 
   fireEvent.click(tab("first"));
   await screen.findByRole("button", { name: copy.measurementTime });
   fireEvent.keyDown(window,{key:"/",code:"Slash",metaKey:true});
-  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copy.askBarLabel })).value).toBe(text);
+  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copyAsk.askBarLabel })).value).toBe(text);
   expect(first.calls.filter((call) => /spawn|startDoor|prompt|ask.send/.test(call.method))).toEqual([]);
   const draft = app.of(path("first")).calls.filter((call) => call.method === "project.measurementSummary");
 
   for (const call of draft) expect(call.params).toMatchObject({ home: "home" });
   first.handlers["ask.send"] = () => { throw new RpcError(-32000,"Fixture refused submission"); };
 
-  fireEvent.keyDown(screen.getByRole("textbox",{name:copy.askBarLabel}),{key:"Enter"});
+  fireEvent.keyDown(screen.getByRole("textbox",{name:copyAsk.askBarLabel}),{key:"Enter"});
   await waitFor(() => expect(first.calls.filter((call)=>call.method==="ask.send").at(-1)?.params).toMatchObject({text,workstream:"home"}));
 });
 

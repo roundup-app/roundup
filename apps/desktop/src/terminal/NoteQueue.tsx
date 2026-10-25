@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Message } from "@contracts/message/Message";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";

@@ -2,7 +2,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { KeyHint } from "./KeyHint";
 import { createEffect, For, onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { LEADER, LEADER_ARM } from "./chords";
 import { armLeader, captureActions, endLeader, leaderArmed, modalOpen, registerKeys } from "./registry";
 

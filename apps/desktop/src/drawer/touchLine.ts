@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 

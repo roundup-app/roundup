@@ -1,4 +1,5 @@
-import { copy } from "./copy";
+import { copy } from "./terminal/copy";
+import { copy as copyShared } from "./sharedCopy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "./testing/nodes";
@@ -6,147 +7,15 @@ import { mountRailAndPane } from "./terminal/paneHarness";
 
 afterEach(cleanup);
 
-import { parse } from "@babel/parser";
-import { isNode } from "@babel/types";
-import type { Node } from "@babel/types";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { candidates } from "../copy/provenance.mjs";
+import { checkCopy } from "../copy/guard.mjs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "src");
 
 const sources = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) =>
-  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^copy\.ts$)/.test(file));
-
-const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancestors: readonly Node[]) => void) => {
-  read(node, ancestors);
-
-  for (const child of Object.values(node)) {
-    if (isNode(child)) visit(child, [...ancestors, node], read);
-    else if (Array.isArray(child)) for (const each of child) if (isNode(each)) visit(each, [...ancestors, node], read);
-  }
-};
-
-// These are executable structure or diagnostics never shown by the App, not copy exemptions.
-const STRUCTURE = new Set([
-  // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
-  "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
-  // U3517a: a console-only font fallback diagnostic, never rendered by the App.
-  "Terminal font unavailable; using the fallback face",
-  // U2749b: a development/test invariant, never App copy.
-  "Tooltip anchor excludes its opening pointer",
-  // U3309: physical key codes (including the generated Digit template) never render as copy.
-  "ArrowUp", "ArrowDown", "Digit ",
-  // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
-  "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
-  "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
-  // U3529: display media and a recovery availability discriminant, never displayed copy.
-  "(prefers-contrast: more)", "(forced-colors: active)", "unavailable",
-  "input, textarea, [contenteditable]", 'input, textarea, [contenteditable="true"]',
-  'input, textarea, select, [contenteditable="true"]', "select, input, button",
-  "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
-  'ui-monospace, "SF Mono", Menlo, monospace', "no open Project: a region read the ConnectedProject outside one",
-  "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
-]);
-
-const UI_ATTRIBUTES = /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/;
-
-// A value only compared (`a === "x"`, a conditional's test) picks what shows; the App never shows the value itself.
-const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", "<=", ">", ">=", "in", "instanceof"]);
-
-const compared = (inner: readonly Node[], node: Node) => [...inner, node].some((each, at, path) =>
-  (each.type === "BinaryExpression" && COMPARISONS.has(each.operator)) || (each.type === "ConditionalExpression" && each.test === path[at + 1]));
-
-const candidates = (source: string): { line: number; text: string }[] => {
-  const found: { line: number; text: string }[] = [];
-  const tree = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
-  const bindings = new Map<string, Node>();
-  const used = new Set<string>();
-
-  visit(tree, [], (node, ancestors) => {
-    if (node.type === "VariableDeclarator" && node.id.type === "Identifier" && node.init) bindings.set(node.id.name, node.init);
-
-    if (node.type === "CallExpression" && node.callee.type === "MemberExpression" && node.callee.property.type === "Identifier" && node.callee.property.name === "setAttribute" && node.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(node.arguments[0].value)) {
-      const value = node.arguments[1];
-
-      if (value && isNode(value)) visit(value, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
-    }
-
-    if (node.type !== "JSXExpressionContainer") return;
-
-    const parent = ancestors.at(-1);
-
-    if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(parent.name.name))) return;
-
-    // A UI attribute's JSX value (a `fallback` element) shows only its own text and UI attributes, never its other props.
-    const shown = (inner: readonly Node[]) => !inner.some((each) => each.type === "JSXAttribute" && (each.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(each.name.name)));
-
-    visit(node.expression, [], (each, inner) => { if (each.type === "Identifier" && shown(inner) && !compared(inner, each)) used.add(each.name); });
-  });
-
-  for (const name of used) {
-    const bound = bindings.get(name);
-
-    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each, inner) => { if (each.type === "Identifier" && !compared(inner, each)) used.add(each.name); });
-  }
-
-  visit(tree, [], (node, ancestors) => {
-    if (ancestors.some((each) => (each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || each.type === "ImportDeclaration")) return;
-
-    if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
-    const parent = ancestors.at(-1);
-
-    // FontFaceSet.load consumes CSS font syntax, never App copy.
-    const call = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" ? parent.callee : null;
-    const owner = call?.object;
-
-    if (call?.property.type === "Identifier" && call.property.name === "load" && owner?.type === "MemberExpression" && owner.object.type === "Identifier" && owner.object.name === "document" && owner.property.type === "Identifier" && owner.property.name === "fonts") return;
-
-    const uiSetter = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && parent.callee.property.name === "setAttribute" && parent.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(parent.arguments[0].value) && parent.arguments[1] === node;
-
-    if (!uiSetter && parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(parent.callee.property.name)) return;
-
-    if (parent?.type === "ReturnStatement" && ancestors.some((each) => each.type === "VariableDeclarator" && each.id.type === "Identifier" && ["placeOf", "createDoorMode"].includes(each.id.name))) return;
-
-    if (parent?.type === "BinaryExpression" && ["===", "!==", "==", "!="].includes(parent.operator)) return;
-    const attribute = ancestors.findLast((each) => each.type === "JSXAttribute");
-    const expression = ancestors.findLastIndex((each) => each.type === "JSXExpressionContainer");
-    const attributeAt = ancestors.findLastIndex((each) => each.type === "JSXAttribute");
-    const inContent = node.type === "JSXText" || expression > attributeAt && ancestors[expression - 1]?.type !== "JSXAttribute";
-    const binding = ancestors.findLast((each) => each.type === "VariableDeclarator");
-    const marker = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && binding.id.name === "RECOMMENDED" && node.type === "StringLiteral" && node.value === " (recommended)";
-
-    if (marker) return;
-    const textBinding = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && used.has(binding.id.name) && binding.init && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(binding.init.type);
-    const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && UI_ATTRIBUTES.test(attribute.name.name);
-
-    if (attribute && !uiAttribute && !inContent) return;
-
-    if (parent?.type === "ObjectProperty" && parent.key === node || parent?.type === "MemberExpression") return;
-
-    const holder = ancestors.at(-2);
-
-    if (parent?.type === "ArrayExpression" && holder?.type === "ObjectProperty" && holder.key.type === "Identifier" && holder.key.name === "chords") return;
-    let text: string;
-
-    if (node.type === "JSXText") text = node.value.trim();
-    else if (node.type === "StringLiteral") text = node.value;
-    else if (node.type === "TemplateLiteral") {
-      if (!uiAttribute && node.quasis.every((part) => !/[a-zA-Z]/.test(part.value.cooked ?? ""))) return;
-      text = node.quasis.map((part) => part.value.cooked ?? "").join(" ");
-
-      if (text.endsWith('px') || /^(alt\+Digit|<a href=|no (row|node)|WebGL renderer)/.test(text)) return;
-    } else return;
-
-    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|calc\(|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
-
-    if (node.type === "JSXText" || uiAttribute || uiSetter || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
-      found.push({ line: node.loc?.start.line ?? 0, text });
-    }
-  });
-
-  return found;
-};
+  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|(^|\/)copy\.ts$|^sharedCopy\.ts$)/.test(file));
 
 it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   const missing = sources().flatMap((file) => candidates(readFileSync(join(ROOT, file), "utf8")).map(({ line, text }) => `${file}:${line}: ${text}`));
@@ -177,7 +46,7 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
 
   connected.rail.select("w");
   fireEvent.click((await screen.findAllByRole("button", { name: copy.start })).find((button) => button.closest(".pane-door"))!);
-  const retry = (await screen.findAllByRole("button", { name: copy.retry })).find((button) => button.closest(".pane-door"))!;
+  const retry = (await screen.findAllByRole("button", { name: copyShared.retry })).find((button) => button.closest(".pane-door"))!;
 
   expect(document.body.textContent).toContain("keep THIS launch failure 🧭");
   app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
@@ -189,5 +58,6 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
 
 // U471 requires the entry point and every production caller to move together.
 it("u471_copy_modules_belong_to_their_surfaces", () => {
-  expect(existsSync(join(ROOT, "copy.ts"))).toBe(false);
+  const files = Object.fromEntries(readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter(file => /\.tsx?$/.test(file)).map(file => [file, readFileSync(join(ROOT, file), "utf8")]));
+  expect(checkCopy(files, "", { ownershipOnly: true })).toEqual([]);
 });

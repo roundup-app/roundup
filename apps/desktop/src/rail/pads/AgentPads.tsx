@@ -1,7 +1,7 @@
 import { contextMenu, linkEntries, openOnRelease } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";

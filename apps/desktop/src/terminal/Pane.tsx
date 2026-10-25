@@ -1,7 +1,7 @@
 import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";

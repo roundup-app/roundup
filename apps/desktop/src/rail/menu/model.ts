@@ -1,5 +1,5 @@
 import type { ConnectedProject } from "../../state/connectedProject";
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";

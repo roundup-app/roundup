@@ -5,7 +5,7 @@ import { Editable } from "../ui/Editable";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";

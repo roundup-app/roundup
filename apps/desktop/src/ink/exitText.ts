@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { ExitState } from "../state/rail";
 
 /** How an exited node reads on screen: its code, a signal, or nothing known because the node has no Terminal. */

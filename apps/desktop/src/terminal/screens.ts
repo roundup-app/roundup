@@ -1,5 +1,5 @@
 import { clipboardFailure, readPaste, writeText } from "../app/clipboard";
-import { copy as appCopy } from "../copy";
+import { copy as appCopy } from "./copy";
 import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import { RpcError } from "../app/seam";

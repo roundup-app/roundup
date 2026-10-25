@@ -7,7 +7,7 @@ import { DisplayClockContext } from "../state/clock";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** U3308/U3311: the shared display clock and authoritative Todo facts also drive drag previews. */
 export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<readonly Todo[]>) => {

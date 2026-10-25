@@ -3,7 +3,7 @@ import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";

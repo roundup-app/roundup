@@ -1,6 +1,6 @@
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { useTabs } from "@ark-ui/solid/tabs";

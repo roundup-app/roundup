@@ -2,7 +2,7 @@ import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";

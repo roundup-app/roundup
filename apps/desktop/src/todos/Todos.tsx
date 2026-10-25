@@ -7,7 +7,7 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";

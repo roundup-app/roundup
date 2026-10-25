@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSignal, For } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Menu } from "../ui/Menu";

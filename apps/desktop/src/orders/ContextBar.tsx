@@ -2,7 +2,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import type { ConversationOverview } from "@contracts/agent/ConversationOverview";
 import type { ContextPartKind } from "@contracts/agent/ContextPartKind";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 type Part = { kind: ContextPartKind | "used"; label: string; tokens: number };
 

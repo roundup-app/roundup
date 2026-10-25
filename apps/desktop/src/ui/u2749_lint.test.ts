@@ -35,7 +35,7 @@ it("u3512a_lint_rejects_inline_delete_confirmation_copy", () => {
   const temporary = mkdtempSync(join(tmpdir(), "u3512-"));
 
   const cases = [
-    ["copy.ts", 'export const copy = { deletePad: name => `Delete ${name}?` };', 1],
+    ["pads/copy.ts", 'export const copy = { deletePad: name => `Delete ${name}?` };', 1],
     ["copy.ts", 'export const copy = { "unsavedChangesAreLost": "Unsaved changes are lost" };', 1],
     ["copy.ts", 'export const copy = { ownsItYouMayDeleteAnyPad: name => `${name} owns it` };', 1],
     ["pads/PadDrawer.tsx", 'const view = <p>{copy.padDeleteQuestion(name)}</p>;', 1],

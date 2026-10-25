@@ -6,7 +6,7 @@ import type { MeasurementSummary } from "@contracts/project/MeasurementSummary";
 import type { MeasurementContributor } from "@contracts/project/MeasurementContributor";
 import type { MeasurementTime } from "@contracts/project/MeasurementTime";
 import { RpcError } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Tip } from "../ui/Tip";
 import { duration, percent } from "./measurementFormat";

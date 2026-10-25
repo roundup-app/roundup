@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Order } from "@contracts/agent/Order";
 
 const limitsInWords = (count: number): string =>

@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { ActorKind } from "@contracts/ActorKind";
 import type { Actor } from "@contracts/Actor";
 import { Icon } from "./Icon";

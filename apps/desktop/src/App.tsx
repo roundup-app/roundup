@@ -3,7 +3,7 @@ import { AppSettings } from "./settings/AppSettings";
 import { applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
-import { copy } from "./copy";
+import { copy } from "./app/copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";

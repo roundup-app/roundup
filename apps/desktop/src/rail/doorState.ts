@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { exitText } from "../ink/exitText";
 import type { ExitState } from "../state/rail";

@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "./glyph";
 

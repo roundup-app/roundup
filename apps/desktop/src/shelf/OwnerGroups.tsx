@@ -4,7 +4,7 @@ import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { OwnerGroup } from "./scope";
 
 type Entry = { id: string; name: string; children: Entry[] };

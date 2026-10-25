@@ -1,5 +1,5 @@
 import type { ActivationSource } from "../keys/registry";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
 import type { Kind } from "@contracts/Kind";
 import type { Pad } from "@contracts/pad/Pad";

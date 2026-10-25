@@ -4,7 +4,7 @@ import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Kind } from "@contracts/Kind";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { glyphOf } from "../ink/glyph";
 import { LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";

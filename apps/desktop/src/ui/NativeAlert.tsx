@@ -1,6 +1,6 @@
 import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
 import type { App, NativeQuestion } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** A native question owns one request until answered; failed requests authorize nothing and can be retried. */

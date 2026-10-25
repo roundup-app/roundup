@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 

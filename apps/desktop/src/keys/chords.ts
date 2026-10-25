@@ -1,5 +1,5 @@
 import { appSettings } from "../settings/preferences";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
 export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };

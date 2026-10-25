@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSignal } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";

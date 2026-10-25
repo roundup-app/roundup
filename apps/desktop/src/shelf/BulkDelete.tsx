@@ -1,6 +1,6 @@
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
