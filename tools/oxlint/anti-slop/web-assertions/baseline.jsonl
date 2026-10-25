@@ -166,7 +166,6 @@
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"fc81f1d7d5f5ba0a76436a679647b9c15eca5534ccec494102357ccb40b61aeb"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_reconnect_failure_preserves_newer_revision","identity":"87b2aad02b44a4a5866c160bd110189a2b4e10a7187de21a7bca5b947e38e4cb"}
 {"file":"apps/desktop/src/copy.test.ts","test":"u471_action_labels_describe_the_existing_action_retry_supervisor","identity":"2c98d1bf38b9ca791006f7174c4dc354b08f1ba45868a1b84fd61e9b9d69c3e2"}
-{"file":"apps/desktop/src/drawer/u3010b_lifetime.test.tsx","test":"p3557c_failure_lifetime_draft_recovery_%s","identity":"de2731ee971ab1cbc593f8231c0bd3a9bd52f1fd7af34ba596c67bf99fc3c720"}
 {"file":"apps/desktop/src/drawer/u430_browser.test.py","test":"main","identity":"3288f6d5da1c159a3f31caae45ad8950f79acd6ed776ae5e1fd5026d32d8322a"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_the_drawer_shows_a_light_close_word_that_closes_it","identity":"d9f39510e74ffc740ff85e4259d88ea64fe9e2e93c29ba1a0a82e0dd16283aae"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion","identity":"b8cd6c6f8d3b6b5ed71c7820273d499d391fe8228552ab38fdcb4d2fcffa84b4"}
