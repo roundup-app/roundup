@@ -1,94 +1,90 @@
-# Assertion inventory preparation (T3779b)
+# Web assertion gate (T3779b)
 
-This is an **opt-in audit**, not the repository assertion gate or an approved
-baseline. It changes no product tests, timeout, retry, capture or execution
-selection. T3779a/b enforcement and all T3779c cuts remain on #3828.
+Normal `pnpm lint` enforces the assertion rule in `.oxlintrc.json`, checks the
+baseline against the merge base with `origin/main`, and statically checks Python.
+Its no-argument invocation also runs `assertions.test.mjs`, so `just lint-web` and
+CI reach the boundary fixtures. A targeted invocation forwards its arguments to
+Oxlint and still checks the baseline and Python; it does not recursively run the
+fixture suite.
 
 ```text
-pnpm lint --config tools/oxlint/anti-slop/web-assertions/audit.json
-  → Oxlint AST + lexical bindings → assertion candidates
-  → Babel parses browser-expression strings
-python3 python-audit.py apps/desktop/src
-  → Python AST → every Python assertion + assignment dependencies
-  → source review → exact shrinking baseline (still pending)
+pnpm lint
+  → actual-command fixtures (isolated source / baseline repositories)
+  → Oxlint: new assertion or stale per-file entry → exit 1
+  → baseline: invalid / duplicate / added / broadened / missing file → exit 1
+  → Python AST + Babel browser expressions: new / stale assertion → exit 1
 ```
 
-Reproduce from a checkout with `pnpm install`:
+`baseline.jsonl` is the initial exact baseline: one file, containing test (or
+named helper) and SHA-256 assertion identity per row. `baseline-source.json`
+records the source revision/hash, tool hash, versions and scan command. App source
+is unchanged from the merged `origin/main`; no product test is cut here. Initial
+baseline creation requires independent review before any T3779c cut. Once it is
+on main, the lint rejects any head entry absent from its merge base's baseline.
+There is no command that updates or expands the baseline during lint.
+
+An identity pins exact assertion source, dependency source, enclosing registration
+or helper source, and its AST path. Identical assertions are distinct, without a
+line-number or count exemption. An edit to an enclosing registration invalidates
+its legacy exceptions: remove its forbidden assertions and their entries rather
+than re-keying them. Deleting a file, test or assertion requires removing its
+entries. Adding a second identical assertion cannot reuse the original's entry.
+
+## Reproduce and review
 
 ```sh
+pnpm install
+pnpm lint
 node tools/oxlint/anti-slop/web-assertions/audit.mjs > /tmp/assertions.jsonl
-node --test tools/oxlint/anti-slop/web-assertions/assertions.test.mjs
 ```
 
-`inventory.jsonl` is generated output. Its header records the source revision,
-source hash/dirty flag, tool hash, lint command/exit and analyzed-file count.
-Each observation contains the exact assertion, containing suite/test, source
-location, dependencies and a SHA-256 fingerprint of assertion and dependency
-source. Locations are navigation aids, never exemption identities. Identical
-assertions may have identical fingerprints; a future baseline must disambiguate
-those registrations before granting any exemption. This inventory grants none.
-App source is unchanged from the implementation base. No test modules execute.
+The audit executes no test modules or browser launchers. Its rows retain exact
+assertion text, dependencies and navigation locations for source review; locations
+grant no permission. Python observations marked `python-behavior` need no baseline
+entry. All other audit rows project to the initial baseline's three keys.
+`fixtures.jsonl` records each input's separate diagnostic and exit code. Recreate
+it with `ASSERTION_FIXTURE_REPORT=/tmp/new-fixtures.jsonl node --test
+ tools/oxlint/anti-slop/web-assertions/assertions.test.mjs` (use a new output file).
 
-`fixtures.jsonl` records each JS boundary fixture's input, exit code and separate
-diagnostic through the real `pnpm lint --no-ignore --config <temporary-config>
---format json <fixture.test.tsx>` entry point. Reproduce it by setting
-`ASSERTION_FIXTURE_REPORT` to a new file while running the fixture command.
-All negative fixtures require this rule's diagnostic; a syntax error or ignored
-file cannot pass. The Python fixture makes its launcher raise if executed and
-checks the parsed assertions and their browser-script dependency instead.
+The rule follows local bindings, mutable assignments, derived expressions,
+function return values and browser callbacks/strings. Appearance reads used only
+for actions do not contaminate a helper's independent return value. Literal DOM
+copy comparisons, complete-copy regexes, text/role queries used as copy-presence
+proof, style matchers and snapshots need an exact baseline entry. Role queries
+used to locate actions, focus outcomes, nonempty names, call/contract assertions
+and round trips comparing with user-input variables remain behavior observations.
+Legacy literal DOM comparisons are pinned conservatively, including literals
+whose authorship cannot be inferred from syntax; they grant no future exception.
 
-## What the inventory establishes
+Python uses built-in `ast`, never imports the launcher, and passes browser script
+strings to the same Babel classifier as TypeScript. Existing mixed appearance /
+behavior assertions are pinned individually; new Python assertions on style,
+geometry or literal DOM copy fail. Independent numeric and user-input round trips
+pass. Dynamic browser fragments that cannot be parsed and contain browser code
+fail for review instead of silently passing.
 
-The rule recognizes Vitest `expect` imports/aliases, namespace imports and globals;
-style matchers; computed style, rectangles and dimensions flowing through local
-bindings, arithmetic and browser callbacks; exact DOM-text matchers and text/role
-queries used as existence assertions. Embedded strings are parsed as expressions
-with the installed Babel parser; comments and quoted strings cannot masquerade as
-reads. Action setup, focus checks, name presence and call/contract observations
-are excluded by the fixtures. Python uses its built-in AST without importing any
-launcher, and records **every** assertion for review, including mixed behavior and
-appearance conditions. Its assignment closure conservatively includes same-named
-bindings across scopes; it does not classify Python assertions as forbidden.
-
-These are **candidates**, not verified offenders or savings. In particular:
-
-- `copy-candidate` needs source review to distinguish App wording from user content.
-  A literal user-content round trip is deliberately not automatically exempted.
-- Object provenance is conservative: a geometry-bearing object may also carry
-  independent behavioral fields. Inspect the asserted member before classifying.
-- `unparsed-browser-script` preserves inputs that need manual review, including
-  dynamic/non-expression scripts. It cannot be silently treated as compliant.
-- Snapshots are marked for review. Imported helper return values, mutable writes,
-  destructured field precision, dynamic queries, wrapper-created assertions and
-  indirect browser script builders need further analysis before gate activation.
-- This audit does not test shrinking/stale baseline entries or prevent Python
-  additions. No allowlist is created; those acceptance boundaries remain open.
-
-The counts cannot confirm the historical “275 lines in 87 files” claim: source
-revision, syntax, candidate provenance and assertion-versus-line counting differ.
-They establish reproducible source observations for the next review. Timing
-claims, complete base/head CI measurements, setup and retries remain separate.
-No cut is authorized until both lints enforce and a reviewed baseline lands.
+T3779a's timeout exception review/normal activation and the directory-sized
+T3779c cuts remain on #3828. No timing savings, copy-specific scenario retirement,
+product behavior or completion of those groups is claimed by this prerequisite.
+Protected observers, capture selection and retries are untouched.
 
 ## Reuse
 
-Read `package.json`, `apps/desktop/package.json`, the installed
-`@oxlint/plugins` SourceCode/visitorKeys/scope API and Vitest 5.0.3's timeout API.
-Reuse Oxlint 1.86.0 for TS/TSX parsing, bindings and diagnostics; reuse desktop's
-installed `@babel/parser` 7.29.9 and `@babel/types` 7.29.8 for embedded expressions
-and visitor keys; reuse Python `ast` for Python. No parser or dependency is added.
+Inspected root/desktop dependencies, installed Oxlint 1.86.0's
+SourceCode/visitorKeys/scope API and Vitest 5.0.3's timeout API first. No dependency
+or parser is added. Node's process/filesystem APIs and Git supply process exits,
+exact manifest reads and the merge-base comparison.
 
-- [Oxlint JS plugins](https://oxc.rs/docs/guide/usage/linter/js-plugins) and its
-  [rule list](https://oxc.rs/docs/guide/usage/linter/rules.html): selected for the
-  existing lint entry point and scope graph. The stock rules do not inventory
-  appearance/copy assertion provenance or supply a shrinking baseline. Maintained:
-  [1.89.0, 2026-10-19](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.89.0).
-- [eslint-plugin-testing-library rules](https://github.com/testing-library/eslint-plugin-testing-library#supported-rules):
-  evaluated and rejected for this boundary; query/async best-practice rules neither
-  follow computed-style/browser results nor distinguish App-copy assertions and
-  baseline entries. Maintained:
-  [7.16.2, 2026-03-24](https://github.com/testing-library/eslint-plugin-testing-library/releases/tag/v7.16.2).
-- [Babel parser](https://babeljs.io/docs/babel-parser): selected for embedded script
-  parsing because Oxlint's AST treats those as string literals. Maintained:
-  [8.0.9, 2026-10-23](https://github.com/babel/babel/releases/tag/v8.0.9).
-  The installed 7.x versions are reused unchanged.
+- Selected [Oxlint JS plugins](https://oxc.rs/docs/guide/usage/linter/js-plugins)
+  for the existing parser, bindings and diagnostics. Its
+  [stock rules](https://oxc.rs/docs/guide/usage/linter/rules.html) lack assertion
+  provenance and a shrinking exact baseline. Maintenance:
+  [1.89.0, October 19](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.89.0).
+- Considered [eslint-plugin-testing-library](https://github.com/testing-library/eslint-plugin-testing-library#supported-rules).
+  Its query/async rules lack style/browser-result provenance and a shrinking
+  baseline; adding it would not supply this gate. Maintenance:
+  [7.16.2, March 24](https://github.com/testing-library/eslint-plugin-testing-library/releases/tag/v7.16.2).
+- Selected installed [Babel parser](https://babeljs.io/docs/babel-parser) 7.29.9
+  and types 7.29.8 for expressions Oxlint sees only as strings. Maintenance:
+  [8.0.9, October 23](https://github.com/babel/babel/releases/tag/v8.0.9).
+  Python reuses its built-in AST.

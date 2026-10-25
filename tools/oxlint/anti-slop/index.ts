@@ -1,4 +1,4 @@
-import { auditWebAssertionsRule } from "./web-assertions/rule.mjs";
+import { auditWebAssertionsRule, noNewWebAssertionsRule } from "./web-assertions/rule.mjs";
 import { boundedTestTimeoutRule } from "./web-timeout/rule.mjs";
 import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirmation.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
@@ -29,6 +29,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 	rules: {
         "bounded-test-timeout": boundedTestTimeoutRule,
         "audit-web-assertions": auditWebAssertionsRule,
+        "no-new-web-assertions": noNewWebAssertionsRule,
         "no-tooltip-bypass": noTooltipBypassRule,
         "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
 		"no-array-filter-map": noArrayFilterMapRule,
