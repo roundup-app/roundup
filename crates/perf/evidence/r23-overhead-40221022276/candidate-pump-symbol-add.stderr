@@ -1,0 +1,7 @@
+Added new event:
+  r23p:candidate_pump  (on *terminal*pump in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e r23p:candidate_pump -aR sleep 1
+

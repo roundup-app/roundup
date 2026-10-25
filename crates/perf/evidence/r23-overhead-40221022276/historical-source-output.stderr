@@ -1,0 +1,9 @@
+Added new events:
+  r23p:historical_output_line (on @crates/terminal/src/lib.rs:346 in /tmp/r23-queue-bins/historical-instrumented-rupd)
+  r23p:historical_output_line (on @crates/terminal/src/lib.rs:346 in /tmp/r23-queue-bins/historical-instrumented-rupd)
+  r23p:historical_output_line (on @crates/terminal/src/lib.rs:346 in /tmp/r23-queue-bins/historical-instrumented-rupd)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e r23p:historical_output_line -aR sleep 1
+

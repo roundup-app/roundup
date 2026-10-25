@@ -1,0 +1,18 @@
+Added new events:
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+  r23p:candidate_input_line (on @crates/terminal/src/lib.rs:634 in /tmp/r23-queue-bins/candidate-instrumented-rupd)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e r23p:candidate_input_line -aR sleep 1
+
