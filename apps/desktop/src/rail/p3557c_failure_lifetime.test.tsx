@@ -7,6 +7,7 @@ import { agent, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { mountRail, rowOf } from "./railFixture";
+import { fakeEmulators } from "../terminal/paneHarness";
 
 afterEach(cleanup);
 
@@ -19,7 +20,7 @@ const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name
 /** Row `a` fails to remove; the Rail's line is the failure. */
 const failedRemove = async (pane = false) => {
   let tree = [agent("a", "idle", "x"), agent("b", "idle", "x", { order: 1 })];
-  const mounted = await mountRail(tree, pane ? { pane: true } : {});
+  const mounted = await mountRail(tree, [], undefined, undefined, pane ? { pane: fakeEmulators().factory } : {});
   mounted.app.handlers["rail.tree"] = () => tree;
   mounted.app.handlers["rail.remove"] = refuse;
   mounted.rail.select("a");
@@ -39,6 +40,7 @@ describe("p3557c an item failure in the Rail goes with its item", () => {
     app.handlers["rail.createWorkstream"] = () => { throw new Error("new command failure"); };
 
     await rail.createWorkstream();
+    await screen.findByRole("alert");
     expect(rail.commandFailure.message()).not.toBe(original);
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     drop("a");
