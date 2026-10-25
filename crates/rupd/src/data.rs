@@ -59,7 +59,7 @@ pub fn project_data(data: &Path, project: &Path) -> io::Result<PathBuf> {
 }
 
 /// Move what an older Project kept in `<project>/.roundup/` into `data`: databases with their
-/// `-wal` and `-shm`, and the `agents` and `pads` folders. `worktrees/` and any file roundup did
+/// `-wal`, `-shm` and `-journal`, and the `agents` and `pads` folders. `worktrees/` and any file roundup did
 /// not write stay. Copies, checks the size, renames, then removes the old file; so a failure or a
 /// kill leaves the old files whole, and a second call finishes the move.
 pub fn migrate(project: &Path, data: &Path) -> Result<(), String> {
@@ -87,7 +87,7 @@ pub fn migrate(project: &Path, data: &Path) -> Result<(), String> {
 }
 
 fn is_database_file(name: &str) -> bool {
-    [".db", ".db-wal", ".db-shm"]
+    [".db", ".db-wal", ".db-shm", ".db-journal"]
         .iter()
         .any(|suffix| name.ends_with(suffix))
 }
