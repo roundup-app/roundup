@@ -44,8 +44,8 @@ use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
-    Pick, Typing, accept_receiver, accept_reservation, binding, ended, load_rail_nodes, nudge,
-    reconcile, sender_name, start_listener,
+    Pick, Typing, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
+    load_rail_nodes, reconcile, sender_name, start_listener,
 };
 use dispatch::{is_receiver, item, require_user};
 use flight::confirm_ids;
