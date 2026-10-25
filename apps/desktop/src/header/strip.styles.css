@@ -25,8 +25,8 @@
   overscroll-behavior: contain;
   scrollbar-width: none;
   /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
-  --cut-start: 0px;
-  --cut-end: 0px;
+  --cut-start: calc(0 * var(--space-1));
+  --cut-end: calc(0 * var(--space-1));
   mask-image: linear-gradient(to right, transparent, var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), transparent);
 }
 
@@ -173,7 +173,7 @@
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
   /* D8: the one border width, named once for the tab boxes and the edges; the bar's own rule sits at its bottom edge (flat-tab.styles.css). */
-  --rule: 1px;
+  --rule: var(--stroke-hairline);
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;

@@ -26,9 +26,7 @@ p {
 .window {
   --shelf-span: var(--shelf-width);
   /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
-  --drawer-span: max(560px, calc(var(--shelf-span) + var(--space-5)));
-  /* The user set the window bar to 38 px (2026-10-17). */
-  --header-height: 38px;
+  --drawer-span: max(var(--drawer-min-width), calc(var(--shelf-span) + var(--space-5)));
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -120,7 +118,7 @@ p {
   top: 0;
   bottom: 0;
   z-index: 1;
-  width: 8px;
+  width: var(--space-2);
   cursor: col-resize;
   touch-action: none;
 }
@@ -130,8 +128,8 @@ p {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 2px;
+  left: var(--resize-mark-inset);
+  width: var(--stroke-strong);
   background-color: var(--accent);
   opacity: 0;
 }
@@ -142,7 +140,7 @@ p {
 }
 
 .rail-edge {
-  left: calc(var(--rail-width) - 5px);
+  left: calc(var(--rail-width) - var(--space-1) - var(--stroke-hairline));
 }
 
 /* The Shelf's leading hairline is drawn here, so it slides with the Shelf: the slot is the Shelf's own width and transform. */
@@ -169,7 +167,7 @@ p {
 }
 
 .shelf-edge {
-  left: -4px;
+  left: calc(-1 * var(--space-1));
 }
 
 .shelf-edge::after {
@@ -177,14 +175,14 @@ p {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 1px;
+  left: var(--resize-mark-inset);
+  width: var(--stroke-hairline);
   background-color: var(--hairline);
 }
 
 /* U161: one hairline on the Rail's trailing edge and one on the Shelf's leading edge; the Drawer keeps its own (U134). */
 .rail {
-  border-right-width: 1px;
+  border-right-width: var(--stroke-hairline);
   border-right-style: solid;
   border-right-color: var(--hairline);
 }
@@ -259,7 +257,7 @@ p {
   overflow: auto;
   overscroll-behavior: contain;
   background-color: var(--ground);
-  border-left-width: 1px;
+  border-left-width: var(--stroke-hairline);
   border-left-style: solid;
   border-left-color: var(--hairline);
 }
@@ -336,8 +334,8 @@ p {
 
 .drawer > .close {
   position: absolute;
-  top: 8px;
-  right: 16px;
+  top: var(--space-2);
+  right: var(--space-4);
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {
@@ -358,8 +356,8 @@ p {
   *,
   *::before,
   *::after {
-    transition-duration: 0s !important;
-    animation-duration: 0s !important;
+    transition-duration: var(--duration-instant) !important;
+    animation-duration: var(--duration-instant) !important;
   }
 }
 
@@ -385,7 +383,7 @@ p {
 .leader {
   position: fixed;
   top: 0;
-  left: var(--leader-left, 0px);
+  left: var(--leader-left, calc(0 * var(--space-1)));
   width: var(--leader-width, 100%);
   min-height: var(--header-height, calc(var(--space-5) * 2));
   box-sizing: border-box;
@@ -398,7 +396,7 @@ p {
   overflow: hidden;
   pointer-events: none;
   background-color: var(--sunken);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--stroke-hairline) solid var(--hairline);
 }
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
@@ -407,7 +405,7 @@ p {
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid var(--accent);
+  border: var(--stroke-strong) solid var(--accent);
   pointer-events: none;
 }
 

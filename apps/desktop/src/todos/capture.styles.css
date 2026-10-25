@@ -1,6 +1,6 @@
 /* U3713: an opaque panel over the centre pane, clear of the title bar, with the Switcher's surface and hairline and the drawer shadow. */
 .capture.app-dialog {
-  width: min(480px, calc(100vw - var(--space-6) * 2));
+  width: min(var(--picker-width), calc(100vw - var(--space-6) * 2));
   padding: var(--space-3);
 }
 
