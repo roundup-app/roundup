@@ -268,3 +268,50 @@ and intervals. The source-text timeout
 configuration test was removed under rule 10; the existing memory stop/coverage
 observers still prove collector completion and whole-lane coverage. The
 40-minute collector bound and all existing budgets remain unchanged.
+
+### Hosted capability demonstration (2026-10-25)
+
+[Run 40179342510](https://github.com/roundup-app/roundup/actions/runs/40179342510),
+[job 121127217065](https://github.com/roundup-app/roundup/actions/runs/40179342510/job/121127217065),
+measured source [492dcc52bc363cdf24e5703cc184a06f866d7875](https://github.com/roundup-app/roundup/commit/492dcc52bc363cdf24e5703cc184a06f866d7875):
+`rust1`, empty BASE, profile `ci1`, four threads, exit 0, 310 tests passing.
+The command took 376.497 seconds; this is **not full hosted check-job time**.
+The Builder workflow's own head differs from its measured checkout; both SHAs
+are retained in the evidence. The runner was a 4-vCPU x86_64 AMD EPYC 7763,
+Ubuntu image `20261023.334.3`.
+
+The final sample retains three Cargo timing reports, 175 compiled units and
+608 driver/linker exec intervals for 152 output paths. Its observed chain is
+`cc → collect2 → ld.lld → rust-lld`, not an assumed GNU ld baseline.
+All selected linker processes exited successfully. Original test/profile/release
+settings and E14's memory/concurrency validation passed.
+
+| Package | Summed unit wall seconds (demonstration only) |
+| --- | ---: |
+| rup@0.0.0 | 319.54 |
+| rupd@0.0.0 | 179.02 |
+| agents@0.0.0 | 134.76 |
+
+This was a capability observation with warm run-owned dependency outputs after
+lints and main merges. No cache was deleted. These overlapping unit sums are
+not link or elapsed build time, and this ranking does not replace #3985's cold
+compilation selection. No candidate or gain is evaluated here.
+
+The run's existing `answer-3995` artifact contains
+`ci3781/hosted-rust1-observation.tar.gz`, with `rust1-final/`, its complete log
+and exit code, and the exact observer sources in `collector-final/`.
+`preliminary-observation.tar.gz` retains the earlier 309-test sample, original
+raw files/reports and its separately identified final revalidation; its source,
+cache preparation and collector revision differ, so do not compare the samples.
+
+```sh
+gh run download 40179342510 --name answer-3995 --dir /tmp/ci3781-artifact
+mkdir -p /tmp/ci3781-raw
+tar -xzf /tmp/ci3781-artifact/ci3781/hosted-rust1-observation.tar.gz -C /tmp/ci3781-raw
+```
+
+Read `rust1-final/build/summary.json`, `lane.json`, raw `build/cargo-*/` files and
+the artifact's `demonstration.json`. Revalidation uses the retained
+`collector-final/build.py::report` on `rust1-final/build`; it starts no process.
+For the experiment, #3985 invokes the opt-in flag from its hosted `check.yml`
+settings and collects matching job/setup/cache logs as described above.
