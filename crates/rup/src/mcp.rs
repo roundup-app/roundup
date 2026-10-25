@@ -137,7 +137,6 @@ pub(crate) fn door_tools() -> Vec<Offered> {
 /// B53: a Door asks the App to show a Terminal in its Reach; nothing is read and nothing starts.
 fn terminal_show() -> Offered {
     Offered {
-        door_only: true,
         ..offered::<terminal::TerminalId>(
             "terminal.show",
             "Show a Terminal in your Reach to the user, who sees its owner selected. Use it when the user asks to see a child's output; it reads nothing and returns nothing.",
@@ -195,10 +194,6 @@ fn with_own_id<P: JsonSchema>(
     }
     Offered {
         own_id: true,
-        door_only: matches!(
-            method,
-            "workstream.handoff" | "workstream.rewindPlan" | "workstream.rewind"
-        ),
         tool: Tool::new(name, description, schema),
         ..offer(method, "", JsonObject::new(), true)
     }
