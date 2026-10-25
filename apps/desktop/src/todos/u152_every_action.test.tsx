@@ -57,6 +57,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       const mounted = await mountTodos([todo(1), todo(2)]);
 
       await openDrawerOf(2);
+      await within(drawer()).findByRole("region", { name: "Todo history" });
 
       const title = within(drawer()).getByText("todo 2");
 
@@ -66,7 +67,7 @@ for (const by of ["pointer", "keyboard"] as const) {
         fireEvent.keyDown(title, { key: "Enter" });
       }
 
-      const field = await within(drawer()).findByLabelText("Title");
+      const field = await within(drawer()).findByLabelText<HTMLTextAreaElement>("Title");
 
       fireEvent.input(field, { target: { value: "renamed" } });
       fireEvent.change(field, { target: { value: "renamed" } });
@@ -74,7 +75,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await waitFor(() => expect(callsTo(mounted.app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 2, title: "renamed", body: null, expected_change: 2 } }]));
       refetch(mounted);
 
-      await waitFor(() => expect(rowText(2)).toContain("renamed"));
+      await waitFor(() => expect(rowText(2)).toContain(field.value));
     });
 
     it(`u152_block_${by}`, async () => {

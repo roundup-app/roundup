@@ -108,6 +108,13 @@ const mount = async (
   return { app, connected, pending, snapshots, subscriptionsAtSnapshot, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
 };
 
+/** Both attempts of one captured read fail before its exhausted line is asserted. */
+const exhaust = async (pending: ((reply: Reply) => void)[], index: number, message: string) => {
+  pending[index]?.(new Error(message));
+  await vi.waitFor(() => expect(pending).toHaveLength(index + 2));
+  pending[index + 1]?.(new Error(message));
+};
+
 const typed = (app: { calls: { method: string }[] }) => app.calls.filter((call) => call.method === "terminal.write");
 
 afterEach(cleanup);
@@ -224,7 +231,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     app.emitGap("t-a", 0, 50);
     app.emitOutput("t-a", "late");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
-    pending[1]?.(new Error("recovery failed"));
+    await exhaust(pending, 1, "recovery failed");
 
     expect((await screen.findByRole("alert", { name: "terminal.snapshot: recovery failed" })).tagName).toBe("P");
     expect(log()).toEqual(["size 100x30", "complete"]);
@@ -264,7 +271,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     const { app, pending, snapshots, log } = await mount();
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("boom"));
+    await exhaust(pending, 0, "boom");
 
     expect((await screen.findByRole("alert", { name: /^terminal\.snapshot:/ })).tagName).toBe("P");
     expect(log()).toEqual([]);
@@ -281,13 +288,13 @@ describe("u103 a reloaded pane shows the screen", () => {
     });
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("snapshot failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    await exhaust(pending, 0, "snapshot failed");
+    const snapshotFailure = await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
     resize.resolve(null);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy();
+    expect(screen.getByRole("alert")).toBe(snapshotFailure);
     expect(log()).toEqual([]);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
@@ -303,16 +310,16 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await vi.waitFor(() => expect(resizes).toHaveLength(1));
-    pending[0]?.(new Error("snapshot failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    await exhaust(pending, 0, "snapshot failed");
+    const snapshotFailure = await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
     resizes[0]?.(new Error("resize failed"));
     await screen.findByRole("alert", { name: "resize failed" });
 
     window.dispatchEvent(new Event("resize"));
     await vi.waitFor(() => expect(resizes).toHaveLength(2));
     resizes[1]?.(null);
-    await vi.waitFor(() => expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy());
-    expect(screen.queryByRole("alert", { name: "resize failed" })).toBeNull();
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toBe(snapshotFailure));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
@@ -322,37 +329,39 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     app.emitOutput("t-a", "live");
     expect(log()).toEqual([]);
-    pending[0]?.(new Error("boom"));
+    await exhaust(pending, 0, "boom");
 
     await vi.waitFor(() => expect(log()).toEqual(["live"]));
     app.emitOutput("t-a", "more");
     expect(log()).toEqual(["live", "more"]);
   });
 
-  it("u103_a_terminal_left_behind_cannot_clear_or_show_its_failure_in_the_next_pane", async () => {
+  it("u3791c_a_new_snapshot_failure_replaces_its_original_terminal_target", async () => {
     const { app, connected, pending, snapshots, logOf } = await mount(
       [node("a"), node("b")],
       [info("t-a"), info("t-b")],
     );
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("A failed"));
+    await exhaust(pending, 0, "A failed");
     await screen.findByRole("alert", { name: "terminal.snapshot: A failed" });
 
     connected.rail.select("b");
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
-    pending[1]?.(snapshotOf("B screen", 0));
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
+    pending[2]?.(snapshotOf("B screen", 0));
     await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
     expect(screen.queryByRole("alert")).toBeNull();
 
     app.emitGap("t-b", 0, 50);
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
-    pending[2]?.(new Error("B failed"));
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(4));
+    await exhaust(pending, 3, "B failed");
     await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
 
     connected.rail.select("a");
-    expect(await screen.findByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy();
-    expect(screen.queryByRole("alert", { name: "terminal.snapshot: B failed" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    connected.rail.select("b");
+    await screen.findByRole("alert");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 

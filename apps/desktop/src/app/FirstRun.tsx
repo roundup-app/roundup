@@ -1,3 +1,4 @@
+import { Show } from "solid-js";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -9,9 +10,9 @@ export const EmptyRail = () => (
   </>
 );
 
-export const ChooseProject = (props: { failure: string | null; onChoose: () => void }) => (
+export const ChooseProject = (props: { failure: string | null; onChoose: () => void; onRetry?: (() => void) | undefined }) => (
   <>
-    <ReservedLine message={props.failure} status={copy.openAFolderToStart} />
+    <ReservedLine message={props.failure} status={copy.openAFolderToStart}><Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show></ReservedLine>
     <button data-button="quiet" type="button" class="word" onClick={() => props.onChoose()}>{copy.chooseFolder}</button>
   </>
 );
