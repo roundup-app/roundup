@@ -108,7 +108,12 @@ pub fn save_in_cache(media_type: &str, bytes: &[u8]) -> Result<PathBuf, RpcError
     let cache = dirs::cache_dir()
         .ok_or_else(|| RpcError::new(rpc::code::INTERNAL, "this Mac has no cache folder"))?;
 
-    save(&cache, media_type, bytes, SystemTime::now())
+    save(
+        &cache,
+        media_type,
+        bytes,
+        time::OffsetDateTime::now_utc().into(),
+    )
 }
 
 #[cfg(test)]
