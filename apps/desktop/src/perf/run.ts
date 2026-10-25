@@ -105,7 +105,7 @@ type PerfReport =
       user_agent: string;
     });
 
-const press = (textarea: HTMLTextAreaElement) => {
+export const press = (textarea: HTMLTextAreaElement) => {
   textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", keyCode: 65, bubbles: true }));
   textarea.dispatchEvent(new KeyboardEvent("keypress", { key: "a", charCode: 97, keyCode: 97, bubbles: true }));
 };
