@@ -1,7 +1,9 @@
+import { caseFold } from "unicode-case-folding";
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
 import type { Pad } from "@contracts/pad/Pad";
+import type { Deletion } from "@contracts/todo/Deletion";
 import type { Change } from "@contracts/todo/Change";
 import type { Comment } from "@contracts/todo/Comment";
 import type { Values } from "@contracts/todo/Values";
@@ -80,7 +82,18 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
   return todoMethods(store, announce, actor);
 };
 
-const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
+const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => {
+  const deletions = new Map<string, { author: string; chosen: string; result: Deletion; rows: { todo: Todo; at: number; changes: Change[]; comments: Comment[] }[]; edges: { id: number; blockers: number[] }[] }>();
+
+  const retained = (operation: string) => {
+    const kept = deletions.get(operation);
+
+    if (kept && kept.author !== JSON.stringify(actor())) throw new RpcError(-32002, "deletion belongs to another Actor");
+
+    return kept;
+  };
+
+  return ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
   "todo.listHanded": () => store.todos.flatMap((todo) => {
     const last = store.changes?.get(todo.id)?.findLast(change => change.handed
@@ -201,23 +214,75 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
     return { ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) };
   },
   "todo.refs": ({ id }) => find(store.todos, (todo) => todo.id === id, `todo ${id}`).refs.map((url) => ({ url, state: store.missing?.has(url) ? "missing" : "ok" })),
-  "todo.delete": ({ id }) => {
-    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
-    store.comments?.delete(id);
-    const before = store.todos;
-    store.todos = withBlocked(store.todos.filter((todo) => todo.id !== id).map((todo) => ({ ...todo, blockers: todo.blockers.filter((blocker) => blocker !== id) })));
-    recordChanges(store, before, actor());
-    store.changes?.delete(id);
-    announce({ name: "todo.deleted", data: { id } });
+  "todo.delete": ({ operation, ids }) => {
+    const chosen = JSON.stringify([...new Set(ids)].toSorted((a, b) => a - b));
+    const prior = retained(operation);
 
-    return null;
+    if (prior) {
+      if (prior.chosen !== chosen) throw new RpcError(CONFLICT, "deletion key already names another chosen set");
+
+      return structuredClone(prior.result);
+    }
+
+    const rows = store.todos.flatMap((todo, at) => ids.includes(todo.id) ? [{ todo: structuredClone(todo), at, changes: structuredClone(store.changes?.get(todo.id) ?? []), comments: structuredClone(store.comments?.get(todo.id) ?? []) }] : []);
+    const deleted = rows.map(row => row.todo.id).toSorted((a, b) => a - b);
+    const result: Deletion = { operation, deleted, missing: [...new Set(ids)].filter(id => !deleted.includes(id)).toSorted((a, b) => a - b), state: "deleted" };
+    const edges = store.todos.filter(todo => !deleted.includes(todo.id) && todo.blockers.some(id => deleted.includes(id))).map(todo => ({ id: todo.id, blockers: todo.blockers.filter(id => deleted.includes(id)) }));
+    const before = store.todos;
+    store.todos = withBlocked(store.todos.filter(todo => !deleted.includes(todo.id)).map(todo => ({ ...todo, blockers: todo.blockers.filter(id => !deleted.includes(id)) })));
+    recordChanges(store, before, actor());
+
+    for (const id of deleted) {
+      store.comments?.delete(id);
+      store.changes?.delete(id);
+      announce({ name: "todo.deleted", data: { id } });
+    }
+
+    deletions.set(operation, { author: JSON.stringify(actor()), chosen, result, rows, edges });
+
+    return structuredClone(result);
+  },
+  "todo.deletion": ({ operation }) => structuredClone(retained(operation)?.result ?? null),
+  "todo.restore": ({ operation }) => {
+    const kept = retained(operation);
+
+    if (!kept) throw new RpcError(NOT_FOUND, "deletion not found");
+
+    if (kept.result.state === "restored") return structuredClone(kept.result);
+
+    if (kept.rows.some(row => store.todos.some(todo => todo.id === row.todo.id))) throw new RpcError(CONFLICT, "Todo identity collision");
+    const allIds = [...store.todos.map(todo => todo.id), ...kept.result.deleted];
+
+    if (kept.edges.some(edge => !allIds.includes(edge.id)) || kept.rows.some(row => row.todo.blockers.some(id => !allIds.includes(id)))) throw new RpcError(CONFLICT, "blocker endpoint missing");
+    const before = store.todos;
+    const next = store.todos.map(todo => ({ ...todo, blockers: [...new Set([...todo.blockers, ...(kept.edges.find(edge => edge.id === todo.id)?.blockers ?? [])])].toSorted((a, b) => a - b) }));
+
+    for (const row of kept.rows) next.splice(Math.min(row.at, next.length), 0, structuredClone(row.todo));
+    store.todos = withBlocked(next);
+    recordChanges(store, before, actor());
+
+    for (const row of kept.rows) {
+      store.changes?.set(row.todo.id, structuredClone(row.changes));
+      store.comments?.set(row.todo.id, structuredClone(row.comments));
+    }
+
+    kept.result = { ...kept.result, state: "restored" };
+
+    for (const todo of store.todos.filter(todo => kept.result.deleted.includes(todo.id) || kept.edges.some(edge => edge.id === todo.id))) announce({ name: "todo.restored", data: { ...todo } });
+
+    return structuredClone(kept.result);
   },
 });
+};
+
+const ownsPad = (pad: Pad, actor: Actor) => pad.owner.kind === actor.kind && pad.owner.id === actor.id;
+
+const padKey = (name: string) => caseFold(name.normalize("NFD"));
 
 const changePad = (store: PadStore, announce: Announce, name: string, change: (pad: Pad) => Pad): Pad => {
-  const next = change(find(store.pads, (pad) => pad.name === name, `pad ${name}`));
-  store.pads = store.pads.map((pad) => (pad.name === name ? next : pad));
-  announce({ name: "pad.changed", data: { name } });
+  const next = change(find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`));
+  store.pads = store.pads.map((pad) => (padKey(pad.name) === padKey(name) ? next : pad));
+  announce({ name: "pad.changed", data: { name: next.name } });
 
   return { ...next };
 };
@@ -225,11 +290,11 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 /** The Pad methods over `store.pads`, with the Provenance history `store.history`; each write also sends `pad.changed`. */
 export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => ({
   "pad.list": () => store.pads.map((pad) => ({ ...pad })),
-  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => pad.name === name, `pad ${name}`) }),
+  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`) }),
   "pad.create": ({ name, text }) => {
     if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
 
-    if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
+    if (store.pads.some((pad) => padKey(pad.name) === padKey(name))) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
     const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
     store.pads = [...store.pads, created];
@@ -237,13 +302,39 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
     return { ...created };
   },
-  "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 })),
+  "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
+    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rewrite a pad");
+
+    if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
+
+    if (expectedRevision != null && expectedRevision !== pad.revision) throw new RpcError(CONFLICT, "the pad revision changed");
+
+    return text === pad.text ? pad : { ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 };
+  }),
+  "pad.rename": ({ name, newName, expectedIncarnation }) => {
+    const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
+
+    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rename a pad; Make yours first");
+
+    if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
+
+    if (newName === "" || newName.startsWith(".") || /[/\\\0]/.test(newName) || newName.includes("..")) throw new RpcError(INVALID_PARAMS, "invalid pad name");
+
+    if (store.pads.some((entry) => entry.incarnation !== pad.incarnation && padKey(entry.name) === padKey(newName))) throw new RpcError(CONFLICT, "pad exists");
+
+    if (name === newName) return { ...pad };
+
+    const renamed = changePad(store, announce, name, (entry) => ({ ...entry, name: newName }));
+    announce({ name: "pad.renamed", data: { name: newName, previous_name: name, incarnation: pad.incarnation } });
+
+    return renamed;
+  },
   "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
   "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
   "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
   "pad.delete": ({ name }) => {
-    find(store.pads, (pad) => pad.name === name, `pad ${name}`);
-    store.pads = store.pads.filter((pad) => pad.name !== name);
+    find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`);
+    store.pads = store.pads.filter((pad) => padKey(pad.name) !== padKey(name));
     announce({ name: "pad.changed", data: { name } });
 
     return null;

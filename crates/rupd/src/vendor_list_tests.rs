@@ -268,16 +268,16 @@ async fn u3523a_vendor_results_merge_with_project_membership() {
         .map(|e| {
             (
                 e["source"].as_str().unwrap().to_owned(),
-                e["reason"].as_str().unwrap().to_owned(),
+                e["cause"].as_str().unwrap().to_owned(),
             )
         })
         .collect();
+    assert_eq!(reasons[&ids["imported"]], "alreadyImported", "{found}");
+    assert_eq!(reasons[&ids["internal"]], "insideRoundup");
     assert_eq!(
-        reasons[&ids["imported"]], "already in this Project",
-        "{found}"
+        reasons["99999999-1111-4111-8111-111111111111"],
+        "liveWithoutRecords"
     );
-    assert_eq!(reasons[&ids["internal"]], "inside roundup's own folder");
-    assert!(reasons["99999999-1111-4111-8111-111111111111"].contains("no saved records"));
     // The SDK lists no subagent-only record, so it is neither offered nor excluded by name.
     for ineligible in ["sibling", "unrelated", "subagent"] {
         assert!(

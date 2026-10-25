@@ -33,6 +33,20 @@ pub mod code {
 pub struct RpcError {
     pub code: i64,
     pub message: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "parse_data"
+    )]
+    pub data: Option<contracts::RpcErrorData>,
+}
+
+// Optional error data from a newer or malformed peer cannot erase its code and diagnostics.
+fn parse_data<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<contracts::RpcErrorData>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).ok())
 }
 
 impl RpcError {
@@ -40,6 +54,7 @@ impl RpcError {
         Self {
             code,
             message: message.into(),
+            data: None,
         }
     }
 

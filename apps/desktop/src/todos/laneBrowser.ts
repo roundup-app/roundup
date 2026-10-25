@@ -87,7 +87,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
       await reload();
       await evaluate(`(async () => {
         const rpc = window.__fake.app.rpc;
-        for (const todo of await rpc('todo.list', null)) await rpc('todo.delete', { id: todo.id });
+        for (const todo of await rpc('todo.list', null)) await rpc('todo.delete', { operation: crypto.randomUUID(), ids: [todo.id] });
         window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
         const made = [];
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));

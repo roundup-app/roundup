@@ -3,6 +3,7 @@
 mod files;
 mod name;
 pub mod reference;
+mod rename;
 #[doc(hidden)]
 pub mod schema;
 pub mod section;
@@ -360,6 +361,7 @@ impl Module for Pads {
             "pad.create" => self.create(ctx, params(value)?),
             "pad.read" => self.read(ctx, params(value)?),
             "pad.list" => self.list(),
+            "pad.rename" => self.rename(ctx, params(value)?),
             "pad.write" => self.write(ctx, params(value)?),
             "pad.append" => self.append(ctx, params(value)?),
             "pad.appendSection" => self.append_section(ctx, params(value)?),

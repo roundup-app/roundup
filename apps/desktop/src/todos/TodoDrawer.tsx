@@ -1,4 +1,5 @@
 import { captureFocus } from "../keys/focus";
+import { deleteTodos } from "./deleteTodos";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { NativeAlert } from "../ui/NativeAlert";
@@ -265,7 +266,7 @@ export const TodoDrawer = (props: {
             if (deleting()) return;
             setDeleting(true);
             void attempt(async () => {
-              await app.rpc("todo.delete", { id: props.id });
+              await deleteTodos(app, [props.id]);
               setRemovedByMe(true);
               drawer.close("key");
             }).then(() => setDeleting(false));
