@@ -509,6 +509,7 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
+      if (failure.retry() !== null) return;
       failure.clear();
       rail.clearWorkstreamFailure();
       rail.clearStorageFailure();
@@ -670,7 +671,10 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onFailure={(message) => failure.show(message, view().node.id)}
+                          onFailure={(message) => {
+                            const id = view().node.id;
+                            failure.show(message, id, "rail", () => setEditingName(id));
+                          }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
@@ -778,6 +782,10 @@ export const Rail = () => {
       </Show>
       <ReservedLine overlay message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+        <Show when={failure.surface() === "rail" && failure.retry()}>{retry => <>
+          <button data-button="quiet" type="button" onClick={() => retry()()}>{copy.retry}</button>
+          <button data-button="quiet" type="button" onClick={failure.clear}>{copy.dismissFailure}</button>
+        </>}</Show>
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
