@@ -42,6 +42,19 @@ mod webkit {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn u3787f_native_integration_keeps_safe_callers() {
+    let preferences = native::Preferences::new().expect("main-thread WebKit preferences");
+    assert_eq!(preferences.is_on(), Some(true));
+    preferences.turn_off().unwrap();
+    assert_eq!(preferences.is_on(), Some(false));
+    assert!(
+        std::thread::spawn(|| native::Preferences::new().is_none())
+            .join()
+            .unwrap()
+    );
+}
+
 fn s2297a_the_app_builds_with_the_setup_registered() {
     use desktop::{Config, build};
     use tauri::test::mock_builder;
@@ -68,6 +81,11 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
 // (`harness = false`) that speaks the part of libtest's protocol nextest uses: `--list` and `--exact <name>`.
 fn main() {
     let tests: &[(&str, fn())] = &[
+        #[cfg(target_os = "macos")]
+        (
+            "u3787f_native_integration_keeps_safe_callers",
+            u3787f_native_integration_keeps_safe_callers,
+        ),
         #[cfg(target_vendor = "apple")]
         (
             "s2297a_the_setup_turns_the_near_60_fps_feature_off",
@@ -95,7 +113,9 @@ fn main() {
     let mut failed = false;
     for (name, test) in tests {
         let wanted = args.iter().any(|arg| arg == name)
-            || !args.iter().any(|arg| arg.starts_with("s2297a_"));
+            || !args
+                .iter()
+                .any(|arg| arg.starts_with("s2297a_") || arg.starts_with("u3787f_"));
         if wanted {
             let ok = std::panic::catch_unwind(test).is_ok();
             println!("test {name} ... {}", if ok { "ok" } else { "FAILED" });
