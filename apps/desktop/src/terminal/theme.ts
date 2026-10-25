@@ -15,11 +15,13 @@ export const terminalThemeFor = (): TerminalTheme => {
     return colour.replace(/^#([a-f\d])([a-f\d])([a-f\d])$/i, "#$1$1$2$2$3$3");
   };
 
+  const scrollbarThumb = styles.getPropertyValue("--scrollbar-thumb").trim();
+
   return {
     background: value("background"), foreground: value("foreground"),
-    scrollbarSliderBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
-    scrollbarSliderHoverBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
-    scrollbarSliderActiveBackground: styles.getPropertyValue("--scrollbar-thumb").trim(),
+    scrollbarSliderBackground: scrollbarThumb,
+    scrollbarSliderHoverBackground: scrollbarThumb,
+    scrollbarSliderActiveBackground: scrollbarThumb,
     cursor: value("cursor"), cursorAccent: value("cursor-text"),
     selectionBackground: value("selection"), selectionForeground: value("selection-text"),
     selectionInactiveBackground: value("selection"),

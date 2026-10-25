@@ -17,7 +17,7 @@
   border-top-color: var(--hairline);
 }
 
-.rail-actions > button {
+.rail-actions button {
   flex: 1;
   justify-content: flex-start;
   min-height: calc(var(--space-5) + var(--space-1));
@@ -37,7 +37,7 @@
   padding: 0;
 }
 
-.rail-tree .app-tree .rail-row {
+.rail-tree .rail-row {
   display: grid;
   grid-template-columns: var(--indent) minmax(0, 1fr);
   gap: 0;
@@ -45,8 +45,8 @@
   padding-right: var(--space-4);
 }
 
-.rail-row > :not(.rail-pass, .rail-branch, .rail-stem),
-.rail-fold > :not(.rail-pass, .rail-branch, .rail-stem) {
+.rail-row :is(.line, .reserved-line),
+.rail-fold button {
   grid-column: 2;
 }
 
@@ -62,11 +62,11 @@
   position: relative;
 }
 
-[role="tree"] > [data-part="branch"]:not(:first-child) {
+.rail-root-branch:not(:first-child) {
   margin-top: var(--space-3);
 }
 
-[role="tree"] > [data-part="branch"]:not(:first-child) > .rail-row::before {
+.rail-root-divider::before {
   content: "";
   position: absolute;
   top: calc(var(--space-3) / -2);
@@ -78,7 +78,7 @@
 }
 
 .rail-row .line,
-.rail-fold > button {
+.rail-fold button {
   min-width: 0;
   min-height: inherit;
   display: flex;
@@ -104,13 +104,13 @@
 }
 
 /* U131: reserve the same leading columns on branches and leaves. */
-.rail-row .line > .row-state,
-.rail-fold > button > .glyph {
+.rail-row .row-state,
+.rail-fold .glyph {
   margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
 
 /* Keep disclosure clear of the reserved Kind column and its title. */
-.rail-row .line > .rail-chevron {
+.rail-row .rail-chevron {
   position: absolute;
   transform: translateX(calc(-1 * var(--space-3)));
   width: var(--space-4);
@@ -118,8 +118,8 @@
 }
 
 /* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
-.rail-row .line > .ink-count,
-.rail-row .line > .folded-agents {
+.rail-row .ink-count,
+.rail-row .folded-agents {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -128,12 +128,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rail-row .line > .ink-count {
+.rail-row .ink-count {
   color: var(--amber);
 }
 
 /* U3744: a queued Workstream's place is state, so it stays visible beside the name and never wraps; the actions keep the trailing edge (U112). */
-.rail-row .line > .queue-badge {
+.rail-row .queue-badge {
   flex: none;
   white-space: nowrap;
   font-size: var(--text-caption);
@@ -141,7 +141,7 @@
 }
 
 /* The badge stays whole: the spacer gives way first, then the name shrinks to 4ch with an ellipsis. */
-.rail-row .line:has(> .queue-badge) > .name {
+.line:has(.queue-badge) .name {
   flex: 0 1 auto;
   min-width: 4ch;
   overflow: hidden;
@@ -149,13 +149,13 @@
   white-space: nowrap;
 }
 
-.rail-row .line:has(> .queue-badge) > .fill {
+.line:has(.queue-badge) .fill {
   flex: 1 1 0;
   min-width: 0;
 }
 
 /* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
-.rail-row .line > .fill {
+.rail-row .fill {
   flex: 1 1 0;
   min-width: 0;
 }
@@ -218,7 +218,7 @@
 }
 
 /* U391: the failure line sits directly above the footer, outside the list. */
-.rail > .ink {
+.rail-command-notice .ink {
   flex: none;
   background: var(--sunken);
 }
@@ -311,7 +311,7 @@
   grid-template-columns: var(--indent) minmax(0, 1fr);
 }
 
-.rail-leaf > :not(.rail-pass, .rail-branch) {
+.rail-leaf :is(.shelf-row, .rail-pad) {
   grid-column: 2;
 }
 
@@ -337,12 +337,12 @@
 }
 
 /* U405: a Pad leaf's name is --grey, set on the name so the button kind keeps its own colour rules. */
-.rail-leaf .rail-pad > span {
+.rail-pad span {
   color: var(--grey);
 }
 
 /* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
-.rail-row .line > :is(.ink-count, .rail-pads-control, .folded-agents) {
+.line :is(.ink-count, .rail-pads-control, .folded-agents) {
   margin-right: var(--space-1);
 }
 
@@ -355,7 +355,7 @@
   font-size: var(--text-caption);
 }
 
-.rail-fold > button {
+.rail-fold button {
   min-height: var(--space-6);
 }
 
@@ -373,11 +373,11 @@
 }
 
 /* U461a: a rejected toggle keeps its message below the Rail Todo's controls. */
-.rail-leaf .shelf-text:has(> [role="alert"]) {
+.rail-leaf .shelf-text:has(  [role="alert"]) {
   flex-wrap: wrap;
 }
 
-.rail-leaf .shelf-text > [role="alert"] {
+.rail-leaf [role="alert"] {
   flex-basis: 100%;
   order: 1;
 }
@@ -411,7 +411,7 @@
   display: none;
 }
 
-.rail-leaf .row-head > :not(.todo-row-button) {
+.rail-leaf [data-group-toggle] {
   flex: none;
 }
 
@@ -426,8 +426,8 @@
   container-name: rail;
 }
 
-@container rail (width <= query-token(--query-rail-actions)) {
-  .rail > .rail-scroll:not(.rail-actions) {
+@container rail (width <= env(--query-rail-actions)) {
+ .rail .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
     scrollbar-width: none;
     overflow-x: clip;
@@ -442,7 +442,7 @@
 }
 
 /* OverlayScrollbars makes its viewport relative; the placed prompt must stay fixed. */
-.rail-clear > .clear-prompt {
+.rail-clear .clear-prompt {
   max-height: calc(100vh - 2 * var(--space-4) - 2 * var(--space-3));
   overflow: auto;
   overscroll-behavior: contain;
@@ -456,12 +456,12 @@
   gap: 0;
 }
 
-@container rail (width < query-token(--query-rail-compact)) {
-  .rail-row[data-near="true"] .door-action {
+@container rail (width < env(--query-rail-compact)) {
+ .rail-row[data-near="true"] .door-action {
     display: none;
   }
 
-  .rail-row .line {
+ .rail-row .line {
     --rail-gap: var(--space-1);
   }
 }
@@ -472,15 +472,15 @@
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
-@container rail (width <= query-token(--query-rail-detail)) {
-  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
+@container rail (width <= env(--query-rail-detail)) {
+ [data-part="branch-control"].rail-row :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
     position: absolute;
     right: 0;
     opacity: 0;
     pointer-events: none;
   }
 
-  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
+ [data-part="branch-control"].rail-row :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
     opacity: 1;
     pointer-events: auto;
     --button-surface: var(--sunken);
@@ -519,7 +519,7 @@
   justify-content: center;
 }
 
-.rail .glyph svg {
+.rail .kind-mark {
   width: var(--space-3);
   height: var(--space-3);
 }
@@ -543,15 +543,15 @@
 }
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
-@container rail (width < query-token(--query-rail-compact)) {
-  .rail-tree .app-tree .rail-row,
-  .rail-fold,
-  .rail-leaf {
+@container rail (width < env(--query-rail-compact)) {
+ .rail-tree .rail-row,
+ .rail-fold,
+ .rail-leaf {
     padding-left: 0;
     padding-right: 0;
   }
 
-  .rail-pass,
+ .rail-pass,
   .rail-stem,
   .rail-branch {
     left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
@@ -559,7 +559,7 @@
 }
 
 /* U3704: attention stays beside the name rather than in the trailing action group. */
-.todo-project-root > .ink-count {
+.todo-project-root .ink-count {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -654,7 +654,7 @@
   gap: var(--space-2);
   container-type: inline-size;
 }
-.rail-row .row-name-state .name {
+.row-name-state .name {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
@@ -669,19 +669,19 @@
   white-space: nowrap;
 }
 /* Drop optional detail before squeezing the Agent's readable name. */
-@container rail (width <= query-token(--query-rail-detail)) {
-  .worktree-chip[data-state="pr"] {
+@container rail (width <= env(--query-rail-detail)) {
+ .worktree-chip[data-state="pr"] {
     display: none;
   }
 }
-@container (width < query-token(--query-name-compact)) {
-  .worktree-stale,
+@container (width < env(--query-name-compact)) {
+ .worktree-stale,
   .worktree-chip[data-state="ahead"] {
     display: none;
   }
 }
-@container (width < query-token(--query-name-minimal)) {
-  .worktree-chips {
+@container (width < env(--query-name-minimal)) {
+ .worktree-chips {
     display: none;
   }
 }
@@ -695,13 +695,13 @@
 .rail-row:has(.row-name-state) .line {
   gap: var(--space-1);
 }
-.rail-row:has(.row-name-state) .line > :first-child {
+.rail-row:has(.row-name-state) :first-child {
   margin-right: calc(var(--rail-gap) - var(--space-1));
 }
-.rail-row:has(.row-name-state) .line > .fill {
+.rail-row:has(.row-name-state) .fill {
   display: none;
 }
-.rail-row .row-name-state + .row-tail {
+.row-name-state+.row-tail {
   margin-left: var(--space-4);
 }
 
@@ -762,7 +762,7 @@
   padding: var(--space-3);
 }
 
-.rail-retention > button {
+.rail-retention button {
   justify-self: start;
 }
 
@@ -779,12 +779,12 @@
   display: none;
 }
 
-.rail-recovery details[open] > summary > svg,
-.rail-recovery[open] > summary > svg {
+.rail-recovery-detail[open] svg,
+.rail-recovery[open] svg {
   transform: rotate(90deg);
 }
 
-.rail-recovery summary > svg {
+.rail-recovery svg {
   flex: none;
 }
 
@@ -793,7 +793,7 @@
   margin-block: var(--space-3);
 }
 
-.rail-recovery details > p {
+.rail-recovery p {
   margin-bottom: var(--space-2);
 }
 
@@ -811,13 +811,13 @@
   position: relative;
 }
 
-.rail > .reserved-line[data-overlay="true"] {
+.rail-command-notice[data-overlay="true"] {
   padding-inline: var(--space-4);
   background: var(--sunken);
   bottom: var(--rail-actions-height);
 }
 
-.rail > .rail-scroll {
+.rail .rail-scroll {
   padding-bottom: var(--line);
   scroll-padding-bottom: var(--line);
 }

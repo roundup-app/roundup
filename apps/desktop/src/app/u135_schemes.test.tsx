@@ -5,7 +5,8 @@ import { underSettings } from "../testing/media";
 import { resolveToken, tokensOf } from "../testing/contrast";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?raw";
+import tokenCss from "../tokens.css?inline";
+import tokenSource from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
@@ -41,7 +42,7 @@ const mount = async (settings: Setting[]) => {
   sheet = document.head.appendChild(document.createElement("style"));
   // jsdom leaves duration references unresolved; use the existing resolver on the shipped Tokens.
   const resolved = getComputedStyle(document.documentElement);
-  const values = new Map([...tokensOf(tokenCss).keys()].map(name => [name, resolved.getPropertyValue(`--${name}`).trim()]));
+  const values = new Map([...tokensOf(tokenSource).keys()].map(name => [name, resolved.getPropertyValue(`--${name}`).trim()]));
   sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings)
     .replace(/var\(--duration-[\w-]+\)/g, value => resolveToken(value, values));
   matchMedia = window.matchMedia;

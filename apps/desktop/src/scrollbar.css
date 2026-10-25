@@ -33,21 +33,21 @@
 }
 
 /* xterm owns its scrollbar and scrollback; hover never overrides no-overflow. */
-.xterm .xterm-scrollable-element > .scrollbar {
+.xterm .scrollbar {
   opacity: 0;
   transition: opacity var(--duration-scrollbar) var(--easing-out);
 }
 
-[data-scroll-active][data-scrollback] .xterm-scrollable-element > .scrollbar.vertical {
+[data-scroll-active][data-scrollback] .scrollbar.vertical {
   opacity: 1;
 }
 
 /* Removing scrollback must hide immediately, even during the idle delay. */
-.xterm .xterm-scrollable-element > .scrollbar.invisible {
+.xterm .scrollbar.invisible {
   visibility: hidden;
 }
 
-.xterm .xterm-scrollable-element > .scrollbar > .slider {
+.xterm .slider {
   max-width: var(--scrollbar-thumb-width);
   margin-left: auto;
   right: var(--stroke-width);
@@ -55,9 +55,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scrollbar-slot,
-  .app-scrollbar,
-  .xterm .xterm-scrollable-element > .scrollbar {
+ .scrollbar-slot,
+ .app-scrollbar,
+ .xterm .scrollbar {
     transition: none;
   }
 }
