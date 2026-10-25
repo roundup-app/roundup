@@ -40,7 +40,8 @@
       "@copilotkit/aimock@1.45.1": "patches/@copilotkit__aimock@1.45.1.patch",
       "@xterm/addon-fit@0.11.0": "patches/@xterm__addon-fit@0.11.0.patch",
       "overlayscrollbars@2.17.0": "patches/overlayscrollbars@2.17.0.patch",
-      "@zag-js/radio-group@1.45.0": "patches/@zag-js__radio-group@1.45.0.patch"
+      "@zag-js/radio-group@1.45.0": "patches/@zag-js__radio-group@1.45.0.patch",
+      "@zag-js/focus-trap@1.45.0": "patches/@zag-js__focus-trap@1.45.0.patch"
     }
   }
 }
