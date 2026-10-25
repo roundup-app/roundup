@@ -9,12 +9,12 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, RpcError } from "./seam";
+import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
 import type { App, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
-const parseFailure = v.safeParser(v.object({ code: v.number(), message: v.string() }));
+const parseFailure = v.safeParser(rpcFailureSchema);
 
 /**
  * Every request the adapter makes into Tauri goes through here, so a failure reaches the webview as an RpcError:
@@ -28,7 +28,7 @@ const guarded = async <Result>(work: () => Promise<Result>): Promise<Result> => 
     const failure = parseFailure(raw);
 
     throw failure.success
-      ? new RpcError(failure.output.code, failure.output.message)
+      ? new RpcError(failure.output.code, failure.output.message, failure.output.data)
       : new RpcError(INTERNAL_CODE, raw instanceof Error ? raw.message : String(raw));
   }
 };
