@@ -12,19 +12,27 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   let input: HTMLTextAreaElement | undefined;
   let stopped = false;
   let release: (() => void) | undefined;
+
   const send: CapturePort["act"] = async action => {
     try { await props.port.act(action); setFailure(null); }
     catch (error) { setFailure(String(error)); }
   };
+
   void props.port.onState(snapshot => {
     if (snapshot.session !== state()?.session) sequence = 0;
+
     if (snapshot.sequence >= sequence) setText(snapshot.text);
     setState(snapshot);
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
   }).then(stop => {
-    if (stopped) { stop(); return; }
+    if (stopped) {
+      stop();
+
+      return;
+    }
+
     release = stop;
     void send({ kind: "ready" });
   }).catch(error => setFailure(String(error)));
@@ -32,14 +40,19 @@ export const CapturePanel = (props: { port: CapturePort }) => {
 
   const file = (keepOpen: boolean) => {
     const current = state();
+
     if (current) void send({ kind: "file", session: current.session, sequence: ++sequence, text: text(), keepOpen });
   };
+
   const dismiss = () => {
     const current = state();
+
     if (current) void send({ kind: "dismiss", session: current.session });
   };
+
   window.addEventListener("blur", dismiss);
   onCleanup(() => window.removeEventListener("blur", dismiss));
+
   return <section class="capture capture-native" aria-label={copy.captureLabel} onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); dismiss(); }
   }}>
@@ -47,6 +60,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
       onInput={event => {
         setText(event.currentTarget.value);
         const current = state();
+
         if (current) void send({ kind: "edit", session: current.session, sequence: ++sequence, text: text() });
       }} onKeyDown={event => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
@@ -54,14 +68,23 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
     <Show when={failure() ?? state()?.failure}>
       <p class="ink capture-native-failure" data-tone="red" role="alert">{failure() ?? state()?.failure}</p>
-      <Show when={state()?.retention}><button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
+      <Show when={state()?.retention}><button data-button="quiet" onClick={() => {
+          const current = state();
+
+          if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
     </Show>
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
       <div class="capture-actions">
-        <button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "copy", session: current.session, revision: draft.revision }); }}>{copy.copy}</button>
-        <button data-button="quiet" onClick={() => { const current = state(); if (current) void send({ kind: "discard-revision", session: current.session, revision: draft.revision }); }}>{copy.discardRevision}</button>
+        <button data-button="quiet" onClick={() => {
+          const current = state();
+
+          if (current) void send({ kind: "copy", session: current.session, revision: draft.revision }); }}>{copy.copy}</button>
+        <button data-button="quiet" onClick={() => {
+          const current = state();
+
+          if (current) void send({ kind: "discard-revision", session: current.session, revision: draft.revision }); }}>{copy.discardRevision}</button>
       </div>
     </div>}</For>
     <div class="capture-actions"><button data-button="quiet" onClick={dismiss}>{copy.cancel}</button><button data-button="primary" disabled={!state() || text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>

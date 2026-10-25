@@ -10,7 +10,7 @@ import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
-import type { App, OutputMessage } from "./seam";
+import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -83,7 +83,14 @@ export const createTauriApp = (): App => {
   // The live subscription of each Terminal: a replaced or released one is no longer the current, so its late messages and its late stop are inert.
   const selections = new Map<string, object>();
 
-  const captureControl = (request: object) => command<void>("plugin:capture-panel|control", { request });
+  type CaptureRequest =
+    | { kind: "configure"; chord: string | null }
+    | { kind: "show" | "dismiss" }
+    | { kind: "publish"; snapshot: CaptureState }
+    | { kind: "act"; action: CaptureAction };
+
+  const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
+
   const app: App = {
     capture: /mac/i.test(navigator.platform) ? {
       configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "Super+").replace("ctrl+", "Control+") ?? null }),
