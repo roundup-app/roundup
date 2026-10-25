@@ -87,77 +87,74 @@ export const Bubble = (props: {
   // A bubble that was folded is fitted again when it comes back.
   createEffect(on(() => place().min, (folded) => { if (!folded) refitNextFrame(); }, { defer: true }));
 
-  const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place) => {
-    if (start.button !== 0) return;
-
-    start.preventDefault();
-
-    const from = place();
-    const move = (event: PointerEvent) => props.setPlace(id, clamped(change(from, event.clientX - start.clientX, event.clientY - start.clientY), props.extent()));
-
-    const stop = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-    };
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop);
-  };
-
-  // The restore of the zone resize in flight, if any; Escape runs it through the registry.
   let restoreResize: (() => void) | undefined;
 
   registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+  onCleanup(() => restoreResize?.());
 
-  /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
-  const resize = (start: PointerEvent, zone: Zone) => {
-    if (start.button !== 0) return;
+  // Move and resize share settlement; listeners exist before capture can cause an early blur.
+  const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place, framed = false) => {
+    if (start.button !== 0 || restoreResize) return;
 
     start.preventDefault();
     start.stopPropagation();
 
     const from = place();
+    const target = start.currentTarget;
+    const listeners = new AbortController();
     let pointer = { x: start.clientX, y: start.clientY };
     let pending: number | null = null;
+    let settled = false;
 
     const apply = () => {
       pending = null;
-      props.setPlace(id, resizedAbout(from, zone, pointer.x - start.clientX, pointer.y - start.clientY, props.extent()));
+      props.setPlace(id, change(from, pointer.x - start.clientX, pointer.y - start.clientY));
     };
 
     const move = (event: PointerEvent) => {
+      if (event.pointerId !== undefined && event.pointerId !== start.pointerId) return;
       pointer = { x: event.clientX, y: event.clientY };
-      pending ??= requestAnimationFrame(apply);
+      if (framed) pending ??= requestAnimationFrame(apply);
+      else apply();
     };
 
     const finish = (restore: boolean) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", cancel);
+      if (settled) return;
+      settled = true;
+      listeners.abort();
       restoreResize = undefined;
 
       if (pending !== null) cancelAnimationFrame(pending);
-
       if (restore) props.setPlace(id, from);
       else if (pending !== null) apply();
-
       pending = null;
+
+      if (target instanceof Element && target.hasPointerCapture?.(start.pointerId)) target.releasePointerCapture(start.pointerId);
     };
 
-    const up = () => finish(false);
     const cancel = () => finish(true);
+    const up = (event: PointerEvent) => { if (event.pointerId === undefined || event.pointerId === start.pointerId) finish(false); };
+    const cancelled = (event: PointerEvent) => { if (event.pointerId === undefined || event.pointerId === start.pointerId) cancel(); };
+    const focus = (event: FocusEvent) => { if (event.target !== target) cancel(); };
+    const options = { signal: listeners.signal };
+
+    window.addEventListener("pointermove", move, options);
+    window.addEventListener("pointerup", up, options);
+    window.addEventListener("pointercancel", cancelled, options);
+    window.addEventListener("blur", cancel, { ...options, capture: true });
+    window.addEventListener("focusin", focus, options);
+    restoreResize = cancel;
 
     try {
-      if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
+      if (!settled && target instanceof Element) target.setPointerCapture?.(start.pointerId);
     } catch {
-      // The window listeners still follow the pointer.
+      // Window listeners still follow a pointer when capture is unavailable.
     }
-
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", cancel);
-    restoreResize = cancel;
   };
+
+  /** U2236: centre resize writes once per frame and cancellation restores its original place. */
+  const resize = (start: PointerEvent, zone: Zone) => drag(start,
+    (from, dx, dy) => resizedAbout(from, zone, dx, dy, props.extent()), true);
 
   let header: HTMLElement | undefined;
 
@@ -204,7 +201,7 @@ export const Bubble = (props: {
             style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
             <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
                 // SAFETY: a pointer event on the header always targets an Element.
-                if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
+                if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => clamped({ ...from, x: from.x + dx, y: from.y + dy }, props.extent()));
               }} onDblClick={(event) => {
                 // SAFETY: a mouse event on the header always targets an Element.
                 if (!(event.target as Element).closest("button")) props.setPlace(id, toggledFill(place(), props.extent()));

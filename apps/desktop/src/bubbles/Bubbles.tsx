@@ -341,9 +341,10 @@ export const Bubbles = (props: {
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
-  const openTerminal = async (): Promise<string | null> => {
+  const openTerminal = async (current = () => true): Promise<string | null> => {
     // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
     const workstream = terminalOwner();
+    const selection = rail.selected();
 
     if (opening() || readOnly()) return null;
 
@@ -352,11 +353,20 @@ export const Bubbles = (props: {
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
-      setFromRoot(rail.selected() === null ? opened.terminal_id : null);
-      setWanted(opened.terminal_id);
+      const available = () => current() && rail.selected() === selection;
+
+      if (available()) {
+        setFromRoot(selection === null ? opened.terminal_id : null);
+      } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
-      show(opened.terminal_id);
+      if (available()) {
+        show(opened.terminal_id);
+        setWanted(opened.terminal_id);
+      } else {
+        setWanted(prior => prior === opened.terminal_id ? null : prior);
+        setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
+      }
 
       return opened.terminal_id;
     } catch (thrown) {
@@ -404,6 +414,11 @@ export const Bubbles = (props: {
     let frame: number | null = null;
     let swallowMenu = false;
     let swallowUp = false;
+    let generation = 0;
+    let selection: string | null = null;
+    let target: EventTarget | null = null;
+    let pointerId: number | undefined;
+    let disposed = false;
 
     const apply = (): void => {
       frame = null;
@@ -425,6 +440,19 @@ export const Bubbles = (props: {
       active = false;
     };
 
+    const cancel = (): void => {
+      if (press === null) return;
+      generation += 1;
+      if (active) {
+        swallowMenu = true;
+        swallowUp = true;
+      }
+      end();
+    };
+
+    onCleanup(() => { disposed = true; cancel(); });
+    createEffect(on(() => rail.selected(), () => { generation += 1; cancel(); }, { defer: true }));
+
     const blocked = (): boolean =>
       resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || document.querySelector('[role="menu"], .switcher') !== null;
 
@@ -441,27 +469,37 @@ export const Bubbles = (props: {
       }
 
       id = null;
-      void openTerminal().then((opened) => {
-        if (opened === null) return;
+      const request = generation;
+      const selected = selection;
+      const current = () => !disposed && generation === request && rail.selected() === selected;
 
-        // The pointer may have moved or let go while the call was in flight: the bubble goes to where it is now.
-        requestAnimationFrame(() => holdAt(opened, pointer));
+      void openTerminal(current).then((opened) => {
+        if (opened === null || !current()) return;
+
+        id = opened;
+        // Release retains its final pointer, cancellation invalidates this request.
+        holdAt(opened, pointer);
       });
     };
 
     const down = (event: PointerEvent): void => {
+      cancel();
+      generation += 1;
       swallowMenu = false;
       swallowUp = false;
       press = null;
 
       if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || textTarget(event.target) || blocked()) return;
 
+      selection = rail.selected();
+      target = event.target;
+      pointerId = event.pointerId;
       press = { x: event.clientX, y: event.clientY };
       pointer = press;
     };
 
     const move = (event: PointerEvent): void => {
-      if (press === null) return;
+      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
 
       pointer = { x: event.clientX, y: event.clientY };
 
@@ -478,7 +516,7 @@ export const Bubbles = (props: {
     };
 
     const up = (event: PointerEvent): void => {
-      if (press === null) return;
+      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
 
       if (active) {
         event.stopPropagation();
@@ -516,7 +554,9 @@ export const Bubbles = (props: {
     listen("pointerdown", down);
     listen("pointermove", move);
     listen("pointerup", up);
-    listen("pointercancel", end);
+    listen("pointercancel", event => { if (event.pointerId === undefined || event.pointerId === pointerId) cancel(); });
+    listen("blur", cancel);
+    listen("focusin", event => { if (press !== null && event.target !== target) cancel(); });
     listen("mousemove", swallow);
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
@@ -525,7 +565,7 @@ export const Bubbles = (props: {
       when: () => active,
       run: () => {
         swallowMenu = true;
-        end();
+        cancel();
       },
     }]);
   };
