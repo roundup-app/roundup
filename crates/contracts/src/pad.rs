@@ -107,3 +107,41 @@ pub struct RenameParams {
     pub new_name: String,
     pub expected_incarnation: String,
 }
+
+/// Delete the current Pad, retaining its authoritative state in the same transaction.
+/// Supply an operation before dispatch to reconcile a lost reply using `pad.getDeletion`.
+/// Reusing an operation with different guards refuses; it never deletes a replacement.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct DeleteParams {
+    pub name: String,
+    #[serde(default)]
+    #[specta(optional, type = String)]
+    pub operation: Option<String>,
+    #[serde(default, rename = "expectedIncarnation")]
+    #[specta(optional, type = String)]
+    pub expected_incarnation: Option<String>,
+}
+
+/// Originating Project and deletion operation; neither grants authority.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct DeletionId {
+    pub project: String,
+    pub operation: String,
+}
+
+/// Immutable pre-deletion state plus the durable consumption fact. A replay returns
+/// this receipt without repeating effects, even if the restored Pad was edited/deleted.
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct Deletion {
+    pub project: String,
+    pub operation: String,
+    pub pad: Pad,
+    pub restored: bool,
+}
+
+/// Reconcile an unknown deletion on its originating Project connection. Returns
+/// NOT_FOUND if no operation committed; that is the only safe signal to retry deletion.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct GetDeletionParams {
+    pub operation: String,
+}
