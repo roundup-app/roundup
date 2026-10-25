@@ -24,7 +24,8 @@ struct Fixture {
 impl Fixture {
     async fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let script = dir.path().join("rupd");
+        // A shell child exercises process ownership; the RPC peer is the listener below.
+        let script = dir.path().join("recovery-fixture");
         std::fs::write(
             &script,
             format!(
