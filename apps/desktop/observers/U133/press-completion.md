@@ -74,3 +74,17 @@ pnpm --filter desktop exec python3 observers/U133/observe.py --browser agent-bro
 controls, failure or the Rail Return/blur probe. Keep the same renderer and
 pixel ratio; `record start` recreates its context, so the driver restores dark
 mode and viewport before recording the real drag.
+
+## Concurrent fix integration
+
+The merge retains the concurrent fix run's functional-selector matching and
+text-entry/drag exclusions, drag-measurement regression and post-blur activation
+probe. Feedback registration is consolidated at the App lifetime with one flag;
+the duplicate keyboard-only installer and its `data-key-pressed` styles are
+replaced by the pointer/key cancellation implementation measured here.
+
+The concurrent `u133_release_away_does_not_activate` cases are covered by
+`u133_release_away_cancels` for Button, Checkbox, Switch and Toggle, plus Tab.
+Its blur case remains `u133_blur_clears_native_button_press`, including the next
+activation. Check tests use the retained `data-pressed` recipe. No behavior is
+retired; both runs' commits remain in the branch history.

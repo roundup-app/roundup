@@ -30,6 +30,9 @@ it.each(["Enter", " "])("u133_blur_clears_native_button_press_%s", async (key) =
   await browser("keyup", key);
   expect(await read<boolean>(`!!document.querySelector('[data-pressed="true"]')`)).toBe(false);
   expect(await read<number>(`Number(document.querySelector('[aria-label="Button changes"]').textContent)`)).toBe(0);
+  await browser("focus", "[data-control=Button] button");
+  await browser("press", key === " " ? "Space" : key);
+  expect(await read<number>(`Number(document.querySelector('[aria-label="Button changes"]').textContent)`)).toBe(1);
 }, 60_000);
 
 it.each(controls.filter(([, , key]) => key === " "))("u133_release_away_cancels_%s", async (name, control) => {
