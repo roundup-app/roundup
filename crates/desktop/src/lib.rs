@@ -37,6 +37,17 @@ pub fn build<R: Runtime>(
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_filter(|label| label == "main")
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED
+                        | tauri_plugin_window_state::StateFlags::FULLSCREEN,
+                )
+                .build(),
+        )
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
