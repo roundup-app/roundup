@@ -85,15 +85,64 @@ class Orders(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
             with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83'), closed]]]):  # no file yet: every page
                 orders.list_issues()
-            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]) as gh:  # warm: open, then closed since
+            with patch.object(orders, 'gh', side_effect=[[[issue(2, 'U83')]], [[]]]):  # warm: open, then closed since
                 issues = orders.list_issues()
-            self.assertEqual(gh.call_count, 2)
             rows = orders.classify(issues, {}, [])
             self.assertEqual([(row['issue'], row['state']) for row in rows], [(1, 'done'), (2, 'blocked')])
             self.assertIn('duplicate work Key', rows[1]['reason'])
             with patch.object(orders, 'gh', side_effect=[[[issue(1, 'U83'), issue(3, 'U84')]], [[]]]):  # #1 reopened
                 issues = orders.list_issues()
             self.assertEqual(sorted(i['number'] for i in issues), [1, 3])
+
+    def test_l34a_a_warm_open_list_recovers_the_full_queue(self):
+        reopened = issue(1, 'U84')
+        closed = issue(2, 'U83', state='closed', state_reason='completed')
+        full = [reopened, closed, issue(3, 'U83')]
+        graphql = [dict(number=item['number'], url=item['html_url'], title=item['title'], body=item['body'],
+                        state=item['state'].upper(), stateReason=item.get('state_reason'), labels=item['labels'],
+                        updatedAt=item['updated_at'], author=item['user']) for item in full]
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            with self.subTest(trigger=trigger), tempfile.TemporaryDirectory() as directory, \
+                 patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                cache = orders.Path(directory) / 'closed.json'
+                cache.write_text(json.dumps(dict(read=1000, closed={
+                    '1': dict(reopened, state='closed'), '9': issue(9, 'U85', state='closed')})))
+                with patch.object(orders, 'gh', side_effect=[trigger, [[]], graphql]), redirect_stderr(io.StringIO()):
+                    recovered = orders.list_issues()
+                self.assertEqual(sorted(item['number'] for item in recovered), [1, 2, 3])
+                rows = orders.classify(recovered, {}, [])
+                self.assertEqual(rows, orders.classify(full, {}, []))
+                self.assertEqual([(row['issue'], row['state']) for row in rows],
+                                 [(1, 'ready'), (2, 'done'), (3, 'blocked')])
+                self.assertIn('duplicate work Key', rows[2]['reason'])
+                self.assertEqual(json.loads(cache.read_text())['closed'], {'2': closed})
+
+    def test_l34a_failed_warm_recovery_preserves_the_cache(self):
+        for trigger in ([[]], subprocess.CalledProcessError(1, 'gh')):
+            for fallback in ([], subprocess.CalledProcessError(1, 'gh')):
+                with self.subTest(trigger=trigger, fallback=fallback), tempfile.TemporaryDirectory() as directory, \
+                     patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+                    cache = orders.Path(directory) / 'closed.json'
+                    original = json.dumps(dict(read=1000, closed={'1': issue(state='closed')})).encode()
+                    cache.write_bytes(original)
+                    with patch.object(orders, 'gh', side_effect=[trigger, [[]], fallback]), redirect_stderr(io.StringIO()):
+                        with self.assertRaisesRegex((subprocess.CalledProcessError, SystemExit),
+                                                    'gh|::error::both the REST and GraphQL Issue lists came back empty'):
+                            orders.list_issues()
+                    self.assertEqual(cache.read_bytes(), original)
+
+    def test_l34a_a_nonempty_warm_open_list_stays_incremental(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(os.environ, {orders.CLOSED_CACHE: f'{directory}/closed.json'}):
+            cache = orders.Path(directory) / 'closed.json'
+            cache.write_text(json.dumps(dict(read=1000, closed={})))
+            with patch.object(orders, 'gh', side_effect=[[[issue()]], [[]]]) as gh:
+                issues = orders.list_issues()
+            self.assertEqual([item['number'] for item in issues], [1])
+            self.assertEqual([call.args for call in gh.call_args_list], [
+                ('api', 'repos/{owner}/{repo}/issues?state=open&per_page=100', '--paginate', '--slurp'),
+                ('api', 'repos/{owner}/{repo}/issues?state=closed&since=1970-01-01T00:14:40Z&per_page=100',
+                 '--paginate', '--slurp')])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)
@@ -160,9 +209,6 @@ class Orders(unittest.TestCase):
             orders.task(1)
         self.assertIn('Close this specification Issue', output.getvalue())
         self.assertNotIn('specification-only PR does not close', output.getvalue())
-
-    def test_l34_ready_issue_does_not_consult_test_names_or_work_tables(self):
-        self.assertEqual(orders.classify([issue()], {}, [])[0]['state'], 'ready')
 
     def test_l34_every_open_issue_the_user_or_a_loop_app_filed_is_work(self):
         for login in ('saadshahd', 'claude[bot]', 'github-actions[bot]'):

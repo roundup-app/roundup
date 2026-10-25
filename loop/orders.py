@@ -345,15 +345,21 @@ def all_issues():
 def list_issues():
     """Every Issue. With `$ORDERS_CLOSED_CACHE` naming an existing file, the open Issues plus the closed ones that file
     holds, updated with those changed since its read: two calls once it is warm. With the variable and no file, every
-    page, once, and the file is written; without the variable, every page. The file is rewritten on each read."""
+    page, once, and the file is written; without the variable, every page. An empty or failed warm open read
+    recovers every Issue before replacing the cache. The file is rewritten only after a successful read."""
     path = os.environ.get(CLOSED_CACHE)
     if not path:
         return all_issues()
     file, started = Path(path), time.time()
+    opened = []
     if file.is_file():
         cache = json.loads(file.read_text())
+        try:
+            opened = rest_issues('state=open')
+        except subprocess.CalledProcessError as error:
+            print(f'::warning::REST open-Issue list failed ({error.returncode}); reading every Issue', file=sys.stderr)
+    if opened:
         since = datetime.fromtimestamp(cache['read'] - CACHE_OVERLAP, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        opened = rest_issues('state=open')
         closed = {int(number): issue for number, issue in cache['closed'].items()}
         closed.update({issue['number']: {key: issue.get(key) for key in KEPT} for issue in rest_issues(f'state=closed&since={since}')})
         for issue in opened:
