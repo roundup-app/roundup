@@ -99,14 +99,15 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     }
 }
 
-pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
+pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     let path = dir.join("project.db");
     // A failed seed only costs the replay: the migrations below build the same database.
     let _ = seed_fresh(&path);
-    let run = || -> rusqlite::Result<()> {
+    let run = || -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, migrations())
+        apply(&mut db, migrations())?;
+        Ok(db)
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
