@@ -99,30 +99,32 @@ const answerDelete = async (accepted: boolean) => {
 };
 
 it("p3557b_delete_failed_pad_clears_its_line", async () => {
-  const { app, state, connected } = await failedSave();
+  const { app, connected } = await failedSave();
+  const remove = app.handlers["pad.delete"];
+  const failures = () => within(screen.getByRole("region", { name: "Pads" })).queryAllByRole("alert").map(alert => alert.textContent);
+  const originalFailure = failures();
   await openPad("other");
   await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   app.emit({ actor: USER, name: "pad.deleted", data: { name: "other" } });
-  await waitFor(() => expect(screen.queryByText("other")).toBeNull());
-  expect(screen.getByText("cannot save failed")).toBeDefined();
+  await waitFor(() => expect(document.querySelector('[data-pad="other"]')).toBeNull());
+  expect(failures()).toEqual(originalFailure);
   await openPad("failed");
   await answerDelete(false);
-  expect(screen.getByText("cannot save failed")).toBeDefined();
+  expect(failures()).toEqual(originalFailure);
   app.handlers["pad.delete"] = () => { throw new RpcError(-32002, "deletion refused"); };
 
   await answerDelete(true);
   await screen.findByText("deletion refused");
-  expect(screen.getByText("cannot save failed")).toBeDefined();
-  app.handlers["pad.delete"] = () => { state.pads = [];
+  expect(failures()).toEqual(originalFailure);
 
- return null; };
+  if (remove) app.handlers["pad.delete"] = remove;
 
   await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   app.emit({ actor: USER, name: "pad.deleted", data: { name: "failed" } });
   await screen.findByText("No Pads yet");
-  expect(screen.queryByText("cannot save failed")).toBeNull();
+  expect(failures()).toHaveLength(0);
 });
 
 it("p3557b_success_clears_same_pad_failure", async () => {

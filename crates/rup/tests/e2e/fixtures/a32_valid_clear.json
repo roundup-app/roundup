@@ -2,6 +2,14 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "Valid handoff after bad ids"
+      },
+      "response": {
+        "content": "The valid Handoff was received."
+      }
+    },
+    {
+      "match": {
         "userMessage": "too much fluff",
         "hasToolResult": false
       },

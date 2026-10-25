@@ -673,8 +673,10 @@ mod tests {
         expected.remove("decision_answers");
         expected.remove("decision_answers_agent");
         expected.remove("chains");
-        let actual: std::collections::BTreeMap<_, _> =
+        let mut actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
+        // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
+        actual.remove("pad_publications_revoked");
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(migrations()).current_version(&db).unwrap(),
