@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
@@ -509,7 +509,7 @@ const PadBody = (props: {
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>
           <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-          <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).then(() => actionFailure.clear()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
+          <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>

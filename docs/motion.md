@@ -67,11 +67,16 @@ Read these current `apps/desktop/src/` callers and every additional `writeText` 
 | Import failure details | `importer/ImportPanel.tsx`, `ImportPanel` | Copy details without clearing import failure |
 | Rail draft | `rail/Rail.tsx`, `Rail` | Copy without sending/restoring the draft |
 | Todo history | `todos/TodoHistory.tsx`, `TodoHistory` | Existing JSON payload, local acknowledgement |
+| Terminal name recovery | `bubbles/Bubbles.tsx`, `Bubbles` | Selected revision only; local acknowledgement/refusal |
+| Todo draft and quick capture recovery | `todos/EditableText.tsx`, `todos/Capture.tsx` | Copy retained input without submitting or changing the draft |
+| Shared draft recovery | `drawer/DraftRecovery.tsx`, `DraftRecoveryPanel` | Original revision and credential policy retained |
+| Change-note recovery | `changes/NoteBatch.tsx`, `NoteRecovery` | Each form/note/submission/recovered record and aggregate has its own label |
+| Published work | `ask/AskBar.tsx`, `Deliverables` | Existing resolved publication payload and availability refusal |
 | Context-menu link | `ui/contextMenu.ts`, `linkEntries` / `contextMenu` | Native menu closes normally; originating item's local label shows feedback; no menu reopening or focus trap |
 
-Native context menus dismiss before `contextMenu` dispatches `linkEntries` actions; their copied acknowledgement therefore belongs to the originating visible item's local label, via the existing callback, for 1.5 s. Preserve U2694a/U2694c native menus; do not retain/reopen an NSMenu, change its App seam or replace it with a web menu to display feedback.
+Native context menus dismiss before `contextMenu` dispatches `linkEntries` actions; their copied acknowledgement therefore belongs to the originating visible item's local label, via the existing callback, for 1.5 s. Rail rows, owned Pad/Todo leaves, Shelf Pad/Todo rows and Terminal tabs retain separate helpers. Solid keyed owners dispose removed identities; native actions capture that helper before dismissal, so stale replies cannot address a replacement. Preserve U2694a/U2694c native menus; do not retain/reopen an NSMenu, change its App seam or replace it with a web menu to display feedback.
 
-The shared helper owns clipboard acknowledgement, local success deadline, timer cleanup and stale-result protection. Owners supply payload, label and failure sink; content, permissions and focus stay with them. Existing already-confirming copies join this helper rather than retaining a second feedback lifecycle. No save/file operation becomes a clipboard action.
+The shared helper `ui/CopyButton.tsx` owns clipboard acknowledgement, local success deadline, timer cleanup and stale-result protection. It uses the installed `@solid-primitives/scheduled` debounce; a payload or explicit identity change invalidates the old result. Owners supply payload, label and failure sink; content, permissions and focus stay with them. Existing already-confirming copies join this helper rather than retaining a second feedback lifecycle. No save/file operation becomes a clipboard action.
 
 ## Lifecycle and ownership
 
