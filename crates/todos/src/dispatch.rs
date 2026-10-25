@@ -27,6 +27,8 @@ impl Todos {
             "todo.hand" => self.hand(ctx, params(value)?),
             "todo.move" => self.move_to(ctx, params(value)?),
             "todo.delete" => self.delete(ctx, params(value)?),
+            "todo.deletion" => self.deletion(ctx, params(value)?),
+            "todo.restore" => self.restore(ctx, params(value)?),
             "todo.comment" => self.comment(ctx, params(value)?),
             "todo.comments" => self.comments(params(value)?),
             "todo.addRef" => self.add_ref(ctx, params(value)?),

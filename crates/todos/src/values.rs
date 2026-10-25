@@ -110,21 +110,6 @@ impl Todos {
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
         reply(&todo)
     }
-
-    pub(super) fn delete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
-        let store = self.store()?;
-        let mut was_blocked = store.blocked_ids()?;
-        store.delete(
-            p.id,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
-            &ctx.actor,
-        )?;
-        ctx.touch(Verb::Wrote, &item(p.id))?;
-        was_blocked.remove(&p.id);
-        ctx.emit(EventData::TodoDeleted(p));
-        emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
-        Ok(Value::Null)
-    }
 }
 
 /// Emit `todo.unblocked` for every Todo that was blocked before and is not now.
