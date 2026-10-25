@@ -35,7 +35,9 @@ export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<rea
       const minutes = open.reduce((total, todo) => total + (todo.estimate_minutes ?? 0), 0);
       const missing = open.filter(todo => todo.estimate_minutes === null).length;
       const date = new Date(now() + minutes * 60_000);
-      const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+      const time = new Intl.DateTimeFormat("en-GB", {
+        hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
+      }).format(date);
       const line = minutes === 0 ? copy.todoFreeNow : copy.todoBusyUntil(time);
 
       if (open.length > 0 && missing === open.length) return copy.todoNoEstimates;
