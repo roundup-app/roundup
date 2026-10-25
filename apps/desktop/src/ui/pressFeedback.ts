@@ -1,5 +1,3 @@
-const CONTROL = 'button, a[href], summary, input:is([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), [role=button], [role=tab], [role=menuitem], [role=option], [role=treeitem]';
-
 /** Adds transient feedback only; the platform and Ark retain all activation semantics. */
 export function pressFeedback(doc: Document): () => void {
   let pressing: Element | null = null;
@@ -7,7 +5,7 @@ export function pressFeedback(doc: Document): () => void {
 
   const control = (target: EventTarget | null) => {
     if (!(target instanceof Element) || target.closest('textarea, [contenteditable=true], .xterm, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range])')) return null;
-    const el = target.closest(CONTROL);
+    const el = target.closest('button, a[href], summary, input:is([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), [role=button], [role=tab], [role=menuitem], [role=option], [role=treeitem]');
 
     return el?.closest(':disabled, [aria-disabled=true], [data-disabled]') ? null : el;
   };
@@ -26,7 +24,7 @@ export function pressFeedback(doc: Document): () => void {
 
     if (!el) return;
     const space = event.key === " " && !el.matches('a[href], [role=option]');
-    const enter = event.key === "Enter" && !el.matches('input[type=checkbox], input[type=radio], input[type=range]');
+    const enter = event.key === "Enter" && !el.matches('input:is([type=checkbox],[type=radio],[type=range])');
 
     if (space || enter) begin(el);
   };
