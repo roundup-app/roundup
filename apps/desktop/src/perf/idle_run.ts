@@ -1,10 +1,11 @@
 import type { ConnectedProject } from "../state/connectedProject";
-import { invoke } from "@tauri-apps/api/core";
 import { createXtermEmulators } from "../terminal/emulator";
 import { createIdleEvidence } from "./idle";
+import type { IdleEvidence } from "./idle";
 
 /** No driver, spawning, typing or scheduling: the parent prepares the isolated Project and selection. */
-export const createIdleRun = (evidence = createIdleEvidence(document, window, () => performance.now(), record => invoke("record_idle_evidence", { record }))) => {
+export const createIdleRun = (send: (record: IdleEvidence) => Promise<void>, now: () => number = () => performance.now()) => {
+  const evidence = createIdleEvidence(document, window, now, send);
 
   const createEmulator = createXtermEmulators({
     input() {}, encoded() {}, arrived() {}, written() {}, rendered() {},
@@ -21,6 +22,8 @@ export const createIdleRun = (evidence = createIdleEvidence(document, window, ()
   let selected = false;
 
   return {
+    flush: evidence.flush,
+    stop: evidence.stop,
     createEmulator,
     selected: evidence.selected,
     prepare(open: ConnectedProject) {
