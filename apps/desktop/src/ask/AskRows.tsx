@@ -32,12 +32,14 @@ const focusPane = (): void => {
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail, hasView } = useConnectedProject();
 
+  const workstreamsShown = () => hasView("workstreams");
+
   const parts = createMemo(() => {
     const shown = new Set<string>();
 
     return asks.entries().flatMap(entry => entry.parts.map((part, index) => {
       const id = workstreamOf(part);
-      const live = !(rail.selected() === null && hasView("workstreams")) && part.state === "typed" && id !== null && !shown.has(id);
+      const live = !(rail.selected() === null && workstreamsShown()) && part.state === "typed" && id !== null && !shown.has(id);
 
       if (live) shown.add(id!);
 

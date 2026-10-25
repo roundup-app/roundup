@@ -54,6 +54,7 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
+  suppressed?: boolean;
   closeFocus?: boolean;
   /** Opens only this Project's retained revision with its captured base; absent/foreign,
    * pending and legacy records stay copy/discard-only. Opening never sends or reads.
@@ -70,7 +71,7 @@ export const ProjectTab = (props: {
   const [editing, setEditing] = createSignal<{ width: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
-  const mark = () => markOf(props.tab);
+  const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
   const authority = useContext(ProjectDraftsContext);
   const drafts = authority?.(props.tab.path);

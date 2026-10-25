@@ -32,7 +32,7 @@ afterAll(async () => {
 });
 
 const open = async (readonly = false, text?: string) => {
-  await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   // Each case starts with fresh durable drafts; in-case reopen still exercises retention.
   await browser("eval", "localStorage.clear()");
   await browser("reload");
@@ -179,7 +179,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
 
 // Chromium's focus adopts its DOM caret after creation; jsdom does not exercise that reset.
 it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => {
-  await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   await browser("eval", "localStorage.clear()");
   await browser("reload");
   await browser("set", "media", "dark");

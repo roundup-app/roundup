@@ -337,6 +337,9 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Discard this submission" })[selected === "same" ? 1 : 0]!);
+  await waitFor(() => expect(notesFor(app, "/p").entries().find(([id]) => id === "a")?.[1].submissions).toHaveLength(1));
+
+  if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   await openFile();

@@ -127,7 +127,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
 
   try {
     await browser("set", "viewport", "1512", "950");
-    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("set", "media", "dark");
     await browser("wait", "#shelf-tab-todos");
     await browser("eval", `(async () => {
