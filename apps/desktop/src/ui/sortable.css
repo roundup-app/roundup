@@ -1,29 +1,42 @@
-/* The library's clipped live region stays offscreen without its off-scale negative margin. */
+/* Keep the library's live region clipped without its off-scale negative margin. */
 [id^="dnd-kit-announcement-"] {
   margin: 0 !important;
 }
 
-/* U133: the lifted row retains the selected wash over its original region's
-   opaque ground, including when Feedback promotes it to the top layer. */
-[data-dnd-dragging] {
-  background-color: var(--ground);
-  background-image: linear-gradient(var(--selected), var(--selected));
+/* The real row keeps its layout and input state; an inset edge changes no geometry. */
+.sortable-source {
+  position: relative;
 }
 
-:is(.rail, .shelf) [data-dnd-dragging] {
-  background-color: var(--sunken);
+.sortable-source::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--stroke-width) solid var(--accent);
+  pointer-events: none;
 }
 
-/* The drop line is the only drop marker; the slot keeps the row space the library opens. */
-[data-dnd-placeholder] {
-  visibility: visible !important;
-}
-
-[data-dnd-placeholder] > * {
+/* Feedback still measures the library overlay for collisions and drag completion. */
+.sortable-overlay {
   visibility: hidden;
 }
 
-/* U133: a lifted Rail row must not mask the neighbouring name as it crosses it. */
-.rail [data-dnd-dragging] {
-  background-color: transparent;
+.sortable-slot {
+  box-sizing: border-box;
+  position: relative;
+  flex-shrink: 0;
+  margin-inline-start: var(--sortable-indent, 0px);
+  pointer-events: none;
+}
+
+.sortable-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--stroke-width) dashed var(--accent);
+  pointer-events: none;
+}
+
+.sortable-slot[data-ending="true"] {
+  opacity: 0;
 }

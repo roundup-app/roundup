@@ -251,6 +251,33 @@ no timing campaign, calibrated baseline or production repair. #4031 and #3760
 remain open under #3720. R16/R23 now explicitly retire exact-CPU eligibility for
 this hosted collection; ordinary calibrated baseline selection stays separate.
 
+### R23 incremental recorder controls (#4109)
+
+[Recorder overhead capture and offline assessment](../crates/perf/evidence/r23-overhead-40221022276/README.md)
+restore #4082's matching archived instrumented Daemons and common/marked
+observers on job 40221022276 (AMD EPYC 9V45, four CPUs, one boot). Three cycles
+per pin/probe alternate recorder-off, scheduler/syscall recording and the same
+recorder plus retained producer source probes. Hook/logger bytes and diagnostic
+build settings remain identical. These single-Daemon controls preserve the R15
+workload; they are neither eleven-Daemon clean comparisons nor calibration.
+
+All 36 controls are load-qualified (load 1.68–3.39 on four CPUs), with no skipped
+write metrics. Every attempt retains its diagnostic ceiling miss; historical/marked
+cycle 2 with the recorder off also misses the 300 ms absolute cold-start limit
+(610.779718 ms). All full recordings have producer hits; none reports LOST events.
+The retained assessment reports each metric's variation and every paired
+incremental difference/ratio separately for historical/common, historical/marked,
+candidate/common and candidate/marked. Three repetitions supply observed
+variation, not a universal overhead bound. Aggregate p95 deltas cannot bound or
+correct individual stage intervals in #4031's earlier profiles. Nothing is
+subtracted from clean p95s. Configuration/logger confounding, optimized
+publication boundaries and unsupported exact executor enqueue remain unresolved;
+supported task-spawn hooks are not enqueue timestamps. Daemon-only attribution
+under #4031, #3760 and #3720 remains incomplete. The evidence names the remaining
+observations and scoped engineering investigation; no user or Mac decision is
+needed. Original clean observations remain labelled history only. No baseline,
+ceiling, load threshold, absolute limit or clean R16 verdict changes.
+
 ### R23 observer acceptance assessment (#4031)
 
 [Offline verification and supported boundaries](../crates/perf/evidence/r23-observer-40219905108/README.md)
