@@ -1,100 +1,64 @@
 # U133 row state observation
 
 Acceptance: `scenarios/ui-visual.md`, “U133 press and row states extensions”.
-Isolated headless Chromium 155, dark, 1512×950, device scale 1.
-Baseline: `8b1b4144b7fb676a511a166740bf108a9f0145ae`.
-Captured implementation: `0a603f25e9b0ab937a66fced88c3844f38b20872`.
-Final integration checks: `6ffc9ac28fb6788cbdb194624b024fe83d5f4cca`.
-The later clean merge changes no authored stylesheet in this observation.
-
-| Interaction | Baseline | Implementation |
-| --- | --- | --- |
-| Selected Rail Agent | Accent stripe and selected wash | One square selected wash |
-| Focused Rail Agent or Workstream | No wash | Same selected wash |
-| Focused Todo or Pad | No wash | Same selected wash |
-| Selected Todo | Wash, accent pseudo-element and 6 px radius | One square selected wash |
-| Selected Pad | Wash, stripe and 6 px radius | One square selected wash |
-| Selected and dragged Todo/Pad | Press ink or dimming; centre ground beneath wash | Rest ink/opacity, selected wash over the original region ground |
-| Owned Todo or Pad focus | No wash | One wash on the full-width leaf, none on its nested row |
-| Owned Todo drag | Lifted row uses centre ground | One wash over Rail ground; no second wash on the leaf |
-| Owned-items disclosure after paint, then Space | Drops focus and stays closed | Keeps focus and opens its rows |
-
-`row-states.json` records the computed readings and Check deltas for 25 paired
-states, including all five named seeds, a fully visible failed completion on the
-dense seed, owner picker, Todo Drawer and Terminal Bubble. Zero existing Check
-results regress. All existing Checks pass on the five named seeds. D12 fails on
-the Pad list in both revisions; D12/D14 also fail during held Shelf drags in both.
-These are regression readings, not completion of the new Check extensions.
-
-The before-image disclosure is expanded through its DOM click handler to observe
-the owned rows despite main's focus defect. The implementation uses native Space.
-`u133_owned_items_keep_keyboard_focus_through_paint` focuses the disclosure, waits
-for two animation frames and activates it: red before the repair, green after.
-Its assertions concern opening rows, not appearance. The two existing U133 tests
-still prove native Export semantics and the disconnected controls' aria contract.
-
-Validation on the integrated source: 17 focused tests pass with retries disabled;
-`just lint-web`, `just lint-rust`, Token ownership and `merge-loss` pass. The full
-`just capture 'U130,U131,U132,U133,U134,U135,U136,U137'` run reports 3,797 passed,
-4 failed and 57 skipped. Its four failing cases pass in the final focused run.
-The U348 cleanup timeout also reproduces on unchanged main; its quiet rerun passes.
-
-Paired PNGs/readings stay uncommitted under
-`artifacts/ux/U133/row-cues/{base,head}/`; twelve selected after-images are under
-`artifacts/ux/U133/after/` for workflow attachment. The recording observer returns
-“No frames captured” after installing ffmpeg; no video pass is claimed.
-
-This is a bounded U133 slice. #3824 retains complete press/extended Check observers,
-shared inset/baseline, strict lint and its repairs, palette/system accent, native
-material and the Mac/performance observations. No native or performance pass is
-inferred from these browser captures.
-
-## Integrated completion check
-
-Main `9c8abc943b44186fa3b9aee4682c09cf3c03d652` merged cleanly at
-`4bc4543d071d982cae1b18646e59f461fa1c38fd`; no authored stylesheet changed.
-All 64 focused tests pass with retries disabled: U133 click targets (3),
-U130 Tokens (5), U135 preferences (2), U136 daemon-exit observer (1) and
-U137 Check observers (53).
-
-Fresh isolated headless Chromium 155 captures at 1512×950 in dark pass every
-existing Check on all five named seeds, selected/focused Rail rows and the dense
-failed completion. Its visible recovery text reads “Completion refused. Retry
-after reconnecting.” Space opens the focused owned-items disclosure.
-PNG files and per-seed readings remain under `artifacts/ux/U133/after/integrated-*`.
-Recording again returns “No frames captured” after ffmpeg installation; no video
-pass is claimed. The original paired row-state evidence above remains applicable.
-
-`pnpm install --frozen-lockfile`, `just lint-web`, `just lint-rust`,
-`git diff --check` and `loop/rules.sh merge-loss` pass on this integration.
-
-## Critic repair
-
-Critic baseline: `cf423bd8162500a21ae6ae56588c6255a82e634a`; clean integration
-with main `7939d92be` precedes this repair.
-
-The focus and Rail-drag rows above describe the earlier implementation. This
-repair supersedes them; acceptance and `docs/design-system.md` stay unchanged.
+PR #4005 continues closed PR #3948 from `02a26d885`.
 
 | Before | After |
 | --- | --- |
-| Pointer focus on agent-1’s Pads paints a second selected row beside agent-3 | Only agent-3 retains the selected ground |
-| Selected agent-1 and keyboard-focused agent-7 share an identical wash | Selection uses the ground; focus alone uses accent name ink, retaining the Kind Glyph |
-| Add Agent uses selected-row ink on every row | Plain rows use the neighbouring icons’ grey; selected rows retain stronger ink |
-| The lifted Rail row’s opaque backing clips agent-10’s name | A transparent backing retains one wash and exposes the full neighbouring name |
+| Selected Rail, Todo and Pad rows stack a stripe, wash or radius | One square selected wash |
+| Pointer focus on a disclosure paints a second selected ground | Only selection paints a wash; pointer focus adds none |
+| Keyboard focus in #3948's final head turns error Agent agent-7's red name blue | One wash preserves the red name and Kind Glyph |
+| Selected, focused and dragged row stacks press ink or dimming | One wash, rest opacity, no shadow or radius |
+| Owned-item focus paints an inset or nested cue | The full-width leaf owns one wash; its nested row paints none |
+| Owned-items disclosure loses focus after paint; Space does nothing | Focus stays on the disclosure; Space opens its items |
 
-Fresh isolated headless Chromium, dark, 1512×950: every existing Check passes
-on `first-run`, `agents-10`, `tree-40`, `tabs-8` and `conflict`, with separate
-selected/focused rows, a held agent-9 drag, Shelf keyboard focus and a visible
-failed completion on the dense seed. The failure reads “Completion refused. Retry
-after reconnecting.” Combined selection/focus/drag retains one wash. These
-readings prove the web rendering; the extended D7 observer is still outstanding.
+## Paired evidence
 
-Screenshots and computed readings are under `artifacts/ux/U133/critic-fix/`. Recording
-returns “No frames captured” after ffmpeg installation; no video pass is claimed.
+Isolated headless Chromium 156, dark, 1512×950, device scale 1. Baseline:
+main `c475d1a4f`; runtime head: `499ca3e94`. The later clean merge of main
+`65d8e0c81` changes only loop guidance and performance documents. Storage is
+cleared before each seed on both origins.
 
-Validation: 64 focused tests pass with retries disabled and one worker; both
-required lints, Stylelint and `merge-loss` pass. The overlapping full
-`just capture U133` and related-test runs were interrupted after competing for
-CPU; their incomplete results are not passes. The first focused run had one
-cleanup-hook timeout; the isolated run passes all 64 without a source change.
+`artifacts/ux/U133/continuation/{base,head}/` holds screenshots and Check
+readings for all five prescribed seeds, selection, pointer disclosure,
+keyboard focus, dense failure, Shelf Todo focus, open Drawer, owned-item focus,
+Pad focus/selection and combined selection/focus/drag. Failure text is
+“Offline. Reconnect.” The paired delta has no regressed Check. D2, D5 and D6
+pass in every capture. D12 fails on the Pad list in both revisions (value 32);
+all other existing Checks pass. These are web observations, not native evidence
+or a completed extended D7 observer.
+
+The pointer-focus probe focuses agent-1's Pads control after a real pointer
+click selects agent-3. Its recorded `focusVisible: false`, active button and row
+backgrounds distinguish pointer modality from keyboard focus: agent-1 has no
+wash and agent-3 has one. The keyboard probe focuses error Agent agent-7; its
+name stays `rgb(255, 107, 107)`. The pre-repair blue-name reading at `57847ee53`
+is retained in `failure-ink-before.rows.json`.
+
+The baseline's known disclosure focus loss prevents Space from exposing the
+owned items; a programmatic button click exposes them for the paint comparison
+only. Head opens them through Space. The behavioral test below proves this
+without substituting a programmatic click.
+
+Head's selected/focused/dragged agent-9 has opacity 1, one selected background
+image, radius 0 and no shadow. `head/row-states.webm` records this interaction;
+ffprobe reports a 4.1-second video with frames after ffmpeg installation.
+Screenshots and video remain uncommitted. The earlier `row-states.json` and
+`critic-fix/` readings retain #3948's prior observations.
+
+## Validation and remaining work
+
+Both required lints pass. Final Stylelint, spelling, Token ownership,
+`git diff --check` and `merge-loss` pass. The final focused related run passes
+all 64 tests with retries disabled and one worker: U133 click targets (3),
+U130 Tokens (5), U135 preferences (2), U136 daemon-exit observer (1), U137
+Check observers (53).
+
+`just capture U130,U131,U132,U133,U134,U135,U136,U137` was run, then interrupted
+with exit 130 after 18 passing files; its incomplete suite is not a pass.
+The paired observations above and the final focused run completed separately.
+
+#3824 remains open for complete press/cancellation and extended Check observers,
+shared inset/baseline, strict lint and all existing repairs, palette/system
+accent, native material/fallback and Mac/performance observations. This slice
+makes no native rendering or launch-performance claim.
