@@ -80,7 +80,7 @@ pub struct GlobalHotKeyEvent {
     pub state: HotKeyState,
 }
 
-/// A reciever that could be used to listen to global hotkey events.
+/// A receiver that could be used to listen to global hotkey events.
 pub type GlobalHotKeyEventReceiver = Receiver<GlobalHotKeyEvent>;
 type GlobalHotKeyEventHandler = Box<dyn Fn(GlobalHotKeyEvent) + Send + Sync + 'static>;
 

@@ -1,4 +1,5 @@
-Upstream global-hotkey 0.8.0, as published on crates.io; source is unchanged.
+Upstream global-hotkey 0.8.0, as published on crates.io; runtime source is unchanged. Three upstream comment misspellings are corrected
+for the repository spelling check.
 
 The only dependency patch is keyboard-types 0.7 → 0.8, matching Tauri 2.12.1's
 muda dependency and eliminating a second keyboard vocabulary. This crate uses
