@@ -751,7 +751,7 @@
   color: var(--accent);
 }
 
-.rail-recovery summary:active {
+.rail-recovery summary[data-pressed="true"] {
   color: var(--text);
   transition-duration: var(--duration-instant);
 }

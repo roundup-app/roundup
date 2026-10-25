@@ -11,13 +11,14 @@ parser.add_argument("--browser", required=True)
 parser.add_argument("--output", required=True)
 parser.add_argument("--base", default="http://127.0.0.1:5200")
 parser.add_argument("--head", default="http://127.0.0.1:5199")
+parser.add_argument("--side", choices=("base", "head", "both"), default="both")
 args = parser.parse_args()
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
 
 SETTLE = """(async () => {
   await new Promise(requestAnimationFrame);
-  await Promise.all(document.getAnimations().filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})));
+  await Promise.all(document.getAnimations().filter(a => typeof a.effect.getTiming().duration === "number" && a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})));
   await new Promise(requestAnimationFrame);
   return true;
 })()"""
@@ -57,7 +58,7 @@ def observe(side, origin):
         browser("screenshot", str(directory / f"{name}.png"))
         checks = evaluate("window.__checks()")
         (directory / f"{name}.checks.json").write_text(json.dumps(checks, indent=2) + "\n")
-        states = evaluate(f"""(() => {{ const style={STYLE}; return [...document.querySelectorAll('.rail-row,.shelf-row,.terminal-tab-pair')].filter(e=>e.getBoundingClientRect().width).map(e=>({{id:e.dataset.id??e.dataset.bubble,selected:e.dataset.selected,dragged:e.dataset.dndDragging,focused:e.matches(':focus-visible,:has(:focus-visible)'),style:style(e)}})); }})()""")
+        states = evaluate(f"""(() => {{ const style={STYLE}; return [...document.querySelectorAll('.rail-row,.shelf-row,.terminal-tab-pair')].filter(e=>e.getBoundingClientRect().width).map(e=>({{id:e.dataset.id??e.dataset.bubble,selected:e.dataset.selected,dragged:e.hasAttribute('data-dnd-dragging'),lifted:e.dataset.lifted,focused:e.matches(':focus-visible,:has(:focus-visible)'),style:style(e)}})); }})()""")
         (directory / f"{name}.states.json").write_text(json.dumps(states, indent=2) + "\n")
         print(side, name, {key: value["status"] for key, value in checks.items() if value["status"] != "pass"}, flush=True)
 
@@ -93,10 +94,21 @@ def observe(side, origin):
         else:
             browser("mouse", "up")
         evaluate(SETTLE)
-        frames["released"] = evaluate(f"({STYLE})(document.querySelector({json.dumps(selector)}).closest('.app-checkbox,.app-radio,.app-segment')??document.querySelector({json.dumps(selector)}))")
+        frames["released"] = evaluate(f"(() => {{ const el=document.querySelector({json.dumps(selector)}); return el?({STYLE})(el.closest('.app-checkbox,.app-radio,.app-segment')??el):null; }})()")
         frames["changed"] = [field for field in ("color", "opacity", "transform") if frames["before"][field] != frames["first"][field]]
         (directory / f"press-{name}.frames.json").write_text(json.dumps(frames, indent=2) + "\n")
         print(side, "press", name, frames["changed"], flush=True)
+
+    def drag(selector, name):
+        point = evaluate(f"(()=>{{const b=document.querySelector({json.dumps(selector)}).getBoundingClientRect();return {{x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}};}})()")
+        browser("mouse", "move", str(point["x"]), str(point["y"]))
+        browser("mouse", "down")
+        browser("mouse", "move", str(point["x"] + 6), str(point["y"] + 6))
+        wait("!!document.querySelector('[data-dnd-placeholder], [data-dnd-dragging], [data-lifted=true]')")
+        browser("mouse", "move", str(point["x"] + 25), str(point["y"] + 25))
+        capture(name)
+        browser("press", "Escape")
+        browser("mouse", "up")
 
     try:
         browser("--profile", profile, "open", origin + "/src/ui/u133.html")
@@ -113,6 +125,7 @@ def observe(side, origin):
         capture("todo-focused")
         browser("click", ".shelf .todo-row[data-todo] .todo-row-button")
         capture("todo-selected")
+        drag(".shelf .todo-row[data-todo] .todo-row-button", "todo-dragged")
         evaluate("window.__fake.failNext(-32003,'Offline. Reconnect.'); document.querySelector('.shelf input.todo-tick').click()")
         wait("document.body.textContent.includes('Offline. Reconnect.')")
         capture("dense-failure")
@@ -130,22 +143,23 @@ def observe(side, origin):
         capture("pad-focused")
         browser("click", ".shelf .pad-name")
         capture("pad-selected")
+        drag(".shelf .pad-name", "pad-dragged")
         load("/harness.html?seed=agents-10")
         browser("press", "Tab")
         browser("focus", ".rail-row[data-id=agent-3]")
         capture("rail-focused")
         browser("click", ".rail-row[data-id=agent-3] .name")
         capture("rail-selected")
-        point = evaluate("(()=>{const b=document.querySelector('.rail-row[data-id=agent-3] .name').getBoundingClientRect();return {x:Math.round(b.x+10),y:Math.round(b.y+b.height/2)};})()")
+        (directory / "rail-drag.webm").unlink(missing_ok=True)
         browser("record", "start", str(directory / "rail-drag.webm"))
-        browser("mouse", "move", str(point["x"]), str(point["y"]))
-        browser("mouse", "down")
-        for distance in (5, 15, 35):
-            browser("mouse", "move", str(point["x"] + distance), str(point["y"] + distance))
-        capture("rail-dragged")
-        browser("mouse", "up")
+        browser("set", "media", "dark")
+        browser("set", "viewport", "1512", "950")
+        load("/harness.html?seed=agents-10")
+        browser("click", ".rail-row[data-id=agent-3] .name")
+        drag(".rail-row[data-id=agent-3]", "rail-dragged")
         browser("record", "stop")
         load("/harness.html?seed=bubbles")
+        browser("click", ".rail-row[data-id=runner] .name")
         wait("!!document.querySelector('button.terminal-tab')")
         capture("terminal-tabs")
         browser("click", "button.terminal-tab")
@@ -174,4 +188,5 @@ def observe(side, origin):
 
 
 for side, origin in (("base", args.base), ("head", args.head)):
-    observe(side, origin)
+    if args.side in (side, "both"):
+        observe(side, origin)
