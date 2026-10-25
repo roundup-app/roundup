@@ -432,3 +432,26 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
   expect(frame.querySelector('[role=alert]')).toBeNull();
   expect(rpcCalls(app, "todo.complete")).toEqual([{ id: 1 }]);
 });
+
+it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => {
+  const { app, row } = await target("agent");
+  app.handlers["rail.rename"] = () => { throw new Error("name already taken"); };
+  fireEvent.keyDown(row, { key: "F2" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const text = "  exact 日本語 🌱  ";
+  fireEvent.input(field, { target: { value: text } });
+  fireEvent.keyDown(field, { key: "Enter" });
+  await screen.findByText(/Rename failed: name already taken/);
+  const elsewhere = document.querySelector<HTMLElement>('.rail-row[data-id="agent-4"]')!;
+  fireEvent.blur(field);
+  fireEvent.click(elsewhere);
+  await waitFor(() => expect(document.activeElement).toBe(elsewhere));
+  expect(screen.getByRole("alert").textContent).toContain("name already taken");
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  await waitFor(() => expect(document.activeElement).toBe(recovered));
+  expect(recovered.value).toBe(text);
+  expect(rpcCalls(app, "rail.rename")).toEqual([{ id: "tokens", name: text.trim() }]);
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+});
