@@ -107,16 +107,19 @@ fn read_leases(
             begin.execute([])?;
             schema.exists([])?;
         }
-        // Input cannot renew this deadline. Release even if no call ever follows;
-        // an unsuccessful checkpoint must not start a retry for every keystroke either.
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        // Pending wake admission stays closed for this lease, so only shutdown can
+        // interrupt its deadline. A disconnected owner needs no remaining lease.
+        let disconnected = matches!(
+            receive.recv_timeout(std::time::Duration::from_millis(5)),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+        );
         if leased {
             rollback.execute([])?;
         }
-        // Rearm only after rollback (or a skipped attempt's sleep), before waiting.
+        // Rearm only after rollback (or a skipped attempt's timeout), before waiting.
         // The flag synchronizes only wake admission; the channel publishes work.
         pending.store(false, Ordering::Relaxed);
-        if receive.recv().is_err() {
+        if disconnected || receive.recv().is_err() {
             return Ok(());
         }
     }
