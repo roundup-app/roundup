@@ -23,12 +23,12 @@ fn main() {
         }
     }
     names.sort_unstable_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
-    let regions = fresh_image(&root, &dir, &names); // IMAGE-CALL
+    fresh_image(&root, &dir, &names); // IMAGE-CALL
     let mut out = String::from("pub(crate) const ADDED: &[&str] = &[\n");
     for name in names {
         out += &format!("    include_str!({:?}),\n", dir.join(name));
     }
-    out += &format!("];\npub(crate) const ID_REGIONS: &[(usize, usize)] = &{regions:?};\n");
+    out += "];\n";
     fs::write(
         PathBuf::from(env::var("OUT_DIR").unwrap()).join("added_migrations.rs"),
         out,
@@ -61,7 +61,7 @@ const IDENTITIES: [&str; 2] = [
 ];
 
 /// R3696c: a fresh `project.db` is copied from this migrated image, not replayed through every migration.
-fn fresh_image(root: &Path, dir: &Path, added: &[String]) -> Vec<(usize, usize)> {
+fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     let mut sources = Vec::new();
     for path in HEAD
         .iter()
@@ -109,5 +109,9 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) -> Vec<(usize, usize)>
     }
     regions.sort_unstable();
     regions.dedup();
-    regions
+    fs::write(
+        out.join("fresh_regions.rs"),
+        format!("pub(crate) const ID_REGIONS: &[(usize, usize)] = &{regions:?};\n"),
+    )
+    .unwrap();
 }
