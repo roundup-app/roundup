@@ -1,7 +1,7 @@
 {
   "size": [
     {"path": "crates/agents/src/claude_code/discovery.rs", "ceiling": 1682, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/agents/src/rail.rs", "ceiling": 1670, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "crates/agents/src/rail.rs", "ceiling": 1564, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/src/worktree.rs", "ceiling": 1285, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/src/worktree_wiring.rs", "ceiling": 1724, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/tests/asks.rs", "ceiling": 1302, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
@@ -10,9 +10,7 @@
     {"path": "crates/agents/tests/scenarios/resume.rs", "ceiling": 1641, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/agents/tests/scenarios/worktrees.rs", "ceiling": 2028, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/desktop/tests/app.rs", "ceiling": 2197, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/messages/src/digest.rs", "ceiling": 1228, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/messages/src/lib.rs", "ceiling": 2746, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/messages/src/store.rs", "ceiling": 1036, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/pads/tests/pads.rs", "ceiling": 1581, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/src/cli.rs", "ceiling": 1167, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/a34.rs", "ceiling": 1182, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
@@ -45,7 +43,6 @@
     {"rule": "sleep-poll", "path": "crates/perf/src/launch.rs", "source": "tokio::time::sleep(Duration::from_millis(10))", "detail": "", "occurrence": 2, "location": "119:9", "reason": "Existing performance sampling cadence; retain the current measurement."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/models.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "120:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/perf/src/measure.rs", "source": "tokio::time::sleep(Duration::from_millis(1))", "detail": "", "occurrence": 1, "location": "120:9", "reason": "Existing performance sampling cadence; retain the current measurement."},
-    {"rule": "sleep-poll", "path": "crates/agents/src/rail.rs", "source": "std::thread::sleep(std::time::Duration::from_millis(5))", "detail": "", "occurrence": 1, "location": "121:9", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/tests/scenarios/worktrees.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "1278:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/perf/src/n7_fixture.rs", "source": "tokio::time::sleep(std::time::Duration::from_millis(5))", "detail": "", "occurrence": 2, "location": "128:13", "reason": "Existing performance sampling cadence; retain the current measurement."},
     {"rule": "sleep-poll", "path": "crates/agents/src/door.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "130:17", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},

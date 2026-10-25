@@ -49,7 +49,7 @@ describe("u130 the look-literal scanner", () => {
   it("u130_scanner_allows_a_var_read_for_each_category_including_the_drawer_shadow", () => {
     expect(
       literals(
-        "color: var(--text);\n background: var(--ground);\n box-shadow: var(--shadow-drawer);\n border-radius: var(--radius-row);\n font-size: var(--text-body);\n transition: transform var(--duration-drawer) var(--easing-out);",
+        "color: var(--text);\n background: var(--ground);\n box-shadow: var(--elevation);\n border-radius: var(--radius-row);\n font-size: var(--text-body);\n transition: transform var(--duration-drawer) var(--easing-out);",
       ),
     ).toEqual([]);
   });
@@ -105,7 +105,7 @@ describe("u130 the look-literal scanner", () => {
 
   it("u130_inline_extractor_ignores_text_outside_a_style_block_and_allows_tokens_and_ch", () => {
     expect(inlineStyleCss('<button aria-label="make #120 yours">#120</button>')).toBe("");
-    expect(lookLiterals(inlineStyleCss('<p style={{ color: "var(--grey)", "padding-left": "2ch", "box-shadow": "var(--shadow-drawer)" }} />'))).toEqual([]);
+    expect(lookLiterals(inlineStyleCss('<p style={{ color: "var(--grey)", "padding-left": "2ch", "box-shadow": "var(--elevation)" }} />'))).toEqual([]);
   });
 
   it("u130_inline_scan_reads_a_template_literal_a_ternary_and_a_single_quoted_colour", () => {
