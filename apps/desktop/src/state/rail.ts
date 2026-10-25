@@ -35,7 +35,7 @@ export type RailState = {
   workstreamCreating(): boolean;
   clearWorkstreamFailure(): void;
   selected(): string | null;
-  /** One initial Terminal focus permission, captured on selection or an explicit supervisor start. */
+  /** One initial Terminal focus permission, captured on creation, selection or an explicit supervisor start. */
   terminalFocus(): ReturnType<typeof captureFocus>;
   restored(): boolean;
   collapsed(): ReadonlySet<string>;
