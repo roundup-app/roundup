@@ -53,10 +53,10 @@ it("u2539b_landing_mounts_only_ask_and_attention", async () => {
 });
 
 it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
-  const { connected } = await mount();
+  const { connected, nodes } = await mount();
   fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-  expect(screen.getByRole("heading", { level: 1 }).getAttribute("aria-label")).toContain("Agent 0");
+  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain(nodes.find(node => node.id === "a0")!.name);
   fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
 });
@@ -289,7 +289,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
       found.push("Inbox entry", "Inbox section count");
     }
 
-    if (connected().rail.selected() === target.id && document.querySelector(".window-identity [data-state]")) found.push("Selected Agent title");
+    if (connected().rail.selected() === target.id && document.querySelector(".pane-identity [data-state]")) found.push("Selected Agent title");
 
     return found;
   };
