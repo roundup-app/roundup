@@ -50,6 +50,11 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Actions sit on their row. A row's text actions sit on the baseline of the row's first line, within 1 px.
 - A modal's centre sits at the window's centre within 1 px on both axes; only `ui/Dialog.tsx` positions a modal (#3083).
 
+- D1 (#3789, row interaction): a primary click selects a Todo, Pad or Rail row; Return or its Open button opens; double-click/F2 renames. A drag or rename gesture never opens. Apply U3789a to Shelf rows and owned-item leaves alike.
+- D2 (#3789, Todo add): one key or click focuses one line; text plus Return files into the selected scope. Opening/typing never expands an owner group; only the field, accepted new row and newly nonempty destination group mount, with existing counts/empty feedback updated (U3789b).
+- D3 (#3789, empty groups): an item group with zero items renders nothing; one scoped-list empty line is the only empty state, replaced by add while editing. Empty Rail destinations remain (U3789c).
+- D5 (#3789, row rest): name plus at most one state glyph, failed > blocked > running > done; preserve native attention's non-colour distinction. Secondary facts/actions show on focus or selection, never hover; opacity in reserved space moves no row, with no display swap or !important in row action styles. Actionable failure feedback stays visible (U3789d).
+- F3 (#3789, row budget): a focused/selected row exposes at most two controls including Open, checkbox and disclosure; at rest at most four state marks, with the one-glyph row rule stricter. Keep other actions in the native menu or opened destination (U3789d). These Issue labels do not rename the numbered design Checks.
 - X1 (#3787, U3787a): reversible Todo, Pad, bulk and Rail deletion runs immediately; `Deleted · Undo` and ⌘Z restore the exact chosen work. Confirm only an action whose effects cannot be undone. Undo feedback is action feedback, not routine attention.
 - X2 (#3787, U3787b): every handled command chord appears in the menu bar with its current key and scope; menu and key run one identical action without taking editor or Terminal input.
 - X3 (#3787, U3787c): content-row lists support ↑/↓, Home/End, type-to-select, ⌘A and ⇧/⌘-click; Escape cancels rename, restores the old text and returns focus without a rename call. Form pickers and tabs keep their library semantics.
@@ -86,3 +91,12 @@ Baseline: main `a284e11af`, isolated headless U26 App at 1512×950 on 2026-10-24
 For `migrate-db` at the root on `tree-40`, the same needs-you fact appears in five presentations: its Rail row, backend's rollup, the Project-root count, the overview heading and its overview attention entry. The Project tab shows Error on this seed and is not a sixth needs-you presentation. At a selected Agent the root overview is absent. A settled open Inbox also counts toward the limit, including its section count and Agent entry; opening it must suppress redundant background presentations if necessary. The implementing observer must enumerate presentations by Agent and include aggregates, not count literal text occurrences or all Agents as one fact.
 
 Understand/Intervene/Review remain the journey: submit an Ask, reach its requesting Terminal, inspect the resulting changes, close the optional surfaces, reopen the Project and recover the same work. Use U2539b's real-Daemon and rendered observers before claiming completion. Keep drag (#3540) and calm Todo/Pad/Rail row behavior in their existing work orders.
+
+### Design-system pass taste (U130–U137)
+
+Specification policy for the implementation in `scenarios/ui-visual.md`, “Design-system pass acceptance (U130–U137)”; these extend the existing Check numbers without retiring their current clauses.
+
+- D4: an enabled control changes Token colour, opacity or scale by the first frame after a press. No new background on an unfilled control, including hover.
+- D7: selected, focused and dragged rows differ from plain by exactly one cue, text colour or one selected ground. Combined states share it; no outline, shadow, weight or geometry cue.
+- D8: Rail, Todo, Pad and Terminal-tab first text shares one row-local inset after tree indentation; name and Glyph optical baselines differ by at most 1 CSS px.
+- D9: Stylelint rejects `!important`, raw px/ms/s/colours outside `tokens.css`, selectors over two compounds and child combinators. Importance and selector rules include `tokens.css`; fix all existing hits without allowlists.
