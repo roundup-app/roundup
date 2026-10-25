@@ -8,6 +8,11 @@ mod application;
 #[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
 pub use application::watch;
 
+#[cfg(target_os = "macos")]
+mod capture;
+#[cfg(target_os = "macos")]
+pub use capture::{CapturePanel, CapturePanelState, capture_plugin};
+
 // WKPreferences requires the process main thread, so these actual-WebKit proofs use a main-thread harness.
 #[cfg(test)]
 fn main() {
