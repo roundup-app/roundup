@@ -90,7 +90,7 @@ failed completion on the dense seed. The failure reads “Completion refused. Re
 after reconnecting.” Combined selection/focus/drag retains one wash. These
 readings prove the web rendering; the extended D7 observer is still outstanding.
 
-PNGs and computed readings are under `artifacts/ux/U133/critic-fix/`. Recording
+Screenshots and computed readings are under `artifacts/ux/U133/critic-fix/`. Recording
 returns “No frames captured” after ffmpeg installation; no video pass is claimed.
 
 Validation: 64 focused tests pass with retries disabled and one worker; both
