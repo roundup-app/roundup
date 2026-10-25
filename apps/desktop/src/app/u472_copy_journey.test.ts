@@ -83,10 +83,8 @@ afterAll(async () => {
 const load = async (base: string, seed: string, width: number, scheme: string) => {
   await browser("set", "viewport", String(width), "950");
   await browser("set", "media", scheme);
+  await evaluate(`if (location.origin === ${JSON.stringify(new URL(base).origin)}) localStorage.clear()`);
   await browser("open", `${base}harness.html?seed=${seed}`);
-  await wait("Boolean(window.__fake && document.querySelector('.window'))");
-  await evaluate("localStorage.clear()");
-  await browser("reload");
   await wait("Boolean(window.__fake && document.querySelector('.window'))");
   await evaluate("document.fonts.ready.then(() => true)");
 };

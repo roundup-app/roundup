@@ -1,23 +1,23 @@
 {
   "parent": {
-    "bottom": 1208,
+    "bottom": 574,
     "height": 216,
     "left": 12,
     "right": 275,
-    "top": 992,
+    "top": 358,
     "width": 263,
     "x": 12,
-    "y": 992
+    "y": 358
   },
   "prompt": {
-    "bottom": 1196,
+    "bottom": 562,
     "height": 192,
     "left": 24,
     "right": 263,
-    "top": 1004,
+    "top": 370,
     "width": 239,
     "x": 24,
-    "y": 1004
+    "y": 370
   },
   "scrollY": 0,
   "style": {
