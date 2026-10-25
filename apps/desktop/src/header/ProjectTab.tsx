@@ -103,8 +103,8 @@ export const ProjectTab = (props: {
 
   const nativeCopy = createCopyFeedback();
   const nameCopy = createCopyFeedback();
-  createEffect(on(() => props.tab.path, nativeCopy.reset));
-  createEffect(on(() => shown()?.revision, nameCopy.reset));
+  createEffect(on(createMemo(() => props.tab.path), nativeCopy.reset));
+  createEffect(on(createMemo(() => shown()?.revision), nameCopy.reset));
 
   const copyName = async () => {
     const draft = shown();

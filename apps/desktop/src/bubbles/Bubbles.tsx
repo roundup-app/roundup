@@ -902,7 +902,7 @@ export const Bubbles = (props: {
             <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
           </>}</Show>
           <div class="draft-actions">
-            <Show when={shownDraft()}>{draft => <><CopyButton app={app} identity={draft().revision} text={String(draft().value.name ?? "")} onSuccess={() => failCopy(null)} onFailure={error => failCopy({ revision: draft().revision, message: copy.copyDraftFailure(error.message) })}>{copy.copyProjectName}</CopyButton>
+            <Show when={shownDraft()}>{draft => <><CopyButton app={app} identity={draft().revision} text={String(draft().value.name ?? "")} onSuccess={() => failCopy(prior => prior?.revision === draft().revision ? null : prior)} onFailure={error => failCopy({ revision: draft().revision, message: copy.copyDraftFailure(error.message) })}>{copy.copyProjectName}</CopyButton>
             <button type="button" data-button="quiet" onClick={() => { drafts.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></>}</Show>
             <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
