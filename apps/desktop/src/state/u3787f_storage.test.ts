@@ -150,7 +150,7 @@ it("u3787f_failed_migration_keeps_recovery_unreadable_legacy", async () => {
   const key = "roundup:open-tab";
   localStorage.setItem(key, '"/original/path"');
   const read = vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => { throw new Error("read denied by webview"); });
-  expect(await initializeStorage()).toContain(`${key}: read denied by webview`);
+  expect(await initializeStorage()).toContain("read denied by webview");
   expect(disk.size).toBe(0);
   read.mockRestore();
   expect(localStorage.getItem(key)).toBe('"/original/path"');

@@ -120,9 +120,11 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     props.onFile?.();
 
-    setText("");
+    if (records().at(-1)?.revision === revision.revision) {
+      setText("");
 
-    if (!keepOpen) close();
+      if (!keepOpen) close();
+    }
 
     void (async () => {
       let made = false;

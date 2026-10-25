@@ -49,15 +49,22 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
+  const memory = new Map<string, v.InferOutput<typeof frameSchema>>();
+
   const save = () => {
     const at = path();
 
-    if (at !== null) storageOf(at).write({ open: open(), tab: tab(), maximised: maximised() });
+    if (at !== null) {
+      const value = { open: open(), tab: tab(), maximised: maximised() };
+
+      memory.set(at, value);
+      void storageOf(at).write(value);
+    }
   };
 
   createComputed(
     on(path, (at) => {
-      const stored = at === null ? null : storageOf(at).read();
+      const stored = at === null ? null : memory.get(at) ?? storageOf(at).read();
       const restored = stored?.open ?? true;
 
       setMaximised(stored?.maximised ?? false);

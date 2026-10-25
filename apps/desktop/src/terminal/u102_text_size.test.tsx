@@ -172,5 +172,5 @@ it("u102_storage_failure_keeps_size_and_shows_the_error", async () => {
   press(target, "=");
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
-  expect(screen.getByText("storage full").closest(".pane-failure")).not.toBeNull();
+  expect((await screen.findByText("storage full")).closest(".pane-failure")).not.toBeNull();
 });

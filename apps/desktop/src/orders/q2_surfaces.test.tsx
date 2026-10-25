@@ -108,6 +108,7 @@ describe("U2773 Order forms on real Projects", () => {
       ask.focus();
       ask.setSelectionRange(2, 8, "backward");
       fireEvent.select(ask);
+      await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${paths[index]}`)!).drafts.at(-1)).toMatchObject({ value: { ask: values[index] }, selection: { start: 2, end: 8, direction: "backward" } }));
     }
 
     cleanup();
@@ -298,7 +299,7 @@ describe("U2773 Order forms on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
     await questionDialog();
     await answerQuestion(true);
-    await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
+    await waitFor(() => { if (screen.queryByRole("tab", { name: "first" })) throw new Error("Closed Project remains open"); });
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "first" });
     const restored = await open(original.id);
@@ -307,7 +308,7 @@ describe("U2773 Order forms on real Projects", () => {
     calls.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn" || method === "terminal.write")).toEqual([]);
-    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     vi.restoreAllMocks();
   }, 90_000);
 

@@ -229,7 +229,7 @@ it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelat
   }
 
   if (action === "delete") {
-    await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+    await waitFor(() => expect(m.connected.drawer.content() === null).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
     await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
     await openDrawerOf(2);
@@ -331,7 +331,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     }
 
     if (action === "delete") {
-      await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+      await waitFor(() => expect(m.connected.drawer.content() === null).toBe(true));
       m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
       await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
       await openDrawerOf(2);
@@ -424,6 +424,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(field, { target: { value: exactDraft } });
   fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(m.connected.drafts.problem()).not.toBeNull());
   const retained = m.connected.drafts.list();
   const problem = m.connected.drafts.problem();
   m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard unavailable; retry"));
@@ -439,7 +440,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   } else {
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
     await questionDialog(); await answerQuestion(true);
-    await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+    await waitFor(() => expect(m.connected.drawer.content() === null).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
   }
 

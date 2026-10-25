@@ -187,6 +187,7 @@ export const ProjectTab = (props: {
         if (saved !== null) {
           const submitted = revision;
           const failure = copyFailure();
+          const expected = base;
 
           if (submitted && !(await drafts?.submit(submitted))) {
             recover(true);
@@ -194,7 +195,7 @@ export const ProjectTab = (props: {
             return;
           }
 
-          void props.onRename(saved, base).then(outcome => {
+          void props.onRename(saved, expected).then(outcome => {
             if (submitted) drafts?.settle(submitted, outcome.status);
 
             if (outcome.status === "acknowledged" && copyFailure() === failure) failCopy(null);

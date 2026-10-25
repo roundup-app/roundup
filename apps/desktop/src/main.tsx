@@ -1,3 +1,5 @@
+import { storageCopy } from "./state/copy";
+import { ReservedLine } from "./ink/ReservedLine";
 import { initializeStorage } from "./state/storage";
 import { createResource, createRoot, Show } from "solid-js";
 import { render } from "solid-js/web";
@@ -45,8 +47,8 @@ const app = keystrokes?.traced(tauri) ?? tauri;
 const RestoredApp = () => {
   const [result, { refetch }] = createResource(initializeStorage);
 
-  return <Show when={!result.loading} fallback={<div class="storage-failure" role="status">Restoring saved work…</div>}>
-    <Show when={result() === null} fallback={<div class="storage-failure" role="alert"><p>{result()}</p><button data-button="quiet" type="button" onClick={() => void refetch()}>Retry restoring saved work</button></div>}>
+  return <Show when={!result.loading} fallback={<div class="storage-failure"><ReservedLine status={storageCopy.restoring} /></div>}>
+    <Show when={result() === null} fallback={<div class="storage-failure"><ReservedLine message={result()}><button data-button="quiet" type="button" onClick={() => void refetch()}>{storageCopy.restoreRetry}</button></ReservedLine></div>}>
       <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />
     </Show>
   </Show>;

@@ -149,7 +149,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
   if (action === "dismiss" || action === "retention") {
     if (action === "retention") {
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-      store.retry();
+      await store.retry();
       expect(screen.getAllByRole("alert")).toHaveLength(2);
     }
 
@@ -179,7 +179,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
   else if (action !== "failed") expect(store.list()).toEqual(retained);
   else expect(store.list().find(draft => draft.revision === original.revision)).toEqual({ ...original, status: "failed" });
 
-  if (action === "retention") expect(screen.getByRole("alert").textContent).toContain("reload");
+  if (action === "retention") expect(store.problem()).toMatchObject({ operation: "retain", cause: "write" });
   expect(clipboard.mock.calls[0]).toEqual(["  original é\n雪  \nexact excerpt"]);
 });
 

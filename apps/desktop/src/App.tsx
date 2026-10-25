@@ -1,3 +1,5 @@
+import { storageCopy } from "./state/copy";
+import { Tip } from "./ui/Tip";
 import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
@@ -446,10 +448,9 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
-          <For each={storageProblems()}>{problem => <div class="storage-failure" role="alert">
-            <p>Could not retain saved work · {problem.key}: {problem.cause}</p>
-            <button data-button="quiet" type="button" onClick={() => void problem.retry()}>Retry saving</button>
-          </div>}</For>
+          <For each={storageProblems()}>{problem => <div class="storage-failure"><ReservedLine status={storageCopy.failure(problem.cause)} content={<Tip content={storageCopy.failure(problem.cause)}>{trigger => <span {...trigger()} tabIndex={0}>{storageCopy.failure(problem.cause)}</span>}</Tip>}>
+            <button data-button="quiet" type="button" onClick={() => void problem.retry()}>{storageCopy.saveRetry}</button>
+          </ReservedLine></div>}</For>
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>

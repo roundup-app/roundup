@@ -10,6 +10,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { OrderDrawer } from "./OrderDrawer";
 import { agent, clarifying, door } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
+import { draftStorage } from "../state/storage";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -270,23 +271,24 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Title"), { target: { value: "  unsaved title 👋  " } });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
-  expect(screen.getByRole("alert").textContent).toContain("reload");
+  await screen.findByRole("alert");
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
   storage.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
     .toEqual(["  unsaved title 👋  ", "  unsaved ask\n", "  unsaved done é  "]);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "discard me" } });
+  await screen.findByRole("button", { name: "Discard this revision" });
   vi.restoreAllMocks();
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(document.querySelector(".order-edit")).toBeNull();
-  expect(await recoveryLabel()).toBeNull();
+  await waitFor(async () => expect(await recoveryLabel()).toBeNull());
   expect(sends).toEqual([]);
 });
 
@@ -446,6 +448,7 @@ it("u3021c_orders_selected_discard_preserves_other_revisions_durably", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
   expect(connected.drafts.list()).toEqual([b]);
   expect(app.calls).toEqual(calls);
+  await waitFor(() => expect(draftStorage(connected.project.path).list()).toEqual([b]));
   const reloaded = await connectProject(app, connected.project, () => true, () => 0);
   expect(reloaded.drafts.list()).toEqual([b]);
 });

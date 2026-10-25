@@ -26,7 +26,9 @@
   overflow-wrap: anywhere;
 }
 
-.storage-failure p {
-  margin: 0;
-  min-inline-size: 0;
+.storage-failure .reserved-status > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

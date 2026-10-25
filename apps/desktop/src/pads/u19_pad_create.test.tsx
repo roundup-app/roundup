@@ -115,6 +115,7 @@ it("u2773a_pads_creation_restores_exact_work", async () => {
   fireEvent.select(field);
   expect(connected.drafts.list().at(-1)?.value).toEqual({ name: "  exact é 🪁  ", home: AGENT.id });
   fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).selection).toMatchObject({ start: 2, end: 7, direction: "backward" }));
   cleanup();
   const restored = await openShelf([], false, true);
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
@@ -140,7 +141,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     fireEvent.input(field, { target: { value: "  recoverable é 🪁  " } });
     const clipboard = vi.fn(async () => {});
     vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-    fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy name" }));
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
     fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
@@ -148,7 +149,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(field.value).toBe("");
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-    expect(connected.drafts.problem()).toBeNull();
+    await waitFor(() => expect(connected.drafts.problem()).toBeNull());
     expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts).toEqual([older]);
     expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
   } finally {
