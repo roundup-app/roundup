@@ -56,7 +56,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
 | `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
-| `--scrollbar-width` | `6px` | same | OverlayScrollbars thumb width |
+| `--scrollbar-thumb-width` | `6px` | same | OverlayScrollbars thumb width |
 | `--window-header-height` / `--drawer-min-width` | `38px` / `560px` | same | existing header and Drawer geometry |
 | `--rail-menu-min-width` / `--rail-menu-max-width` | `132px` / `252px` | same | Rail context menu limits |
 | `--ask-width` / `--ask-menu-width` | `640px` / `320px` | same | Ask field and its picker |
