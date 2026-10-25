@@ -52,6 +52,11 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let mut historical = migrations();
     historical.pop();
     apply(&mut db, historical).unwrap();
+    let version = |d: &Connection| {
+        d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap()
+    };
+    let version_before = version(&db);
     let before = dump(&db);
     use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
     db.authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
@@ -66,12 +71,9 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
         .unwrap();
     assert_eq!(dump(&db), before);
+    assert_eq!(version(&db), version_before);
     apply(&mut db, migrations()).unwrap();
     let fresh = Connection::open(a.path().join("project.db")).unwrap();
-    let version = |d: &Connection| {
-        d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
-            .unwrap()
-    };
     assert_eq!(version(&fresh), version(&db));
     assert_eq!(dump(&fresh), dump(&db));
     let id = |dir: &Path, table: &str| -> String {
