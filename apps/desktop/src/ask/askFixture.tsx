@@ -40,6 +40,8 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   const { factory } = fakeEmulators();
   const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
 
+  connected.showView("workstreams");
+
   if (selected === null) {
     connected.showView("ask-history");
     connected.showView("made");

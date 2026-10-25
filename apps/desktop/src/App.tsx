@@ -309,6 +309,9 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
+  const navigationRequested = () => connectionOf(projects.active() ?? "")?.hasView("workstreams")
+    || connections().get(projects.active() ?? "") instanceof Error;
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -319,7 +322,7 @@ export const App = (props: {
         base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
-        ...attentionCounts(connectionOf(tab.project.path)?.hasView("workstreams") && tab.project.path === projects.active() ? [] : nodes),
+        ...attentionCounts(nodes),
         unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
@@ -369,8 +372,8 @@ export const App = (props: {
   onCleanup(() => document.removeEventListener("focusin", recordFocus));
 
   const views = [
-    ["workstreams", "Workstreams"], ["ask-history", "Ask history"], ["resources", "Resources"],
-    ["terminal-tabs", "Terminal tabs"], ["reactions", "Named reactions"], ["made", "Made"], ["notes", copy.recoverNotes],
+    ["workstreams", copy.workstreams], ["ask-history", copy.askHistory], ["resources", copy.resources],
+    ["terminal-tabs", copy.terminalTabs], ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
   const taskKeys = new Set(["⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C"]);
@@ -479,7 +482,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        railOpen={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false}
+        railOpen={navigationRequested()}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
@@ -488,7 +491,7 @@ export const App = (props: {
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <IconButton aria-label={`${tab.name}: ${MARKS[markOf(tab)!].label}`} onClick={() => jumpTo(tab.path)}><KindGlyph kind={markOf(tab)!} decorative /></IconButton>}</For>
+            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <IconButton aria-label={copy.projectMark(tab.name, MARKS[markOf(tab)!].label)} onClick={() => jumpTo(tab.path)}><KindGlyph kind={markOf(tab)!} decorative /></IconButton>}</For>
           </WindowBar>
         }
         rail={
@@ -498,12 +501,7 @@ export const App = (props: {
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-              <InProject open={activeConnection()}>
-                {() => (
-                  <>
-                    <Keys />
-                    <AttentionKey />
-                    <Strip requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false}
+                    <Strip requested={navigationRequested()}
                       tabs={stripTabs()}
                       active={projects.active()}
                       onSelect={projects.select}
@@ -514,6 +512,11 @@ export const App = (props: {
                       app={props.app}
                     />
 
+              <InProject open={activeConnection()}>
+                {() => (
+                  <>
+                    <Keys />
+                    <AttentionKey />
                     <Rail requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false} />
                   </>
                 )}

@@ -127,6 +127,11 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  askHistory: "Ask history",
+  resources: "Resources",
+  terminalTabs: "Terminal tabs",
+  changesStale: "Changes are stale",
+  projectMark: (name: string, mark: string) => `${name}: ${mark}`,
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   backToAsk: "Back to Ask",

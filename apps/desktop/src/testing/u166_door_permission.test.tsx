@@ -75,7 +75,7 @@ const settle = async (prompt: string) => {
   // The Door's native prompt waits in its own Terminal: no roundup form appears, and selecting the row leaves the other Workstream as it was.
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   fireEvent.click(rail.querySelector<HTMLElement>(`[data-id="${first?.id}"] .name`)!);
-  await waitFor(() => expect(rail.querySelector("[data-selected=true]")?.getAttribute("data-id")).toBe(first?.id));
+  await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(first?.id));
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   expect((await workstreams()).find((room) => room.id === second?.id)?.status?.kind).toBe(otherBefore);
   expect(await messages()).toContainEqual([prompt, "delivered"]);

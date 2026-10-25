@@ -26,7 +26,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
     daemon.handlers["terminal.list"] = () => [];
   }
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("workstreams")} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { open.showView("workstreams"); open.showView("terminal-tabs"); }} />);
 
   return { app, view };
 };
@@ -36,6 +36,8 @@ export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = 
   const opened = renderTabs(trees, keepStorage);
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
+
+  await (await import("../rail/railFixture")).settled();
 
   return opened;
 };

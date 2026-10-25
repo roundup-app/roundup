@@ -46,7 +46,7 @@ export function shelfBrowser() {
   const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light") => {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
-    const url = `${rig.server.resolvedUrls.local[0]}harness.html?seed=${seed}`;
+    const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`;
     await browser("open", url);
     await browser("wait", ".window");
     await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
