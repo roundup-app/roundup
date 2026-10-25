@@ -288,7 +288,10 @@ it("u3311_real_daemon_delegate_board", async () => {
     await key("3", "Digit3");
     await observe(made[5]!.id, agents[2]!.id);
     await focus(made[6]!.id);
-    await key("o"); await key("ArrowDown"); await key("Enter");
+    await lane.browser("press", "o");
+    await lane.until("!!document.querySelector('[role=menu]')");
+    await lane.browser("press", "ArrowDown");
+    await lane.browser("press", "Enter");
     await observe(made[6]!.id, agents[0]!.id);
 
     await lane.browser("focus", '[role="switch"]');
