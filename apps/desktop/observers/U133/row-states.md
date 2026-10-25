@@ -62,3 +62,26 @@ The paired observations above and the final focused run completed separately.
 shared inset/baseline, strict lint and all existing repairs, palette/system
 accent, native material/fallback and Mac/performance observations. This slice
 makes no native rendering or launch-performance claim.
+
+## Current main integration
+
+Clean merge `26138c1879fe584344992afd39b53b2254f010c9` includes main
+`02bd2825b`; no authored row stylesheet changes in that merge. Fresh isolated
+headless Chromium captures in the dedicated `fix4005` session are dark,
+1512×950, device scale 1. Every existing Check passes on all five named seeds.
+Readings and uncommitted images are under `artifacts/ux/U133/completion/`.
+
+Select agent-3, then click agent-1's Pads disclosure: agent-1 has no background
+image or focus-visible state; only agent-3 retains the wash. Keyboard focus on
+error Agent agent-7 retains its red name (`rgb(255, 107, 107)`) and one wash.
+The pointer and keyboard readings record these states.
+
+The broad capture run on the superseded head was interrupted when the remote
+branch advanced; no complete suite pass is claimed.
+
+Both required lints and all 64 focused tests pass on this integration, with
+one worker and retries disabled. The fresh drag recording decodes at 1512×950
+with six frames after installing ffmpeg.
+
+The dense seed's failed completion visibly reads “Completion refused. Retry
+after reconnecting.” Every existing Check passes in that capture.
