@@ -14,8 +14,8 @@ const cache = new Map<string, unknown>();
 const save = vi.fn(async () => {
   for (const [key, value] of cache) {
     // Native JSON object ordering need not match the renderer's insertion order.
-    disk.set(key, typeof value === "object" && value !== null && "value" in value && "version" in value
-      ? { value: structuredClone(value.value), version: value.version } : structuredClone(value));
+    const record = v.safeParse(v.strictObject({ version: v.literal(1), value: v.unknown() }), value);
+    disk.set(key, record.success ? { value: structuredClone(record.output.value), version: 1 } : structuredClone(value));
   }
 });
 
