@@ -3,20 +3,45 @@ import { copy as shared } from "../sharedCopy";
 
 import type { CopyValue } from "../sharedCopy";
 
-const importExcludedReasons: [string[], string][] = [
-  [["already in this project"], "It was already imported."],
-  [["ambiguous project membership"], "It uses several directories in this Project."],
-  [["no recorded working directory", "too many recorded directories", "recorded folder no longer exists"], "Its directory is no longer there."],
-  [["inside a worktree"], "It is in a Worktree."],
-  [["duplicate source identity"], "It is already listed."],
-  [["activity unknown or in the future", "no complete records"], "No usable time was recorded."],
-];
+const importExcludedReasons = new Map<string, string>([
+  ["alreadyImported", "Already imported"],
+  ["ambiguousProject", "Used more than one folder of this Project"],
+  ["missingDirectory", "Its folder is no longer there"],
+  ["insideWorktree", "Lives in a Worktree"],
+  ["duplicateSource", "Already listed once"],
+  ["unknownActivity", "No usable time"],
+  ["noDirectory", "No working folder was recorded"],
+  ["tooManyDirectories", "Too many working folders were recorded"],
+  ["noCompleteRecords", "No complete conversation records"],
+  ["unsupportedSource", "Saved conversation filename is not a UUID"],
+  ["previewLimit", "Conversation exceeds the preview size limit"],
+  ["recordLimit", "A conversation record exceeds the size limit"],
+  ["snapshotLimit", "Conversation exceeds the import size limit"],
+  ["malformedRecord", "Conversation records could not be read"],
+  ["subagentRecord", "Belongs to another conversation"],
+  ["foreignIdentity", "Saved identity does not match this conversation"],
+  ["metadataLimit", "Conversation details exceed the size limit"],
+  ["incompleteMetadata", "Conversation details could not be fully read"],
+  ["sdkUnreadable", "The conversation reader could not open it"],
+  ["recordsMissing", "Saved conversation records are missing"],
+  ["insideRoundup", "Lives in roundup's own folder"],
+  ["liveWithoutRecords", "Running conversation has no saved records yet"],
+]);
 
-const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.endsWith(`: ${fixed}`);
+const importRefusals = new Map<number, string>([
+  [-32700, "The import request could not be read."],
+  [-32601, "This version cannot import conversations."],
+  [-32602, "The import choices were not accepted."],
+  [-32001, "The conversation is no longer available."],
+  [-32002, "Import is not allowed here."],
+  [-32003, "The saved conversation changed or no longer matches this preview."],
+  [-32005, "The conversation is busy."],
+  [-32007, "The conversation is no longer running."],
+  [-32009, "The import preview is out of date."],
+  [-32010, "The conversation inbox is unavailable."],
+]);
 
 export const copy = {
-  /** @prose */
-  importRowFix: "Choose it again, or Refresh.",
   retryStorage: shared.retryStorage,
 
   copyDraftFailure: shared.copyDraftFailure,
@@ -48,15 +73,11 @@ export const copy = {
   /** @prose */
   importRestored: (count: number) => `${count} were chosen earlier. Refresh to check they are unchanged.`,
   importNotImportable: (count: number) => `${count} not importable`,
-  /** @prose */
-  importExcludedReason: (reason: string) => {
-    const r = reason.toLowerCase();
-    const found = r.startsWith("missing directory ") ? importExcludedReasons[2] : importExcludedReasons.find(([fixed]) => fixed.some((f) => reasonIs(r, f)));
-
-    return found ? found[1] : "This conversation could not be read. Choose another one.";
-  },
+  importExcludedReason: (cause: string) => `${importExcludedReasons.get(cause) ?? "Can't be read as a conversation"}.${["missingDirectory", "noCompleteRecords", "incompleteMetadata", "sdkUnreadable", "recordsMissing", "liveWithoutRecords", "unknown"].includes(cause) ? " Refresh to check again." : ""}`,
   importAge: (minutes: number) => minutes < 1440 ? shared.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
-  /** @prose */
-  importRowRefusal: (reason: string) => /retry|refresh|choose/i.test(reason) ? reason : `${reason} ${copy.importRowFix}`,
+  importUnconfirmed: "Import completion is unconfirmed. Keep your choices; Refresh to check before importing again.",
+  importRowRefusal: (failure: { code: number; outcome: string }) => failure.outcome === "failed" && importRefusals.has(failure.code)
+    ? `${importRefusals.get(failure.code)} ${[-32001, -32007, -32003, -32009].includes(failure.code) ? "Refresh to check available conversations." : "Choose it again, or Refresh."}`
+    : null,
   importLocation: (cwd: string, project: string) => cwd === "" ? project : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? project,
 } as const;

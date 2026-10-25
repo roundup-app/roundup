@@ -20,7 +20,7 @@ const found = (revision = "r1"): ImportDiscovery => ({
     { source: "s1", title: "First", cwd: "", last_activity_ms: 2n, revision },
     { source: "s2", title: "Second", cwd: "src", last_activity_ms: 1n, revision: "r2" },
   ],
-  excluded: [{ source: "s3", reason: "already in this Project", title: "third", last_activity_ms: 3n }],
+  excluded: [{ source: "s3", cause: "alreadyImported", reason: "already in this Project", title: "third", last_activity_ms: 3n }],
 });
 
 const calls = (app: Awaited<ReturnType<typeof mountRail>>["app"], method: string) => app.calls.filter((call) => call.method === method);
@@ -29,7 +29,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
   it("u2875d_keyboard_pointer_and_recovery", async () => {
     const { app } = await mountRail([workstream("w1")]);
     let discovered = found();
-    let commit: () => ImportResult = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: "disk full" }] });
+    let commit: () => ImportResult = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
     app.handlers["project.importDiscover"] = () => discovered;
     app.handlers["project.importCommit"] = () => commit();
 
@@ -39,7 +39,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(screen.getByText("First"));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import work" })));
     fireEvent.keyDown(screen.getByRole("region", { name: "Import work" }), { key: "Escape", code: "Escape", keyCode: 27 });
-    await waitFor(() => expect(screen.queryByText("First")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
     // A rejected call keeps the selection and the page.
@@ -50,12 +50,12 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
     await screen.findByText("daemon refused");
-    expect(screen.getByRole("button", { name: "Import 2" })).toBeTruthy();
+    expect(screen.getAllByRole("checkbox").filter(box => box instanceof HTMLInputElement && box.checked)).toHaveLength(2);
 
     // Partial failure: the success leaves the selection, the failure stays for retry, and each call names its sources.
-    commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: "disk full" }] });
+    commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
-    await screen.findByText(/disk full/);
+    await screen.findByText(/The saved conversation changed/);
     expect(calls(app, "project.importCommit").map((call) => call.params)).toEqual([
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
@@ -71,7 +71,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
     expect(calls(app, "project.importCommit")[2]!.params).toEqual({ selections: [{ source: "s2", revision: "r2" }] });
     release({ outcomes: [{ source: "s2", workstream: "w1", agent: "a2", error: null }] });
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Import work" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
@@ -516,4 +516,28 @@ it("u3037d_timeout_keeps_selection_until_refresh_verifies_it", async () => {
     expect(state.selected().get("s1")?.revision).toBe("r1");
     expect(app.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(0);
   } finally { vi.useRealTimers(); }
+});
+
+it("u3791b_copy_depends_on_codes_not_messages_import_outcomes_keep_revisions", async () => {
+  const app = createFakeApp();
+  const drafts = draftStorage("/typed-import");
+  app.handlers["project.importDiscover"] = () => found();
+  app.handlers["project.importCommit"] = () => ({ outcomes: [
+    { source: "s1", workstream: "w1", agent: "a1", error: null },
+    { source: "s2", workstream: null, agent: null, error: { code: -32603, message: "Refresh now", outcome: "unknown" } },
+  ] });
+  const state = createImport(app, "/typed-import", () => {}, drafts);
+  state.show();
+  await waitFor(() => expect(state.verified()).toBe(true));
+  state.choose("s1", "First", "r1", true);
+  state.choose("s2", "Second", "r2", true);
+  app.handlers["project.importDiscover"] = () => found("changed");
+  await state.confirm();
+  expect(state.verified()).toBe(false);
+  expect([...state.selected()]).toEqual([["s2", { title: "Second", revision: "r2" }]]);
+  const retained = drafts.list().find(entry => entry.status === "unknown");
+  expect(retained?.destination.object).toBe("/typed-import");
+  expect(retained?.value).toMatchObject({ sources: ["s1", "s2"], revisions: ["r1", "r2"] });
+  expect(state.failed().get("s2")).toEqual({ code: -32603, message: "Refresh now", outcome: "unknown" });
+  expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(1);
 });
