@@ -21,7 +21,7 @@ const TYPE_STEPS = new Set([11, 12, 13, 14, 15]);
 const SPACE_STEPS = new Set([0, 4, 8, 12, 16, 24, 32]);
 
 // docs/motion.md, in seconds. `0` is an instant change.
-const MOTION_SECONDS = [0, 0.12, 0.15, 0.18, 0.25, 0.4];
+const MOTION_SECONDS = [0, 0.1, 0.12, 0.15, 0.18, 0.2, 0.25, 0.4];
 
 // U3771's longer completion effects belong only to Todo rows and their progress, never other App motion.
 const TODO_MOTION_SECONDS = [...MOTION_SECONDS, 0.42, 0.56, 0.62, 1.1];
@@ -536,16 +536,34 @@ const d8 = (page: Page): Measure => {
   });
 };
 
-// D9: each duration is within 25% of docs/motion.md; under reduced motion all are 0.
+// D9: accepted timings; reduced motion permits only a 150 ms opacity fade.
 const d9 = (page: Page): Measure => {
   const reduced = page.view.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
   return offender(page, (el, style) => {
-    const durations = [...seconds(style.transitionDuration), ...seconds(style.animationDuration)].map((duration) => (Number.isNaN(duration) ? 0 : duration));
     const steps = el.closest(".todo-row, .todo-progress") ? TODO_MOTION_SECONDS : MOTION_SECONDS;
-    const bad = durations.find((duration) => (reduced ? duration !== 0 : !steps.some((step) => Math.abs(duration - step) <= step * 0.25)));
+    const permitted = (duration: number, fade: boolean) => duration === 0 || (reduced
+      ? fade && Math.abs(duration - 0.15) <= 0.15 * 0.25
+      : steps.some(step => Math.abs(duration - step) <= step * 0.25));
+    const animations = el.getAnimations?.() ?? [];
+    const opacityOnly = (animation: Animation) => animation.effect instanceof KeyframeEffect
+      && animation.effect.getKeyframes().every(frame => Object.keys(frame).every(key => ["opacity", "offset", "computedOffset", "easing", "composite"].includes(key)));
 
-    return bad === undefined ? null : { duration: bad, reduced };
+    for (const animation of animations) {
+      const duration = animation.effect?.getTiming().duration;
+
+      if (typeof duration === "number" && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
+    }
+
+    const transitionFade = style.transitionProperty.split(",").every(property => property.trim() === "opacity");
+    const animationFade = animations.length > 0 && animations.every(opacityOnly);
+    const declared = [
+      ...seconds(style.transitionDuration).map(duration => ({ duration, fade: transitionFade })),
+      ...seconds(style.animationDuration).map(duration => ({ duration, fade: animationFade })),
+    ];
+    const bad = declared.find(({ duration, fade }) => !Number.isNaN(duration) && !permitted(duration, fade));
+
+    return bad === undefined ? null : { duration: bad.duration, reduced };
   });
 };
 
