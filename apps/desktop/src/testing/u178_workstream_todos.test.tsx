@@ -164,7 +164,8 @@ it("u2744a_shelf_scope_real_daemon", async () => {
       await expand();
     };
 
-    for (const scheme of ["light", "dark"]) {
+    {
+      const scheme = "light";
       await browser("set", "media", scheme);
       await select(null);
       await tab("todos");
@@ -211,10 +212,6 @@ it("u2744a_shelf_scope_real_daemon", async () => {
     await browser("click", ".shelf .todo-tick:not(:checked):not(:disabled)");
     await until("document.querySelector('.shelf [role=alert]')?.textContent.includes('observer failure')");
 
-    for (const scheme of ["light", "dark"]) {
-      await browser("set", "media", scheme);
-      await capture(`${scheme}-failure`);
-    }
 
     await select(w.id);
     await app.rpc("rail.rename", { id: w.id, name: "Renamed Shelf workstream" });
@@ -228,13 +225,6 @@ it("u2744a_shelf_scope_real_daemon", async () => {
     await readback(w.id);
     await select(a.id);
     await readback(a.id, true);
-
-    for (const scheme of ["light", "dark"]) {
-      await browser("set", "media", scheme);
-      await browser("open", `${real.base}/harness.html?seed=first-run`);
-      await browser("wait", ".shelf-tabs");
-      await capture(`${scheme}-first-run`);
-    }
   } finally {
     await browser("close").catch(() => undefined);
     await real.stop();

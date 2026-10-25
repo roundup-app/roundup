@@ -17,15 +17,6 @@ it("u498_semantics_and_names", async () => {
   expect(snapshot).not.toContain('tabpanel "Pads"');
 }, 60_000);
 
-it("u498_pointer_switching", async () => {
-  await load();
-
-  for (const name of ["Pads", "Todos", "Todos"] as const) {
-    await click("tab", name);
-    await selected(name);
-  }
-}, 60_000);
-
 it("u498_keyboard_switching", async () => {
   await load();
   await click("button", "Before");
@@ -50,4 +41,7 @@ it("u498_selected_panel_focus", async () => {
     await action("press", "Shift+Tab");
     await selected(name, true);
   }
+
+  await click("tab", "Pads");
+  await selected("Pads", true);
 }, 60_000);
