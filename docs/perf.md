@@ -138,6 +138,8 @@ method without a measured mapping or non-empty reason fails live coverage.
   "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
   "checkpoint.write": "Checkpoint persistence and inspection are absent from the fixed perf workload.", "checkpoint.list": "Checkpoint persistence and inspection are absent from the fixed perf workload.",
   "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
+  "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
+  "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",
   "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "workstream.clear": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.rewindPlan": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
   "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.handoff": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
