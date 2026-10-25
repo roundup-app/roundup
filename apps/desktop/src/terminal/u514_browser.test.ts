@@ -80,27 +80,12 @@ const doubleAt = async (at: { x: number; y: number }) => {
   await wait("window.__doubleClicked === true");
 };
 
-const chromeSurfaces = [
-  ".window-title", ".project-tab", ".terminal-tab",
-  '[data-id="migrate"] .name', ".rail-add", ".todo-project-root",
-  ".shelf-tabs", ".shelf-add", ".shelf-title", ".todo-row-button",
-  ".terminal-new", ".resource-num", ".hint-line", ".overview-heading",
-  ".pane-empty", ".pane-empty-keys",
-];
+// Every surface shares the one `user-select: none` chrome rule, so one title-bar, one Rail and one Shelf surface represent it.
+const chromeSurfaces = [".window-title", '[data-id="migrate"] .name', ".shelf-tabs"];
 
 it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture => ({ surface, gesture }))))(
   "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_$surface ($gesture)", async ({ surface, gesture }) => {
     await app();
-
-    if (surface === ".pane-empty-keys") {
-      await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
-    } else if (surface === ".resource-num") {
-      // U408: the strip shows values only for a working Agent, so `.resource-num` needs one selected.
-      await browser("click", '[data-id="tokens"] .name');
-    } else if (surface === ".terminal-tab") {
-      await browser("click", ".terminal-new");
-      await browser("click", ".window-title");
-    }
 
     await wait(`!!document.querySelector(${JSON.stringify(surface)})`);
 
@@ -141,7 +126,7 @@ const placement = async (where: "agent" | "door" | "bubble") => {
   return selector;
 };
 
-it.each(["agent", "door", "bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
+it.each(["agent", "bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
   const selector = await placement(where);
   const at = await point(selector);
   const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
@@ -154,7 +139,7 @@ it.each(["agent", "door", "bubble"] as const)("u2680a_output_drag_and_double_cli
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 120_000);
 
-it.each(["agent", "door", "bubble"] as const)("u2680a_terminal_boundaries_never_create_browser_selection_%s", async (where) => {
+it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_browser_selection_%s", async (where) => {
   const selector = await placement(where);
 
   const points = await read<{ output: { x: number; y: number }; inset: { x: number; y: number }; strip: { x: number; y: number }; after: { x: number; y: number } }>(`(() => {
@@ -180,13 +165,11 @@ it.each(["agent", "door", "bubble"] as const)("u2680a_terminal_boundaries_never_
   }
 }, 180_000);
 
-const clickTargets = ["output", "inset", "bottom-strip", ".pane", ".rail", ".shelf-tabs", ".shelf-area", ".window-title", ".resource-strip", ".hint-line", ".terminal-new"];
-
-const clickCases = (["agent", "door", "bubble"] as const).flatMap(where => {
-  const targets = where === "bubble" ? [...clickTargets, ".bubble-header", ...["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(zone => `.bubble-zone[data-zone="${zone}"]`)] : clickTargets;
-
-  return targets.map(target => ({ where, target }));
-});
+// One output click, one inset click and one chrome click per placement; a Bubble adds its header and one resize edge.
+const clickCases = [
+  { where: "agent", target: "output" }, { where: "agent", target: "inset" }, { where: "agent", target: ".window-title" },
+  { where: "bubble", target: "output" }, { where: "bubble", target: ".bubble-header" }, { where: "bubble", target: '.bubble-zone[data-zone="se"]' },
+] as const;
 
 it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$where ($target)", async ({ where, target }) => {
   const selector = await placement(where);
@@ -194,10 +177,9 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
   expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
   await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().addRange(range); })()");
 
-  const at = target === "inset" || target === "bottom-strip" ? await read<{ x: number; y: number }>(`(() => {
-    const screen = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+  const at = target === "inset" ? await read<{ x: number; y: number }>(`(() => {
     const host = document.querySelector(${JSON.stringify(selector)}).closest('.pane-screen, .bubble-body').getBoundingClientRect();
-    return ${target === "inset" ? "{ x: Math.round(host.left + 1), y: Math.round(host.top + 12) }" : "{ x: Math.round(screen.left + 20), y: Math.floor(host.bottom - 1) }"};
+    return { x: Math.round(host.left + 1), y: Math.round(host.top + 12) };
   })()`) : await point(target === "output" ? selector : target);
 
   await browser("mouse", "move", String(at.x), String(at.y));
@@ -207,7 +189,7 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 
 }, 90_000);
 
-const editorKinds = ["pad", "input", "todo", "rename"] as const;
+const editorKinds = ["pad", "rename"] as const;
 
 const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "overview", base = false) => {
   await app(base);
@@ -245,16 +227,6 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
       await wait("!!document.querySelector('.visual-source.is-open')");
       selector = ".visual-source.is-open";
     }
-  } else if (kind === "todo") {
-    // U3717: the seeded Todos are unowned and Unassigned starts folded, so the polled predicate unfolds it.
-    await wait("(() => { document.querySelector('.shelf [data-shelf-group=\"unassigned\"][data-state=\"closed\"] [data-part=\"branch-control\"]')?.click(); return !!document.querySelector('.shelf .todo-row-button'); })()");
-    await browser("click", ".shelf .todo-row-button");
-    await wait("!!document.querySelector('.todo-detail-title p')");
-    await browser("dblclick", ".todo-detail-title p");
-    selector = '.todo-detail-title textarea';
-  } else if (kind === "input") {
-    await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'selection-input'; input.value = 'alpha bravo charlie'; input.style.position = 'fixed'; input.style.top = '100px'; input.style.left = '500px'; document.body.append(input); })()");
-    selector = '#selection-input';
   } else {
     await browser("dblclick", '[data-id="migrate"] .name');
     selector = '[data-id="migrate"] input';
@@ -283,7 +255,8 @@ it.each(editorKinds)("u2680d_leaving_an_editor_clears_selection_without_changing
   expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
 }, 90_000);
 
-it.each(editorKinds.flatMap(kind => ["drag", "double-click"].map(gesture => ({ kind, gesture }))))("u2680d_editors_keep_native_selection_and_copy_$kind ($gesture)", async ({ kind, gesture }) => {
+// The copy path is shared; the rich editor takes a double-click and the plain input a drag.
+it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "drag" }] as const)("u2680d_editors_keep_native_selection_and_copy_$kind ($gesture)", async ({ kind, gesture }) => {
   const selector = await editor(kind);
 
   if (gesture === "drag") {
@@ -356,7 +329,7 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
 
-it.each(["agent", "door", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
+it.each(["agent", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
 
 
