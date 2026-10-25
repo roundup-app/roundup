@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct Publications {
     db: std::sync::Mutex<Connection>,
     cache: PathBuf,
+    quota: i64,
 }
 
 impl Publications {
@@ -19,6 +20,7 @@ impl Publications {
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
+            quota: QUOTA,
         }
     }
 
@@ -62,6 +64,7 @@ impl Publications {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
             cache,
+            quota: QUOTA,
         })
     }
 }
@@ -155,7 +158,7 @@ impl Daemon {
                             return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
-                        bounded(&tx, &content, QUOTA)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
                             incarnation: source.pad.incarnation,
@@ -178,7 +181,7 @@ impl Daemon {
                         )?;
                         file_source =
                             Some(serde_json::to_string(&source).map_err(RpcError::internal)?);
-                        bounded(&tx, &content, QUOTA)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::File {
                             path,
                             length: content.len() as u64,
@@ -604,18 +607,64 @@ fn observe(stage: &str) -> Result<(), RpcError> {
 mod tests {
     use super::*;
     use serde_json::json;
-    #[test]
-    fn dv2_a_publication_that_would_pass_the_quota_is_refused_and_equality_fits() {
-        let db = Connection::open_in_memory().unwrap();
-        db.execute("CREATE TABLE deliverable_bytes (id TEXT, bytes BLOB)", [])
+    #[tokio::test]
+    async fn dv2_a_quota_refusal_leaves_the_listing_and_retained_bytes_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut daemon = crate::test_daemon(dir.path()).unwrap();
+        daemon.publications.quota = 25;
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = Conn {
+            actor: contracts::Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        async fn publish(
+            daemon: &Daemon,
+            conn: &mut Conn,
+            name: &str,
+            text: &str,
+        ) -> Result<Value, RpcError> {
+            let pad = daemon
+                .route(conn, "pad.create", json!({"name":name,"text":text}))
+                .await
+                .unwrap();
+            daemon.route(conn, "deliverable.publish", json!({"key":name,"title":name,"target":{"kind":"pad","name":name,"incarnation":pad["incarnation"],"revision":1}})).await
+        }
+        publish(&daemon, &mut conn, "a", "0123456789")
+            .await
             .unwrap();
-        db.execute(
-            "INSERT INTO deliverable_bytes VALUES ('a', zeroblob(10))",
-            [],
-        )
-        .unwrap();
-        assert!(bounded(&db, &[0; 10], 20).is_ok());
-        assert!(bounded(&db, &[0; 11], 20).is_err());
+        // Quota equality fits.
+        publish(&daemon, &mut conn, "b", "0123456789abcde")
+            .await
+            .unwrap();
+        let retained = |daemon: &Daemon| {
+            daemon
+                .publications
+                .db
+                .lock()
+                .unwrap()
+                .query_row(
+                    "SELECT count(*), sum(length(bytes)) FROM deliverable_bytes",
+                    [],
+                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+                )
+                .unwrap()
+        };
+        assert_eq!(retained(&daemon), (2, 25));
+        let before = daemon
+            .route(&mut conn, "deliverable.list", json!({}))
+            .await
+            .unwrap();
+        assert!(publish(&daemon, &mut conn, "c", "x").await.is_err());
+        assert_eq!(
+            daemon
+                .route(&mut conn, "deliverable.list", json!({}))
+                .await
+                .unwrap(),
+            before
+        );
+        assert_eq!(retained(&daemon), (2, 25));
     }
     #[tokio::test]
     async fn dv2_metadata_only() {
