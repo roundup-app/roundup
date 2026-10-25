@@ -420,8 +420,13 @@ async fn z3799a_release_wakes_a_contender_without_overlapping_git() {
             r#"#!/bin/sh
 root='{}'
 if [ ! -f "$root/enabled" ]; then exec '{}' "$@"; fi
+# The optional collector has independent admission; observe only plan/state commands.
+case "$1" in
+  rev-parse|symbolic-ref|show-ref|rev-list|--no-optional-locks) ;;
+  *) exec '{}' "$@" ;;
+esac
 if ! mkdir "$root/active" 2>/dev/null; then
-  touch "$root/overlap"
+  echo "$@" >> "$root/overlap"
   exit 1
 fi
 if [ "$1" = rev-parse ] && [ ! -f "$root/released" ]; then
@@ -435,6 +440,7 @@ rmdir "$root/active"
 exit "$result"
 "#,
             wrapper.path().display(),
+            executable.display(),
             executable.display(),
             executable.display(),
         ),
@@ -481,6 +487,10 @@ exit "$result"
     assert_eq!(result["ahead"], 0);
     assert_eq!(result["behind"], 0);
     assert!(parked.await.unwrap().is_ok());
-    assert!(!wrapper.path().join("overlap").exists());
+    assert!(
+        !wrapper.path().join("overlap").exists(),
+        "overlapping commands: {:?}",
+        std::fs::read_to_string(wrapper.path().join("overlap"))
+    );
     f.call("agent.stop", json!({"id": id})).await.unwrap();
 }
