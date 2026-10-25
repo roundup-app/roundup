@@ -41,15 +41,15 @@ impl Write for Writer {
 }
 
 struct Reader {
-    chunks: std::collections::VecDeque<Vec<u8>>,
+    chunks: std::collections::VecDeque<(u64, Vec<u8>)>,
     clock: Arc<AtomicU64>,
     observed: Option<tokio::sync::oneshot::Sender<()>>,
     end: mpsc::Receiver<()>,
 }
 impl Read for Reader {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        if let Some(chunk) = self.chunks.pop_front() {
-            self.clock.store(111, Ordering::SeqCst);
+        if let Some((at, chunk)) = self.chunks.pop_front() {
+            self.clock.store(at, Ordering::SeqCst);
             bytes[..chunk.len()].copy_from_slice(&chunk);
             return Ok(chunk.len());
         }
@@ -164,9 +164,10 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
     let (end, ending) = mpsc::channel();
     let reader = Reader {
         chunks: [
-            b"unrelated a".to_vec(),
-            bytes[..8].to_vec(),
-            bytes[8..].to_vec(),
+            (111, b"unrelated a".to_vec()),
+            (112, bytes[..8].to_vec()),
+            (113, bytes[8..bytes.len() - 1].to_vec()),
+            (117, bytes[bytes.len() - 1..].to_vec()),
         ]
         .into(),
         clock: time,
@@ -188,7 +189,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
     let serialized: Value = serde_json::from_str(&serde_json::to_string(&report).unwrap()).unwrap();
     assert_eq!(
         serialized["samples"],
-        json!([{"token":"\u{1b}]777;test-0\u{7}a", "received":102.0,"written":107.0,"read":111.0,"ambiguous":false}])
+        json!([{"token":"\u{1b}]777;test-0\u{7}a", "received":102.0,"written":107.0,"read":117.0,"ambiguous":false}])
     );
 }
 

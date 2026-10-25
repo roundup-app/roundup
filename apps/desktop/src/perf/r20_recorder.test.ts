@@ -77,7 +77,10 @@ it("r20_hop_report_accounts_for_the_echo_round_trip", async () => {
   await output(echo.subarray(0, 7));
   render();
   expect(recorder.probe.summary(0).n).toBe(0);
-  await output(echo.subarray(7));
+  await output(echo.subarray(7, -1));
+  render();
+  expect(recorder.probe.summary(0).n).toBe(0);
+  await output(echo.subarray(-1));
   at = 22;
   render();
 
