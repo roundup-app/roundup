@@ -1,5 +1,6 @@
 // C4: pre-migration type shapes from main 09f5f6611149162c403fe07adf8e757190fb2bf2; frozen independently of the exporter.
 // Todo restoration contracts and Event unions also include main c8c12a4a3 (U3787a).
+// Pad deletion receipts and restoration contracts include U3787a (#3918).
 
 export type Actor = { kind: ActorKind, id: string, parent: string | null, };
 
@@ -442,6 +443,14 @@ incarnation: string, name: string, owner: Actor, text: string, updated_at: numbe
 revision: number, 
 
 home: string | null, };
+
+export type pad_DeleteParams = { name: string, operation?: string, expectedIncarnation?: string, };
+
+export type pad_Deletion = { project: string, operation: string, pad: pad_Pad, restored: boolean, };
+
+export type pad_DeletionId = { project: string, operation: string, };
+
+export type pad_GetDeletionParams = { operation: string, };
 
 export type pad_PadName = { name: string, };
 
@@ -1030,6 +1039,10 @@ export type Before = {
   "pad/AppendParams": pad_AppendParams;
   "pad/AppendSectionParams": pad_AppendSectionParams;
   "pad/CreateParams": pad_CreateParams;
+  "pad/DeleteParams": pad_DeleteParams;
+  "pad/Deletion": pad_Deletion;
+  "pad/DeletionId": pad_DeletionId;
+  "pad/GetDeletionParams": pad_GetDeletionParams;
   "pad/ExportParams": pad_ExportParams;
   "pad/MoveParams": pad_MoveParams;
   "pad/Pad": pad_Pad;
@@ -1234,7 +1247,9 @@ export type BeforeRpcMethods = {
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
-  "pad.delete": { params: pad_PadName; result: null };
+  "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
+  "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };
+  "pad.restore": { params: pad_DeletionId; result: pad_Deletion };
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
