@@ -22,7 +22,7 @@
 }
 
 /* Library interaction styling keeps a hovered thumb visible after auto-hide.
-   Only a held drag may outlast the scroll idle delay (U3530b). */
+   Only an active drag may outlast the scroll idle delay (U3530b). */
 .app-scrollbar.os-scrollbar-auto-hide-hidden:not(:active) {
   opacity: 0;
   visibility: hidden;
