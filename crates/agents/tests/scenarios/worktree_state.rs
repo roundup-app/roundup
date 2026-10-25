@@ -446,11 +446,25 @@ exit "$result"
         wrapper.path().display(),
         std::env::var("PATH").unwrap()
     ));
-    let f = Fixture::in_git_project("exec sleep 30", holder.clone());
-    let (id, _) = on(&f).await;
+    let project = tempfile::tempdir().unwrap();
+    git(project.path(), &["init", "-q", "-b", "main"]);
+    git(
+        project.path(),
+        &[
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "initial",
+        ],
+    );
     std::fs::write(wrapper.path().join("enabled"), "").unwrap();
-    let project = f.dir.path().to_owned();
-    let parked = tokio::task::spawn_blocking(move || holder.plan(&project, "parked"));
+    let path = project.path().to_owned();
+    let first = holder.clone();
+    let parked = tokio::task::spawn_blocking(move || first.plan(&path, "parked"));
     let entered = wrapper.path().join("entered");
     tokio::time::timeout(
         Duration::from_secs(2),
@@ -460,27 +474,32 @@ exit "$result"
     .expect("the first Git command must acknowledge admission")
     .unwrap();
 
-    let waiting = state(&f, &id);
-    tokio::pin!(waiting);
-    // An observation window: the bounded read must not finish while Git is held.
-    assert!(
-        tokio::time::timeout(Duration::from_millis(50), &mut waiting)
-            .await
-            .is_err()
-    );
+    let path = project.path().to_owned();
+    let worktree = agents::worktree::Worktree {
+        path: path.clone(),
+        branch: "main".into(),
+        base: "main".into(),
+    };
+    let mut waiting = tokio::task::spawn_blocking(move || holder.state(&path, &worktree));
+    // An observation window: the read must not finish while Git is held.
+    let early = tokio::time::timeout(Duration::from_millis(50), &mut waiting).await;
     std::fs::OpenOptions::new()
         .write(true)
         .open(wrapper.path().join("release"))
         .unwrap()
         .write_all(b"release\n")
         .unwrap();
-    let result = tokio::time::timeout(Duration::from_secs(2), &mut waiting)
-        .await
-        .expect("release must admit the waiting read before its deadline")
-        .unwrap();
-    assert_eq!(result["ahead"], 0);
-    assert_eq!(result["behind"], 0);
+    let blocked = early.is_err();
+    let result = match early {
+        Ok(result) => result,
+        Err(_) => tokio::time::timeout(Duration::from_secs(2), &mut waiting)
+            .await
+            .expect("release must admit the waiting read before its deadline"),
+    };
     assert!(parked.await.unwrap().is_ok());
+    assert!(blocked, "the read must wait for the admitted Git command");
+    let result = result.unwrap().unwrap();
+    assert_eq!(result.ahead, 0);
+    assert_eq!(result.behind, 0);
     assert!(!wrapper.path().join("overlap").exists());
-    f.call("agent.stop", json!({"id": id})).await.unwrap();
 }
