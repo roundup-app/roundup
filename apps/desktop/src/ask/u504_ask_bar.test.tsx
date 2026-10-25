@@ -18,8 +18,12 @@ describe("u504 the Ask bar", () => {
 
     expect(input()).not.toBeNull();
 
+    connected.showView(null);
+
     connected.rail.select("lead");
     await waitFor(() => expect(input()).toBeNull());
+
+    connected.showView(null);
 
     connected.rail.select(null);
     await waitFor(() => expect(input()).not.toBeNull());
@@ -161,6 +165,7 @@ it("u2773a_ask_restores_exact_work", async () => {
   fireEvent.select(input()!);
   first.app.emit(event({ name: "ask.changed", data: { ask: ask("incoming", 1, [], "incoming work") } }));
   expect(input()!.value).toBe(exact);
+  first.connected.showView(null);
   first.connected.rail.select("ann");
   expect(input()).toBeNull();
   press("/", { metaKey: true }, document.querySelector(".outside")!);
@@ -335,8 +340,10 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
     // Leaving the Ask bar with its text unsent lists it (U3289a).
+    reopened.connected.showView(null);
     reopened.connected.rail.select("ann");
     expect(reopened.connected.drafts.recoverable().map(draft => draft.value.text)).toEqual([exact]);
+    reopened.connected.showView(null);
     reopened.connected.rail.select(null);
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
@@ -382,6 +389,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const a = connected.drafts.edit(destination, { text: exact, workstream: "ops", name: "ops" }, selection, "ordinary").draft;
   await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   const b = connected.drafts.edit(destination, { text: "  newer B 🌱\n ", workstream: null, name: null }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
+  connected.showView(null);
   connected.rail.select("ann");
   const before = connected.drafts.list();
   const calls = [...app.calls];
@@ -501,6 +509,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
 
   try {
+    connected.showView(null);
     connected.rail.select("ann");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const copy = await screen.findByRole("button", { name: "Copy" });

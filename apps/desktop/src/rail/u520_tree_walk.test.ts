@@ -49,7 +49,7 @@ run("u520 the Rail is a tree", () => {
 
     // Close the Shelf so its bar-to-panel Tab path does not precede the Rail.
     await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
-    await page.until(`() => document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') === 'false'`);
+    await page.until(`() => document.querySelector('.shelf')?.hidden === true`);
 
     // Tab enters the Rail on its first row.
     for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.closest('[role=tree]') !== null`)); tabs += 1) await page.press("Tab", "Tab");

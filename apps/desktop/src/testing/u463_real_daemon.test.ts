@@ -334,7 +334,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
       for (const state of ["dense", "dense&retention"]) {
         await browser("open", `${real.base}/src/changes/u2540.html?${state}`);
         await wait("!!document.querySelector('.worktree-control')");
-        await press("roundup/agent-1");
+        await browser("click", ".worktree-control");
         await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
         await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
         await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -367,7 +367,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await evaluate(`document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(node.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
