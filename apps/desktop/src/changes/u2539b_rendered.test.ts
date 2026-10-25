@@ -9,11 +9,13 @@ import { appServer, startAppServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
+
 let baseline: Awaited<ReturnType<typeof startAppServer>> | undefined;
 
 beforeAll(async () => {
   if (process.env.ROUNDUP_BASELINE_ROOT) baseline = await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT });
 }, 120_000);
+
 afterAll(async () => { await baseline?.close(); });
 
 it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539b_rendered_landing_navigation_and_changed_files: %s", async seed => {
