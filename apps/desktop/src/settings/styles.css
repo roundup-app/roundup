@@ -1,6 +1,10 @@
 /* U3764: the settings view covers the centre only, on Tokens; the Rail and the Shelf stay beside it. */
-.settings-view {
+/* The scrollbar host is relative by default; Settings must still cover its centre. */
+.settings-center .settings-view {
   position: absolute;
+}
+
+.settings-view {
   inset: 0;
   z-index: 1;
   display: flex;
