@@ -218,13 +218,13 @@ class Build(unittest.TestCase):
             for setting in ('', '[]', '[124]'):
                 with self.subTest(workflow=workflow, setting=setting):
                     self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': setting}),
-                                     ['ubuntu-latest'])
+                                     ['ubuntu-24.04'])
             self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': '[123]'}),
                              ['self-hosted', 'boxd', f'roundup-{"build" if job == "build" else "fix"}-123-7-2'])
         for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             runner = source.split(f'\n  {workflow}-run:', 1)[1].split('runs-on: ', 1)[1].split('\n', 1)[0]
-            self.assertEqual(runner, 'ubuntu-latest')
+            self.assertEqual(runner, 'ubuntu-24.04')
 
     def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
@@ -460,9 +460,9 @@ class L24(unittest.TestCase):
 
     def test_l24_no_test_lane_starts_before_the_approval(self):
         jobs = self.jobs('check')
-        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'check', 'summary'}, set(jobs))
+        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'chromium', 'check', 'summary'}, set(jobs))
         self.assertIn('needs: approved\n', jobs['plan'])
-        for lane in ('rust', 'mac-clippy', 'mac', 'web'):
+        for lane in ('rust', 'mac-clippy', 'mac', 'web', 'chromium'):
             self.assertIn('needs: plan\n', jobs[lane], lane)
         self.assertRegex(jobs['check'], r'needs: \[plan, ')
 
