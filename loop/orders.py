@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """L34: open GitHub Issues are the work queue; scenario files describe acceptance."""
 import json
+import os
 import re
 import subprocess
 import sys
@@ -255,12 +256,25 @@ def graphql_issue(item):
                 user=dict(login=f'{login[4:]}[bot]' if login.startswith('app/') else login))
 
 
-def list_issues():
+# A file holding the closed Issues as of the last read; `list_issues` then fetches only what changed since.
+CLOSED_CACHE = 'ORDERS_CLOSED_CACHE'
+# What `classify` and `read_orders` read of an Issue.
+KEPT = ('number', 'html_url', 'title', 'body', 'state', 'state_reason', 'labels', 'updated_at', 'user')
+# A read starts this long before the last one ended, so an Issue changed while that read ran is fetched again.
+CACHE_OVERLAP = 120
+
+
+def rest_issues(query):
+    """The Issues, no PRs, `repos/{owner}/{repo}/issues?<query>` lists, every page."""
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues?{query}&per_page=100', '--paginate', '--slurp')
+    return [issue for page in pages for issue in page if 'pull_request' not in issue]
+
+
+def all_issues():
     """Every Issue. The REST list came back empty during a GitHub Issues incident (2026-10-22) while GraphQL still
     answered, so an empty or failed REST list falls back to `gh issue list`; both failing raises."""
     try:
-        pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
-        issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
+        issues = rest_issues('state=all')
         if issues:
             return issues
     except subprocess.CalledProcessError as error:
@@ -272,6 +286,30 @@ def list_issues():
     if not issues:
         raise SystemExit('::error::both the REST and GraphQL Issue lists came back empty')
     return issues
+
+
+def list_issues():
+    """Every Issue. With `$ORDERS_CLOSED_CACHE` naming an existing file, the open Issues plus the closed ones that file
+    holds, updated with those changed since its read: two calls once it is warm. With the variable and no file, every
+    page, once, and the file is written; without the variable, every page. The file is rewritten on each read."""
+    path = os.environ.get(CLOSED_CACHE)
+    if not path:
+        return all_issues()
+    file, started = Path(path), time.time()
+    if file.is_file():
+        cache = json.loads(file.read_text())
+        since = datetime.fromtimestamp(cache['read'] - CACHE_OVERLAP, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        opened = rest_issues('state=open')
+        closed = {int(number): issue for number, issue in cache['closed'].items()}
+        closed.update({issue['number']: {key: issue.get(key) for key in KEPT} for issue in rest_issues(f'state=closed&since={since}')})
+        for issue in opened:
+            closed.pop(issue['number'], None)
+    else:
+        everything = all_issues()
+        opened = [issue for issue in everything if issue['state'] != 'closed']
+        closed = {issue['number']: {key: issue.get(key) for key in KEPT} for issue in everything if issue['state'] == 'closed'}
+    file.write_text(json.dumps(dict(read=started, closed=closed)))
+    return opened + list(closed.values())
 
 
 def read_orders():
