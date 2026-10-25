@@ -124,6 +124,7 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
     printed,
     select: (id: string) => {
       expected = id;
+
       if (ready.has(id)) { target = id; announce(); }
     },
     recovered: (id: string) => {
@@ -149,6 +150,7 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
 
               if (hasReadyLine(text)) {
                 ready.add(id);
+
                 if (id === expected) { target = id; announce(); }
               }
 
@@ -179,32 +181,38 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
 
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
   const input = await appears(
     () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
     "the shell Terminal's input",
   );
+
   const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
 
   terminal.select(id);
   // Read the retained log, not the screen snapshot: READY may already have scrolled off the grid.
   // Keep this decoder separate from xterm's live decoder so overlapping bytes cannot splice a false line.
   let reading = true;
+
   const retained = async () => {
     let after = 0;
     let tail = "\n";
 
     while (reading && terminal.target() === null) {
       const read = await bounded(app.rpc("terminal.read", { id, after, reader: null, max: null }), SETUP_BOUND_MS, "the shell Terminal's retained output");
+
       if (!reading) return;
 
       const text = (read.from === after ? tail : "") + read.text;
 
       if (hasReadyLine(text)) {
         terminal.recovered(id);
+
         return;
       }
 
       tail = text.slice(-(READY.length + 2));
+
       if (read.next <= after || !read.truncated) return terminal.printed;
       after = read.next;
     }
@@ -215,7 +223,9 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   } finally {
     reading = false;
   }
+
   input.focus();
+
   return input;
 };
 
