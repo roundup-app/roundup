@@ -84,7 +84,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await evaluate("document.querySelector('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");
     await until("!!document.querySelector('.pad-name')");
     await browser("click", ".pad-name");
-    await until("!!document.querySelector('.drawer[data-open=true]') || !!document.querySelector('.drawer .pad-editor')");
+    await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] [contenteditable=true]')");
     await capture("U3791c", "review-recovered");
   } finally {
     try { if (video) await browser("record", "stop"); }

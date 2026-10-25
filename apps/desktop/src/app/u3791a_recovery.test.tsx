@@ -173,3 +173,27 @@ it.each([new RpcError(-32002, "refused"), new RpcError(-32603, "internal"), new 
   await expect(connected.app.rpc("message.send", { to: "agent", kind: "note", body: " exact draft 😀\n ", replyTo: null })).rejects.toBe(error);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 });
+
+
+it("u3791a_project_read_exhaustion_keeps_explicit_retry", async () => {
+  const app = createFakeApp();
+  app.opened.project = { name: "project", path: "/p" };
+  app.handlers["rail.tree"] = () => [node("kept", { name: "Recovered Project work" })];
+
+  const list = vi.spyOn(app, "projects")
+    .mockRejectedValueOnce(new TypeError("first"))
+    .mockRejectedValueOnce(new Error("second"))
+    .mockRejectedValueOnce(new Error("third"))
+    .mockRejectedValueOnce(new Error("fourth"));
+
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await screen.findByRole("alert", { name: "second" });
+  expect(list).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await screen.findByRole("alert", { name: "fourth" });
+  expect(list).toHaveBeenCalledTimes(4);
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await screen.findByRole("treeitem", { name: /Recovered Project work/ });
+  expect(list).toHaveBeenCalledTimes(5);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
