@@ -951,3 +951,9 @@ The App seam’s classification of a thrown value: `failed` only for a known RPC
 | Code term | User label | Avoid |
 |---|---|---|
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | Same-name recreation |
+
+**Storage recovery** (`StorageRecovery`, `storageRecovery`, `retainedStorage`):
+The startup gate and explicit per-record choice to retain invalid legacy bytes in the
+existing store before excluding them from migration. Retained records preserve their
+original key and exact string for explicit copy after reopening; they never become
+live settings or submitted drafts. An unreadable record grants no continuation.
