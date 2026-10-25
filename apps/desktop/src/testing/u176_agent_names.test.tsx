@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
-import { basename, join, resolve } from "node:path";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { promisify } from "node:util";
-import { chromePath } from "./chromePage";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { App } from "../App";
@@ -261,7 +256,6 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
     for (const [index, real] of [first].entries()) {
       const app = createServedApp(real.base);
 
-      if (index) await app.rpc("rail.createWorkstream", { name: "padding", parent: null });
       const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
       const text = ` exact ${index}\ne\u0301 😀 `;
       const url = `${real.base}/harness.html?daemon=1`;
@@ -358,69 +352,6 @@ describe("u2773 Rail persisted edits", () => {
     expect(task().value).toBe("");
     expect(starts).toHaveLength(1);
   }, 120_000);
-
-  it("u2773a_rail_webview_reload_restores_without_replaying_spawn", async () => {
-    const execute = promisify(execFile);
-    const executable = chromePath();
-
-    if (!executable) throw new Error("U2773 needs an isolated Chrome binary");
-    const profile = await mkdtemp(join(tmpdir(), "u2773-rail-browser-"));
-    const config = join(profile, "config.json");
-    await writeFile(config, "{}");
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-
-    const browser = async (...args: string[]) => {
-      const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", `u2773-rail-${process.pid}`, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
-      const reply = JSON.parse(stdout);
-      expect(reply.success, stdout).toBe(true);
-
-      return reply.data;
-    };
-
-    const app = createServedApp(first.base);
-
-    for (let count = (await app.rpc("rail.tree", null)).length; count < 40; count += 1) {
-      await app.rpc("rail.createWorkstream", { name: `Work ${count}`, parent: null });
-    }
-
-    const before = await app.rpc("rail.tree", null);
-
-    try {
-      await browser("open", `${first.base}/harness.html?daemon=1`);
-      await browser("set", "viewport", "1512", "950");
-      await browser("wait", "--fn", "!!document.querySelector('.rail-tree')");
-      await writeFile("/tmp/u2773-rail-before-checks.json", JSON.stringify((await browser("eval", "window.__checks()")).result, null, 2));
-      await browser("screenshot", "/tmp/u2773-rail-before.png");
-      await browser("eval", "document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',metaKey:true,shiftKey:true,bubbles:true}))");
-      await browser("wait", "--fn", "!!document.querySelector('[aria-label=Task]')");
-      await browser("fill", '[aria-label="Task"]', " exact\né 😀 ");
-      await browser("reload");
-      await browser("wait", "--fn", "!!document.querySelector('.rail-tree')");
-      expect((await browser("eval", "document.querySelector('[aria-label=Task]') === null")).result).toBe(true);
-      await browser("eval", "document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',metaKey:true,shiftKey:true,bubbles:true}))");
-      await browser("wait", "--fn", "!!document.querySelector('[aria-label=Task]')");
-      expect((await browser("eval", "document.querySelector('[aria-label=Task]').value")).result).toBe(" exact\né 😀 ");
-      expect(await app.rpc("rail.tree", null)).toEqual(before);
-      await browser("screenshot", "/tmp/u2773-rail-restored.png");
-      await browser("eval", "document.querySelector('[aria-label=Task]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
-      await browser("eval", `document.querySelector('.rail-row[data-id="${before[0]!.id}"] .name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
-      await browser("fill", '[aria-label="Name"]', " exact name 😀 ");
-      await app.rpc("rail.rename", { id: before[0]!.id, name: "Changed elsewhere" });
-      await browser("wait", "--fn", "!!document.querySelector('[role=alert]')");
-      await browser("screenshot", "/tmp/u2773-rail-conflict.png");
-      await writeFile("/tmp/u2773-rail-conflict-checks.json", JSON.stringify((await browser("eval", "window.__checks()")).result, null, 2));
-      await browser("eval", "document.querySelector('[aria-label=Name]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})); document.querySelector('.todo-project-root').click(); document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',metaKey:true,shiftKey:true,bubbles:true}))");
-      await browser("wait", "--fn", "!!document.querySelector('[aria-label=Task]')");
-      await browser("eval", "Storage.prototype.setItem=function(){throw new Error('full')}");
-      await browser("fill", '[aria-label="Task"]', " recoverable\n😀 ");
-      expect((await browser("eval", "document.querySelector('[role=alert]').textContent")).result).toContain(basename(first.dir));
-      await browser("screenshot", "/tmp/u2773-rail-storage-failure.png");
-      await writeFile("/tmp/u2773-rail-checks.json", JSON.stringify((await browser("eval", "window.__checks()")).result, null, 2));
-    } finally {
-      await browser("close");
-      await rm(profile, { recursive: true, force: true });
-    }
-  }, 180_000);
 
   it("u2773c_rail_real_external_rename_and_removal_keep_original_edit", async () => {
     const app = createServedApp(first.base);

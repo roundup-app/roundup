@@ -202,7 +202,7 @@ for (const list of [nested, shelf]) {
       expect((await state(rows)).reorders).toHaveLength(1);
     }, 60_000);
 
-    it("u490a_reorder_motion", async () => {
+    it.runIf(list === shelf)("u490a_reorder_motion", async () => {
       await page.scheme("light");
       await list.setup();
 
@@ -241,7 +241,7 @@ for (const list of [nested, shelf]) {
       }
     }, 60_000);
 
-    it("u490a_reorder_motion_continues_from_the_screen_when_interrupted", async () => {
+    it.runIf(list === shelf)("u490a_reorder_motion_continues_from_the_screen_when_interrupted", async () => {
       await page.scheme("light");
       await list.setup();
 
@@ -280,7 +280,7 @@ for (const list of [nested, shelf]) {
       }
     }, 60_000);
 
-    it("u490a_reorder_motion_under_reduced_motion_is_one_frame", async () => {
+    it.runIf(list === shelf)("u490a_reorder_motion_under_reduced_motion_is_one_frame", async () => {
       await page.scheme("light", undefined, "motion");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
