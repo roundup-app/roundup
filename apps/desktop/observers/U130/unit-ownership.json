@@ -1,6 +1,6 @@
 {
-  "baseline": "ab3a3041fbb91b1904296d0383562fbf11e742fd",
-  "runtime": "d0b24286f3d4c0224ab9c489530dec389cb1ac42",
+  "baseline": "eeb3ee6f19f04982a825560be3de92956421e68d",
+  "runtime": "500cb69ae433ed7125f29ef25d18ff439496edba",
   "renderer": "isolated headless Chromium",
   "viewport": [
     1512,
@@ -17,8 +17,8 @@
     "agents-10": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 313,
-      "headElements": 313,
+      "baseElements": 336,
+      "headElements": 336,
       "animatedWorkingArcs": 2,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
@@ -28,8 +28,8 @@
     "conflict": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 364,
-      "headElements": 364,
+      "baseElements": 374,
+      "headElements": 374,
       "animatedWorkingArcs": 2,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
@@ -39,8 +39,8 @@
     "daemon-exits": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 322,
-      "headElements": 322,
+      "baseElements": 345,
+      "headElements": 345,
       "animatedWorkingArcs": 2,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
@@ -50,9 +50,9 @@
     "dense": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 951,
-      "headElements": 951,
-      "animatedWorkingArcs": 8,
+      "baseElements": 1041,
+      "headElements": 1041,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
@@ -61,9 +61,9 @@
     "dialog": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 1036,
-      "headElements": 1036,
-      "animatedWorkingArcs": 8,
+      "baseElements": 1078,
+      "headElements": 1078,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
@@ -72,9 +72,9 @@
     "drawer": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 811,
-      "headElements": 811,
-      "animatedWorkingArcs": 8,
+      "baseElements": 862,
+      "headElements": 862,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
@@ -83,9 +83,9 @@
     "failure": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 945,
-      "headElements": 945,
-      "animatedWorkingArcs": 8,
+      "baseElements": 1030,
+      "headElements": 1030,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
@@ -105,9 +105,9 @@
     "menu": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 976,
-      "headElements": 976,
-      "animatedWorkingArcs": 8,
+      "baseElements": 1061,
+      "headElements": 1061,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
@@ -116,55 +116,31 @@
     "pads": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 827,
-      "headElements": 827,
-      "animatedWorkingArcs": 8,
+      "baseElements": 881,
+      "headElements": 881,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
-      "baseFailures": {
-        "D12": {
-          "status": "fail",
-          "value": 56,
-          "selector": "div.shelf-row"
-        }
-      },
-      "headFailures": {
-        "D12": {
-          "status": "fail",
-          "value": 56,
-          "selector": "div.shelf-row"
-        }
-      }
+      "baseFailures": {},
+      "headFailures": {}
     },
     "terminal": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 919,
-      "headElements": 919,
-      "animatedWorkingArcs": 8,
+      "baseElements": 973,
+      "headElements": 973,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
-      "baseFailures": {
-        "D12": {
-          "status": "fail",
-          "value": 56,
-          "selector": "div.shelf-row"
-        }
-      },
-      "headFailures": {
-        "D12": {
-          "status": "fail",
-          "value": 56,
-          "selector": "div.shelf-row"
-        }
-      }
+      "baseFailures": {},
+      "headFailures": {}
     },
     "tree-40": {
       "baseViewport": "1512x950",
       "headViewport": "1512x950",
-      "baseElements": 809,
-      "headElements": 809,
-      "animatedWorkingArcs": 8,
+      "baseElements": 857,
+      "headElements": 857,
+      "animatedWorkingArcs": 7,
       "otherComputedDifferences": 0,
       "regressedChecks": [],
       "baseFailures": {},
