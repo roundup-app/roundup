@@ -345,9 +345,13 @@ it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_
 
 it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => {
   await loadDense();
+  await read(`document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
+  await wait(`!document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')`);
   await browser("focus", ".todo-row-button");
+  await wait(`document.activeElement?.matches('.todo-row-button')`);
   await holdFrames();
   await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true })); document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
+  await wait(`!!document.querySelector('.owner-picker')`);
   expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
