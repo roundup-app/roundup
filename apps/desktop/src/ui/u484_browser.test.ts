@@ -87,6 +87,26 @@ const drag = async (id: string, target: string) => {
   await browser("mouse", "move", String(Math.round(end.x)), String(Math.round(end.y)));
 };
 
+it("u490a_original_place_drop_makes_no_commit", async () => {
+  await load();
+
+  const origin = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector('[aria-label="Move C"]').getBoundingClientRect();
+    return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+  })()`);
+
+  await browser("mouse", "move", String(origin.x), String(origin.y));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(origin.x), String(origin.y - 12));
+  await browser("wait", "--fn", `document.querySelector('[data-id=C]').dataset.dragging === 'true'`);
+  await browser("mouse", "move", String(origin.x), String(origin.y));
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[data-id=C]').dataset.dragging === 'false' && !document.querySelector('.sortable-slot')`);
+  expect(await order()).toEqual(["A", "B", "C"]);
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
+  expect(await read<string>(`document.activeElement?.getAttribute('aria-label')`)).toBe("Move C");
+}, 30_000);
+
 it("u484_external_drop", async () => {
   const outside = async () => {
     const point = await read<{ x: number; y: number }>(`(() => { const rect = document.querySelector('[data-outside]').getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);

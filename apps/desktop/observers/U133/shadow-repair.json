@@ -1,0 +1,78 @@
+[
+  {
+    "control": "tree",
+    "input": "pointer",
+    "before": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    },
+    "firstFrame": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "color(srgb 0.960784 0.960784 0.968627 / 0.75)",
+      "pressed": "true"
+    },
+    "released": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    }
+  },
+  {
+    "control": "tree",
+    "input": "keyboard",
+    "before": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    },
+    "firstFrame": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "color(srgb 0.960784 0.960784 0.968627 / 0.75)",
+      "pressed": "true"
+    },
+    "released": {
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    }
+  },
+  {
+    "control": "diff",
+    "input": "pointer",
+    "before": {
+      "background": "rgb(20, 20, 22)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    },
+    "firstFrame": {
+      "background": "rgb(20, 20, 22)",
+      "color": "color(srgb 0.960784 0.960784 0.968627 / 0.75)",
+      "pressed": "true"
+    },
+    "released": {
+      "background": "rgb(20, 20, 22)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    }
+  },
+  {
+    "control": "diff",
+    "input": "keyboard",
+    "before": {
+      "background": "rgb(20, 20, 22)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    },
+    "firstFrame": {
+      "background": "rgb(20, 20, 22)",
+      "color": "color(srgb 0.960784 0.960784 0.968627 / 0.75)",
+      "pressed": "true"
+    },
+    "released": {
+      "background": "rgb(20, 20, 22)",
+      "color": "rgb(245, 245, 247)",
+      "pressed": null
+    }
+  }
+]
