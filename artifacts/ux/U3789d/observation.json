@@ -1,15 +1,14 @@
 {
-  "base": "c475d1a4ff56cba3a43e99fbc10cf701478d6a31",
-  "implementation": "868264828e9f6f6f258f760102826e7e9b5e11d6",
-  "merged_main": "95e18aba5ecb85e7c2adda914ad7cdec908c26d2",
+  "base": "590f89e46a29246a6a26220b1c9048496688ad55",
+  "implementation": "156a0c2f4780d7562fe2505912b59c5ce311dedc",
   "viewport": {
     "width": 1512,
     "height": 950
   },
   "scheme": "dark",
-  "observer": "Fresh isolated headless sessions on the merged head; u3789_browser.test.ts and u3789_real_daemon.test.ts. Rendered capture rerun completed after installing ffmpeg.",
+  "observer": "Dedicated fresh headless sessions: u3789_browser.test.ts and u3789a_real_daemon_rows in u461_rendered.test.ts. All three rendered tests passed; the final rendered_rows_and_unchanged_disclosures recapture passed after the spacing correction.",
   "checks": {
-    "readings": 23,
+    "readings": 27,
     "failures": []
   },
   "geometry": {
@@ -44,7 +43,9 @@
   "failure_captures": [
     "U3789b/head/dense-failure.png",
     "U3789d/head/dense-rename-failure.png",
-    "U3789d/head/dense-complete-failure.png"
+    "U3789d/head/dense-complete-failure.png",
+    "U3789d/head/rail-rename-failure-after-navigation.png",
+    "U3789d/head/rail-rename-retry.png"
   ],
   "native_observation": "The user reports what they meet on the Mac."
 }

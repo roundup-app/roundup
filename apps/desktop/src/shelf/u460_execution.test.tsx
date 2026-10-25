@@ -170,7 +170,7 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   await new Promise((resolve) => setTimeout(resolve, 40));
   expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   fresh.resolve([todo(2)]);
-  await screen.findByText("1 selected");
+  await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
   await questionClosed();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
 });

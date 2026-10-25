@@ -603,8 +603,6 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u370 the Shelf closes and opens > u373_tabs_remain_available_when_the_project_connection_fails","identity":"681f35214db75b8ecef51537bbb40daf96cac4787b0b183eac14946e84fdf010"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u370 the Shelf closes and opens > u373_first_run_tabs_open_the_empty_shelf_without_counts","identity":"a94ad52c8c0e87bcc73400511a2bfc6e608217b88b00d22402e6ce421f52cbb3"}
 {"file":"apps/desktop/src/shelf/u3730_scope_line.test.tsx","test":"u3730_the_scope_line_holds_the_name_and_one_add_button","identity":"9a63ed031b3830bc6506d6a474ae377a6fd712e4720aa0eff09b27416d01cce8"}
-{"file":"apps/desktop/src/shelf/u458_lifetime.test.tsx","test":"u458_hidden_rows_and_context_changes_clear_selection","identity":"1c5eb4dde5c550e5767afd86ccbcc188dc5a6481c471be33e3e5442a593ffbfe"}
-{"file":"apps/desktop/src/shelf/u458_lifetime.test.tsx","test":"u458_hidden_rows_and_context_changes_clear_selection","identity":"94a2a8e1d6b697a42927a22e47a62ae03ff799617182fcf9592b1b53b4ab0559"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_pointer_toggle_and_range_follow_visible_order","identity":"e8efe578a58cc7a39d17846d3f3cf2ba9ae3571644f5e660db142a0ab51fa7db"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_keyboard_toggle_range_and_bounds","identity":"dc35abadecf61163e596d6f4a357224772ccf61d82aea91fe73e1bc0917b7b9b"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u460_one_question_precedes_every_delete","identity":"4d2af06929f5f561d043476dde13be4b9bd54f6635c95112620c250efcfdf330"}
