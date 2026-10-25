@@ -40,7 +40,9 @@ PTY read exit → output forward receive → output queue send → writer dequeu
 `*-instrumentation-v3.patch.gz` contains temporary changes only within each
 reference's `crates/rupd/src/`. The production tree is unchanged. Markers retain
 Linux CLOCK_MONOTONIC Instant seconds/nanoseconds, PID/TID, Tokio task identity,
-connection FD, request id and Terminal/payload. Std `poll_fn` brackets the
+connection FD, request id and Terminal/payload. Dispatch entry is after initial
+id/method/parameter extraction and before routing/guards; it is not the
+function prologue. Std `poll_fn` brackets the
 selected futures; std `Wake` delegates to their original wakers. Wake markers
 name the target task separately from the calling task. V3 formats a line before
 one stderr write; the earlier V1/V2 source diffs, failures and executables remain.
@@ -98,6 +100,7 @@ and a single control comparison establish no repeatable isolated overhead bound.
 
 | Missing boundary | Precisely retained interval / limitation |
 |---|---|
+| Dispatch preprocessing before the entry marker | `request_received_ns` through `dispatch_enter_ns` includes request parsing and initial field extraction; no function-prologue marker was recorded. |
 | Actual producer input enqueue inside `terminal` | `user_call_ns` through `accept_return_ns` in each joined row. Historical module call includes decode/validation; candidate call includes user routing. No source outside `rupd` was changed. |
 | Output producer publish/enqueue inside `terminal` | Successful physical PTY `read` exit through the corresponding `output_forward_receive_ns`, matched by Terminal and one-unread echo ordinal. It includes producer processing and receiver/task scheduling. |
 | Exact runtime scheduler enqueue / full task poll | Wake marker precedes logging and the original waker delegation; the next selected-future poll entry is observable. The underlying task may also poll other branches. These are neither exact executor enqueue endpoints nor whole-runtime task polls. |
