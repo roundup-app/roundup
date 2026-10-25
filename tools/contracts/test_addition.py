@@ -50,10 +50,17 @@ export type C4Caller = Assert<Equal<RpcMethods["project.contractProbe"], {params
                 (checkout / "node_modules").symlink_to(ROOT / "node_modules", target_is_directory=True)
                 run(str(ROOT / "node_modules/.bin/tsc"), "--project", "tsconfig.json")
                 caller.unlink()
-                declaration.write_text(original)
-                run("just", "contracts")
-                env["C4_REMOVED"] = "1"
-                run("cargo", "test", "-q", "-p", "rup", "--bin", "rup", "c4_one_declaration_reaches_every_surface")
+                variants = [
+                    ("C4_DOOR_ONLY", DECLARATION.replace(", all(", ", door(")),
+                    ("C4_NO_TOOL", DECLARATION.rsplit(", all(", 1)[0] + ", none();\n"),
+                    ("C4_REMOVED", ""),
+                ]
+                for mode, row in variants:
+                    declaration.write_text(original.replace('    todos_methods["todo"] {\n', '    todos_methods["todo"] {\n' + row))
+                    run("just", "contracts")
+                    env[mode] = "1"
+                    run("cargo", "test", "-q", "-p", "rup", "--bin", "rup", "c4_one_declaration_reaches_every_surface")
+                    del env[mode]
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/methods.ts").read_text())
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/contract.ts").read_text())
             finally:
