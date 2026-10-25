@@ -242,13 +242,37 @@ export const createKeystrokeRun = (app: AppSeam) => {
   const terminal = reportTerminal(recorder.createEmulator);
 
   const report = async (body: PerfReport) => {
-    const id = terminal.target();
+    let id = terminal.target();
 
-    if (id === null) throw new Error("no Terminal printed the ready line to report through");
+    if (id === null) {
+      // Setup can fail before any bubble exists; the collector also reads shells opened directly in the isolated Project.
+      const shell = await bounded(app.rpc("terminal.open", { workstream: null }), SETUP_BOUND_MS, "the diagnostic Terminal");
+
+      id = shell.id;
+      let after = 0;
+      let tail = "\n";
+      const end = performance.now() + SETUP_BOUND_MS;
+
+      for (;;) {
+        const remaining = end - performance.now();
+
+        if (remaining <= 0) throw new Error("the diagnostic Terminal did not print its ready line");
+
+        const read = await bounded(app.rpc("terminal.read", { id, after, reader: null, max: null }), remaining, "the diagnostic Terminal's retained output");
+        const text = (read.from === after ? tail : "") + read.text;
+
+        if (hasReadyLine(text)) break;
+
+        tail = text.slice(-(READY.length + 2));
+        after = read.next;
+        await sleep(50);
+      }
+    }
 
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
+    const target = id;
 
-    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
+    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id: target, data: toBase64(data) }), SETUP_BOUND_MS, "the PERF report write")));
   };
 
   const measure = async () => {
@@ -296,8 +320,6 @@ export const createKeystrokeRun = (app: AppSeam) => {
       try {
         await measure();
       } catch (failure) {
-        if (terminal.target() === null) throw failure;
-
         await report({ error: failure instanceof Error ? failure.message : String(failure) });
       }
     },
