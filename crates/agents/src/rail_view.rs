@@ -1,5 +1,39 @@
 use super::*;
 
+/// State the Terminal watchers and the RPC calls share.
+/// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
+/// Kind keeps its own.
+pub(super) fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
+    match (status.kind, wait) {
+        (Kind::Idle, Some(blocker)) => Status {
+            kind: Kind::Blocked,
+            label: format!("waits on #{blocker}"),
+            since: status.since,
+            finished: status.finished.clone(),
+        },
+        _ => status.clone(),
+    }
+}
+
+/// A guarded effect keeps Agent locks until its IO finishes. A contending async
+/// worker yields its reactor duties before waiting, so Signals and effect completion
+/// remain schedulable. The uncontended path and non-reactor callers need no handoff.
+pub(super) fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuard<'_, T>> {
+    match mutex.try_lock() {
+        Ok(guard) => Ok(guard),
+        Err(std::sync::TryLockError::Poisoned(err)) => Err(err),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            if tokio::runtime::Handle::try_current().is_ok_and(|handle| {
+                handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread
+            }) {
+                tokio::task::block_in_place(|| mutex.lock())
+            } else {
+                mutex.lock()
+            }
+        }
+    }
+}
+
 pub(super) struct State {
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
