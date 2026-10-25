@@ -101,6 +101,14 @@ impl Rail {
         // Sibling orders are unique (A6); equal orders across parents need no stability.
         // R3696c: avoid the stable sort's scratch copy of these large nodes.
         flat.sort_unstable_by_key(|(node, _)| node.order);
+        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
+        // for descendants once per node. A flat tree can reuse the loaded buffer.
+        if flat.iter().all(|(node, _)| node.parent.is_none()) {
+            return flat
+                .into_iter()
+                .map(|(node, finished)| present(node, finished))
+                .collect();
+        }
         let mut out = Vec::with_capacity(flat.len());
         let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
         descend(&mut flat, None, &mut out, &mut present)?;
