@@ -115,7 +115,7 @@ it("u2556b_failure_is_contained_and_the_next_tick_recovers", async () => {
   createRoot((dispose) => { disposals.push(dispose); connected.worktrees.watch(() => true); });
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: "worktree_missing: /p/a" }));
   expect(connected.worktrees.read("b")).toEqual({ failure: null, state: facts });
-  expect(app.calls.filter((call) => call.method === "agent.worktreeState").map((call) => call.params)).toEqual([{ id: "a" }, { id: "b" }]);
+  expect(app.calls.filter((call) => call.method === "agent.worktreeState").map((call) => call.params)).toEqual([{ id: "a" }, { id: "b" }, { id: "a" }]);
   failed = false;
   tick(30_000);
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
