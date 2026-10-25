@@ -248,6 +248,7 @@ for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
     else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
     expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
     await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);
+
     if (path === "switcher") await read(`window.releaseFrames()`);
 
     // The owner's microtasks and the chooser machine's focus frame have completed before reading focus.

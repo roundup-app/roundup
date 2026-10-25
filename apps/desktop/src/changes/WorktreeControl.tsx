@@ -90,8 +90,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   return (
     <Popover.Root initialFocus={treeFocus} closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
-      <Popover.Trigger asChild={(trigger) => (
-        <button {...trigger()} ref={element => { const ref = trigger().ref; if (typeof ref === "function") ref(element); setControl(element); }} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
+      <Popover.Trigger ref={setControl} asChild={(trigger) => (
+        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
           <span class="worktree-branch">{props.worktree.branch}</span>
         </button>

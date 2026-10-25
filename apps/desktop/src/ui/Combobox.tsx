@@ -52,6 +52,7 @@ const Root = (props: {
   const locale = useLocaleContext();
   const environment = useEnvironmentContext();
   const field = useFieldContext();
+
   // Zag 1.45's open entry schedules focus regardless of autoFocus. Ark's useCombobox fixes
   // that machine, so retain it through RootProvider and guard only its focus actions.
   // https://github.com/chakra-ui/zag/blob/%40zag-js/combobox%401.45.0/packages/machines/combobox/src/combobox.machine.ts
@@ -71,6 +72,7 @@ const Root = (props: {
       },
     },
   };
+
   const service = useMachine(machine, () => ({
     id, ids: { label: field?.().ids.label, input: field?.().ids.control },
     disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
@@ -80,8 +82,11 @@ const Root = (props: {
     inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
-    onValueChange: details => { const [value] = details.value; if (value !== undefined) props.onSelect(value); },
+    onValueChange: details => { const [value] = details.value;
+
+      if (value !== undefined) props.onSelect(value); },
   }));
+
   const api = createMemo(() => combobox.connect(service, normalizeProps));
 
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
