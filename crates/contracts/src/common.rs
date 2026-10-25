@@ -163,3 +163,15 @@ pub struct HistoryParams {
 pub struct TouchedParams {
     pub actor_id: String,
 }
+
+/// Structured JSON-RPC error data for operation-specific Event replay recovery.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+#[ts(export)]
+pub enum RpcErrorData {
+    EventsExpired {
+        /// The oldest Event number the authoritative log still retains.
+        #[ts(type = "number")]
+        oldest: u64,
+    },
+}

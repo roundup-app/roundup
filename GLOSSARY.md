@@ -339,6 +339,13 @@ One creation of a Pad, identified by a Project-scoped never-reused **incarnation
 **Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`):
 The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
 
+**Pad rename** (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`):
+An owner-authorized name change of the same Pad incarnation in its original Project,
+guarded by its exact original name and incarnation. `newName` is the accepted spelling,
+unique under the existing Unicode/case-folding rules. Text, Revision, owner, Home and
+content timestamp stay the same. `PadRenamed` records the incarnation and its original
+and accepted names. Renaming creates no alias or redirect for existing name-based Refs.
+
 **Pad source state** (`PadSourceState`, `source_state`):
 The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
 
@@ -895,3 +902,6 @@ It is absent without the `idle-perf` Cargo feature.
 
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**RPC error data** (`RpcErrorData`):
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
