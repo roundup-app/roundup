@@ -394,3 +394,93 @@ async fn d9_reopening_with_parked_git_preserves_unfinished_provisioning() {
         "recovery Git survived its deadline"
     );
 }
+
+#[tokio::test]
+async fn z3799a_release_wakes_a_contender_without_overlapping_git() {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let wrapper = tempfile::tempdir().unwrap();
+    let real = git(wrapper.path(), &["--exec-path"]);
+    let executable = Path::new(real.trim()).join("git");
+    for fifo in ["entered", "release"] {
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(wrapper.path().join(fifo))
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let script = wrapper.path().join("git");
+    std::fs::write(
+        &script,
+        format!(
+            r#"#!/bin/sh
+root='{}'
+if [ ! -f "$root/enabled" ]; then exec '{}' "$@"; fi
+if ! mkdir "$root/active" 2>/dev/null; then
+  touch "$root/overlap"
+  exit 1
+fi
+if [ "$1" = rev-parse ] && [ ! -f "$root/released" ]; then
+  echo entered > "$root/entered"
+  read -r release < "$root/release"
+  touch "$root/released"
+fi
+'{}' "$@"
+result=$?
+rmdir "$root/active"
+exit "$result"
+"#,
+            wrapper.path().display(),
+            executable.display(),
+            executable.display(),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let holder = Git::with_path(format!(
+        "{}:{}",
+        wrapper.path().display(),
+        std::env::var("PATH").unwrap()
+    ));
+    let f = Fixture::in_git_project("exec sleep 30", holder.clone());
+    let (id, _) = on(&f).await;
+    std::fs::write(wrapper.path().join("enabled"), "").unwrap();
+    let project = f.dir.path().to_owned();
+    let parked = tokio::task::spawn_blocking(move || holder.plan(&project, "parked"));
+    let entered = wrapper.path().join("entered");
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        tokio::task::spawn_blocking(move || std::fs::read_to_string(entered).unwrap()),
+    )
+    .await
+    .expect("the first Git command must acknowledge admission")
+    .unwrap();
+
+    let waiting = state(&f, &id);
+    tokio::pin!(waiting);
+    // An observation window: the bounded read must not finish while Git is held.
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut waiting)
+            .await
+            .is_err()
+    );
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(wrapper.path().join("release"))
+        .unwrap()
+        .write_all(b"release\n")
+        .unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(2), &mut waiting)
+        .await
+        .expect("release must admit the waiting read before its deadline")
+        .unwrap();
+    assert_eq!(result["ahead"], 0);
+    assert_eq!(result["behind"], 0);
+    assert!(parked.await.unwrap().is_ok());
+    assert!(!wrapper.path().join("overlap").exists());
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+}
