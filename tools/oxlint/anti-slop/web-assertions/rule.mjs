@@ -1,16 +1,11 @@
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
+import { relative } from "node:path";
+import { baselineEntries, assertionKey } from "./baseline.mjs";
+import { browserEvidence, dimensions, geometry, text } from "./browser.mjs";
 import { defineRule } from "@oxlint/plugins";
 import { resolveVariable } from "../shared/scope.ts";
 import { unwrapArrayExpression } from "../shared/array-method.ts";
 
-// Babel is already a desktop devDependency; Oxlint does not parse code inside strings.
-const requireDesktop = createRequire(new URL("../../../../apps/desktop/package.json", import.meta.url));
-const { parseExpression } = requireDesktop("@babel/parser");
-const { VISITOR_KEYS } = requireDesktop("@babel/types");
-const dimensions = /^(?:offset|client|scroll)(?:Width|Height|Top|Left)$|^(?:inner|outer)(?:Width|Height)$/;
-const geometry = new Set(["getBoundingClientRect", "getClientRects"]);
-const text = new Set(["textContent", "innerText", "innerHTML", "outerHTML"]);
 const queries = /^(?:get|find|query)(?:All)?By(?:Text|Role|LabelText|PlaceholderText|Title|DisplayValue)$/;
 const evaluations = new Set(["read", "evaluate", "eval", "call", "browser"]);
 const equality = new Set(["toBe", "toEqual", "toStrictEqual", "toMatch", "toContain", "toContainEqual"]);
@@ -38,11 +33,31 @@ function literal(node) {
 function definitions(source, node) {
   const variable = resolveVariable(source, node);
   if (!variable) return [];
-  return variable.defs.flatMap(def => {
+  return [...variable.defs.flatMap(def => {
     if (def.type === "Variable" && def.node.init) return [def.node.init];
     if (def.type === "FunctionName") return [def.node];
     return [];
+  }), ...variable.references.filter(ref => ref.isWrite() && ref.writeExpr).map(ref => ref.writeExpr)];
+}
+
+function wording(source, node, seen = new Set()) {
+  node = node && unwrapArrayExpression(node);
+  if (!node || seen.has(node)) return false;
+  seen.add(node);
+  const value = literal(node);
+  if (typeof value === "string") return value.length > 0;
+  if (node.regex) return node.regex.pattern.startsWith("^") && node.regex.pattern.endsWith("$");
+  if (node.type !== "Identifier") return false;
+  const variable = resolveVariable(source, node);
+  // A value delivered through an input/write action is user content, not pinned App copy.
+  const supplied = variable?.references.some(ref => {
+    for (let parent = ref.identifier.parent; parent && parent.type !== "Program"; parent = parent.parent) {
+      if (parent.type === "CallExpression" && ["input", "change", "type", "fill", "write", "setValue", "paste", "rpc"].includes(member(parent.callee) ?? parent.callee.name)) return true;
+      if (["ArrowFunctionExpression", "FunctionExpression", "FunctionDeclaration"].includes(parent.type)) break;
+    }
+    return false;
   });
+  return !supplied && definitions(source, node).some(def => wording(source, def, seen));
 }
 
 function imported(source, node, name, seen = new Set()) {
@@ -56,6 +71,7 @@ function imported(source, node, name, seen = new Set()) {
     }
     return imported(source, node.object, name, seen);
   }
+  if (node.type === "CallExpression" || node.type === "TaggedTemplateExpression") return imported(source, node.callee ?? node.tag, name, seen);
   if (node.type !== "Identifier") return false;
   const binding = resolveVariable(source, node);
   if (!binding) return node.name === name;
@@ -77,13 +93,18 @@ function title(source, node) {
     if (parent.type !== "CallExpression") continue;
     if (!["test", "it", "describe", "suite"].some(name => imported(source, parent.callee, name))) continue;
     const name = literal(parent.arguments[0]);
-    names.unshift(typeof name === "string" ? name : "<dynamic title>");
+    names.unshift(typeof name === "string" ? name : source.getText(parent.arguments[0]));
   }
-  return names.join(" > ") || "<helper>";
+  if (names.length) return names.join(" > ");
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.type === "FunctionDeclaration" && parent.id) return "<helper:" + parent.id.name + ">";
+    if (parent.type === "VariableDeclarator" && parent.id.type === "Identifier") return "<helper:" + parent.id.name + ">";
+  }
+  return "<module>";
 }
 
-/** Audit only: provenance candidates need review before becoming a shrinking baseline. */
-export const auditWebAssertionsRule = defineRule({
+function assertionRule(enforce) {
+return defineRule({
   meta: {
     type: "problem",
     docs: { description: "Inventory appearance assertions and literal DOM-copy candidates without executing tests." },
@@ -91,8 +112,10 @@ export const auditWebAssertionsRule = defineRule({
     messages: { observation: "{{observation}}" },
   },
   create(context) {
-    if (!/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(context.filename)) return {};
+    if (!/\.[cm]?[jt]sx?$/.test(context.filename)) return {};
     const source = context.sourceCode;
+    const file = relative(context.cwd, context.filename).replaceAll("\\", "/");
+    const remaining = new Map((enforce ? baselineEntries(context.cwd) : []).filter(entry => entry.file === file).map(entry => [assertionKey(entry), entry]));
 
     function evidence(root) {
       const found = new Set();
@@ -101,6 +124,19 @@ export const auditWebAssertionsRule = defineRule({
       function scan(node, keys, embedded = false) {
         if (!node || seen.has(node)) return;
         seen.add(node);
+        if (["ArrowFunctionExpression", "FunctionExpression", "FunctionDeclaration"].includes(node.type)) {
+          if (node.body.type !== "BlockStatement") scan(node.body, keys, embedded);
+          else {
+            function returns(part) {
+              if (part.type === "ReturnStatement") scan(part.argument, keys, embedded);
+              else if (!["ArrowFunctionExpression", "FunctionExpression", "FunctionDeclaration"].includes(part.type)) {
+                for (const child of children(part, keys)) returns(child);
+              }
+            }
+            returns(node.body);
+          }
+          return;
+        }
         const name = member(node);
         if (geometry.has(name) || dimensions.test(name ?? "") || (node.type === "Identifier" && dimensions.test(node.name))) found.add("appearance");
         if (text.has(name)) found.add("dom-text");
@@ -109,8 +145,8 @@ export const auditWebAssertionsRule = defineRule({
           const argument = query.endsWith("ByRole")
             ? node.arguments[1]?.properties?.find(property => (property.key.name ?? property.key.value) === "name")?.value
             : node.arguments[0];
-          const wording = literal(argument);
-          if (typeof wording === "string" && wording.length > 0 || argument?.regex?.pattern?.startsWith("^") && argument.regex.pattern.endsWith("$")) found.add("text-query");
+          if (wording(source, argument)) found.add("text-query");
+          scan(argument, keys, embedded);
           // A named ancestor locates the query's scope; it is not the asserted copy.
           return;
         }
@@ -136,18 +172,16 @@ export const auditWebAssertionsRule = defineRule({
         let script = literal(node);
         if (node.type === "TemplateLiteral") script = node.quasis.map(part => part.value.cooked).join("null");
         if (typeof script !== "string" || ["eval", "--json"].includes(script)) return;
-        try {
-          scan(parseExpression(script, { plugins: ["typescript", "jsx"] }), VISITOR_KEYS, true);
-        } catch {
-          // Dynamic fragments or non-expression scripts remain visible for manual review.
-          found.add("unparsed-browser-script");
-        }
+        for (const kind of browserEvidence(script)) found.add(kind);
       }
       scan(root, source.visitorKeys);
       return { found, dependencies: [...dependencies].sort() };
     }
 
     return {
+      "Program:exit"(node) {
+        for (const entry of remaining.values()) context.report({ node, messageId: "observation", data: { observation: "Stale assertion baseline entry: " + assertionKey(entry) } });
+      },
       CallExpression(node) {
         const matcher = member(node.callee);
         if (!matcher) return;
@@ -157,9 +191,7 @@ export const auditWebAssertionsRule = defineRule({
         const kinds = [];
         if (matcher === "toHaveStyle" || observed.found.has("appearance")) kinds.push("appearance");
         const expected = node.arguments[0];
-        const expectedText = literal(expected);
-        const exactRegex = expected?.regex?.pattern?.startsWith("^") && expected.regex.pattern.endsWith("$");
-        const hasWording = typeof expectedText === "string" && expectedText.length > 0 || exactRegex;
+        const hasWording = wording(source, expected);
         if (["toHaveTextContent", "toHaveAccessibleName"].includes(matcher) && hasWording) kinds.push("copy-candidate");
         else if (observed.found.has("dom-text") && equality.has(matcher) && hasWording) kinds.push("copy-candidate");
         else if (observed.found.has("text-query") && existence.has(matcher)) kinds.push("copy-candidate");
@@ -167,11 +199,35 @@ export const auditWebAssertionsRule = defineRule({
         if (matcher.includes("Snapshot")) kinds.push("snapshot-review");
         if (!kinds.length) return;
         const assertion = source.getText(node);
-        const identity = createHash("sha256").update(JSON.stringify([assertion, observed.dependencies])).digest("hex");
+        const dependencies = [...new Set([...observed.dependencies, ...evidence(expected).dependencies])].sort();
+        // Pin the enclosing function as well: duplicating, editing or moving an assertion
+        // must never spend another assertion's permission, even for identical wording.
+        let owner = node;
+        for (let parent = node.parent; parent; parent = parent.parent) {
+          owner = parent;
+          if (parent.type === "CallExpression" && ["test", "it"].some(name => imported(source, parent.callee, name))) break;
+          if (parent.type === "FunctionDeclaration" || parent.type === "VariableDeclarator" || parent.type === "Program") break;
+        }
+        const path = [];
+        for (let child = node; child !== owner; child = child.parent) {
+          const parent = child.parent;
+          for (const key of source.visitorKeys[parent.type] ?? []) {
+            if (parent[key] === child) path.unshift(key);
+            else if (Array.isArray(parent[key]) && parent[key].includes(child)) path.unshift([key, parent[key].indexOf(child)]);
+          }
+        }
+        const identity = createHash("sha256").update(JSON.stringify([assertion, dependencies, source.getText(owner), path])).digest("hex");
+        const name = title(source, node);
+        const key = assertionKey({ file, test: name, identity });
+        if (enforce && remaining.delete(key)) return;
         context.report({ node, messageId: "observation", data: { observation: JSON.stringify({
-          test: title(source, node), identity, kinds, assertion, dependencies: observed.dependencies,
+          test: name, identity, kinds, assertion, dependencies,
         }) } });
       },
     };
   },
 });
+}
+
+export const auditWebAssertionsRule = assertionRule(false);
+export const noNewWebAssertionsRule = assertionRule(true);
