@@ -255,7 +255,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
     for (const node of [first, second]) {
       connected.rail.select(node.id);
-      fireEvent.click(await screen.findByRole("button", { name: node.worktree!.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
@@ -273,7 +273,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     mount();
     const { app } = connected;
     connected.rail.select(first.id);
-    fireEvent.click(await screen.findByRole("button", { name: first.worktree!.branch }));
+    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
     // Retire the inspection-only note from the prior observer; this batch holds exactly two new notes.
     fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
@@ -298,7 +298,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     connected = await connectProject(app, { name: "observer", path: real.dir }, () => true, () => 0);
     connected.rail.select(first.id);
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: first.worktree!.branch }));
+    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
     expect(screen.getByRole("textbox")).toHaveProperty("value", "");
@@ -329,7 +329,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
         await connected.worktrees.refresh(node.id);
 
         if (phase !== "before inspection") {
-          fireEvent.click(await screen.findByRole("button", { name: node.worktree!.branch }));
+          fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
           await openFile("same.ts");
 
           if (phase === "with notes") {

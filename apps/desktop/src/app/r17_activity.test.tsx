@@ -153,7 +153,7 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } })]);
   const reads = () => app.calls.filter((call) => call.method === "agent.worktreeState").length;
   expect(reads()).toBe(1);
-  fireEvent.click(screen.getByRole("button", { name: "branch-a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await settle();
   expect(reads()).toBe(2);
   status(app, "a", "blocked");

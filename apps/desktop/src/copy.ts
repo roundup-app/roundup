@@ -131,6 +131,7 @@ export const copy = {
   resources: "Resources",
   terminalTabs: "Terminal tabs",
   changesStale: "Changes are stale",
+  changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
   projectMark: (name: string, mark: string) => `${name}: ${mark}`,
   switchProject: "Switch Project",
   reviewChanges: "Review changes",

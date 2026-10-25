@@ -19,7 +19,7 @@ const expectRow = (path: string) => {
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
   const mounted = await mountControl(undefined, project, drafts);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
 
   return mounted;

@@ -95,7 +95,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
 
   if (kind === "worktree") {
-    fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+    fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
     await openFile();
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   } else {

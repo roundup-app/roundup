@@ -41,7 +41,7 @@ it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(noteText);
 });
 
@@ -76,7 +76,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
   connected.rail.select("b");
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   expect(screen.queryByRole("list")).toBeNull();
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -85,7 +85,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished b e\u0301\n  " } });
   connected.rail.select("a");
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   const batch = await screen.findByRole("list", { name: "Notes" });
   expect(batch.textContent).toContain(firstText);
   expect(batch.textContent).not.toContain(secondText);
@@ -99,7 +99,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   connected.rail.select("b");
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(secondText);
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -202,7 +202,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
@@ -272,7 +272,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       const connected = await connectProject(app, { name: "Same project", path: real.dir }, () => true, () => 0);
       connected.rail.select(node.id);
       const view = render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-      fireEvent.click(await screen.findByRole("button", { name: node.worktree!.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       await saveNote(`  Project ${index} e\u0301\n🐝  `);
       originals.push(await app.rpc("agent.compareFile", { id: node.id, path: "same.ts" }));
@@ -302,7 +302,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       const connected = await connectProject(app, { name: "Same project", path: real.dir }, () => true, () => 0);
       connected.rail.select(target.id);
       const view = render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-      fireEvent.click(await screen.findByRole("button", { name: target.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(`  Project ${index} e\u0301\n🐝  `);
       await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
@@ -356,7 +356,7 @@ it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(document.querySelector(".note-recovery")).toBeNull());
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", noteText);
@@ -423,7 +423,7 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
   fireEvent.click(within(recovery).getByRole("button", { name: "Resume note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer recovery editor work 🐝" } });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Recover Changes drafts" })) throw new Error("Previous dialog remains mounted"); });
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -575,7 +575,7 @@ it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () 
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
   await connected.worktrees.refresh("a");
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", text);

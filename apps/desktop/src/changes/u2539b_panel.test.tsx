@@ -5,7 +5,7 @@ import { mountControl, STATE } from "./harness";
 
 afterEach(cleanup);
 
-const control = () => screen.getByRole("button", { name: "roundup/a" });
+const control = () => screen.getByRole("button", { name: /\d+ changed files?/ });
 
 const rows = (): string[] => [...document.querySelectorAll("file-tree-container")].flatMap((host) => [...(host.shadowRoot?.querySelectorAll("[data-item-path]") ?? [])].map((row) => row.textContent ?? ""));
 
@@ -25,7 +25,7 @@ describe("U2539b", () => {
 
     connected.rail.select("plain");
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "roundup/a" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /\d+ changed files?/ })).toBeNull());
   });
 
   it("u2539b_opens_and_closes_back_to_the_terminal", async () => {

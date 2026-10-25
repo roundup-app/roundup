@@ -39,6 +39,7 @@ export const AskBar = (props: {
    * Closing returns ordinary editing to the current work; selection never submits or reconciles.
    */
   recovery?: { project: string; revision: string } | undefined;
+  viewLabel?: ((id: string) => string | undefined) | undefined;
 }) => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
@@ -322,7 +323,7 @@ export const AskBar = (props: {
         </div>
         <Show when={connected.view()}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
 
-          if (current) connected.hideView(current); }}>{copy.closeView(connected.view()!)}</button></Show>
+          if (current) connected.hideView(current); }}>{props.viewLabel?.(connected.view()!) ? copy.closeView(props.viewLabel!(connected.view()!)!) : copy.close}</button></Show>
         <Show when={treeReady() && !over() && !connected.drawer.content()}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
         <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>

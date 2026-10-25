@@ -13,7 +13,7 @@ it("u2540d_renderer_loads_only_on_demand", async () => {
   connected.rail.select("a");
   expect(diffsLoaded()).toBe(false);
   app.handlers["agent.compareFile"] = () => COMPARISON;
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
   expect(diffsLoaded()).toBe(false);
   await openFile();

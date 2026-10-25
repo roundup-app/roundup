@@ -109,7 +109,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   return (
     <Popover.Root initialFocus={treeFocus} closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Show when={count() > 0}><Popover.Trigger asChild={(trigger) => (
-        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} data-stale={read()?.failure ? "true" : undefined} onClick={() => (open() ? close() : openPanel())}>
+        <button {...trigger()} type="button" data-button="quiet" class="worktree-control" aria-label={copy.changedFiles(count())} data-stale={read()?.failure ? "true" : undefined} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
           <span>{count()}</span>
         </button>

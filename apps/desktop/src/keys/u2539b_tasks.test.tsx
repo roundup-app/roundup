@@ -74,10 +74,16 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
 
 it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
+  if (view === "resources") {
+    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(false);
+    connected().rail.select("a0");
+    await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
+  }
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBe(view));
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBeNull());
+  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 
@@ -167,7 +173,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     await waitFor(() => expect(projectMenu.path).toBe("/project6"));
   } else {
     connected().rail.select("a1");
-    await screen.findByRole("button", { name: "roundup/a" });
+    await screen.findByRole("button", { name: /\d+ changed files?/ });
     runLeader("KeyC");
     await screen.findByRole("dialog", { name: "Worktree" });
     await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
@@ -205,7 +211,7 @@ it("u2539b_empty_project_can_submit_an_ask", async () => {
 it("u2539b_strip_items_follow_actionable_facts", async () => {
   const { connected, emulators, daemon } = await mount();
   connected().rail.select("a1");
-  await screen.findByRole("button", { name: "roundup/a" });
+  await screen.findByRole("button", { name: /\d+ changed files?/ });
   await waitFor(() => expect(emulators.made.has("t-a1")).toBe(true));
   const terminal = emulators.made.get("t-a1");
   const portal = document.querySelector(".resource-agent");
@@ -245,7 +251,7 @@ it("u2539b_unknown_and_late_answers_never_supply_another_selection", async () =>
   await waitFor(() => expect(daemon.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
   expect(document.querySelector(".worktree-control")).toBeNull();
   connected().rail.select("a2");
-  await screen.findByRole("button", { name: "roundup/a" });
+  await screen.findByRole("button", { name: /\d+ changed files?/ });
   finish({ files: [] });
   await waitFor(() => expect(Number(document.querySelector(".worktree-control")?.textContent)).toBe(1));
 });
@@ -253,7 +259,7 @@ it("u2539b_unknown_and_late_answers_never_supply_another_selection", async () =>
 it("u2539b_last_change_removed_closes_to_a_surviving_target", async () => {
   const { connected, daemon, emulators } = await mount();
   connected().rail.select("a1");
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByRole("dialog", { name: "Worktree" });
   const original = emulators.made.get("t-a1");
   daemon.handlers["agent.changedFiles"] = () => ({ files: [] });

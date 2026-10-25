@@ -43,13 +43,13 @@ it("u2539b_real_daemon_ask_attention_and_review_use_requested_surfaces", async (
     await waitFor(() => expect(connected?.rail.selected()).toBe(maker.id));
     await waitFor(() => expect(emulators.made.has(maker.terminal_id!)).toBe(true));
     const terminal = emulators.made.get(maker.terminal_id!);
-    const opener = await screen.findByRole("button", { name: maker.worktree!.branch });
+    const opener = await screen.findByRole("button", { name: /\d+ changed files?/ });
     fireEvent.click(opener);
     await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Worktree" }), { key: "Escape", code: "Escape" });
     openProjectPage("view:workstreams", real.dir);
     openProjectPage("view:workstreams", real.dir);
-    fireEvent.click(await screen.findByRole("button", { name: maker.worktree!.branch }));
+    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
     expect(emulators.made.get(maker.terminal_id!)).toBe(terminal);
     expect((await app.rpc("agent.changedFiles", { id: maker.id })).files.map(file => file.path)).toContain("result.txt");
