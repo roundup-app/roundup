@@ -81,6 +81,7 @@
     "finalFixturesAndPreferences": 14,
     "captureCommand": "just capture U130,U131,U132,U133,U134,U135,U136,U137",
     "captureResult": "Terminated after 180 seconds; not a passing full-suite observation",
-    "relatedTests": "Started; stopped after exceeding the run budget while compiling real-daemon prerequisites; CI must finish the full graph"
+    "relatedTests": "Started; stopped after exceeding the run budget while compiling real-daemon prerequisites; CI must finish the full graph",
+    "finalVendorMotionFixturesPreferencesAndScrollbar": 15
   }
 }
