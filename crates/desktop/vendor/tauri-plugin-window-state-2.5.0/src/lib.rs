@@ -576,7 +576,7 @@ impl Builder {
                                 .is_ok() =>
                     {
                         // TODO: Remove once https://github.com/tauri-apps/tauri/issues/5812 is resolved.
-                        let is_maximized = if cfg!(target_os = "macos")
+                        let is_maximized = if cfg!(target_vendor = "apple")
                             && (!window_clone.is_decorated().unwrap_or_default()
                                 || !window_clone.is_resizable().unwrap_or_default())
                         {
@@ -627,7 +627,7 @@ fn load_saved_window_states<R: Runtime>(
 // Overlay titlebars are included in inner_size on macOS, but set_size accepts
 // the content rect. Subtract the native titlebar to prevent growth on each reopen.
 fn restorable_size<R: Runtime>(window: &Window<R>) -> tauri::Result<PhysicalSize<u32>> {
-    #[cfg(target_os = "macos")]
+    #[cfg(target_vendor = "apple")]
     {
         let outer = window.outer_size()?;
         let title_bar = window.inner_position()?.y - window.outer_position()?.y;
@@ -636,6 +636,6 @@ fn restorable_size<R: Runtime>(window: &Window<R>) -> tauri::Result<PhysicalSize
             outer.height.saturating_sub(title_bar.max(0) as u32),
         ))
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(target_vendor = "apple"))]
     window.inner_size()
 }
