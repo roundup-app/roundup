@@ -209,7 +209,7 @@ export const App = (props: {
   };
 
   onMount(() => {
-    onCleanup(pressFeedback(document));
+    onCleanup(pressFeedback(document, props.reducedMotion));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
