@@ -379,6 +379,8 @@ mod workstream_door;
 
 #[cfg(test)]
 mod concurrent_tests;
+#[cfg(test)]
+mod todo_deletion_tests;
 
 // N7: keep in-process test launches at the audited composition root. Callers own
 // the temporary data directory and must never fall back to the user's data.

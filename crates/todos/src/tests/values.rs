@@ -237,19 +237,14 @@ async fn t6_deleting_a_blocker_unblocks_the_todo() {
         .await
         .unwrap();
     h.events();
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     assert_eq!(h.events(), ["todo.deleted 1", "todo.unblocked 2"]);
     let two = h.call("todo.get", json!({"id": 2})).await.unwrap();
     assert_eq!(
         (two["blockers"].clone(), two["blocked"].clone()),
         (json!([]), json!(false))
-    );
-    assert_eq!(
-        h.call("todo.delete", json!({"id": 1}))
-            .await
-            .unwrap_err()
-            .code,
-        code::NOT_FOUND
     );
 }
 
@@ -262,8 +257,9 @@ async fn t6_deleting_a_blocked_todo_announces_only_its_deletion() {
         .await
         .unwrap();
     h.events();
-    let reply = h.call("todo.delete", json!({"id": 2})).await.unwrap();
-    assert_eq!(reply, Value::Null);
+    h.call("todo.delete", json!({"operation": "delete-2", "ids": [2]}))
+        .await
+        .unwrap();
     assert_eq!(h.events(), ["todo.deleted 2"]);
 }
 
