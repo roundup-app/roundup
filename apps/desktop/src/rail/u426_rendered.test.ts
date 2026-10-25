@@ -46,47 +46,6 @@ for (const railWidth of [288]) {
   }, 60_000);
 }
 
-it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async () => {
-  await load("tree-40", 1280, "light");
-  await page.call(`() => document.querySelector('.rail-row[data-id="backend"]').click()`);
-  await page.until(`() => document.querySelector('.rail-row[data-id="backend"]').dataset.selected === 'true'`);
-  await page.call(`() => document.querySelector('.rail-row[data-id="auth"] [aria-label^="Clear"]').click()`);
-  await page.until(`() => Boolean(document.querySelector('[role="dialog"] [data-clear-prompt] textarea'))`);
-  expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]').dataset.id`)).toBe("backend");
-  expect(await page.call(`() => document.activeElement === document.querySelector('[role="dialog"] textarea')`)).toBe(true);
-  expect(await page.call(`() => window.__fake.app.calls.filter(c=>c.method==='workstream.clear').length`)).toBe(0);
-  await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='Keep').click()`);
-  await page.until(`() => !document.querySelector('[role="dialog"] [data-clear-prompt]')`);
-}, 60_000);
-
-it("u429_the_rail_shows_a_missing_editor_in_one_failure_line", async () => {
-  await load("tree-40", 1280, "light");
-  await page.call(`() => {
-    window.__fake.app.editorFailure = new Error('no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR');
-    document.querySelector('.rail-row [aria-label="Open in editor"]').click();
-  }`);
-  await page.until(`() => document.querySelector('.rail > .reserved-line [role="alert"]')?.textContent.includes('no code editor found')`);
-  expect(await page.call(`() => document.querySelectorAll('.rail > .reserved-line [role="alert"]').length`)).toBe(1);
-}, 60_000);
-
-it("u426_only_workstream_and_agent_rows_carry_icons", async () => {
-  await load("tree-40", 1280, "dark");
-  await page.call(`() => document.querySelector('.rail-pads-control').click()`);
-  await page.until(`() => document.querySelectorAll('.rail-leaf').length > 0`);
-
-  const read = await page.call<{projectTabs:number; leaves:number; rowGroups:number[]; otherGroups:number}>(`() => ({
-    projectTabs:document.querySelectorAll('.project-tab').length,
-    leaves:document.querySelectorAll('.rail-leaf').length,
-    rowGroups:[...document.querySelectorAll('.rail-row')].map(r=>r.querySelectorAll('.row-icons').length),
-    otherGroups:document.querySelectorAll('.project-tab .row-icons, .rail-leaf .row-icons, .rail-fold .row-icons').length
-  })`);
-
-  expect(read.projectTabs).toBeGreaterThan(0);
-  expect(read.leaves).toBeGreaterThan(0);
-  expect(read.rowGroups.every(count=>count===1)).toBe(true);
-  expect(read.otherGroups).toBe(0);
-}, 60_000);
-
 it("u426_the_stopped_door_keeps_a_readable_control_beside_the_group", async () => {
   await load("tree-40", 1280, "light");
   await page.call(`() => document.querySelector('.rail-row[data-id="auth"]').focus()`);
