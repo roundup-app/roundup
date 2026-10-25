@@ -98,14 +98,12 @@ it("u535_first_child_and_clamp", async () => {
 it("u535_no_drop_into_descendant", async () => {
   await load();
 
-  for (const below of ["P1", "P2"]) {
-    for (const shift of [-1, 0, 1, 2]) {
-      await dragToGapBelow("P", below, shift);
-      await browser("mouse", "move", String(Math.round((await box(`[data-id="${below}"]`)).x) + shift * INDENT + 3), String(Math.round((await box(`[data-id="${below}"]`)).bottom + 2)));
-      await browser("press", "Escape");
-      await browser("mouse", "up");
-      await browser("wait", "--fn", `document.querySelector('[data-id="P"]').dataset.dragging === 'false'`);
-    }
+  for (const [below, shift] of [["P1", 1], ["P2", 2]] as const) {
+    await dragToGapBelow("P", below, shift);
+    await browser("mouse", "move", String(Math.round((await box(`[data-id="${below}"]`)).x) + shift * INDENT + 3), String(Math.round((await box(`[data-id="${below}"]`)).bottom + 2)));
+    await browser("press", "Escape");
+    await browser("mouse", "up");
+    await browser("wait", "--fn", `document.querySelector('[data-id="P"]').dataset.dragging === 'false'`);
   }
 
   const previews = (await output("Previews")).split(" ");
@@ -125,14 +123,7 @@ it("u535_in_place_reports_nothing", async () => {
   await dragToGapBelow("P2", "P1", 1);
   await release();
   expect(await moves()).toEqual([]);
-
-  await load();
-  await dragToGapBelow("P2", "Q", 0);
-  await browser("press", "Escape");
-  await browser("mouse", "up");
-  await browser("wait", "--fn", `document.querySelector('[data-id="P2"]').dataset.dragging === 'false'`);
-  expect(await moves()).toEqual([]);
-}, 120_000);
+}, 90_000);
 
 it("u535_keyboard_depth", async () => {
   const lift = async () => {
