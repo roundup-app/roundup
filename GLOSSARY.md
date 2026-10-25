@@ -176,6 +176,7 @@ Names and App labels use this table (`AGENTS.md` rule 6). Avoid entries govern p
 | Touch | Touch | — |
 | Provenance | Provenance | — |
 | Daemon | Daemon | — |
+| Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | Daemon recovery | — |
 | Link (`link.read`) | Link | — |
 | Context menu (`show_context_menu`) | Context menu | — |
 | openTarget | openTarget | — |
