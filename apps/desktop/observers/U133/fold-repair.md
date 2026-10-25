@@ -63,3 +63,9 @@ passes alone after warm-up, without changing its timeout or retry policy.
 
 The full `just lint-web` rerun passes after the workspace install repair.
 `loop/rules.sh merge-loss` and `git diff --check` also pass.
+
+U166's isolated rerun passes without retries after clearing the interrupted
+run's orphaned build-lock directory (no build process owned it). The final
+focused observations therefore contain 99 passing tests, plus the standalone
+reporting test. No test timeout, retry count or product behavior was changed
+to obtain these passes.
