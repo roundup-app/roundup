@@ -226,6 +226,13 @@ class CI3781(unittest.TestCase):
         self.assertTrue(all(row['exit_code'] == 0 and row['end'] > row['start'] for row in links))
         self.assertTrue(any('ci3781_fixture' in row['output'] for row in links))
 
+    def test_ci3781_cargo_run_ends_build_before_running_the_program(self):
+        (self.root / 'src/main.rs').write_text('fn main() { std::thread::sleep(std::time::Duration::from_millis(100)); }')
+        result = subprocess.run(['cargo', 'run', '--quiet'], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        compiled = build.report(self.output)['builds'][0]
+        self.assertLess(compiled['cargo_interval']['end'], compiled['end'] - .05)
+
     def test_ci3781_failed_link_retains_real_status_and_invalidates_collection(self):
         (self.root / 'src/main.rs').write_text('extern "C" { fn ci3781_missing(); } fn main() { unsafe { ci3781_missing(); } }')
         failed = subprocess.run(['cargo', 'build'], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
