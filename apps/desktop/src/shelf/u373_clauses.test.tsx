@@ -1,6 +1,6 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
@@ -19,11 +19,29 @@ import shelfCss from "./styles.css?inline";
 let sheet: HTMLStyleElement | undefined;
 
 afterEach(() => {
+  document.querySelectorAll("[data-probe]").forEach((probe) => probe.remove());
+});
+
+afterAll(() => {
   sheet?.remove();
   cleanup();
   localStorage.clear();
-  document.querySelectorAll("[data-probe]").forEach((probe) => probe.remove());
 });
+
+// Every test reads and toggles state `shared` puts back, so they share one mounted App.
+let live: Awaited<ReturnType<typeof mountApp>> | undefined;
+
+const shared = async () => {
+  live ??= await mountApp();
+  const field = screen.queryByLabelText("Pad name");
+
+  if (field) fireEvent.keyDown(field, { key: "Escape" });
+
+  if (shelf().hidden) chord();
+
+  if (tabs().find((tab) => tab.getAttribute("aria-selected") === "true")?.textContent?.startsWith("Todos") !== true) fireEvent.click(tabNamed("Todos"));
+  await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Todos").id));
+};
 
 const mountApp = async (seed: SeedName = "tree-40") => {
   window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
@@ -61,7 +79,7 @@ const probe = (role: string, attributes: Record<string, string> = {}) => {
 
 describe("u370 the chord and esc", () => {
   it("u370_leader_s_toggles_from_a_terminal_and_never_reaches_it", async () => {
-    await mountApp();
+    await shared();
     const field = document.body.appendChild(document.createElement("textarea"));
     const reached: KeyboardEvent[] = [];
 
@@ -78,7 +96,7 @@ describe("u370 the chord and esc", () => {
   });
 
   it("u370_leader_s_toggles_with_a_drawer_open", async () => {
-    await mountApp();
+    await shared();
     fireEvent.click(tabNamed("Pads"));
     await within(shelf()).findByRole("button", { name: "Add Pad" });
 
@@ -92,7 +110,7 @@ describe("u370 the chord and esc", () => {
   });
 
   it("u370_caps_lock_is_neutral", async () => {
-    await mountApp();
+    await shared();
     chord({ key: "|", modifierCapsLock: true });
     expect(shelf().hidden).toBe(true);
     chord({ key: "\\", modifierCapsLock: true });
@@ -100,7 +118,7 @@ describe("u370 the chord and esc", () => {
   });
 
   it("u370_esc_does_nothing_with_a_drawer_or_dialog_open", async () => {
-    await mountApp();
+    await shared();
 
     const drawer = probe("region");
 
@@ -120,7 +138,7 @@ describe("u370 the chord and esc", () => {
   });
 
   it("u370_esc_does_not_close_from_a_text_field_inside", async () => {
-    await mountApp();
+    await shared();
     fireEvent.click(tabNamed("Pads"));
     fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Pad" }));
 
