@@ -4,7 +4,9 @@ import { createIdleEvidence } from "./idle";
 import type { IdleEvidence } from "./idle";
 
 /** No driver, spawning, typing or scheduling: the parent prepares the isolated Project and selection. */
-export const createIdleRun = (send: (record: IdleEvidence) => Promise<void>, now: () => number = () => performance.now()) => {
+export const createIdleRun = (send: ((record: IdleEvidence) => Promise<void>) | undefined, now: () => number = () => performance.now()) => {
+  if (!send) throw new Error("R24 native evidence sink is unavailable");
+
   const evidence = createIdleEvidence(document, window, now, send);
 
   const createEmulator = createXtermEmulators({
