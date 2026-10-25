@@ -39,7 +39,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(screen.getByText("First"));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
     fireEvent.keyDown(screen.getByRole("region", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
-    await waitFor(() => expect(screen.queryByText("First")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
     // A rejected call keeps the selection and the page.
@@ -50,7 +50,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
     await screen.findByText("daemon refused");
-    expect(screen.getByRole("button", { name: "Import 2" })).toBeTruthy();
+    expect(screen.getAllByRole("checkbox").filter(box => box instanceof HTMLInputElement && box.checked)).toHaveLength(2);
 
     // Partial failure: the success leaves the selection, the failure stays for retry, and each call names its sources.
     commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
@@ -71,7 +71,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
     expect(calls(app, "project.importCommit")[2]!.params).toEqual({ selections: [{ source: "s2", revision: "r2" }] });
     release({ outcomes: [{ source: "s2", workstream: "w1", agent: "a2", error: null }] });
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
