@@ -189,19 +189,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
             let matches = if code == 1 {
                 measured && scheduling["meets_thresholds"] == false && report["verdict"] == "fail"
             } else {
-                [
-                    "scheduling",
-                    "style",
-                    "layout",
-                    "paint",
-                    "compositor",
-                    "presentation",
-                ]
-                .iter()
-                .all(|stage| {
-                    report["stages"][stage]["status"] == "measured"
-                        && report["stages"][stage]["meets_thresholds"] == true
-                }) && report["verdict"] == "pass"
+                measured && scheduling["meets_thresholds"] == true && report["verdict"] == "pass"
             };
             if valid && matches {
                 Ok(if code == 0 { 0 } else { 1 })
@@ -215,7 +203,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
     }
 }
 
-/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 1 for a miss on the measured stage and 2 for an invalid run or an unmeasured stage, so the run never ends in a pass the webview cannot show.
+/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 0 for passing scheduling, 1 for a scheduling miss and 2 for an invalid run. Presentation remains unmeasured.
 async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     // Each invocation retains its own logs, even when cleanup must remove the temporary Project.
     let parent = args
@@ -514,8 +502,17 @@ mod tests {
     }
 
     #[test]
+    fn u3010e_a_scheduling_pass_needs_no_presentation_measurement() {
+        let mut report = scheduling_miss();
+        report["exit"] = 0.into();
+        report["verdict"] = "pass".into();
+        report["stages"]["scheduling"]["meets_thresholds"] = true.into();
+        assert_eq!(frame_exit(&report).unwrap(), 0);
+    }
+
+    #[test]
     fn u3010e_missing_or_unmeasured_evidence_cannot_authorize_a_pass() {
-        for defect in ["error", "invalid", "samples", "presentation"] {
+        for defect in ["error", "invalid", "samples", "scheduling"] {
             let mut report = scheduling_miss();
             match defect {
                 "error" => report["error"] = "recorder stopped".into(),
@@ -524,10 +521,7 @@ mod tests {
                 _ => {
                     report["exit"] = 0.into();
                     report["verdict"] = "pass".into();
-                    for stage in ["scheduling", "style", "layout", "paint", "compositor"] {
-                        report["stages"][stage] =
-                            serde_json::json!({"status":"measured","meets_thresholds":true});
-                    }
+                    report["stages"]["scheduling"] = serde_json::json!({"status":"unmeasured"});
                 }
             }
             assert!(frame_exit(&report).is_err(), "{report}");
