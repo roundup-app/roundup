@@ -219,7 +219,7 @@
 
 /* U391: the failure line sits directly above the footer, outside the list. */
 .rail-command-notice .ink {
-  flex: none;
+  flex: 1;
   background: var(--sunken);
 }
 
