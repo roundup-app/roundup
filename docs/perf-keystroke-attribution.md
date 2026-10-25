@@ -147,3 +147,23 @@ prove recorder implementation, not native latency or a production repair.
 #3550 still owns the flood observation, Solo comparisons, production repair,
 Agent/shell-path proof and final idle/flood acceptance; no new idle-only baseline
 is requested here.
+
+### Flood recorder frame wait (2026-10-25)
+
+The [Mac attempt at `7fbf5d6ff7bbc2702f152112caad01caca45daa0`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6400874363)
+retains all three failed runs and the immediate idle control. Each flood run
+exited 2 at the 10 s display-frame setup bound, before its first activity sample;
+the same build's idle runs reported p95 11/11/11 ms and zero drops. Empty activity
+samples therefore do not establish that the flood command failed: the recorder
+already passed its producer-start and active-output checks before waiting for
+frames. The observation cannot choose a production latency repair.
+
+The recorder now measures the display period before starting `yes`, takes an
+activity sample before opening the measured shell, and retains the existing
+samples around typing. `frame_ms` is this pre-flood display period; per-key
+`parsed_to_frame` and end-to-end measurements still include the live flood.
+The window-free `r20_flood_reports_activity_and_drops_when_output_stops_display_frames`
+regression stops frames once the producer starts. The run must still reach
+input and report positive flood bytes and all 1100 keys as dropped, rather than
+fail at the display setup wait. This repairs the observer only; native timing,
+the production repair and R21's final acceptance remain outstanding on #3550.

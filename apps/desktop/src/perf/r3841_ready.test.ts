@@ -385,8 +385,11 @@ it.each(["missing", "exited", "pending", "silent"])("r20_inactive_flood_is_a_nam
 });
 
 it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", async () => {
-  vi.useFakeTimers();
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
   const app = createFakeApp();
+  const began = Date.now();
+  let reads = 0;
+  const clock = vi.spyOn(performance, "now").mockImplementation(() => Date.now() - began + reads++ / 1000);
   let producing = false;
   let shells = 0;
   let bytes = 0;
@@ -428,10 +431,11 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
     const line = new TextDecoder().decode(Uint8Array.from(reports.flatMap(chunk => [...chunk])));
     const report = JSON.parse(line.slice(5));
 
-    expect(report).toMatchObject({ terminal_id: "shell-2", n: 0, dropped: 1100, frame_ms: 8, error: "no key was echoed and rendered after the warm-up", flood: { id: "shell-1", bytes: expect.any(Number) } });
+    expect(report).toMatchObject({ terminal_id: "shell-2", n: 0, dropped: 1100, frame_ms: expect.any(Number), error: "no key was echoed and rendered after the warm-up", flood: { id: "shell-1", bytes: expect.any(Number) } });
     expect(report.flood.bytes).toBeGreaterThan(0);
     expect(report.flood.samples.length).toBeGreaterThan(1);
   } finally {
     document.removeEventListener("keydown", open);
+    clock.mockRestore();
   }
 });
