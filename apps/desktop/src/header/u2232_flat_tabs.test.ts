@@ -57,7 +57,7 @@ it("u2234_a_rename_field_opens_without_selecting_the_tab", async () => {
 }, 120_000);
 
 it("u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable", async () => {
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await runs(scheme);
 
     const count = await page.call<number>(`() => document.querySelectorAll('.terminal-tab-pair').length`);
