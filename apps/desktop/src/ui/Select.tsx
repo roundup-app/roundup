@@ -1,3 +1,4 @@
+import { focusActions } from "./focusActions";
 import { captureFocus } from "../keys/focus";
 import * as select from "@zag-js/select";
 import { normalizeProps, useMachine } from "@zag-js/solid";
@@ -39,28 +40,21 @@ export const Select = (props: {
   // Ark's useSelect fixes the machine and exposes no final-focus hook. Keep Zag's transitions,
   // guards and effects; only the two scheduled focus actions carry the App's permission.
   // Zag 1.45 setInitialFocus/focusTriggerEl: https://github.com/chakra-ui/zag/blob/main/packages/machines/select/src/select.machine.ts
-  const machine: typeof select.machine = {
-    ...select.machine,
-    implementations: {
-      ...select.machine.implementations,
-      actions: {
-        ...select.machine.implementations?.actions,
-        setInitialFocus: () => {
-          const focus = initialFocus;
-          requestAnimationFrame(() => focus(() => {
-            const target = getInitialFocus({ root: list() ?? null });
+  const machine = focusActions(select.machine, {
+    setInitialFocus: () => {
+      const focus = initialFocus;
+      requestAnimationFrame(() => focus(() => {
+        const target = getInitialFocus({ root: list() ?? null });
 
-            if (target) target.focus({ preventScroll: true });
-          }));
-        },
-        focusTriggerEl: parameters => {
-          if (!select.machine.implementations?.guards?.restoreFocus?.(parameters)) return;
-          const focus = returnFocus;
-          requestAnimationFrame(() => focus(() => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); }));
-        },
-      },
+        if (target) target.focus({ preventScroll: true });
+      }));
     },
-  };
+    focusTriggerEl: parameters => {
+      if (!select.machine.implementations?.guards?.restoreFocus?.(parameters)) return;
+      const focus = returnFocus;
+      requestAnimationFrame(() => focus(() => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); }));
+    },
+  });
 
   const service = useMachine(machine, () => ({
     id, collection: collection(), value: [props.value],
