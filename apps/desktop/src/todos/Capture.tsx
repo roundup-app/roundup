@@ -203,7 +203,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     })();
   };
 
-  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
   const nativeShow = () => {
     if (nativeOpen() || open() || modalOpen()) return;
     setSession(`${identity}:${++shows}`);
