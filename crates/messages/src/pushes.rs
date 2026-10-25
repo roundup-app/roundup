@@ -12,7 +12,7 @@ use contracts::message::{Message, MessageKind, SendParams};
 use rpc::{Ctx, RpcError};
 
 use crate::digest::{self, cut, entry_text, push_body};
-use crate::{Inner, Messages, lock};
+use crate::{Inner, Messages, lock, pushes};
 
 pub(crate) const PREFIX: &str = "[digest]";
 const WINDOW_MS: i64 = 60_000;
