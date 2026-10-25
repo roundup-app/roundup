@@ -165,31 +165,8 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
   };
 };
 
-/** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
-export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>): Promise<HTMLTextAreaElement> => {
-  const create = await appears(
-    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
-    "the new Workstream button",
-  );
-
-  create.click();
-  await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
-  // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
-  await appears(
-    () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
-    "the new Workstream's Agent input",
-  );
-  const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
-
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
-
-  const input = await appears(
-    () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
-    "the shell Terminal's input",
-  );
-
-  const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
-
+/** Binds a live or retained ready line to one shell before typing or reporting. */
+const readyTerminal = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>, id: string): Promise<void> => {
   terminal.select(id);
   // Read the retained log, not the screen snapshot: READY may already have scrolled off the grid.
   // Keep this decoder separate from xterm's live decoder so overlapping bytes cannot splice a false line.
@@ -225,6 +202,34 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   } finally {
     reading = false;
   }
+};
+
+/** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
+export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>): Promise<HTMLTextAreaElement> => {
+  const create = await appears(
+    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
+    "the new Workstream button",
+  );
+
+  create.click();
+  await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+  // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
+  await appears(
+    () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
+    "the new Workstream's Agent input",
+  );
+  const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
+
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
+  const input = await appears(
+    () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
+    "the shell Terminal's input",
+  );
+
+  const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
+
+  await readyTerminal(app, terminal, id);
 
   input.focus();
 
@@ -241,14 +246,10 @@ export const createKeystrokeRun = (app: AppSeam) => {
   const { probe } = recorder;
   const terminal = reportTerminal(recorder.createEmulator);
 
-  const report = async (body: PerfReport) => {
-    const id = terminal.target();
-
-    if (id === null) throw new Error("no Terminal printed the ready line to report through");
-
+  const report = async (body: PerfReport, id: string) => {
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
 
-    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
+    await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
   };
 
   const measure = async () => {
@@ -286,7 +287,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
       timer_resolution_ms: timerResolution,
       device_pixel_ratio: window.devicePixelRatio,
       user_agent: navigator.userAgent,
-    });
+    }, id);
   };
 
   return {
@@ -296,9 +297,15 @@ export const createKeystrokeRun = (app: AppSeam) => {
       try {
         await measure();
       } catch (failure) {
-        if (terminal.target() === null) throw failure;
+        let id = terminal.target();
 
-        await report({ error: failure instanceof Error ? failure.message : String(failure) });
+        if (id === null) {
+          // Setup can fail before a Bubble exists. A run-owned Project shell reports that step without starting an Agent.
+          id = (await bounded(app.rpc("terminal.open", { workstream: null }), SETUP_BOUND_MS, "the diagnostic Terminal open")).terminal_id;
+          await readyTerminal(app, terminal, id);
+        }
+
+        await report({ error: failure instanceof Error ? failure.message : String(failure) }, id);
       }
     },
   };
