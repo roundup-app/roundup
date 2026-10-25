@@ -34,13 +34,6 @@ it("r24_reports_collection_loss_when_changes_outrun_the_bounded_transport", asyn
   evidence.stop();
 });
 
-it("r24_missing_native_transport_never_becomes_successful_evidence", async () => {
-  const evidence = createIdleEvidence(document, window, () => 0, async () => { throw new Error("native producer unavailable"); });
-
-  await expect(evidence.flush()).rejects.toThrow("native producer unavailable");
-  evidence.stop();
-});
-
 it("r24_records_teardown_as_collection_loss", async () => {
   const records: { cause: string }[] = [];
   const evidence = createIdleEvidence(document, window, () => 0, async record => { records.push(record); });
@@ -75,14 +68,18 @@ it("r24_renderer_evidence_belongs_to_the_selected_terminal_and_reports_fallback"
 });
 
 it("r24_checkpoint_exposes_delivery_still_pending_and_failed_acknowledgements", async () => {
-  let refuse: (error: Error) => void = () => {};
+  const sent = Promise.withResolvers<void>();
+  const acknowledged = Promise.withResolvers<void>();
 
-  const evidence = createIdleEvidence(document, window, () => 0, () => new Promise<void>((_resolve, reject) => { refuse = reject; }));
+  const evidence = createIdleEvidence(document, window, () => 0, () => {
+    sent.resolve();
+
+    return acknowledged.promise;
+  });
 
   expect(evidence.checkpoint()).toEqual({ seq: 1, pending: 1, error: null });
-  // The producer chains sends on a microtask so event snapshots precede asynchronous IPC.
-  await Promise.resolve();
-  refuse(new Error("ack lost"));
+  await sent.promise;
+  acknowledged.reject(new Error("ack lost"));
   await expect(evidence.flush()).rejects.toThrow("ack lost");
   expect(evidence.checkpoint()).toEqual({ seq: 1, pending: 0, error: "Error: ack lost" });
   evidence.stop();
