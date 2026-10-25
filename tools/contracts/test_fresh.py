@@ -22,7 +22,7 @@ class Freshness(unittest.TestCase):
 
                 def reset():
                     subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=checkout, check=True, capture_output=True)
-                    subprocess.run(["git", "clean", "-fd", "--", "contracts/generated"], cwd=checkout, check=True, capture_output=True)
+                    subprocess.run(["git", "clean", "-fdx", "--", "contracts/generated"], cwd=checkout, check=True, capture_output=True)
 
                 def tree():
                     return {p.relative_to(checkout).as_posix(): p.read_bytes() for p in (checkout / "contracts/generated").rglob("*") if p.is_file()}

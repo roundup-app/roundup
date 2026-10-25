@@ -200,7 +200,7 @@ mod tests {
     }
 
     fn copy<'a>(methods: &[Method<'a>]) -> Vec<Method<'a>> {
-        methods.iter().cloned().collect()
+        methods.to_vec()
     }
 
     #[test]

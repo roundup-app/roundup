@@ -11,7 +11,7 @@ def drift():
         ["git", "diff", "HEAD", "--name-only", "--", "contracts/generated"], cwd=ROOT, text=True
     )
     extra = subprocess.check_output(
-        ["git", "ls-files", "--others", "--exclude-standard", "contracts/generated"], cwd=ROOT, text=True
+        ["git", "ls-files", "--others", "contracts/generated"], cwd=ROOT, text=True
     )
     return set((tracked + extra).splitlines())
 
