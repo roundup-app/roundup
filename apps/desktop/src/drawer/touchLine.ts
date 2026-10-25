@@ -2,8 +2,6 @@ import { copy } from "../copy";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 
-const twoDigits = (value: number): string => String(value).padStart(2, "0");
-
 /** `Last  <name> <read|wrote> <hh:mm>` for the newest Touch, in local time; `null` when the item was never touched. */
 export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) => string): string | null => {
   const newest = history.reduce<Touch | null>(
@@ -13,9 +11,11 @@ export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) 
 
   if (newest === null) return null;
 
-  const at = new Date(newest.at);
+  const [hours, minutes] = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
+  }).format(new Date(newest.at)).split(":");
 
-  return copy.lastTouch(nameOf(newest.actor), newest.verb, twoDigits(at.getHours()), twoDigits(at.getMinutes()));
+  return copy.lastTouch(nameOf(newest.actor), newest.verb, hours, minutes);
 };
 
 /** U190: `<name> <read|wrote> this Pad at <time>` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
