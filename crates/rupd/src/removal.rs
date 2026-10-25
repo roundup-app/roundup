@@ -15,13 +15,15 @@ impl Daemon {
         actor: &Actor,
         id: &str,
     ) -> Result<Value, RpcError> {
-        self.remove_workstream_observed(actor, id, |_| {}).await
+        self.remove_workstream_observed(actor, id, None, |_| {})
+            .await
     }
 
     async fn remove_workstream_observed(
         &self,
         actor: &Actor,
         id: &str,
+        operation: Option<&str>,
         observe: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Value, RpcError> {
         let observe = Arc::new(observe);
@@ -30,44 +32,270 @@ impl Daemon {
         let pads = Arc::clone(&self.pads);
         let home = id.to_owned();
         let caller = actor.clone();
-        let (removal, (files, events)) = self.agents.remove_workstream_with(
-            actor.clone(), id, move |db, removal| {
+        let retention = operation.map(str::to_owned);
+        let apply = move |db: &rusqlite::Connection, removal: &mut contracts::agent::Removal| {
+            let workstream: bool = db
+                .query_row(
+                    "SELECT kind='workstream' FROM nodes WHERE CAST(id AS TEXT)=?",
+                    [&home],
+                    |r| r.get(0),
+                )
+                .map_err(RpcError::internal)?;
+            if let Some(operation) = &retention {
+                todos::Todos::retain_workstream_in(
+                    db,
+                    &caller,
+                    operation,
+                    workstream.then_some(home.as_str()),
+                )?;
+                if workstream {
+                    pads.retain_workstream(db, &caller, operation, &home, removal)?;
+                }
+            }
+            let (files, events) = if workstream {
                 let mut events = todos.remove_workstream(db, &home, &caller, removal)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
-                db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=?1 AND removed=0",[&home]).map_err(RpcError::internal)?;
-                // Touch rows use the same transaction: a rejected removal leaves no write
-                // record, even if earlier Todo, Pad or Agent steps succeeded.
-                let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
-                    .map_err(RpcError::internal)?.as_millis();
-                let at = i64::try_from(at).map_err(RpcError::internal)?;
-                let touch = |actor: &Actor, item: String| -> Result<(), RpcError> {
-                    let kind = serde_json::to_value(actor.kind).map_err(RpcError::internal)?;
-                    db.execute("INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at) VALUES (?, ?, ?, 'wrote', ?, ?)",
-                        params![kind.as_str(), actor.id, actor.parent, item, at]).map_err(RpcError::internal)?;
-                    Ok(())
-                };
-                for item in removal.removed.iter().map(|i| (&i.id, i.kind))
-                    .chain(removal.kept.iter().map(|i| (&i.id, i.kind))) {
-                    use contracts::agent::RemovalKind;
-                    match item.1 {
-                        RemovalKind::Agent => touch(&caller, format!("rail:{}", item.0))?,
-                        RemovalKind::Todo => touch(&Actor::daemon(), format!("todo:{}", item.0))?,
-                        RemovalKind::Pad => touch(&Actor::daemon(), format!("pad:{}", item.0))?,
-                    }
-                }
-                touch(&caller, format!("rail:{home}"))?;
-                before("before_commit");
-                Ok((files, events))
-            },
-        ).await?;
+                db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0",[&home]).map_err(RpcError::internal)?;
+                (files, events)
+            } else {
+                (pads::RemovalFiles::default(), Vec::new())
+            };
+            let owners = if let Some(operation) = &retention {
+                let mut removed = vec![home.clone()];
+                removed.extend(
+                    removal
+                        .removed
+                        .iter()
+                        .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
+                        .map(|i| i.id.clone()),
+                );
+                todos::Todos::remove_owners_in(db, &Actor::daemon(), operation, &removed)?
+            } else {
+                Vec::new()
+            };
+            // Every participant's write record rolls back with the Project graph.
+            removal_touch(db, &caller, &home, retention.as_deref(), removal)?;
+            before("before_commit");
+            Ok((files, events, owners))
+        };
+        let (removal, (files, events, owners)) = if let Some(operation) = operation {
+            self.agents
+                .remove_reversible_with(actor.clone(), id, operation, apply)
+                .await?
+        } else {
+            self.agents
+                .remove_workstream_with(actor.clone(), id, apply)
+                .await?
+        };
         observe("after_commit");
         files.commit();
+        self.publish_removal(events, owners)?;
+        rpc::reply(&removal)
+    }
+}
+
+impl Daemon {
+    pub(crate) async fn remove_reversible(
+        &self,
+        actor: &Actor,
+        p: contracts::agent::RemoveParams,
+    ) -> Result<Value, RpcError> {
+        use contracts::ActorKind;
+        if actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user retains a Rail removal"));
+        }
+        let operation = p.operation.expect("reversible request");
+        if operation.is_empty() || operation.len() > 96 {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "removal needs a key of 1–96 bytes",
+            ));
+        }
+        if let Some(result) = self.agents.rail_deletion(actor, &operation)? {
+            if result.deletion.as_ref().expect("retained operation").id != p.id {
+                return Err(RpcError::conflict("removal key already names another node"));
+            }
+            return rpc::reply(&result);
+        }
+        self.remove_workstream_observed(actor, &p.id, Some(&operation), |_| {})
+            .await
+    }
+
+    pub(super) async fn rail_deletion_call(
+        &self,
+        conn: &mut crate::Conn,
+        method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        use contracts::ActorKind;
+        let p: contracts::agent::DeletionParams = rpc::params(value)?;
+        if conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user restores a Rail removal"));
+        }
+        let Some(receipt) = self.agents.rail_deletion(&conn.actor, &p.operation)? else {
+            return if method == "rail.deletion" {
+                rpc::reply(&Option::<contracts::agent::Removal>::None)
+            } else {
+                Err(RpcError::not_found("Rail removal"))
+            };
+        };
+        if receipt
+            .deletion
+            .as_ref()
+            .expect("retained operation")
+            .project
+            != p.project
+        {
+            return Err(RpcError::forbidden("removal belongs to another Project"));
+        }
+        if method == "rail.deletion"
+            || receipt
+                .deletion
+                .as_ref()
+                .expect("retained operation")
+                .restored
+        {
+            return rpc::reply(&receipt);
+        }
+        let actor = conn.actor.clone();
+        let after_touch = self.touches.sequence().map_err(RpcError::internal)?;
+        let todos = Arc::clone(&self.todos);
+        let pads = Arc::clone(&self.pads);
+        let (result, (files, events, moved)) = self
+            .agents
+            .restore_reversible_with(actor.clone(), move || {
+                let mut graph = None;
+                let mut files = Vec::new();
+                let mut events = Vec::new();
+                let mut moved = Vec::new();
+                let participant = todos.rail_operation(&actor, &p.operation)?;
+                let (_, todo_events) =
+                    todos.restore_with(&actor, &participant, after_touch, |db| {
+                        let result = agents::Agents::restore_reversible_in(db, &actor, &p)?;
+                        todos::Todos::validate_rail_targets_in(db, &participant)?;
+                        moved = todos::Todos::restore_workstream_homes_in(db, &p.operation)?;
+                        moved.extend(todos::Todos::restore_owners_in(
+                            db,
+                            &Actor::daemon(),
+                            &p.operation,
+                        )?);
+                        moved.sort_unstable();
+                        moved.dedup();
+                        let (mirrors, pad_events) =
+                            pads.restore_workstream_in(db, &actor, &p.operation)?;
+                        files = mirrors;
+                        events = pad_events;
+                        removal_touch(
+                            db,
+                            &actor,
+                            &result.deletion.as_ref().expect("retained operation").id,
+                            Some(&p.operation),
+                            &result,
+                        )?;
+                        graph = Some(result);
+                        Ok(())
+                    })?;
+                events.extend(todo_events);
+                Ok((
+                    graph.ok_or_else(|| {
+                        RpcError::conflict("Todo operation was consumed separately")
+                    })?,
+                    (files, events, moved),
+                ))
+            })
+            .await?;
+        for file in files {
+            file.keep().map_err(RpcError::internal)?;
+        }
+        self.publish_removal(events, moved)?;
+        rpc::reply(&result)
+    }
+
+    fn publish_removal(
+        &self,
+        mut events: Vec<contracts::EventData>,
+        ids: Vec<u32>,
+    ) -> Result<(), RpcError> {
+        use contracts::EventData;
+        for event in self.todos.rail_events(ids)? {
+            let EventData::TodoUpdated(todo) = &event else {
+                unreachable!("Todo participant event")
+            };
+            if let Some(existing)=events.iter_mut().find(|e|matches!(e,EventData::TodoUpdated(t)|EventData::TodoRestored(t) if t.id==todo.id)) {
+                if matches!(existing,EventData::TodoUpdated(_)) {*existing=event;}
+            } else {events.push(event);}
+        }
+        // Home, ownership and blocker participants announce one final committed value,
+        // in A34's Todo order, before the existing Pad events.
+        events.sort_by_key(|e| match e {
+            EventData::TodoUpdated(t) | EventData::TodoRestored(t) => (0, t.id),
+            EventData::TodoDeleted(t) | EventData::TodoUnblocked(t) => (0, t.id),
+            _ => (1, 0),
+        });
         for event in events {
             self.bus.emit(Actor::daemon(), event);
         }
-        rpc::reply(&removal)
+        Ok(())
     }
+}
+
+fn removal_touch(
+    db: &rusqlite::Connection,
+    actor: &Actor,
+    id: &str,
+    operation: Option<&str>,
+    removal: &contracts::agent::Removal,
+) -> Result<(), RpcError> {
+    use contracts::agent::RemovalKind;
+    let at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(RpcError::internal)?
+        .as_millis();
+    let at = i64::try_from(at).map_err(RpcError::internal)?;
+    let prefix = |kind| match kind {
+        RemovalKind::Agent => "rail",
+        RemovalKind::Todo => "todo",
+        RemovalKind::Pad => "pad",
+    };
+    let mut items: Vec<_> = removal
+        .removed
+        .iter()
+        .map(|i| (prefix(i.kind).to_owned(), i.id.clone()))
+        .chain(
+            removal
+                .kept
+                .iter()
+                .map(|i| (prefix(i.kind).to_owned(), i.id.clone())),
+        )
+        .collect();
+    if let Some(operation) = operation {
+        let mut q=db.prepare("SELECT CASE WHEN kind LIKE 'todo-%' THEN 'todo' ELSE 'pad' END,id FROM rail_removal_items WHERE operation=? AND kind IN ('todo-home','todo-owner','pad','pad-home') ORDER BY kind,CAST(id AS INTEGER),id").map_err(RpcError::internal)?;
+        items.extend(
+            q.query_map([operation], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(RpcError::internal)?,
+        );
+    }
+    items.push(("rail".into(), id.into()));
+    let mut seen = std::collections::HashSet::new();
+    for (prefix, id) in items {
+        let item = format!("{prefix}:{id}");
+        if !seen.insert(item.clone()) {
+            continue;
+        }
+        let author = if prefix == "rail" {
+            actor.clone()
+        } else {
+            Actor::daemon()
+        };
+        let kind = serde_json::to_value(author.kind).map_err(RpcError::internal)?;
+        db.execute("INSERT INTO touches(actor_kind,actor_id,actor_parent,verb,item,at) VALUES(?,?,?,'wrote',?,?)",params![kind.as_str(),author.id,author.parent,item,at]).map_err(RpcError::internal)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -92,7 +320,11 @@ mod tests {
         }
     }
 
-    async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
+    pub(super) async fn call(
+        daemon: &Daemon,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
         let (events, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
             actor: Actor::user(),
@@ -195,7 +427,7 @@ mod tests {
             let stage = std::env::var("ROUNDUP_REMOVAL_STAGE").unwrap();
             let id = std::env::var("ROUNDUP_REMOVAL_ID").unwrap();
             daemon
-                .remove_workstream_observed(&Actor::user(), &id, move |phase| {
+                .remove_workstream_observed(&Actor::user(), &id, None, move |phase| {
                     if phase == stage {
                         println!("REMOVAL_GATE");
                         std::io::stdout().flush().unwrap();
@@ -332,3 +564,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod restoration_tests;
