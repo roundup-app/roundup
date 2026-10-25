@@ -48,3 +48,22 @@ This is a bounded U133 slice. #3824 retains complete press/extended Check observ
 shared inset/baseline, strict lint and its repairs, palette/system accent, native
 material and the Mac/performance observations. No native or performance pass is
 inferred from these browser captures.
+
+## Integrated completion check
+
+Main `9c8abc943b44186fa3b9aee4682c09cf3c03d652` merged cleanly at
+`4bc4543d071d982cae1b18646e59f461fa1c38fd`; no authored stylesheet changed.
+All 64 focused tests pass with retries disabled: U133 click targets (3),
+U130 Tokens (5), U135 preferences (2), U136 daemon-exit observer (1) and
+U137 Check observers (53).
+
+Fresh isolated headless Chromium 155 captures at 1512×950 in dark pass every
+existing Check on all five named seeds, selected/focused Rail rows and the dense
+failed completion. Its visible recovery text reads “Completion refused. Retry
+after reconnecting.” Space opens the focused owned-items disclosure.
+PNGs and per-seed readings remain under `artifacts/ux/U133/after/integrated-*`.
+Recording again returns “No frames captured” after ffmpeg installation; no video
+pass is claimed. The original paired row-state evidence above remains applicable.
+
+`pnpm install --frozen-lockfile`, `just lint-web`, `just lint-rust`,
+`git diff --check` and `loop/rules.sh merge-loss` pass on this integration.
