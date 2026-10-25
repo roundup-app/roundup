@@ -265,6 +265,14 @@
   column-gap: var(--space-2);
 }
 
+.todo-inset > .shelf-glyph {
+  margin-inline-start: var(--space-2);
+}
+
+.pad-inset > .shelf-glyph {
+  justify-content: flex-end;
+}
+
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
 .todo-row[role="treeitem"] {
   color: var(--grey);
@@ -363,9 +371,10 @@
 }
 .todo-row .row-head > [data-group-toggle] {
   position: absolute;
+  z-index: 1;
   width: var(--space-4);
   min-width: var(--space-4);
-  transform: translateX(calc(-1 * (var(--space-5) + var(--space-4))));
+  transform: translateX(calc(-1 * var(--row-text-inset)));
 }
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }

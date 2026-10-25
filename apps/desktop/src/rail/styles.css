@@ -136,15 +136,17 @@
   font-weight: 600;
 }
 
-/* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
-.rail-row .line > .rail-chevron {
-  width: var(--space-4);
-  min-width: var(--space-4);
+/* U131: reserve the same leading columns on branches and leaves. */
+.rail-row .line > .glyph {
+  margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
 
-/* U3704: a Workstream's Status sits after its chevron in the column its Agents' Status takes, one --rail-step in from the chevron. */
-.rail-row .line > .rail-chevron + .glyph {
-  margin-left: calc(var(--rail-step) - var(--space-4) - var(--rail-gap));
+/* Keep disclosure clear of the reserved Kind column and its title. */
+.rail-row .line > .rail-chevron {
+  position: absolute;
+  transform: translateX(calc(-1 * var(--space-3)));
+  width: var(--space-4);
+  min-width: var(--space-4);
 }
 
 /* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
