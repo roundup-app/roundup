@@ -228,8 +228,7 @@ describe("u33 spawn with a prompt", () => {
     chord("n");
     fireEvent.keyDown(field(), { key: "Enter" });
     fireEvent.keyDown(field(), { key: "Enter" });
-    // The first Enter sets pending() synchronously, so the second reads canSpawn() false; this just gives a tick before asserting no second call arrived.
-    await Promise.resolve();
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
 
     expect(railCallsTo(mounted.app, "agent.spawn").length).toBe(1);
   });

@@ -12,7 +12,7 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
   const caption = createUniqueId();
   const value = createUniqueId();
   let button: HTMLButtonElement | undefined;
-  const save = (press: string, key = "") => { setFailure(null); props.onFailure(saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
+  const save = async (press: string, key = "") => { setFailure(null); props.onFailure(await saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
 
   const take = (event: KeyboardEvent) => {
     if (!event.metaKey && !event.ctrlKey) return setFailure(copy.shortcutModifier);
