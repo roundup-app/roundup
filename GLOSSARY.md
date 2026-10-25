@@ -915,5 +915,8 @@ The Project's native process owner waits (`waiting`) after a failure, then asks 
 **Native integration** (`native`, `Preferences`, `Missing`):
 The sole repository-owned unsafe integration crate. Its plugin configures every Tauri Webview's WebKit refresh preference; owned Preferences carry their main-thread lifetime and expose no native pointer. Missing names a WebKit feature API gap, which preserves the platform rate. The opt-in idle evidence observer reports native application hide changes through a safe callback.
 
+**Todo deletion** (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`):
+One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
+
 **RPC error data** (`RpcErrorData`):
 The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
