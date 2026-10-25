@@ -59,13 +59,13 @@ it.each(keys.flatMap(key => ["{\"open\":", key === "app-settings" || key.startsW
   expect(storageRecovery()?.key).toBe(key);
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(disk.size).toBe(0);
-  fireEvent.click(screen.getByRole("button", { name: "Retry restoring saved work" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByRole("button", { name: /Continue without/ });
   expect(localStorage.getItem(key)).toBe(bytes);
   // Repair is read anew rather than pinned to an old failure.
   const repaired = values[keys.indexOf(key.slice("roundup:".length))];
   localStorage.setItem(key, JSON.stringify(repaired));
-  fireEvent.click(screen.getByRole("button", { name: "Retry restoring saved work" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByRole("textbox", { name: "Saved work editor" });
   expect(storedValue(key, v.unknown()).read()).toEqual(repaired);
 });

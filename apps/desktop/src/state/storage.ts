@@ -102,7 +102,7 @@ const invalidLegacy = (key: string, bytes: string): string => {
 
         return failure;
       } catch (error) {
-        return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
+        return storageCopy.recoveryFailure(key, error instanceof Error ? error.message : String(error));
       }
     })().finally(() => { pending = undefined; });
 
