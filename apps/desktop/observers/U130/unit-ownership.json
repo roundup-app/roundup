@@ -1,0 +1,150 @@
+{
+  "baseline": "eeb3ee6f19f04982a825560be3de92956421e68d",
+  "runtime": "500cb69ae433ed7125f29ef25d18ff439496edba",
+  "renderer": "isolated headless Chromium",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "scale": 1,
+  "unitDiagnostics": {
+    "base": 132,
+    "head": 0
+  },
+  "literalPxContainerQueriesRemaining": 5,
+  "pairs": {
+    "agents-10": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 336,
+      "headElements": 336,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "conflict": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 374,
+      "headElements": 374,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "daemon-exits": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 345,
+      "headElements": 345,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "dense": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 1041,
+      "headElements": 1041,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "dialog": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 1078,
+      "headElements": 1078,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "drawer": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 862,
+      "headElements": 862,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "failure": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 1030,
+      "headElements": 1030,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "first-run": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 72,
+      "headElements": 72,
+      "animatedWorkingArcs": 0,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "menu": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 1061,
+      "headElements": 1061,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "pads": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 881,
+      "headElements": 881,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "terminal": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 973,
+      "headElements": 973,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "tree-40": {
+      "baseViewport": "1512x950",
+      "headViewport": "1512x950",
+      "baseElements": 857,
+      "headElements": 857,
+      "animatedWorkingArcs": 7,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    }
+  }
+}

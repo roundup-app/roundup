@@ -28,7 +28,7 @@
 
 .pane .pane-latest {
   position: absolute;
-  bottom: 8px;
+  bottom: var(--space-2);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -96,7 +96,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-width: 2px;
+  border-width: var(--stroke-width);
   border-style: solid;
   border-color: var(--accent);
   pointer-events: none;
@@ -109,7 +109,7 @@
 /* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
 .pane .xterm .xterm-helper-textarea {
   cursor: pointer;
-  min-height: 24px;
+  min-height: var(--space-5);
   color: var(--text);
   background-color: var(--ground);
 }
@@ -124,7 +124,7 @@
   position: absolute;
   top: 0;
   left: calc(-1 * var(--space-2));
-  width: 4px;
+  width: var(--space-1);
   height: 100%;
   pointer-events: none;
 }
@@ -133,7 +133,7 @@
   position: absolute;
   left: 0;
   display: block;
-  width: 4px;
+  width: var(--space-1);
   padding: 0;
   border: 0;
   background: var(--hairline);
