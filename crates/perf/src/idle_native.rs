@@ -299,11 +299,13 @@ impl Native {
         phases: &mut [Phase],
     ) -> io::Result<()> {
         let client = tokio::time::timeout(Duration::from_secs(30), async {
+            let mut readiness = tokio::time::interval(Duration::from_millis(50));
+            readiness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                readiness.tick().await;
                 if let Ok(c) = Client::connect(socket).await {
                     break c;
                 }
-                tokio::time::sleep(Duration::from_millis(50)).await;
             }
         })
         .await
@@ -319,7 +321,10 @@ impl Native {
             agents.push(node.id);
         }
         let mut baseline = tokio::time::timeout(Duration::from_secs(30), async {
+            let mut readiness = tokio::time::interval(Duration::from_millis(100));
+            readiness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                readiness.tick().await;
                 let nodes: Vec<RailNode> = request(&client, "rail.tree", Value::Null).await?;
                 if nodes.len() == 10
                     && nodes.iter().all(|n| {
@@ -329,13 +334,15 @@ impl Native {
                 {
                     break Ok::<_, io::Error>(nodes);
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         })
         .await
         .map_err(failure)??;
         let view = tokio::time::timeout(Duration::from_secs(30), async {
+            let mut readiness = tokio::time::interval(Duration::from_millis(50));
+            readiness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                readiness.tick().await;
                 if let Ok(j) = self.journal(app, false)
                     && let Some(v) = j.latest()
                     && v.terminal.is_some()
@@ -343,7 +350,6 @@ impl Native {
                 {
                     break v.clone();
                 }
-                tokio::time::sleep(Duration::from_millis(50)).await;
             }
         })
         .await
@@ -356,7 +362,16 @@ impl Native {
             .settings
             .as_mut()
             .ok_or_else(|| failure("missing release settings"))?;
-        settings.project = project.display().to_string();
+        let observed_project = view
+            .project
+            .as_ref()
+            .ok_or_else(|| failure("missing selected Project"))?;
+        if std::fs::canonicalize(observed_project)? != std::fs::canonicalize(project)? {
+            return Err(failure(
+                "selected Project is outside the run-owned workload",
+            ));
+        }
+        settings.project = observed_project.clone();
         settings.terminal = view
             .terminal
             .ok_or_else(|| failure("missing selected Terminal"))?;
@@ -420,11 +435,13 @@ impl Native {
             "All samples retained. Unhide roundup, wait five seconds, then quit this run's App normally. This drains renderer delivery and writes checkpoint/end (60 s deadline)."
         );
         let final_journal = tokio::time::timeout(Duration::from_secs(60), async {
+            let mut readiness = tokio::time::interval(Duration::from_millis(100));
+            readiness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                readiness.tick().await;
                 if let Ok(j) = self.journal(app, true) {
                     break j;
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         })
         .await
@@ -461,7 +478,10 @@ impl Native {
             phase.count, phase.state
         );
         tokio::time::timeout(Duration::from_secs(60), async {
+            let mut readiness = tokio::time::interval(Duration::from_millis(100));
+            readiness.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
+                readiness.tick().await;
                 let now = self.now();
                 if let Ok(j) = self.journal(app, false)
                     && j.phase(phase.state, now, now + 0.001, &phase.settings)
@@ -469,7 +489,6 @@ impl Native {
                 {
                     break;
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         })
         .await
@@ -518,7 +537,7 @@ impl Native {
             .iter()
             .filter_map(|n| n.status.as_ref().map(|s| s.kind))
             .collect();
-        let (intervals, changes) = self
+        let (intervals, mut changes) = self
             .top(&phase.members, &mut events, subscribed.head, phase)
             .await?;
         phase.intervals = intervals;
@@ -569,6 +588,36 @@ impl Native {
             phase
                 .errors
                 .push("Agent membership changed during phase".into());
+        }
+        // A final durable replay closes the race between the last top header and
+        // a queued Status transition that already returned to idle.
+        let mut replay = Client::connect(socket).await?;
+        let completed: contracts::common::SubscribeResult = request(
+            &replay,
+            "events.subscribe",
+            json!({"after":subscribed.head}),
+        )
+        .await?;
+        let mut cursor = subscribed.head;
+        let mut replay_log = std::fs::File::create(self.root.join(format!(
+            "{}-{:?}-status-replay.jsonl",
+            phase.count, phase.state
+        )))?;
+        while cursor < completed.head {
+            let event = tokio::time::timeout(Duration::from_secs(10), replay.next_event())
+                .await
+                .map_err(failure)?
+                .ok_or_else(|| failure("final Status replay closed"))?;
+            writeln!(replay_log, "{}", json!({"at_s":self.now(),"event":event}))?;
+            if let Some(seq) = event.seq {
+                if seq != cursor + 1 {
+                    return Err(failure("final Status replay gap/reset"));
+                }
+                cursor = seq;
+            }
+            if let contracts::EventData::AgentStatus(change) = event.data {
+                changes.push(change.status.kind);
+            }
         }
         let mut all_statuses = statuses;
         all_statuses.extend(
