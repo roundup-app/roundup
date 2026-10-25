@@ -72,7 +72,7 @@ const width = 1280;
     try {
       await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
-      await wait(`document.body.textContent.includes('Open a folder to start')`);
+      await wait(`document.body.textContent.includes('Open Project')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
       await browser("eval", `(() => {
         const fetch = window.fetch.bind(window);
@@ -135,7 +135,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
   try {
     await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
     await browser("set", "viewport", String(width), "800");
-    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    await wait(`document.body.textContent.includes('Open Project')`);
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
 
     await browser("eval", "window.__firstRun.cancelNextChoice()");
@@ -144,7 +144,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect((await browser("eval", "document.querySelectorAll('.project-tab [role=tab]').length")).result).toBe(0);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
-    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    await wait(`document.body.textContent.includes('Open Project')`);
     await activate('[aria-label="Centre"] button');
     await wait(`!!document.querySelector('.pane-action')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
@@ -163,7 +163,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
-    await activate('[aria-label="Open a folder"]');
+    await activate('[aria-label="Open a Project"]');
     expect((await browser("eval", "[...document.querySelectorAll('[role=tablist][aria-label=Projects] .project-tab[data-path]')].map(tab => tab.dataset.path)")).result).toEqual([real.dir]);
 
     const firstRun = createServedApp(real.base, () => "choose");
@@ -227,7 +227,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await wait("document.body.textContent.includes('Open a folder to start')");
+    await wait("document.body.textContent.includes('Open Project')");
     await activate('[aria-label="Centre"] button');
     await wait("!!document.querySelector('.pane-action')");
     await activate(".pane-action");

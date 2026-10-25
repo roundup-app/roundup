@@ -168,10 +168,10 @@ describe("u3715 a failed create keeps the text and says why", () => {
     type(field()!, "second");
     fail();
 
-    await screen.findByLabelText("Recovered capture draft");
+    await screen.findByLabelText("Unfinished work");
     expect(field()!.value).toBe("second");
     press(field()!, { shiftKey: true });
-    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered capture draft").value).toBe("first");
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Unfinished work").value).toBe("first");
 
   });
 });

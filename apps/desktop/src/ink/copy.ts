@@ -1,17 +1,17 @@
+/** App-authored ink copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
 export const copy = {
   error: shared.error,
+  blocked: shared.blocked,
+  idle: shared.idle,
   done: shared.done,
   needsYouGlyph: "Needs-you",
-  blocked: shared.blocked,
   working: "Working",
-  idle: shared.idle,
   userOwned: "User owned",
   agentOwned: "Agent owned",
   extensionOwned: "Extension owned",
-  exitedCode: (code: number) => `exited ${code}`,
   exitedBySignal: "exited by signal",
   exited: "exited",
+  exitedCode: (code: number) => `exited ${code}`,
 } as const;

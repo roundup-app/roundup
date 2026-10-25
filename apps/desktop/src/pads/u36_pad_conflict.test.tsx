@@ -653,7 +653,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   });
 
   fireEvent.input(field, { target: { value: "selected" } });
-  fireEvent.click(body.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(body.getByRole("button", { name: "Discard" }));
   expect(connected.drafts.list()).toEqual([]);
   expect(field.value).toBe("base");
   failedAgain.mockRestore();

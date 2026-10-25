@@ -299,7 +299,7 @@ describe("U2773 Order forms on real Projects", () => {
     await questionDialog();
     await answerQuestion(true);
     await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "first" });
     const restored = await open(original.id);
     expect(restored.value).toBe("  memory through closed Project é 🧭\n");

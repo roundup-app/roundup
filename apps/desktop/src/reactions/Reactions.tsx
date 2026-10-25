@@ -11,6 +11,7 @@ import { RpcError } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
+import { Tip } from "../ui/Tip";
 import { Select } from "../ui/Select";
 import "./styles.css";
 
@@ -278,7 +279,7 @@ const Facts = (props: { reaction: Reaction }) => {
     }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
-      <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
+      <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><Tip text={copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}>{trigger => <button {...trigger()} type="button" data-button="quiet" data-firing-message={firing.message} aria-description={copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiringLabel(firing.ordinal, firing.outcome)}</button>}</Tip></li>}</For></ol>
     </Show></dd>
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
@@ -482,6 +483,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
         <For each={agents()}>{(node) => <Checkbox checked={form().ids.includes(node.id)}
           onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })}>{nameOf(node.id)}</Checkbox>}</For>
         <Checkbox checked={form().any} onCheckedChange={(any) => set({ any })}>{copy.reactionAny}</Checkbox>
+        <p>{copy.reactionAnyHint}</p>
       </div>
     </Show>
     <Show when={form().kind === "pr-checks"}>{repositoryField}{numberField}</Show>

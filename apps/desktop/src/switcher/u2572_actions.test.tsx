@@ -19,7 +19,7 @@ it("u2572a_searches_destinations_then_grouped_actions", async () => {
   await show();
   fireEvent.input(field()!, { target: { value: " NeW " } });
   await waitFor(() => expect([...document.querySelectorAll('.switcher [role="option"]')].map((row) => row.querySelector('.switcher-name')?.textContent)).toEqual([
-    "new-onboarding", "renew-token", "New Agent", "new-shell", "New Agent", "New Agent with a prompt", "New Terminal",
+    "new-onboarding", "renew-token", "New Agent", "new-shell", "New Agent", "Start an Agent with a prompt.", "New Terminal",
   ]));
   const groups = within(document.querySelector(".switcher")!).getAllByRole("group", { name: "Actions" });
 
@@ -62,7 +62,7 @@ const chooseAction = async (label: string, how: "enter" | "pointer") => {
   await waitFor(() => expect(field()).toBeNull());
 };
 
-it.each(["New Agent with a prompt", "zzzz-no-match", ""])("u2572a_action_only_empty_and_unfiltered_results: %s", async (query) => {
+it.each(["Start an Agent with a prompt.", "zzzz-no-match", ""])("u2572a_action_only_empty_and_unfiltered_results: %s", async (query) => {
   await mountSwitcher("ops");
   await show();
   await search(query);
@@ -73,7 +73,7 @@ it.each(["New Agent with a prompt", "zzzz-no-match", ""])("u2572a_action_only_em
     expect(document.querySelector(".switcher")?.textContent).toContain("No match");
   } else {
     const names = actionNames();
-    expect(names).toEqual(query ? ["New Agent with a prompt"] : ["New Agent", "New Agent with a prompt", "New Terminal", "Ask bar", "Jump to what needs you"]);
+    expect(names).toEqual(query ? ["Start an Agent with a prompt."] : ["New Agent", "Start an Agent with a prompt.", "New Terminal", "Ask bar", "Reach what needs you."]);
   }
 });
 
@@ -112,7 +112,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   const { app } = await mountSwitcher("ops");
   app.handlers["agent.spawn"] = () => (agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
-  if (byAction) { await show(); await chooseAction("New Agent with a prompt", "enter"); }
+  if (byAction) { await show(); await chooseAction("Start an Agent with a prompt.", "enter"); }
   else press("N", { metaKey: true, shiftKey: true, code: "KeyN" });
   await waitFor(() => expect(document.activeElement?.matches(".spawn-prompt-field")).toBe(true));
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
@@ -158,7 +158,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: attention %s", async (byAction) => {
   const { connected } = await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Jump to what needs you", "enter"); }
+  if (byAction) { await show(); await chooseAction("Reach what needs you.", "enter"); }
   else leaderKey("KeyJ");
   expect(connected.rail.selected()).toBe("cy");
 });
@@ -172,7 +172,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
     emulators.made.get("7")!.focus();
     await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("7"));
 
-    if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise or restore the Bubble" : "Close the Bubble", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise or restore the Bubble." : "Close the Bubble", "enter"); }
     else leaderKey(`Key${key}`, {}, document.activeElement!);
 
     if (key === "W") {
@@ -194,7 +194,7 @@ it.each(["S", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "S" ? "Show or hide the work items" : "Jump to what needs you in another Project", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "S" ? "Show or hide work items." : "Reach what needs you in another Project.", "enter"); }
     else leaderKey("Key" + (key === "S" ? "S" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "S") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -222,9 +222,9 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   focus.focus();
   await show();
 
-  const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
+  const expected = ["New Agent", "Start an Agent with a prompt.", ...(context === "editor" ? [] : ["New Terminal"]),
     ...(context === "rail" ? ["Remove"] : []),
-    "Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
+    "Ask bar", "Reach what needs you.", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble.", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
@@ -267,7 +267,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", async () => {
   const { app, connected } = await mountSwitcher(null, [workstream("ws", { name: "only" })], [info("7", { owner: "ws" })]);
   await show();
-  expect(actionNames()).toEqual(["New Agent", "New Agent with a prompt", "New Terminal", "Ask bar"]);
+  expect(actionNames()).toEqual(["New Agent", "Start an Agent with a prompt.", "New Terminal", "Ask bar"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
@@ -327,7 +327,7 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   fireEvent.click(document.querySelector<HTMLButtonElement>('.rail-actions [data-button="add"]')!);
   await show();
   expect(actionNames()).toContain("New Agent");
-  expect(actionNames()).not.toContain("New Agent with a prompt");
+  expect(actionNames()).not.toContain("Start an Agent with a prompt.");
   await chooseAction("New Agent", "enter");
   expect(document.activeElement).toBe(prompt);
   expect(prompt.value).toBe("keep my draft");
@@ -340,7 +340,7 @@ it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", 
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");
-  await chooseAction("Show or hide the work items", "enter");
+  await chooseAction("Show or hide work items.", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
 

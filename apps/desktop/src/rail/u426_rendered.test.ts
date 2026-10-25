@@ -27,7 +27,7 @@ for (const railWidth of [288]) {
     await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
     await page.press("Tab", "Tab");
     await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-    const labels = ["Add Agent", "Start supervisor", "Clear", "Open folder", "Open in editor"];
+    const labels = ["Add Agent", "Start supervisor", "Clear", "Open Project", "Open in editor"];
 
     for (const label of labels) {
       await page.press("Tab", "Tab");
@@ -39,7 +39,7 @@ for (const railWidth of [288]) {
     await page.until(`() => window.__fake.app.editorOpened.length === 1`);
     expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
 
-    await page.call(`() => document.querySelector('.rail-row [aria-label="Open folder"]').focus()`);
+    await page.call(`() => document.querySelector('.rail-row [aria-label="Open Project"]').focus()`);
     await page.press(" ", "Space");
     await page.until(`() => window.__fake.app.openedTargets.length === 1`);
     expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);

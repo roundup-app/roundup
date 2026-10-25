@@ -33,7 +33,7 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   await mountTodos([todo(1)]);
-  const add = screen.getByRole("button", { name: "add todo to Overview" });
+  const add = screen.getByRole("button", { name: "Add Todo: Overview" });
   vector(add, "plus");
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();

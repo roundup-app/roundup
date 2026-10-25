@@ -113,7 +113,7 @@ describe("u30 jump", () => {
   });
 });
 
-describe("u48 leader J after the Daemon exited", () => {
+describe("u48 leader J after the Service exited", () => {
   it("u48_after_daemon_exited_leader_j_still_selects", async () => {
     const [exit] = createSignal({ code: 1 });
     const { rail } = await mountRail([since("a", "needs-you", 1)], [], exit);

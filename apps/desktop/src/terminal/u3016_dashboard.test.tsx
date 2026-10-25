@@ -9,16 +9,16 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("u3016f_dashboard_navigation_preserves_work_and_focus", async () => {
   const { connected, app } = await mountRailAndPane([workstream("home")]);
   connected.rail.select("home");
-  const open = await screen.findByRole("button", { name: copy.measurementTime });
+  const open = await screen.findByRole("button", { name: sharedCopy.measurementTime });
   open.focus();
   fireEvent.click(open);
-  const dashboard = await screen.findByRole("region", { name: copy.measurementTime });
+  const dashboard = await screen.findByRole("region", { name: sharedCopy.measurementTime });
   const exit = within(dashboard).getByRole("button", { name: "Close" });
   expect(exit.textContent).toBe("");
   fireEvent.click(exit);
   await waitFor(() => expect(document.activeElement).toBe(open));
   fireEvent.click(open);
-  fireEvent.keyDown(await screen.findByRole("region", { name: copy.measurementTime }), { key: "Escape" });
+  fireEvent.keyDown(await screen.findByRole("region", { name: sharedCopy.measurementTime }), { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(open));
   expect(app.calls.filter((call) => /spawn|startDoor|prompt/.test(call.method))).toEqual([]);
 });
@@ -133,8 +133,8 @@ it("u3016d_observations_update_one_live_view", async () => {
 });
 
 import { openTabs, path, tab } from "../header/stripFixture";
+import { copy as sharedCopy } from "../sharedCopy";
 import { copy } from "./copy";
-import { copy as copyAsk } from "../ask/copy";
 import { RpcError } from "../app/seam";
 
 it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", async () => {
@@ -146,27 +146,27 @@ it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", 
   fireEvent.click(document.querySelector('.rail [data-id="home"] [data-part="branch-control"]')!);
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="home"]')?.getAttribute("aria-selected")).toBe("true"));
   fireEvent.keyDown(window,{key:"/",code:"Slash",metaKey:true});
-  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copyAsk.askBarLabel });
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: sharedCopy.ask });
   const text = "@home exact\ne\u0301 😀 \t ";
   fireEvent.input(field, { target: { value: text } });
   expect(field.value).toBe(text);
   fireEvent.keyDown(field,{key:"Escape"});
-  const open = await screen.findByRole("button", { name: copy.measurementTime });
+  const open = await screen.findByRole("button", { name: sharedCopy.measurementTime });
   fireEvent.click(open);
   await screen.findByRole("button", { name: "Load more" });
   fireEvent.click(tab("second"));
   await screen.findByText("elsewhere", { selector: ".name" });
   fireEvent.click(tab("first"));
-  await screen.findByRole("button", { name: copy.measurementTime });
+  await screen.findByRole("button", { name: sharedCopy.measurementTime });
   fireEvent.keyDown(window,{key:"/",code:"Slash",metaKey:true});
-  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copyAsk.askBarLabel })).value).toBe(text);
+  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: sharedCopy.ask })).value).toBe(text);
   expect(first.calls.filter((call) => /spawn|startDoor|prompt|ask.send/.test(call.method))).toEqual([]);
   const draft = app.of(path("first")).calls.filter((call) => call.method === "project.measurementSummary");
 
   for (const call of draft) expect(call.params).toMatchObject({ home: "home" });
   first.handlers["ask.send"] = () => { throw new RpcError(-32000,"Fixture refused submission"); };
 
-  fireEvent.keyDown(screen.getByRole("textbox",{name:copyAsk.askBarLabel}),{key:"Enter"});
+  fireEvent.keyDown(screen.getByRole("textbox",{name:sharedCopy.ask}),{key:"Enter"});
   await waitFor(() => expect(first.calls.filter((call)=>call.method==="ask.send").at(-1)?.params).toMatchObject({text,workstream:"home"}));
 });
 
@@ -204,7 +204,7 @@ const publish = async (app: Awaited<ReturnType<typeof dashboard>>["app"], value:
 it("u3016g_dashboard_reads_in_the_ordered_layout", async () => {
   const { app } = await dashboard();
   await publish(app, two());
-  const root = screen.getByRole("region", { name: copy.measurementTime });
+  const root = screen.getByRole("region", { name: sharedCopy.measurementTime });
   const key = root.querySelector<HTMLElement>(".measurement-key")!;
   const sequence = [root.querySelector("header")!, root.querySelector(".measurement-line")!, key, root.querySelector(".measurement-rows")!];
   sequence.forEach((node, i) => { if (i > 0) expect(sequence[i - 1]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); });
@@ -229,7 +229,7 @@ it("u3016g_a_summary_of_two_agents_renders_one_mark_per_nonzero_category_and_no_
   expect(segments(c)).toEqual(["C, Coordination, 10s, 100%"]);
   expect(segments(z)).toEqual([]);
   expect(within(z).getByText("0s")).toBeTruthy();
-  const root = screen.getByRole("region", { name: copy.measurementTime });
+  const root = screen.getByRole("region", { name: sharedCopy.measurementTime });
   expect(root.textContent).not.toMatch(/token|cost|price|limit|×/i);
   expect(within(root).queryAllByRole("meter")).toHaveLength(0);
 });
@@ -310,8 +310,8 @@ it("u3016j_one_failed_read_then_success_shows_no_message", async () => {
 it("u3016g_numbers_use_display_units_and_never_show_unavailable_as_zero", () => {
   const seconds = (value: number) => duration(String(value * 1_000_000_000));
 
-  expect([seconds(59), seconds(3599), duration("0"), duration(null)]).toEqual(["59s", "59m 59s", "0s", copy.measurementUnknown]);
-  expect([percent(0.4, 100), percent(1, 0), percent(0, 100)]).toEqual(["<1%", copy.measurementUnknown, "0%"]);
+  expect([seconds(59), seconds(3599), duration("0"), duration(null)]).toEqual(["59s", "59m 59s", "0s", sharedCopy.measurementUnknown]);
+  expect([percent(0.4, 100), percent(1, 0), percent(0, 100)]).toEqual(["<1%", sharedCopy.measurementUnknown, "0%"]);
 });
 
 it("u3016k_unknown_zero_and_inert_marks_are_absent", async () => {
@@ -360,7 +360,7 @@ it("u3016k_empty_sections_have_one_message_and_no_placeholder_rows", async () =>
 
 it("u3016k_equal_measurements_keep_visible_content", async () => {
   const { app } = await dashboard();
-  const root = screen.getByRole("region", { name: copy.measurementTime });
+  const root = screen.getByRole("region", { name: sharedCopy.measurementTime });
   const before = root.textContent;
   const value = summary(); value.last_observed = 999999999;
   await publish(app, value);

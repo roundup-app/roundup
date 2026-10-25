@@ -1,15 +1,16 @@
+/** App-authored ui copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
 export const copy = {
-  close: shared.close,
   deliverableUnavailable: shared.deliverableUnavailable,
+  copyDraftFailure: shared.copyDraftFailure,
+  close: shared.close,
+  cancel: shared.cancel,
+  retry: shared.retry,
+  noMatch: shared.noMatch,
   linkUrl: shared.linkUrl,
   linkNote: shared.linkNote,
-  copyDraftFailure: shared.copyDraftFailure,
-  retry: shared.retry,
-  cancel: shared.cancel,
-  noMatch: shared.noMatch,
+  /** @prose */
   resizeUnavailable: "Resizing is unavailable in this view.",
   sendToAgentMenu: "Send to Agent",
   copyLink: "Copy Link",

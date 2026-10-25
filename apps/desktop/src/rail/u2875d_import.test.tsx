@@ -37,8 +37,8 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     openProjectPage("import-work");
     await screen.findByText("First");
     fireEvent.click(screen.getByText("First"));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
-    fireEvent.keyDown(screen.getByRole("region", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import work" })));
+    fireEvent.keyDown(screen.getByRole("region", { name: "Import work" }), { key: "Escape", code: "Escape", keyCode: 27 });
     await waitFor(() => expect(screen.queryByText("First")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
@@ -71,7 +71,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
     expect(calls(app, "project.importCommit")[2]!.params).toEqual({ selections: [{ source: "s2", revision: "r2" }] });
     release({ outcomes: [{ source: "s2", workstream: "w1", agent: "a2", error: null }] });
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Import work" })).toBeNull());
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
@@ -92,7 +92,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       fireEvent.click(screen.getByLabelText("Close api"));
       await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
       app.chooser.path = path("api");
-      fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
       await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
     };
 

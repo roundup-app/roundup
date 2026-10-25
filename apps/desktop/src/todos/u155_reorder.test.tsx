@@ -99,7 +99,7 @@ describe("u155 reorder a Todo row", () => {
     await three();
 
     await screen.findByText(/todo 3/);
-    expect(buttonOf(1).getAttribute("aria-description")).toBe("Alt+Up or Alt+Down moves it");
+    expect(buttonOf(1).getAttribute("aria-description")).toBe("Use Alt+Up or Alt+Down to move it.");
     expect(buttonOf(1).textContent?.trim()).toBe("todo 1");
   });
 });

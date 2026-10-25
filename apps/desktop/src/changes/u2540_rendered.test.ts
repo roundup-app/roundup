@@ -190,7 +190,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
     await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
-    await press("Recover Changes drafts");
+    await press("Unfinished work");
     await wait("!!document.querySelector('.note-recovery')");
     expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain("retain this exact");
     await capture("real-recovery-actions", "U2773e");

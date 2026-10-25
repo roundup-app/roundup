@@ -54,7 +54,7 @@ it("u458_plain_click_opens_the_drawer", async () => {
 it("u460_bar_counts_unique_items_and_cancel_clears_without_calls", async () => {
   const { app } = await mountTodos([todo(1)]);
   fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(screen.queryByText("1 selected")).toBeNull();
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });

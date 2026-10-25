@@ -5,7 +5,7 @@ import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
-import { copy } from "./copy";
+import { copy as sharedCopy } from "../sharedCopy";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -86,7 +86,7 @@ it("u3806_a_change_survives_a_reload", async () => {
   commit("Font family", "Menlo");
   commit("Font size", "16");
   await select("Mode", "Dark");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick Todo / }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   cleanup();
@@ -109,7 +109,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
 
 it("u3804_a_clashing_chord_is_refused_naming_the_holder", async () => {
   await mount();
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick Todo / }));
   fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true });
   expect(await screen.findByText(/⌘N is already New Agent/)).toBeTruthy();
   fireEvent.keyDown(window, { key: "q", code: "KeyQ", metaKey: true });
@@ -123,8 +123,8 @@ it("u3804_reset_restores_the_default", async () => {
   saveAppSettings({ quickAdd: "ctrl+KeyY" });
   await mount();
   fireEvent.click(screen.getByRole("button", { name: "Reset" }));
-  await waitFor(() => expect(CHORDS.find(row => row.what === copy.captureATodo)?.presses).toEqual(["meta+shift+KeyT"]));
-  expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
+  await waitFor(() => expect(CHORDS.find(row => row.what === sharedCopy.captureATodo)?.presses).toEqual(["meta+shift+KeyT"]));
+  expect(HELP_ROWS.findLast(row => row.what === sharedCopy.captureATodo)?.keys).toBe("⇧⌘T");
 });
 
 it("u3806_unsubmitted_fields_survive_close_and_reload_without_applying", async () => {

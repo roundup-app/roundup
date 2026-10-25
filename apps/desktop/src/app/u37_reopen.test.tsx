@@ -35,7 +35,7 @@ describe("u37 Reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText("Daemon exited 1")).toBeTruthy();
+    expect(within(header).getByText("Service exited 1")).toBeTruthy();
     expect(within(header).getByRole("button", { name: "Reopen" }).className).toBe("word");
   });
 
@@ -105,7 +105,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     await waitFor(() => expect(within(header).queryByText("rupd stayed silent")).not.toBeNull());
 
     expect(within(header).getByText("rupd stayed silent").className).toBe("ink");
-    expect(within(header).queryByText("Daemon exited 1")).toBeNull();
+    expect(within(header).queryByText("Service exited 1")).toBeNull();
     expect(within(header).getByRole("button", { name: "Reopen" })).not.toBeNull();
   });
 

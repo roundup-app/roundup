@@ -15,7 +15,7 @@ const open = async (overview: ConversationOverview) => {
   const { connected, app } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview })]);
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
   connected.rail.select("a");
-  await screen.findByRole("button", { name: "Copy session id" });
+  await screen.findByRole("button", { name: "Copy conversation id" });
 };
 
 describe("U83b context bar", () => {
@@ -52,7 +52,7 @@ describe("U83b context bar", () => {
     cleanup();
     const { connected } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview: { ...base, id: "no-used" } })]);
     connected.rail.select("a");
-    await screen.findByRole("button", { name: "Copy session id" });
+    await screen.findByRole("button", { name: "Copy conversation id" });
     expect(screen.queryByRole("meter")).toBeNull();
     expect(screen.queryByText("Context")).toBeNull();
   });

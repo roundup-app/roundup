@@ -1,16 +1,19 @@
+/** App-authored inbox copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
 export const copy = {
-  retry: shared.retry,
-  needsYou: shared.needsYou,
-  inbox: shared.leaderShortInbox,
-  inboxEmpty: "Nothing waits for you",
-  inboxRetry: "Retry Inbox",
-  inboxRow: (agent: string, todo: string) => `${agent} commented on ${todo}`,
+
   running: shared.running,
+  needsYou: shared.needsYou,
   done: shared.done,
+
+  inbox: shared.leaderShortInbox,
   inboxOpen: shared.openDraft,
-  inboxLastStep: "Last step",
   inboxDismiss: shared.dismissFailure,
+  retry: shared.retry,
+  /** @prose */
+  inboxEmpty: "Nobody is waiting.",
+  inboxRow: (agent: string, todo: string) => `Comment: ${agent}, ${todo}`,
+  inboxRetry: "Retry Inbox",
+  inboxLastStep: "Last step",
 } as const;

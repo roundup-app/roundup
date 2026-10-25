@@ -278,7 +278,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
   render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
+  const surface = await within(document.body).findByRole("region", { name: "Import work" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   await cycle(surface, () => { void mounted.connected.importing.refresh(); }, () => read.reject(new RpcError(-32003, FAILURE)), "Looking for conversations…");
@@ -469,11 +469,11 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
   } else if (site === "Daemon exit") {
     const places = placesOf(surface);
     app.exitDaemon({ code: 1 });
-    const message = await within(surface).findByText(/Daemon exited/);
+    const message = await within(surface).findByText(/Service exited/);
     const place = message.closest<HTMLElement>(".reserved-line")!;
     unchanged(places, place);
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(place.textContent).not.toContain("Daemon exited"));
+    await waitFor(() => expect(place.textContent).not.toContain("Service exited"));
     await within(surface).findByRole("button", { name: /Overview, Project root/ });
     expect(place.isConnected).toBe(true);
     expect(surface.querySelector(".reserved-line")).toBe(place);
@@ -482,7 +482,7 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     await cycle(surface,
       () => { app.chooseProjectPath = async () => { throw new Error(FAILURE); };
 
- fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); },
-      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); });
+ fireEvent.click(within(container).getByRole("button", { name: "Open a Project" })); },
+      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open a Project" })); });
   }
 });

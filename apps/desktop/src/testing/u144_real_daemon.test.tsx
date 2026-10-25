@@ -201,7 +201,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     daemon.stdin!.end();
     daemon.kill();
 
-    expect(await screen.findByText("Daemon exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
+    expect(await screen.findByText("Service exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
   }, 60_000);
 });
 
@@ -473,7 +473,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(holder.list().map((draft) => draft.revision)).toEqual([saved.revision]);
     expect(holder.list()[0]?.value.source).toBe(exact);
     expect(drafts(second.dir).list().map((draft) => draft.revision)).toEqual([separate.revision]);
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "second" });
     const otherRecovery = await openRecovery();
     expect(otherRecovery.querySelector(`[data-revision="${separate.revision}"]`)).toBeTruthy();
@@ -501,7 +501,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
     mount();
     await openRecovery();
-    expect((await screen.findByRole("alert")).textContent).toContain("Could not store unfinished work");
+    expect((await screen.findByRole("alert")).textContent).toContain("Unfinished work could not be saved");
     expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision).sort()).toEqual([older.revision, newer.revision].sort());
     calls.forEach((spy) => spy.mockClear());
     writes.mockRestore();
@@ -541,7 +541,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(document.activeElement).toBe(focus);
     const firstRecovery = await openRecovery();
     expect(firstRecovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "second" });
     const secondRecovery = await openRecovery();
     expect(secondRecovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeNull();
@@ -605,7 +605,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
     const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "second" });
     // This native seam ends the original real Daemon; the App removes its Connection.
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
@@ -621,7 +621,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     }
 
     writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "first" });
     await openRecovery();
     expect(drafts(first.dir)).toBe(holder);
@@ -649,8 +649,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     await screen.findByRole("tab", { name: "first" });
     // B was left unsent and A is in flight: only B lists (U3289a).
-    expect(await recoveryLabel()).toBe("Recover unfinished work (1)");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    expect(await recoveryLabel()).toBe("Unfinished work (1)");
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "second" });
     holder.settle(a.revision, "failed");
     expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status: "failed" }), b]);

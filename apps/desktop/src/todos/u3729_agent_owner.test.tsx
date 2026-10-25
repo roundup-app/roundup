@@ -24,8 +24,8 @@ it("u3729_a_todo_made_under_an_agent_is_owned_by_it_and_listed_in_its_group", as
   const { app, connected, store } = await mountTodos([], true, RAIL);
 
   connected.rail.select("a");
-  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to alpha" })).toBeTruthy());
-  await file("add todo to alpha", "mine");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: alpha" })).toBeTruthy());
+  await file("Add Todo: alpha", "mine");
   await waitFor(() => expect(callsTo(app, "todo.move")).toHaveLength(1));
   app.emit(todoEvent("todo.updated", store.todos[0]!));
 
@@ -38,12 +38,12 @@ it("u3729_a_workstream_or_root_selection_keeps_todays_owner", async () => {
   const { app, connected } = await mountTodos([], true, RAIL);
 
   connected.rail.select("w");
-  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to work" })).toBeTruthy());
-  await file("add todo to work", "ws");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: work" })).toBeTruthy());
+  await file("Add Todo: work", "ws");
   await waitFor(() => expect(callsTo(app, "todo.move")).toHaveLength(1));
   connected.rail.select(null);
-  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to Overview" })).toBeTruthy());
-  await file("add todo to Overview", "root");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: Overview" })).toBeTruthy());
+  await file("Add Todo: Overview", "root");
   await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(2));
 
   expect(callsTo(app, "todo.create").map(call => call.params)).toEqual([{ title: "ws", body: null, blockers: null }, { title: "root", body: null, blockers: null }]);
@@ -55,8 +55,8 @@ it("u3729_a_refused_create_keeps_the_title_and_shows_its_cause", async () => {
   app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
 
   connected.rail.select("a");
-  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to alpha" })).toBeTruthy());
-  const field = await file("add todo to alpha", "kept");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: alpha" })).toBeTruthy());
+  const field = await file("Add Todo: alpha", "kept");
 
   expect(await screen.findByText(/agent gone/)).toBeTruthy();
   expect(field.value).toBe("kept");

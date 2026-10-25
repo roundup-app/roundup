@@ -61,7 +61,7 @@ it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
 it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   const m = await mountTodos([], true, [agent("i", "idle", "Idle")]);
   m.connected.drawer.open(() => <Inbox />);
-  await within(panel()).findByText("Nothing waits for you");
+  await within(panel()).findByText("Nobody is waiting.");
   expect(within(panel()).queryByRole("region", { name: "Needs you" })).toBeNull();
 });
 
@@ -183,7 +183,7 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
   const nodes = [agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })];
   const m = await mountInbox(nodes);
 
-  fireEvent.click(screen.getByRole("button", { name: /^add todo to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Add Todo:/ }));
   const input = await screen.findByRole("textbox", { name: "New Todo title" });
 
   fireEvent.input(input, { target: { value: "  unfinished e\u0301 東京 🧭  " } });

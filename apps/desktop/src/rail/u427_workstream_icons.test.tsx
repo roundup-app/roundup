@@ -34,7 +34,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Task");
+    const field = await screen.findByLabelText("Work");
 
     fireEvent.click(icon("g", "Add Agent"));
 
@@ -70,8 +70,8 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_open_folder_opens_the_doors_directory", async () => {
     const mounted = await mountRail([workstream("g"), door("d", "idle", "i", { worktree: { path: "/p/.wt/d", branch: "d", base: "main" } })]);
 
-    fireEvent.click(icon("g", "Open folder"));
-    fireEvent.click(icon("d", "Open folder"));
+    fireEvent.click(icon("g", "Open Project"));
+    fireEvent.click(icon("d", "Open Project"));
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }, { kind: "path", path: "/p/.wt/d", line: null }]));
   });
@@ -80,7 +80,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.openFailure = new RpcError(-32001, "gone");
 
-    fireEvent.click(icon("g", "Open folder"));
+    fireEvent.click(icon("g", "Open Project"));
 
     expect((await screen.findByText("gone")).className).toBe("ink");
   });

@@ -78,7 +78,7 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
     expect(questionProbe.shown).toBeNull();
   }
 
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   const field = screen.getByLabelText("New Todo title");
 
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);

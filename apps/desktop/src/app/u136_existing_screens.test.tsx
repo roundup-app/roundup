@@ -56,7 +56,7 @@ const mount = async (seed: SeedName, settings: Setting[], controls: Controls = s
   // App.tsx renders the chooser after projects.loaded(), and the Rail only
   // after connectProject has awaited rail.settled(). Reopen publishes the exit.
   const ready = () => seed === "first-run"
-    ? screen.queryByRole("button", { name: "Choose folder…" }) !== null
+    ? screen.queryByRole("button", { name: "Choose Project…" }) !== null
     : screen.queryByRole("tree") !== null
       && (seed !== "daemon-exits" || screen.queryByRole("button", { name: "Reopen" }) !== null);
 

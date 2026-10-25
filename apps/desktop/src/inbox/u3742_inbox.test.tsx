@@ -37,6 +37,6 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   await within(panel()).findByRole("region", { name: /^Comments · 1$/ });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map((call) => call.params)).toEqual([{ id: 1 }]));
   m.connected.drawer.open(() => <Inbox />);
-  await within(panel()).findByText("Nothing waits for you");
+  await within(panel()).findByText("Nobody is waiting.");
   expect(within(panel()).queryByRole("button", { name: /commented on/ })).toBeNull();
 });

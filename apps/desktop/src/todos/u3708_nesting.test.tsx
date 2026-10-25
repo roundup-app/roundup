@@ -238,7 +238,7 @@ describe("u3811 completion advances the visible dependency groups", () => {
 
   it("u3811_an_agent_finish_keeps_focus_outside_the_closing_group", async () => {
     const mounted = await setup();
-    const add = screen.getByRole("button", { name: "add todo to Overview" });
+    const add = screen.getByRole("button", { name: "Add Todo: Overview" });
     add.focus();
     await accept(mounted);
     expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");

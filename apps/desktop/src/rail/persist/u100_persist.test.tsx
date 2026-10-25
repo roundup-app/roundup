@@ -194,7 +194,7 @@ it("u100_reopening_after_daemon_exit_restores_the_last_layout", async () => {
   await collapse("backend");
   await click("agent-2");
   first.app.exitDaemon({ code: 1 });
-  await screen.findByText("Daemon exited 1");
+  await screen.findByText("Service exited 1");
   first.unmount();
   mount();
   await loaded();

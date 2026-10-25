@@ -32,7 +32,7 @@ describe("u26 the harness seeds", () => {
   it("u26_first_run_shows_the_empty_rail_text", async () => {
     mount("first-run");
 
-    await screen.findByText("Open a folder to start");
+    await screen.findByText("Open Project");
 
     expect((await rail()).textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
   });
@@ -41,7 +41,7 @@ describe("u26 the harness seeds", () => {
     mount("empty-project");
 
     expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
-    expect(screen.queryByText("Open a folder to start")).toBeNull();
+    expect(screen.queryByText("Open Project")).toBeNull();
   });
 
   it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
@@ -82,7 +82,7 @@ describe("u26 the harness seeds", () => {
 
     const line = await screen.findByRole("alert");
 
-    expect(line.textContent).toBe("Daemon exited 1");
+    expect(line.textContent).toBe("Service exited 1");
     expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 

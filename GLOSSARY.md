@@ -25,8 +25,8 @@ The single collection of App-authored labels and parameterised prose, separate f
 | --- | --- |
 | Start Door | Start supervisor |
 | Retry Door | Retry supervisor |
-| Clear without Handoff | Clear without a summary |
-| Clear (prompt submit) | Clear and keep a summary |
+| Clear without Handoff | Clear without summary |
+| Clear (prompt submit) | Clear with summary |
 
 Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
 

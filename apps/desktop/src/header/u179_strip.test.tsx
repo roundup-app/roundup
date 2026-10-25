@@ -25,10 +25,10 @@ describe("u179 the header is the strip", () => {
     const { app } = await openTabs({ api: [], web: [] });
 
     app.chooser.path = path("docs");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
 
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
-    expect(screen.getByRole("button", { name: "Open a folder" }).classList.contains("word")).toBe(true);
+    expect(screen.getByRole("button", { name: "Open a Project" }).classList.contains("word")).toBe(true);
   });
 
   it("u179_the_roles_and_the_marks_text_label", async () => {
@@ -54,10 +54,10 @@ describe("u179 the header is the strip", () => {
   it("u449_the_first_run_header_has_the_plus_and_roundup", async () => {
     render(() => <App app={createFakeApp()} reducedMotion={() => false} clock={() => 0} />);
 
-    await screen.findByText("Open a folder to start");
+    await screen.findByText("Open Project");
 
     expect(within(header()).getByRole("heading", { name: "roundup" })).toBeTruthy();
-    expect(within(header()).getByRole("button", { name: "Open a folder" })).toBeTruthy();
+    expect(within(header()).getByRole("button", { name: "Open a Project" })).toBeTruthy();
     expect((projectTabs()[0] ?? null)).toBeNull();
   });
 });

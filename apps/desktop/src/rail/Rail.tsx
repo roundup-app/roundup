@@ -710,7 +710,7 @@ export const Rail = () => {
 
               return (
                 <details>
-                  <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
+                  <summary aria-description={copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}><Icon name="right" /><span>{copy.riskLine(destinationName(entry().destination.object), copy.draftStatus[entry().status])}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>

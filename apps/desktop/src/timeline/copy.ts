@@ -1,17 +1,18 @@
-type CopyValue = string | number | undefined;
-
+/** App-authored timeline copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
 export const copy = {
+
   timeline: shared.timeline,
-  timelineStarted: (parent: string, child: string) => `${parent} started ${child}`,
-  timelineEmpty: "No Agent activity seen yet",
-  timelineNow: shared.timelineNow,
-  timelineAgo: (minutes: number) => `${minutes}m ago`,
   timelineLanes: shared.settingsAgents,
+  timelineNow: shared.timelineNow,
+
+  timelineOpenTerminal: shared.openEvidence,
+  timelineTrack: (name: string) => `${name}: last 30m`,
+  timelineAgo: (minutes: number) => `${minutes}m ago`,
+  timelineUnknown: shared.timelineUnknown,
+  /** @prose */
+  timelineEmpty: "No Agent activity has appeared yet.",
   timelineRemoved: (name: string) => `${name} (removed)`,
-  timelineTrack: (name: string) => `${name} over the last 30 minutes`,
-  timelineUnknown: "Unknown",
-  timelineOpenTerminal: (value1: CopyValue) => `Open ${value1}`,
+  timelineStarted: (parent: string, child: string) => `${parent} started ${child}`,
 } as const;

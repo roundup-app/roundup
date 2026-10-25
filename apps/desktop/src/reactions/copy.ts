@@ -1,53 +1,101 @@
+/** App-authored reactions copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
+const reactionChanged = "The PR has changed.";
 
-const reactionHealth = new Map([["fired", "Sent at the scheduled time"], ["fired late", "Sent after the scheduled time"], ["expired: no firing at or after expires_at", "Expired before sending"], ["skipped: the instant was missed and the late policy is skip", "Scheduled time missed; skipped as requested"], ["observing", "Watching for changes"], ["not-observing", "Waiting to start watching"], ["unavailable", "Observation unavailable"], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", "PR changed"], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
+const reactionUnavailable = "Observation is unavailable. Refresh to check again.";
 
-const reactionDelivery = new Map([["pending", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
+const delivered = "Delivered";
 
-const reactionMax = "Firings";
+const sending = "Sending";
 
-/** App-authored copy owned by this surface (U471). */
+const reactionFiringStates = new Map([["pending", shared.draftStatus.pending], ["delivered", delivered], ["sending", sending], ["dropped", shared.askDropped], ["passed", "Forwarded"]]);
+
+const reactionDelivery = new Map([["pending", shared.draftStatus.pending], ["delivered", delivered], ["dropped", "Not delivered"], ["sending", sending], ["passed", "Passed on"]]);
+
+const reactionHealth = new Map([["fired", "It sent on time."], ["fired late", "It sent late."], ["expired: no firing at or after expires_at", "It expired before sending."], ["skipped: the instant was missed and the late policy is skip", "It missed the time and skipped as requested."], ["observing", "It is watching for changes."], ["not-observing", "It waits to start watching."], ["unavailable", reactionUnavailable], ["waiting", "It waits for checks."], ["matched", "The condition was met."], ["invalidated", reactionChanged], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
+
+const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"], ["fired", "Sent on time"], ["fired late", "Sent late"], ["expired: no firing at or after expires_at", "Expired"], ["skipped: the instant was missed and the late policy is skip", "Missed; skipped"], ["observing", "Watching"], ["not-observing", "Awaiting observation"], ["unavailable", "Observation unavailable"], ["waiting", "Awaiting checks"], ["matched", "Condition met"], ["acceptance-failed", "Firing refused"], ["write-failed", "Firing save failed"], ["observation-save-failed", "Observation save failed"]]);
+
+const reactionFirings = "Firings";
+
 export const copy = {
-  copy: shared.copyDraft,
-  draftRetention: shared.draftRetention,
+  reactionFiringLabel: (ordinal: number, outcome: string) => `Firing ${ordinal} · ${reactionFiringStates.get(outcome) ?? shared.timelineUnknown}`,
+  reactionFirings: reactionFirings,
+
   draftSurface: shared.draftSurface,
-  storageRetry: shared.storageRetry,
-  copyDraftFailure: shared.copyDraftFailure,
-  unavailableHome: shared.unavailableHome,
-  refresh: shared.importRefresh,
-  reactionWhen: shared.reactionWhen,
   draftIdentity: shared.draftIdentity,
+
+  storageRetry: shared.storageRetry,
+  draftRetention: shared.draftRetention,
+  copyDraftFailure: shared.copyDraftFailure,
+
   retry: shared.retry,
-  reactionUtc: "Z",
-  reactionGone: () => "Unavailable Agent",
-  reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
-  reactionAgents: (names: string[], any: boolean) => `${any ? "Any of" : "All of"} ${names.join(", ")} finish`,
-  reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}`,
-  reactionInstant: (at: string, late: string) => `At ${at}; ${late === "skip" ? "skip if missed" : "run once before expiry if missed"}`,
-  reactions: "Named reactions",
-  reactionMissing: "This reaction is no longer listed",
-  reactionDetail: (name: string) => `Reaction ${name}`,
+
+  unavailableHome: shared.unavailableHome,
+
   clear: shared.clear,
+
+  refresh: shared.importRefresh,
   reactionStop: shared.stop,
-  reactionRun: "Run now",
-  reactionCreate: "New reaction",
-  reactionsEmpty: "No named reactions yet",
-  reactionUnknownState: "Observation unclear",
-  reactionState: (state: string, health: string) => state === "active" ? reactionHealth.get(health) ?? "Observation unavailable" : reactionStates.get(state) ?? "Unavailable",
-  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained.",
-  reactionActor: (kind: string, name: string | null) => kind === "user" ? "Authorized by you" : name === null ? "The authorizing Agent is unavailable" : `Authorized by ${name}`,
-  reactionAuthority: "Authority",
-  reactionHome: "Home",
+  reactionName: shared.name,
+  reactionTime: shared.measurementTime,
+  reactionWhen: shared.reactionWhen,
   reactionNoHome: shared.projectRoot,
+  copy: shared.copyDraft,
+  reactions: "Named reactions",
+  reactionUtc: "Z",
+  reactionDatePlaceholder: "2026-10-21",
+  reactionTimePlaceholder: "09:00",
+  reactionOffsetPlaceholder: "+01:00",
+  reactionRepositoryPlaceholder: "owner/name",
+  /** @prose */
+  reactionPreviewActor: "You have authorized this from the App.",
+  reactionsEmpty: "No reactions yet",
+  reactionCreate: "New reaction",
+  reactionSave: "Save reaction",
+  reactionRun: "Run now",
+  /** @prose */
+  reactionMissing: "This reaction is no longer listed. Refresh to check again.",
+  reactionDetail: (name: string) => `Reaction ${name}`,
+  reactionCheckCreation: "Check creation",
+  /** @prose */
+  reactionCreationUnknown: (cause: string) => `Creation is unconfirmed. Check creation before saving another reaction. ${cause}`,
+  /** @prose */
+  reactionNotCreated: (cause: string) => `The reaction was not created: ${cause}. Check before trying again.`,
+  reactionState: (state: string, health: string) => reactionStates.get(state === "active" ? health : state) ?? "Unavailable",
   reactionTarget: "Target Agent",
+  reactionPickTarget: "Pick an Agent",
   reactionInstruction: "Instruction",
   reactionCondition: "Condition",
-  reactionBound: "Bound",
-  reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings left${rearm ? ", re-arms" : ""}`,
+  reactionKindAgents: "Agents finish",
+  reactionKindPr: "PR checks pass",
+  reactionKindInstant: "At a time",
+  reactionWatched: "Agents to watch",
+  reactionAny: "Any Agent",
+  /** @prose */
+  reactionAnyHint: "Otherwise, all watched Agents must finish.",
+  reactionRepository: "Repository",
+  reactionPr: "PR number",
+  reactionAt: "At",
+  reactionDate: "Date",
+  reactionOffset: "UTC offset",
   reactionExpires: "Expires",
-  reactionObservation: "Observation",
+  reactionMax: reactionFirings,
+  reactionRearm: "Rearm each time",
+  reactionPreview: "Preview",
+  reactionIncomplete: "Not complete yet",
+  reactionAuthority: "Authority",
+  reactionActor: (kind: string, name: string | null) => kind === "user" ? "Authorized by you" : name === null ? "Authorizer unavailable" : `Authorized by ${name}`,
+  reactionHome: "Home",
+  reactionGone: () => shared.unavailableAgent,
+  reactionBound: "Bound",
+  /** @prose */
+  reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings remain${rearm ? "; it re-arms" : ""}.`,
+  /** @prose */
+  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained.",
+  reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
+  /** @prose */
   reactionCause: (cause: string) => cause.startsWith("the PR head moved") ? "The PR has new commits. Create a new reaction for the current version."
     : cause.includes("no longer names an Agent with a state") ? "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one."
     : cause.startsWith("authority refused:") ? "Permission to reach the Agent was refused. You can inspect or stop this reaction."
@@ -64,43 +112,29 @@ export const copy = {
     : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
     : cause === "inbox" ? "The Agent's inbox is unavailable. Check the Agent before retrying."
     : cause === "not accepted" ? "The Agent did not accept this Message. Check the Agent before retrying."
-    : cause === "merged" ? "Included in a newer summary."
+    : cause === "merged" ? "A newer summary includes it."
     : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
     : "Observation details could not be explained. Refresh to check again.",
-  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained.",
-  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation.",
+  reactionUnknownState: "Observation unclear",
+  /** @prose */
+  reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
   reactionDetails: "Details",
-  reactionFirings: reactionMax,
-  reactionMax: reactionMax,
-  reactionNoFirings: "None yet",
-  reactionFiring: (ordinal: number, _message: number, outcome: string, matched: boolean) => `Firing ${ordinal} · ${reactionDelivery.get(outcome) ?? "Delivery unknown"}${matched ? "" : " · run by you"}`,
+  reactionObservation: "Observation",
+  /** @prose */
+  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. No condition was met during that gap." : "Earlier observation details could not be explained.",
+  /** @prose */
+  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation.",
   reactionMessage: (_id: number) => "Message",
   reactionMessageState: "Delivery",
-  reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
-  reactionNotCreated: (cause: string) => `Reaction not created: ${cause}`,
-  reactionCreationUnknown: (cause: string) => `Creation acceptance unknown. Check creation before saving another reaction. ${cause}`,
-  reactionDate: "Date",
-  reactionDatePlaceholder: "2026-10-21",
-  reactionTime: shared.measurementTime,
-  reactionTimePlaceholder: "09:00",
-  reactionOffset: "UTC offset",
-  reactionOffsetPlaceholder: "+01:00",
-  reactionResolved: (preview: { at: string; utc: string; offset: string }) => `${preview.at}, ${preview.utc} UTC, offset ${preview.offset}`,
-  reactionName: shared.name,
-  reactionRepository: "Repository",
-  reactionRepositoryPlaceholder: "owner/name",
-  reactionPr: "PR number",
-  reactionAt: "At",
-  reactionPickTarget: "Pick an Agent",
-  reactionKindAgents: "When these Agents finish",
-  reactionKindPr: "When this PR's checks pass",
-  reactionKindInstant: "At a time",
-  reactionWatched: "Agents to watch",
-  reactionAny: "Any one of them (otherwise all)",
-  reactionRearm: "Re-arm after each firing",
-  reactionPreview: "Preview",
-  reactionPreviewActor: "Authorized by you, from the App",
-  reactionIncomplete: "Not complete yet",
-  reactionCheckCreation: "Check creation",
-  reactionSave: "Save reaction",
+  reactionNoFirings: "None yet",
+  /** @prose */
+  reactionFiring: (ordinal: number, _message: number, outcome: string, matched: boolean) => `Firing ${ordinal} is ${reactionDelivery.get(outcome) ?? "unknown"}${matched ? "" : "; you ran it"}.`,
+  /** @prose */
+  reactionAgents: (names: string[], any: boolean) => `${any ? "Any" : "All"} of ${names.join(", ")} finish.`,
+  /** @prose */
+  reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}.`,
+  /** @prose */
+  reactionInstant: (at: string, late: string) => `It runs at ${at}; ${late === "skip" ? "it skips missed times" : "it runs once before expiry if missed"}.`,
+  /** @prose */
+  reactionResolved: (preview: { at: string; utc: string; offset: string }) => `It runs at ${preview.at} (${preview.utc} UTC, ${preview.offset}).`,
 } as const;

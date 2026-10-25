@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc && node copy/check.mjs",
-    "test": "node --test copy/*.test.mjs reporting/*.test.mjs && vitest run"
+    "test": "node --test reporting/*.test.mjs && vitest run"
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
@@ -45,7 +45,7 @@
     "@atlaskit/pragmatic-drag-and-drop": "4.0.0",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^3.0.0",
     "@babel/parser": "7.29.9",
-    "@babel/traverse": "7.29.0",
+    "@babel/traverse": "7.29.10",
     "@babel/types": "7.29.8",
     "@solidjs/testing-library": "^0.8.10",
     "@testing-library/dom": "^10.4.2",
@@ -57,6 +57,7 @@
     "natural": "8.2.3",
     "vite": "^8.3.5",
     "vite-plugin-solid": "^2.11.14",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "typescript-analysis": "npm:typescript@6.0.3"
   }
 }

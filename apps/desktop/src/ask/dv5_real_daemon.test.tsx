@@ -282,7 +282,7 @@ it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
     fireEvent.click(within(tab).getByRole("button", { name: "Close first" }));
     await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
     expect(field().value).toBe("  second Project 東京\n ");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "first" });
     await waitFor(() => expect(field().value).toBe(exact));
     expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 6, "backward"]);

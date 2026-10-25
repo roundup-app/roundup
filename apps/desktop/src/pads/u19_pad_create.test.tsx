@@ -143,7 +143,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(connected.drafts.list()).toEqual([older]);
     expect(field.value).toBe("");
     writes.mockRestore();

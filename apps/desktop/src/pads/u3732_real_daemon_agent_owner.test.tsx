@@ -99,7 +99,7 @@ it("u3732_real_daemon_agent_owner", async () => {
     await browser("wait", "#shelf-tab-todos");
     await browser("click", `.rail-row[data-id="${alpha.id}"]`);
     await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
-    await add(`add todo to ${alpha.name}`, "New Todo title", "agent todo");
+    await add(`Add Todo: ${alpha.name}`, "New Todo title", "agent todo");
     await until(`[...document.querySelectorAll('.shelf .shelf-title')].some(el => el.textContent === 'agent todo')`);
     const todo = (await app.rpc("todo.list", null)).find(each => each.title === "agent todo")!;
 

@@ -54,7 +54,7 @@ describe("u184 close with a question", () => {
     const dialog = await questionDialog();
 
     expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
-    expect(dialog.cancelLabel).toBe("Cancel");
+    expect(dialog.cancelLabel).toBe("Back");
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {
@@ -112,7 +112,7 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    expect(await screen.findByText("Open a folder to start")).toBeDefined();
+    expect(await screen.findByText("Open Project")).toBeDefined();
     expect((projectTabs()[0] ?? null)).toBeNull();
   });
 
@@ -254,7 +254,7 @@ describe("u184 overflow", () => {
 
   it("u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end", async () => {
     await withLayout(async () => {
-      const add = screen.getByRole("button", { name: "Open a folder" });
+      const add = screen.getByRole("button", { name: "Open a Project" });
       const scroll = document.querySelector(".strip-scroll")!;
 
       expect(screen.getByRole("tablist", { name: "Projects" }).contains(add)).toBe(false);
@@ -324,7 +324,7 @@ describe("u2773 header on real Projects", () => {
     fireEvent.pointerEnter(projectTab(first.dir)!);
     fireEvent.click(await within(projectTab(first.dir)!).findByRole("button", { name: "Close Same" }));
     await waitFor(() => expect(projectTab(first.dir)).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await waitFor(() => expect(projectTab(first.dir)).not.toBeNull());
     select(second.dir);
     view.unmount();

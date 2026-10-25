@@ -238,7 +238,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     // A separate public write generates the real Event that pauses this editor.
     await one.rpc("pad.write", { name, text: "external\n", expectedRevision: original.revision, expectedIncarnation: original.incarnation });
     await screen.findByText(/Changed by/);
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await screen.findByRole("tab", { name: "second" });
     await showEverythingInApp(/scope-second/);
     showShelfTab("Pads");
@@ -271,7 +271,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     fireEvent.pointerEnter(firstTab);
     fireEvent.click(within(firstTab).getByRole("button", { name: /^Close / }));
     await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a Project" }));
     await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).not.toBeNull());
     await showEverythingInApp(/scope-first/);
     showShelfTab("Pads");

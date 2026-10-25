@@ -1,4 +1,4 @@
-/** App-authored copy owned by this surface (U471). */
+/** App-authored resize copy (U471). Supplied values remain unchanged. */
 export const copy = {
   resizeRail: "Resize Rail",
   resizeShelf: "Resize work items",

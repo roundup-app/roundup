@@ -1,30 +1,32 @@
+/** App-authored shelf copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
 export const copy = {
+  draftStatus: shared.draftStatus,
   todos: shared.todos,
   pads: shared.pads,
-  shelfLabel: shared.leaderShortShelf,
-  overview: shared.overview,
-  refresh: shared.importRefresh,
-  draftStatus: shared.draftStatus,
-  keep: shared.keep,
   cancel: shared.cancel,
-  comma: shared.comma,
-  ownedBy: shared.ownedBy,
+
   delete: shared.delete,
+  keep: shared.keep,
   pad: shared.pad,
+  ownedBy: shared.ownedBy,
+  unassigned: shared.unassigned,
+  addTodoTo: shared.addTodoTo,
+  overview: shared.overview,
   doneCount: shared.doneCount,
   clear: shared.clear,
+  questionMark: shared.questionMark,
+  refresh: shared.importRefresh,
+  shelfLabel: shared.leaderShortShelf,
+  me: shared.me,
+  todo: shared.todo,
+  comma: shared.comma,
   couldNotDelete: "Could not delete",
-  colon: ": ",
   shelfDeletion: "Work items deletion",
   selected: " selected",
   deleteWord: "Delete ",
+  /** @prose */
   agentsMayStillBeWritingDeletingDoesNot: ". Agents may still be writing; deleting does not stop them",
-  todo: shared.todo,
-  questionMark: shared.questionMark,
-  addTodoTo: shared.addTodoTo,
-  me: shared.me,
-  unassigned: shared.unassigned,
+  colon: ": ",
 } as const;

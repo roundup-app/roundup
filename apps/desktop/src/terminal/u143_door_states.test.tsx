@@ -6,13 +6,14 @@ import { agent, door, event, info, workstream } from "../testing/nodes";
 import { openTabs, path } from "../header/stripFixture";
 import { CHORDS } from "../keys/chords";
 import { copy } from "./copy";
-import { copy as copyRail } from "../rail/copy";
-import { copy as copyAsk } from "../ask/copy";
+import { copy as sharedCopy } from "../sharedCopy";
+import { copy as railCopy } from "../rail/copy";
+import { copy as askCopy } from "../ask/copy";
 import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const startWords = () => screen.getAllByRole("button", { name: (name) => name === copy.start || name === copy.retry });
+const startWords = () => screen.getAllByRole("button", { name: (name) => name === copy.start || name === sharedCopy.retry });
 
 const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
@@ -39,7 +40,7 @@ describe("u143 empty Project", () => {
   it("u143_an_empty_project_offers_start_a_workstream_in_place_of_the_select_line", async () => {
     await emptyProject();
 
-    expect([screen.getByText("No Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("Select an Agent or a Terminal")]).toEqual([expect.anything(), false, null]);
+    expect([screen.getByText("No Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("Choose an Agent or Terminal.")]).toEqual([expect.anything(), false, null]);
   });
 
   it("u143_the_start_a_workstream_button_is_a_native_tab_stop", async () => {
@@ -59,7 +60,7 @@ describe("u143 empty Project", () => {
   it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
     await mountRailAndPane([agent("a", "idle", "i")]);
 
-    expect([screen.queryByText("Select an Agent or a Terminal") !== null, screen.queryByText("New Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
+    expect([screen.queryByText("Choose an Agent or Terminal.") !== null, screen.queryByText("New Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
   });
 
   it("u143_start_a_workstream_creates_one_root_workstream_selects_it_and_starts_only_its_door", async () => {
@@ -120,7 +121,7 @@ describe("u143 empty Project", () => {
     };
 
     fireEvent.click(startWorkstream());
-    await screen.findByText(copyRail.doorDidNotStart);
+    await screen.findByText(railCopy.doorDidNotStart);
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
 
@@ -135,7 +136,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect([await screen.findByText(copyRail.doorNotStarted), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
+    expect([await screen.findByText(railCopy.doorNotStarted), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
   });
 
   it("u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once", async () => {
@@ -144,7 +145,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: 137 } }));
-    await screen.findByText(copyRail.doorStoppedWithExit("exited 137"));
+    await screen.findByText(railCopy.doorStoppedWithExit("exited 137"));
     fireEvent.click(paneStart());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
@@ -154,7 +155,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     const { app, connected } = await mountRailAndPane([door("r", "working", "w")]);
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: null } }));
-    await screen.findByText(copyRail.doorStoppedWithExit("exited by signal"));
+    await screen.findByText(railCopy.doorStoppedWithExit("exited by signal"));
     fireEvent.click(paneStart());
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
   });
@@ -162,7 +163,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
   it("u143_a_failed_first_launch_reloads_as_stopped", async () => {
     const { app, connected } = await mountRailAndPane([door("r", "error", "launch failed", { terminal_id: null })]);
     connected.rail.select("r");
-    await screen.findByText(copyRail.doorStopped);
+    await screen.findByText(railCopy.doorStopped);
     expect(calls(app, "rail.startDoor")).toEqual([]);
     expect(screen.getByRole("button", { name: copy.start })).toBeTruthy();
   });
@@ -181,10 +182,10 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     fireEvent.click(await screen.findByRole("button", { name: copy.start }));
-    await screen.findByText(copyRail.startingDoor);
+    await screen.findByText(railCopy.startingDoor);
     fireEvent.click(paneStart());
 
-    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(copyRail.doorNotStarted)]).toEqual([1, true, null]);
+    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(railCopy.doorNotStarted)]).toEqual([1, true, null]);
   });
 
   it("u143_a_failed_start_reads_did_not_start_with_the_message_and_retry", async () => {
@@ -196,7 +197,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     connected.rail.select("r");
     fireEvent.click(await screen.findByRole("button", { name: copy.start }));
 
-    expect([await screen.findByText(copyRail.doorDidNotStart), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: copy.retry })]);
+    expect([await screen.findByText(railCopy.doorDidNotStart), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: sharedCopy.retry })]);
   });
 });
 
@@ -233,7 +234,7 @@ it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
   expect(within(list).queryAllByRole("link")).toEqual([]);
 });
 
-it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
+it.each(CHORDS.filter((row) => row.what === sharedCopy.newAgent || row.what === sharedCopy.newTerminal || row.what === sharedCopy.askBarShortcut))(
   "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
     const { app } = await openTabs({ p: [] });
     const daemon = app.of(path("p"));
@@ -248,19 +249,19 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
     const code = press[press.length - 1]!;
     fireEvent.keyDown(start, { code, key: code === "Slash" ? "/" : code.slice(3).toLowerCase(), metaKey: true });
 
-    if (row.what === copy.newAgent) {
+    if (row.what === sharedCopy.newAgent) {
       await waitFor(() => expect(calls(daemon, "agent.spawn")).toHaveLength(1));
       expect(calls(daemon, "agent.spawn")[0]).toMatchObject({ parent: null });
-    } else if (row.what === copy.newTerminal) {
+    } else if (row.what === sharedCopy.newTerminal) {
       await waitFor(() => expect(document.activeElement?.closest(".bubble")).not.toBeNull());
       expect(calls(daemon, "terminal.open")).toEqual([{ workstream: null }]);
     } else {
-      const input = await screen.findByRole("textbox", { name: copyAsk.askBarLabel });
+      const input = await screen.findByRole("textbox", { name: sharedCopy.ask });
 
       await waitFor(() => expect(document.activeElement).toBe(input));
       fireEvent.keyDown(input, { code: "Escape", key: "Escape" });
       await waitFor(() => expect(document.activeElement).toBe(start));
-      expect(screen.queryByRole("textbox", { name: copyAsk.askBarLabel })).toBeNull();
+      expect(screen.queryByRole("textbox", { name: sharedCopy.ask })).toBeNull();
     }
 
     expect(calls(daemon, "rail.createWorkstream")).toEqual([]);
@@ -285,8 +286,8 @@ it("u2571c_hints_follow_empty_pending_failure_and_nonempty_states", async () => 
   tree.push(agent("root", "idle", "ready"));
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(pane.queryByRole("list")).toBeNull());
-  expect(screen.getByRole("region", { name: copyAsk.projectOverview })).toBeTruthy();
-  expect(screen.getByRole("textbox", { name: copyAsk.askBarLabel })).toBeTruthy();
+  expect(screen.getByRole("region", { name: askCopy.projectOverview })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: sharedCopy.ask })).toBeTruthy();
   tree.splice(0);
   app.emit(event({ name: "rail.changed" }));
   await pane.findByRole("list");

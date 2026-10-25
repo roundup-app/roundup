@@ -4,7 +4,7 @@ import { RpcError } from "../app/seam";
 import { agent, event } from "../testing/nodes";
 import { withScopeRow } from "../testing/showEverything";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
-import { copy } from "../keys/copy";
+import { copy as keysCopy } from "../keys/copy";
 import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
 
 afterEach(cleanup);
@@ -35,7 +35,7 @@ it("u3719_the_plus_creates_in_that_groups_owner", async () => {
   await waitFor(() => expect(groups()).toContain("a"));
 
   for (const [group, label, params] of [["me", "Me", { owner: ME }], ["a", "alpha", { owner: by("a") }], ["unassigned", "Unassigned", {}]] as const) {
-    fireEvent.click(screen.getByRole("button", { name: `add todo to ${label}` }));
+    fireEvent.click(screen.getByRole("button", { name: `Add Todo: ${label}` }));
     const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
     expect(within(document.querySelector(`[data-shelf-group="${group}"]`)!).getByRole("textbox")).toBe(field);
@@ -55,7 +55,7 @@ it("u3719_the_plus_opens_a_folded_group_and_focuses_the_field", async () => {
 
   unfold("unassigned");
   await waitFor(() => expect(content().hasAttribute("hidden")).toBe(true));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Unassigned" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Unassigned" }));
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   expect(content().hasAttribute("hidden")).toBe(false);
@@ -65,7 +65,7 @@ it("u3719_the_plus_opens_a_folded_group_and_focuses_the_field", async () => {
 it("u3719_the_plus_never_toggles_the_fold", async () => {
   await mount();
   await waitFor(() => expect(groups()).toContain("me"));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Me" }));
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.keyDown(field, { key: "Escape" });
@@ -79,7 +79,7 @@ it("u3719_a_failed_create_keeps_the_text_and_shows_its_cause", async () => {
   app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
 
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: alpha" }));
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.input(field, { target: { value: "x" } });
@@ -112,7 +112,7 @@ it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () =
   fireEvent.keyDown(row, { key: "o", code: "KeyO", ctrlKey: true });
   fireEvent.keyDown(row, { key: "O", code: "KeyO", shiftKey: true });
   expect(screen.queryByRole("menu")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Me" }));
   fireEvent.keyDown(await screen.findByRole("textbox", { name: "New Todo title" }), { key: "o", code: "KeyO" });
   expect(screen.queryByRole("menu")).toBeNull();
 });
@@ -172,7 +172,7 @@ it("u3717_owner_event_regroups_the_row", async () => {
 it("u3719_esc_closes_and_returns_focus_to_the_plus", async () => {
   const { app } = await mount();
   await waitFor(() => expect(groups()).toContain("me"));
-  const plus = screen.getByRole("button", { name: "add todo to Me" });
+  const plus = screen.getByRole("button", { name: "Add Todo: Me" });
 
   fireEvent.click(plus);
   fireEvent.keyDown(await screen.findByRole("textbox", { name: "New Todo title" }), { key: "Escape" });
@@ -185,7 +185,7 @@ it("u3719_esc_closes_and_returns_focus_to_the_plus", async () => {
 it("u3719_the_plus_is_keyboard_reachable_with_its_name", async () => {
   await mount();
   await waitFor(() => expect(groups()).toContain("me"));
-  const plus = screen.getByRole("button", { name: "add todo to alpha" });
+  const plus = screen.getByRole("button", { name: "Add Todo: alpha" });
 
   expect(plus.tabIndex).toBeGreaterThanOrEqual(0);
   expect(plus.matches('[data-part="branch-control"] *')).toBe(false);
@@ -210,18 +210,18 @@ it("u3720_the_key_is_a_registered_shelf_binding_listed_in_help", () => {
 
   expect(owned).toHaveLength(1);
   expect(owned[0]).toMatchObject({ inShelf: true, keys: "O" });
-  expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
+  expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: keysCopy.assignTodo }));
   expect(hintsFor("shelf").map((hint) => hint.keys)).toContain("O");
 });
 
 it("u3719_opening_another_groups_field_discards_the_first_text", async () => {
   await mount();
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Me" }));
   fireEvent.input(await screen.findByRole("textbox", { name: "New Todo title" }), { target: { value: "first" } });
-  fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: alpha" }));
   await waitFor(() => expect(within(document.querySelector('[data-shelf-group="a"]')!).getByRole("textbox")).toBeTruthy());
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Me" }));
 
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
@@ -247,7 +247,7 @@ it("u3719_an_agent_leaving_keeps_the_open_field_and_its_create_fails_with_a_caus
   app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
 
   await waitFor(() => expect(groups()).toContain("a"));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: alpha" }));
   fireEvent.input(await screen.findByRole("textbox", { name: "New Todo title" }), { target: { value: "kept" } });
   app.handlers["rail.tree"] = () => withScopeRow([]);
   app.emit(event({ name: "rail.changed" }));

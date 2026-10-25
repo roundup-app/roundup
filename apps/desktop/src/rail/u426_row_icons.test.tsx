@@ -66,7 +66,7 @@ describe("u426 a Rail row shows its icons", () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
 
-    fireEvent.click(iconsOf("h").find((button) => button.getAttribute("aria-label") === "Open folder")!);
+    fireEvent.click(iconsOf("h").find((button) => button.getAttribute("aria-label") === "Open Project")!);
 
     expect(mounted.rail.selected()).toBe("g");
   });

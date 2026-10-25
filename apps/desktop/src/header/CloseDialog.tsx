@@ -8,7 +8,7 @@ const runningText = (names: readonly string[]): string => {
   const shown = names.slice(0, 3).join(copy.comma);
   const more = names.length > 3 ? copy.andMore(names.length - 3) : "";
 
-  return copy.runningAgents(names.length, names.length === 1 ? copy.agentRuns : copy.agentsRun, shown, more);
+  return copy.runningAgents(names.length, shown, more);
 };
 
 /** One system question before a Project with running Agents closes. */

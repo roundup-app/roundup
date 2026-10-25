@@ -55,7 +55,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         await browser("press", "k");
         await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
 
-        for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
+        for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "Start an Agent with a prompt."], ["no-match", "zzzz-no-match"]]) {
           await read(`(() => { const f=document.querySelector('.switcher input'); f.value=${JSON.stringify(query)}; f.dispatchEvent(new Event('input',{bubbles:true})); })()`);
           await capture(name!);
         }

@@ -29,8 +29,8 @@ it("u471_previous_copy_assertions_are_preserved_order_labels_use_sentence_case_a
 
   for (const label of ["Title", "Ask", "Done when"]) expect(screen.getByLabelText(label)).toBeTruthy();
 
-  for (const name of ["Save", "Cancel"]) expect(screen.getByRole("button", { name })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  for (const name of ["Save", "Back"]) expect(screen.getByRole("button", { name })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   select("beta");
   await waitFor(() => expect(document.querySelector(".order-line")?.textContent).toBe("Clarifying: keep v1 routes?"));
 });

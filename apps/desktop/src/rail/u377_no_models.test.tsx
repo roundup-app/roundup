@@ -57,7 +57,7 @@ describe("u378 a Workstream row adds an Agent with one button", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Task");
+    const field = await screen.findByLabelText("Work");
 
     fireEvent.click(rowButtons("g")[0]!);
 

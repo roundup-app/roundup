@@ -29,7 +29,7 @@ describe("U83 closed Agent overview", () => {
     expect(screen.getByRole("meter").getAttribute("aria-valuemax")).toBe("200000");
 
     const range = document.createRange();
-    range.selectNodeContents(screen.getByRole("button", { name: "Copy session id" }));
+    range.selectNodeContents(screen.getByRole("button", { name: "Copy conversation id" }));
     window.getSelection()?.addRange(range);
     expect(window.getSelection()?.toString()).toBe(overview.id);
     expect(container.querySelector(".order-line")).toBeNull();
@@ -48,10 +48,10 @@ describe("U83 closed Agent overview", () => {
     app.handlers["agent.spawnPrompt"] = ({ id }) => id === "a" ? { prompt: "First session prompt" } : new Promise(() => {});
 
     connected.rail.select("a");
-    await screen.findByRole("button", { name: "Copy session id" });
+    await screen.findByRole("button", { name: "Copy conversation id" });
 
     connected.rail.select("b");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Copy session id" }).textContent).toBe("other-session"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copy conversation id" }).textContent).toBe("other-session"));
     expect(screen.queryAllByText(overview.id)).toHaveLength(0);
     expect(screen.queryByText(overview.name)).toBeNull();
     expect(screen.queryAllByRole("heading")).toHaveLength(0);
@@ -91,7 +91,7 @@ describe("U83 closed Agent overview", () => {
       app.clipboardWrite = write;
       connected.rail.select("a");
 
-      return await screen.findByRole("button", { name: "Copy session id" });
+      return await screen.findByRole("button", { name: "Copy conversation id" });
     };
 
     it("o17_clicking_the_session_id_copies_it", async () => {

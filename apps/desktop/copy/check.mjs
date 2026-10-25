@@ -1,48 +1,38 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { parse } from '@babel/parser';
+import { fileURLToPath } from 'node:url';
 import { checkCopy } from './guard.mjs';
 import { candidates } from './provenance.mjs';
-import { applyBaseline, inventory } from './baseline.mjs';
 
-const files = Object.fromEntries(readdirSync('src', { recursive: true }).filter(file => /\.tsx?$/.test(file)).map(file => [file, readFileSync(`src/${file}`, 'utf8')]));
+const root = fileURLToPath(new URL('../src/', import.meta.url));
 
-const glossary = readFileSync('../../GLOSSARY.md', 'utf8');
+const files = Object.fromEntries(readdirSync(root, { recursive: true }).filter(file => /\.tsx?$/.test(file)).map(file => [file, readFileSync(root + file, 'utf8')]));
 
-const diagnostics = checkCopy(files, glossary);
+const baseline = JSON.parse(readFileSync(new URL('./baseline.json', import.meta.url), 'utf8'));
 
-const base = execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { encoding: 'utf8' }).trim();
+let previous = null;
 
-const gitRead = file => {
-  const names = execFileSync('git', ['-C', '../..', 'ls-tree', '--name-only', base, '--', file], { encoding: 'utf8' }).trim();
+try {
+  const base = execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { encoding: 'utf8' }).trim();
+  previous = JSON.parse(execFileSync('git', ['show', `${base}:apps/desktop/copy/baseline.json`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+} catch {
+  // During the first migration, the introduction commit fixes the initial inventory.
+  const base = execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { encoding: 'utf8' }).trim();
+  const introduction = execFileSync('git', ['log', '--reverse', '--diff-filter=A', '--format=%H', `${base}..HEAD`, '--', 'apps/desktop/copy/baseline.json'], { encoding: 'utf8' }).trim().split('\n')[0];
 
-  return names ? execFileSync('git', ['-C', '../..', 'show', `${base}:${file}`], { encoding: 'utf8' }) : null;
-};
-
-const previousText = gitRead('apps/desktop/copy/baseline.json');
-
-let previous;
-
-if (previousText) previous = JSON.parse(previousText);
-else {
-  // Introduction may exempt only exact values already on main, including their branches.
-  const source = gitRead('apps/desktop/src/copy.ts');
-
-  if (!source) throw new Error('No baseline or original catalogue at merge base');
-  const ast = parse(source, { sourceType: 'module', plugins: ['typescript'] });
-  const object = ast.program.body.find(node => node.type === 'ExportNamedDeclaration').declaration.declarations[0].init.expression;
-  const reads = object.properties.map(property => `copy.${property.key.name}`).join(',');
-  previous = inventory(checkCopy({ 'copy.ts': source, 'Main.tsx': `import {copy} from './copy'; const reads = [${reads}];` }, glossary));
+  if (introduction) previous = JSON.parse(execFileSync('git', ['show', `${introduction}:apps/desktop/copy/baseline.json`], { encoding: 'utf8' }));
 }
 
-const failures = applyBaseline(diagnostics, JSON.parse(readFileSync('copy/baseline.json', 'utf8')), previous);
+const result = checkCopy(files, { root, glossary: readFileSync(new URL('../../../GLOSSARY.md', import.meta.url), 'utf8'), baseline, previous: previous ?? baseline });
 
 for (const [file, source] of Object.entries(files)) {
   if (/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|(^|\/)copy\.ts$|^sharedCopy\.ts$)/.test(file)) continue;
 
-  for (const candidate of candidates(source)) failures.push({ file, rule: 'catalogue', identity: candidate.line, text: candidate.text });
+  for (const { line, text } of candidates(source)) result.diagnostics.push({ message: `${file}:${line}: catalogue: ${text}` });
 }
 
-for (const entry of failures) console.error(`${entry.file ?? 'copy/baseline.json'}: ${entry.rule}: ${entry.identity}: ${entry.text}`);
-
-process.exitCode = failures.length ? 1 : 0;
+if (process.argv.includes('--inventory')) process.stdout.write(JSON.stringify(result.inventory, null, 2) + '\n');
+else {
+  for (const diagnostic of result.diagnostics) process.stderr.write(diagnostic.message + '\n');
+  process.exitCode = result.diagnostics.length ? 1 : 0;
+}

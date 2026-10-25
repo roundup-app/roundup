@@ -21,7 +21,7 @@ it("u471_previous_copy_assertions_are_preserved_header_labels_use_sentence_case_
   expect(screen.getByRole("tab").hasAttribute("title")).toBe(false);
   expect(screen.getByRole("tab").textContent).toBe("lowercase");
   expect(screen.getByRole("img", { name: "Needs you" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open a folder" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open a Project" })).toBeTruthy();
   expect(screen.getByLabelText("Close lowercase")).toBeTruthy();
 });
 

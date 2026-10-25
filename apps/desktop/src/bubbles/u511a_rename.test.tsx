@@ -296,7 +296,7 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   const selected = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(selected).getByRole("button", { name: /^Inspect · Failed/ }));
-  fireEvent.click(within(selected).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(selected).getByRole("button", { name: "Discard" }));
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  retained C 雪  "]);
 });
 
@@ -348,7 +348,7 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
   expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text);
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
-  fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
   expect(mounted.connected.drafts.list()).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
@@ -551,7 +551,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   expect(drafts.list()).toEqual([b]);
   cleanup();
   const reopened = createProjectDrafts();

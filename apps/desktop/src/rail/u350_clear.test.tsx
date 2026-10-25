@@ -29,7 +29,7 @@ const reasonField = () => screen.getByRole<HTMLTextAreaElement>("textbox", { nam
 
 const type = (text: string) => fireEvent.input(reasonField(), { target: { value: text } });
 
-const clearButton = () => screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" });
+const clearButton = () => screen.getByRole<HTMLButtonElement>("button", { name: "Clear with summary" });
 
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
 beforeEach(() => vi.stubGlobal("ResizeObserver", class {
@@ -93,7 +93,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
     await app.closeMenu();
     type("why");
     fireEvent.click(clearButton());
-    await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary"));
+    await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary."));
 
     expect(reasonField().disabled).toBe(true);
     expect(clearButton().disabled).toBe(true);
@@ -121,7 +121,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
     await screen.findByText("no Handoff from w in time");
 
     expect(reasonField().value).toBe("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear without a summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear without summary" }));
     await waitFor(() => expect(railCallsTo(app, "workstream.clear")).toHaveLength(2));
 
     expect(railCallsTo(app, "workstream.clear")[1]).toEqual({ id: "w", reason: "why", without_handoff: true });
@@ -137,7 +137,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
     fireEvent.click(clearButton());
     await screen.findByText("the Door is not running");
 
-    expect(screen.queryByRole("button", { name: "Clear without a summary" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear without summary" })).toBeNull();
   });
 
   it("u350_no_clear_item_on_a_subagent", async () => {

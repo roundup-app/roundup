@@ -99,10 +99,10 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 
   if (outcome === "acknowledged") {
-    expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Unfinished work" })).toBeNull();
   } else {
-    fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-    const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+    fireEvent.click(screen.getByRole("button", { name: "Unfinished work" }));
+    const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
 
     expect(recovery.textContent).toContain("revision A");
     expect(recovery.textContent).toContain("revision B");
@@ -229,8 +229,8 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   await screen.findByText("original connection refused");
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Unfinished work" }));
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(recovery.textContent).toContain("older connection revision A");
   expect(recovery.textContent).toContain("new connection revision B 🐝");
   next.view.unmount();
@@ -254,10 +254,10 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action.endsWith("remove")) fireEvent.click(screen.getByRole("button", { name: action === "remove" ? "Remove note 1" : "Remove note 2" }));
   else {
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: action === "other save" ? "Edit note 2" : "Edit note 1" }));
 
-    if (action === "cancel edit") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    if (action === "cancel edit") fireEvent.click(screen.getByRole("button", { name: "Back" }));
     else {
       fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  acknowledged replacement 🐝  " } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -305,7 +305,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
   else {
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
     fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  cannot retain save 🐝  " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -333,8 +333,8 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
   await screen.findByText("current refusal; retry");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Unfinished work" }));
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Discard this submission" })[selected === "same" ? 1 : 0]!);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));

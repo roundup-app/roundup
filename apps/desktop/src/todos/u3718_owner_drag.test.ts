@@ -135,7 +135,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
       await lane.until(`document.activeElement.closest('[data-id="${one}"]') !== null`);
     }
 
-    await lane.browser("click", `button[aria-label="add todo to Unassigned"]`);
+    await lane.browser("click", `button[aria-label="Add Todo: Unassigned"]`);
     await lane.until(`document.activeElement.matches('input, textarea')`);
     await lane.capture("shelf-owner", "new-todo-field");
     await lane.browser("press", "Escape");

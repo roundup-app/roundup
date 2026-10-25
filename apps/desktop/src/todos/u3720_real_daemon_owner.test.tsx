@@ -126,10 +126,10 @@ it("u3720_real_daemon_owner_assign", async () => {
 
     for (const owner of owners) {
       if (owner.id === "me") {
-        await browser("focus", `button[aria-label="add todo to ${owner.label}"]`);
+        await browser("focus", `button[aria-label="Add Todo: ${owner.label}"]`);
         await browser("press", "Enter");
       } else {
-        const plus = await point(`button[aria-label="add todo to ${owner.label}"]`);
+        const plus = await point(`button[aria-label="Add Todo: ${owner.label}"]`);
 
         await browser("mouse", "move", String(plus.x), String(plus.y));
         await browser("mouse", "down");
@@ -147,7 +147,7 @@ it("u3720_real_daemon_owner_assign", async () => {
       // EntryRow keeps an empty field open for another title; close it before
       // measuring the next plus, so its ResizeObserver cannot scroll that target.
       await browser("press", "Escape");
-      await until(`document.activeElement.getAttribute('aria-label') === ${JSON.stringify(`add todo to ${owner.label}`)}`);
+      await until(`document.activeElement.getAttribute('aria-label') === ${JSON.stringify(`Add Todo: ${owner.label}`)}`);
     }
 
     await browser("reload");

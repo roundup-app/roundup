@@ -194,13 +194,13 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
       };
     })()`);
     await activate('.reaction-form .reaction-actions button', true);
-    await wait("document.querySelector('.reaction-form').textContent.includes('Creation acceptance unknown')");
+    await wait("document.querySelector('.reaction-form').textContent.includes('Creation is unconfirmed')");
     await capture("unknown-create");
     expect((await app.rpc("reaction.list", null)).filter(reaction => reaction.name === "Form reaction")).toHaveLength(1);
     await evaluate("(() => { const field = document.querySelector('.reaction-form textarea'); field.value = 'newer unsent instruction'; field.dispatchEvent(new Event('input', { bubbles: true })); })()");
     expect(await evaluate("document.querySelector('.reaction-form .reaction-actions button').disabled")).toBe(true);
     await evaluate("[...document.querySelectorAll('.reaction-form button')].find(button => button.textContent === 'Check creation').click()");
-    await wait("!document.querySelector('.reaction-form').textContent.includes('Creation acceptance unknown')");
+    await wait("!document.querySelector('.reaction-form').textContent.includes('Creation is unconfirmed')");
     expect(await evaluate("document.querySelector('.reaction-form textarea').value")).toBe("newer unsent instruction");
     await capture("reconciled-form");
     await activate('.reaction-back');

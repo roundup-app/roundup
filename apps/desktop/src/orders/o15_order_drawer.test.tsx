@@ -109,7 +109,7 @@ describe("O16: the user edits the order in the Drawer", () => {
     expect(field("ask").value).toBe("Give a tour of the Drawer");
     expect(field("done").value).toBe("The tour is written");
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Copy title" })).toBeNull();
   });
 
@@ -146,7 +146,7 @@ describe("O16: the user edits the order in the Drawer", () => {
 it("u2773a_orders_untouched_cancel_leaves_nothing_to_recover", async () => {
   await openDrawer(full);
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(await recoveryLabel()).toBeNull();
 });
 
@@ -284,7 +284,7 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "discard me" } });
   vi.restoreAllMocks();
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
   expect(document.querySelector(".order-edit")).toBeNull();
   expect(await recoveryLabel()).toBeNull();
   expect(sends).toEqual([]);
@@ -443,7 +443,7 @@ it("u3021c_orders_selected_discard_preserves_other_revisions_durably", async () 
   const { app, connected, a, b, open } = await selectedOrder();
   const calls = [...app.calls];
   open(a.revision);
-  fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
   expect(connected.drafts.list()).toEqual([b]);
   expect(app.calls).toEqual(calls);
   const reloaded = await connectProject(app, connected.project, () => true, () => 0);
@@ -489,7 +489,7 @@ it("u3289a_order_form_stays_off_the_list_until_left", async () => {
   expect(await recoveryLabel()).toBeNull();
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
-  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Unfinished work (1)"));
 });
 
 it.each(["dismiss", "save", "unrelated removal", "item removal", "older acknowledgement"] as const)("p3557c_failure_lifetime_order_drawer: %s", async transition => {
@@ -608,7 +608,7 @@ it.each(["dismiss", "save", "unrelated removal"] as const)("p3557c_failure_lifet
     await connected.rail.refresh();
   }
 
-  expect(screen.getByRole("alert").textContent).toContain("Could not store unfinished work");
+  expect(screen.getByRole("alert").textContent).toContain("Unfinished work could not be saved");
 
   if (transition !== "save") expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
   expect(connected.drafts.problem()?.cause).toBe("write");
@@ -625,7 +625,7 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
   render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" inline /></ConnectedProjectContext.Provider>);
 
   if (transition === "timer") vi.useFakeTimers();
-  fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy conversation id" }));
   await vi.waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
   // SessionId's success-status timeout must never clear a copy failure.
 
@@ -638,7 +638,7 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
 
   if (transition === "copy") {
     write.mockResolvedValue(undefined);
-    fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy conversation id" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(write).toHaveBeenLastCalledWith("session-a");
   }

@@ -24,6 +24,6 @@ describe("pane empty states and error sizing", () => {
       "",
       null,
     ]);
-    expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
+    expect(screen.getByText("Choose an Agent or Terminal.")).toBeTruthy();
   });
 });

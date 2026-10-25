@@ -39,7 +39,7 @@ describe("u150 delete asks first (Pad)", () => {
 
     await ask();
 
-    expect(`${questionProbe.shown?.title}${questionProbe.shown?.message}`).toContain("Unsaved changes are lost");
+    expect(`${questionProbe.shown?.title}${questionProbe.shown?.message}`).toContain("Unsaved changes will be lost.");
   });
 
   it("u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line", async () => {

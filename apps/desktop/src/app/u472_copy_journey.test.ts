@@ -100,8 +100,8 @@ const captureClearFailure = async () => {
   await evaluate("window.__fake.app.handlers['workstream.clear'] = () => ({pending: true})");
   await evaluate(`document.querySelector('[data-id="payments"] [aria-label="Clear Workstream…"]').click()`);
   await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
-  await clickText("Clear and keep a summary");
-  await wait("document.body.textContent.includes('The supervisor is writing the summary')");
+  await clickText("Clear with summary");
+  await wait("document.body.textContent.includes('The supervisor is writing the summary.')");
   await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.clearFailed', data:{id:'payments', code:-32008, message:'summary refused: keep THIS failure 🧭'}})`);
   await wait("document.querySelector('[data-clear-prompt] [role=alert]')?.textContent.includes('keep THIS failure')");
   await capture("U472", "clear-failure");

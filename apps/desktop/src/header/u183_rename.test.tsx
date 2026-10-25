@@ -304,13 +304,13 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
-  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Acceptance unknown"} ·`) });
+  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Send unconfirmed"} ·`) });
 
   if (outcome === "acknowledged") expect(older).toBeNull();
   else {
     fireEvent.click(older!);
     expect(within(dialog).getByText("  A e\u0301 🪁  ", { exact: true, normalizer: text => text })).toBeDefined();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
     expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   }
 
@@ -336,7 +336,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
   expect(within(dialog).queryByRole("button", { name: "Retry storage only" })).toBeNull();
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]);
   expect(sends).not.toHaveBeenCalled();
 
@@ -540,7 +540,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   expect(drafts.list()).toEqual([b]);
   view.unmount();
   const reopened = createProjectDrafts();
@@ -603,7 +603,7 @@ it.each([
   if (action === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Close · Copy name" }));
   else if (action.startsWith("discard")) {
     if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: /^Current work ·/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   } else {
     fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -642,10 +642,10 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
-  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
-  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : "Discard this revision" }));
+  expect(within(dialog).getByRole("alert", { name: /Unfinished work could not be saved/ })).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : "Discard" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
-  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
+  expect(within(dialog).getByRole("alert", { name: /Unfinished work could not be saved/ })).toBeDefined();
   expect(within(dialog).getByRole("button", { name: "Retry storage only" })).toBeDefined();
 
   if (action === "dismiss") expect(within(dialog).getByText("  memory e\u0301 🧭  ", { exact: true, normalizer: text => text })).toBeDefined();

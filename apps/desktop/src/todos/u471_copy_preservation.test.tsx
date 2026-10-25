@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 it("u471_previous_copy_assertions_are_preserved_todo_creation_labels_keep_the_glossary_capital", async () => {
   await mountTodos([]);
-  const add = screen.getByRole("button", { name: "add todo to Overview" });
+  const add = screen.getByRole("button", { name: "Add Todo: Overview" });
   expect(add.textContent).toBe("Todo");
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();

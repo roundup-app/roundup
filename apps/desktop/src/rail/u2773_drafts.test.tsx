@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { RpcError } = await import("../app/seam");
@@ -25,13 +25,13 @@ it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", asyn
   else reject(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
   await new Promise((done) => setTimeout(done));
   expect(field().value).toBe(" B\ne\u0301 ");
-  const revisions = screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft");
+  const revisions = screen.queryAllByLabelText<HTMLTextAreaElement>("Unfinished work");
   expect(revisions.map((entry) => entry.value)).toEqual(outcome === "acknowledged" ? [] : [" A\n😀 "]);
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 
   if (outcome !== "acknowledged") {
     expect(document.body.textContent).toContain("Completion unconfirmed");
-    fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Discard", hidden: true })[0]!);
   }
 
   cleanup();
@@ -48,11 +48,11 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   open();
   fireEvent.input(field(), { target: { value: " memory\n😀 " } });
   expect(field().value).toBe(" memory\n😀 ");
-  expect(screen.queryByText("Unfinished rail work")).toBeNull();
+  expect(screen.queryByText("Unfinished work")).toBeNull();
   fireEvent.keyDown(field(), { key: "Escape" });
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" memory\n😀 ");
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Unfinished work").value).toBe(" memory\n😀 ");
   open();
-  expect(screen.queryByText("Unfinished rail work")).toBeNull();
+  expect(screen.queryByText("Unfinished work")).toBeNull();
   writes.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
   expect(screen.queryByRole("alert")).toBeNull();
@@ -158,7 +158,7 @@ it.each(["failed", "acknowledged", "unknown", "transport"])("u2773b_rail_name_se
   else refuse(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
   await new Promise((done) => setTimeout(done));
   expect(name.value).toBe(" B 😀 ");
-  expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : [" A e\u0301 😀 "]);
+  expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : [" A e\u0301 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A e\u0301 😀" }]);
   cleanup();
   const reopened = await mountRail([agent("a", "idle", "ready", { name: "Original" })]);
@@ -246,7 +246,7 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   refuseA(new RpcError(-32003, "older name refused"));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("older name refused"));
   expect(newer.value).toBe(" C e\u0301 😀 ");
-  expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((entry) => entry.value)).toEqual([" A 😀 "]);
+  expect(screen.getAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((entry) => entry.value)).toEqual([" A 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A 😀" }, { id: "a", name: "B 😀" }]);
 });
 
@@ -289,7 +289,7 @@ it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
   };
 
   const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-  const submit = () => screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" });
+  const submit = () => screen.getByRole<HTMLButtonElement>("button", { name: "Clear with summary" });
 
   try {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
@@ -309,7 +309,7 @@ it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
     expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
     fireEvent.input(reason(), { target: { value: " B\ne\u0301 " } });
     expect(submit().disabled).toBe(false);
-    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((entry) => entry.value)).toEqual([" A\n😀 "]);
+    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((entry) => entry.value)).toEqual([" A\n😀 "]);
     expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
   } finally { vi.unstubAllGlobals(); }
 });
@@ -336,7 +336,7 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
     fireEvent.submit(reason.closest("form")!);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Clear ws" })).toBeNull();
-    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" exact\ne\u0301 😀 ");
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Unfinished work").value).toBe(" exact\ne\u0301 😀 ");
     mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
     await reopen(mounted.app);
     expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ }).value).toBe(" exact\ne\u0301 😀 ");
@@ -355,11 +355,11 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   expect(revision.value.text).toBe(" exact\n😀 ");
   expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
   connected.drafts.discard(revision.revision);
-  expect(screen.queryByLabelText("Recovered rail draft")).toBeNull();
+  expect(screen.queryByLabelText("Unfinished work")).toBeNull();
   open();
   fireEvent.input(field(), { target: { value: "new work" } });
   fireEvent.keyDown(field(), { key: "Escape" });
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Discard", hidden: true }));
   expect(connected.drafts.list()).toEqual([]);
   expect(connected.drafts.problem()).toBeNull();
   expect(railCallsTo(app, "agent.spawn")).toEqual([]);
@@ -397,7 +397,7 @@ it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async p
     fireEvent.click(tab("Orchard"));
     const copied: string[] = [];
     vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
-    fireEvent.click(await screen.findByRole("button", { name: "Copy draft", hidden: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy", hidden: true }));
     await waitFor(() => expect(copied).toEqual(["exact draft e\u0301\n🧭"]));
     expect(original.calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);
     writes.mockRestore();

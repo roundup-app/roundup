@@ -5,7 +5,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = () => (
   <>
-    <p>{copy.agentsAndTerminals}<br />{copy.appearHereOnePerRow}<br />{copy.nestedByIndent}</p>
+    <p>{copy.agentsAndTerminals}<br />{copy.appearHereOnePerRow}</p>
   </>
 );
 

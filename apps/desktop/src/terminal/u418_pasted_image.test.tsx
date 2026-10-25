@@ -81,7 +81,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     press(container.querySelector("[data-terminal]")!);
 
     expect((await screen.findByRole("alert")).textContent).toBe(
-      "Paste failed: The clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
+      "The clipboard contains an image. Save it, then drop the file on the Terminal.",
     );
     expect(app.savedImages).toEqual([]);
   });

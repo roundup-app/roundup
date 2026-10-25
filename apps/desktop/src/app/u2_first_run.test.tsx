@@ -23,7 +23,7 @@ describe("u2 first run", () => {
     app.chooser.path = PROJECT.path;
     const { container } = renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
   });
@@ -33,9 +33,9 @@ describe("u2 first run", () => {
     app.chooser.path = null;
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
-    expect(await screen.findByText("Open a folder to start")).toBeTruthy();
+    expect(await screen.findByText("Open Project")).toBeTruthy();
   });
 
   it("u2_an_app_that_already_has_a_project_shows_it_without_a_chooser", async () => {
@@ -69,7 +69,7 @@ describe("u2 first run", () => {
     app.chooseProjectPath = () => Promise.reject(new Error("the chooser could not open"));
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect((await screen.findByText("the chooser could not open")).className).toBe("ink");
   });
@@ -80,12 +80,12 @@ describe("u2 first run", () => {
     app.opened.failure = new RpcError(-32602, "/not/a/dir is not a directory");
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect((await screen.findByText("/not/a/dir is not a directory")).textContent).toBe(
       "/not/a/dir is not a directory",
     );
-    expect(screen.queryByText("Open a folder to start")).toBeNull();
+    expect(screen.queryByText("Open Project")).toBeNull();
   });
 
   it("u2_a_failed_open_project_is_the_only_ink_in_the_window", async () => {
@@ -94,7 +94,7 @@ describe("u2 first run", () => {
     app.opened.failure = new RpcError(-32602, "not a directory");
     const { container } = renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
     await screen.findByText("not a directory");
 
     expect(container.querySelectorAll(".ink").length).toBe(1);

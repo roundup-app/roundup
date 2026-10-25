@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { copy } from "./copy";
+import { copy as sharedCopy } from "../sharedCopy";
 import { event } from "../testing/nodes";
 import { confirmDeletion, answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
@@ -37,7 +37,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     const text = "  unfinished e\u0301 🫧 雪  ";
     const retained = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary").draft;
     const remove = app.handlers["terminal.close"]!;
-    const refusal = source === "context" ? copy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
+    const refusal = source === "context" ? sharedCopy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
 
     if (source === "close") {
       app.handlers["terminal.close"] = () => { throw new Error("Close refused\nTry again"); };
@@ -170,7 +170,7 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   const before = drafts.list();
 
   if (transition === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" }));
-  else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   else if (transition === "copy") {
     app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
@@ -181,7 +181,7 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
     await waitFor(() => expect(app.clipboardWrites.at(-1)).toBe("other unfinished"));
   } else if (transition === "other-discard") {
     inspect("other run");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard" }));
   } else {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Disk full"); });
     drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary");

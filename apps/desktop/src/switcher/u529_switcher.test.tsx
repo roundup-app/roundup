@@ -242,7 +242,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
     fireEvent.select(field()!);
     const calls = app.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
-    await screen.findByRole("alert", { name: "Could not copy query. Select the text and copy again." });
+    await screen.findByRole("alert", { name: "The query could not be copied. Select the text and copy again." });
     field()!.setSelectionRange(2, 9, "backward");
     fireEvent.keyUp(field()!);
     const before = connected.drafts.list();
@@ -263,7 +263,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
     if (action === "failed retry" || action === "storage recovery") fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     const keepsCopyFailure = ["unrelated discard", "failed retry", "storage recovery"].includes(action);
-    await waitFor(() => expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." }) !== null).toBe(keepsCopyFailure));
+    await waitFor(() => expect(screen.queryByRole("alert", { name: "The query could not be copied. Select the text and copy again." }) !== null).toBe(keepsCopyFailure));
     const discards = action === "discard" || action === "failed discard";
     expect(field()!.value).toBe(discards ? "" : exact);
 
@@ -290,7 +290,7 @@ it("p3557c_failure_lifetime_switcher_late_copy_cannot_fail_a_new_revision", asyn
   const drafts = connected.drafts.list();
   reject(new Error("denied"));
   await waitFor(() => expect(screen.getByRole("alert", { name: /won't be kept/ })).toBeDefined());
-  expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." })).toBeNull();
+  expect(screen.queryByRole("alert", { name: "The query could not be copied. Select the text and copy again." })).toBeNull();
   expect(field()!.value).toBe(" newer 東京 query ");
   expect(connected.drafts.list()).toEqual(drafts);
 });

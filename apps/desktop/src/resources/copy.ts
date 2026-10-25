@@ -1,16 +1,16 @@
-type CopyValue = string | number | undefined;
-
+/** App-authored resources copy (U471). Supplied values remain unchanged. */
 import { copy as shared } from "../sharedCopy";
 
-/** App-authored copy owned by this surface (U471). */
+import type { CopyValue } from "../sharedCopy";
+
 export const copy = {
   percent: shared.percent,
+  counted: shared.counted,
   notUpdating: "Not updating",
-  missing: "–",
   kilobyteUnit: "KB",
   megabyteUnit: "MB",
   gigabyteUnit: "GB",
   terabyteUnit: "TB",
   bytes: (value1: CopyValue) => `${value1} B`,
-  counted: shared.counted,
+  missing: "–",
 } as const;

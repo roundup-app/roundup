@@ -107,7 +107,7 @@ describe("u2773 Rail task destinations", () => {
     await screen.findByRole("region", { name: "Rail" });
   };
 
-  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
   const openTask = async () => {
     await screen.findByRole("button", { name: "Add Workstream" });
@@ -216,19 +216,19 @@ describe("u2773 Rail task destinations", () => {
     await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });
-    await waitFor(() => expect(screen.queryAllByLabelText("Recovered rail draft")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
+    await waitFor(() => expect(screen.queryAllByLabelText("Unfinished work")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
     expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
 
     if (outcome !== "acknowledged") {
-      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(["C", "B", "A"]);
+      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((field) => field.value)).toEqual(["C", "B", "A"]);
       expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome);
-      fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
+      fireEvent.click(screen.getAllByRole("button", { name: "Discard", hidden: true })[2]!);
     }
 
     cleanup(); await mount(); await openTask();
     expect(task().value).toBe("C");
     fireEvent.keyDown(task(), { key: "Escape" });
-    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B"]);
+    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((field) => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B"]);
     expect(spy.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(2);
   }, 120_000);
 
@@ -259,7 +259,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
       const text = ` exact ${index}\ne\u0301 😀 `;
       const url = `${real.base}/harness.html?daemon=1`;
-      const field = 'document.querySelector("textarea[aria-label=Task]")';
+      const field = 'document.querySelector("textarea[aria-label=Work]")';
       const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
       await lane.browser("open", url);
       await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
@@ -321,7 +321,7 @@ describe("u2773 Rail persisted edits", () => {
 
   const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
   it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
     const app = createServedApp(second.base);
@@ -343,7 +343,7 @@ describe("u2773 Rail persisted edits", () => {
     open();
     fireEvent.input(task(), { target: { value: " B\n😀 " } });
     fireEvent.keyDown(task(), { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Work")).toBeNull());
     expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
     expect(starts).toEqual([JSON.stringify({ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null })]);
     cleanup();
@@ -367,7 +367,7 @@ describe("u2773 Rail persisted edits", () => {
     expect((await app.rpc("rail.tree", null)).find((entry) => entry.id === node.id)?.name).toBe("Changed elsewhere");
     await app.rpc("rail.remove", { id: node.id });
     await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
-    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toContain(" exact e\u0301 😀 ");
+    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Unfinished work").map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
     expect(document.body.textContent).toContain("unavailable");
   }, 120_000);

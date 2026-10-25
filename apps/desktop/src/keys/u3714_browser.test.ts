@@ -108,7 +108,7 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
   await wait(`document.querySelector('.capture-field').value === ''`);
   await browser("keyboard", "type", "A newer thought stays current");
   await read(`window.__rejectCapture()`);
-  await wait(`!!document.querySelector('[aria-label="Recovered capture draft"]')`);
+  await wait(`!!document.querySelector('[aria-label="Unfinished work"]')`);
   await capture("U3715", "earlier-failure");
   await browser("press", "Shift+Enter");
   await wait(`document.querySelector('.capture-field').value === ''`);

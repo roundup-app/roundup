@@ -23,7 +23,7 @@ describe("u506 an unclear row asks back", () => {
 
     fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".ask-choices button")].find((button) => button.textContent === "ops")!);
 
-    await waitFor(() => expect(document.querySelector(".ask-state")?.textContent).toBe("Queued for the supervisor"));
+    await waitFor(() => expect(document.querySelector(".ask-state")?.textContent).toBe("Queued for supervisor"));
     expect(picks(app)).toEqual([{ id: "a1", part: 0, target: { kind: "workstream", id: "ops" } }]);
     expect(document.querySelector(".ask-back")).toBeNull();
   });
