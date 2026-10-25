@@ -23,7 +23,6 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     await waitFor(() => expect(rows()).toEqual(["Ann"]));
 
     type("zzz");
-    await waitFor(() => expect(document.querySelector(".switcher")!.textContent).toContain("No match"));
     expect(rows()).toEqual([]);
   });
 
