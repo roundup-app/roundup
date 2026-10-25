@@ -62,13 +62,14 @@ export const attachRenderer = (
   terminal: Pick<Terminal, "loadAddon">,
   createWebgl: () => RendererAddon,
   warn: (message: string) => void,
+  lost?: () => void,
 ): boolean => {
   try {
     const webgl = createWebgl();
 
     terminal.loadAddon(webgl);
     // Past the webview's context limit the oldest context is lost; its Terminal falls back to the DOM renderer.
-    webgl.onContextLoss(() => webgl.dispose());
+    webgl.onContextLoss(() => { webgl.dispose(); lost?.(); });
 
     return true;
   } catch (failure) {
@@ -136,7 +137,7 @@ export type EchoProbe = {
   arrived(bytes: Uint8Array, id: string): void;
   written(bytes: Uint8Array, id: string): void;
   rendered(id: string): void;
-  renderer(webgl: boolean): void;
+  renderer(webgl: boolean, id: string): void;
 };
 
 /** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
@@ -352,9 +353,9 @@ export const createXtermEmulators = (
           loadedWebgl = createWebgl();
 
           return loadedWebgl;
-        }, console.warn);
+        }, console.warn, () => probe?.renderer(false, id));
 
-        probe?.renderer(!webglDenied);
+        probe?.renderer(!webglDenied, id);
       }
 
       if (focusOnShow) terminal.focus();
