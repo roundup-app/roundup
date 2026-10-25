@@ -257,3 +257,4 @@ Names and App labels use this table (`AGENTS.md` rule 6). Avoid entries govern p
 | Exit button (`ExitButton`) | Exit button | — |
 | Native question (`NativeQuestion`, `App.ask`, `NativeAlert`) | Native question | — |
 | Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | Shared floating surface | — |
+| Pad rename (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`) | Pad rename | — |
