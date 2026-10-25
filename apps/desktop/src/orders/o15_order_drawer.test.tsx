@@ -228,8 +228,8 @@ for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
 
       // Opening the panel closes the editor, so B is left unsent beside A's risk (U3289a).
       expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(2);
-      expect(recovery.textContent).toContain(outcome === "failed" ? "failed to save" : "may not have saved");
-      const risk = within(recovery).getAllByRole("listitem").find((item) => item.textContent?.includes(outcome === "failed" ? "failed to save" : "may not have saved"))!;
+      expect(recovery.textContent).toContain(outcome === "failed" ? "failed to save" : "save unconfirmed");
+      const risk = within(recovery).getAllByRole("listitem").find((item) => item.textContent?.includes(outcome === "failed" ? "failed to save" : "save unconfirmed"))!;
 
       fireEvent.click(within(risk).getByRole("button", { name: "Discard" }));
       expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);

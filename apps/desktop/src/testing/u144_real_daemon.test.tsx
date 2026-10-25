@@ -600,7 +600,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     });
     mount();
     await openRecovery();
-    expect((await screen.findByRole("alert")).textContent).toContain(kind === "surface" ? "Could not restore" : "Could not store");
+    expect((await screen.findByRole("alert")).textContent).toContain(kind === "surface" ? "could not be restored" : "could not be saved for reload");
     expect(headerFactory).toBe(drafts);
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
@@ -657,7 +657,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     holder.settle(a.revision, "unknown");
     fireEvent.click(screen.getByRole("tab", { name: "first" }));
     const unknown = await openRecovery();
-    expect(within(unknown.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!).getByRole("img", { name: "may not have saved" })).toBeTruthy();
+    expect(within(unknown.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!).getByRole("img", { name: "save unconfirmed" })).toBeTruthy();
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
     holder.settle(a.revision, "acknowledged");
     expect(holder.list()).toEqual([b]);
