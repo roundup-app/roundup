@@ -130,7 +130,7 @@ jobs:
           python3 -m pip install -r tools/e14/requirements.txt
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
-          python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; CI3781 namespace=${CI3781_CACHE:-ordinary}; restore outcomes in the run's setup log"
+          python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
       - name: E14 observer regression
         if: ${{ !cancelled() && matrix.partition == 1 }}
         run: python3 tools/e14/observe.test.py
