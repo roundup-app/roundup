@@ -862,3 +862,7 @@
   overflow-wrap: anywhere;
   text-overflow: clip;
 }
+
+.rail-command-notice .reserved-content {
+  align-items: baseline;
+}
