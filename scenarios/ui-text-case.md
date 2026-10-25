@@ -56,7 +56,7 @@ Centre exception (U143, policy): the Workstream Door centre uses `Start` / `Retr
 
 The glossary maps Door to supervisor, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
 
-**U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, at 1512×950 in light for behavior and dark for the design critic, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. The design critic judges those Checks in dark only (AGENTS.md rule 10, U3725): D2, D5, D6 and D15 (`docs/design-system.md`, Checks table) hold, and no previously passing Check regresses; the behaviour test above is the kept proof. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
+**U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, at 1512×950 in light for behavior and dark for the design critic, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. The design critic judges those Checks in dark only (AGENTS.md rule 10, U3725): D2, D5, D6 and D15 (`docs/design-system.md`, **The checks**) hold, and no previously passing Check regresses; the behaviour test above is the kept proof. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
 
 ## Surface ownership and copy guard
 
@@ -71,10 +71,10 @@ The following U471 observers are planned implementation tests, not claims that t
 
 Checks on main (numbers are Check ids, not source lines):
 
-1. D2: `docs/design-system.md`, **Checks**, Token-defined type and spacing.
-2. D5: `docs/design-system.md`, **Checks**, text and Glyph contrast.
-3. D6: `docs/design-system.md`, **Checks**, keyboard reachability and click targets.
-4. D15: `docs/design-system.md`, **Checks** and **Text case**, catalogue provenance, case and user labels.
+1. D2: `docs/design-system.md`, **The checks**, Token-defined type and spacing.
+2. D5: `docs/design-system.md`, **The checks**, text and Glyph contrast.
+3. D6: `docs/design-system.md`, **The checks**, keyboard reachability and click targets.
+4. D15: `docs/design-system.md`, **The checks** and **Text case**, catalogue provenance, case and user labels.
 
 Policy: the implementation updates **Text case** to surface ownership in the same PR as the extraction. This specification changes no rendered text, Token, RPC or native behavior. Applicable Principle gates are P3 (no new interruption) and P11 (no loss, retargeting, hidden failure or submit on restore). U472’s journey actions and the unfinished-input observers are their behavioral observers; the critic observes D2/D5/D6/D15 in dark on the harness seeds, including visible failure text on the densest seed. No passing Check may regress.
 
