@@ -1,6 +1,6 @@
 /* U391: the footer's height (U44); no row reserves scroll room for it now that it sits below the list. The Terminal tabs' row (U2340d) is the same height. */
 :root {
-  --rail-actions-height: 40px;
+  --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
 
 /* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
@@ -12,7 +12,7 @@
   box-sizing: border-box;
   background: var(--sunken);
   padding-inline: var(--space-4);
-  border-top-width: 1px;
+  border-top-width: var(--hairline-width);
   border-top-style: solid;
   border-top-color: var(--hairline);
 }
@@ -20,7 +20,7 @@
 .rail-actions > button {
   flex: 1;
   justify-content: flex-start;
-  min-height: 28px;
+  min-height: calc(var(--space-5) + var(--space-1));
   --button-lead: 0;
   --button-inline: 0;
 }
@@ -106,7 +106,7 @@
   top: calc(var(--space-3) / -2);
   right: 0;
   left: 0;
-  height: 1px;
+  height: var(--hairline-width);
   background-color: var(--hairline);
   pointer-events: none;
 }
@@ -218,7 +218,7 @@
   box-sizing: border-box;
   display: block;
   width: 100%;
-  min-height: 24px;
+  min-height: var(--space-5);
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   font: inherit;
   color: var(--text);
@@ -270,7 +270,7 @@
   position: absolute;
   left: calc(var(--space-4) + var(--depth) * var(--rail-step) + var(--rail-inset));
   right: 0;
-  height: 2px;
+  height: var(--stroke-width);
   background: var(--grey);
   pointer-events: none;
 }
@@ -285,19 +285,19 @@
   z-index: var(--layer-menu);
   display: flex;
   flex-direction: column;
-  min-width: 132px;
-  max-width: 252px;
+  min-width: var(--rail-menu-min-width);
+  max-width: var(--rail-menu-max-width);
   padding: var(--space-1);
   font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-row);
 }
 
 .rail-menu button {
-  min-height: 28px;
+  min-height: calc(var(--space-5) + var(--space-1));
   --button-inline: var(--space-2);
   --button-radius: var(--radius-row);
 }
@@ -310,8 +310,8 @@
 .rail-pass,
 .rail-stem,
 .rail-branch {
-  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 2px, transparent 2px 4px);
-  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 2px, transparent 2px 4px);
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1));
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), transparent var(--stroke-width) var(--space-1));
   position: absolute;
   top: 0;
   bottom: 0;
@@ -321,7 +321,7 @@
 
 .rail-pass,
 .rail-stem {
-  width: 1px;
+  width: var(--hairline-width);
   background-image: var(--dash);
 }
 
@@ -332,13 +332,13 @@
 .rail-branch {
   width: calc(var(--rail-step) - var(--space-4) / 2);
   background-image: var(--dash), var(--elbow);
-  background-size: 1px 100%, 100% 1px;
+  background-size: var(--hairline-width) 100%, 100% var(--hairline-width);
   background-position: 0 0, 0 var(--elbow-y);
   background-repeat: no-repeat;
 }
 
 .rail-branch[data-last="true"] {
-  background-size: 1px var(--elbow-y), 100% 1px;
+  background-size: var(--hairline-width) var(--elbow-y), 100% var(--hairline-width);
 }
 
 /* U405: Pads and Todos hang as leaves on the Agent's trunk, one step under its Glyph; a Todo's Glyph sits on its first line. */
@@ -642,7 +642,7 @@
   font: inherit;
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   resize: none;
   white-space: pre;
   overflow: hidden;
@@ -670,8 +670,8 @@
 /* U520: the tree's name is for a screen reader; the section head speaks to the eye. */
 .rail-label {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -686,7 +686,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid var(--accent);
+  border: var(--stroke-width) solid var(--accent);
   pointer-events: none;
 }
 
@@ -792,7 +792,7 @@
 
 .rail-recovery summary:active {
   color: var(--text);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 .rail-recovery textarea {

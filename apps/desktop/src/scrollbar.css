@@ -50,9 +50,9 @@
 }
 
 .xterm .xterm-scrollable-element > .scrollbar > .slider {
-  width: 6px !important;
+  width: var(--scrollbar-width) !important;
   left: auto !important;
-  right: 2px;
+  right: var(--stroke-width);
   border-radius: var(--radius-scrollbar);
   background: var(--scrollbar-thumb) !important;
 }
