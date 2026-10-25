@@ -1,3 +1,4 @@
+import { trackPress } from "./ui/press";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "./App";
@@ -7,6 +8,8 @@ import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
 import { trackScrollbars } from "./scrollHover";
+
+trackPress(document);
 
 trackScrollbars(document);
 

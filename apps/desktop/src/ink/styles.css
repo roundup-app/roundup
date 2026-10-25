@@ -327,3 +327,8 @@ p.ink[role="alert"] {
   min-inline-size: 0;
   block-size: 100%;
 }
+
+/* The visible circle ends on the title baseline; its SVG box extends below the mark. */
+.shelf-glyph > .glyph:has(svg) {
+  transform: translateY(calc(-1 * var(--space-1) / 2));
+}
