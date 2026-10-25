@@ -145,7 +145,7 @@ impl Daemon {
         // R3696c: the retained open total cannot distinguish image IO from store initialization.
         // Emit once, after the measured work, into perf's existing startup log.
         eprintln!(
-            "rupd: startup {}",
+            "startup: stores {}",
             serde_json::json!({
                 "storage_ms": storage_at.as_secs_f64() * 1e3,
                 "base_ms": (base_at - storage_at).as_secs_f64() * 1e3,
