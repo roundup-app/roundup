@@ -62,6 +62,7 @@ runs:
     # restore the entries main's check saved on their OS (L84). CI3781 opt-in PRs use a separate namespace
     # and may save it on Linux; GitHub scopes those entries to the PR merge ref, inaccessible from main.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
+    # Hash the complete namespace: punctuation stays distinct without entering cache keys.
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false' && runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != ''
       id: experiment
       shell: bash
