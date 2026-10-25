@@ -1,0 +1,29 @@
+diff --git a/dist/highlighter/languages/resolveLanguage.js b/dist/highlighter/languages/resolveLanguage.js
+index 6e01e852212f93a6c005fbafbac14b42038fb863..f19218f6e24ab5f89798a4557f925272046ec18a 100644
+--- a/dist/highlighter/languages/resolveLanguage.js
++++ b/dist/highlighter/languages/resolveLanguage.js
+@@ -7,10 +7,6 @@ async function resolveLanguage(lang) {
+ 	if (pending != null) return pending;
+ 	const resolver = (async () => {
+ 		let loader = RegisteredCustomLanguages.get(lang);
+-		if (loader == null) {
+-			const { bundledLanguages } = await import("shiki/langs");
+-			if (Object.prototype.hasOwnProperty.call(bundledLanguages, lang)) loader = bundledLanguages[lang];
+-		}
+ 		if (loader == null) throw new Error(`resolveLanguage: "${lang}" not found in bundled or custom languages`);
+ 		const { default: data } = await loader();
+ 		const resolvedLang = {
+diff --git a/dist/highlighter/shared_highlighter.js b/dist/highlighter/shared_highlighter.js
+index 4386eba7dccc590f5193c9cb0b9af36c777b21a0..9de71c9e725ac045d3e66f04ee913442fcb418f1 100644
+--- a/dist/highlighter/shared_highlighter.js
++++ b/dist/highlighter/shared_highlighter.js
+@@ -16,8 +16,7 @@ async function createHighlighter(type) {
+ 			const { HighlightsHighlighter } = await import("./backends/highlights.js");
+ 			return new HighlightsHighlighter();
+ 		}
+-		const { ShikiHighlighter } = await import("./backends/shiki.js");
+-		return await ShikiHighlighter.create(resolvedType);
++		throw new Error(`Highlighter "${resolvedType}" is not included in roundup; use Highlights.`);
+ 	} finally {
+ 		releaseHighlighterType();
+ 	}
