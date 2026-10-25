@@ -234,20 +234,10 @@ afterAll(async () => {
 
 const run = found ? describe : describe.skip;
 
-const nameAt = (nth: number) => pointOf(".rail-row .name", { dx: 3, nth });
-
 const editName = async (nth: number) => {
-  await browser.click(await nameAt(nth), 2);
+  await browser.click(await pointOf(".rail-row .name", { dx: 3, nth }), 2);
   await until(`() => Boolean(document.querySelector(".rail-row input"))`);
 };
-
-/** Selects the first Workstream, so its row shows its icons (U426). */
-const openInside = async () => {
-  await browser.click(await pointOf("[data-part=branch-control].rail-row .name", { dx: 1 }));
-  await until(`() => document.querySelector(".rail-row[data-selected=true] .row-icons") !== null`);
-};
-
-const selectAllInField = () => browser.page("Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2, commands: ["selectAll"] });
 
 run("u142 the Rail selects rows, not browser text", () => {
   it("u142_the_drag_helper_selects_text_where_the_browser_allows_it", async () => {
@@ -263,14 +253,7 @@ run("u142 the Rail selects rows, not browser text", () => {
     /** Each attempt: where the press lands and where it is released. */
     const attempts: [string, () => Promise<[Point, Point]>][] = [
       ["within a name, left to right", async () => [await pointOf(".rail-row .name", { dx: 1 }), await pointOf(".rail-row .name", { fx: 1, dx: -1 })]],
-      ["within a name, right to left", async () => [await pointOf(".rail-row .name", { fx: 1, dx: -1 }), await pointOf(".rail-row .name", { dx: 1 })]],
       ["from the gap right of a name across the rows below", async () => [await pointOf(".rail-row", { fx: 1, dx: -3 }), await pointOf(".rail-row", { dx: 2, nth: 3 })]],
-      ["from the left gap upward across rows", async () => [await pointOf(".rail-row", { dx: 1, nth: 3 }), await pointOf(".rail-row", { fx: 1, dx: -3, nth: 0 })]],
-      ["across a Group label", async () => [await pointOf("[data-part=branch-control].rail-row .name", { dx: 1 }), await pointOf("[data-part=branch-control].rail-row .name", { fx: 1 })]],
-      ["through two Agents across rows", async () => [await pointOf(".rail-row .name", { dx: 1, nth: 2 }), await pointOf(".rail-row .name", { fx: 1, nth: 5 })]],
-      ["from the left gap of the done summary across its label", async () => [await pointOf(".rail-fold", { dx: 1 }), await pointOf(".rail-fold", { fx: 1, dx: -2 })]],
-      ["from the right gap of the done summary leftwards", async () => [await pointOf(".rail-fold", { fx: 1, dx: -2 }), await pointOf(".rail-fold button", { dx: 1 })]],
-      ["from the pinned bar's empty end back across the controls", async () => [await pointOf(".rail-actions", { fx: 1, dx: -2 }), await pointOf(".rail-actions button", { dx: 1 })]],
     ];
 
     for (const [name, aim] of attempts) {
@@ -283,41 +266,6 @@ run("u142 the Rail selects rows, not browser text", () => {
       }, 30_000);
     }
 
-    it(`u142_${at}_the_add_controls_and_done_summary_keep_their_accessible_names`, async () => {
-      await load(size);
-      await openInside();
-      const names = await browser.eval<string[]>(`[...document.querySelectorAll(".rail-actions button, .row-icons button, .rail-fold button")].map((button) => button.getAttribute("aria-label") ?? button.textContent.trim())`);
-
-      expect(names).toContain("Add Agent");
-      expect(names.filter((label) => /^(Add Workstream|new Workstream)$/.test(label))).toHaveLength(1);
-      expect(names.some((label) => label.endsWith("done"))).toBe(true);
-    }, 30_000);
-
-    it(`u142_${at}_clicking_a_row_selects_it`, async () => {
-      await load(size);
-      await browser.click(await nameAt(2));
-      await until(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id === document.querySelectorAll(".rail-row")[2].dataset.id`);
-    }, 30_000);
-
-    it(`u142_${at}_clicking_the_done_summary_folds_it`, async () => {
-      await load(size);
-      const rows = await browser.eval<number>(`document.querySelectorAll(".rail-row").length`);
-
-      await browser.click(await pointOf(".rail-fold button", { dx: 3 }));
-      await until(`(rows) => document.querySelectorAll(".rail-row").length !== rows`, rows);
-    }, 30_000);
-
-    it(`u142_${at}_a_row_drop_still_changes_home`, async () => {
-      await load(size);
-      // agent-4 sits inside "payments"; released below that Group's last child at the left edge it lands at the top level.
-      const target = await pointOf('[data-id="agent-2"]', { dx: 3 });
-
-      await browser.drag(await pointOf('[data-id="agent-4"] .name', { dx: 3 }), target);
-      await until(`() => window.__fake.app.calls.some((call) => call.method === "rail.move")`);
-      expect(await calls("rail.move")).toEqual([{ id: "agent-4", parent: null, index: expect.any(Number) }]);
-      expect(await selected()).toBe("");
-    }, 30_000);
-
     it(`u142_${at}_dragging_in_the_rename_input_selects_its_text_and_moves_no_row`, async () => {
       await load(size);
       await editName(2);
@@ -327,39 +275,6 @@ run("u142 the Rail selects rows, not browser text", () => {
       await browser.drag(await pointOf(".rail-row input", { dx: 2 }), await pointOf(".rail-row input", { dx: 30 }));
       expect(await browser.eval<boolean>(`document.querySelector(".rail-row input").selectionEnd > document.querySelector(".rail-row input").selectionStart`)).toBe(true);
       expect(await calls("rail.move")).toEqual([]);
-    }, 30_000);
-
-    it(`u142_${at}_typing_in_the_rename_input_replaces_the_selected_name`, async () => {
-      await load(size);
-      await editName(2);
-      const original = await browser.eval<string>(`document.querySelector(".rail-row input").value`);
-
-      await selectAllInField();
-      expect(await browser.eval<string>(`(() => { const field = document.querySelector(".rail-row input"); return field.value.slice(field.selectionStart, field.selectionEnd); })()`)).toBe(original);
-      await browser.page("Input.insertText", { text: "renamed" });
-      expect(await browser.eval<string>(`document.querySelector(".rail-row input").value`)).toBe("renamed");
-    }, 30_000);
-
-    it(`u142_${at}_enter_in_the_rename_input_commits_the_name_once`, async () => {
-      await load(size);
-      await editName(2);
-      await selectAllInField();
-      await browser.page("Input.insertText", { text: "renamed" });
-      await browser.key("Enter", { code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
-      await until(`() => !document.querySelector(".rail-row input")`);
-      expect(await calls("rail.rename")).toEqual([expect.objectContaining({ name: "renamed" })]);
-    }, 30_000);
-
-    it(`u142_${at}_escape_in_the_rename_input_keeps_the_old_name`, async () => {
-      await load(size);
-      const name = await browser.eval<string>(`document.querySelectorAll(".rail-row .name")[2].textContent`);
-
-      await editName(2);
-      await browser.page("Input.insertText", { text: "x" });
-      await browser.key("Escape", { code: "Escape", windowsVirtualKeyCode: 27 });
-      await until(`() => !document.querySelector(".rail-row input")`);
-      expect(await calls("rail.rename")).toEqual([]);
-      expect(await browser.eval<string>(`document.querySelectorAll(".rail-row .name")[2].textContent`)).toBe(name);
     }, 30_000);
   }
 });

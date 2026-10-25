@@ -101,6 +101,14 @@ runner inventory returned HTTP 403 and active sibling logs HTTP 404. No resource
 R23 timing or profile was produced. #3764 remains open and #3760 stays blocked;
 remaining measurement/repair work stays under #3720.
 
+Builder [40133799182](https://github.com/saadshahd/roundup/actions/runs/40133799182)
+again reports `AMD EPYC 7763 64-Core Processor`; the unchanged standalone preflight
+exits 2. [Identity and search evidence](../crates/perf/evidence/r23-host-40133799182/README.md)
+retain the boot identity, commands and statuses. Runner inventory returned HTTP
+403 and two active Builder log requests returned HTTP 404; no reachable qualified
+lifetime was identified. No resource, timing invocation or profile was produced.
+#3764 remains open and #3760 blocked, with remaining work under #3720.
+
 For the next execution attempt, use the existing Builder facility:
 
 1. Search existing host evidence and active Actions jobs before allocating a host.
@@ -329,11 +337,21 @@ cross-process subtraction is involved; a report without every hop is invalid
 | Hop | From → to |
 | --- | --- |
 | `keydown_to_input` | `keydown` → xterm `onData` |
-| `input_to_dispatch` | `onData` → `terminal.write` called; holds base64 (same tick, not separable) and the wait for the previous write's reply |
+| `input_to_dispatch` | `onData` → `terminal.write` called; retained coarse span for the earlier reports |
+| `input_to_encoded` | `onData` → base64 encoding completed; includes the input queue's wait for the previous write's reply |
+| `encoded_to_dispatch` | base64 encoding completed → `terminal.write` called |
 | `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
 | `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
 | `parsed_to_frame` | parsed → the next render |
 | `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
+
+Screens stamps completed encoding of each dispatched batch through the existing
+optional emulator probe, after `toBase64` returns and before the RPC call. Queued
+keys are stamped when their batch is encoded, not when they first enter the
+queue. This adds a same-clock boundary; it does not split queue wait from
+encoding cost, calibrate Daemon clocks, or establish a latency repair. The
+previously retained five-span reports remain historical evidence; new reports
+require both additional spans, or exit 2.
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
@@ -468,3 +486,82 @@ placeholder. No new clock-sensitive test is added.
 
 R3696c's full Mac gate, remaining startup/RSS attribution, false-fail evidence and
 separate later main pass remain open. No baseline rebase is justified here.
+
+### Entry startup baseline (R3800)
+
+Production reference: `a284e11af9d48e9fad4f83fba29bfc757019e3e3`, Linux
+x86_64, Node v22.23.3, pnpm 10.14.0, frozen lockfile. Both the ordinary
+`pnpm --filter desktop build` and the metadata-instrumented build exited 0.
+The entry is `assets/index-C_ycAV71.js`: 1,717,772 raw bytes and 505,299
+bytes gzip at level 9. Its static chunk import list is empty, so those are
+also the complete static-closure totals. This is a size observation, not a
+cold-start timing or a performance pass.
+
+The existing Vite 8 `generateBundle` metadata gives these leading dependency
+contributions in that closure. `renderedLength` is before final chunk
+minification; these values neither sum to emitted bytes nor predict gzip savings.
+
+| Package | Rendered bytes |
+|---|---:|
+| @xterm/xterm | 411,320 |
+| @dnd-kit/dom | 154,478 |
+| @xterm/addon-webgl | 153,000 |
+| @ark-ui/solid | 118,879 |
+| overlayscrollbars | 76,437 |
+| solid-js | 71,137 |
+| @zag-js/splitter | 60,653 |
+| marked | 50,037 |
+| @xterm/addon-unicode11 | 38,494 |
+
+Reproduce in a clean worktree at the reference: frozen `pnpm install`, then
+`pnpm --filter desktop build`. For attribution, temporarily extend the existing
+Vite config with a `generateBundle` hook that records each chunk's `fileName`,
+`isEntry`, `imports`, `dynamicImports` and `modules`' `renderedLength` to JSON.
+Follow only `imports` from the entry, once per file, group module ids by their
+last `node_modules/` package segment, and sum rendered lengths. Compare the
+ordinary and instrumented emitted entry bytes before using that map. Measure
+actual files with `gzipSync(bytes, {level: 9}).length` from `node:zlib`.
+The production checker must retain matching graph/module metadata with its build;
+the temporary diagnostic config is not the checker.
+
+Installed Vite already supplies dynamic imports, manifest static/dynamic edges
+and bundler module metadata; Vite 8's chunk controls use
+[`build.rolldownOptions`](https://vite.dev/guide/build), rather than assuming
+Rollup's `manualChunks` API. Splitting a static dependency alone saves no budget.
+For implementation's reuse audit, [size-limit](https://github.com/ai/size-limit)
+14.3.0 was released 2026-10-22 and supports gzip file budgets;
+[rollup-plugin-visualizer](https://github.com/btd/rollup-plugin-visualizer)
+7.1.1 was published 2026-08-14 and exposes module attribution. Registry
+`pnpm view <package> time --json` and the size-limit release/tag establish those
+maintenance dates. The visualizer supplies diagnosis, not a required numeric
+exit gate; size-limit's file selection still needs the entry's manifest closure.
+Select maintained library capabilities before writing any adapter; do not reject
+size-limit merely because a custom gzip loop is shorter. No checker library or
+custom parser is implemented by this specification.
+
+### Idle Terminal event rings (#3696)
+
+The per-Terminal Tokio broadcast channel reserves 1,024 event slots at spawn,
+including for a quiet program that has printed nothing. On Linux x86_64,
+`EventData` is 88 bytes; each ring stored the complete application event enum
+inline even though Terminals publish only titles and exits. Storing
+`Arc<EventData>` in the same channel removes 80 bytes per slot, or 819,200 bytes
+across ten queues. Capacity, lag reporting, ordering and exit delivery are still
+Tokio's; no replacement channel or reduced backlog is introduced.
+
+The allocation observer
+`r3696c_ten_quiet_terminals_retain_under_800_kb` uses `stats_alloc` around ten
+real `Terminals::spawn` calls with silent `/bin/cat` programs. Before this repair
+it retained 1,311,686 heap bytes and failed the 800,000-byte cap; after it retains
+492,346 bytes and passes (819,340 bytes less in this observation).
+The programs receive no input, so screen parsers remain pending: this measures
+the queues and spawn bookkeeping separately from the existing no-process parser
+allocation observer. Each program is killed before the assertion, even on a
+budget miss. No Daemon, socket or clock assertion is involved; the observer runs
+in its own test binary so other tests do not contaminate its global allocator.
+
+This identifies avoidable retained queue memory, not the origin of every byte
+in the Mac's RSS rise. The saving is heap allocation on Linux, not a measured
+Mac RSS saving. No baseline changes or full R3696c pass are claimed. Startup,
+Rail, same-M4-Max observations, unchanged-code false-fail evidence and the
+separate later main pass remain outstanding.

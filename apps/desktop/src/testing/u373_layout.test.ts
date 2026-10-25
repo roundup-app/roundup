@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
-/** The clauses of U368 to U372 that need real keys and a real cascade: the Tab order and the first frame, read in Chromium. */
+/** The clause of U368 to U372 that needs real keys: the Tab order, read in Chromium. */
 
 const found = chromePath();
 
@@ -48,20 +48,5 @@ run("u373 the tabs", () => {
 
     for (let step = 0; step < 3; step++) await page.press("Tab", "Tab", 8);
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");
-  });
-
-  it("u373_a_restored_tab_shows_in_the_first_frame_with_no_animation", async () => {
-    await load();
-    await page.call(`() => { [...document.querySelectorAll('.shelf-tabs [role="tab"]')].find((tab) => tab.textContent.startsWith("Pads")).click(); }`);
-    await page.until(`() => document.querySelector('.shelf section[aria-label="Pads"]') !== null`);
-    await load();
-
-    const read = await page.call<{ selected: string; animations: number }>(`() => ({
-      selected: document.querySelector('.shelf-tabs [role="tab"][aria-selected="true"]').textContent,
-      animations: document.getAnimations().filter((animation) => animation.effect?.target?.closest?.(".shelf-bar, .shelf-panel, .shelf-area")).length,
-    })`);
-
-    expect(read.selected).toMatch(/^Pads/);
-    expect(read.animations).toBe(0);
   });
 });

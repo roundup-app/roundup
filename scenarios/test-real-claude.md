@@ -145,10 +145,7 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3â€
 - `src/testing/u194_real_daemon.test.tsx`
 - `src/testing/u195_real_daemon.test.tsx`
 - `src/testing/u347_real_daemon.test.tsx`
-- `src/testing/u351_kinds_real_daemon.test.tsx`
 - `src/testing/u354_real_daemon.test.tsx`
-- `src/testing/u356_blocked_real_daemon.test.tsx`
-- `src/testing/u364_real_daemon.test.ts`
 - `src/testing/u366_measure.test.ts`
 - `src/testing/u463_real_daemon.test.ts`
 
