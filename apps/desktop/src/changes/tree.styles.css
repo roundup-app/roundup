@@ -41,7 +41,7 @@
   --trees-status-deleted-override: currentColor;
 }
 [data-type="item"]:hover { color: var(--text); }
-[data-type="item"]:active { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
+[data-type="item"][data-pressed="true"] { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
 [data-type="item"] { color: var(--grey); }
 [data-item-section="decoration"]:empty { display: none; }
 [data-item-section="content"] {

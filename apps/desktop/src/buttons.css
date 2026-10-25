@@ -73,11 +73,11 @@ button {
 }
 
 /* U133: selected ground needs stronger ink; plain rows keep neighbouring icons’ tone. */
-.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row button.rail-add:hover:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--text);
 }
 
@@ -113,7 +113,7 @@ button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   background-color: transparent;
 }
 
-button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
+button[data-feedback="ink"][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -124,11 +124,11 @@ button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
 }
 
 /* U510: a toggled control rests one ink step below hover, which reaches --text; a press dims to --ink-pressed. */
-:is([data-button="icon"])[aria-pressed="true"]:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--ink-rest-selected);
 }
 
-:is([data-button="icon"])[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:hover:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--text);
 }
 
@@ -153,8 +153,8 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 
-[data-flat-tab] button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]),
-[data-flat-add]:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+[data-flat-tab] button[data-pressed="true"]:not([aria-disabled="true"]),
+[data-flat-add][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -242,11 +242,11 @@ button[aria-disabled="true"] {
   color: var(--surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--text);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:is(:active, [data-pressed="true"]):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--button-accent-ink);
 }
 
@@ -254,7 +254,7 @@ button[aria-disabled="true"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, [data-pressed="true"]) {
   background-color: var(--button-surface);
 }
 
