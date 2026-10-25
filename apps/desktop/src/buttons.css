@@ -72,8 +72,8 @@ button {
   color: var(--text);
 }
 
-/* U133: Add Agent keeps the same legible ink on a plain or selected row. */
-.rail-row button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+/* U133: selected ground needs stronger ink; plain rows keep neighbouring icons’ tone. */
+.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 

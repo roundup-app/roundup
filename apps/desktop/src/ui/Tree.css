@@ -32,11 +32,16 @@
   font: inherit;
 }
 
-/* U133: native focus and selection share one cue, including a combined state. */
-.app-tree :is([data-part="branch-control"], [data-part="item"]):is([data-selected], :focus-within) {
+/* U133: keyboard focus must not imply selection of a second Agent. */
+.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected] {
   background-image: var(--tree-row-cue);
 }
 
 .app-tree [data-part="branch"]:hover {
   color: var(--text);
+}
+
+.app-tree :is([data-part="branch-control"], [data-part="item"]):has(:focus-visible):not([data-selected], [data-dnd-dragging]) .name,
+.app-tree :is([data-part="branch-control"], [data-part="item"]):focus-visible:not([data-selected], [data-dnd-dragging]) .name {
+  color: var(--accent);
 }

@@ -67,3 +67,34 @@ pass is claimed. The original paired row-state evidence above remains applicable
 
 `pnpm install --frozen-lockfile`, `just lint-web`, `just lint-rust`,
 `git diff --check` and `loop/rules.sh merge-loss` pass on this integration.
+
+## Critic repair
+
+Critic baseline: `cf423bd8162500a21ae6ae56588c6255a82e634a`; clean integration
+with main `7939d92be` precedes this repair.
+
+The focus and Rail-drag rows above describe the earlier implementation. This
+repair supersedes them; acceptance and `docs/design-system.md` stay unchanged.
+
+| Before | After |
+| --- | --- |
+| Pointer focus on agent-1’s Pads paints a second selected row beside agent-3 | Only agent-3 retains the selected ground |
+| Selected agent-1 and keyboard-focused agent-7 share an identical wash | Selection uses the ground; focus alone uses accent name ink, retaining the Kind Glyph |
+| Add Agent uses selected-row ink on every row | Plain rows use the neighbouring icons’ grey; selected rows retain stronger ink |
+| The lifted Rail row’s opaque backing clips agent-10’s name | A transparent backing retains one wash and exposes the full neighbouring name |
+
+Fresh isolated headless Chromium, dark, 1512×950: every existing Check passes
+on `first-run`, `agents-10`, `tree-40`, `tabs-8` and `conflict`, with separate
+selected/focused rows, a held agent-9 drag, Shelf keyboard focus and a visible
+failed completion on the dense seed. The failure reads “Completion refused. Retry
+after reconnecting.” Combined selection/focus/drag retains one wash. These
+readings prove the web rendering; the extended D7 observer is still outstanding.
+
+PNGs and computed readings are under `artifacts/ux/U133/critic-fix/`. Recording
+returns “No frames captured” after ffmpeg installation; no video pass is claimed.
+
+Validation: 64 focused tests pass with retries disabled and one worker; both
+required lints, Stylelint and `merge-loss` pass. The overlapping full
+`just capture U133` and related-test runs were interrupted after competing for
+CPU; their incomplete results are not passes. The first focused run had one
+cleanup-hook timeout; the isolated run passes all 64 without a source change.
