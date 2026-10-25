@@ -247,7 +247,7 @@ const OrderContent = (props: OrderInput) => {
 
       if (!disposed && node() && sequence >= shownSequence) {
         shownSequence = sequence;
-        setFailure(`${copy.theOrderCouldNotBeSaved} ${thrown instanceof Error ? thrown.message : ""}`);
+        setFailure((thrown instanceof Error ? thrown.message : null) || copy.theOrderCouldNotBeSaved);
       }
     }
   };
