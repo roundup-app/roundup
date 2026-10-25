@@ -64,11 +64,8 @@ impl Reactions {
     }
 
     pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
-        let db = Connection::open(data.join("project.db"))?;
-        db.pragma_update(None, "synchronous", "EXTRA")?;
-        db.pragma_update(None, "journal_mode", "PERSIST")?;
         Ok(Self {
-            db: std::sync::Mutex::new(db),
+            db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
             unsaved: Default::default(),
             changed: Default::default(),
             timed: Default::default(),

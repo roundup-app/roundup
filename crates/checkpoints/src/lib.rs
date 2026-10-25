@@ -35,6 +35,7 @@ impl Checkpoints {
             "checkpoints.db"
         });
         let mut db = Connection::open(&path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, &path)?;
         Ok(Self {
             db: Mutex::new(db),

@@ -11,10 +11,6 @@ impl Store {
             "agents.db"
         });
         let db = Connection::open(&path)?;
-        if path.file_name().is_some_and(|name| name == "project.db") {
-            db.pragma_update(None, "synchronous", "EXTRA")?;
-            db.pragma_update(None, "journal_mode", "PERSIST")?;
-        }
         db.busy_timeout(Duration::from_secs(5))?;
         // A killed placement is never called again. A pre-write typed claim also remains final.
         let placement = serde_json::to_string(&Place::Unclear {

@@ -82,6 +82,7 @@ pub struct Store {
 impl Store {
     pub fn open(path: &Path) -> Result<Self, OpenError> {
         let mut db = Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
         Ok(Self {
             db,
