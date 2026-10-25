@@ -917,3 +917,30 @@ See [workload conditions and retained evidence](perf-keystroke-attribution.md#fu
 The no-window implementation does not measure or repair #3550's 129–136 ms
 flood slowdown. Its native flood observation follows this implementation's
 merge; the valid quiet idle baseline above cannot choose that repair.
+
+### Native scheduler and producer identities (#4120, R23)
+
+[Capture, argument validation and replay](../crates/perf/evidence/r23-identities-40227852264/README.md)
+retain both archived pins on hosted job 40227852264. Local/remote scheduling
+samples recover TaskMeta IDs through the emitted header/vtable access sequence;
+2200 physical write ordinals join per pin. Candidate byte-broadcast send has
+2211 separate entry/return hits at its true symbol entry, excluding send+217;
+2200 match the paced PTY bytes and stream offsets. Observed pointer reuse is
+retained; neither worker TID nor allocation pointer substitutes for task identity.
+
+Two probe sets each retain their own three alternating off/on pairs per
+pin/common-or-marked observer, fixed archived executable/hook/logger bytes,
+backgrounds, loads and all statuses. The first set omitted the actual ID offset;
+the corrected set recovers it. All 48 invocations are R13-qualified and exit 1
+against diagnostic ceilings; a 1685.683182 ms cold-start absolute miss remains.
+Ranges describe aggregate variation, never per-stage corrections. No diagnostic
+interval or p95 difference is subtracted from clean p95s.
+
+[#4031](https://github.com/roundup-app/roundup/issues/4031),
+[#3760](https://github.com/roundup-app/roundup/issues/3760) and
+[#3720](https://github.com/roundup-app/roundup/issues/3720) still lack exact
+executor insertion/publication observations and separation of build/hook/logger
+work from useful-task CPU. Function entry/return supplies bounds, not
+linearization. Pending-read idle exclusion, overlapping branches and the
+selected-future/full-poll distinction remain. The original six clean observations
+are history only; this investigation creates no clean R16 verdict or baseline.
