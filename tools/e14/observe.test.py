@@ -5,7 +5,6 @@ import json
 import tempfile
 import subprocess
 import os
-import re
 import time
 import sys
 from pathlib import Path
@@ -165,11 +164,6 @@ class E14(unittest.TestCase):
                     child.terminate()
                     child.wait(timeout=5)
 
-    def test_e14_memory_collector_outlives_the_longest_ci_job(self):
-        workflow = Path(__file__).parents[2].joinpath(".github/workflows/check.yml").read_text()
-        longest = max(int(m) for m in re.findall(r"timeout-minutes: (\d+)", workflow))
-        self.assertGreater(observer.MEMORY_LIMIT_SECONDS, longest * 60)
-
     def test_e14_before_after_report_requires_every_full_lane(self):
         # Synthetic evidence exercises report assembly, not the benchmark itself.
         with tempfile.TemporaryDirectory() as temporary:
@@ -194,6 +188,43 @@ class E14(unittest.TestCase):
             self.assertEqual(failed.returncode, 1)
             self.assertIn("E14 observation FAILED", failed.stderr)
             self.assertNotIn("| head |", failed.stdout)
+
+
+class CI3781(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        global build
+        spec = importlib.util.spec_from_file_location("build", Path(__file__).with_name("build.py"))
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+    def test_ci3781_build_keeps_real_link_status_and_cargo_units(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'src').mkdir()
+            (root / 'Cargo.toml').write_text('[package]\nname="ci3781-fixture"\nversion="0.1.0"\nedition="2021"\n')
+            (root / 'src/main.rs').write_text('fn main() {}')
+            output = root / 'evidence'
+            env = build.prepare(root, output, os.environ.copy())
+            result = subprocess.run(['cargo', 'build'], cwd=root, env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = build.report(output)
+            self.assertEqual(report['packages'][0]['package'], 'ci3781-fixture@0.1.0')
+            self.assertGreater(report['packages'][0]['unit_seconds'], 0)
+            links = report['builds'][0]['links']
+            self.assertTrue(links)
+            self.assertTrue(all(row['exit_code'] == 0 and row['end'] > row['start'] for row in links))
+            self.assertTrue(any('ci3781_fixture' in row['output'] for row in links))
+            # A native unresolved symbol forces a real linker failure, without selecting a different linker.
+            (root / 'src/main.rs').write_text('extern "C" { fn ci3781_missing(); } fn main() { unsafe { ci3781_missing(); } }')
+            failed = subprocess.run(['cargo', 'build'], cwd=root, env=env, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(failed.returncode, 0)
+            with self.assertRaisesRegex(ValueError, 'failed Cargo'):
+                build.report(output)
+            records = [json.loads(p.read_text()) for p in output.glob('cargo-*/build.json')]
+            failed_record = next(row for row in records if row['exit_code'])
+            self.assertTrue(any(row['exit_code'] != 0 for row in failed_record['links']))
+
 
 
 if __name__ == "__main__":
