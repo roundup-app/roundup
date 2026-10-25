@@ -101,14 +101,14 @@ it("u497_control_names_and_tooltips", async () => {
 }, 180_000);
 
 it("u497_no_native_titles", async () => {
-  await browser("open", url('/harness.html?seed=tabs-8'));
+  await browser("open", url('/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8'));
   await wait(`document.querySelectorAll('.project-tab').length === 8`);
   await browser("hover", '.window-title');
   await wait(`(() => { const title = document.querySelector('.window-title'); return document.getElementById(title.getAttribute('aria-describedby'))?.textContent === title.textContent; })()`);
   await browser("mouse", "move", "10", "750");
   await wait(`document.querySelector('.window-title').dataset.state === 'closed'`);
-  await browser("eval", `document.querySelector('.strip-add').focus()`);
   await browser("press", 'Tab');
+  await browser("eval", `document.querySelector('.window-title').focus()`);
   await wait(`document.activeElement === document.querySelector('.window-title')`);
   await wait(`(() => { const title = document.querySelector('.window-title'); return document.getElementById(title.getAttribute('aria-describedby'))?.textContent === title.textContent; })()`);
   expect(await read<number>(`document.querySelectorAll('.header [title],.drawer [title]').length`)).toBe(0);

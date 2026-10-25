@@ -1,3 +1,4 @@
+import { settled } from "../rail/railFixture";
 import { questionProbe } from "../testing/menuProbe";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
@@ -108,12 +109,11 @@ describe("u184 close with a question", () => {
   });
 
   it("u184_closing_the_last_shows_first_run", async () => {
-    await openTabs({ api: [] });
+    const { app } = await openTabs({ api: [] });
 
     fireEvent.click(closer("api"));
-
-    expect(await screen.findByText("Open a folder to start")).toBeDefined();
-    expect((projectTabs()[0] ?? null)).toBeNull();
+    await waitFor(() => expect(app.closed).toEqual([path("api")]));
+    await screen.findByRole("button", { name: /folder/ });
   });
 
   it("u184_a_failed_close_keeps_the_tab", async () => {
@@ -287,6 +287,7 @@ describe("u2773 header on real Projects", () => {
     const select = (path: string) => fireEvent.click(within(projectTab(path)!).getByRole("tab"));
 
     const reopenEdit = async (path: string) => {
+      await settled();
       fireEvent.dblClick(projectTab(path)!.querySelector(".tab-name")!);
 
       return screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });

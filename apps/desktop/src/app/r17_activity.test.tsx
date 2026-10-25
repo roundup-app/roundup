@@ -34,7 +34,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
-  app.handlers["agent.changedFiles"] = () => ({ files: [] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
   app.handlers["project.measurementSummary"] = ({ home }) => {
     const sample = measurementFixture(home);
 
@@ -43,7 +43,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
 
   setup?.(app);
   const clock = vi.fn(() => Date.now());
-  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
+  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} prepareIdle={open => open.showView("resources")} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
   const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
