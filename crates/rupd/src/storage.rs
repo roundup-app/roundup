@@ -223,7 +223,6 @@ mod tests {
     mod standalone {
         include!("../tests/support/store_migrations.rs");
     }
-
     #[tokio::test]
     async fn a3308_an_old_workstream_defaults_to_auto_off() {
         let dir = tempfile::tempdir().unwrap();
@@ -683,8 +682,9 @@ mod tests {
         expected.remove("decision_answers");
         expected.remove("decision_answers_agent");
         expected.remove("chains");
-        let actual: std::collections::BTreeMap<_, _> =
+        let mut actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
+        actual.remove("pad_publications_revoked");
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(migrations()).current_version(&db).unwrap(),

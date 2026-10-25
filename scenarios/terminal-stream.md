@@ -78,7 +78,7 @@ not tests claimed to exist in this specification PR.
    and zero `Lagged` errors. Drain output independently; keep Rail markers below
    Bus capacity so they cannot overflow it themselves. Stop all ten processes
    and close only this fixture's resources on success or failure. Test:
-   `x14_ten_busy_terminals_do_not_lag_rail_events` in `crates/rup/tests/`.
+   `x14_flood_leaves_rail_events_unlagged_and_cleans_up` in `crates/perf/tests/flood.rs`.
    Policy: retain the same real-Daemon flood observation with `just perf`, reporting
    per-Terminal chunk counts, Rail markers and lag count, not merely absence of
    stderr. Existing `just perf` has no flood switch: observer integration outside
