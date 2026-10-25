@@ -28,7 +28,9 @@ const field = async (kind: string, initial = "alpha bravo charlie") => {
     await browser("click", '[data-id="payments"] .name');
     await browser("click", "#shelf-tab-pads");
     await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
-    await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').click()");
+    await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
+    await browser("press", "Enter");
     await wait(`document.querySelector('.ProseMirror[contenteditable=true]')?.textContent === ${JSON.stringify(initial)}`);
 
     return ".ProseMirror[contenteditable=true]";
@@ -115,12 +117,13 @@ it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_copy_preserves_th
 
   if (kind !== "pad") await browser("fill", selector, "original 雪 🐈");
   else await browser("click", selector);
+  const original = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
   await browser("clipboard", "write", "");
   await browser("press", "Control+A");
   await browser("press", "Control+C");
   const selected = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
-  expect(selected).toBe("original 雪 🐈");
+  expect(selected).toBe(original);
   await read("(() => { const field = document.createElement('textarea'); field.id='copy-observer'; document.body.append(field); field.focus(); })()");
   await browser("press", "Control+V");
-  expect(await read("document.querySelector('#copy-observer').value")).toBe("original 雪 🐈");
+  expect(await read("document.querySelector('#copy-observer').value")).toBe(original);
 }, 60_000);

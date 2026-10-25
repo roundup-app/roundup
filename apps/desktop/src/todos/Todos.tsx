@@ -224,7 +224,7 @@ export const Todos = (props: {
   const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
   let pickAdvance: (() => Promise<void>) | undefined;
   let commentAdvance: (() => Promise<void>) | undefined;
-  const pickFails = new Map<number, (message: string | null) => void>();
+  const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
 
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
@@ -352,7 +352,7 @@ export const Todos = (props: {
   const [naming, setNaming] = createSignal<number | null>(null);
 
   const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
-    connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.(message),
+    connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
 
   registerKeys(shelfKeyScope, [{
@@ -653,7 +653,7 @@ export const Todos = (props: {
   createEffect(on(activeTab, () => { entry = null; triage.set(false); }, { defer: true }));
   onCleanup(() => { triage.set(false); section?.closest(".shelf")?.setAttribute("data-triage", "off"); });
 
-  const clearFailures = () => pickFails.forEach(show => show(null));
+  const clearFailures = () => pickFails.forEach(failure => failure.show(null));
 
   const triageTarget = (event: KeyboardEvent) => {
     const id = idOfRow(event.target instanceof Element ? event.target : null);
@@ -683,7 +683,7 @@ export const Todos = (props: {
     clearFailures();
     const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
 
-    pickFails.get(id)?.(message);
+    pickFails.get(id)?.show(message);
 
     if (message === null && advance) await advance();
     else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false }]);
@@ -726,7 +726,7 @@ export const Todos = (props: {
     }),
     triageKey("X", async (todo) => {
       clearFailures();
-      pickFails.get(todo.id)?.(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
+      pickFails.get(todo.id)?.show(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
     }),
     triageKey("C", (todo) => {
       commentAdvance = captureAdvance(todo.id);
@@ -746,6 +746,7 @@ export const Todos = (props: {
     const order = treeRows(ownerGroups(connected, listed(), item => item.owner).find(group => group.items.some(item => item.id === todo.id))?.items ?? []).map(row => row.todo.id);
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      ...(pickFails.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => pickFails.get(todo.id)?.show(null) }] : []),
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 
  if (anchor) setPicking({ id: todo.id, anchor }); } },
@@ -831,7 +832,7 @@ export const Todos = (props: {
               onOpen={show}
               onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
               onAssign={(item, anchor) => { pickAdvance = captureAdvance(item.id); setPicking({ id: item.id, anchor }); }}
-              failWith={(show) => pickFails.set(todo.id, show)}
+              failWith={(show, message) => pickFails.set(todo.id, { show, message })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
@@ -922,6 +923,7 @@ export const Todos = (props: {
                   known={todos.byId()}
                   onOpen={show}
                   onToggle={todo => toggle(todo, foldedDone().map(candidate => candidate.id))}
+                  failWith={(show, message) => pickFails.set(todo.id, { show, message })}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}

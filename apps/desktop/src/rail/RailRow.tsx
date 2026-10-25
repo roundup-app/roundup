@@ -23,7 +23,7 @@ import { draftsOf } from "./persist/storage";
 /** What Ark's item and branch control take for the row's own element. */
 type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 
-const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: () => void }) => {
+const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: (restore?: boolean) => void }) => {
   const connected = useConnectedProject();
   const drafts = draftsOf(connected.drafts);
   const destination = { surface: "rail-name", object: props.node.id, recipient: null };
@@ -90,7 +90,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
         if (key.key === "Escape") props.onCancel();
       }}
-      onBlur={props.onCancel}
+      onBlur={() => props.onCancel(false)}
     />
     <ReservedLine overlay message={conflict() ? copy.railDraftConflict : null} />
   </>;
@@ -107,7 +107,10 @@ export const RailRowView = (props: {
   const connected = useConnectedProject();
   const pads = createAgentPads(() => props.row.node);
   let element: HTMLDivElement | undefined;
-  const closeName = () => { props.onEditing(false); queueMicrotask(() => element?.focus()); };
+
+  const closeName = (restore = true) => { props.onEditing(false);
+
+ if (restore) queueMicrotask(() => element?.focus()); };
 
   const workstream = () => isWorkstream(props.row.node);
   const cutName = createCutTitle(() => props.row.node.name);
@@ -173,7 +176,7 @@ export const RailRowView = (props: {
       </span></Show>
       <span class="row-controls">
         <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
-        <Show when={!workstream()}><PadsControl pads={pads} /></Show>
+        <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
       </span>
     </p>
     <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>

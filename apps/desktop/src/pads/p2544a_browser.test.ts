@@ -42,7 +42,9 @@ const open = async (readonly = false, text?: string) => {
 
   await browser("eval", "(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()");
   await browser("wait", "[data-shelf-row] .pad-name");
-  await browser("eval", `[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === "${readonly ? "pad-2" : "pad-3"}").click()`);
+  await browser("eval", `[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === "${readonly ? "pad-2" : "pad-3"}").focus()`);
+  await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
+  await browser("press", "Enter");
   await browser("wait", ".ProseMirror");
 };
 
@@ -132,7 +134,9 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
 
   expect(await source()).toBe(edited);
   await browser("click", ".drawer .close");
-  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').click()");
+  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
+  await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
+  await browser("press", "Enter");
   await browser("wait", ".visual-mermaid svg");
   await browser("wait", ".visual-drawing .excalidraw");
   await browser("click", ".visual-mermaid");

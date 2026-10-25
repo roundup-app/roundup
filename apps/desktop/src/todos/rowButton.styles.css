@@ -413,3 +413,7 @@
 .row-secondary { opacity: 0; pointer-events: none; }
 :is(.shelf-row, .rail-row):focus-within .row-secondary,
 :is(.shelf-row, .rail-row)[data-selected="true"] .row-secondary { opacity: 1; }
+
+/* Parent-row failures reserve their owned-items control while exposing recovery. */
+.row-control-slot { display: inline-flex; }
+.row-control-slot[inert] { opacity: 0; pointer-events: none; }

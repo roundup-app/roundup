@@ -432,7 +432,10 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
   const useList = usePadList();
   const [editing, setEditing] = createSignal(false);
   let row: HTMLButtonElement | undefined;
-  const closeName = () => { setEditing(false); queueMicrotask(() => document.querySelector<HTMLElement>(`[data-incarnation="${CSS.escape(pad.incarnation)}"] .pad-name`)?.focus()); };
+
+  const closeName = (restore = true) => { setEditing(false);
+
+ if (restore) queueMicrotask(() => document.querySelector<HTMLElement>(`[data-incarnation="${CSS.escape(pad.incarnation)}"] .pad-name`)?.focus()); };
 
   const open = (source: "key" | "pointer") => {
     const name = pad.name;
