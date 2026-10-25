@@ -49,7 +49,7 @@ it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
   await askToDelete(2);
   await confirmDeletion();
   await screen.findByText("Could not delete same #2: denied");
-  expect(screen.getByText("1 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
 });
@@ -65,8 +65,8 @@ it("u460_lost_response_refetches_before_retry", async () => {
   await askToDelete(2);
   await confirmDeletion();
   await questionClosed();
-  expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.queryByRole("button", { name: /#1 |#2 / })).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("u460_cancel_keeps_selection_and_restores_focus", async () => {
@@ -261,7 +261,8 @@ for (const owner of ["todos", "pads"] as const) {
     if (action === "readback-unrelated") {
       const listTodos = app.handlers["todo.list"];
       const listPads = app.handlers["pad.list"];
-      app.handlers[owner === "todos" ? "todo.list" : "pad.list"] = () => { throw new Error("list unavailable"); };
+      const readbackError = new Error("list unavailable");
+      app.handlers[owner === "todos" ? "todo.list" : "pad.list"] = () => { throw readbackError; };
 
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
@@ -281,7 +282,7 @@ for (const owner of ["todos", "pads"] as const) {
       }
 
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /#3 / : "other" })).toBeNull());
-      expect(within(screen.getByRole("group", { name: "Work items deletion" })).getByRole("alert").textContent).toContain("list unavailable");
+      expect(within(screen.getByRole("group", { name: "Work items deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
       expect(connected.drafts.list()).toEqual(retained);
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
       await questionClosed();

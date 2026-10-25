@@ -36,14 +36,14 @@ describe("u150 delete asks first (Todo)", () => {
   });
 
   it("u150_confirming_calls_todo_delete_once_and_closes_with_no_deleted_line", async () => {
-    const { app, connected } = await open();
+    const { app } = await open();
     app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
     await ask();
 
     await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    await waitFor(() => expect(connected.drawer.content()).toBeNull());
+    await waitFor(() => expect(screen.getByRole("complementary").getAttribute("data-open")).toBe("false"));
     expect([callsTo(app, "todo.delete"), screen.queryByText(/was deleted/)]).toEqual([[{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }], null]);
   });
 
