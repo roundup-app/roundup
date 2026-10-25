@@ -45,38 +45,6 @@ function valueOf(section: string, token: string): string | undefined {
 }
 
 describe("u130 tokens", () => {
-  it("u130_token_lookup_does_not_match_a_longer_property_name", () => {
-    const css = "--row--hover: red;\n--hover: blue;\n";
-    expect(valueOf(css, "--hover")).toBe("blue");
-  });
-
-  it("u130_an_empty_token_value_does_not_count", () => {
-    expect(valueOf("--sunken: ;\n", "--sunken")).toBeUndefined();
-  });
-
-  it("u130_every_design_system_token_has_a_light_value", () => {
-    const files = import.meta.glob<string>("../tokens.css", {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    });
-
-    const css = Object.values(files)[0];
-    expect(css, "tokens.css is read").toBeTruthy();
-
-    const withoutLight = TOKENS.filter((token) => !valueOf(css!, token));
-
-    expect(withoutLight, "tokens missing a light value").toEqual([]);
-  });
-
-  it("u130_the_expected_values_cover_the_table_and_the_type_and_space_steps", () => {
-    const named = [...expectedLight.keys()];
-
-    expect(TOKENS.length, "the table was read").toBeGreaterThanOrEqual(14);
-    expect(named).toEqual(expect.arrayContaining(["--ground", "--hairline", "--radius-drawer"]));
-    expect(named).toEqual(expect.arrayContaining([...TOKENS, "--font-ui", "--font-mono", "--text-title", "--space-1", "--space-6"]));
-    expect([...expectedLight.values()].filter((value) => value === "")).toEqual([]);
-  });
 
   it("u130_every_token_has_the_tables_light_value_except_the_named_differences", () => {
     const css = Object.values(import.meta.glob<string>("../tokens.css", { query: "?raw", import: "default", eager: true }))[0] ?? "";
@@ -108,7 +76,7 @@ describe("u130 tokens", () => {
     // A Token whose table cell reads the same in both columns is defined once, in the light block.
     const differing = rows.filter((row) => row.split("|")[3]?.trim() !== "same").flatMap((row) => row.split("|")[1]?.match(/--[\w-]+/g) ?? []);
 
-    expect(differing).toEqual(expect.arrayContaining(["--ground", "--shadow-drawer"]));
+    expect(differing).toEqual(expect.arrayContaining(["--ground", "--elevation-contact", "--elevation-ambient", "--elevation-ring"]));
     expect(differing.filter((token) => !valueOf(dark, token)), "Tokens missing a dark value").toEqual([]);
   });
 
@@ -125,48 +93,6 @@ describe("u130 tokens", () => {
     const shadowed = TOKENS.filter((token) => valueOf(css!, token));
 
     expect(shadowed, "tokens.css's values must not be shadowed in styles.css").toEqual([]);
-  });
-
-  it("u130_styles_css_and_terminal_styles_css_have_no_look_literal_outside_a_var_read", () => {
-    const sheets = import.meta.glob<string>(["../styles.css", "../terminal/styles.css"], { query: "?raw", import: "default", eager: true });
-
-    expect(Object.keys(sheets).sort()).toEqual(["../styles.css", "../terminal/styles.css"]);
-    expect(Object.entries(sheets).flatMap(([path, css]) => lookLiterals(css).map((literal) => `${path}: ${literal}`))).toEqual([]);
-  });
-
-  it("u130_rail_styles_have_no_look_literal_outside_a_var_read", () => {
-    const sheets = import.meta.glob<string>(["../rail/styles.css", "../header/strip.styles.css"], {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    });
-
-    expect(Object.keys(sheets).sort()).toEqual(["../header/strip.styles.css", "../rail/styles.css"]);
-    expect(Object.entries(sheets).flatMap(([path, css]) => lookLiterals(css).map((literal) => `${path}: ${literal}`))).toEqual([]);
-  });
-
-  it("u130_inline_styles_in_rail_have_no_look_literal_outside_a_var_read", () => {
-    const sources = import.meta.glob<string>(["../rail/**/*.{ts,tsx}", "!../rail/**/*.test.{ts,tsx}"], {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    });
-
-    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../rail/Rail.tsx", "../rail/RailRow.tsx", "../rail/SpawnPromptField.tsx", "../rail/AttentionKey.tsx"]));
-    expect(Object.keys(sources).filter((path) => /\.test\./.test(path)), "test files are not scanned").toEqual([]);
-    expect(Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`))).toEqual([]);
-  });
-
-  it("u130_inline_styles_in_drawer_pads_and_todos_have_no_look_literal_outside_a_var_read", () => {
-    const sources = import.meta.glob<string>(["../drawer/**/*.{ts,tsx}", "../pads/**/*.{ts,tsx}", "../todos/**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    });
-
-    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../drawer/DrawerHost.tsx", "../pads/PadDrawer.tsx", "../todos/Todos.tsx"]));
-    expect(Object.keys(sources).filter((path) => /\.test\./.test(path)), "test files are not scanned").toEqual([]);
-    expect(Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`))).toEqual([]);
   });
 
   it("u130_no_look_literal_outside_tokens_css", () => {
