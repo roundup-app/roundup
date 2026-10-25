@@ -314,12 +314,17 @@ export const Bubbles = (props: {
     return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
   };
 
+  let generation = 0;
+
   const toggleMinimised = (id: string, wasMin = placeOf(id).min): void => {
     const place = { ...placeOf(id), min: wasMin };
 
     if (place.min) show(id);
     else setPlace(id, { ...place, min: true });
-    queueMicrotask(() => focusItem(id));
+    const revision = generation;
+
+    // A later pointer press supersedes the focus queued by this tab.
+    queueMicrotask(() => { if (generation === revision) focusItem(id); });
   };
 
   const closeFocused = (focus: Element | null): void => {
@@ -357,14 +362,14 @@ export const Bubbles = (props: {
 
       if (available()) {
         setFromRoot(selection === null ? opened.terminal_id : null);
+
+        if (focus) setWanted(opened.terminal_id);
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
 
       if (available()) {
         show(opened.terminal_id);
-
-        if (focus) setWanted(opened.terminal_id);
       } else {
         setWanted(prior => prior === opened.terminal_id ? null : prior);
         setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
@@ -416,7 +421,6 @@ export const Bubbles = (props: {
     let frame: number | null = null;
     let swallowMenu = false;
     let swallowUp = false;
-    let generation = 0;
     let selection: string | null = null;
     let target: EventTarget | null = null;
     let pointerId: number | undefined;
