@@ -37,6 +37,9 @@ Tests start with `u142_`: real-browser pointer cases prove selection suppression
 - Script elements, event attributes and unsafe link schemes in the source never execute or make a live link.
 - The editor loads only when a Pad Drawer opens; cold start and keystroke-to-render meet rule 7.
 
+Definition (relocated): **Editor**:
+A Pad's single formatted Markdown surface the user reads and types in.
+
 Storage stays raw Markdown: P5's files and P6's `Export .md` are the escape hatch for the source. A focused Mermaid block may show its text in place (U148); that is block editing, not a Pad view switch. Sketch is a Pad holding Mermaid or drawing blocks, U149 (`GLOSSARY.md`); the Pad contract name stays until a separate rename scenario changes every caller (rule 4).
 
 Tests (`u147_`, Vitest against the fake App): the body is one editable document and fills the Drawer; no `edit`, `Preview`, `done` or source control exists; typed input rules; changed blur and Drawer close each call `pad.write` once; unchanged blur and close call nothing and keep the source byte-for-byte; an Agent-owned Pad is read-only and `append` calls `pad.append`; the U36 and U141 outcomes through the document; unsafe content never executes; the editor module loads only when a Drawer opens. Observer: isolated agent-browser captures at 1280 by 800 of a user-owned and an Agent-owned Pad, with the same text in both. Owns `apps/desktop/src/pads/**` and the desktop package and lock files. Moves: D2, D5, D6.

@@ -8,6 +8,16 @@ Policy: this specification PR changes scenarios and `PRINCIPLES.md` only; the im
 
 **U3016a measurements have a source and one owner.** Given two Projects with identical display names and vendor records for a Door, its Agents and vendor-internal children, when measurements are collected, then each accepted contribution identifies the original Project, Workstream Home at observation, Agent, Attempt when known, opaque source identity/revision, observation time and coverage. The Door is included. A vendor-internal child belongs to its enclosing roundup Agent unless it is already represented by a distinct roundup Agent; a source contribution is counted once, never both as child and inclusive parent. Unresolvable attribution is shown as unavailable, not assigned by matching a title or directory name. An unsupported source explains which measurements it cannot provide. Historical work predating collection is labelled uncovered unless source records establish it. Assert `u3016a_sources_are_scoped_and_counted_once` through real Daemon/public CLI reads with isolated vendor fixtures, including two same-named Projects, inclusive parent totals, child records, missing Attempt identity and unsupported data.
 
+Definition (relocated): **Measurement** (`project.measurements`):
+A retained source contribution attributed to its original Project, maker Agent, Home at
+observation and Attempt when known. A source revision replaces the same contribution;
+the revision journal preserves earlier facts. roundup keeps no token or money (P14).
+`MeasurementValue` is an `Execution` interval (Agent or tool) or an observed Timed activity; source wall-clock
+endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
+coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
+tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
+failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
+
 Given a user Home move or Agent removal, then earlier contributions remain with their recorded Workstream; later contributions follow the new Home, and removed/stopped makers remain named in historical detail. Moving an Agent never copies its earlier time into another Workstream. Explicit Workstream/Project removal retains its existing deletion policy and does not recreate data. Assert `u3016a_moves_and_removal_keep_recorded_attribution` through the same public seams, including rename, restart and a contribution arriving after a move. For a source record spanning a move whose split is not observable, show the unsplittable contribution once at its recorded Home and disclose that limitation rather than invent a split.
 
 Policy: before implementation, inspect the pinned vendor's supported local measurement sources in isolated configuration and record sanitized fixture provenance, field meanings, inclusive-parent behavior, deduplication identities, live availability and clock semantics on #3016. A missing source capability calls for an engineering repair or scoped prerequisite, not invented data. Completion requires all four time categories in supported source fixtures, plus the real collection path in U3016f; genuinely unsupported historical spans remain explicit. No source field that carries tokens or money is read.
@@ -44,6 +54,23 @@ Policy: use existing Ark-wrapped primitives and Tokens only, with flat native co
 - Numbers: durations in their top two units (`9h 49m`, `4m 12s`); whole percentages with `<1%` below one percent; unavailable is `—`, never `0`; no raw float, raw seconds or internal term (an id, enum name or code term) is on screen. Rounding is display only.
 Assert, on the App seam: `u3016g_chart_has_one_mark_per_nonzero_category_per_agent` (the three Agents above render segments A 3, B 1, C 2, nothing for a zero or unknown category, and no cost, token or limit text or role anywhere), `u3016g_segments_share_one_scale_and_one_order` (the accessible values and the order of A's segments; the scale itself is the design critic's), `u3016g_key_totals_divide_by_summed_time` (key totals and shares over unsorted, zero, dominant and empty inputs, the denominator being summed Agent time), `u3016g_numbers_use_display_units_and_never_show_unavailable_as_zero` over 0, 1 s, 59 s, 3,599 s, 0.4%, unknown and measured zero.
 
+Definition (relocated): **Measurement time** (`MeasurementTime`):
+Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
+disjoint categories give human wait, tools, coordination and model execution precedence
+in that order; positive startup is other time and unexplained duration is unmeasured.
+Observed idle intervals and time after the Agent stops contribute to neither the sum
+nor any category. An Attempt ends when its Agent stops; an unknown end stays disclosed.
+Incomparable clock lifetimes never authorize continuous execution through a gap.
+
+Definition (relocated): **Measurement contributor** (`MeasurementContributor`):
+An Agent's retained time in one Home, including a stopped or removed maker.
+
+Definition (relocated): **Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
+One Workstream's time and its contributors, ranked by summed Agent time (exact
+nanoseconds, then stable Agent identity), at one Measurement revision. Later pages name that
+revision; a changed revision requires reconciliation. It carries collection coverage and
+failure independently of known time.
+
 **U3016h retired.** The weekly limit line (the account's percentage and reset time, `project.weeklyLimit`, `WeeklyLimit`, the Claude Code Adapter's account-usage read and its once-a-minute repeat) is retired by #3574 and P14: Claude Code's `/usage` shows it. Its tests `u3016h_weekly_limit_is_the_accounts_figure_from_the_adapter_read` and `u3016h_unavailable_limit_is_dash_with_a_reason_and_reads_only_while_live` are deleted with the read; nothing on the dashboard replaces it.
 
 **U3016i the view is live only while work runs.** Given the Workstream, any of its Agents or any vendor-internal child is running, then the view follows new measurements and elapsed time advances at least once per second (U3016d). Given the Workstream and every Agent and child have stopped, then the figures show the last measurements, no display clock runs, no refresh read or subscription follow-up repeats, and "Last observed" does not change. An Attempt whose end is unknown counts as stopped once its Agent is no longer running, `time.active` is false for it, and its coverage note says the end is unknown. No Live/Stopped badge or routine last-updated line renders (U3016k). A later start resumes updates with exactly one subscription and one display clock. Assert `u3016i_view_is_live_only_while_work_runs` on the App seam with fake time, counting reads and timers across running, all-stopped, interrupted-Attempt and restart, and `u3016i_unknown_attempt_end_stops_the_clock_once_its_agent_stops` through the public read with an injected clock.
@@ -62,6 +89,34 @@ Assert, on the App seam: `u3016g_chart_has_one_mark_per_nonzero_category_per_age
 Given a vendor record carrying `usage` and cost fields, then collection retains its tool, model and coordination intervals unchanged and drops the usage and cost fields. Assert `u3016l_vendor_usage_and_cost_fields_are_dropped_at_the_adapter` through the Daemon seam with an isolated fixture that carries usage, and a read whose serialised form holds no token or money key.
 
 **U3016m the store keeps no token or money.** Given a Project's current-schema measurement store (N20 in `scenarios/project-store.md`: no historical adoption before release 0), then it has no token, cost or request column or table, and a Project reopened after the change reads the same time and attribution as before, with no read error. Assert `u3016m_measurement_store_has_no_token_or_money_and_reopens_with_the_same_time` on real Project storage with persistence reopen.
+
+Definition (relocated): **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
+An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
+contributes none while the Attempt remains alive. Timeline samples retain the `ended`
+fact from Status Events or the Rail and use the Status `since` as the observed boundary.
+Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
+A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
+
+Definition (relocated): **Measurement wait** (`MeasurementWait`):
+The observation of one continuously blocking operation. It carries no delivery or control authority.
+
+Definition (relocated): **Time state** (`TimeState`):
+An observed activity is active, ended at an observed Clock point, or interrupted with its end unknown.
+
+Definition (relocated): **Observed segment** (`ObservedSegment`):
+Two comparable Clock points bounding continuously observed activity. A sleep, clock disagreement, outage or missing observation leaves a gap between segments.
+
+Definition (relocated): **Clock point** (`ClockPoint`):
+An observation of local wall time and a monotonic offset within one clock lifetime. Wall time aligns evidence; monotonic offsets measure durations only within that lifetime.
+
+Definition (relocated): **Idle phase** (`TimedActivity::Idle`):
+A continuously observed Adapter idle Status, identified by its opening Status revision and original Agent, Attempt and Home. The next non-idle Status or Attempt end closes it; working and blocked Statuses imply neither idle nor execution. Clock gaps remain uncovered.
+
+Definition (relocated): **Startup** (`TimedActivity::Startup`):
+The positively observed launch phase ending at its first acknowledgement. It is retained only for an acknowledged Attempt; missing historical launch points stay unknown.
+
+Definition (relocated): **Timed activity** (`TimedActivity`):
+A roundup-observed Attempt lifetime, Startup, Idle phase, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
 
 Policy — quantitative design: apply the data-ink and small-multiple principles of Edward Tufte, [The Visual Display of Quantitative Information](https://www.edwardtufte.com/book/the-visual-display-of-quantitative-information/), and the comparison discipline of Stephen Few, *Show Me the Numbers*, with his [Data Visualization Effectiveness Profile](https://www.perceptualedge.com/articles/visual_business_intelligence/data_visualization_effectiveness_profile.pdf), and the `dataviz` skill's form heuristic. The chosen encoding is U3016g's stacked bar per Agent on one shared scale; equal duration has equal bar length, and percentages divide by summed Agent time, never elapsed time.
 

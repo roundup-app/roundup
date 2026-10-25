@@ -41,3 +41,7 @@ The Brief says this table in words. A Message, `AskUserQuestion` question, Diges
 - **Safe.** An Agent's HTML is shown as text and never runs or injects markup: a body holding `<img src=x onerror=alert(1)>` renders no `img` element and no `onerror` attribute, and a link whose target is `javascript:` has no `href`. Asserted in `q10_html_is_text`.
 - **One renderer.** Each surface of Q2 that exists calls `renderMarkdown` and none draws a generated body as a raw string, except `OrderLine`, which is exempt: O6 and Q5 cut it to one line of plain text, so it renders no Markdown and shows no element. Asserted in `q10_one_renderer`, which renders the same body in each surface but `OrderLine` and finds equal markup for it.
 - **Weight.** A heavy renderer is not in the entry bundle: cold start stays under 300 ms (rule 7, policy, checked by `just perf`).
+
+
+Definition (relocated): **Markdown**:
+The text format an Agent writes; `renderMarkdown` draws it as elements on every surface of generated text (`scenarios/plain-text.md` Q10), and text the user typed is not drawn.

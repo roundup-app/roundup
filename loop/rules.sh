@@ -12,9 +12,14 @@ g() { grep "$@" || [ $? -eq 1 ]; }
 # Avoid words from GLOSSARY.md, lowercased; a two-word term joins with `_`.
 avoid_phrases() {
   local phrases
-  phrases=$(sed -n 's/^_Avoid_: \([^.;]*\).*/\1/p' GLOSSARY.md | tr ',' '\n' |
+  phrases=$(awk -F '|' '
+    /^\|/ {
+      for (i = 2; i <= 4; i++) gsub(/^[ \t]+|[ \t]+$/, "", $i)
+      if (NF == 5 && $2 == "Code term" && $3 == "User label" && $4 == "Avoid") { table = 1; next }
+      if (table && NF == 5 && $4 !~ /^[-: ]*$/ && $4 != "—") print $4
+    }' GLOSSARY.md | sed 's/[.;].*//' | tr ',' '\n' |
     awk 'NF { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
-  [ -n "$phrases" ] || { echo "rule 6: no _Avoid_ words found in GLOSSARY.md" >&2; return 1; }
+  [ -n "$phrases" ] || { echo "rule 6: no Avoid data found in GLOSSARY.md" >&2; return 1; }
   echo "$phrases"
 }
 

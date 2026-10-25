@@ -19,3 +19,5 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 - packaging (a signed `.app`).
 
 Product roadmap: [Workstreams, Doors and Sketches](../docs/wireframes.md#accepted-product-direction-workstreams-doors-and-sketches); it needs scoped scenarios before dispatch.
+
+Retired ids: U467b.

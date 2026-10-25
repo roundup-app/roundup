@@ -7,6 +7,9 @@ Reported by the user (screenshot): opening a Pad opened the Drawer far wider tha
 **U111 opening and closing a Drawer leaves the layout where it was.** Given an open Project and any Drawer (a Todo, a Pad, or one opened by `⌘K`), when it opens and then closes, by `Close`, Esc (U28) or a new selection (U64), then the Rail, the Shelf and the terminal pane are at the same horizontal position they had before it opened, and the panel that holds them cannot be scrolled sideways at all, by the user, by a script or by the browser moving focus into the off-screen Drawer. One thing is observable without a display: every `focus()` that U40 makes into or out of the Drawer is called with `{preventScroll: true}`. Narrowing U40 and U5: `u40_drawer_focus` and `u5_drawer` keep their clauses and gain these.
 A closed Agent has no order Drawer trigger: U83 and O6 show its order inline, without opening a Drawer (`u83_a_closed_agent_shows_available_parts_without_a_terminal_or_a_drawer`). Running Agents keep O6’s trigger and this scenario’s Drawer rules.
 
+Definition (relocated): **Inbox**:
+The time-ordered Drawer of Messages to the user.
+
 Law: Opening or closing a Drawer never moves the Rail, the terminal or the Shelf. Check: u111_
 
 Tests (`u111_`) fail on main today: a spy on `HTMLElement.prototype.focus` records its options during open and close and finds none with `preventScroll`. The cause is confirmed by ux-auditor-1 (`artifacts/ux/findings.md`, F1): `.columns` is `overflow: hidden`, the closed Drawer at `translateX(100%)` adds 560 px of scroll width, and U40 focuses the Drawer while it is still off screen, so `scrollLeft` reaches 560 during the slide at 1600, 1280 and 1000 px wide, for both the Todo and the Pad Drawer, and stays there in the real WKWebView window (800 by 600) though Chrome returns it to 0. The fix keeps U40's "focus moves into it". No earlier test could fail: U24's test reads only the declared width, U5's reads the transform and the size observer, U40's reads `document.activeElement`, and jsdom neither lays out nor scrolls on focus. Where the real-window check runs, `scrollLeft` of the columns element is 0 at every frame of the slide in and out.
@@ -53,5 +56,8 @@ Scope: `apps/desktop/src/pads/` and the fixtures that carry `scribe`. Moves D6.
 - **Terminal.** A Terminal in the centre refits to the narrowed width (`apps/desktop/src/terminal/Pane.tsx:273-281`) and its program receives exactly one `terminal.resize` per opening and one per closing, not one per frame (`apps/desktop/src/terminal/Pane.tsx:74`, `screens.ts:134`). Asserted in `u430_terminal_gets_one_resize_per_slide` against the fake App.
 - **Perf.** Keystroke-to-render stays under 16 ms p95 with a Drawer open (rule 7; `docs/perf.md:9`). Asserted by `just perf-keystroke` on the user's Mac, run only when the user asks (`docs/perf.md:60`).
 - **Kept.** The Rail and the Shelf's place do not move (U111); the Shelf stays under the Drawer (U409); Help and the switcher float over the Drawer (U51, U54). Only Tokens are used (rule 8).
+
+Definition (relocated): **Drawer**:
+A panel that slides in from the right over the Shelf (a Todo, a Pad, later the Inbox); the centre narrows to end where it begins (U430), so it covers none of the centre.
 
 Observer: `u430_` in `apps/desktop/src/drawer/`. Moves D2, D5, D6 and D8. Scope: webview only, `apps/desktop/src/drawer/`, `app/Layout.tsx` and the layout rules of `styles.css`.

@@ -8,6 +8,12 @@ a client subscribes only to the output of the Terminals it displays. The followi
 clauses specify the implementation; their new `x14_` tests are required acceptance,
 not tests claimed to exist in this specification PR.
 
+Definition (relocated): **RPC output intake** (`Client::take_output`, `OutputFrame`):
+The Client's optional bounded receiver of the Output streams its connection selected, taken before selecting. It reports lag separately from replies and control events; retained frames keep their Terminal ids and byte offsets for Snapshot recovery.
+
+Definition (relocated): **Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`):
+One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
+
 1. **Isolation.** Given subscribers for Terminals A and B and one global event
    subscriber, when A prints more chunks than the global Bus capacity while B
    prints a marker, then A's subscriber receives only A's bytes in order, B's
@@ -107,6 +113,9 @@ not tests claimed to exist in this specification PR.
 reader already received, so a Door that polls a Terminal cannot act twice on one line. Related B19
 and B20: the Digest never reads Terminal output and stays as they say; this cursor serves only
 `terminal.read`. Contract change (rule 4): `ReadParams` gains `reader`, and `after` becomes optional.
+
+Definition (relocated): **Read cursor** (`reader`):
+The offset in a Terminal's Output log where one reader's next `terminal.read` without `after` begins, set to the reply's `next`; each (Agent id, Terminal) pair has its own, it is Daemon state only, and it ends with its Terminal (`scenarios/terminal-stream.md` X16).
 
 1. **Cursor.** Given `terminal.read {id, reader}` with no `after`, the Daemon reads from that
    reader's cursor for that Terminal (the log's start for a reader's first read), returns the result,
