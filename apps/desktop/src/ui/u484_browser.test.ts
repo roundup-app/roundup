@@ -102,7 +102,7 @@ it("u484_external_drop", async () => {
   await outside();
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[aria-label=Dropped]').textContent === 'A>Rail'`);
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
   expect(await read<boolean>(`document.querySelector('[data-outside]').hasAttribute('data-drop')`)).toBe(false);
   expect(await order()).toEqual(["A", "B", "C"]);
   await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
@@ -113,21 +113,21 @@ it("u484_external_drop", async () => {
   await browser("press", "Escape");
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[data-id=A]').dataset.dragging === 'false'`);
-  expect(await dropped()).toBe("");
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await dropped()).toHaveLength(0);
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
   expect(await read<boolean>(`document.querySelector('[data-outside]').hasAttribute('data-drop')`)).toBe(false);
 
   await load(false, "?external");
   await drag("A", "C");
   await browser("mouse", "up");
   await committed("B,C,A");
-  expect(await dropped()).toBe("");
+  expect(await dropped()).toHaveLength(0);
 }, 90_000);
 
 // U3800a/c: one drop look's behaviour — pointer drag, keyboard lift, Escape and a following click — through the installed shared Sortable.
 it("u3800a_one_drag_fixture", async () => {
   const idle = `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,B,C' && document.querySelector('[data-id=A]').dataset.dragging === 'false'`;
-  const commits = () => read<string>(`document.querySelector('[aria-label=Commits]').textContent`);
+  const commits = () => read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`);
   const focusedA = () => browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
 
   await load();
@@ -137,7 +137,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("press", "Escape");
   await browser("mouse", "up");
   await browser("wait", "--fn", idle);
-  expect(await commits()).toBe("0");
+  expect(await commits()).toBe(0);
   await focusedA();
 
   await drag("A", "C");
@@ -145,7 +145,7 @@ it("u3800a_one_drag_fixture", async () => {
   await committed("B,C,A");
   await browser("click", '[aria-label="Inspect A"]');
   await browser("wait", "--fn", `document.querySelector('[aria-label=Actions]').textContent === '1'`);
-  expect(await commits()).toBe("1");
+  expect(await commits()).toBe(1);
 
   await load();
   const handle = await read<{x:number; y:number}>(`(() => { const b=document.querySelector('[aria-label="Move A"]').getBoundingClientRect(); return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)}; })()`);
@@ -154,8 +154,8 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("mouse", "down");
   await browser("mouse", "move", String(handle.x + 2), String(handle.y));
   await browser("mouse", "up");
-  expect(await read<string>(`document.querySelector('[aria-label=Actions]').textContent`)).toBe("1");
-  expect(await commits()).toBe("0");
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Actions]').textContent)`)).toBe(1);
+  expect(await commits()).toBe(0);
   expect(await read<boolean>(`(() => {
     const row = document.querySelector('[data-id=A]');
     const transfer = new DataTransfer(); transfer.items.add(new File(['hello'], 'example.txt', {type: 'text/plain'}));
@@ -164,14 +164,14 @@ it("u3800a_one_drag_fixture", async () => {
     return over.defaultPrevented;
   })()`)).toBe(true);
   await browser("wait", "--fn", `document.querySelector('[aria-label=Files]').textContent === 'example.txt'`);
-  expect(await commits()).toBe("0");
+  expect(await commits()).toBe(0);
   expect(await read<number>(`document.querySelectorAll('[data-dragging=true]').length`)).toBe(0);
 
   await keyboard("A");
   await down(["B", "A", "C"]);
   await browser("press", "Escape");
   await browser("wait", "--fn", idle);
-  expect(await commits()).toBe("0");
+  expect(await commits()).toBe(0);
   await focusedA();
 
   await keyboard("A");
@@ -238,23 +238,37 @@ it("u484_scroll_and_stop", async () => {
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false' && document.activeElement?.getAttribute('aria-label') === 'Move 1'`);
   expect(await order()).toEqual(initial);
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
-  const stopped = () => read<number[]>(`new Promise(resolve => { const samples = []; const sample = () => { samples.push(document.querySelector('.sortable-fixture').scrollTop); if (samples.length === 10) resolve(samples); else requestAnimationFrame(sample); }; requestAnimationFrame(sample); })`);
-  // The scenario explicitly observes constant scrollTop across frames after cancellation/release.
-  expect(new Set(await stopped()).size).toBe(1);
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
+
+  const stopped = () => read<number>(`new Promise(resolve => {
+    const list = document.querySelector('.sortable-fixture');
+    let events = 0;
+    let frames = 0;
+    const count = () => { events += 1; };
+    list.addEventListener('scroll', count);
+    const sample = () => {
+      if (++frames < 10) return requestAnimationFrame(sample);
+      list.removeEventListener('scroll', count);
+      resolve(events);
+    };
+    requestAnimationFrame(sample);
+  })`);
+
+  // U484 observes stopped auto-scroll across ten frames after cancellation/release; scroll events prove the behavior without asserting geometry.
+  expect(await stopped()).toBe(0);
   await load(true);
   await drag("1", "4");
   await browser("mouse", "move", String(Math.round(edge.x)), String(Math.round(edge.y)));
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 160`);
   await browser("mouse", "move", String(Math.round(edge.x)), String(Math.round(edge.y / 2)));
   await browser("wait", "--fn", `Number(document.querySelector('.sortable-fixture').dataset.sortableIndex) > 4`);
-  expect(new Set(await stopped()).size).toBe(1);
+  expect(await stopped()).toBe(0);
   const preview = initial.filter(id => id !== "1");
   preview.splice(await read<number>(`Number(document.querySelector('.sortable-fixture').dataset.sortableIndex)`), 0, "1");
   expect(preview.indexOf("1")).toBeGreaterThan(4);
   await browser("mouse", "up");
   await committed(preview.join(","));
-  expect(new Set(await stopped()).size).toBe(1);
+  expect(await stopped()).toBe(0);
   await load(true);
   await keyboard("5");
 
@@ -269,5 +283,5 @@ it("u484_scroll_and_stop", async () => {
   await browser("press", "Space");
   const final = initial.filter(id => id !== "5"); final.splice(12, 0, "5");
   await committed(final.join(","));
-  expect(new Set(await stopped()).size).toBe(1);
+  expect(await stopped()).toBe(0);
 }, 90_000);
