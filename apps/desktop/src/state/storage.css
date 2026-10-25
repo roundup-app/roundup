@@ -35,6 +35,17 @@
   overflow-wrap: anywhere;
 }
 
+/* Startup reserves the whole surface, so its recovery consequence can wrap. */
+.storage-gate .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.storage-gate .reserved-content > .ink {
+  overflow: visible;
+  white-space: normal;
+}
+
 .storage-gate-actions {
   display: flex;
   flex-wrap: wrap;
