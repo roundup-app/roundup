@@ -65,3 +65,19 @@
 .capture-target > :last-child {
   flex: 1 1 0;
 }
+
+.capture-native {
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.capture-native p.capture-native-failure {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

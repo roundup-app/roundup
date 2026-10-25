@@ -72,6 +72,7 @@ export type ProjectCalls = {
 
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
+  "plugin:capture-panel|control",
   "projects",
   "record_idle_evidence",
   "select_project_menu",
@@ -92,11 +93,45 @@ export const SEAM_COMMANDS = [
   "plugin:window-bar|zoom_window",
 ] as const;
 
+/** U3787f: the panel displays the main window's Capture owner; it stores no drafts. */
+export const captureStateSchema = v.object({
+  session: v.string(), sequence: v.number(), text: v.string(), owner: v.string(), home: v.string(),
+  recovered: v.array(v.object({ revision: v.string(), text: v.string(), status: v.string(), label: v.string() })),
+  retention: v.boolean(), failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
+});
+
+export const captureActionSchema = v.variant("kind", [
+  v.object({ kind: v.literal("ready") }),
+  v.object({ kind: v.literal("edit"), session: v.string(), sequence: v.number(), text: v.string() }),
+  v.object({ kind: v.literal("file"), session: v.string(), sequence: v.number(), text: v.string(), keepOpen: v.boolean() }),
+  v.object({ kind: v.literal("dismiss"), session: v.string() }),
+  v.object({ kind: v.literal("discard"), session: v.string() }),
+  v.object({ kind: v.literal("copy"), session: v.string(), revision: v.string() }),
+  v.object({ kind: v.literal("discard-revision"), session: v.string(), revision: v.string() }),
+  v.object({ kind: v.literal("retry"), session: v.string() }),
+]);
+
+export type CaptureState = v.InferOutput<typeof captureStateSchema>;
+
+export type CaptureAction = v.InferOutput<typeof captureActionSchema>;
+
+export type CapturePort = {
+  configure(press: string | null): Promise<void>;
+  show(): Promise<void>;
+  dismiss(): Promise<void>;
+  publish(snapshot: CaptureState): Promise<void>;
+  act(action: CaptureAction): Promise<void>;
+  onRequested(listener: () => void): Promise<Unsubscribe>;
+  onAction(listener: (action: CaptureAction) => void): Promise<Unsubscribe>;
+  onState(listener: (snapshot: CaptureState) => void): Promise<Unsubscribe>;
+};
+
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  capture?: CapturePort | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
