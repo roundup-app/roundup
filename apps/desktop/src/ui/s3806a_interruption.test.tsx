@@ -134,6 +134,7 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
 
     return;
   }
+
   const settled = owner === "pull" ? placesStorage("/p").read()["2"]! : { ...from, min: placesStorage("/p").read()["2"]!.min };
 
   // Pull keeps its completed position, including a last queued position, as U421 Escape does.
