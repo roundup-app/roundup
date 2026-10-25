@@ -226,11 +226,11 @@ def report(output):
                 continue
             matched = []
             for link in row['links']:
-                output = Path(link['output'])
+                linked_output = Path(link['output'])
                 for expected in outputs:
                     # Cargo copies unhashed binaries out of deps/build dirs after rustc links their hashed outputs.
                     name = re.escape(expected.stem.replace('-', '_')) + r'(?:-[0-9a-f]+)?' + re.escape(expected.suffix)
-                    if output == expected or (output.parent in (expected.parent, expected.parent / 'deps') and re.fullmatch(name, output.name)):
+                    if linked_output == expected or (linked_output.parent in (expected.parent, expected.parent / 'deps') and re.fullmatch(name, linked_output.name)):
                         matched.append(link)
             if not matched:
                 raise ValueError(f'missing linker observation for Cargo artifact: {artifact["package_id"]} {artifact["target"]["name"]}')
