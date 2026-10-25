@@ -2,8 +2,8 @@ const CONTROL = 'button, a[href], summary, input:is([type=checkbox], [type=radio
 
 /** Adds transient feedback only; the platform and Ark retain all activation semantics. */
 export function pressFeedback(doc: Document): () => void {
-  let held: Element | null = null;
-  const clear = () => { held?.removeAttribute("data-pressed"); held = null; };
+  let pressing: Element | null = null;
+  const clear = () => { pressing?.removeAttribute("data-pressed"); pressing = null; };
 
   const control = (target: EventTarget | null) => {
     if (!(target instanceof Element) || target.closest('textarea, [contenteditable=true], .xterm, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range])')) return null;
@@ -14,8 +14,8 @@ export function pressFeedback(doc: Document): () => void {
 
   const begin = (el: Element | null) => {
     clear();
-    held = el;
-    held?.setAttribute("data-pressed", "true");
+    pressing = el;
+    pressing?.setAttribute("data-pressed", "true");
   };
 
   const pointer = (event: PointerEvent) => { if (event.button === 0) begin(control(event.target)); };
@@ -31,13 +31,13 @@ export function pressFeedback(doc: Document): () => void {
     if (space || enter) begin(el);
   };
 
-  const leave = (event: PointerEvent) => { if (held && event.target instanceof Node && held.contains(event.target) && (!(event.relatedTarget instanceof Node) || !held.contains(event.relatedTarget))) clear(); };
+  const leave = (event: PointerEvent) => { if (pressing && event.target instanceof Node && pressing.contains(event.target) && (!(event.relatedTarget instanceof Node) || !pressing.contains(event.relatedTarget))) clear(); };
 
   const view = doc.defaultView!;
   doc.addEventListener("pointerdown", pointer, true);
   doc.addEventListener("pointerout", leave, true);
   doc.addEventListener("keydown", key, true);
-  const blur = (event: Event) => { if (event.target === event.currentTarget || (event.target instanceof Node && held?.contains(event.target))) clear(); };
+  const blur = (event: Event) => { if (event.target === event.currentTarget || (event.target instanceof Node && pressing?.contains(event.target))) clear(); };
 
   view.addEventListener("blur", blur, true);
   const endings = ["pointerup", "pointercancel", "keyup", "dragstart"] as const;
