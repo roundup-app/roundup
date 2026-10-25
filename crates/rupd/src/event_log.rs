@@ -100,6 +100,13 @@ mod tests {
     use rpc::{Bus, code};
     use std::sync::Arc;
 
+    #[test]
+    fn r3696c_migration_keeps_the_wal_open_for_the_event_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let _opened = crate::storage::open(dir.path()).unwrap();
+        assert!(dir.path().join("project.db-wal").exists());
+    }
+
     fn open(dir: &Path) -> Bus {
         Bus::with_log(Arc::new(SqliteLog::open(dir).unwrap()))
     }

@@ -128,13 +128,6 @@ mod tests {
     use super::*;
     use rusqlite::params;
 
-    #[test]
-    fn r3696c_migration_keeps_the_wal_open_for_the_event_log() {
-        let dir = tempfile::tempdir().unwrap();
-        let _opened = open(dir.path()).unwrap();
-        assert!(dir.path().join("project.db-wal").exists());
-    }
-
     const STORES: [&str; 7] = [
         "agents",
         "todos",
