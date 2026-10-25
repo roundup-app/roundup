@@ -1,0 +1,150 @@
+{
+  "baseline": "ab3a3041fbb91b1904296d0383562fbf11e742fd",
+  "runtime": "a41959a5923fb10b057ddd37625293bdde3877ca",
+  "renderer": "isolated headless Chromium",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "scale": 1,
+  "unitDiagnostics": {
+    "base": 132,
+    "head": 0
+  },
+  "literalPxContainerQueriesRemaining": 5,
+  "pairs": {
+    "agents-10": {
+      "baseElements": 313,
+      "headElements": 313,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "conflict": {
+      "baseElements": 364,
+      "headElements": 364,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "daemon-exits": {
+      "baseElements": 322,
+      "headElements": 322,
+      "animatedWorkingArcs": 2,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "dense": {
+      "baseElements": 951,
+      "headElements": 951,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "dialog": {
+      "baseElements": 1036,
+      "headElements": 1036,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "drawer": {
+      "baseElements": 811,
+      "headElements": 811,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "failure": {
+      "baseElements": 945,
+      "headElements": 945,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "first-run": {
+      "baseElements": 72,
+      "headElements": 72,
+      "animatedWorkingArcs": 0,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "menu": {
+      "baseElements": 976,
+      "headElements": 976,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    "pads": {
+      "baseElements": 827,
+      "headElements": 827,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {
+        "D12": {
+          "status": "fail",
+          "value": 56,
+          "selector": "div.shelf-row"
+        }
+      },
+      "headFailures": {
+        "D12": {
+          "status": "fail",
+          "value": 56,
+          "selector": "div.shelf-row"
+        }
+      }
+    },
+    "terminal": {
+      "baseElements": 919,
+      "headElements": 919,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {
+        "D12": {
+          "status": "fail",
+          "value": 56,
+          "selector": "div.shelf-row"
+        }
+      },
+      "headFailures": {
+        "D12": {
+          "status": "fail",
+          "value": 56,
+          "selector": "div.shelf-row"
+        }
+      }
+    },
+    "tree-40": {
+      "baseElements": 809,
+      "headElements": 809,
+      "animatedWorkingArcs": 8,
+      "otherComputedDifferences": 0,
+      "regressedChecks": [],
+      "baseFailures": {},
+      "headFailures": {}
+    }
+  }
+}
