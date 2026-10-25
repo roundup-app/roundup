@@ -19,6 +19,8 @@ export const createCopyFeedback = () => {
     copied,
     reset,
     run: async (write: () => Promise<void>, success: () => void, failure: (error: Error) => void) => {
+      if (disposed) return;
+
       reset();
       const current = revision;
 
