@@ -889,3 +889,6 @@ It is absent without the `idle-perf` Cargo feature.
 
 **Daemon recovery** (`DaemonExited.recovery`, `DaemonExit.recovery`):
 The Project's native process owner waits (`waiting`) after a failure, then asks the App to replace its whole connection (`connecting`) after readiness. An absent recovery state means the bounded attempts are exhausted; `cause` carries the final startup/connection failure when available. Only a successful replacement subscription resets the Project's failure count. Closing cancels that Project's recovery.
+
+**Native integration** (`native`, `Preferences`, `Missing`):
+The sole repository-owned unsafe integration crate. Its plugin configures every Tauri Webview's WebKit refresh preference; owned Preferences carry their main-thread lifetime and expose no native pointer. Missing names a WebKit feature API gap, which preserves the platform rate. The opt-in idle evidence observer reports native application hide changes through a safe callback.
