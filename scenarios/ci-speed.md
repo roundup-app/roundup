@@ -62,3 +62,19 @@ The implementation PR's `Reuse:` section records dated stars and latest release 
 ## Completion boundary (policy)
 
 The specification completes when this acceptance is on main and the separate implementation work order is natively blocked by its specification Issue until that merge. The implementation completes only with the measured PR-body tables, retained/removed decisions, llvm-lines table, unchanged performance gates and effective runner isolation above. Specification prose supplies no speedup claim. Issue dependencies, progress, runner prerequisites and unresolved engineering questions live on GitHub Issues.
+
+## Experiment cache names
+
+**CI4018 comma-safe experiment caches.** Given a hosted Linux pull request opted into CI3781 by the exact title prefix `CI3781 experiment: `, when its experiment cache namespace is derived, then the complete primary and restore keys supplied to the cache action contain no comma and are at most 512 characters. The title `CI3781 experiment: a,b` remains opted in; rejecting the title, skipping caching or falling back to the shared main cache does not satisfy this clause.
+
+For unchanged cache inputs (toolchain, lockfiles and cache version), pushes to the same PR with the same complete title produce the same keys. Changing the title or PR number selects a different experiment namespace. In particular, `CI3781 experiment: a,b`, `CI3781 experiment: ab` and `CI3781 experiment: a-b` remain distinct; dropping or replacing punctuation must not merge their caches.
+
+Automated observer: `ci4018_experiment_titles_keep_valid_distinct_cache_keys` executes the production namespace derivation for those three titles, a repeated invocation with another head SHA, and the same title under another PR number. It asserts cache-key validity, repeat equality and namespace separation above. Exercise the value passed to the cache action, including its added prefixes and restore keys; a test that only rereads workflow text or tests an independent copy of the derivation does not prove this scenario.
+
+### Hosted cache observer (policy)
+
+On a fresh hosted Linux runner, run the comma-bearing title with an unused experiment namespace and let the existing full-workspace producer save its entry. Push again without changing the title or cache inputs, then observe a fresh runner restoring that saved experiment entry. Both runs complete cache setup without a key-validation error or warning; the first records a miss and a successful save, and the second records a hit on that entry. A green lane that skipped or failed caching is not a pass. Retain run/job URLs, source and producer SHAs, exact title, actual primary/restore/matched keys, hit/miss, archive bytes and commands with exit codes. Each failed or skipped command has its own evidence row and exit code.
+
+### Regression boundary (policy)
+
+Keep CI3781's full Rust experiment workload and observer enabled for comma-bearing titles. Ordinary PR titles and non-PR events retain their existing cache selection and save rules; hosted macOS, self-hosted runners and local builds retain their existing behavior. Experiment entries remain separate from shared main entries and other PR experiments; never delete or overwrite shared caches to observe a miss. Checks 1, 2 and 6 remain in force. Observe the effective settings on each path, rather than only checking guard text. No candidate tool, workload reduction, gate change or performance claim is part of this repair.
