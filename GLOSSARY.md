@@ -957,3 +957,9 @@ The native integration's one reusable Todo Capture NSPanel. Its safe owner holds
 Tauri App handle; creation, placement, visibility observations and release run on the
 main thread. `CapturePanelState` reports actual visibility and whether AppKit allows
 that panel to become the main window. It owns no Todo submission or draft storage.
+
+**Capture presentation** (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin):
+The panel-only view of the main window's existing Capture owner. Typed snapshots carry
+one opening's session and acknowledged edit sequence; actions from a previous opening
+are refused. The main window alone owns draft storage, the captured Project/Home/owner,
+submission and acknowledged OS shortcut replacement. The panel starts no Project or Agent.

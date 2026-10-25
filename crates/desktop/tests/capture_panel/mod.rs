@@ -26,6 +26,22 @@ pub fn u3787f_panel_does_not_activate_main_window() {
                 tauri::WebviewUrl::External("about:blank".parse().unwrap()),
             )
             .unwrap();
+            // Real OS registration, replacement, invalid-input refusal and release share the
+            // production plugin. No synthetic registry stands in for native acknowledgment.
+            panel.configure(Some("Super+Shift+KeyT")).unwrap();
+            use tauri_plugin_global_shortcut::GlobalShortcutExt;
+            handle.global_shortcut().register("Super+Alt+KeyY").unwrap();
+            assert!(panel.configure(Some("Super+Alt+KeyY")).is_err());
+            assert!(handle.global_shortcut().is_registered("Super+Shift+KeyT"));
+            handle
+                .global_shortcut()
+                .unregister("Super+Alt+KeyY")
+                .unwrap();
+            panel.configure(Some("Super+Alt+KeyY")).unwrap();
+            assert!(!handle.global_shortcut().is_registered("Super+Shift+KeyT"));
+            assert!(panel.configure(Some("not-a-shortcut")).is_err());
+            panel.configure(None).unwrap();
+            assert!(!handle.global_shortcut().is_registered("Super+Alt+KeyY"));
             let shown = panel.show().unwrap();
             assert!(shown.visible);
             assert!(!shown.can_become_main);

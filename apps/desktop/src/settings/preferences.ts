@@ -2,7 +2,7 @@ import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "
 import * as v from "valibot";
 import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
-import type { AppSeam } from "../app/seam";
+import type { CapturePort, AppSeam } from "../app/seam";
 
 const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
@@ -33,13 +33,20 @@ export const appSettings = (): Preferences => {
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
 let saving: Promise<unknown> = Promise.resolve();
 
-export const saveAppSettings = (patch: Partial<Preferences>): Promise<string | null> => {
+export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePort): Promise<string | null> => {
   const captured = structuredClone(patch);
 
   const pending = saving.then(async () => {
-    const failure = await storage().write({ ...appSettings(), ...captured });
-
-    return failure;
+    const before = appSettings();
+    const replacement = captured.quickAdd !== undefined && captured.quickAdd !== before.quickAdd;
+    try {
+      if (replacement) await capture?.configure(captured.quickAdd!);
+      const failure = await storage().write({ ...before, ...captured });
+      if (failure && replacement) await capture?.configure(before.quickAdd);
+      return failure;
+    } catch (error) {
+      return String(error);
+    }
   });
 
   saving = pending;
