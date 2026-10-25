@@ -29,13 +29,13 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
 
       const workload = import.meta.env.VITE_ROUNDUP_PERF_WORKLOAD;
 
-      if (workload) {
+      if (workload && workload !== "flood") {
         const { createFrameRun } = await import("./perf/frame_run");
 
         return createFrameRun(tauri.forProject(measured.path), workload, measured.path);
       }
 
-      return createKeystrokeRun(tauri.forProject(measured.path));
+      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle");
     })
   : null;
 

@@ -211,7 +211,7 @@ const readyTerminal = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typ
 };
 
 /** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
-export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>): Promise<HTMLTextAreaElement> => {
+export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>, beforeMeasure?: (input: HTMLTextAreaElement) => Promise<void>): Promise<HTMLTextAreaElement> => {
   const create = await appears(
     () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
     "the new Workstream button",
@@ -224,14 +224,22 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
     () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
     "the new Workstream's Agent input",
   );
-  const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
 
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+  const open = async () => {
+    const existing = new Set([...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].map((bubble) => bubble.dataset.bubble));
 
-  const input = await appears(
-    () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
-    "the shell Terminal's input",
-  );
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
+    const input = await appears(
+      () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
+      "the shell Terminal's input",
+    );
+
+    return input;
+  };
+
+  if (beforeMeasure) await beforeMeasure(await open());
+  const input = await open();
 
   const id = input.closest<HTMLElement>(".bubble[data-bubble]")!.dataset.bubble!;
 
@@ -242,24 +250,82 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   return input;
 };
 
+/** The App owns both Terminals; snapshots count raw bytes without draining a never-ending log. */
+type FloodEvidence = { id: string; command: string; opened: boolean; samples: { at_ms: number; bytes: number; state: "visible" | "folded" }[]; bytes: number; bytes_per_second: number; interval_ms: number };
+
+export const startFlood = async (app: Pick<AppSeam, "rpc">, input: HTMLTextAreaElement, retain: (evidence: FloodEvidence) => void = () => {}) => {
+  const id = input.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!;
+  const evidence: FloodEvidence = { id, command: "/usr/bin/yes roundup-flood", opened: true, samples: [], bytes: 0, bytes_per_second: 0, interval_ms: 0 };
+
+  retain(evidence);
+  const readiness = reportTerminal(() => ({ write: (_bytes: Uint8Array) => {} }));
+
+  await readyTerminal(app, readiness, id);
+  await bounded(app.rpc("terminal.write", { id, data: toBase64(new TextEncoder().encode("yes roundup-flood\n")) }), SETUP_BOUND_MS, "the flood Terminal's producer start");
+  let searching = true;
+
+  try {
+    await bounded((async () => {
+      while (searching) {
+        const read = await app.rpc("terminal.read", { id, after: 0, reader: null, max: 256 });
+
+        if (read.text.includes("roundup-flood")) return;
+        await sleep(50);
+      }
+    })(), SETUP_BOUND_MS, "the flood Terminal's active output");
+  } finally {
+    searching = false;
+  }
+
+  const sample = async () => {
+    const terminals = await bounded(app.rpc("terminal.list", null), SETUP_BOUND_MS, "the flood Terminal's liveness");
+
+    if (!terminals.find(terminal => terminal.id === id)?.running) throw new Error("the flood Terminal's producer is missing or exited");
+    const snapshot = await bounded(app.rpc("terminal.snapshot", { id }), SETUP_BOUND_MS, "the flood Terminal's byte count");
+    const bubble = [...document.querySelectorAll<HTMLElement>("[data-bubble]")].find(element => element.dataset.bubble === id);
+
+    if (!bubble) throw new Error("the opened flood Terminal disappeared");
+    const at_ms = performance.now();
+    const previous = evidence.samples.at(-1);
+
+    evidence.samples.push({ at_ms, bytes: snapshot.after, state: bubble.hidden ? "folded" : "visible" });
+
+    if (previous && snapshot.after <= previous.bytes) throw new Error("the flood Terminal's producer is silent");
+    const first = evidence.samples[0]!;
+
+    evidence.bytes = snapshot.after - first.bytes;
+    evidence.interval_ms = at_ms - first.at_ms;
+    evidence.bytes_per_second = evidence.interval_ms > 0 ? evidence.bytes * 1000 / evidence.interval_ms : 0;
+  };
+
+  return { evidence, sample, poll: async () => {
+    const last = evidence.samples.at(-1);
+
+    if (last && performance.now() - last.at_ms >= 1000) await sample();
+  } };
+};
+
 /**
  * The keystroke run of `scenarios/perf.md` (K1 to K3): in a build made with `VITE_ROUNDUP_PERF`, `start` opens a Terminal, types
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
-export const createKeystrokeRun = (app: AppSeam) => {
+export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "idle") => {
   const run = crypto.randomUUID();
   const recorder = createRecorder(() => performance.now(), run, () => terminal.target());
   const { probe } = recorder;
   const terminal = reportTerminal(recorder.createEmulator);
 
+  let floodEvidence: FloodEvidence | undefined;
+  let flood: Awaited<ReturnType<typeof startFlood>> | undefined;
+
   const report = async (body: PerfReport, id: string) => {
-    const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
+    const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", workload, terminal_id: id, flood: floodEvidence, ...body })}\n`;
 
     await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
   };
 
   const measure = async () => {
-    const textarea = await terminalReady(app, terminal);
+    const textarea = await terminalReady(app, terminal, workload === "flood" ? async (input) => { flood = await startFlood(app, input, (evidence) => { floodEvidence = evidence; }); } : undefined);
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
     const frame = await bounded(frameMs(), SETUP_BOUND_MS, "the display frames");
@@ -280,9 +346,11 @@ export const createKeystrokeRun = (app: AppSeam) => {
     };
 
     await exchange();
+    await flood?.sample();
     const end = performance.now() + TYPING_BOUND_MS;
 
-    await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
+    await typeKeys(probe, { press: () => press(textarea), sleep: async (ms) => { await sleep(ms); await flood?.poll(); }, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
+    await flood?.sample();
     const measured = await exchange();
     await report({
       ...recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS),
