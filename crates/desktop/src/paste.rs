@@ -178,6 +178,36 @@ mod tests {
     }
 
     #[test]
+    fn z3799c_pruning_keeps_future_and_boundary_files() {
+        let cache = tempfile::tempdir().unwrap();
+        let folder = cache.path().join("roundup-pasted");
+        fs::create_dir_all(&folder).unwrap();
+        let now = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let cases = [
+            ("future.png", now + Duration::from_secs(1), true),
+            ("boundary.png", now - Duration::from_secs(604_800), true),
+            ("expired.png", now - Duration::from_secs(604_801), false),
+        ];
+        for (name, modified, _) in cases {
+            let path = folder.join(name);
+            fs::write(&path, b"retained image").unwrap();
+            fs::File::options()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_modified(modified)
+                .unwrap();
+            assert_eq!(fs::metadata(path).unwrap().modified().unwrap(), modified);
+        }
+
+        save(cache.path(), "image/png", b"new image", now).unwrap();
+
+        for (name, _, retained) in cases {
+            assert_eq!(folder.join(name).exists(), retained, "{name}");
+        }
+    }
+
+    #[test]
     fn u418_a_save_prunes_files_older_than_seven_days_and_only_those() {
         let cache = tempfile::tempdir().unwrap();
         let folder = cache.path().join("roundup-pasted");
