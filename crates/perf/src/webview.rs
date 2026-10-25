@@ -6,10 +6,12 @@ use serde_json::Value;
 const FRAME_LIMIT_MS: f64 = 25.0;
 
 /// Required hop attribution, including the retained coarse input-to-dispatch span (`apps/desktop/src/perf/keystrokes.ts`, `hops`).
-pub const HOPS: [&str; 7] = [
+pub const HOPS: [&str; 9] = [
     "keydown_to_input",
     "input_to_dispatch",
     "input_to_encoded",
+    "input_to_encoding",
+    "encoding_to_encoded",
     "encoded_to_dispatch",
     "dispatch_to_echo_event",
     "echo_event_to_parsed",

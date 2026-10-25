@@ -165,6 +165,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
   const terminal = reportTerminal(
     createXtermEmulators({
       input: probe.input,
+      encoding: probe.encoding,
       encoded: probe.encoded,
       arrived: probe.arrived,
       written: probe.written,
