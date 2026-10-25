@@ -15,11 +15,11 @@ The first rollout independently scans the unchanged merge base when that revisio
 
 ## Initial evidence
 
-Implementation base: `b2d337467` (all-platform graph, all Cargo features).
+Implementation base: `dc5a41f1e` (all-platform graph, all Cargo features).
 
 | Inventory | Exact entries |
 | --- | ---: |
-| Oversized tracked files, every extension | 31 |
+| Oversized tracked files, every extension | 30 |
 | Sleep-loop calls (DOM cloning/style overrides: zero) | 146 |
 | typos diagnostics (binary notices excluded) | 164 |
 | Ruff E4,E7,E9,F in frozen loop Python | 8 |
@@ -27,7 +27,7 @@ Implementation base: `b2d337467` (all-platform graph, all Cargo features).
 | RustSec advisory/crate/version triples | 3 |
 | Type-containing cycles before / after | 5 / 0 |
 
-Each first-run recipe rechecks this inventory against the actual unmodified base; this table is descriptive, not trusted input. Three cached samples including pnpm startup on this shared runner: madge 26.264/23.261/24.903 s, exit 1 with all five cycles; fallow 1.908/2.247/2.039 s, exit 0 with none. These samples ran alongside the related App suite; they establish type-edge coverage, not isolated performance. The extra TypeScript parse check ensures an invalid source never looks acyclic.
+Each first-run recipe rechecks this inventory against the actual unmodified base; this table is descriptive, not trusted input. On b2d337467, three cached samples including pnpm startup on this shared runner: madge 26.264/23.261/24.903 s, exit 1 with all five cycles; fallow 1.908/2.247/2.039 s, exit 0 with none. These samples ran alongside the related App suite; they establish type-edge coverage, not isolated performance. The extra TypeScript parse check ensures an invalid source never looks acyclic.
 
 The five chains in the scenario all disappear by typing the Rail draft adapter from its existing `draftStorage` holder instead of the connected Project composition. Callers and runtime expressions stay the same.
 
