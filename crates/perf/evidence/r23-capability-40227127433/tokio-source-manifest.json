@@ -1,0 +1,30 @@
+{
+  "package_sha256": "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed",
+  "files": {
+    "src/runtime/task_hooks.rs": {
+      "sha256": "0c7da3b5328a2c5c3a9c537a925349c1678f3333de3409ce5e6ed5bf14ddb86e",
+      "retained": "tokio-src-runtime-task_hooks.rs.gz",
+      "matches_package": true
+    },
+    "src/runtime/scheduler/multi_thread/worker.rs": {
+      "sha256": "b7860cfa69f197eb52f3374a1cf0fe6adc2ff82a6971d8d27985fea65c08d94c",
+      "retained": "tokio-src-runtime-scheduler-multi_thread-worker.rs.gz",
+      "matches_package": true
+    },
+    "src/runtime/task/core.rs": {
+      "sha256": "7c896dec6ef10054ed2b8049a2b35667eae348615c162a46d1ceb9181fc71b5c",
+      "retained": "tokio-src-runtime-task-core.rs.gz",
+      "matches_package": true
+    },
+    "src/macros/cfg.rs": {
+      "sha256": "07c26bad8a45322fb89df498dd22e1d7a083761155a579d73370510af13a15be",
+      "retained": "tokio-src-macros-cfg.rs.gz",
+      "matches_package": true
+    },
+    "Cargo.toml": {
+      "sha256": "e0194904acf8d55946b949cacca2b266051bb2a99844c606829fb0159c39cfb1",
+      "retained": "tokio-Cargo.toml.gz",
+      "matches_package": true
+    }
+  }
+}
