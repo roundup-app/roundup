@@ -61,6 +61,12 @@ class Lints(unittest.TestCase):
                     self.assertIn(path, output)
                     self.assertIn('1001', output)
 
+    def test_t3797a_size_cap_without_staging(self):
+        self.write('existing.any', 'x\n' * 1000)
+        self.commit()
+        (self.root / 'existing.any').write_text('x\n' * 1001)
+        self.assertIn('1001', self.scan('size', 1))
+
     def test_t3797a_size_cap_generated_predicate(self):
         for path, prefix in [('vendor/local.txt', ''), ('a.lock.backup', ''), ('x-lock.json', ''),
                              ('Package.resolved', ''), ('code.any', '// @generated\n'),
