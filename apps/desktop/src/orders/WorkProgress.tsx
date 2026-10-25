@@ -53,9 +53,11 @@ const ProgressContent = (props: { id: string }) => {
 
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [cause, setCause] = createSignal("");
+  const [diagnostic, setDiagnostic] = createSignal("");
   const [failures, setFailures] = createSignal<Record<string, string>>({});
   const [dismissedRead, setDismissedRead] = createSignal<Read>();
   const [resumeFailure, setResumeFailure] = createSignal<"failed" | "unknown" | null>(null);
+  const resumeMessage = () => resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? cause() : undefined;
   let wasPresent = rail.nodes.some(node => node.id === props.id);
   createEffect(() => {
     if (rail.failure() !== null) return;
@@ -168,7 +170,8 @@ const ProgressContent = (props: { id: string }) => {
 
       if (!disposed) {
         setResumeFailure(outcome);
-        setCause(thrown instanceof RpcError ? `${copy.rpcFailure(thrown.code)} ${thrown.message}` : thrown instanceof Error ? thrown.message : "");
+        setCause(thrown instanceof RpcError ? copy.rpcFailure(thrown.code) : copy.rpcFailure(0));
+        setDiagnostic(thrown instanceof Error ? thrown.message : "");
         setPhase(outcome);
       }
     } finally {
@@ -222,7 +225,7 @@ const ProgressContent = (props: { id: string }) => {
           <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable"><Icon name="x" />{copy.progressUnavailable}</span></Show>
         </p>
         <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
-        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{note.cause} {note.action}</p>}</For>
+        <For each={noteOf(result, plan)}>{(note) => <div class="progress-note" role="note"><p>{note.cause}</p><p>{note.action}</p></div>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
         <ReservedLine message={failures()[result.report.report]}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => clearReport(result.report.report)}><Icon name="x" /></IconButton></ReservedLine>
@@ -253,7 +256,7 @@ const ProgressContent = (props: { id: string }) => {
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() === "unknown" ? `${copy.resumeUnknown} ${cause()}` : resumeFailure() === "failed" ? copy.resumeFailed(cause()) : null}
+              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() ? `${resumeMessage()}\n${diagnostic()}` : null} content={resumeMessage()}
                 status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null}><Show when={resumeFailure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>

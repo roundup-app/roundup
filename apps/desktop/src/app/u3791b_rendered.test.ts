@@ -69,12 +69,12 @@ it("u3791b_rendered_failure_keeps_explicit_recovery", async () => {
     await capture("before");
     await evaluate(`window.__fake.app.handlers['message.resumeWork'] = async () => { const {RpcError} = await import('/src/app/seam.ts'); throw new RpcError(-32002, 'diagnostic remains exactly as supplied'); }`);
     await browser("click", ".progress-head button");
-    await wait("document.querySelector('.progress-status')?.textContent.includes('remains exactly as supplied')");
+    await wait("document.querySelector('.progress-status')?.title.includes('remains exactly as supplied')");
     expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'message.resumeWork').length")).toBe(1);
     await capture("refused");
     await evaluate(`window.__fake.app.handlers['message.resumeWork'] = async () => { const {RpcError} = await import('/src/app/seam.ts'); throw new RpcError(-32006, 'refused; choose again'); }`);
     await browser("click", ".progress-head button");
-    await wait("document.querySelector('.progress-status')?.textContent.includes('choose again')");
+    await wait("document.querySelector('.progress-status')?.title.includes('choose again')");
     expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'message.resumeWork').length")).toBe(2);
     await capture("unknown");
   } finally {

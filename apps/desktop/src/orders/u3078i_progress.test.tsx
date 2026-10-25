@@ -211,19 +211,19 @@ it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progr
 
   const view = within(section);
   fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-  await view.findByText(/Agent stopped; start it again/);
+  await view.findByRole("alert", { name: /Agent stopped; start it again/ });
 
   if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Clear error" }));
   else {
     const reply = gate<ResumeWork>();
     app.handlers["message.resumeWork"] = () => reply.promise;
     fireEvent.click(view.getByRole("button", { name: "Try resuming again" }));
-    expect(view.getByText(/Agent stopped; start it again/)).toBeTruthy();
+    expect(view.getByRole("alert", { name: /Agent stopped; start it again/ })).toBeTruthy();
     reply.resolve({ decision: { id: "d1", request: "r", actions: ["action-login"], message: 7 }, reconciliation: seeded.plan });
     await view.findByText("Resumed: the Agent has the unfinished work.");
   }
 
-  expect(view.queryByText(/Agent stopped; start it again/)).toBeNull();
+  expect(view.queryByRole("alert", { name: /Agent stopped; start it again/ })).toBeNull();
 });
 
 it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_lifetime_work_progress_read: %s", async transition => {

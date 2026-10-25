@@ -34,5 +34,5 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
 export const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
   if (thrown.cause === unsupportedImage) return thrown.message;
 
-  return copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
+  return copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} — ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
 };
