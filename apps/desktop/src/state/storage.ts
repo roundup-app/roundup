@@ -10,8 +10,10 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
   const restore = (): Restore<T> => {
     let value: string | null;
 
-    try { value = window.localStorage.getItem(key); } catch {
-      return { status: "failed", cause: "unreadable" };
+    for (let attempt = 0; ; attempt += 1) {
+      try { value = window.localStorage.getItem(key); break; } catch {
+        if (attempt === 1) return { status: "failed", cause: "unreadable" };
+      }
     }
 
     if (value === null) return { status: "missing" };
@@ -28,12 +30,14 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
   return {
     restore,
     clear: (): string | null => {
-      try {
-        window.localStorage.removeItem(key);
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          window.localStorage.removeItem(key);
 
-        return null;
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
+          return null;
+        } catch (error) {
+          if (attempt === 1) return error instanceof Error ? error.message : String(error);
+        }
       }
     },
     read: (): T | null => {
@@ -42,12 +46,21 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
       return result.status === "restored" ? result.value : null;
     },
     write: (value: T): string | null => {
-      try {
-        window.localStorage.setItem(key, JSON.stringify(value));
+      // Serialize once: both synchronous foreign calls replace the exact same state.
+      let captured: string;
 
-        return null;
-      } catch (error) {
+      try { captured = JSON.stringify(value); } catch (error) {
         return error instanceof Error ? error.message : String(error);
+      }
+
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          window.localStorage.setItem(key, captured);
+
+          return null;
+        } catch (error) {
+          if (attempt === 1) return error instanceof Error ? error.message : String(error);
+        }
       }
     },
   };

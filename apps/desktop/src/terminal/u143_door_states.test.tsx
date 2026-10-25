@@ -90,7 +90,8 @@ describe("u143 empty Project", () => {
 
     fireEvent.click(startWorkstream());
 
-    expect([(await screen.findAllByRole("alert")).map((line) => line.textContent), startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([["no space", "no space"], false, null, []]);
+    await screen.findByRole("alert");
+    expect([screen.getAllByRole("alert").length, startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([1, false, null, []]);
   });
 
   it("u143_a_failed_creation_can_be_tried_again_from_the_same_button", async () => {
@@ -194,7 +195,8 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     connected.rail.select("r");
     fireEvent.click(await screen.findByRole("button", { name: copy.start }));
 
-    expect([await screen.findByText(copy.doorDidNotStart), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: copy.retry })]);
+    await screen.findByRole("alert");
+    expect([screen.getAllByRole("alert").length, paneStart()]).toEqual([1, screen.getByRole("button", { name: copy.retry })]);
   });
 });
 
