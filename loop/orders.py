@@ -29,9 +29,45 @@ AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 GH_TIMEOUT = 120
 
 
+# The longest a rate-limited call waits for the quota to come back.
+RATE_WAIT_CAP = 300
+RATE_LIMITED = re.compile(r'API rate limit exceeded|secondary rate limit', re.I)
+# A secondary limit leaves the hourly quota untouched, so there is no reset to wait for.
+SECONDARY_WAIT = 60
+
+
+def rate_wait(stderr):
+    """Seconds, at most RATE_WAIT_CAP, to wait before a call that `stderr` shows was rate limited: a `Retry-After` hint
+    in it, else the time to the hourly quota's reset (`gh api rate_limit` costs none), else SECONDARY_WAIT when quota remains."""
+    if hint := re.search(r'retry[- ]after:?\s*(\d+)', stderr, re.I):
+        return min(int(hint[1]), RATE_WAIT_CAP)
+    core = json.loads(subprocess.run(['gh', 'api', 'rate_limit'], check=True, text=True, stdout=subprocess.PIPE,
+                                     timeout=60).stdout)['resources']['core']
+    if core['remaining'] > 0:
+        return SECONDARY_WAIT
+    return min(max(core['reset'] - time.time(), 1), RATE_WAIT_CAP)
+
+
+def call(*args, timeout=60):
+    """`gh *args`'s stdout. A GitHub 5xx (`HTTP 5` in stderr) is retried twice after 2 s then 5 s, and a rate limit once
+    after `rate_wait` seconds; any other failure, or a second rate limit, raises at once, stderr re-emitted."""
+    pauses, limited = [2, 5], False
+    while True:
+        run = subprocess.run(['gh', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        if run.returncode == 0:
+            return run.stdout
+        sys.stderr.write(run.stderr)
+        if RATE_LIMITED.search(run.stderr) and not limited:
+            limited = True
+            time.sleep(rate_wait(run.stderr))
+        elif 'HTTP 5' in run.stderr and pauses:
+            time.sleep(pauses.pop(0))
+        else:
+            run.check_returncode()
+
+
 def gh(*args):
-    return json.loads(subprocess.run(['gh', *args], check=True, text=True,
-                                   stdout=subprocess.PIPE, timeout=GH_TIMEOUT).stdout)
+    return json.loads(call(*args, timeout=GH_TIMEOUT))
 
 
 def created(item):
