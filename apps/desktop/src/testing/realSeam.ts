@@ -2,13 +2,13 @@ import { projectMenu } from "./menuProbe";
 import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
-import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
+import { INTERNAL_CODE, projectSchema, rpcFailureSchema, RpcError } from "../app/seam";
 import { probeMenu, probeQuestion } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
   v.object({ result: v.unknown() }),
-  v.object({ error: v.object({ code: v.number(), message: v.string() }) }),
+  v.object({ error: rpcFailureSchema }),
 ]);
 
 const openSchema = v.object({ project: projectSchema });
@@ -63,7 +63,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
       const outcome = v.parse(outcomeSchema, await response.json());
 
-      if ("error" in outcome) throw new RpcError(outcome.error.code, outcome.error.message);
+      if ("error" in outcome) throw new RpcError(outcome.error.code, outcome.error.message, outcome.error.data);
 
       // SAFETY: the Daemon's result for `method` is the generated contract type, as the Tauri adapter trusts it.
       return outcome.result as never;
@@ -112,9 +112,9 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           const response = await fetch(`${base}/__daemon/output?terminal=${encodeURIComponent(id)}`, { signal: current.signal });
 
           if (!response.ok || !response.body) {
-            const failure = v.safeParse(v.object({ error: v.object({ code: v.number(), message: v.string() }) }), await response.json().catch(() => null));
+            const failure = v.safeParse(v.object({ error: rpcFailureSchema }), await response.json().catch(() => null));
 
-            throw failure.success ? new RpcError(failure.output.error.code, failure.output.error.message) : new RpcError(INTERNAL_CODE, `terminal output answered ${response.status}`);
+            throw failure.success ? new RpcError(failure.output.error.code, failure.output.error.message, failure.output.error.data) : new RpcError(INTERNAL_CODE, `terminal output answered ${response.status}`);
           }
 
           if (current.signal.aborted) return;

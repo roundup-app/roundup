@@ -94,6 +94,8 @@ WORK_ORDER = re.compile(r'\AWork order: \S+/issues/(\d+)')
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
+# A passed `pre` this old with no `review` status means its review run died; younger, the review run may be starting.
+STRANDED = 600
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
 CAUSES = {
     'check': FAILED,
@@ -111,16 +113,7 @@ CAUSES = {
 }
 
 
-def call(*args):
-    """`gh *args`'s stdout. A GitHub 5xx (`HTTP 5` in stderr) is retried twice after 2 s then 5 s; any other failure raises at once, stderr re-emitted."""
-    for pause in (2, 5, None):
-        run = subprocess.run(['gh', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
-        if run.returncode == 0:
-            return run.stdout
-        sys.stderr.write(run.stderr)
-        if pause is None or 'HTTP 5' not in run.stderr:
-            run.check_returncode()
-        time.sleep(pause)
+call = orders.call
 
 
 def comment(number, body):
@@ -761,10 +754,28 @@ def rerun_review(pr, run):
     if state['status'] != 'completed':
         return
     if state['attempt'] >= RERUNS:
-        flag(pr, f"The run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
-                 'limit or a setup failure. Rerun it from that page once it can work.')
+        flag(pr, f"The run {state['url']} used its {RERUNS} attempts and the PR's head still has no finished review or critic "
+                 'verdict: a usage limit or a setup failure. Rerun it from that page once it can work.')
         return
     call('run', 'rerun', run)
+
+
+def stranded(prs, now):
+    """(pr, `pre` run id) for each ready same-repository PR whose head passed `pre` at least STRANDED seconds ago and
+    that has no `review` status, or, when it changes `apps/desktop/src/`, no `critic` status, with no run going on the
+    head: its review or critic run died before it posted. Rerunning that `pre` run starts them again; a rerun of the
+    review or critic run itself replays the old event and is skipped."""
+    found = []
+    for pr in prs:
+        if pr['isDraft'] or pr['isCrossRepository'] or pr['headRefName'].startswith('dependabot/') or running(pr):
+            continue
+        checks = pr.get('statusCheckRollup') or []
+        passed = [check for check in checks if check.get('name') == 'pre' and check.get('conclusion') == 'SUCCESS'
+                  and orders.created(check['completedAt']) <= now - STRANDED]
+        contexts = {check['context'] for check in checks if check.get('context')}
+        if passed and ('review' not in contexts or ('critic' not in contexts and touches_desktop(pr['number']))):
+            found.append((pr['number'], re.search(r'/runs/(\d+)', passed[0]['detailsUrl'])[1]))
+    return found
 
 
 def pick(most):
@@ -773,8 +784,9 @@ def pick(most):
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
     taken, free = codex_slots(most, fixing())
-    queued = fix_prs()
-    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken):
+    due = repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken)
+    queued = fix_prs() if due else set()
+    for pr, head, cause in due:
         if pr in queued:
             print(f'Fix for PR #{pr} ({cause}) waits: a fix run for it is already live.', file=sys.stderr)
             continue
@@ -783,7 +795,12 @@ def pick(most):
             continue
         dispatch_fix(pr, head, cause)
         free -= 1
-    for pr, run in unreviewed(prs):
+    try:
+        reruns = unreviewed(prs) + stranded(prs, time.time())
+    except subprocess.CalledProcessError as error:  # reading a PR's files must not stop the build matrix
+        print(f'::error::Finding review runs to rerun failed: {error}', file=sys.stderr)
+        reruns = unreviewed(prs)
+    for pr, run in reruns:
         try:
             rerun_review(pr, run)
         except subprocess.CalledProcessError as error:  # one PR's rerun or ask must not stop the build matrix
