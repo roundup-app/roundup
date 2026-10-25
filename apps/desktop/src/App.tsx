@@ -57,8 +57,8 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
-const daemonExitText = ({ code }: DaemonExit): string =>
-  copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
+  recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -72,6 +72,7 @@ const Connection = (props: {
   now: Accessor<number>;
   drafts: ReturnType<typeof createProjectDrafts>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
+  onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
   active: () => boolean;
@@ -86,9 +87,19 @@ const Connection = (props: {
   const { path } = first.project;
   let mine: ConnectedProject | Error | undefined;
 
-  const [connected] = createResource(async () => {
+  const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
+      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
+
+      if (props.tab()?.generation !== generation) {
+        next.stopTerminalScheme();
+
+        return mine;
+      }
+
+      props.onRecovered(path, generation);
+
+      return next;
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -97,7 +108,12 @@ const Connection = (props: {
   });
 
   createEffect(() => {
-    mine = connected();
+    const next = connected.latest;
+
+    // A failed replacement keeps the last valid content while the native owner retries.
+    if (next instanceof Error && props.tab()?.exit) return;
+
+    mine = next;
 
     if (mine) props.onConnected(path, mine);
   });
@@ -245,8 +261,8 @@ export const App = (props: {
       return next;
     });
 
-  // A reopen replaces the Daemon, so its connection is made whole again under a new key.
-  const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
+  // Keep the last connection visible until its replacement has finished setup.
+  const keys = createMemo(() => projects.tabs().map((tab) => tab.project.path));
 
   const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
   let renameRevision = 0;
@@ -366,7 +382,7 @@ export const App = (props: {
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} viewing={() => projects.active() === key.split("\n")[0] && visible() && focused()} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -410,7 +426,7 @@ export const App = (props: {
         rail={
           <>
             <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
-              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
+              <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>

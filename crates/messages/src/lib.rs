@@ -1120,8 +1120,8 @@ fn reconcile_into(
     };
     if let Some(through) = through.filter(|_| {
         matches!(
-            step::retirement_event(retiring, step::restart_event(reserved, Event::Exit)),
-            Event::Exit
+            step::retirement_event(retiring, step::restart_event(reserved, Event::ReceiverExit)),
+            Event::ReceiverExit
         )
     }) {
         // B8: a Message written and not confirmed waits for the Agent to be resumed.

@@ -1,3 +1,4 @@
+import { boundedTestTimeoutRule } from "./web-timeout/rule.mjs";
 import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirmation.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
@@ -25,6 +26,7 @@ import { requireSafetyCommentForTypeAssertionRule } from "./rules/require-safety
 const antiSlopPlugin = eslintCompatPlugin({
 	meta: { name: "anti-slop" },
 	rules: {
+        "bounded-test-timeout": boundedTestTimeoutRule,
         "no-tooltip-bypass": noTooltipBypassRule,
         "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
 		"no-array-filter-map": noArrayFilterMapRule,

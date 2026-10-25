@@ -61,5 +61,10 @@ async fn r3696c_forty_workstreams_avoid_temporary_node_copies() {
         "forty Workstreams: {} allocations",
         stats.allocations
     );
+    assert!(
+        stats.bytes_allocated <= 150_000,
+        "forty Workstreams: {} allocated bytes",
+        stats.bytes_allocated
+    );
     std::hint::black_box(reply);
 }
