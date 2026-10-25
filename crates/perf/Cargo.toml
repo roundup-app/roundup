@@ -28,3 +28,7 @@ workspace = true
 [[bin]]
 name = "perf-presentation"
 path = "src/presentation.rs"
+
+[[bin]]
+name = "perf-idle"
+path = "src/idle_run.rs"
