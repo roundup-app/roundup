@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, Show, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import "./capture.styles.css";
 
@@ -66,13 +67,12 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <Show when={failure() ?? state()?.failure}>
-      <p class="ink capture-native-failure" data-tone="red" role="alert">{failure() ?? state()?.failure}</p>
+    <ReservedLine message={failure() ?? state()?.failure}>
       <Show when={state()?.retention}><button data-button="quiet" onClick={() => {
           const current = state();
 
           if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
-    </Show>
+    </ReservedLine>
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
