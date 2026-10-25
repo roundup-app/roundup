@@ -68,7 +68,7 @@ textarea.app-listbox-note {
   font: inherit;
   color: var(--text);
   background-color: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
   field-sizing: content;
   max-height: var(--order-field-max-height);

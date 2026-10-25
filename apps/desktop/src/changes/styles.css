@@ -105,7 +105,7 @@
 .diff-header .diff-actions { flex: none; }
 .note-form input { appearance: textfield; cursor: pointer; box-sizing: border-box; min-height: var(--space-5); border: 0; border-radius: 0; padding: var(--space-1) var(--space-2); font: inherit; color: var(--grey); background: var(--ground); }
 .note-form input:hover { color: var(--text); }
-.note-form input:active { color: var(--ink-pressed); transition-duration: 0s; }
+.note-form input:active { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
 .note-form .app-tabs-trigger[data-selected] { --button-surface: transparent; color: var(--text); }
 .note-form .app-tabs-trigger { color: var(--grey); }
 .note-form .app-tabs-content { padding-inline: 0; }
