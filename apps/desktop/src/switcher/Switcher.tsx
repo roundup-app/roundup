@@ -46,15 +46,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   let chosenPane = false;
   let chosenTerminal: string | null = null;
+
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
     finalFocusEl: () => chosenPane
-      ? document.querySelector<HTMLElement>(chosenTerminal
-        ? `[data-bubble="${chosenTerminal}"] textarea`
-        : '.thread[data-mode="thread"] .thread-composer textarea:not(:disabled), .pane-screen textarea, .pane-screen [tabindex]')
+      ? chosenTerminal
+        ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
+        : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+          ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")
       : null,
     onOpenChange: details => { if (!details.open) close(true); },
   }));
