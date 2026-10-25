@@ -1,6 +1,6 @@
 # UI: late panes and Terminals preserve the user's newer focus choice
 
-Module: `apps/desktop`. Ids: U3756a, U3756b, U3756c, U3756d. Work Issue: #3756. Terms: Project, Workstream, Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Journey stages: Enter and Intervene. This is implementation acceptance; this specification alone changes no App behavior (policy).
+Module: `apps/desktop`. Ids: U3756a, U3756b, U3756c, U3756d, U4011. Work Issues: #3756, #4011. Terms: Project, Workstream, Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Journey stages: Enter and Intervene. This is implementation acceptance; this specification alone changes no App behavior (policy).
 
 ## Focus rule and scope
 
@@ -31,3 +31,15 @@ Policy: the implementation moves these numbered Checks, with no regression to a 
 1. D2: Token type and spacing; `docs/design-system.md`, heading “The checks”, and `apps/desktop/src/testing/checks.ts`, function `runChecks`.
 2. D5: readable Terminal and failure text; same heading and function.
 3. D6: reachable controls and feedback while focus remains with the user's newer surface; same heading and function.
+
+## Workstream creation keeps selection separate from focus
+
+**U4011 a new Workstream is selected after an intervening press.** Given an open Project and a successful `rail.createWorkstream` reply whose Workstream is not yet in `rail.tree`, when the user clicks either an empty Rail area or the Ask bar before the normal tree refresh reveals that Workstream, then its new row becomes selected and `rail.startDoor` is called exactly once for that Workstream, with no second creation call. Neither selection nor the supervisor Terminal becoming ready moves focus into that Terminal. In the Ask-bar case, the exact Ask input remains focused, and a marker typed after Terminal readiness appears only in that input, with no `terminal.write` call. Test: planned parameterized `u4011_new_workstream_selection_preserves_newer_focus` in `apps/desktop/src/bubbles/u2742_browser.test.ts`, mounting the actual App with the production emulator and existing fake App seam. Assert the selected row identity, creation/start call identities and counts, focus and typed input after both the row and the Terminal are ready; a test ending at row appearance does not prove the focus clause.
+
+Policy: these two presses choose no other Rail row. They revoke the pending Terminal focus move, not the requested Workstream selection or supervisor start. A later explicit selection of another Workstream or Agent retains the focus rule above. With no intervening user action, normal initial Terminal focus remains U3756d's acceptance. Keep creation/start failure recovery and explicit Terminal activation unchanged. The implementation belongs to the Enter journey stage: creating a Workstream must leave its row selected and its supervisor reachable while respecting the user's newer input focus.
+
+Policy: control the ordinary successful create/tree/start/Terminal-readiness ordering through the existing App seam; inject no RPC failure for U4011's behavioral proof. Use the production focus permission, never a test double of its policy, and wait on observed replies/readiness rather than a fixed delay. Reuse the isolated headless agent-browser session and fresh-profile setup; never connect to the user's browser. No new RPC, App seam command, focus helper or domain term is required. When editing the test file, remove redundant tests as AGENTS.md rule 10 requires and name the surviving proof or retired scenario on #4011.
+
+Policy: P3's gate asks whether routine supervisor arrival interrupts the user; its observer is focus and Terminal write identity through Terminal readiness. P11's gate asks whether that arrival changes the user's unfinished Ask; its observer is the exact focused Ask input and typed marker. Preserve all existing U3756a–d acceptance. This specification changes no App behavior and requires no capture itself.
+
+Policy: implementation renders both U4011 cases at 1512×950 in dark through the existing harness, using `tree-40` and keeping failure text from a rejected call visible on the densest seed for the design observation. Run `just capture U4011`; leave before/after PNGs, Check readings and the interaction recording under `artifacts/ux/U4011/` as `.agents/data/harness.md`, heading “Captures”, requires; never commit PNGs or videos. The numbered Checks 1–3 above apply without weakening any Check passing on main; only Tokens are used. This observes Chromium/webview behavior; the user reports what they meet on the Mac.
