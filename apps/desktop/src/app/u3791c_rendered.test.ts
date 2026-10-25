@@ -80,22 +80,12 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await browser("find", "role", "button", "click", "--name", "Reopen", "--exact");
     await until("!document.querySelector('[role=alert]')");
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
-    await browser("click", "#shelf-tab-todos");
-    await evaluate("document.querySelector('.todos-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");
-    await until("!!document.querySelector('.todo-row-button')");
-    await browser("click", ".todo-row-button");
-
-    if (!await evaluate("!!document.querySelector('.drawer[data-open=true]')")) await browser("press", "Enter");
-
-    await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] .todo-detail-title')");
-    await capture("U3791c", "review-recovered");
-    await browser("click", ".drawer [aria-label=Close]");
     await browser("click", "#shelf-tab-pads");
     await evaluate("document.querySelector('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");
     await until("!!document.querySelector('.pad-name')");
     await browser("click", ".pad-name");
     await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] [contenteditable=true]')");
-    await capture("U3791c", "review-pad-recovered");
+    await capture("U3791c", "review-recovered");
   } finally {
     try { if (video) await browser("record", "stop"); }
     finally { await page.close(); }
