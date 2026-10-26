@@ -186,3 +186,21 @@ it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore").map(c => c.params)).toEqual([{ operation: params.operation }]);
   expect(app.of("/a").calls.filter(call => call.method === "todo.deletion").map(c => c.params)).toEqual([{ operation: params.operation }, { operation: params.operation }]);
 });
+
+it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
+  const { app, remove, connections } = await mount();
+  await remove("/a", 5);
+  await waitFor(() => expect([connections.get("/a")!.drawer.content()]).toEqual([null]));
+  const { RpcError } = await import("../app/seam");
+  app.of("/a").handlers["todo.delete"] = () => { throw new RpcError(-32002, "Deletion refused. Check access."); };
+
+  await remove("/a", 7);
+  await screen.findAllByText("Deletion refused. Check access.");
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([
+    { operation: expect.any(String) },
+  ]));
+  expect(app.of("/a").calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([
+    { ids: [5], operation: expect.any(String) }, { ids: [7], operation: expect.any(String) },
+  ]);
+});
