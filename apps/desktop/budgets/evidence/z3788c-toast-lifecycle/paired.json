@@ -1,0 +1,44 @@
+{
+  "scenario": "Z3788c",
+  "scope": "Toast queue focus/visibility listener lifecycle only",
+  "base_revision": "07cdccb91",
+  "head_revision": "0c5095444883e64bcceb6513a54fbbfb5092732b",
+  "host": "Linux 6.17.0-1022-azure x64",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "gzip": "level 9; checkStartup recursively follows static manifest imports, counting/compressing each file once",
+  "base": {
+    "exit": 0,
+    "entry": "assets/index-CjlG7FEz.js",
+    "files": [
+      "assets/index-CjlG7FEz.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278342,
+    "gzip": 407406,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "head": {
+    "exit": 0,
+    "entry": "assets/index-ByucXsDV.js",
+    "files": [
+      "assets/index-ByucXsDV.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278428,
+    "gzip": 407473,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "mutation": "Removing owner cleanup calls the retired inFront capability once on both focus and visibilitychange; both cases fail. Production primitive cleanup passes. The same test checks early detachment after drain.",
+  "claims": "No Z3788a addon compatibility, memory, no-growth budget or native timing claim."
+}
