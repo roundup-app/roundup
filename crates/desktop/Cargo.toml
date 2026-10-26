@@ -26,6 +26,8 @@ serde_json.workspace = true
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-deep-link = "=2.6.2"
+tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }
 tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
 tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
 time = "0.3.55"

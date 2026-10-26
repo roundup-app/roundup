@@ -1,3 +1,8 @@
+import { PadDrawer } from "./pads/PadDrawer";
+import { TodoDrawer } from "./todos/TodoDrawer";
+import { usePadList } from "./rail/pads/padList";
+import { useTodoList } from "./todos/todoList";
+import type { LinkContent } from "@contracts/link/LinkContent";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
@@ -67,6 +72,15 @@ import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+
+const LinkedItem = (props: { content: LinkContent }) => {
+  const pads = usePadList();
+  const todos = useTodoList();
+  const content = props.content;
+  if (content.kind === "pad") return <PadDrawer name={content.id} heading={content.section?.heading} pads={pads.pads} onLateFailure={() => {}} />;
+  if (content.kind === "todo") return <TodoDrawer id={content.todo.id} todos={todos} />;
+  return null;
+};
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -315,6 +329,55 @@ export const App = (props: {
 
     return connection instanceof Error ? undefined : connection;
   };
+
+  const [linked, setLinked] = createSignal<{ path: string; content: LinkContent } | null>(null);
+  createEffect(() => {
+    const target = linked();
+    const open = target && connectionOf(target.path);
+    if (!target || !open) return;
+    const content = target.content;
+    projects.select(target.path);
+    open.settingsView.close();
+    if (content.kind === "agent" || content.kind === "workstream") open.rail.select(content.id);
+    else if (content.kind === "terminal") {
+      const owner = open.rail.nodes.find(node => node.terminal_id === content.id)?.id
+        ?? open.rail.terminals().find(terminal => terminal.id === content.id)?.owner;
+      if (owner) open.rail.select(owner);
+    } else if (content.kind === "pad" || content.kind === "todo") {
+      open.drawer.open(() => <LinkedItem content={content} />, "key");
+    }
+    setLinked(null);
+  });
+
+  onMount(() => {
+    let stopped = false;
+    let release: (() => void) | undefined;
+    let pending = Promise.resolve();
+    void props.app.onNativeOpen?.(request => {
+      pending = pending.then(async () => {
+        if (stopped) return;
+        if (request.kind === "project") { await projects.open(request.path); return; }
+        // Only link.read parses and authorizes the URL. A foreign Project cannot resolve
+        // a same-named object; unopened Projects are never discovered from filesystem names.
+        const listed = await props.app.projects();
+        const failures: string[] = [];
+        for (const project of listed.filter(project => project.running)) {
+          try {
+            const content = await props.app.forProject(project.path).rpc("link.read", { url: request.url });
+            if (content.kind === "deliverable") throw new Error("This published link cannot be opened here. Open it from Results.");
+            setLinked({ path: project.path, content });
+            setWindowFailure(null);
+            return;
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            failures.push(error.message);
+          }
+        }
+        setWindowFailure(failures.join("; ") || "The link's Project is not open. Open that Project and try the link again.");
+      }).catch(error => { if (!(error instanceof Error)) throw error; setWindowFailure(error.message); });
+    }).then(stop => { if (stopped) stop(); else release = stop; }).catch(error => setWindowFailure(String(error)));
+    onCleanup(() => { stopped = true; release?.(); });
+  });
 
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {

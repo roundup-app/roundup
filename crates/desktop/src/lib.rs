@@ -4,6 +4,7 @@ mod config;
 mod daemon;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
+mod launch;
 mod menu;
 mod open;
 mod paste;
@@ -29,6 +30,9 @@ pub fn build<R: Runtime>(
     project_dir: Option<PathBuf>,
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
+    let builder = builder
+        .plugin(tauri_plugin_deep_link::init())
+        .manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_vendor = "apple")]
     let builder = native::register_capture(builder.plugin(native::plugin()));
     #[cfg(feature = "idle-perf")]
@@ -56,6 +60,7 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
+            launch::listen(app.handle())?;
             #[cfg(target_vendor = "apple")]
             native::watch_accent(app.handle().clone());
             let state = app.state::<AppState>();
@@ -66,9 +71,9 @@ pub fn build<R: Runtime>(
                 ),
             }
             tauri::async_runtime::block_on(state.restore(app.handle()));
-            if let Some(project_dir) = project_dir
+            if let Some(ref project_dir) = project_dir
                 && let Err(err) =
-                    tauri::async_runtime::block_on(state.open_project(app.handle(), &project_dir))
+                    tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
             {
                 // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
                 eprintln!(
@@ -77,12 +82,21 @@ pub fn build<R: Runtime>(
                 );
                 exit(app.handle(), 1);
             }
+            if let Some(path) = project_dir {
+                launch::deliver(
+                    app.handle(),
+                    launch::NativeOpen::Project {
+                        path: path.to_string_lossy().into_owned(),
+                    },
+                );
+            }
             Ok(())
         })
 }
 
 fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
+        launch::native_open,
         system_accent,
         projects,
         open_project,
@@ -138,10 +152,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let project_dir = std::env::args_os()
         .nth(1)
+        .filter(|argument| !argument.to_string_lossy().contains("://"))
         .map(std::path::absolute)
         .transpose()?;
     build(
-        tauri::Builder::default(),
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(launch::second_launch)),
         config,
         project_dir,
         |app, code| app.exit(code),
