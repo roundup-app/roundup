@@ -97,7 +97,7 @@ it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions"
   const { connected } = await mount();
 
   if (view === "resources") {
-    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(false);
+    expect(projectMenu.items.find(item => item.id === "view:resources")).toBeUndefined();
     connected().rail.select("a0");
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
@@ -339,9 +339,10 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 });
 
 
-it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
+it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:C")?.enabled).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id))).toBe(false));
+  expect(projectMenu.items.every(item => item.enabled)).toBe(true);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");

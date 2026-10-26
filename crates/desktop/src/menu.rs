@@ -359,6 +359,45 @@ mod tests {
         }
     }
     #[test]
+    fn u4278a_native_separators_split_action_groups() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        select_project_menu(
+            app.handle().clone(),
+            Some("/A".to_owned()),
+            Some(vec![
+                item("view:notes", "Recover notes", None, None),
+                item("action:leader:C", "Review changes", Some("⌘K C"), None),
+                item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
+                item("action:chord:⌘T", "New Terminal", Some("⌘T"), None),
+                item("action:leader:T", "Capture a Todo", Some("⌘K T"), None),
+                item("action:chord:⇧⌘N", "New Agent with a prompt", Some("⇧⌘N"), None),
+                item("action:leader:P", "Switch Project", Some("⌘K P"), None),
+                item("action:leader:J", "Jump to what needs you", Some("⌘K J"), None),
+                item("action:leader:I", "Open the Inbox", Some("⌘K I"), None),
+                item("view:workstreams", "Open Workstreams", None, None),
+            ]),
+        ).unwrap();
+        let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap() else {
+            panic!("Project submenu");
+        };
+        let ids: Vec<_> = project.items().unwrap().into_iter().map(|entry| match entry {
+            MenuItemKind::MenuItem(entry) => entry.id().0.clone(),
+            MenuItemKind::Predefined(_) => "separator".to_owned(),
+            _ => panic!("Unexpected submenu"),
+        }).collect();
+        assert_eq!(ids, [
+            "action:chord:⌘N", "action:chord:⌘T", "action:leader:T", "action:chord:⇧⌘N",
+            "separator", "action:leader:P", "action:leader:J", "action:leader:I", "action:leader:C",
+            "separator", "view:notes", "view:workstreams", "separator", "import-work", "project-settings",
+        ]);
+    }
+
+    #[test]
     fn u2539b_native_menu_projects_the_task_chords() {
         use std::sync::Arc;
         use tauri::Listener;
