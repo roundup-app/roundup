@@ -53,6 +53,7 @@ class Land(unittest.TestCase):
                 push.land(bare, 'fix', ACCOUNT)
             self.assertEqual(git(bare, 'ls-tree', '--name-only', 'fix').split(), ['run.txt', 'shared.txt', 'theirs.txt'])
             self.assertEqual(git(bare, 'log', '-1', '--format=%an %P', 'fix').count(' '), 2)
+            self.assertIn('Author-Agent: builder-', git(bare, 'log', '-1', '--format=%B', 'fix'))
 
     def test_l23_a_moved_head_that_conflicts_fails_loudly_and_pushes_nothing(self):
         with tempfile.TemporaryDirectory() as path:
