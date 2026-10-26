@@ -45,8 +45,17 @@ export type UpdateStage =
 
 const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: style, layout and paint recording together; not compositor, not presentation";
 
+export type LayerAction = { panel: "drawer" | "shelf"; source: "synthetic-pointer" | "synthetic-key"; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
+
 export type FrameReport = {
   probe: "roundup-frame-recorder";
+  /** App-driver facts are absent from recorder-only harness runs; they confer no native qualification. */
+  observer?: {
+    viewport: { width: number; height: number; device_pixel_ratio: number };
+    shelf_mode: string;
+    layer_actions: LayerAction[];
+    native_qualification: string;
+  };
   workload: string;
   refresh_hz: number;
   period_ms: number;
