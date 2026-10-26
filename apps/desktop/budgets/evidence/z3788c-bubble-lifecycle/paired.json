@@ -1,0 +1,38 @@
+{
+  "base": {
+    "files": [
+      "assets/CopyButton-DcJrub12.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js",
+      "assets/index-DtVZbThs.js"
+    ],
+    "raw": 1279302,
+    "gzip": 407588
+  },
+  "head": {
+    "files": [
+      "assets/CopyButton-DcJrub12.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js",
+      "assets/index-t1_kJpxD.js"
+    ],
+    "raw": 1279306,
+    "gzip": 407627
+  },
+  "scenario": "Z3788c",
+  "scope": "Bubble observer and pointer listener lifetime",
+  "base_revision": "4f0447b87e2b2a8bd7b99e3d000db3e8cb4e43a3",
+  "head_revision": "0829cc932482618839e45ab56e4341abb4454279",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "gzip": "Python gzip.compress level 9, mtime 0; recursively reachable manifest static imports, each file counted once",
+  "ceiling": 437814
+}
