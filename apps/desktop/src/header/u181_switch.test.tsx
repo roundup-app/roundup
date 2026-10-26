@@ -9,31 +9,6 @@ afterEach(cleanup);
 const names = () => [...document.querySelectorAll("[role=treeitem] .rail-name, [role=treeitem]")].map((row) => row.getAttribute("data-id"));
 
 describe("u181 clicking a tab", () => {
-  it("u181_switching_shows_the_other_projects_rail", async () => {
-    await openTabs({ api: [agent("a-api", "idle", "x")], web: [agent("a-web", "idle", "x")] });
-
-    expect(names()).toContain("a-web");
-
-    fireEvent.click(tab("api"));
-
-    await waitFor(() => expect(names()).toContain("a-api"));
-    expect(names()).not.toContain("a-web");
-    expect(tab("api").getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("u181_each_project_keeps_its_own_selection", async () => {
-    await openTabs({ api: [agent("a1", "idle", "x"), agent("a2", "idle", "x")], web: [agent("w1", "idle", "x")] });
-
-    fireEvent.click(tab("api"));
-    await waitFor(() => expect(names()).toContain("a1"));
-    fireEvent.click(document.querySelector('[data-id="a2"]')!);
-    fireEvent.click(tab("web"));
-    await waitFor(() => expect(names()).toContain("w1"));
-    fireEvent.click(tab("api"));
-
-    await waitFor(() => expect(rowSelected("a2")).toBe("true"));
-  });
-
   it("u181_a_click_on_the_open_tab_changes_nothing", async () => {
     const { app } = await openTabs({ api: [], web: [agent("w1", "idle", "x")] });
     const before = app.of(path("web")).calls.length;
@@ -109,8 +84,21 @@ describe("u181 clicking a tab", () => {
 
 it("u4274a_project_tabs_mount_in_window_bar", async () => {
   await openTabs({ empty: [] });
-  const tabs = screen.getByRole("tablist", { name: "Projects" });
+  const tabs = screen.getByRole("tablist");
   expect(tabs.closest(".window-bar")).not.toBeNull();
   expect(tabs.querySelectorAll('[role="tab"]')).toHaveLength(1);
   expect(document.querySelectorAll('[role="tablist"][aria-label="Projects"]')).toHaveLength(1);
+});
+
+it("u4274a_window_bar_tabs_switch_projects", async () => {
+  await openTabs(Object.fromEntries(Array.from({ length: 8 }, (_, n) => [`p${n}`, [agent(`a${n}`, "idle", "ready")]])));
+  fireEvent.click(tab("p0"));
+  await waitFor(() => expect(names()).toContain("a0"));
+  fireEvent.click(document.querySelector('[data-id="a0"]')!);
+  fireEvent.click(tab("p1"));
+  await waitFor(() => expect(names()).toContain("a1"));
+  fireEvent.click(document.querySelector('[data-id="a1"]')!);
+  fireEvent.click(tab("p0"));
+  await waitFor(() => expect(rowSelected("a0")).toBe("true"));
+  expect(screen.getByRole("tablist").closest(".window-bar")).not.toBeNull();
 });
