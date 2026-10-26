@@ -34,6 +34,7 @@ const clearButton = () => screen.getByRole<HTMLButtonElement>("button", { name: 
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
 beforeEach(() => vi.stubGlobal("ResizeObserver", class {
   observe() {}
+  unobserve() {}
   disconnect() {}
 }));
 
