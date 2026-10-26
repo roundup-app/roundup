@@ -495,8 +495,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
       await once(recording, "exit");
       execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", join(frames, "frames.txt"), "-fps_mode", "vfr", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", join(directory, `${name}.webm`)]);
       rmSync(frames, { recursive: true });
-      // Close each run's fixture before starting the next recording.
-      await browser("close");
+      // openShelf navigates to a fresh fixture; the file hook closes its isolated browser.
     }
   }
 });
