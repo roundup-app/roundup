@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -298,8 +297,7 @@ describe("u17 Todo detail", () => {
     };
 
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    await questionDialog();
-    await answerQuestion(true);
+    await waitFor(() => expect(callsTo(app, "todo.delete")).toHaveLength(1));
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
     await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());
 
