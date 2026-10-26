@@ -434,7 +434,7 @@ impl<R: Runtime> Builder<R> {
         Self::default()
     }
 
-    /// Add a shortcut to be registerd.
+    /// Add a shortcut to be registered.
     pub fn with_shortcut<T>(mut self, shortcut: T) -> Result<Self>
     where
         T: TryInto<ShortcutWrapper>,
@@ -444,7 +444,7 @@ impl<R: Runtime> Builder<R> {
         Ok(self)
     }
 
-    /// Add multiple shortcuts to be registerd.
+    /// Add multiple shortcuts to be registered.
     pub fn with_shortcuts<S, T>(mut self, shortcuts: S) -> Result<Self>
     where
         S: IntoIterator<Item = T>,
