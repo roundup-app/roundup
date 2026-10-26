@@ -36,7 +36,8 @@ const interrupted = async (mode: "replace" | "document") => {
   await waitFor(async () => expect((await served.rpc("message.progress", { project: real.dir, id: worker.id })).results.length).toBeGreaterThan(5), { timeout: 30_000 });
 
   const open = async () => {
-    const view = render(() => <App app={createServedApp(real.base)} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    const app = createServedApp(real.base);
+    const view = render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
     const row = await waitFor(() => {
       const found = [...document.querySelectorAll(".name")].find((each) => each.textContent === "Login");
@@ -88,6 +89,7 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     expect(await run.messages()).toBe(before.messages + 1);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
+    cleanup();
     await run.real.stop();
   }
 }, 300_000);
@@ -109,6 +111,7 @@ it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
     expect(sent.length).toBe(1);
     expect(sent[0]?.body).toContain("Prepare the diagram");
   } finally {
+    cleanup();
     await run.real.stop();
   }
 }, 300_000);
@@ -129,6 +132,7 @@ it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
     expect(await run.messages()).toBe(before.messages);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
+    cleanup();
     await run.real.stop();
   }
 }, 300_000);
