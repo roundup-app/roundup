@@ -721,7 +721,7 @@ export const copy = {
   reactionDatePlaceholder: "2026-10-21",
   reactionTimePlaceholder: "09:00",
   reactionOffsetPlaceholder: "+01:00",
-  reactionRepositoryPlaceholder: "owner/name",
+  reactionRepositoryPlaceholder: "github.com/owner/name",
   reactionPreviewActor: "Authorized by you, from the App",
   reactionsEmpty: "No named reactions yet",
   reactionCreate: "New reaction",

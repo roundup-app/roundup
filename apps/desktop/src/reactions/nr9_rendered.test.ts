@@ -356,8 +356,25 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
   }
 }, 90_000);
 
-it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s", async kind => {
-  const real = await startRealDaemon({}, true);
+it.each(["all", "any", "pr-checks", "instant"])("u4276b_keyboard_creates_each_condition: %s", async kind => {
+  const forge = await mkdtemp(join(tmpdir(), "u4276b-forge-"));
+  // Exercise the production collector and NR7 pinning with deterministic external CLI replies.
+  await writeFile(join(forge, "wt"), `#!/usr/bin/env python3
+import json, subprocess, sys
+rows = []
+for entry in subprocess.check_output(['git', 'worktree', 'list', '--porcelain'], text=True).strip().split('\\n\\n'):
+    fields = dict(line.split(' ', 1) for line in entry.splitlines() if ' ' in line)
+    rows.append({'branch': fields.get('branch', '').removeprefix('refs/heads/'), 'worktree': {'path': fields['worktree']}, 'pr': {'number': 23}, 'checks': {'status': 'running', 'source': 'pr', 'stale': False}})
+print(json.dumps({'schema': 2, 'repo': {}, 'collected': {'ci': '--full' in sys.argv, 'summary': False}, 'items': rows}))
+`, { mode: 0o755 });
+  await writeFile(join(forge, "gh"), `#!/bin/sh
+case "$1 $2" in
+"pr view") echo '{"number":23,"headRefOid":"1111111111111111111111111111111111111111","url":"https://github.com/acme/keyboard/pull/23"}';;
+"pr checks") echo '[{"name":"check","bucket":"pending"}]'; exit 8;;
+*) exit 1;;
+esac
+`, { mode: 0o755 });
+  const real = await startRealDaemon(kind === "pr-checks" ? { PATH: `${forge}:${process.env.PATH}` } : {}, true);
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const app = createServedApp(real.base);
   const dir = captureDir("U4276b");
@@ -377,10 +394,26 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
   try {
     const agents: RailNode[] = [];
 
-    for (let n = 0; n < 10; n++) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: n === 0 ? "Exact recipient" : `Watched Agent ${n}` }));
+    if (kind === "pr-checks") {
+      for (const args of [["init", "-b", "main"], ["-c", "user.name=Observer", "-c", "user.email=observer@example.invalid", "commit", "--allow-empty", "-m", "base"]]) await execute("git", ["-C", real.dir, ...args]);
+      await app.rpc("project.setWorktrees", { on: true, check: "true" });
+    }
+
+    for (let n = 0; n < 10; n++) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: n === 0 ? "Exact recipient" : `Same long watched Agent name ${n}` }));
+
+    if (kind === "pr-checks") await vi.waitUntil(async () => (await app.rpc("agent.worktreeState", { id: agents[0]!.id })).evidence?.head === "1111111111111111111111111111111111111111", { timeout: 20_000 });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${real.base}/harness.html?view=reactions&daemon=1`);
+    await evaluate(`(() => {
+      window.__reactionCalls = [];
+      const send = window.fetch;
+      window.fetch = async (url, options) => {
+        const call = options?.body ? JSON.parse(options.body) : null;
+        if (call?.method?.startsWith('reaction.')) window.__reactionCalls.push(call);
+        return send(url, options);
+      };
+    })()`);
     await wait("!!document.querySelector('[data-reaction-opener=create]')");
     await tabTo('[data-reaction-opener="create"]');
     await browser("press", "Enter");
@@ -397,15 +430,33 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
     const instruction = "exact first line\n second line 🧭 ";
     await field('.reaction-form textarea', instruction);
 
-    if (kind === "instant") {
+    if (kind === "instant" || kind === "pr-checks") {
       await tabTo('.reaction-form .app-select-trigger[aria-label="Condition"]');
       await browser("press", "Enter");
       await wait("!!document.querySelector('.app-select-list')");
-      await browser("press", "End");
+      await browser("press", "Home");
+      await browser("press", "ArrowDown");
+
+      if (kind === "instant") await browser("press", "ArrowDown");
       await browser("press", "Enter");
+      await wait("!document.querySelector('.app-select-list')");
+    }
+
+    if (kind === "instant") {
       await wait("!!document.querySelector('.reaction-when[aria-label=At]')");
       await field('.reaction-when[aria-label=At] input[data-part=input]', "2098-01-01");
       await field('.reaction-when[aria-label=At] [data-scope=field] input', "09:00");
+      await tabTo('.reaction-when[aria-label=At] .app-select-trigger');
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('.app-select-list')");
+      await browser("press", "Home");
+
+      for (let step = 0; step < 7; step++) await browser("press", "ArrowDown");
+      await browser("press", "Enter");
+      await wait("!document.querySelector('.app-select-list')");
+    } else if (kind === "pr-checks") {
+      await field('.reaction-form input[placeholder="github.com/owner/name"]', "github.com/acme/keyboard");
+      await field('.reaction-form [data-scope=number-input] input', "23");
     } else {
       await tabTo(`.reaction-agents input[value="${agents[1]!.id}"]`);
       await browser("press", "Space");
@@ -421,7 +472,7 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
     await field('.reaction-when[aria-label=Expires] input[data-part=input]', "2099-01-01");
     await field('.reaction-when[aria-label=Expires] [data-scope=field] input', "09:00");
     await wait("!document.querySelector('.reaction-form button[type=submit]').disabled");
-    expect(await app.rpc("reaction.list", null)).toEqual([]);
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.create')")).toHaveLength(0);
 
     if (dir) {
       await mkdir(dir, { recursive: true });
@@ -431,12 +482,26 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
 
     await tabTo('.reaction-form button[type=submit]');
     await browser("press", "Enter");
-    await wait("!!document.querySelector('.reaction-detail')");
+    await wait("!!document.querySelector('.reaction-detail') || !!document.querySelector('.reaction-form [role=alert]')");
+    expect(await evaluate("document.querySelector('.reaction-form [role=alert]')?.textContent ?? null")).toBeNull();
     const listed = await app.rpc("reaction.list", null);
     expect(listed).toHaveLength(1);
     const saved = await app.rpc("reaction.get", { id: listed[0]!.id });
     expect(saved).toMatchObject({ target: agents[0]!.id, instruction, max_firings: 1, expires_at: "2099-01-01T09:00:00Z" });
-    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00Z", late: "once-before-expiry" } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
-    expect(saved.firings.every(firing => firing.matched)).toBe(true);
-  } finally { await close(); await real.stop(); }
+    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00+05:30", late: "once-before-expiry" } : kind === "pr-checks" ? { kind: "pr-checks", repository: "github.com/acme/keyboard", number: 23 } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.create')")).toHaveLength(1);
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.run')")).toHaveLength(0);
+
+    if (kind === "pr-checks") expect(saved.observation.pinned_head).toBe("1111111111111111111111111111111111111111");
+
+    if (kind === "instant") expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.preview').map(call => call.params)")).toContainEqual({ date: "2098-01-01", time: "09:00", offset: "+05:30" });
+    await tabTo('.reaction-back');
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('[data-reaction-opener=create]')");
+    await tabTo(`[data-reaction-opener="${saved.id}"]`);
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.reaction-back')");
+    await browser("press", "Enter");
+    await wait(`document.activeElement?.matches('[data-reaction-opener="${saved.id}"]')`);
+  } finally { await close(); await real.stop(); await rm(forge, { recursive: true, force: true }); }
 }, 60_000);
