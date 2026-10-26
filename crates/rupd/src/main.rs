@@ -55,7 +55,8 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
     }
     let listener = UnixListener::bind(&path)?;
     // Keep open/bound relative to async entry so existing startup logs stay comparable.
-    eprintln!(
+    let _ = writeln!(
+        io::stderr(),
         "rupd: runtime_ms {runtime_ms:.6}\nrupd: serving {} on {} (open {:.2} ms, bound {:.2} ms)",
         project.display(),
         path.display(),
