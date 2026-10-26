@@ -3,7 +3,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import { ExitButton } from "../ui/IconButton";
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, lazy, onCleanup, Show, Suspense, type Accessor } from "solid-js";
 import * as v from "valibot";
 import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
@@ -13,12 +13,20 @@ import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
-import { Form as Fields } from "../ui/Form";
 import { Combobox } from "../ui/Combobox";
 import { RadioGroup } from "../ui/RadioGroup";
 import { Select } from "../ui/Select";
 import { reactionCopy } from "../copy/reactions";
 import "./styles.css";
+
+// Keep the creation-only Ark controls out of the production startup graph (R3800).
+const Fields = {
+  Text: lazy(() => import("../ui/Form").then(module => ({ default: module.Form.Text }))),
+  Group: lazy(() => import("../ui/Form").then(module => ({ default: module.Form.Group }))),
+  Date: lazy(() => import("../ui/Form").then(module => ({ default: module.Form.Date }))),
+  Number: lazy(() => import("../ui/Form").then(module => ({ default: module.Form.Number }))),
+  Checks: lazy(() => import("../ui/Form").then(module => ({ default: module.Form.Checks }))),
+};
 
 const destination = { surface: "reactions", object: "create", recipient: null };
 
@@ -170,14 +178,14 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
   return <section class="reactions" aria-label={copy.reactions}>
     <Show when={view().kind === "create"}>
-      <ReactionForm onDone={(created, reveal) => {
+      <Suspense><ReactionForm onDone={(created, reveal) => {
         setMade(created);
 
         if (reveal) {
           setView({ kind: "detail", id: created.id });
           queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
         }
-      }} onCancel={back} />
+      }} onCancel={back} /></Suspense>
     </Show>
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
