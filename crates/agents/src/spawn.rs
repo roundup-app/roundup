@@ -146,6 +146,7 @@ impl Agents {
                 let mut runs = self.shared.runs();
                 if runs.get(&id).is_some_and(|slot| slot.attempt() == attempt) {
                     runs.remove(&id);
+                    self.shared.events.observed.notify_waiters();
                     if rail.node(&id)?.worktree.is_none() {
                         report_undo("remove the Agent from the Rail", rail.remove(&id));
                     }
