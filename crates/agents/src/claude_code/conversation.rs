@@ -84,13 +84,28 @@ impl Launcher {
         if !is_uuid(id) {
             return Err(RpcError::internal("invalid saved conversation id"));
         }
-        let cwd = cwd.canonicalize().map_err(|err| io_error(cwd, err))?;
-        let project = super::discovery::encoded(&cwd);
-        Ok(self
-            .conversation_dir
-            .join("projects")
-            .join(project)
-            .join(format!("{id}.jsonl")))
+        let _ = cwd;
+        self.storage_path(serde_json::json!({"op":"resolve", "sessionId":id}))
+    }
+
+    fn storage_path(&self, request: Value) -> Result<PathBuf, RpcError> {
+        self.sidecar.as_ref().ok_or_else(|| RpcError::not_found(
+            "roundup's bundled Node runtime was not found; reinstall roundup (or set ROUNDUP_SIDECAR_DIR)"
+        ))?.path(&self.conversation_dir, request)
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn path_for_test(&self, cwd: &Path, id: &str) -> Result<PathBuf, RpcError> {
+        self.conversation_path(cwd, id)
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn save_for_test(&self, cwd: &Path, id: &str, bytes: &[u8]) -> Result<PathBuf, RpcError> {
+        let path = self.storage_path(
+            serde_json::json!({"op":"destination", "sessionId":id, "dir":cwd, "prepare":true}),
+        )?;
+        std::fs::write(&path, bytes).map_err(|error| io_error(&path, error))?;
+        Ok(path)
     }
 
     #[cfg(test)]
@@ -281,7 +296,9 @@ impl Launcher {
             &hex[16..20],
             &hex[20..]
         );
-        let path = self.conversation_path(cwd, &id)?;
+        let path = self.storage_path(
+            serde_json::json!({"op":"destination", "sessionId":id, "dir":cwd, "prepare":true}),
+        )?;
         if path.try_exists().map_err(|err| io_error(&path, err))? {
             return Err(RpcError::conflict(
                 "retained conversation destination exists",
@@ -596,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn a35_the_original_conversation_is_untouched() {
+    fn u4251c_retained_copy_is_sdk_readable() {
         let dir = tempfile::tempdir().unwrap();
         let launcher = Launcher::new(
             "unused",
@@ -605,13 +622,20 @@ mod tests {
             None,
         );
         let original = "12345678-1234-4234-8234-123456789abc";
-        let path = launcher.conversation_path(dir.path(), original).unwrap();
+        let path = dir
+            .path()
+            .join("projects/historical-location")
+            .join(format!("{original}.jsonl"));
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let mark = format!(
             "{{\"sessionId\":\"{original}\",\"message\":\"at Mark\"}}\n{{\"type\":\"system\"}}\n"
         );
         let before = format!("{mark}{{\"message\":\"after mark\"}}\n");
         std::fs::write(&path, &before).unwrap();
+        assert_eq!(
+            launcher.record_conversation(dir.path(), original).unwrap(),
+            before.as_bytes()
+        );
         let id = launcher
             .copy_conversation(dir.path(), mark.as_bytes())
             .unwrap();
