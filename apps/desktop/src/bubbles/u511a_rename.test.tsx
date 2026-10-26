@@ -577,7 +577,7 @@ it("u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision", asy
   expect(drafts.list()).toEqual([b]);
 });
 
-it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_recovered_editor_when_original_ends_%s", async unavailable => {
+it.each(["stopped", "removed", "last-removed", "replaced"] as const)("u3021c_bubbles_closes_recovered_editor_when_original_ends_%s", async unavailable => {
   const { drafts, a, b, open, setListed, app, connected } = await selectedBubbles();
 
   open(a.revision);
@@ -585,13 +585,21 @@ it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_reco
   fireEvent.input(field()!, { target: { value: "  unsent edit 雪  " } });
   const before = drafts.list();
 
-  setListed(unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
+  setListed(unavailable === "last-removed" ? [] : unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
     : TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal,
       running: unavailable !== "stopped", incarnation: unavailable === "replaced" ? "replacement" : terminal.incarnation } : terminal));
   app.emit(event({ name: "terminal.changed" }));
   await waitFor(() => expect(field()).toBeNull());
   expect(drafts.list()).toEqual(before);
   expect(drafts.list()).toContainEqual(b);
+
+  if (unavailable === "last-removed") {
+    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · Terminal name" }));
+    const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+
+    expect(within(recovery).getByText("Original object unavailable")).toBeDefined();
+    expect(within(recovery).getByText("  unsent edit 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  }
 
   if (unavailable === "replaced") {
     await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")!.incarnation).toBe("replacement"));
