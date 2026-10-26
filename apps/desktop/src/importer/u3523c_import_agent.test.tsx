@@ -33,6 +33,8 @@ it("u3523d_listed_candidates_require_user_confirm", async () => {
   render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
   fireEvent.click(screen.getByRole("button", { name: "Start import Agent" }));
   await waitFor(() => expect(connected.importing.listingAgent()).toBe("importer"));
+  // start() releases the controls after its draft persistence acknowledges the launch.
+  await waitFor(() => expect(connected.importing.starting()).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   fireEvent.click(await screen.findByRole("checkbox", { name: /Listed work/ }));
   expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);

@@ -59,6 +59,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [prompt, setPromptSignal] = createSignal(saved?.prompt ?? DEFAULT_PROMPT);
   const [listingAgent, setListingAgent] = createSignal<string | undefined>(saved?.agent);
   const [starting, setStarting] = createSignal(false);
+  const [startFailure, setStartFailure] = createSignal<string | null>(null);
   const [open, setOpen] = createSignal(saved?.open ?? false);
   const [period, setPeriodSignal] = createSignal<ImportPeriod>(saved?.period ?? "week");
   const [selected, setSelected] = createSignal<ReadonlyMap<string, { revision: string; title: string }>>(new Map(saved?.selected.map((entry) => [entry.source, entry]) ?? []));
@@ -241,20 +242,20 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   };
 
   return {
-    prompt, listingAgent, starting,
+    prompt, listingAgent, starting, startFailure,
     setPrompt: (text: string) => { setPromptSignal(text);
 
       return persist(); },
     start: async () => {
       if (starting() || pending()) return;
-      setStarting(true); setFailure(null); invalidate(); setLoading(false);
+      setStarting(true); setStartFailure(null); setFailure(null); invalidate(); setLoading(false);
       const text = prompt();
       const submittedRevision = draftRevision;
 
       if (submittedRevision) await drafts?.submit(submittedRevision);
 
       try {
-        const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: "Import" });
+        const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: copy.importAgentName });
 
         if (submittedRevision) drafts?.settle(submittedRevision, "acknowledged");
 
@@ -267,7 +268,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         await persist();
       } catch (error) {
         if (submittedRevision) drafts?.settle(submittedRevision, outcomeOf(error));
-        setFailure(error instanceof Error ? error.message : String(error));
+        setStartFailure(error instanceof Error ? error.message : String(error));
       } finally { setStarting(false); }
     },
     open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure, restoreFailure, choices, hasConflict,
