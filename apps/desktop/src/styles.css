@@ -335,6 +335,17 @@ p {
   transition: none;
 }
 
+/* The visible leading edge dismisses on press, before the moving surface leaves the pointer. */
+.drawer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--space-4);
+  cursor: pointer;
+}
+
 .drawer-close {
   position: absolute;
   top: var(--space-2);
