@@ -210,6 +210,7 @@ impl<R: Runtime> WindowExt for Window<R> {
         let _restoring_window_lock = restoring_window_state.0.lock().unwrap();
         let cache = self.state::<WindowStateCache>();
         let mut c = cache.0.lock().unwrap();
+        let mut fullscreen = false;
 
         if let Some(state) = c
             .get(label)
@@ -278,9 +279,7 @@ impl<R: Runtime> WindowExt for Window<R> {
                 self.maximize()?;
             }
 
-            if flags.contains(StateFlags::FULLSCREEN) {
-                self.set_fullscreen(state.fullscreen)?;
-            }
+            fullscreen = flags.contains(StateFlags::FULLSCREEN) && state.fullscreen;
         } else {
             let mut metadata = WindowState {
                 scale: self.scale_factor()?,
@@ -323,6 +322,10 @@ impl<R: Runtime> WindowExt for Window<R> {
             self.emit("window-state-restored", ())?;
             self.show()?;
             self.set_focus()?;
+            // AppKit ignores a fullscreen request on a hidden window, so enter it once shown.
+            if fullscreen {
+                self.set_fullscreen(true)?;
+            }
         }
 
         Ok(())
