@@ -187,7 +187,13 @@ pub fn register_capture<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
                     CapturePanel::new(app.clone(), WebviewUrl::App("index.html".into()))
                         .and_then(|panel| panel.release())
             {
-                eprintln!("desktop: could not release Capture panel: {error}");
+                let cause = match error.as_str() {
+                    "Capture panel integration is not registered" => {
+                        "panel integration is not registered"
+                    }
+                    _ => "native panel dispatch failed",
+                };
+                log::warn!(target: "roundup::shell", "release Capture panel: {cause}");
             }
         })
         .build();
@@ -271,7 +277,7 @@ fn replace_binding<R: Runtime>(app: &AppHandle<R>, chord: Option<&str>) -> Resul
                         .is_some_and(|main| main.is_focused().unwrap_or(false))
                     && let Err(error) = app.emit_to("main", "capture-requested", ())
                 {
-                    eprintln!("desktop: could not request Capture: {error}");
+                    crate::diagnostic("request Capture", &error);
                 }
             })
             .map_err(|e| format!("Could not register quick-add: {e}. Choose another shortcut."))?;

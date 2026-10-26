@@ -53,7 +53,7 @@ pub fn watch_accent<R: Runtime>(app: AppHandle<R>) {
     };
     let block = RcBlock::new(move |_notification: NonNull<NSNotification>| {
         if let Err(error) = app.emit("system-accent", system_accent()) {
-            eprintln!("desktop: system accent delivery failed: {error}");
+            crate::diagnostic("deliver system accent", &error);
         }
     });
     // SAFETY: AppKit posts this notification on the main thread; the block owns its App handle.

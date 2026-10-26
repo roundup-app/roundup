@@ -1,0 +1,36 @@
+{
+  "base": {
+    "files": [
+      "assets/CopyButton-DcJrub12.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/index-t1_kJpxD.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js"
+    ],
+    "raw": 1279306,
+    "gzip": 407627
+  },
+  "head": {
+    "files": [
+      "assets/CopyButton-DcJrub12.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/index-DIXT6ANn.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js"
+    ],
+    "raw": 1279804,
+    "gzip": 407831
+  },
+  "base_revision": "3707a2c4e",
+  "head_source": "8961c7a08",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "gzip": "Python gzip.compress level 9 mtime 0; recursive manifest static imports counted once",
+  "ceiling": 437814,
+  "base_equivalent_app_revision": "a8912caabbcc030532a946473b924974d782632c"
+}
