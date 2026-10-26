@@ -1,11 +1,10 @@
-import { followMaterial } from "./app/material";
 import { StorageRecovery } from "./app/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
-import { createTauriApp } from "./app/tauri";
+import { createTauriApp, followMaterial } from "./app/tauri";
 import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
