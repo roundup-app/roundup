@@ -1,14 +1,487 @@
 {
-  "head": "cc28e989a61b9143576a5a32bb3076d65f98a093",
-  "result": "incomplete",
-  "validation": {
-    "lint-web": "pass",
-    "lint-rust": "pass",
-    "focused_lifetime_and_keyboard": "14 passed",
-    "typecheck": "pass",
-    "failure_screen": "all design Checks pass"
+  "result": "pass",
+  "testedCommit": "4802e2ee9",
+  "sourceTree": "9a583e7615e657a5587d37138a825ee1189e5e5e",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "isolated headless agent-browser, fresh profile; documented native input stream; glyph-centred hit testing",
+  "selected": "tokens",
+  "todo": "1",
+  "cycles": [
+    {
+      "name": "pointer-reserved-1-run1",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 7337,
+          "left": 970.0748291015624,
+          "from": 1512,
+          "destination": 952
+        },
+        {
+          "t": 7402.699999999953,
+          "left": 1300.9024658203125,
+          "from": 961.7582397460938,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-refused": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-reserved-1-run2",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 6953.300000000047,
+          "left": 1006.6405639648438,
+          "from": 1512,
+          "destination": 952
+        },
+        {
+          "t": 7019.800000000047,
+          "left": 1322.9140625,
+          "from": 983.5115966796876,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-reserved-1-run3",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 6935.5,
+          "left": 1052.10302734375,
+          "from": 1512,
+          "destination": 952
+        },
+        {
+          "t": 7001.59999999986,
+          "left": 1439.0723876953125,
+          "from": 1006.7236938476562,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-reserved-0.25-run1",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 6963.699999999953,
+          "left": 1227.5484619140625,
+          "from": 1512,
+          "destination": 952
+        },
+        {
+          "t": 7069.09999999986,
+          "left": 1386.9775390625,
+          "from": 1174.7916259765625,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-overlay-1-run1",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 7602.800000000047,
+          "left": 984.9976806640624,
+          "from": 1512,
+          "destination": 928
+        },
+        {
+          "t": 7664.699999999953,
+          "left": 1435.600830078125,
+          "from": 984.9976806640624,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-refused": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-overlay-1-run2",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 7650.699999999953,
+          "left": 984.7998046875,
+          "from": 1512,
+          "destination": 928
+        },
+        {
+          "t": 7732.800000000047,
+          "left": 1417.068115234375,
+          "from": 946.7874145507812,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-overlay-1-run3",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 7694.300000000047,
+          "left": 984.9630737304688,
+          "from": 1512,
+          "destination": 928
+        },
+        {
+          "t": 7771.899999999907,
+          "left": 1424.411376953125,
+          "from": 960.851318359375,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    {
+      "name": "pointer-overlay-0.25-run1",
+      "result": "pass",
+      "halfCrossings": [
+        {
+          "t": 7652.5,
+          "left": 1215.6209716796875,
+          "from": 1512,
+          "destination": 928
+        },
+        {
+          "t": 7808.700000000186,
+          "left": 1414.62255859375,
+          "from": 1113.6990966796875,
+          "destination": 1512
+        }
+      ],
+      "checks": {
+        "closed": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "-open": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    }
+  ],
+  "focusedTests": {
+    "passed": 14,
+    "failed": 0
   },
-  "remaining": "Complete trusted normal/quarter-speed pointer captures in both Shelf modes. The final native recording run failed on a missed half-crossing; earlier overlay runs revealed that recording resets stored widths. No complete both-mode rendered pass is claimed.",
-  "native_claim": "none",
-  "failed_run_log": "pointer-last-run.log"
+  "limitations": "Chromium behavior and appearance only; no native performance or displayed-FPS claim. #4244 retains its broader observer workload.",
+  "earlierAttempts": "contended/failures.json and its raw traces retain the concurrent-run misses."
 }

@@ -1,32 +1,7 @@
-(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
-  - import "../perf/idle" without a file extension (src/app/seam.ts:4:35). Add the file extension
-Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
-
- RUN  v5.0.3 /tmp/roundup-drawer/apps/desktop
-
-Chrome first start: 3938 ms
----------x------
-
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
-
- FAIL  src/drawer/u3010b_rendered.test.ts > u3010b_pointer_targets_remain_reachable_during_reversal
-Error: Error: missed half crossing
- ❯ src/drawer/u3010b_rendered.test.ts:409:35
-    407|         const result = await evaluate<{ done?: boolean; failure?: stri…
-    408|
-    409|         if (result.failure) throw new Error(result.failure);
-       |                                   ^
-    410|
-    411|         if (result.done) break;
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
-
-
- Test Files  1 failed (1)
-      Tests  1 failed | 15 skipped (16)
-   Start at  19:39:53
-   Duration  39.33s (tests 98%, environment 1%)
-
-undefined
-/tmp/roundup-drawer/apps/desktop:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/drawer/u3010b_rendered.test.ts -t pointer_targets --reporter=dot
+ROUNDUP_CAPTURES=U3010b pnpm --filter desktop exec vitest run src/drawer/u3010b_rendered.test.ts -t pointer_targets
+Exit: 0
+ ✓ src/drawer/u3010b_rendered.test.ts (19 tests | 15 skipped) 107029ms
+ Test Files  1 passed (1)
+      Tests  4 passed | 15 skipped (19)
+   Start at  20:54:40
+   Duration  116.34s (tests 99%)
