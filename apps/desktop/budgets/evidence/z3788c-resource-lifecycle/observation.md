@@ -2,9 +2,11 @@ Z3788c ResourceStrip visibility row, Linux/Chromium, 2026-10-26. Base `d330caaab
 
 | Observer | Result |
 | --- | --- |
-| ResourceStrip suite | 14 tests pass: cleanup/remount, polling pause/resume and serialization, original selection, stale responses and recoverable sampling failure. |
+| ResourceStrip suite | 14 tests pass: cleanup/remount, polling pause/resume and one in-flight call, original selection, stale responses and recoverable sampling failure. |
 | Cleanup mutation | Removing the original listener cleanup fails the new case: one visibility event reads the document twice, including the retired owner. The primitive version reads once; only the current owner resumes polling and disposal releases the final listener. |
 | Dark 1512×950 webview | Twelve paired screens on tree-40, agents-10 and conflict. Resources return after visibility change; a failed sample retains the numbers and displays Not updating. Every emitted Check passes, including D2/D5/D6. |
+| Real Daemon and continuity | Fresh A3564a passes. Repaired related execution also passes U166, U176 (all ten Agent-name/Rail draft cases), U177 and query reload/caret retention. |
+| Required lints | Both pass after the clean merge of main `33eaf811c`, including proofs, type checks and the zero-cycle observer. |
 | Input boundary | Six call journals contain zero terminal.write calls. |
 | Production entry closure | 407473 → 407463 gzip bytes, level 9, same host/build settings, recursive static imports counted once. Unchanged ceiling 437814 passes. |
 
@@ -15,3 +17,5 @@ Two duplicate tests were cut: `u444_a_missing_value_hides_with_its_icon` retains
 Reuse: installed event-listener 2.4.6 directly owns document cleanup. Its registry release is 2026-07-04. react-use 17.6.1 (2026-06-10) was considered; useEvent requires a React effect dispatcher and cannot bind a Solid owner. The native EventTarget installation/removal pair is deleted. No wrapper or dependency is added.
 
 This slice changes no layout, control, motion or draft owner. It completes only the ResourceStrip inventory row. Remaining Terminal addons, other lifecycle rows/storage probes and virtualization measurements stay on #3853. No native timing, addon byte/memory or full-wave completion claim is made. The user reports what they meet on the Mac.
+
+Initial related execution failed to launch its Daemon after the cold Cargo build: the fixture expects binaries in the checkout target/debug, while CARGO_TARGET_DIR pointed to the shared build. It left occupied test slots. This run stopped its own test processes, released their slots and linked the checkout debug directory to the built binaries. Fresh A3564a passes after that setup repair; no timeout or test changed. The repaired broad related run passed 58 completed files (702 tests) with no failures reported before this run stopped it at its time limit; no complete related-suite pass is claimed. CI judges the complete pushed head.
