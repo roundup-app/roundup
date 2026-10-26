@@ -20,7 +20,7 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
     return name !== missing;
   };
 
-  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf") };
+  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), keyShelf: press("keyShelf"), halfway: async (_panel, action) => action() };
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
@@ -37,7 +37,7 @@ describe("u3010g the frame recorder drives every workload", () => {
   it("u3010g_layers_perform_the_drawer_and_shelf_sequence_every_two_seconds", async () => {
     const log: [number, string][] = [];
     const start = Date.now();
-    const run = everyTwoSeconds(clock, layersCycle(layers(log), clock));
+    const run = everyTwoSeconds(clock, layersCycle(layers(log)));
 
     await vi.advanceTimersByTimeAsync(SAMPLE_MS);
 
@@ -46,26 +46,48 @@ describe("u3010g the frame recorder drives every workload", () => {
     const at = (name: string) => log.flatMap(([time, action]) => (action === name ? [time - start] : []));
 
     expect(at("escapeDrawer")).toHaveLength(15);
-    expect(at("toggleShelf")).toHaveLength(30);
+    expect(at("toggleShelf")).toHaveLength(45);
+    expect(at("keyShelf")).toHaveLength(15);
     // A cycle starts every two seconds, the Drawer then the Shelf: 0 s Drawer, 2 s Shelf, 4 s Drawer.
-    const starts = log.filter(([, action], index) => action === "toggleShelf" ? log[index - 1]?.[1] !== "toggleShelf" && log[index + 1]?.[1] === "toggleShelf" : action === "openDrawer" && log[index - 1]?.[1] !== "closeDrawer");
+    const starts = log.filter((_, index) => index % 4 === 0);
 
     expect(starts.slice(0, 3).map(([time, action]) => [time - start, action])).toEqual([[0, "openDrawer"], [2000, "toggleShelf"], [4000, "openDrawer"]]);
     expect(log.slice(0, 4).map(([, action]) => action)).toEqual(["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]);
+  });
+
+  it.each([0, 1])("u3010g_layers_wait_for_observed_displacement_before_reversing (%s)", async index => {
+    const log: [number, string][] = [];
+    let release: (done: boolean) => void = () => {};
+
+    const controls = layers(log);
+    controls.halfway = async (_panel, action) => action() && await new Promise<boolean>(resolve => { release = resolve; });
+    const run = layersCycle(controls)(index);
+
+    // Time alone cannot authorize a reversal: the geometry observer owns readiness.
+    await vi.advanceTimersByTimeAsync(399);
+    expect(log).toHaveLength(1);
+    release(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log).toHaveLength(2);
+    release(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log).toHaveLength(3);
+    release(false);
+    expect(await run).toBe(false);
+    expect(log).toHaveLength(3);
   });
 
   it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
     let open = [1, 2, 3, 4];
     let next = 5;
     const seen: string[] = [];
-    const counts: number[] = [];
 
     const todos: Todos = {
       open: async () => [...open],
       create: async () => (open.push(next++), seen.push("insert"), true),
       complete: async (id) => (open = open.filter((each) => each !== id), seen.push("complete"), true),
       toggleFold: async () => (seen.push("fold"), true),
-      reorder: async (id, before) => (open = [id, ...open.filter((each) => each !== id)], seen.push(`reorder ${id} before ${before}`), counts.push(open.length), true),
+      reorder: async (id, before) => (open = [id, ...open.filter((each) => each !== id)], seen.push(`reorder ${id} before ${before}`), true),
     };
 
     const run = everyTwoSeconds(clock, todosCycle(todos));
@@ -98,7 +120,7 @@ describe("u3010g the frame recorder drives every workload", () => {
   });
 
   it("u3010g_a_missing_target_leaves_the_run_invalid", async () => {
-    const run = everyTwoSeconds(clock, layersCycle(layers([], "closeDrawer"), clock));
+    const run = everyTwoSeconds(clock, layersCycle(layers([], "closeDrawer")));
 
     await vi.advanceTimersByTimeAsync(SAMPLE_MS);
 

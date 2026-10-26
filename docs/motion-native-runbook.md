@@ -55,3 +55,34 @@ Use the build and machine controls above. Start dragging during the ten-second w
 For the provisional installed dnd-kit candidate, retain three same-host reports, the commit and binary hashes, dependency versions and each failed command/exit. For the 10% regression check, alternate three base and three head runs. The base is main `a87bbeffc`; transfer only this head's `apps/desktop/src/perf/frame_run.ts` observer to a separate base checkout, retaining the base revision and observer-patch hash separately. The observer accepts the existing library drag marker as well as the new source marker, so both builds count actual gestures. Keep U3010d's thresholds and rule 7's 10% bound. Report presentation stages as unmeasured; scheduling evidence makes no displayed-frame claim. No Chromium result selects a WKWebView timing winner.
 
 In a normal App build of that same commit, also exercise a Rail, Todo and Pad drag, Escape, a small-travel click and keyboard reorder. With Tauri file handling enabled, drop two real files into a Terminal and verify their quoted absolute paths arrive once. A failed internal drag or lost/duplicate path rejects this candidate; a missing native observation leaves qualification incomplete. Retain #3551's Pragmatic failure as its disqualification, not as evidence about this pointer-based implementation.
+
+## Observer implementation status (#4244)
+
+Do not request another owner sequence from this partial observer. The three reports
+already returned at `95e2219df28a5483a869415f72ed64c557fa555b` stay retained,
+including their missing viewport and possibly disturbed Glyphs tail. They are
+historical scheduling evidence, with presentation unmeasured.
+
+The Layers driver samples displayed bounding boxes to reverse at the first
+observed crossing of half the remaining displacement to the requested destination.
+It refuses missing targets, absent displacement, a jump directly to the endpoint,
+and movement not observed within the existing 400 ms settling bound. Drawer
+open/close/reopen segments each wait for that observation, then Escape interrupts
+the reopening segment. Shelf closes/opens/closes at the same measured boundaries,
+then a synthetic key activation reopens it immediately. The report's `observer` retains the viewport, actual Shelf
+mode and layer segments (targets, timestamps, start/destination/observed positions
+and completion), with synthetic pointer/key sources named explicitly. These are
+page-driven actions and never trusted native gestures.
+
+Before #4244 can close, implement the pinned final tree-40 fixture and hash, verify
+its setup, restore the nested owner-grouped Todos between repeats, observe trusted
+pointer reorder, identify both Shelf cases and complete the measured live reduced
+motion variants through the existing preference owner. Current fixture preparation
+still uses the earlier flat rows; the new report explicitly marks native
+qualification incomplete. A scheduling pass alone does not complete that work.
+
+Before any new Mac request, #3013 also needs its separately scoped `crates/perf`
+stream/idle repair: qualify the exact batches and received bytes and stop the load
+before settled idle. This App change neither qualifies nor changes that producer.
+Keep the existing warmup/sample/idle windows, stream rate, scheduling thresholds,
+pairing, baselines and native permission unchanged.
