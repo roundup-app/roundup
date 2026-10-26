@@ -60,6 +60,32 @@ Given quick-add invoked from another App, when its native floating panel appears
 
 Policy: native traffic lights use Tauri's existing overlay titlebar and `trafficLightPosition`, with web content reserving their real hit area rather than drawing replacement buttons. Decorum is dropped by the platform comparison below. No haptics or `objc2-app-kit` dependency is required: no accepted control specifies tactile feedback. Repository-owned unsafe calls, including the existing `webkit_rate.rs` exception and any panel macro expansion requiring unsafe, move behind one small native integration crate with a safe interface; all other workspace crates forbid unsafe. Do not weaken the workspace lint or add another allow. Third-party crates' internals are outside this source restriction. The implementation audits the actual expanded integration and preserves the existing WebKit rate observer (policy/source review); test planned `u3787f_native_integration_keeps_safe_callers` exercises the safe interface on macOS.
 
+## Drawer deletion refusal (#4314)
+
+Extends U3787a for the Review stage: the user can understand why a different Todo cannot be deleted and recover the earlier action. Policy: retain the existing per-Project deletion/Undo owner and transactional Daemon contracts; do not queue a refused Delete, replace the retained operation, broaden its targets or introduce another recovery store. This specification changes no existing deletion, confirmation or undo requirement.
+
+**U3787g a different Drawer delete explains an unconfirmed deletion.** Given Todos 5 and 7 in one Project, when the user deletes Todo 5, its reply is lost and the subsequent `todo.deletion` read fails so its outcome remains unknown, then opens Todo 7's Drawer and activates Delete, then:
+
+- Visible action feedback associated with this attempted Delete explains that an earlier deletion is unconfirmed and directs the user to retry that earlier deletion. The existing recovery action is reachable by keyboard and pointer without closing Todo 7's Drawer. Todo 7's Drawer remains open with the same identity, exact unsubmitted text and focus on its Delete control; Todo 7 remains present and no `todo.delete` for it is sent. Test: planned `u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation`, through the rendered App and existing fake App seam.
+- When receipt reads recover and the user activates that recovery action, reconcile Todo 5 using its original Project, operation and captured ids; a retained successful receipt offers Undo for Todo 5 without another deletion. Recovery alone never deletes Todo 7. Only a new activation of Todo 7's Delete sends one deletion for `[7]` and, on acknowledgement, offers its own Undo under U3787a. Test: planned `u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete`, through the same App seam, asserting receipt identity and exact mutation calls.
+
+**U3787h a Drawer delete explains a restore in progress.** Given an acknowledged deletion of Todo 5 and Todo 7's Drawer open, when the user invokes Undo for Todo 5, holds the `todo.restore` reply pending, then activates Delete in Todo 7's Drawer, then:
+
+- Visible action feedback associated with the attempted Delete explains that restoration is in progress and directs the user to wait for it before trying Delete again. Todo 7's Drawer, identity, exact unsubmitted text and Delete focus remain; Todo 7 remains present. No deletion for Todo 7 or second restore is sent, and the retained restore still targets only Todo 5 in its original Project. Test: planned `u3787h_a_drawer_delete_explains_the_pending_restore`, through the rendered App and existing fake App seam with a controlled reply.
+- When the held restore succeeds, Todo 5 is restored under U3787a, the in-progress refusal ceases to apply and Todo 7 remains undeleted. Only a new Delete activation sends one deletion for `[7]`; its acknowledged deletion offers its own Undo. Test: planned `u3787h_restore_completion_requires_a_new_delete`, through the same App seam, asserting resulting Todo identities and exact mutation calls.
+
+Policy/observers: implement these named tests in the existing Todo test area, mounting the production App and Project-owned feedback rather than testing only a helper's boolean. Use controlled RPC outcomes and settlement signals, never fixed sleeps. Keep the existing `apps/desktop/src/todos/u3787a_delete_restore.test.tsx` tests `u3787a_lost_acknowledgement_reconciles_the_retained_operation` and `u3787a_unknown_retries_keep_the_captured_operation_key` as the lower-seam receipt/replay proofs; do not duplicate their assertions in new utility tests. No new backend behavior is requested.
+
+Applicable Gates and Observers (all rejection questions must answer no):
+
+| Check | Main source and heading/test | Gate and observer |
+|---|---|---|
+| 1 | `PRINCIPLES.md`, P3 Gate/Observer | Does refusal raise native attention, steal focus or report routine progress as needs-you? Observe feedback and focus in the named App tests; no bell or OS notification (policy). |
+| 2 | `PRINCIPLES.md`, P11 Gate/Observer; `scenarios/product-continuity.md`, Unfinished input | Does refusal/recovery alter exact unsubmitted text or its Project/object, or send a draft? Compare draft bytes, target identities and calls in the named App tests. |
+| 3 | `docs/design-system.md`, The checks, D2/D5/D6; `scenarios/ui-mac-expectations.md`, U3787a | Does feedback obscure its cause/recovery, lose keyboard access, or displace the retained deletion/restore? Behavioral tests assert recovery and identity; the rendered observer judges appearance. |
+
+Policy/rendered observer: during implementation, use isolated headless Chromium at 1512×950 in dark mode on `tree-40`, with Todo 5 and Todo 7 and the two controlled RPC cases above. Show full cause and recovery text on this dense seed, including long Unicode titles. Record D2/D5/D6 against `docs/design-system.md`, The checks, with no baseline-passing Check regressing; use Tokens only. Run `just capture U3787g U3787h` and leave before/head PNGs and interaction videos under `artifacts/ux/U3787g/` and `artifacts/ux/U3787h/`, never committed. Feedback is instant and nonmodal, without new motion. This specification-only change requires no UI capture or native Mac observation.
+
 ## Gates and observers
 
 These numbered checks cite existing holders on `origin/main`; planned `u3787*` tests above are added by implementation, never claimed present here.
