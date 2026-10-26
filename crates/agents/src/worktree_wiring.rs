@@ -389,17 +389,12 @@ mod tests {
         const ID: &str = "11111111-1111-4111-8111-111111111111";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let encoded: String = project
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        let bucket = dir.path().join("projects").join(encoded);
+        let bucket = dir.path().join("projects/historical");
         std::fs::create_dir_all(&bucket).unwrap();
         let file = bucket.join(format!("{ID}.jsonl"));
         let line = |ts: &str| {
             format!(
-                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\",\"message\":{{\"role\":\"user\",\"content\":\"Imported work\"}}}}\n",
                 project.join("src").display()
             )
         };
@@ -407,7 +402,7 @@ mod tests {
         let now = 1_792_411_200_000;
         let found = agents
             .launcher
-            .discover_recent(&project, now, 86_400_000)
+            .discover_recent(&project, &[], now, 86_400_000)
             .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
@@ -430,7 +425,7 @@ mod tests {
         // The refreshed preview imports once; a replay returns the same nodes.
         let found = agents
             .launcher
-            .discover_recent(&project, now, 86_400_000)
+            .discover_recent(&project, &[], now, 86_400_000)
             .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
@@ -445,10 +440,7 @@ mod tests {
                 .unwrap(),
             ids
         );
-        assert_eq!(
-            agents.shared.node(&ids.1).unwrap().name,
-            "Untitled conversation"
-        );
+        assert_eq!(agents.shared.node(&ids.1).unwrap().name, "Imported work");
     }
 
     #[tokio::test]
@@ -457,12 +449,7 @@ mod tests {
         const ID: &str = "22222222-2222-4222-8222-222222222222";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let encoded: String = project
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        let bucket = dir.path().join("projects").join(encoded);
+        let bucket = dir.path().join("projects/historical");
         std::fs::create_dir_all(&bucket).unwrap();
         let n = time::OffsetDateTime::now_utc();
         let ts = format!(
@@ -477,7 +464,7 @@ mod tests {
         std::fs::write(
             bucket.join(format!("{ID}.jsonl")),
             format!(
-                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\",\"message\":{{\"role\":\"user\",\"content\":\"Imported work\"}}}}\n",
                 project.join("src").display()
             ),
         )
