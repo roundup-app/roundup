@@ -15,7 +15,7 @@ const DEFAULT_PROMPT = copy.importDefaultPrompt;
 
 const PERIODS = ["day", "week", "month"] as const;
 
-const form = v.object({ prompt: v.optional(v.string()), agent: v.optional(v.string()), period: v.picklist(PERIODS), sources: v.array(v.string()), revisions: v.array(v.string()), titles: v.optional(v.array(v.string())), external: v.optional(v.boolean()) });
+const form = v.object({ prompt: v.exactOptional(v.string()), agent: v.exactOptional(v.string()), period: v.picklist(PERIODS), sources: v.array(v.string()), revisions: v.array(v.string()), titles: v.exactOptional(v.array(v.string())), external: v.exactOptional(v.boolean()) });
 
 const savedSchema = storageSchema("roundup:import", v.object({
   revision: v.optional(v.string()),
@@ -84,7 +84,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const hasConflict = () => choices().length > 1 && (choices().some(entry => entry.external) || choices().filter(entry => entry.status === "draft").length > 1);
 
   const value = () => {
-    const next: Record<string, string | boolean | string[]> = { prompt: prompt(), external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) };
+    const next: v.InferOutput<typeof form> = { prompt: prompt(), external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) };
     const agent = listingAgent();
 
     if (agent !== undefined) next.agent = agent;
@@ -121,7 +121,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         if (problem?.cause === "changed") await drafts?.retry();
       }
 
-      const external: Record<string, string | boolean | string[]> = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
+      const external: v.InferOutput<typeof form> = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
 
       if (saved.prompt !== undefined) external.prompt = saved.prompt;
 
