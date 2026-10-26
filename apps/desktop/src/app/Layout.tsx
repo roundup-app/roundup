@@ -28,6 +28,7 @@ export const Layout = (props: {
    * header/ consumes that context's List and Trigger without creating another Root.
    */
   tabs?: JSX.HTMLAttributes<HTMLDivElement>;
+  busy?: boolean;
   rail: JSX.Element;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -143,10 +144,10 @@ export const Layout = (props: {
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
-      <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
+      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section {...binding("centre")} class="centre" data-layout-panel="centre" aria-label={copy.centreRegion}>
+      <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>

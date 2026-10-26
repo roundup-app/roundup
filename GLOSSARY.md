@@ -969,3 +969,6 @@ The panel-only view of the main window's existing Capture owner. Typed snapshots
 one opening's session and acknowledged edit sequence; actions from a previous opening
 are refused. The main window alone owns draft storage, the captured Project/Home/owner,
 submission and acknowledged OS shortcut replacement. The panel starts no Project or Agent.
+
+**System accent** (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`):
+The macOS accent preference as normalized sRGB channels, or null when unavailable. The App receives its initial value and changes; Token-owned tones preserve contrast, and unavailable delivery restores Radix blue. It changes appearance only, never Kind or failure Ink.

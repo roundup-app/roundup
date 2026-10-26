@@ -39,8 +39,7 @@ case " $* " in
       printf '{"success":true,"data":{"result":{"blank":false,"viewport":{"width":%s,"height":%s},"boxes":{"rail":{"left":0,"right":120,"top":0,"bottom":%s,"width":120,"height":%s,"visible":true},"centre":{"left":%s,"right":%s,"top":%s,"bottom":%s,"width":%s,"height":%s,"visible":%s},"shelf":{"left":%s,"right":%s,"top":0,"bottom":%s,"width":132,"height":%s,"visible":true}},"overflow":%s,"drawer":%s,"closedDrawerVisible":%s}}}\n' "$width" "$height" "$height" "$height" "$centre_left" "$centre_right" "$centre_top" "$centre_height" "$centre_width" "$centre_height" "$centre_visible" "$((width - 132))" "$width" "$height" "$height" "$overflow" "$drawer" "$closed_visible"
     fi
     ;;
-  *" click "*"row-head"*) printf open > "$QA_SWEEP_DRAWER" ;;
-  *" click "*"pad-3"*) printf open > "$QA_SWEEP_DRAWER" ;;
+  *" press Enter"*) printf open > "$QA_SWEEP_DRAWER" ;;
   *" click "*".drawer .close"*) printf closed > "$QA_SWEEP_DRAWER" ;;
 esac
 BROWSER
@@ -59,8 +58,8 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   printf 'u453_sweep_uses_supported_viewports_passed\n'
   jq -e '.scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
   [[ $(grep -c ' screenshot ' "$QA_SWEEP_CALLS") == 6 ]]
-  grep -q 'click.*pad-3' "$QA_SWEEP_CALLS"
-  grep -q 'click.*Todos' "$QA_SWEEP_CALLS"
+  grep -q 'focus.*pad-3' "$QA_SWEEP_CALLS"
+  grep -q 'focus.*Todos' "$QA_SWEEP_CALLS"
   printf 'l52_two_viewports_and_each_drawer_passed\n'
   jq -e '.complete == true' "$record" >/dev/null
   printf 'l66_a_sweep_that_reaches_its_end_is_complete_passed\n'

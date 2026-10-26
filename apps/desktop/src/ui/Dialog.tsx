@@ -1,7 +1,7 @@
 import { captureFocus } from "../keys/focus";
 import { Portal } from "solid-js/web";
 import { createSlideLifetime } from "./slideLifetime";
-import { createReducedMotion } from "../app/reducedMotion";
+import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
 import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/solid/dialog";
 import { createComputed, createContext, createEffect, createSignal, Show, on, untrack, useContext, onCleanup, onMount, type Accessor } from "solid-js";
@@ -59,7 +59,7 @@ export const Dialog = {
     // U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades.
     onMount(() => onCleanup(trackFocusVisible()));
     const [present, setPresent] = createSignal(requested());
-    const reduced = window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true;
+    const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
     let wasOpen = false;
 
     createEffect(on(() => [requested(), reduced()] as const, ([open, reduce]) => {

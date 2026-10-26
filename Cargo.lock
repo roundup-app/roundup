@@ -1016,6 +1016,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-store",
+ "tauri-plugin-window-state",
  "tempfile",
  "time",
  "tokio",
@@ -3911,6 +3912,7 @@ dependencies = [
  "getrandom 0.3.4",
  "memchr",
  "messages",
+ "notify",
  "pads",
  "percent-encoding",
  "provenance",
@@ -5048,6 +5050,18 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+]
+
+[[package]]
+name = "tauri-plugin-window-state"
+version = "2.5.0"
+dependencies = [
+ "bitflags 2.13.2",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
