@@ -992,7 +992,7 @@ Validation: `pnpm install`, `just lint-web`, `just lint-rust` and `cargo nextest
 
 ## R4229 startup headroom
 
-Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.0: base `6db8b27bda83f7b3c21a1f6d6088156dbd1a90b4` = **437,808 gzip bytes** (1,388,635 raw); implementation `6c19d0a20767f73e8a2f0bdc3a12122aff71eb0a` = **422,146 gzip bytes** (1,329,400 raw), saving **15,662 bytes**. Both checkers exit 0 against the unchanged 437,814 ceiling. The later evidence-only commit changes no production input.
+Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.0: base `6db8b27bda83f7b3c21a1f6d6088156dbd1a90b4` = **437,808 gzip bytes** (1,388,635 raw); implementation `6c19d0a20767f73e8a2f0bdc3a12122aff71eb0a` = **422,146 gzip bytes** (1,329,400 raw), saving **15,662 bytes**. Both checkers exit 0 against the unchanged 437,814 ceiling. Later test/evidence commits change no production input.
 
 Measured moves: ImportPanel alone grew the closure by 1,491 to 439,299 (checker exit 1), so it was discarded. Deferring OrderDrawer at its three production callers saved 15,662 relative to base; a clean committed-head rebuild reproduced 422,146. Solid's existing `lazy` and native dynamic imports defer the Order editor and progress view until shown. Shared chunks remain counted: `index-BIzfQbNs.js`, `copy-CGbSrKPM.js`, `ReservedLine-BMsOCD5R.js`, `floating-ui.dom-vtOd0C_f.js` (all under `assets/`). No budget, observer, compression, dependency or bundler configuration changed; drag remains eager and Terminal remains lazy.
 
