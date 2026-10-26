@@ -1,6 +1,6 @@
 # SDK-owned session lookup
 
-Import and continuation use the configured Claude Agent SDK as the storage authority inside the Claude Code Adapter. This acceptance completes the retirement already ordered by **Agent-led import** in `scenarios/import-work.md`; it changes no Import UI or commit authority.
+Import and continuation use the configured Claude Agent SDK as the storage authority inside the Claude Code Adapter. This acceptance completes the retirement already ordered by **Agent-led import using vendor session tools** in `scenarios/import-work.md`; it changes no Import UI or commit authority.
 
 **U4251a retire the parallel discovery implementation.** Given the SDK-backed listing and snapshot conversion, when this retirement is implemented, then roundup contains no definition or caller of `encoded`, `is_possible_bucket`, `scan_records` or `in_linked_worktree`, no custom enumeration of vendor bucket directories (including `index_sources`), and no replacement encoder, guessed hash or relocated copy of those algorithms. Mark this then-clause policy: review the implementation diff and search production and test sources under `crates/agents/`; do not add a source-text test. Remove the legacy `discover_recent` scanner or route its remaining callers through the existing SDK listing. Keep selected-source complete-record validation and revision-bound conversion; they are not a second discovery parser.
 
