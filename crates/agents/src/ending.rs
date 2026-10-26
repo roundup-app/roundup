@@ -32,6 +32,7 @@ impl Agents {
 impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
+        self.events.observed.notify_waiters();
         if let Some(Slot::Running(run)) = runs.get_mut(id) {
             run.closing = false;
             run.ended |= ended;
@@ -217,6 +218,7 @@ impl Shared {
         let result = {
             let mut rail = self.rail();
             let mut runs = self.runs();
+            self.events.observed.notify_waiters();
             if let Err(err) = killed {
                 if let Some(Slot::Running(run)) = runs.get_mut(id) {
                     run.closing = false;
