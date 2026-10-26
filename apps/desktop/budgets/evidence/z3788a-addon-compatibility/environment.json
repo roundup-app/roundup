@@ -10,7 +10,7 @@
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader"
   ],
-  "observedAt": "2026-10-26T22:17:44.859Z",
+  "observedAt": "2026-10-26T22:18:38.942Z",
   "sourceHashes": {
     "patches/@xterm__xterm@6.0.0.patch": "45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf",
     "patches/@xterm__addon-fit@0.11.0.patch": "8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272",
@@ -27,5 +27,10 @@
     "@xterm/addon-image/lib/addon-image.mjs": "16e9e5ffc20abf914d94b592890105776fbd1d3a46505343349498d80e08ee9c",
     "@xterm/addon-webgl/lib/addon-webgl.mjs": "5ac2cbbb8a861ba99176eda0ee91f10c08de32d091e3488edf699ad111131ebb"
   },
-  "probeHash": "c86875eccaa6978feccdd846bd7bd0a1fed033c9677b60b32649ff4c41733128"
+  "probeHash": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
+  "viewport": [
+    1512,
+    950
+  ],
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
 }
