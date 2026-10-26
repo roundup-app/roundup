@@ -1,7 +1,7 @@
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import { afterEach, expect, it } from "vitest";
-import { followMaterial } from "./material";
+import { followMaterial } from "./tauri";
 
 afterEach(() => { clearMocks(); document.documentElement.removeAttribute("data-native-material"); });
 
