@@ -194,7 +194,7 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
   fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
 
   if (target !== "Maximise") {
-    const control = screen.getByRole("button", { name: "Triage" });
+    const control = await screen.findByRole("button", { name: "Triage" });
     // Ark publishes tab focus changes before the next paint. Observe the settled mode.
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     expect(control.getAttribute("aria-pressed")).toBe("true");
