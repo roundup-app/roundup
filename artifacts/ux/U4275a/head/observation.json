@@ -1,0 +1,18 @@
+{
+  "head": "8f26d4d6b92542c1792453c663e154062f1aaec4",
+  "base": "a8912caab",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "railGlyphLeft": [
+    32
+  ],
+  "todoGlyphLeft": [
+    1240
+  ],
+  "todoHeights": [
+    32
+  ]
+}
