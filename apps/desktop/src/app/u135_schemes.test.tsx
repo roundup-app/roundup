@@ -5,7 +5,8 @@ import { underSettings } from "../testing/media";
 import { resolveToken, tokensOf } from "../testing/contrast";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?raw";
+import tokenCss from "../tokens.css?inline";
+import tokenSource from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
@@ -40,7 +41,8 @@ const mount = async (settings: Setting[]) => {
   tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
   // jsdom leaves duration references unresolved; use the existing resolver on the shipped Tokens.
-  const values = tokensOf(tokenCss);
+  const resolved = getComputedStyle(document.documentElement);
+  const values = new Map([...tokensOf(tokenSource).keys()].map(name => [name, resolved.getPropertyValue(`--${name}`).trim()]));
   sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings)
     .replace(/var\(--duration-[\w-]+\)/g, value => resolveToken(value, values));
   matchMedia = window.matchMedia;
@@ -66,9 +68,6 @@ describe("u135 schemes", () => {
   it("u135_reduced_transparency_removes_every_backdrop_filter", async () => {
     await mount(["reduced-transparency"]);
     const rules = [...(sheet?.sheet?.cssRules ?? [])].filter((rule): rule is CSSStyleRule => "selectorText" in rule);
-    const none = rules.filter((rule) => rule.style.getPropertyValue("backdrop-filter") === "none");
-
-    expect(none.map((rule) => rule.selectorText.replace(/\s+/g, ""))).toContain("*,*::before,*::after,*::backdrop");
     const defaults = document.createElement("style");
     defaults.textContent = cssFor([]);
     document.head.appendChild(defaults);
@@ -76,9 +75,11 @@ describe("u135 schemes", () => {
     const filters = [...(defaults.sheet?.cssRules ?? [])].filter((rule): rule is CSSStyleRule => "selectorText" in rule)
       .filter((rule) => rule.style.getPropertyValue("backdrop-filter") && rule.style.getPropertyValue("backdrop-filter") !== "none");
 
-    expect(filters.map((rule) => [rule.selectorText, rule.style.getPropertyValue("backdrop-filter")])).toEqual([
-      [":root:has(.bubble:focus-within) .centre-stack::before", "blur(var(--blur-bubble-backdrop))"],
-    ]);
+    for (const filter of filters) {
+      expect(rules.some(rule => rule.selectorText === filter.selectorText && rule.style.getPropertyValue("backdrop-filter") === "none"), filter.selectorText).toBe(true);
+    }
+
+    expect(filters.length).toBeGreaterThan(0);
     defaults.remove();
   });
 

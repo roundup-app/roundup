@@ -18,11 +18,14 @@ patchedDependencies:
     hash: 4d0e1f2521f56aa02ab1299b6619701fe34c292a9f5a7a09e3df60a8d7992c2d
     path: patches/@copilotkit__aimock@1.45.1.patch
   '@dnd-kit/dom@0.5.1':
-    hash: 02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2
+    hash: 7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5
     path: patches/@dnd-kit__dom@0.5.1.patch
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
     path: patches/@xterm__addon-fit@0.11.0.patch
+  '@xterm/xterm@6.0.0':
+    hash: 45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf
+    path: patches/@xterm__xterm@6.0.0.patch
   '@zag-js/dialog@1.45.0':
     hash: 851f971178c3c90cc82fbd576f682e0d4b740c0f58cd8ba4fc1d1b44d5fc7495
     path: patches/@zag-js__dialog@1.45.0.patch
@@ -93,7 +96,7 @@ importers:
         version: 5.39.3(patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585)(solid-js@1.9.17)
       '@dnd-kit/dom':
         specifier: 0.5.1
-        version: 0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)
+        version: 0.5.1(patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5)
       '@dnd-kit/solid':
         specifier: 0.5.0
         version: 0.5.0(solid-js@1.9.17)
@@ -144,7 +147,7 @@ importers:
         version: 0.19.0
       '@xterm/xterm':
         specifier: ^6.0.0
-        version: 6.0.0
+        version: 6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf)
       '@zag-js/combobox':
         specifier: 1.45.0
         version: 1.45.0
@@ -242,6 +245,9 @@ importers:
       jsdom:
         specifier: ^30.1.1
         version: 30.1.1
+      postcss:
+        specifier: ^8.5.31
+        version: 8.5.31
       postcss-value-parser:
         specifier: 4.2.0
         version: 4.2.0
@@ -4106,11 +4112,6 @@ packages:
   multimath@2.0.0:
     resolution: {integrity: sha512-toRx66cAMJ+Ccz7pMIg38xSIrtnbozk0dchXezwQDMgQmbGpfxjtv68H+L00iFL8hxDaVjrmwAFSb3I6bg8Q2g==}
 
-  nanoid@3.3.19:
-    resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
   nanoid@3.3.20:
     resolution: {integrity: sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -4322,10 +4323,6 @@ packages:
     engines: {node: '>=10'}
     peerDependencies:
       postcss: ^8.2.9
-
-  postcss@8.5.28:
-    resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
-    engines: {node: ^10 || ^12 || >=14}
 
   postcss@8.5.31:
     resolution: {integrity: sha512-YUbWYCgErwnMAVkjUnYa+KlMBzGpHwiIt/DE7f0G33AuX2LH9UcTk6KgWxd3zRU+pN3u/C+Xl3EnMLM4Hea7Sg==}
@@ -6028,7 +6025,7 @@ snapshots:
       '@dnd-kit/geometry': 0.5.1
       tslib: 2.8.1
 
-  '@dnd-kit/dom@0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)':
+  '@dnd-kit/dom@0.5.1(patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5)':
     dependencies:
       '@dnd-kit/abstract': 0.5.1
       '@dnd-kit/collision': 0.5.1
@@ -6044,7 +6041,7 @@ snapshots:
   '@dnd-kit/solid@0.5.0(solid-js@1.9.17)':
     dependencies:
       '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/dom': 0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)
+      '@dnd-kit/dom': 0.5.1(patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5)
       '@dnd-kit/state': 0.5.1
       solid-js: 1.9.17
       tslib: 2.8.1
@@ -7549,7 +7546,7 @@ snapshots:
 
   '@xterm/addon-webgl@0.19.0': {}
 
-  '@xterm/xterm@6.0.0': {}
+  '@xterm/xterm@6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf)': {}
 
   '@zag-js/accordion@1.45.0':
     dependencies:
@@ -10173,8 +10170,6 @@ snapshots:
       glur: 1.1.2
       object-assign: 4.1.1
 
-  nanoid@3.3.19: {}
-
   nanoid@3.3.20: {}
 
   nanoid@5.1.16: {}
@@ -10360,9 +10355,9 @@ snapshots:
 
   possible-typed-array-names@1.1.0: {}
 
-  postcss-safe-parser@7.1.0(postcss@8.5.28):
+  postcss-safe-parser@7.1.0(postcss@8.5.31):
     dependencies:
-      postcss: 8.5.28
+      postcss: 8.5.31
 
   postcss-selector-parser@7.1.6:
     dependencies:
@@ -10377,12 +10372,6 @@ snapshots:
       is-url-superb: 4.0.0
       postcss: 8.5.31
       quote-unquote: 1.0.0
-
-  postcss@8.5.28:
-    dependencies:
-      nanoid: 3.3.19
-      picocolors: 1.1.1
-      source-map-js: 1.2.2
 
   postcss@8.5.31:
     dependencies:
@@ -11084,8 +11073,8 @@ snapshots:
       micromatch: 4.0.8
       normalize-path: 3.0.0
       picocolors: 1.1.1
-      postcss: 8.5.28
-      postcss-safe-parser: 7.1.0(postcss@8.5.28)
+      postcss: 8.5.31
+      postcss-safe-parser: 7.1.0(postcss@8.5.31)
       postcss-selector-parser: 7.1.6
       postcss-value-parser: 4.2.0
       string-width: 8.3.0

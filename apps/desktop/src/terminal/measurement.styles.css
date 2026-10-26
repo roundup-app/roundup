@@ -121,17 +121,17 @@
 }
 
 /* One hue per category; the key, the segment and its accessible name all say which. */
-.measurement-key [data-category="human"] .measurement-swatch,
+[data-category="human"] .measurement-swatch,
 .measurement-segment[data-category="human"] { background: var(--amber); }
-.measurement-key [data-category="tools"] .measurement-swatch,
+[data-category="tools"] .measurement-swatch,
 .measurement-segment[data-category="tools"] { background: var(--accent); }
-.measurement-key [data-category="coordination"] .measurement-swatch,
+[data-category="coordination"] .measurement-swatch,
 .measurement-segment[data-category="coordination"] { background: var(--grey); }
-.measurement-key [data-category="execution"] .measurement-swatch,
+[data-category="execution"] .measurement-swatch,
 .measurement-segment[data-category="execution"] { background: var(--text); }
-.measurement-key [data-category="other"] .measurement-swatch,
+[data-category="other"] .measurement-swatch,
 .measurement-segment[data-category="other"] { background: var(--cache-write); }
-.measurement-key [data-category="unmeasured"] .measurement-swatch,
+[data-category="unmeasured"] .measurement-swatch,
 .measurement-segment[data-category="unmeasured"] { background: var(--disabled); }
 
 .measurement-rows {

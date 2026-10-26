@@ -93,6 +93,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label={copy.drawer}
       inert={!isOpen()}
       data-open={isOpen()}
+      data-mounted={mounted() !== null}
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
       ref={setPanel}
