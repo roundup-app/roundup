@@ -533,7 +533,7 @@ it("u4275b_row_actions_keep_menu_semantics", async () => {
 
 
 it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
-  const { app } = await open("tree-40", ["auth", "tokens"]);
+  const { app } = await open("tree-40", ["backend", "auth", "tokens"]);
   const row = document.querySelector('.rail-row[data-id="tokens"]')!;
   fireEvent.click(row.querySelector('[aria-label="Stop"]')!);
   await questionDialog();
@@ -552,4 +552,18 @@ it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
   const id = row.getAttribute("data-id")!;
   fireEvent.click(row.querySelector('[aria-label="Start supervisor"]')!);
   await waitFor(() => expect(rpcCalls(app, "rail.startDoor")).toEqual([{id}]));
+});
+
+it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
+  const { app, emit } = await open("tree-40", ["backend", "auth", "tokens"]);
+  const tree = await app.rpc("rail.tree", null);
+  const node = tree.find(node => node.id === "tokens")!;
+  node.can_resume = true;
+  app.handlers["agent.resume"] = () => node;
+  await app.rpc("agent.stop", {id:"tokens"});
+  emit({ actor: {kind:"user",id:"you",parent:null}, name:"rail.changed" });
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  await waitFor(() => expect(row.querySelector('[aria-label="Resume"]')).not.toBeNull());
+  fireEvent.click(row.querySelector('[aria-label="Resume"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens"}]));
 });
