@@ -883,15 +883,13 @@ export const Bubbles = (props: {
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} screens={props.screens} name={nameFor(shown().find(terminal => terminal.id === id)!)} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} toggleMinimised={toggleMinimised} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
-        <Show when={rail.terminals().length > 0 || connected.hasView("terminal-tabs")}><div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+        <Show when={rail.terminals().length > 0}><div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <Show when={rail.terminals().length === 0}><ReservedLine class="terminal-tabs-empty" status={copy.terminalsEmpty} /></Show>
           <For each={shownIds()}>{id => <Tab id={id} />}</For>
           <div class="terminal-tabs-actions">
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
             <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
-            <Show when={rail.terminals().length === 0}><button data-button="quiet" type="button" onClick={() => connected.hideView("terminal-tabs")}>{copy.close}</button></Show>
           </div>
         </div></Show>
       </Portal>}</Show>
