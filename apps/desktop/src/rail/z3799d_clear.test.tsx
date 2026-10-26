@@ -23,10 +23,9 @@ it("z3799d_dismissing_clear_returns_focus_without_a_call", async () => {
   await waitFor(() => expect(document.activeElement).toBe(rowOf("ws")));
   expect(railCallsTo(app, "workstream.clear")).toEqual([]);
   expect((await open()).value).toBe(" exact e\u0301 😀 ");
-  // Zag 1.45.0: dismissable-layer/whenNode and trackInteractOutside defer by a frame;
-  // interact-outside then installs pointerdown in setTimeout(0). Yield that task too.
-  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  // Zag 1.45.0: dismissable/whenNode and interact-outside defer through frames;
+  // interact-outside then installs its pointerdown listener in setTimeout(0).
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))));
   fireEvent.pointerDown(document.body, { pointerType: "mouse", clientX: -1, clientY: -1 });
   fireEvent.pointerUp(document.body, { pointerType: "mouse", clientX: -1, clientY: -1 });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

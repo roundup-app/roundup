@@ -19,3 +19,8 @@ fn main() {
     #[cfg(target_vendor = "apple")]
     webkit_rate::tests::run();
 }
+
+#[cfg(target_vendor = "apple")]
+mod accent;
+#[cfg(target_vendor = "apple")]
+pub use accent::{system_accent, watch_accent};
