@@ -360,5 +360,6 @@ it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ 
   expect(connected().hasView(closeReactions ? "terminal-tabs" : "reactions")).toBe(true);
   expect(connected().hasView(closeReactions ? "reactions" : "terminal-tabs")).toBe(false);
   expect(connected().rail.selected()).toBe(selection);
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".ask-input")));
   expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
 });
