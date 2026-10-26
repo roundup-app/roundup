@@ -289,7 +289,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await writeFile(join(current.worktree!.path, "result.txt"), "changed result\n");
     expect(await app.rpc("agent.changedFiles", { id: door.id })).toEqual({ files: [{ path: "result.txt", status: "modified", line: 1 }] });
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -314,7 +314,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await browser("open", "about:blank");
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
