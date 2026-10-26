@@ -1,4 +1,5 @@
 .storage-center {
+  position: relative;
   display: flex;
   flex-direction: column;
   block-size: 100%;
@@ -70,4 +71,16 @@
 
 .storage-copy-label {
   grid-area: 1 / 1;
+}
+
+/* U3787a: persistent live feedback overlays the centre without moving its content. */
+.todo-undo[data-overlay][data-empty="true"] {
+  background: var(--transparent);
+  pointer-events: none;
+}
+
+.todo-undo[data-overlay="true"] {
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  padding-inline: var(--space-3);
+  z-index: var(--layer-toast);
 }

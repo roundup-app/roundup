@@ -1,3 +1,5 @@
+import { createSignal } from "solid-js";
+import { copy } from "../copy";
 import type { Deletion } from "@contracts/todo/Deletion";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
@@ -52,4 +54,95 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
     if (holder.has(identity)) holder.set(identity, { operation, state: "unknown" });
     throw error;
   });
+}
+
+/** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
+export function createTodoUndo() {
+  const [stack, setStack] = createSignal<Deletion[]>([]);
+  const [pending, setPending] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const [visible, setVisible] = createSignal(false);
+  let connection: AppSeam | undefined;
+  let forwarding: AppSeam | undefined;
+  const [uncertain, setUncertain] = createSignal<number[]>();
+
+  const remove = async (ids: number[]): Promise<boolean> => {
+    if (pending() || !forwarding) return false;
+
+    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) return false;
+    const chosen = uncertain() ?? [...ids];
+    setUncertain(chosen);
+    setPending(true);
+    setFailure(null);
+
+    try {
+      const receipt = await deleteTodos(forwarding, chosen);
+      setUncertain(undefined);
+
+      if (receipt.state === "deleted" && receipt.deleted.length) {
+        setStack(all => [...all, receipt]);
+        setVisible(true);
+      }
+
+      if (receipt.missing.length) {
+        setFailure(copy.todoDeleteMissing);
+        setVisible(true);
+      }
+
+      return receipt.deleted.length > 0;
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      const identity = JSON.stringify([...new Set(chosen)].toSorted((a, b) => a - b));
+
+      if (!calls.get(forwarding)?.has(identity)) setUncertain(undefined);
+      setFailure(error.message);
+      setVisible(true);
+
+      return false;
+    } finally { setPending(false); }
+  };
+
+  const undo = async () => {
+    const receipt = stack().at(-1);
+
+    if (!receipt || pending() || !connection || uncertain()) return;
+    const app = connection;
+    setPending(true);
+    setFailure(null);
+    setVisible(true);
+
+    try {
+      // Read first: an earlier lost restore acknowledgement may already have consumed it.
+      let restored = await app.rpc("todo.deletion", { operation: receipt.operation });
+
+      if (restored?.state !== "restored") {
+        try { restored = await app.rpc("todo.restore", { operation: receipt.operation }); }
+        catch (error) {
+          const retained = await app.rpc("todo.deletion", { operation: receipt.operation });
+
+          if (retained?.state !== "restored") throw error;
+          restored = retained;
+        }
+      }
+
+      if (restored.state !== "restored") throw new Error(copy.todoRestoreUnknown);
+      setStack(all => all.filter(item => item.operation !== receipt.operation));
+      setVisible(stack().length > 0);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      setFailure(error.message);
+    } finally { setPending(false); }
+  };
+
+  return {
+    reconnect(app: AppSeam) {
+      connection = app;
+      forwarding ??= { ...app, rpc: (method, params) => connection!.rpc(method, params) };
+    },
+    remove, undo, pending, failure, visible,
+    available: () => stack().length > 0 && !uncertain(),
+    retryDelete: () => uncertain() ? remove(uncertain()!) : Promise.resolve(false),
+    uncertain: () => !!uncertain(),
+    dismiss: () => setVisible(false),
+  };
 }
