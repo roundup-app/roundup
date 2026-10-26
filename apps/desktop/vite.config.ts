@@ -1,8 +1,17 @@
+import { readFileSync } from "node:fs";
+import postcss from "postcss";
+import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
+
+const queryTokens = new Map<string, string>();
+
+postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(declaration => {
+  if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
+});
 
 const served = realDaemonFromEnv(process.env);
 
@@ -44,8 +53,56 @@ export default defineConfig({
     postcss: {
       plugins: [
         {
+          postcssPlugin: "roundup-query-tokens",
+          Once(root) {
+            const reduced = postcss.atRule({ name: "media", params: "(prefers-reduced-motion: reduce)" });
+            const rule = postcss.rule({ selector: ":root" });
+
+            const motionTokens = new Set<string>();
+
+            root.walkDecls(/^--(?:duration|delay)-/, declaration => { motionTokens.add(declaration.prop); });
+
+            for (const prop of motionTokens) rule.append(postcss.decl({ prop, value: "0s" }));
+
+            if (motionTokens.size === 0) return;
+
+            reduced.append(rule);
+            root.append(reduced);
+          },
+          AtRule: {
+            container(query) {
+              const params = valueParser(query.params);
+
+              params.walk(node => {
+                if (node.type !== "function" || node.value !== "env") return;
+
+                const name = valueParser.stringify(node.nodes).trim();
+                const value = queryTokens.get(name);
+
+                if (!value) throw query.error(`Unknown query Token: ${name}`);
+                Object.assign(node, { type: "word", value });
+              });
+              query.params = params.toString();
+            },
+          },
+        },
+        {
           postcssPlugin: "roundup-vendor-control-feedback",
           Once(root) {
+            root.walkDecls(/^(?:animation|transition)(?:-.+)?$/, declaration => {
+              if (!declaration.source?.input.file?.includes("/node_modules/")) return;
+
+              const value = valueParser(declaration.value);
+
+              value.walk(node => {
+                if (node.type !== "word") return;
+
+                const dimension = valueParser.unit(node.value);
+
+                if (dimension && (dimension.unit === "ms" || dimension.unit === "s")) node.value = `var(--duration-vendor, ${node.value})`;
+              });
+              declaration.value = value.toString();
+            });
             // Imported editors keep their selection paint, but cannot add rings or press washes (U3528).
             root.walkRules((rule) => {
               if (!rule.source?.input.file?.includes("/node_modules/")) return;
