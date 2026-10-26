@@ -14,6 +14,7 @@ idle-perf = []
 tauri = { version = "2", default-features = false, features = ["wry"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
+log = "0.4"
 serde.workspace = true
 serde_json.workspace = true
 tauri-plugin-global-shortcut = "=2.4.1"
