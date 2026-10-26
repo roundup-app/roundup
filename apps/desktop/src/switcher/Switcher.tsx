@@ -8,6 +8,7 @@ import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
+import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
@@ -21,6 +22,7 @@ import "./styles.css";
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
   const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
+  trackSurface(open);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
 
