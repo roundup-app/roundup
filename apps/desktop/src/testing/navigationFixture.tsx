@@ -10,14 +10,7 @@ import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
-export const key = (code: string, options: KeyboardEventInit = {}) => {
-  const event = new KeyboardEvent("keydown", { code, key: code === "Enter" ? "Enter" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
-  (document.activeElement ?? document.body).dispatchEvent(event);
-};
-
-export const leader = (code: string) => { key("KeyK", { metaKey: true }); key(code); };
-
-export const mount = async (empty = false) => {
+export const mountNavigation = async (empty = false) => {
   const app = createFakeApp();
 
   for (let n = 0; n < 7; n++) app.add(`/project${n}`);
@@ -25,6 +18,8 @@ export const mount = async (empty = false) => {
   const daemon = app.of("/p");
   const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: 12 }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
   daemon.handlers["rail.tree"] = () => nodes;
+  daemon.handlers["terminal.resize"] = () => null;
+  daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   const shells: ReturnType<typeof info>[] = [];
   daemon.handlers["terminal.list"] = () => [...shells, ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
   daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
@@ -39,4 +34,3 @@ export const mount = async (empty = false) => {
 
   return { app, daemon, connected: () => connected!, store, emulators, nodes, shells };
 };
-

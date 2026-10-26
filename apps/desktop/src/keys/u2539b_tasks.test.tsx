@@ -1,18 +1,20 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { mountNavigation as mount } from "../testing/navigationFixture";
 import { agent, info } from "../testing/nodes";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 
 // Connected App seam: acknowledged calls, selection, focus and disposal. Appearance belongs to U26.
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-import { key, leader, mount } from "../testing/navigationFixture";
+const key = (code: string, options: KeyboardEventInit = {}) => {
+  const event = new KeyboardEvent("keydown", { code, key: code === "Enter" ? "Enter" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
+  (document.activeElement ?? document.body).dispatchEvent(event);
+};
 
-it("u4274b_project_menu_omits_navigation_toggles", async () => {
-  await mount(true);
-  expect(projectMenu.items.filter(item => ["view:workstreams", "view:terminal-tabs"].includes(item.id))).toHaveLength(0);
-  expect(projectMenu.items.find(item => item.id === "action:chord:⌘T")?.enabled).toBe(true);
-});
+const leader = (code: string) => { key("KeyK", { metaKey: true }); key(code); };
+
+
 
 it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () => {
   await mount();
@@ -50,11 +52,29 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   other.handlers["rail.tree"] = () => [agent("other", "needs-you", "ready")];
   other.handlers["terminal.list"] = () => [info("t-other", { owner: "other" })];
   other.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
-  const tab = screen.getByRole("tab", { name: /^project0/ });
-  await waitFor(() => expect(tab.querySelector(".tab-mark")).not.toBeNull());
+  const tab = await screen.findByRole("tab", { name: /project0/ });
+  await waitFor(() => expect(tab.querySelector('.tab-mark[data-kind="needs-you"]')).not.toBeNull());
   const attention = tab.querySelector(".tab-mark")!;
   fireEvent.click(attention);
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
+});
+
+it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
+  const { connected } = await mount();
+
+  if (view === "resources") {
+    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(false);
+    connected().rail.select("a0");
+    await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
+  }
+
+  openProjectPage(`view:${view}`, "/p");
+  await waitFor(() => expect(connected().view()).toBe(view));
+  openProjectPage(`view:${view}`, "/p");
+  await waitFor(() => expect(connected().view()).toBeNull());
+
+  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
@@ -289,4 +309,10 @@ it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
   expect(daemon.calls.filter(call => ["agent.changedFiles", "todo.assign", "terminal.write"].includes(call.method))).toHaveLength(0);
+});
+
+it("u4274b_project_menu_omits_navigation_toggles", async () => {
+  await mount();
+  expect(projectMenu.items.some(item => ["view:workstreams", "view:terminal-tabs"].includes(item.id))).toBe(false);
+  expect(projectMenu.items.find(item => item.id === "action:chord:⌘T")?.enabled).toBe(true);
 });

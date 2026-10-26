@@ -37,7 +37,7 @@ const focusPane = (): void => {
 
   target?.focus();
 
-  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
+  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new, .rail-terminal-new")?.focus();
 };
 
 const ESCAPE = "Escape".split(" ");
@@ -381,7 +381,7 @@ export const Bubbles = (props: {
     } finally {
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new, .rail-terminal-new")?.focus({ preventScroll: true }));
     }
   };
 

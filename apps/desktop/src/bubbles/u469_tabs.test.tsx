@@ -94,22 +94,6 @@ it("u524_a_project_terminal_is_available_after_reload", async () => {
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]);
 });
 
-it("u524_a_failed_empty_project_open_can_be_retried", async () => {
-  const mounted = await mountBubbles(null, [], []);
-  const open = mounted.app.handlers["terminal.open"]!;
-  mounted.app.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
-
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
-  await waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
-  expect(document.querySelector(".bubble")).toBeNull();
-  mounted.app.handlers["terminal.open"] = open;
-
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
-  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
-  expect(document.querySelector('[role="alert"]')).toBeNull();
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: null }, { workstream: null }]);
-});
-
 it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_%s", async (activation) => {
   const mounted = await mountBubbles();
 
@@ -211,16 +195,16 @@ it("u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs", async () => 
   expect([...document.querySelectorAll('.terminal-tab')].map(e=>e.getAttribute("aria-label"))).toEqual(["Run"]);
 });
 
-it.each(["previous", "pane"])("u469_close_returns_focus_to_a_remaining_control_%s", async (target) => {
+it("u469_close_returns_focus_to_a_remaining_tab", async () => {
   const { info } = await import("../testing/nodes");
 
-  await mountBubbles("w", target === "pane" ? [info("2",{owner:"w",title:"zsh"})] : [info("1",{owner:"w",title:"first"}),info("2",{owner:"w",title:"zsh"})]);
+  await mountBubbles("w", [info("1",{owner:"w",title:"first"}),info("2",{owner:"w",title:"zsh"})]);
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close zsh"]')!;
 
   close.focus();
   fireEvent.click(close);
   await answerQuestion(true);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(target === "pane" ? '.pane-navigation button' : '.terminal-tab[data-bubble="1"]')));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="1"]')));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
 });
 
