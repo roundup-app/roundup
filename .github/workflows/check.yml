@@ -138,6 +138,10 @@ jobs:
           path: target/release-evidence/
           if-no-files-found: error
           retention-days: 30
+      - name: U4251 raw SDK storage capability
+        if: matrix.partition == 1
+        timeout-minutes: 1
+        run: node --test crates/agents/sidecar/storage.test.mjs
       - name: CI4018 experiment cache regression
         if: matrix.partition == 1
         run: node --test .github/actions/setup/cache.test.mjs
