@@ -189,6 +189,13 @@ jobs:
         with:
           node: 'false'
       - run: just clippy
+      - name: Z4280a fresh desktop build
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/z4280a-desktop
+        run: |
+          set -o pipefail
+          cargo build --locked -p desktop 2>&1 | tee "$RUNNER_TEMP/z4280a-desktop.log"
+          ! grep -F 'Modifiers::SUPER' "$RUNNER_TEMP/z4280a-desktop.log"
 
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
