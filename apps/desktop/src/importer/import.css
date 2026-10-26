@@ -131,12 +131,6 @@
   padding-inline-start: var(--space-4);
 }
 
-.import-panel p.ink[role="alert"] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-}
-
 .import-meta time {
   flex: none;
 }
@@ -151,9 +145,15 @@
 }
 
 .import-list .import-candidate {
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: first baseline;
   gap: var(--space-3);
+}
+
+.import-candidate .reserved-line {
+  grid-column: 1 / -1;
+  font-size: var(--text-small);
 }
 
 .import-candidate .import-check {
