@@ -13,7 +13,7 @@ import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -38,6 +38,9 @@ import { Rail } from "./rail/Rail";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import type { LinkContent } from "@contracts/link/LinkContent";
+import { PadHost } from "./pads/PadDrawer";
+import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
@@ -67,6 +70,10 @@ import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+
+const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
+  content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
+    : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -316,6 +323,15 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
+  const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
+  onMount(() => {
+    const owner = getOwner();
+    const handler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    const stop = props.app.onNativeOpen?.(request => void handler.then(handle => handle(request)).catch(error => setNativeFailure(String(error))));
+    onCleanup(() => void stop?.then(release => release()));
+    void stop?.catch(error => setNativeFailure(String(error)));
+  });
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -470,6 +486,7 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
+          <Show when={nativeFailure()}>{message => <div role="alert" class="ink" data-tone="red" style={{ padding: "var(--space-3)", "white-space": "pre-wrap", "overflow-wrap": "anywhere" }}>{message()}</div>}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>

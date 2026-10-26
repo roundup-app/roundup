@@ -30,6 +30,7 @@ default-filter = '''
 | (package(agents) & binary(working_files) & test(=a35_restore_preserves_modes_symlinks_and_raw_paths))
 | (package(checkpoints) & test(/::n13_(loaded_marks_restore_existing_file_semantics|restoration_is_idempotent|keep_leaves_files_unchanged)$/))
 | (package(desktop) & test(/^open::tests::u(365|429)_/))
+| (package(desktop) & test(/^launch::tests::u3787f_/))
 | (package(desktop) & binary(s2297a))
 | package(native)
 | (package(desktop) & test(/^idle::tests::r24_/))

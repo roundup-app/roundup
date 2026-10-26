@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import type { AppSeam, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -45,6 +45,7 @@ export type FakeOutputSubscription = { id: string; offset: number; listener: (me
 
 export type FakeApp = AppSeam & {
   setSystemAccent(accent: SystemAccent): void;
+  nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
   answerQuestion: ((answer: boolean) => void) | undefined;
   questionFailure: Error | null;
@@ -117,6 +118,7 @@ export type FakeApp = AppSeam & {
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
+  const nativeListeners = new Set<(request: NativeOpen) => void>();
   const accentListeners = new Set<(accent: SystemAccent) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
@@ -130,6 +132,12 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
+    onNativeOpen: async listener => {
+      nativeListeners.add(listener);
+
+      return () => { nativeListeners.delete(listener); };
+    },
+    nativeOpen: request => nativeListeners.forEach(listener => listener(request)),
     onSystemAccent: async listener => {
       accentListeners.add(listener);
       listener(null);
