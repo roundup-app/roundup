@@ -1,0 +1,102 @@
+import { createSignal } from 'solid-js';
+import { makePersisted } from '@solid-primitives/storage';
+import { tauriStorage } from '@solid-primitives/storage/tauri';
+import * as v from 'valibot';
+
+// Run from an isolated package directory; no App dependency or persisted user data is changed.
+const rows = [];
+const initial = { text: 'recoverable memory' };
+const schema = v.strictObject({ text: v.string() });
+const describe = error => error instanceof Error ? error.message : String(error);
+const storage = raw => ({ getItem: () => raw, setItem() {}, removeItem() {} });
+
+for (const [name, raw] of [
+  ['missing', null],
+  ['valid', '{"text":" exact\\n雪 😀 "}'],
+  ['invalid-json', '{broken'],
+  ['invalid-schema', '{"text":4}'],
+]) {
+  let result;
+  let thrown = null;
+  let warnings = 0;
+  const warn = console.warn;
+  console.warn = () => { warnings++; };
+  try {
+    result = makePersisted(createSignal(initial), {
+      name: 'probe', storage: storage(raw),
+      deserialize: bytes => v.parse(schema, JSON.parse(bytes)),
+    });
+  } catch (error) { thrown = describe(error); }
+  finally { console.warn = warn; }
+  rows.push({ name, value: result?.[0](), raw: result?.[2], thrown, warnings });
+}
+
+try {
+  makePersisted(createSignal(initial), { name: 'probe', storage: {
+    ...storage(null), getItem() { throw new Error('unreadable'); },
+  } });
+  rows.push({ name: 'unreadable-sync', thrown: null });
+} catch (error) { rows.push({ name: 'unreadable-sync', thrown: describe(error) }); }
+
+for (const value of [null, undefined]) {
+  const operations = [];
+  const [get, set] = makePersisted(createSignal(initial), { name: 'probe', storage: {
+    ...storage(null),
+    setItem: (key, bytes) => operations.push({ operation: 'set', key, bytes }),
+    removeItem: key => operations.push({ operation: 'remove', key }),
+  } });
+  set(value);
+  rows.push({ name: value === null ? 'set-null' : 'set-undefined', value: get() ?? null, operations });
+}
+
+{
+  const [get, set] = makePersisted(createSignal(initial), { name: 'probe', storage: {
+    ...storage(null), setItem() { throw new Error('quota'); },
+  } });
+  let thrown = null;
+  try { set({ text: 'new recoverable memory' }); } catch (error) { thrown = describe(error); }
+  rows.push({ name: 'failed-sync-write', value: get(), thrown });
+}
+
+{
+  let rejected;
+  const [get, set, loaded] = makePersisted(createSignal(initial), { name: 'probe', storage: {
+    getItem: async () => null,
+    setItem: () => {
+      rejected = Promise.reject(new Error('save reply lost'));
+      // Observe the adapter rejection independently: the returned setter result must carry it to acknowledge durability.
+      rejected.catch(() => {});
+      return rejected;
+    },
+    removeItem: async () => {},
+  } });
+  await loaded;
+  const result = set({ text: 'unacknowledged' });
+  let failure = null;
+  try { await rejected; } catch (error) { failure = describe(error); }
+  rows.push({ name: 'failed-async-write', value: get(), setterReturnsPromise: result instanceof Promise, failure });
+}
+
+{
+  const calls = [];
+  globalThis.window = { __TAURI_INTERNALS__: { invoke: async (command, args) => {
+    calls.push({ command, args });
+    throw new Error('probe IPC boundary: no native store loaded');
+  } } };
+  let failure = null;
+  try { await tauriStorage('work.json').getItem('probe'); } catch (error) { failure = describe(error); }
+  rows.push({ name: 'tauri-load', calls, failure });
+  delete globalThis.window;
+}
+
+const observed = name => rows.find(row => row.name === name);
+const failedCapabilities = [
+  { capability: 'invalid JSON reports recoverable restore failure', observed: observed('invalid-json'), supported: observed('invalid-json').thrown !== null },
+  { capability: 'invalid schema reports recoverable restore failure', observed: observed('invalid-schema'), supported: observed('invalid-schema').thrown !== null },
+  { capability: 'nullable value persists distinctly from explicit removal', observed: rows.filter(row => row.name.startsWith('set-')), supported: observed('set-null').operations.some(op => op.operation === 'set' && op.bytes === 'null') },
+  { capability: 'async setter acknowledges failed write', observed: observed('failed-async-write'), supported: observed('failed-async-write').setterReturnsPromise },
+  { capability: 'Tauri helper loads a numeric store resource before get', observed: observed('tauri-load'), supported: observed('tauri-load').calls[0]?.command === 'plugin:store|load' },
+].filter(row => !row.supported).map(row => ({ ...row, exit: 1 }));
+console.log(JSON.stringify({ node: process.version, conditions: 'browser, production (no development condition)', rows, failedCapabilities }, null, 2));
+// This is a capability observation, not a passing acceptance test. Exit 1 records unsupported adoption.
+process.exitCode = failedCapabilities.length ? 1 : 0;
