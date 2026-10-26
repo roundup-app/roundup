@@ -1,0 +1,40 @@
+import json, os, pathlib, subprocess, tempfile, uuid
+root=pathlib.Path(os.environ["Z3788_REPO"]); out=root/'artifacts/ux/Z3788c';out.mkdir(parents=True,exist_ok=True)
+session='z3788c-title-'+uuid.uuid4().hex
+with tempfile.TemporaryDirectory(prefix='z3788c-title-profile-') as profile:
+ config=pathlib.Path(profile)/'config.json';config.write_text('{}')
+ env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+ def browser(*args):
+  p=subprocess.run([str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',profile,'--config',str(config),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args],env=env,capture_output=True,text=True,timeout=60)
+  if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+  r=json.loads(p.stdout)
+  if not r.get('success'):raise RuntimeError(r)
+  return r['data']
+ def ev(s):return browser('eval',s)['result']
+ def shot(seed,phase,step):
+  print(seed,phase,step,flush=True);browser('screenshot',str(out/f'{seed}-{phase}-{step}.png'))
+  (out/f'{seed}-{phase}-{step}.checks.json').write_text(json.dumps(ev('window.__checks()'),indent=2))
+ try:
+  for phase,port in [('base',5215),('head',5216)]:
+   for seed in ['tree-40','agents-10','conflict']:
+    browser('open',f'http://localhost:{port}/harness.html?view=workstreams&seed={seed}')
+    browser('set','viewport','1512','950');browser('set','media','dark')
+    browser('wait','--fn',"!!window.__fake && !!document.querySelector('.rail-row .name')")
+    ev('document.fonts.ready')
+    target=ev("document.querySelector('.rail-row').dataset.id")
+    name='payments '+('review the complete authored name ' * 4)
+    ev(f"window.__fake.app.rpc('rail.rename', {{id: {json.dumps(target)}, name: {json.dumps(name)}}}).catch(()=>null)")
+    ev(f"window.__fake.app.rpc('rail.rename', {{id: {json.dumps(target)}, name: {json.dumps(name)}}})")
+    selector=f'.rail-row[data-id="{target}"]'
+    browser('wait','--fn',f"document.querySelector({json.dumps(selector)}).title === {json.dumps(name)}")
+    browser('click',selector+' .name')
+    browser('press','F2')
+    browser('wait','--fn',f"!!document.querySelector({json.dumps(selector)}+' input')")
+    browser('press','Escape')
+    browser('wait','--fn',f"!document.querySelector({json.dumps(selector)}+' input') && document.querySelector({json.dumps(selector)}).title === {json.dumps(name)}")
+    shot(seed,phase,'return')
+    ev("window.__fake.app.exitDaemon({code:1})")
+    browser('wait','--fn',"!!document.querySelector('[role=alert]')")
+    shot(seed,phase,'failure')
+    (out/f'{seed}-{phase}-calls.json').write_text(json.dumps(ev("window.__fake.app.calls.filter(c=>c.method==='terminal.write')"),indent=2))
+ finally:browser('close')
