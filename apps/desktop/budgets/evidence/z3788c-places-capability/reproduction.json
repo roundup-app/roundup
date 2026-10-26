@@ -1,0 +1,7 @@
+{
+  "freshInstallExit": 0,
+  "probeExit": 1,
+  "completeStdoutMatches": true,
+  "wrongConditionExit": 2,
+  "wrongConditionStderr": "Setup failure: Error: Use browser production exports\n    at file:///tmp/roundup-places-probe-repeat/probe.mjs:6:54\n"
+}

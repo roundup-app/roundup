@@ -1,0 +1,279 @@
+{
+  "node": "v22.23.3",
+  "conditions": "browser, production",
+  "excerptSHA256": "24a41e329933579ad391e73a1555aab299226ac9b0ff9a697256312b18448c23",
+  "rows": [
+    {
+      "name": "valid",
+      "current": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": " exact\n雪 😀 ",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "candidate": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": " exact\n雪 😀 ",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "thrown": null
+    },
+    {
+      "name": "missing",
+      "current": {},
+      "candidate": {},
+      "thrown": null
+    },
+    {
+      "name": "invalid-json",
+      "current": {},
+      "candidate": {},
+      "thrown": null
+    },
+    {
+      "name": "invalid-schema",
+      "current": {},
+      "candidate": {},
+      "thrown": null
+    },
+    {
+      "name": "unreadable",
+      "current": {},
+      "candidate": null,
+      "thrown": "read refused"
+    },
+    {
+      "name": "successful-write",
+      "currentCommitted": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": "rejected name",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "failure": null,
+      "candidate": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": "rejected name",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "thrown": null,
+      "persisted": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": "rejected name",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "operations": [
+        {
+          "operation": "set",
+          "name": "roundup:bubble-places:/p",
+          "value": "{\"2\":{\"x\":10,\"y\":20,\"w\":400,\"h\":300,\"min\":false,\"name\":\"rejected name\",\"restore\":{\"x\":1,\"y\":2,\"w\":200,\"h\":100}}}"
+        }
+      ]
+    },
+    {
+      "name": "failed-write",
+      "currentCommitted": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": " exact\n雪 😀 ",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "failure": "quota",
+      "candidate": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": "rejected name",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "thrown": "quota",
+      "persisted": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": " exact\n雪 😀 ",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      },
+      "operations": [
+        {
+          "operation": "set",
+          "name": "roundup:bubble-places:/p",
+          "value": "{\"2\":{\"x\":10,\"y\":20,\"w\":400,\"h\":300,\"min\":false,\"name\":\"rejected name\",\"restore\":{\"x\":1,\"y\":2,\"w\":200,\"h\":100}}}"
+        }
+      ]
+    },
+    {
+      "name": "daemon-exit-removal",
+      "current": {
+        "retainedScreen": {
+          "2": {
+            "x": 10,
+            "y": 20,
+            "w": 400,
+            "h": 300,
+            "min": false,
+            "name": " exact\n雪 😀 ",
+            "restore": {
+              "x": 1,
+              "y": 2,
+              "w": 200,
+              "h": 100
+            }
+          }
+        },
+        "keyPresent": false
+      },
+      "candidate": {
+        "retainedScreen": null,
+        "keyPresent": false
+      }
+    },
+    {
+      "name": "set-null-removal",
+      "current": {
+        "retainedScreen": {
+          "2": {
+            "x": 10,
+            "y": 20,
+            "w": 400,
+            "h": 300,
+            "min": false,
+            "name": " exact\n雪 😀 ",
+            "restore": {
+              "x": 1,
+              "y": 2,
+              "w": 200,
+              "h": 100
+            }
+          }
+        },
+        "keyPresent": false
+      },
+      "candidate": {
+        "retainedScreen": null,
+        "keyPresent": false
+      }
+    },
+    {
+      "name": "changed-invalid-record",
+      "current": {},
+      "candidate": {
+        "2": {
+          "x": 10,
+          "y": 20,
+          "w": 400,
+          "h": 300,
+          "min": false,
+          "name": " exact\n雪 😀 ",
+          "restore": {
+            "x": 1,
+            "y": 2,
+            "w": 200,
+            "h": 100
+          }
+        }
+      }
+    }
+  ],
+  "failedCapabilities": [
+    {
+      "name": "failed-write",
+      "capability": "rejected rename keeps the acknowledged name",
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "name": "daemon-exit-removal",
+      "capability": "remove saved geometry without changing the last readable screen",
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "name": "changed-invalid-record",
+      "capability": "invalid reread returns the existing empty fallback",
+      "supported": false,
+      "exit": 1
+    }
+  ]
+}
