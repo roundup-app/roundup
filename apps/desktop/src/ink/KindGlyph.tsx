@@ -28,25 +28,36 @@ const Mark = (props: { kind: Kind; ref?: (svg: SVGSVGElement) => void; class?: s
 
 /** M9: a Kind change on a mounted Glyph crossfades over the 150 ms fade preset; the latest Kind wins and the old mark is inert. */
 export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: string; class?: string }) => {
-  const [leaving, setLeaving] = createSignal<Kind>();
+  const [leaving, setLeaving] = createSignal<{ kind: Kind; from: number; turn: number }>();
   let current: SVGSVGElement | undefined;
+  let outgoing: HTMLElement | undefined;
   let running: { cancel(): void }[] = [];
-
-  const fade = (outgoing: SVGSVGElement) => {
-    const seconds = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--duration-reduced")) / 1000;
-
-    if (!current || !(seconds > 0)) return setLeaving(undefined);
-    const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: "linear" }), animate(outgoing, { opacity: [1, 0] }, { duration: seconds, ease: "linear" })];
-
-    running = fades;
-    void fades[1]!.then(() => { if (running === fades) { setLeaving(undefined); running = []; } }, () => {});
-  };
+  let shown = props.kind;
 
   const stop = () => { running.forEach(animation => animation.cancel()); running = []; };
 
-  createEffect(on(() => props.kind, (_, previous) => {
+  createEffect(on(() => props.kind, kind => {
+    const previous = shown;
+
+    shown = kind;
+    // Read what is on screen before the running fade is cancelled, so an interrupted fade continues from it.
+    const from = current ? parseFloat(getComputedStyle(current).opacity) || 1 : 1;
+    const turn = Number(current?.querySelector(".working-arc")?.getAnimations?.()[0]?.currentTime ?? 0);
+
     stop();
-    setLeaving(previous);
+    setLeaving({ kind: previous, from, turn });
+  }, { defer: true }));
+
+  createEffect(on(leaving, mark => {
+    const seconds = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--duration-reduced")) / 1000;
+
+    if (!mark || !outgoing || !current) return;
+    if (!(seconds > 0)) return setLeaving(undefined);
+    // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
+    const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: "easeOut" }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: "easeIn" })];
+
+    running = fades;
+    void fades[1]!.then(() => { if (running === fades) { setLeaving(undefined); running = []; } }, () => {});
   }, { defer: true }));
 
   onCleanup(stop);
@@ -55,7 +66,11 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
     <span class={["glyph", hasInk(glyphOf(props.kind)) && "ink", props.class].filter(Boolean).join(" ")} data-state={props.decorative ? undefined : ""} data-tone={glyphOf(props.kind).tone} data-drawing={glyphOf(props.kind).drawing}
       role={props.decorative ? undefined : "img"} aria-label={props.decorative ? undefined : (props.label ?? LABELS[props.kind])} aria-hidden={props.decorative ? "true" : undefined}>
       <Mark kind={props.kind} ref={svg => { current = svg; }} />
-      <Show when={leaving()} keyed>{kind => <Mark kind={kind} class="kind-mark kind-mark-leaving" ref={fade} />}</Show>
+      <Show when={leaving()} keyed>{mark => (
+        <span ref={el => { outgoing = el; }} class={["kind-mark-leaving", hasInk(glyphOf(mark.kind)) && "ink"].filter(Boolean).join(" ")} data-tone={glyphOf(mark.kind).tone} style={{ "--turn-elapsed": `-${mark.turn}ms` }}>
+          <Mark kind={mark.kind} />
+        </span>
+      )}</Show>
     </span>
   );
 };

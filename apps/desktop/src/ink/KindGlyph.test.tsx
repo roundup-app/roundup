@@ -94,3 +94,17 @@ describe("u3010c_m9", () => {
     expect([container.querySelectorAll("svg").length, container.querySelector("span")?.dataset["drawing"]]).toEqual([1, "cross"]);
   });
 });
+
+describe("u3010c_m9_first_change", () => {
+  it("u3010c_the_first_change_after_mount_mounts_a_leaving_mark_that_clears", async () => {
+    document.documentElement.style.setProperty("--duration-reduced", "150ms");
+    const [kind, setKind] = createSignal<Kind>("error");
+    const { container } = render(() => <KindGlyph kind={kind()} />);
+
+    setKind("idle");
+    await Promise.resolve();
+    expect(container.querySelectorAll("svg").length).toBe(2);
+    await new Promise((done) => setTimeout(done, 400));
+    expect(container.querySelectorAll("svg").length).toBe(1);
+  });
+});
