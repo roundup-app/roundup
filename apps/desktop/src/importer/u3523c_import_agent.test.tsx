@@ -5,6 +5,7 @@ import { afterEach, expect, it } from "vitest";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { ImportPanel } from "./ImportPanel";
+import { connectProject } from "../state/connectedProject";
 import { agent } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -22,7 +23,7 @@ it("u3523c_explicit_prompt_starts_one_import_agent", async () => {
   await waitFor(() => expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "agent.spawn")?.params).toMatchObject({ cwd: connected.project.path, prompt: "  List yesterday’s work\nwithout importing.  " });
   finish();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Start import Agent" }).hasAttribute("disabled")).toBe(false));
+  await waitFor(() => expect(connected.importing.listingAgent()).toBe("importer"));
   expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 
@@ -49,8 +50,10 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Import instructions" }), { target: { value: "  exact\nunfinished 🪁  " } });
   fireEvent.click(screen.getByRole("button", { name: "Start import Agent" }));
   await screen.findByText("Launch unavailable. Retry.");
+  await connected.importing.setPrompt("  exact\nunfinished 🪁  ");
   first.unmount();
-  mount();
+  const reopened = await connectProject(app, connected.project, () => false, () => 0, () => null);
+  render(() => <ConnectedProjectContext.Provider value={reopened}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
   expect((screen.getByRole("textbox", { name: "Import instructions" }) as HTMLTextAreaElement).value).toBe("  exact\nunfinished 🪁  ");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
 });
