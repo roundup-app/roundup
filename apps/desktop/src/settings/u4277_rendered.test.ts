@@ -12,6 +12,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
   const origin = await lane.evaluate<string>("location.origin");
 
   const capture = async (id: string, name: string) => {
+    await lane.browser("set", "media", "dark");
     const dir = join(captureDir(id)!, phase);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
@@ -21,7 +22,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
   try {
     const videoDir = join(captureDir("U4277a")!, phase);
     mkdirSync(videoDir, { recursive: true });
-    await lane.browser("record", "start", join(videoDir, "screens.webm"));
+    await lane.browser("record", "start", join(videoDir, `screens${only.length ? "-" + only.join("-") : ""}.webm`));
 
     for (const seed of (only.length ? [] : ["tree-40", "tabs-8", "first-run"])) {
       await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
@@ -91,7 +92,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
           await lane.browser("click", ".import-check");
           await lane.evaluate(`(() => { window.__fake.app.handlers['project.importCommit'] = ({selections}) => ({outcomes:selections.map(item=>({source:item.source,workstream:null,agent:null,error:{code:-32003,message:'Storage unavailable. Free disk space and retry Import.',outcome:'failed'}}))}); return true; })()`);
           await lane.browser("click", ".import-confirm");
-          await lane.until("document.querySelector('.import-panel').textContent.includes('Storage unavailable')");
+          await lane.until("!!document.querySelector('.import-panel [role=alert]')");
           await capture("U4277c", "import-partial-failure");
         }
       }
