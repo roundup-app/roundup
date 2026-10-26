@@ -9,6 +9,7 @@ import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
+import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -630,6 +631,8 @@ export const Rail = (props: { requested?: boolean }) => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          actions={actionsOf(view().node)}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;

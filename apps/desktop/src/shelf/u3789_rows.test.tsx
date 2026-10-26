@@ -11,8 +11,14 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
 
-const open = async (seed: SeedName = "tree-40") => {
+const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"]) => {
   const controls = seedApp(seed, 0);
+
+  if (rows) {
+    const tree = await controls.app.rpc("rail.tree", null);
+    controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
+  }
+
   const drafts = createProjectDrafts();
   const emulators = fakeEmulators();
   const view = render(() => <App app={controls.app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
@@ -463,9 +469,9 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
 
 
 it.each(["payments", "tokens", "auth"])("u4275b_quick_actions_use_the_rows_directory_%s", async id => {
-  const { app } = await open();
+  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
   const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
-  const node = (await app.rpc("rail.list", null)).find(node => node.id === id)!;
+  const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
   const directory = node.worktree?.path ?? "/Users/you/harness";
   const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
   fireEvent.click(row.querySelector('[aria-label="Open folder"]')!);
@@ -473,4 +479,51 @@ it.each(["payments", "tokens", "auth"])("u4275b_quick_actions_use_the_rows_direc
   fireEvent.click(row.querySelector('[aria-label="Open in editor"]')!);
   await waitFor(() => expect(app.editorOpened).toEqual([directory]));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+});
+
+
+it("u4275a_state_updates_without_row_activation", async () => {
+  const { setStatus, app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
+
+  for (const kind of ["idle", "working", "needs-you", "blocked", "done", "error"] as const) {
+    setStatus("tokens", kind, kind);
+    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? "Needs-you" : kind[0]!.toUpperCase() + kind.slice(1)));
+  }
+
+  fireEvent.click(document.querySelector('.shelf-done-line .todo-row-button')!);
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="7"]')).not.toBeNull());
+  await app.rpc("todo.setBlockers", {id: 1, blockers: [2]});
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Blocked"));
+  await app.rpc("todo.setBlockers", {id: 1, blockers: []});
+  await app.rpc("todo.complete", { id: 1 });
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Done"));
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+});
+
+it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", async input => {
+  const { app, row } = await target("todo-shelf");
+  const authored = await app.rpc("todo.update", { id: 1, title: "Name only", body: "Private multiline body\nSecond detail" });
+  await waitFor(() => expect(row.textContent).toContain(authored.title));
+  const before = app.calls.length;
+  fireEvent.click(row);
+  expect(row.closest('.shelf-row')!.textContent).not.toContain(authored.body!.split("\n")[0]!);
+
+  if (input === "return") fireEvent.keyDown(row, { key: "Enter" });
+  else fireEvent.click(row.closest('.shelf-row')!.querySelector('[aria-label="Open"]')!);
+  await waitFor(() => expect(document.querySelector('.drawer[data-open=true]')?.textContent).toContain(authored.body!.split("\n")[0]!));
+  expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
+});
+
+it("u4275b_row_actions_keep_menu_semantics", async () => {
+  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="auth"]')!;
+  fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null}]));
+  fireEvent.click(row.querySelector('[aria-label="Clear…"]')!);
+  await screen.findByRole("textbox", { name: "Why clear?" });
+  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: /^Keep$/ }));
+  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
 });

@@ -17,6 +17,7 @@ import { createSelection } from "../../shelf/selection";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
+import { treeRows } from "../../todos/todoView";
 import { OpenRow } from "../../todos/OpenRow";
 import { homesToOffer } from "../../todos/homes";
 import { failureOf } from "../../todos/failureOf";
@@ -222,8 +223,10 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
               </Leaf>
             )}
           </For>
-          <For each={props.pads.ownedTodos()}>
-            {(todo, at) => (
+          <For each={treeRows(props.pads.ownedTodos())}>
+            {(place, at) => { const todo = place.todo;
+
+ return (
               <Sortable.Item id={String(todo.id)} index={at()} pressable>
                 {(parts) => {
                   const sorted = props.pads.reorder.row(todo.id, parts);
@@ -238,6 +241,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                           return () => { if (copiedTodos.get(id) === feedback) copiedTodos.delete(id); };
                         }}
                         nested
+                        place={place}
                         failWith={(show, message) => todoFailures.set(todo.id, { show, message })}
                         todo={todo}
                         pressed={todoSelection.selected().includes(todo.id)}
@@ -261,7 +265,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                   );
                 }}
               </Sortable.Item>
-            )}
+            ); }}
           </For>
         </Sortable.Root>
       </Show>
