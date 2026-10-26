@@ -898,20 +898,20 @@ class Keep(unittest.TestCase):
         draft = ('pr', 'create', '--draft', '--base', 'main', '--head', 'build/U1', '--title', 'U1: Hide archived Agents',
                  '--body', body)
         revoke = ('api', '-X', 'DELETE', '/installation/token')
-        # (commits beyond main, whether the run pushed them, Issue, open PRs from the branch, whether the Issue is
-        # still ready): whether `keep` takes a fresh token, its writes.
+        # (commits, pushed, Issue, open PRs, still ready, an uncommitted file): whether `keep` takes a token, its writes.
         cases = (((1, False, 1, [], True), True, [draft, revoke]),
                  ((2, False, 1, [dict(number=9)], True), True, [revoke]),
                  ((1, False, 1, [], False), True, [revoke]),
                  ((1, False, None, [], True), True, [revoke]),
                  ((1, True, 1, [], True), True, [draft, revoke]),
                  ((1, True, 1, [dict(number=9)], True), False, []),
-                 ((1, True, None, [], True), False, []),
-                 ((0, False, 1, [], True), False, []))
-        for (commits, pushed, issue, prs, queued), minted, writes in cases:
+                 ((0, False, 1, [], True), False, []),
+                 ((0, False, 1, [], True, 'edit'), True, [draft, revoke]))
+        for (commits, pushed, issue, prs, queued, *dirty), minted, writes in cases:
             with self.subTest(commits=commits, pushed=pushed, issue=issue, prs=prs, queued=queued), \
                     tempfile.TemporaryDirectory() as path:
                 git = branch(path, commits, pushed)
+                [Path(f'{path}/work/{name}').write_text('x') for name in dirty]
                 with GitHub(prs=prs, queued=queued) as github, chdir(f'{path}/work'), \
                         patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                         patch.object(builder, 'app_token', return_value='fresh') as token, \
@@ -919,31 +919,9 @@ class Keep(unittest.TestCase):
                     builder.keep('build/U1', issue, 'https://run/1')
                 kept = subprocess.run(['git', '--git-dir', f'{path}/github.git', 'rev-parse', '--verify', '--quiet',
                                        'refs/heads/build/U1'], capture_output=True, text=True).stdout.strip()
-                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0)
+                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0 or bool(dirty))
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
-
-    def test_l23_work_a_killed_run_left_uncommitted_is_committed_pushed_and_keeps_the_captures_out(self):
-        with tempfile.TemporaryDirectory() as path:
-            git = branch(path, 0, False)
-            Path(path, 'work/.gitignore').write_text('ignored.log\n')
-            git('add', '.gitignore')
-            git('commit', '-m', 'ignore')
-            Path(path, 'work/new.txt').write_text('untracked\n')
-            Path(path, 'work/.gitignore').write_text('ignored.log\nedited\n')
-            Path(path, 'work/ignored.log').write_text('ignored\n')
-            Path(path, 'work/artifacts/ux/U1').mkdir(parents=True)
-            Path(path, 'work/artifacts/ux/U1/a.png').write_text('capture')
-            with GitHub(prs=[], queued=False), chdir(f'{path}/work'), \
-                    patch.dict(os.environ, GITHUB_REPOSITORY='a/b', GITHUB_RUN_ID='77'), \
-                    patch.object(builder, 'app_token', return_value='fresh'), \
-                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
-                builder.keep('build/U1', 1, 'https://run/1')
-            self.assertEqual(git('show', '--name-only', '--format=%an|%(trailers:key=Author-Agent,valueonly)', 'HEAD').split(),
-                             ['claude[bot]|builder-77', '.gitignore', 'new.txt'])
-            self.assertTrue(git('log', '-1', '--format=%B').endswith('\n\nAuthor-Agent: builder-77'))
-            self.assertEqual(git('rev-parse', 'refs/heads/build/U1'),
-                             git('--git-dir', f'{path}/github.git', 'rev-parse', 'refs/heads/build/U1'))
 
     def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
         answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))

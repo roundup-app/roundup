@@ -3,10 +3,37 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def git(*args, env=None):
     return subprocess.run(['git', *args], text=True, capture_output=True, timeout=300, env=env)
+
+
+def worktree(branch):
+    """The directory of the worktree on `branch`: a run works in its own, and the checkout a step starts in may not be
+    it. `.` when no worktree holds `branch`."""
+    listing = git('worktree', 'list', '--porcelain').stdout
+    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
+             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
+    return Path(trees.get(branch, '.'))
+
+
+def save(branch, account):
+    """A run killed at its deadline leaves edits in its worktree that die with the runner. Commit what `branch`'s
+    worktree holds uncommitted or untracked, as `account`, bar the untracked captures of `artifacts/ux/` and anything
+    ignored, so the push that follows keeps it."""
+    tree, bar, (name, email) = str(worktree(branch)), ':!artifacts/ux', account
+    if not git('-C', tree, 'status', '--porcelain', '--untracked-files=all', '--', '.', bar).stdout:
+        return
+    for step in (('add', '-A', '--', '.', bar),
+                 ('-c', f'user.name={name}', '-c', f'user.email={email}', 'commit', '--no-verify', '-m',
+                  'Save the work the run ended with uncommitted', '-m',
+                  'The run ended with this work uncommitted; the next run finishes it.', '-m',
+                  f"Author-Agent: builder-{os.environ.get('GITHUB_RUN_ID', '0')}")):
+        done = git('-C', tree, *step)
+        if done.returncode:
+            sys.exit(f'saving the uncommitted work of {branch} failed: {done.stderr.strip()}')
 
 
 def land(remote, branch, account):

@@ -546,39 +546,12 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
     return engines['Claude Code'][0]()
 
 
-def worktree(branch):
-    """The directory of the worktree on `branch`: the run works in its own, and the checkout a step starts in may not be
-    it. `.` when no worktree holds `branch`."""
-    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
-                             timeout=60).stdout
-    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
-             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
-    return Path(trees.get(branch, '.'))
-
-
-def save_uncommitted(branch):
-    """L23: a run killed at its deadline leaves edits in its worktree that die with the runner. Commit what `branch`'s
-    worktree holds uncommitted or untracked, as `push.land` does, bar the untracked captures of `artifacts/ux/` and
-    anything ignored, so the push that follows keeps it."""
-    tree, bar = worktree(branch), ':!artifacts/ux'
-
-    def git(*args):
-        return subprocess.run(['git', '-C', str(tree), *args], check=True, text=True, capture_output=True, timeout=300)
-    if not git('status', '--porcelain', '--untracked-files=all', '--', '.', bar).stdout:
-        return
-    name, email = CLAUDE_ACCOUNT
-    git('add', '-A', '--', '.', bar)
-    git('-c', f'user.name={name}', '-c', f'user.email={email}', 'commit', '--no-verify', '-m',
-        'Save the work the run ended with uncommitted', '-m',
-        'The run ended with this work uncommitted; the next run finishes it.', '-m',
-        f"Author-Agent: builder-{os.environ.get('GITHUB_RUN_ID', '0')}")
-
-
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not. Work the run left
-    uncommitted is committed first. When the commits a run left on `branch` beyond `main` are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
+    """L23: the action's App token lasts an hour and a run may not. Work the run left uncommitted
+    is committed first. When the commits a run left on `branch` beyond `main` are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
     open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
-    save_uncommitted(branch)
+
+    push.save(branch, CLAUDE_ACCOUNT)
 
     def rev(ref):
         return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
@@ -622,7 +595,7 @@ def attach(branch):
     on its `Scenarios:` line, until its body holds `ATTACH_MOST`, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
-    base = worktree(branch)
+    base = push.worktree(branch)
     captures = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
                       for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
                       if 'base' not in path.parts and 'head' not in path.parts)
