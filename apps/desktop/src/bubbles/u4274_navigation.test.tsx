@@ -110,7 +110,9 @@ it.each(["empty", "hidden", "shown"])("u4277c_terminal_empty_feedback_uses_proje
     await connected().rail.refresh({ terminals: true });
   }
 
-  connected().showView("terminal-tabs");
-  const bar = await screen.findByRole("group", { name: "Terminals" });
-  expect(within(bar).queryByRole("status") !== null).toBe(inventory === "empty");
+  if (inventory === "empty") expect(screen.queryByRole("group", { name: "Terminals" })).toBeNull();
+  else {
+    const bar = await screen.findByRole("group", { name: "Terminals" });
+    expect(within(bar).queryByRole("status")).toBeNull();
+  }
 });

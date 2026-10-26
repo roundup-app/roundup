@@ -459,7 +459,7 @@ export const copy = {
   newAgentWithAPrompt: "New Agent with a prompt",
   newTerminal: "New Terminal",
   plusTerminal: "+ Terminal",
-  terminals: "Terminals", terminalsEmpty: "No Terminals open",
+  terminals: "Terminals",
   closeTerminal: (value1: CopyValue) => `Close ${value1}`,
   switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
