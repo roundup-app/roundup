@@ -35,6 +35,12 @@ Source: `aa36ff3ea`, after a clean merge of main `ebbae60d3`.
 | Required lints | Both complete lints pass, including ALL PROOFS CHECK; final Stylelint also passes after moving CSS. |
 | Dark 1512×950 tree-40 | Recorded U3791c journey passes. Enter and all four failure screens pass every emitted Check; error and Retry are visible. Recovered Pad editor has D1/D2/D10 failures identical, including values, to main ebbae60d3. D5/D6 pass throughout. |
 
-`just capture U3791c` was bounded at 60 seconds because it starts the entire web suite; no full-suite pass is claimed. The focused capture completed after installing the environment's missing ffmpeg. PNGs, Check readings and video remain uncommitted under `artifacts/ux/U3791c/`; U3791a failure images are also retained. A broad related run was stopped during cold Daemon compilation; the scenario-filtered related run passes all 10 selected tests in five files (190 files skipped). CI judges the complete pushed head.
+`just capture U3791c` was bounded at 60 seconds because it starts the entire web suite; no full-suite pass is claimed. The focused capture completed after installing the environment's missing ffmpeg. Screenshots, Check readings and video remain uncommitted under `artifacts/ux/U3791c/`; U3791a failure images are also retained. A broad related run was stopped during cold Daemon compilation; the scenario-filtered related run passes all 10 selected tests in five files (190 files skipped). CI judges the complete pushed head.
 
 The failed Rust lane had passed all 494 selected tests before cancellation during contract regeneration. No assertion, contract generator or timeout was weakened.
+
+
+The remote advanced to `e263e5c37` during validation. Its eager Timeline/dashboard imports are preserved, and main `a1e5ad3d2` is merged cleanly. Pane-owned CSS stays with Pane; its observer waits for mounting regardless of import strategy. The combined production build passes at 407406 gzip bytes under the same 437814 ceiling. Earlier lazy-build measurements above describe the intermediate tree, not this final head.
+
+
+All 56 final-head tests pass across activity, U3791c rendered recovery, Terminal sizing/owner cleanup, dashboard and timeline suites. R19 cases complete in 365–533 ms. The final recorded journey again passes; its recovered editor readings match the baseline and its failure screens pass all Checks.
