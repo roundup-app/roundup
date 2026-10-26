@@ -28,6 +28,23 @@ const mount = async (list: () => Reaction[]) => {
   return mounted;
 };
 
+it("z3788c_only_the_current_reactions_owner_refreshes_on_focus", async () => {
+  const first = await mount(() => [saved()]);
+  await screen.findByRole("button", { name: /Ship it/ });
+  first.unmount();
+  const second = await mount(() => [saved({ name: "Current reaction" })]);
+  await screen.findByRole("button", { name: /Current reaction/ });
+  const oldCalls = first.app.calls.filter(call => call.method === "reaction.list").length;
+  const currentCalls = second.app.calls.filter(call => call.method === "reaction.list").length;
+
+  window.dispatchEvent(new Event("focus"));
+  await waitFor(() => expect(second.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(currentCalls + 1));
+  expect(first.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(oldCalls);
+  second.unmount();
+  window.dispatchEvent(new Event("focus"));
+  expect(second.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(currentCalls + 1);
+});
+
 it("nr9_create_inspect_stop_run_and_focus", async () => {
   let current = saved();
   const { app } = await mount(() => [current]);
