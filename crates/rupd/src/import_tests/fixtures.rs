@@ -132,7 +132,9 @@ pub(super) fn journey_sources(
         project,
         &["worktree", "add", "--detach", removed.to_str().unwrap()],
     );
-    let historical: Vec<_> = (0..65).map(|n| project.join(format!("removed-{n}"))).collect();
+    let historical: Vec<_> = (0..65)
+        .map(|n| project.join(format!("removed-{n}")))
+        .collect();
     let mut cwds = vec![project];
     cwds.extend(historical.iter().map(PathBuf::as_path));
     cwds.push(&sub);
