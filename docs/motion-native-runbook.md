@@ -11,7 +11,7 @@ The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`.
 ## Before you run
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
-- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the `glyphs` run starts ten stand-in Agents (`fake_claude.py`, no model call) and tells each it works. `layers` and `todos` first make four Todos.
+- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the all three motion workloads prepare the same `tree-40-native-v1` fixture using the stand-in Agents (`fake_claude.py`, no model call). The fixture derives the nested tree, names, Todo body/long title and Pad contents from `testing/seeds.ts`: its 38-node tree gains two Agent leaves, all eight Todos start open, and each of two owners has a three-level branch plus a reorder sibling. Ten Agents work. The selected streaming shell remains visible. Setup refuses existing Todos/Pads or any Rail beyond the measurement Workstream; it neither adopts nor deletes user data. It requires dark 1512×950 and identifies the actual reserved/overlay Shelf mode. A fixture not prepared within the existing ten-second setup bound is incomplete; never increase the bound.
 - The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
@@ -74,11 +74,18 @@ mode and layer segments (targets, timestamps, start/destination/observed positio
 and completion), with synthetic pointer/key sources named explicitly. These are
 page-driven actions and never trusted native gestures.
 
-Before #4244 can close, implement the pinned final tree-40 fixture and hash, verify
-its setup, restore the nested owner-grouped Todos between repeats, observe trusted
+The App now prepares the same deterministic derived fixture for layers, Todos and
+Glyphs. `observer.fixture` retains canonical UTF-8 JSON bytes, SHA-256, logical
+identity, allocated Rail/Todo/owner/blocker targets, Pads, working Agent ids and
+streaming Terminal id. Its readback must match the fixture; all ten Glyphs must be
+visible before sampling, and the selected streaming Terminal must remain visible.
+Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
+separately and need not match. Preserve this entire observer overlay unchanged on
+both immutable sources. This is a preparation implementation, not native evidence.
+
+Before #4244 can close, demonstrate this setup on the rendered observer, restore the nested owner-grouped Todos between repeats, observe trusted
 pointer reorder, identify both Shelf cases and complete the measured live reduced
-motion variants through the existing preference owner. Current fixture preparation
-still uses the earlier flat rows; the new report explicitly marks native
+motion variants through the existing preference owner. The report marks its variant `unqualified` and explicitly marks native
 qualification incomplete. A scheduling pass alone does not complete that work.
 
 Before any new Mac request, #3013 also needs its separately scoped `crates/perf`
