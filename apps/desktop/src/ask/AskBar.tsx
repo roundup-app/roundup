@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, Suspense } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "../copy";
@@ -24,9 +24,12 @@ import { Portal } from "solid-js/web";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
-import { createReactions, Reactions } from "../reactions/Reactions";
+import { createReactions } from "../reactions/state";
 import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
+
+// R3800: load the reactions screen and its Ark form controls only when requested.
+const Reactions = lazy(() => import("../reactions/Reactions").then(module => ({ default: module.Reactions })));
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
@@ -337,7 +340,7 @@ export const AskBar = (props: {
         </div>
         <For each={["workstreams", "resources", "terminal-tabs", "made", "ask-history"].filter(connected.hasView)}>{view => <button type="button" data-button="quiet" onClick={() => { connected.hideView(view); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(props.viewLabel?.(view) ?? view)}</button>}</For>
         <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>
-        <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
+        <Show when={connected.hasView("reactions")}><Suspense><Reactions state={reactions} /></Suspense></Show>
         <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>
         <Show when={connected.hasView("ask-history")}><AskRows keys={scope} onOpened={() => close(false)} /></Show>
       </section>
