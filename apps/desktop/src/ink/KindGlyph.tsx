@@ -1,5 +1,5 @@
 import { animate } from "motion";
-import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { createComputed, createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import { copy } from "../copy";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "./glyph";
@@ -36,7 +36,8 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
 
   const stop = () => { running.forEach(animation => animation.cancel()); running = []; };
 
-  createEffect(on(() => props.kind, kind => {
+  // A computation runs before Solid redraws the Mark, so the working arc is still in the DOM to read.
+  createComputed(on(() => props.kind, kind => {
     const previous = shown;
 
     shown = kind;

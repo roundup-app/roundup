@@ -333,7 +333,7 @@ p.ink[role="alert"] {
 }
 
 .kind-mark { transform: var(--glyph-optical-transform, none); }
-.kind-mark-leaving { position: absolute; inset: 0; pointer-events: none; }
+.kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
 .kind-mark-leaving .working-arc { animation-delay: var(--turn-elapsed); }
