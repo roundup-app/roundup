@@ -930,7 +930,7 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             }
             let c = p.client().await;
             if step == 1 || step == 3 {
-                call(&c, "deliverable.remove", id.clone()).await;
+                refused(&c, "deliverable.remove", id.clone()).await;
             }
             refused(&c, "deliverable.get", id.clone()).await;
             refused(&c, "deliverable.resolve", id.clone()).await;
