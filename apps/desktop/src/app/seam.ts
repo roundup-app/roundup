@@ -212,10 +212,10 @@ export const INTERNAL_CODE = -32603;
 export const rpcFailureSchema = v.object({
   code: v.number(),
   message: v.string(),
-  data: v.fallback(v.optional(v.object({
-    kind: v.literal("events-expired"),
-    oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
-  })), undefined),
+  data: v.fallback(v.optional(v.variant("kind", [
+    v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
+    v.object({ kind: v.literal("other-project") }),
+  ])), undefined),
 });
 
 /** A failed call: the Daemon's own `code` and `message`, or INTERNAL when Tauri, a plugin or a malformed answer failed. */

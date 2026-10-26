@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import type * as Solid from "solid-js";
 import type { LinkContent } from "@contracts/link/LinkContent";
-import type { App, NativeOpen } from "./seam";
+import { RpcError, type App, type NativeOpen } from "./seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
@@ -72,11 +72,14 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
           return;
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+          // Only the link's own Project names its cause; every other Project answers that it is not theirs.
+          if (error instanceof RpcError && error.data?.kind === "other-project") continue;
+
           failures.push(error.message);
         }
       }
 
-      // Every open Project answers; Projects that share a cause name it once.
+      // A link no Project can parse fails the same way in each; name that cause once.
       fail([...new Set(failures)].join("; ") || linkCopy.projectClosed);
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
