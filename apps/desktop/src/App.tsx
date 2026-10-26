@@ -405,7 +405,7 @@ export const App = (props: {
 
   const views = [
     ["ask-history", copy.askHistory], ["resources", copy.resources],
-    ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
+    ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotesMenu],
   ] as const;
 
   const taskKeys = new Set(["⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);

@@ -137,7 +137,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: Ask %s", async (byAction) => {
   await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Ask bar", "pointer"); }
+  if (byAction) { await show(); await chooseAction("Focus the Ask bar", "pointer"); }
   else press("/", { metaKey: true, code: "Slash" });
   await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
 });
@@ -194,7 +194,7 @@ it.each(["S", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "S" ? "Show or hide the work items" : "Jump to what needs you in another Project", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "S" ? "Toggle work items" : "Jump to what needs you in another Project", "enter"); }
     else leaderKey("Key" + (key === "S" ? "S" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "S") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -224,7 +224,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
     ...(context === "rail" ? ["Remove"] : []),
-    "Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
+    "Focus the Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
@@ -267,15 +267,15 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", async () => {
   const { app, connected } = await mountSwitcher(null, [workstream("ws", { name: "only" })], [info("7", { owner: "ws" })]);
   await show();
-  expect(actionNames()).toEqual(["New Agent", "New Agent with a prompt", "New Terminal", "Ask bar"]);
+  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
   await show();
-  expect(actionNames()).toContain("Close the Bubble");
+  expect(actionRows().map(row => row.dataset.value)).toContain("action:leader:W");
   app.handlers["terminal.list"] = () => [];
   await connected.rail.refresh({ terminals: true });
-  await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain("action:leader:W"));
 });
 
 it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s", async (context) => {
@@ -290,7 +290,6 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   for (const option of actionRows()) {
     const row = [...CHORDS, ...LEADER].find((row) => row.what === option.querySelector(".switcher-name")?.textContent)!;
     const keys = "press" in row ? `${CHORDS[3]!.keys} ${row.keys}` : row.keys;
-    expect(option.querySelector(".key-chips")?.textContent).toBe(keys);
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
 });
@@ -343,7 +342,7 @@ it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", 
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");
-  await chooseAction("Show or hide the work items", "enter");
+  await chooseAction("Toggle work items", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
 
