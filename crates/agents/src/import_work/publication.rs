@@ -1,23 +1,55 @@
 use super::*;
+use crate::worktree_wiring::{real_paths, reconcile_closed};
 
 impl Agents {
-    pub(super) async fn import_conversation(
+    pub(crate) async fn import_conversation(
         &self,
         source: &str,
         revision: &str,
         now_ms: i64,
         resume: Option<&Ctx>,
+        vendor: bool,
     ) -> Result<(String, String), RpcError> {
         // Published work no longer depends on the external original. Concurrent first
         // imports still converge under prepare_closed's lifecycle lock after validation.
         if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
             return Ok((workstream, agent));
         }
+        let listed = if vendor {
+            let worktrees = self
+                .shared
+                .git
+                .registered_worktrees(self.project_dir())
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(path, _)| path)
+                .collect::<Vec<_>>();
+            let found = self
+                .launcher
+                .list_saved(self.project_dir(), &worktrees, (now_ms, i64::MAX))
+                .await?;
+            let candidate = found
+                .candidates
+                .into_iter()
+                .find(|c| c.source == source && c.revision == revision)
+                .ok_or_else(|| {
+                    RpcError::conflict("source changed since preview; Refresh to try again")
+                })?;
+            Some(crate::claude_code::ImportCandidate {
+                source: candidate.source,
+                title: candidate.title,
+                cwd: candidate.cwd,
+                last_activity_ms: candidate.last_activity_ms,
+                revision: candidate.revision,
+            })
+        } else {
+            None
+        };
         let project = self.project_dir().to_owned();
         let launcher = self.launcher.clone();
         let (src, rev) = (source.to_owned(), revision.to_owned());
         let (candidate, bytes) = tokio::task::spawn_blocking(move || {
-            launcher.read_import_snapshot(&project, &src, &rev, now_ms)
+            launcher.read_import_snapshot(&project, &src, &rev, now_ms, listed)
         })
         .await
         .map_err(RpcError::internal)??;
@@ -26,7 +58,7 @@ impl Agents {
             .await
     }
 
-    async fn prepare_closed(
+    pub(crate) async fn prepare_closed(
         &self,
         source: &str,
         title: &str,
@@ -145,5 +177,4 @@ impl Agents {
         }
         Ok(ids)
     }
-
 }

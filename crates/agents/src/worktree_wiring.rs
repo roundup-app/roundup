@@ -417,7 +417,9 @@ mod tests {
             line("2026-10-19T11:00:00Z") + &line("2026-10-19T11:30:00Z"),
         )
         .unwrap();
-        let refused = agents.import_conversation(ID, &revision, now, None).await;
+        let refused = agents
+            .import_conversation(ID, &revision, now, None, false)
+            .await;
         assert!(
             refused
                 .unwrap_err()
@@ -433,12 +435,12 @@ mod tests {
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         let ids = agents
-            .import_conversation(ID, &revision, now, None)
+            .import_conversation(ID, &revision, now, None, false)
             .await
             .unwrap();
         assert_eq!(
             agents
-                .import_conversation(ID, &revision, now, None)
+                .import_conversation(ID, &revision, now, None, false)
                 .await
                 .unwrap(),
             ids

@@ -79,6 +79,11 @@ fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
             .is_some_and(|rest| rest.starts_with('-'))
 }
 
+enum Membership<'a> {
+    Recorded(&'a Path),
+    Listed(ImportCandidate),
+}
+
 enum Scan {
     Member(ImportCandidate),
     OtherProject,
@@ -225,7 +230,7 @@ impl Launcher {
                         self,
                         &path,
                         &stem,
-                        &project,
+                        Membership::Recorded(&project),
                         (now_ms, period_ms),
                         &check,
                         None,
@@ -290,6 +295,7 @@ impl Launcher {
         source: &str,
         revision: &str,
         now_ms: i64,
+        listed: Option<ImportCandidate>,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
         let changed = || {
             RpcError::conflict(format!(
@@ -302,37 +308,47 @@ impl Launcher {
         let project = project
             .canonicalize()
             .map_err(|err| io_error(project, err))?;
-        let file = format!("{source}.jsonl");
-        let mut selected = None;
-        let root = self.conversation_dir.join("projects");
-        let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
-        for (index, bucket) in buckets.enumerate() {
-            if index >= MAX_FILES {
-                return Err(RpcError::not_accepted("too many storage buckets"));
+        let selected = if listed.is_some() {
+            let mut files =
+                super::vendor_list::index_sources(&self.conversation_dir.join("projects"))?;
+            match files.remove(source).as_deref() {
+                Some([path]) => Some(path.clone()),
+                _ => return Err(changed()),
             }
-            let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
-            if !bucket
-                .metadata()
-                .map_err(|err| io_error(&bucket, err))?
-                .is_dir()
-            {
-                continue;
-            }
-            if !is_possible_bucket(&bucket, &project) {
-                continue;
-            }
-            let path = bucket.join(&file);
-            #[cfg(any(test, feature = "test-support"))]
-            if let Some(observer) = &self.import_observer {
-                observer(&path, "probe", 0);
-            }
-            if path.try_exists().map_err(|err| io_error(&path, err))? {
-                if selected.is_some() {
-                    return Err(changed());
+        } else {
+            let file = format!("{source}.jsonl");
+            let mut selected = None;
+            let root = self.conversation_dir.join("projects");
+            let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
+            for (index, bucket) in buckets.enumerate() {
+                if index >= MAX_FILES {
+                    return Err(RpcError::not_accepted("too many storage buckets"));
                 }
-                selected = Some(path);
+                let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
+                if !bucket
+                    .metadata()
+                    .map_err(|err| io_error(&bucket, err))?
+                    .is_dir()
+                {
+                    continue;
+                }
+                if !is_possible_bucket(&bucket, &project) {
+                    continue;
+                }
+                let path = bucket.join(&file);
+                #[cfg(any(test, feature = "test-support"))]
+                if let Some(observer) = &self.import_observer {
+                    observer(&path, "probe", 0);
+                }
+                if path.try_exists().map_err(|err| io_error(&path, err))? {
+                    if selected.is_some() {
+                        return Err(changed());
+                    }
+                    selected = Some(path);
+                }
             }
-        }
+            selected
+        };
         if let Some(path) = selected {
             if source_revision(&path.metadata().map_err(|err| io_error(&path, err))?) != revision {
                 return Err(changed());
@@ -352,7 +368,7 @@ impl Launcher {
                 self,
                 &path,
                 source,
-                &project,
+                listed.map_or(Membership::Recorded(&project), Membership::Listed),
                 (now_ms, i64::MAX),
                 &check,
                 Some(&mut bytes),
@@ -394,7 +410,7 @@ fn scan(
     launcher: &Launcher,
     path: &Path,
     stem: &str,
-    project: &Path,
+    membership: Membership<'_>,
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
     retained: Option<&mut Vec<u8>>,
@@ -423,7 +439,7 @@ fn scan(
     let result = scan_records(
         launcher,
         (path, stem),
-        project,
+        membership,
         window,
         check,
         retained,
@@ -451,7 +467,7 @@ fn scan(
 fn scan_records(
     launcher: &Launcher,
     source: (&Path, &str),
-    project: &Path,
+    membership: Membership<'_>,
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
     mut retained: Option<&mut Vec<u8>>,
@@ -644,6 +660,12 @@ fn scan_records(
             "no complete records".into(),
         ));
     }
+    // The SDK listing already projected historical and Worktree directories into this Project.
+    // Complete-record validation above still refuses corrupt or foreign source bytes.
+    let project = match membership {
+        Membership::Listed(candidate) => return Ok(Scan::Member(candidate)),
+        Membership::Recorded(project) => project,
+    };
     let mut inside = Vec::new();
     let mut outside = false;
     for cwd in &cwds {
@@ -904,7 +926,7 @@ mod preview_tests {
             assert!(elapsed < Duration::from_secs(2), "{variant}: {elapsed:?}");
             // Confirmation is outside the preview timer and validates every payload.
             let (confirmed, retained) = launcher
-                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
                 .unwrap();
             assert_eq!(&confirmed, candidate);
             assert_eq!(retained.len(), 399_999_992);
