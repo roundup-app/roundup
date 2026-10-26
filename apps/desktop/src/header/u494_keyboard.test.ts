@@ -112,6 +112,8 @@ it("u497_no_native_titles", async () => {
   await wait(`document.querySelector('.window-title').dataset.state === 'closed'`);
   await browser("press", 'Tab');
   await browser("eval", `document.querySelector('.window-title').focus()`);
+  await browser("press", "Shift+Tab");
+  await browser("press", "Tab");
   await wait(`document.activeElement === document.querySelector('.window-title')`);
   await wait(`(() => { const title = document.querySelector('.window-title'); return !!document.getElementById(title.getAttribute('aria-describedby')); })()`);
   expect(await read<number>(`document.querySelectorAll('.header [title],.drawer [title]').length`)).toBe(0);
