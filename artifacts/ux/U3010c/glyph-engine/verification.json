@@ -53,7 +53,7 @@
     "command": "just lint-web",
     "initialExit": 1,
     "cause": "Raw lint logs inside the observation directory repeated baseline diagnostics as new typos; logs retained outside the source scan.",
-    "final": "running"
+    "finalExit": 0
   },
   "merge": {
     "main": "b232f9df9",
