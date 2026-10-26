@@ -342,7 +342,7 @@
 }
 
 /* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
-.line :is(.ink-count, .rail-pads-control, .folded-agents) {
+.line > :is(.ink-count, .folded-agents) {
   margin-right: var(--space-1);
 }
 
