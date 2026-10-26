@@ -46,7 +46,7 @@ p {
   pointer-events: none;
 }
 
-.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line, .scrollbar-slot) {
+.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line) {
   pointer-events: auto;
 }
 
@@ -311,11 +311,11 @@ p {
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
-.window:has(.drawer[data-open="true"]) .columns {
+.window:has(.drawer[data-mounted="true"]) .columns {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"][data-open="true"]) .columns {
+.window:has(.drawer[data-motion="slide"][data-mounted="true"]) .columns {
   transition: width var(--duration-drawer) var(--easing-out);
 }
 
