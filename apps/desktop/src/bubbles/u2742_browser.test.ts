@@ -267,7 +267,7 @@ it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => 
 it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_newer_focus_%s", async choice => {
   await browser("set", "media", "dark");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&renderer=dom", origin).href);
-  await wait(`!!window.__fake && !!document.querySelector('.rail-actions [aria-label="Add Workstream"]')`);
+  await wait(`!!window.__fake && !!document.querySelector('.rail-actions [data-button="add"]')`);
   const dir = captureDir("U4011");
 
   if (dir) {
@@ -296,7 +296,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
       const fonts = new Promise(resolve => { window.finishFonts = resolve; });
       document.fonts.load = async (...args) => { await fonts; return load(...args); };
       window.creationCalls = app.calls.length;
-      document.querySelector('.rail-actions [aria-label="Add Workstream"]').click();
+      document.querySelector('.rail-actions [data-button="add"]').click();
     })()`);
     // fetchTree is queued only after the successful creation reply in state/rail.ts.
     await wait(`!!window.createdRow && window.treeWaiting`);
