@@ -66,7 +66,7 @@ const revision = (metadata) =>
 function storageCapability(name) {
   const capability = vendor[name];
 
-  if (typeof capability !== 'function') {
+  if (capability === undefined) {
     throw new Error('SDK raw storage extension unavailable; reinstall the pinned sidecar with pnpm install');
   }
 
