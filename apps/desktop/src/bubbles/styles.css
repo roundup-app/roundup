@@ -176,6 +176,11 @@
   white-space: nowrap;
 }
 
+.terminal-tabs-empty {
+  inline-size: auto;
+  flex: 0 1 auto;
+}
+
 .terminal-tab-pair {
   display: inline-flex;
   flex: none;
