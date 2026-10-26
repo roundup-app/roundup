@@ -112,6 +112,7 @@ it("u4313a_rail_footer_offers_workstream_and_agent", async () => {
 
 it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
   const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
+
   if (selection !== "empty") connected().rail.select(selection);
   const parent = selection === "home" ? "home" : null;
   daemon.handlers["agent.spawn"] = () => {
@@ -121,6 +122,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
 
     return spawned;
   };
+
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
   else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
   await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
