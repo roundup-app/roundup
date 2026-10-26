@@ -194,7 +194,7 @@ M9's Kind crossfade is delivered in `ink/KindGlyph.tsx`: a Kind change on a moun
 Glyph keeps the old mark as an inert, `aria-hidden` sibling and fades the two marks
 over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity only,
 so reduced motion needs no variant); the latest Kind cancels the running fade and
-disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
+disposal cancels it. The working arc is migrated to Motion in the subsequent slice below. Rendered Kind
 transitions, the M10 single-source collapse and the remaining slices stay open.
 
 M10 preference wiring now shares the App's injected live accessor with `ui/Dialog.tsx`
@@ -237,3 +237,13 @@ mark alignment, opacity and browser animations. Its base/head traces under
 `artifacts/ux/U3010c/glyph-engine/` distinguish the previous outgoing arc's continued
 rotation from the new frozen phase. All layer/layout/completion adoption, remaining
 inventory, full capture and native scheduling obligations remain on #3821.
+
+The glyph slice's immutable production comparison is `U3010d/glyph-bundle.json`:
+base `3b6b9daaa52dd8cd25505d84b235e0c981779cf0`, source head
+`784719087648be9bb7845658c2d60c99c03c8143`, gzip-9 entry/eager JS
+433,360 → 433,586 bytes (+226). Both builds have 262 lazy JS chunks, all enumerated;
+Motion remains eager, with no dependency/engine change or new lazy Motion chunk.
+This is incremental glyph integration cost; the original engine/press delta remains
+in `press-bundle.json`. The repository startup observer's current 437,814-byte
+ceiling passes, but this Issue's 400,000-byte acceptance fails at both revisions.
+No performance baseline, native scheduling protocol or presentation claim changes.
