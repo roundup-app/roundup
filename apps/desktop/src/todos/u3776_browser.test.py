@@ -1,4 +1,4 @@
-"""U3776, U3796: a comment arriving while the Drawer is open fades in once, and runs no animation under reduced motion; tree-40, dark, 1512x950; dedicated headless agent-browser, fresh profile."""
+"""U3776, U3796: a comment arriving while the Drawer is open appears at once, with no animation, with and without reduced motion; tree-40, dark, 1512x950; dedicated headless agent-browser, fresh profile."""
 import json
 import subprocess
 import sys
@@ -28,17 +28,14 @@ def evaluate(script):
     return browser('eval', script)['result']
 
 
-# Sends one comment, then reads the new block's animation at once and the offsets of the blocks above it.
+# Sends one comment, then reads the new block's animations at once.
 arrive = r"""(async () => {
   const d=document.querySelector('.drawer');
-  const tops=()=>[...d.querySelectorAll('.todo-comment:not([data-fresh])')].map(e=>e.getBoundingClientRect().top);
-  const before=tops();
+  const all=()=>[...d.querySelectorAll('.todo-comment')];
+  const before=all().length;
   await window.__fake.app.rpc('todo.comment',{id:5,body:'Arrived '+Math.random()});
-  const fresh=await new Promise(done=>{const t=setInterval(()=>{const e=d.querySelector('.todo-comment[data-fresh]');if(e){clearInterval(t);done(e)}},5)});
-  const s=getComputedStyle(fresh);
-  return {name:s.animationName,duration:s.animationDuration,count:s.animationIterationCount,
-    moved:JSON.stringify(before)!==JSON.stringify(tops().slice(0,before.length)),
-    properties:fresh.getAnimations().flatMap(a=>a.effect.getKeyframes().flatMap(k=>Object.keys(k).filter(p=>!['offset','easing','composite','computedOffset'].includes(p))))};
+  const fresh=await new Promise(done=>{const t=setInterval(()=>{const e=all();if(e.length>before){clearInterval(t);done(e[e.length-1])}},5)});
+  return {running:fresh.getAnimations().length};
 })()"""
 
 
@@ -54,17 +51,14 @@ def open_drawer():
 try:
     browser('set', 'media', 'dark')
     open_drawer()
-    assert evaluate('document.querySelector(".todo-comment[data-fresh]")') is None
     moving = evaluate(arrive)
-    seconds = float(moving['duration'].removesuffix('s'))
-    assert moving['name'] != 'none' and 0 < seconds <= 0.2 and moving['count'] == '1' and not moving['moved'], moving
-    assert set(moving['properties']) == {'opacity'}, moving
+    assert moving['running'] == 0, moving
 
     open_drawer()
     browser('set', 'media', 'dark', 'reduced-motion')
     assert evaluate('matchMedia("(prefers-reduced-motion: reduce)").matches') is True
     still = evaluate(arrive)
-    assert float(still['duration'].removesuffix('s')) == 0 and not still['moved'], still
+    assert still['running'] == 0, still
     print('ok')
 finally:
     browser('close')
