@@ -85,10 +85,10 @@
   padding-top: var(--space-2);
 }
 
-/* U3517c: the viewport and the surrounding inset share the canvas ground. */
+/* U3517c: the viewport and the surrounding inset share the canvas ground; the extra .xterm outranks the lazy xterm.css whatever order the sheets load in. */
 .pane-screen,
-.pane .xterm-viewport,
-.pane .xterm-scrollable-element {
+.pane .xterm .xterm-viewport,
+.pane .xterm .xterm-scrollable-element {
   background-color: var(--terminal-background);
 }
 
