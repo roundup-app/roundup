@@ -39,7 +39,7 @@ it("u426_menu_actions_run_without_selecting", async () => {
 
 it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async () => {
   await load("tree-40", 1512, "dark");
-  await browser("click", '.rail-row[data-id="payments"] .name');
+  await browser("click", '.rail-row[data-id="payments"] .row-state');
   await wait(`document.querySelector('.rail-row[data-id="payments"]').dataset.selected === 'true'`);
   await read(`window.__fake.app.handlers['workstream.clear'] = () => ({ pending: true })`);
   const before = await read(`window.__fake.app.calls.length`);
