@@ -11,7 +11,7 @@ import { copy } from "../copy";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 
 import { TickBox } from "./TickBox";
@@ -207,7 +207,7 @@ export const OpenRow = (props: {
     >
       <Show when={props.nested}>{head}</Show>
       <div class="row-secondary">{props.groupProgress}</div>
-      <Show when={failure()}>{message => <div class="todo-row-notice"><ErrorLine message={message()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{message()}</span></> : undefined} /></div>}</Show>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
   );
 };
