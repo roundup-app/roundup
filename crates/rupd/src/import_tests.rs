@@ -4,11 +4,11 @@ use crate::tests::ask;
 use std::path::PathBuf;
 use std::time::Duration;
 
-fn import_daemon(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
+pub(super) fn import_daemon(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
     crate::tests::daemon_with_launcher(project, &project.join(".roundup"), launcher)
 }
 
-fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> PathBuf {
+pub(super) fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> PathBuf {
     let cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
     let bucket: String = cwd
         .to_string_lossy()
@@ -24,7 +24,7 @@ fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> P
     file
 }
 
-async fn import_rpc(daemon: &Daemon, method: &str, params: Value) -> Value {
+pub(super) async fn import_rpc(daemon: &Daemon, method: &str, params: Value) -> Value {
     ask(
         daemon,
         &json!({"jsonrpc":"2.0", "id":1, "method":method,"params":params}).to_string(),
@@ -43,7 +43,7 @@ fn import_git(project: &Path, args: &[&str]) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
-async fn import_fixture(
+pub(super) async fn import_fixture(
     mode: u8,
 ) -> (
     tempfile::TempDir,

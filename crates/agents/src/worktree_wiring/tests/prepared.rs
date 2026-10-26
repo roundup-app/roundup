@@ -358,6 +358,7 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
                 "imported",
                 &dir.path().join("src"),
                 b"{\"sessionId\":\"original\",\"type\":\"user\",\"message\":\"retained\"}\n",
+                None,
             )
             .await
             .unwrap();
@@ -380,7 +381,7 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
         assert!(agents.shared.node(&agent).unwrap().can_resume);
         assert_eq!(
             agents
-                .prepare_closed("opaque-source", "replacement", dir.path(), b"invalid")
+                .prepare_closed("opaque-source", "replacement", dir.path(), b"invalid", None)
                 .await
                 .unwrap(),
             (workstream, agent)
@@ -394,7 +395,7 @@ async fn u2875b_failed_import_readiness_leaves_no_visible_pair_or_assignment() {
     let path = enroll(&agents, dir.path(), "false").await;
     assert!(
         agents
-            .prepare_closed("failed", "hidden", dir.path(), RETAINED)
+            .prepare_closed("failed", "hidden", dir.path(), RETAINED, None)
             .await
             .unwrap_err()
             .message
