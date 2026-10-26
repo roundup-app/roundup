@@ -127,7 +127,9 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       if (saved.agent !== undefined) external.agent = saved.agent;
 
-      const known = choices().some(entry => JSON.stringify({ prompt: entry.prompt, agent: entry.agent, period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
+      const known = choices().some(entry => entry.prompt === saved.prompt && entry.agent === saved.agent && entry.period === saved.period
+        && JSON.stringify(entry.sources) === JSON.stringify(external.sources) && JSON.stringify(entry.revisions) === JSON.stringify(external.revisions)
+        && JSON.stringify(entry.titles) === JSON.stringify(external.titles));
 
       if (!known && drafts) await drafts.edit(destination, { ...external, external: true }, null, "ordinary", null).retained;
     }

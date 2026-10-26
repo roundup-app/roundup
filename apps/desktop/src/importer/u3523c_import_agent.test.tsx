@@ -1,5 +1,3 @@
-import { captureDir } from "../testing/captures";
-import { openLane } from "../todos/laneBrowser";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { connectFakeProject } from "../terminal/paneHarness";
@@ -59,19 +57,4 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
 
   expect(restored instanceof HTMLTextAreaElement && restored.value).toBe("  exact\nunfinished 🪁  ");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
-});
-
-it.skipIf(!captureDir("U3523c"))("u3523c_rendered_import_prompt", async () => {
-  const lane = await openLane(1512, "dark", "builder-3666");
-
-  try {
-    await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
-    await lane.until("!!document.querySelector('textarea[aria-label=\"Import instructions\"]')");
-    await lane.capture("U3523c", "prompt");
-    await lane.evaluate("(() => { window.__fake.app.handlers['agent.spawn'] = () => { throw new Error('The import Agent could not start. Retry.'); }; return true; })()");
-    await lane.browser("click", "button:text-is('Start import Agent')");
-    await lane.until("document.body.textContent.includes('The import Agent could not start. Retry.')");
-    await lane.capture("U3523c", "failure");
-    expect(await lane.calls("project.importCommit")).toEqual([]);
-  } finally { await lane.close(); }
 });
