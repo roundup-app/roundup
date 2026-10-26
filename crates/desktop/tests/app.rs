@@ -251,30 +251,6 @@ const SERVE_AND_WAIT: &str = "{link}\nexec cat";
 const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat";
 
 #[test]
-fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
-    let fx = Fixture::new(
-        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nexec cat",
-    );
-    fx.serve_real_daemon();
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let opened = open(&webview, &fx.project);
-
-    assert_eq!(
-        opened,
-        json!({ "name": "my-project", "path": fx.project.display().to_string() })
-    );
-    assert_eq!(
-        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
-        format!("{}\n--attached\n", fx.project.display())
-    );
-    assert_eq!(
-        std::fs::read_to_string(fx.dir.path().join("socket")).unwrap(),
-        fx.config.socket.display().to_string()
-    );
-}
-
-#[test]
 fn s1_projects_is_empty_until_one_is_open_and_then_lists_the_open_one() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     fx.serve_real_daemon();
@@ -328,40 +304,6 @@ fn s1_a_path_that_is_not_a_directory_is_invalid_params_naming_it() {
             .as_str()
             .unwrap()
             .contains(&file.display().to_string())
-    );
-}
-
-#[test]
-fn s1_a_daemon_that_exits_is_internal_and_carries_its_stderr() {
-    let fx = Fixture::new("echo 'boom: cannot open the database' >&2\nexit 3");
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("boom: cannot open the database")
-    );
-}
-
-#[test]
-fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
-    let fx = Fixture::new("exec cat");
-    let mut config = fx.config.clone();
-    config.ready_bound = Duration::from_millis(300);
-    let (_app, webview) = app(config, None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("did not answer daemon.ping within 300ms")
     );
 }
 
@@ -846,44 +788,6 @@ fn s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected() {
 
     assert_eq!(accepted.socket.as_os_str().len(), 103);
     assert!(rejected.is_err());
-}
-
-#[test]
-fn s1_a_daemon_that_accepts_connections_but_never_answers_ping_is_silent_past_the_bound() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    let listener = std::os::unix::net::UnixListener::bind(fx.real_daemon_socket()).unwrap();
-    std::thread::spawn(move || {
-        let held: Vec<_> = listener.incoming().collect();
-        drop(held);
-    });
-    let mut config = fx.config.clone();
-    config.ready_bound = Duration::from_millis(300);
-    let (_app, webview) = app(config, None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("did not answer daemon.ping")
-    );
-}
-
-#[test]
-fn s1_stderr_that_is_not_utf8_does_not_stop_the_tail() {
-    let fx = Fixture::new("printf 'bad \\377 line\\n' >&2\necho 'after the bad line' >&2\nexit 3");
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("after the bad line")
-    );
 }
 
 #[test]
@@ -2195,3 +2099,6 @@ fn u2773c_header_overlapping_captured_writes_accept_only_one() {
         Ok(json!([project_json(&fx.project, &accepted[0].name, true)]))
     );
 }
+
+#[path = "startup/mod.rs"]
+mod startup;
