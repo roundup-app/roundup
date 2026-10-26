@@ -11,18 +11,18 @@ it("u4315a_navigation_survives_centre_switches", async () => {
   nodes.push(agent("closed", "done", "", { terminal_id: null }));
   nodes.push(door("running", "working", "Working"));
   await connected().rail.refresh();
-  const row = screen.getByRole("navigation", { name: "Centre views" });
+  const row = screen.getByRole("navigation", { name: "Centre" });
 
   for (const id of ["a0", "running", "home", "closed", null]) {
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
-    expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+    expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
 
     if (id === "home" || id === "running") {
       for (const name of ["Time", "Timeline"]) {
         fireEvent.click(await screen.findByRole("tab", { name }));
         await screen.findByRole("region", { name });
-        expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+        expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
       }
     }
   }
@@ -35,7 +35,7 @@ it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "
 
   if (["Time", "Timeline"].includes(target)) fireEvent.click(await screen.findByRole("tab", { name: target }));
   else if (!["home", "a0"].includes(target)) connected().showView(target);
-  const row = screen.getByRole("navigation", { name: "Centre views" });
+  const row = screen.getByRole("navigation", { name: "Centre" });
   fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
   await screen.findByRole("textbox", { name: "Ask" });
   expect(connected().rail.selected()).toBeNull();
@@ -46,14 +46,14 @@ it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "
 
 it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_share_navigation: %s", async command => {
   const { connected } = await mountNavigation();
-  const row = screen.getByRole("navigation", { name: "Centre views" });
+  const row = screen.getByRole("navigation", { name: "Centre" });
   connected().rail.select("a0");
 
   if (command === "app-settings") window.dispatchEvent(new Event("open-app-settings"));
   else openProjectPage(command, "/p");
   const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code work" : "Settings";
   const view = await screen.findByRole("region", { name });
-  expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+  expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
   expect(view.querySelector(".settings-head")).toBeNull();
   fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
@@ -70,7 +70,7 @@ it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves
   if (target === "Time" || target === "Timeline") fireEvent.click(await screen.findByRole("tab", { name: target }));
 
   if (target === "ask-history") connected().showView(target);
-  fireEvent.click(within(screen.getByRole("navigation", { name: "Centre views" })).getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" }));
   const field = await screen.findByRole("textbox", { name: "Ask" });
 
   if (!(field instanceof HTMLTextAreaElement)) throw new Error("Ask must be editable");
