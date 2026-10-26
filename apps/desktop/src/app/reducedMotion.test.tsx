@@ -29,9 +29,9 @@ describe("u5 reduced motion", () => {
 
   it("u5_a_change_of_the_preference_is_followed", () => {
     let notify: (change: { matches: boolean }) => void = () => {};
-    
+
     const listeners = new Set<(change: { matches: boolean }) => void>();
-    
+
     const query: MediaQuery = {
       matches: false,
       addEventListener: (_type, listener) => { notify = listener; listeners.add(listener); },
