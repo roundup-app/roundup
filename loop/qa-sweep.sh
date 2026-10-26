@@ -96,7 +96,7 @@ browser() { agent-browser --session "$browser_name" "$@"; }
 browser open "$url" >/dev/null || fail "agent-browser could not open $url"
 opened=1
 browser set media light reduced-motion >/dev/null || fail "agent-browser could not set reduced motion"
-browser wait --fn 'document.querySelector("[aria-label=Rail]") && document.querySelector("[aria-label=Todos]") && document.querySelector("[aria-label=Pads]")' >/dev/null || fail "harness did not render Rail and Shelf"
+browser wait --fn 'document.querySelector("[aria-label=Rail]") && document.querySelector("[aria-label=Todos]")' >/dev/null || fail "harness did not render Rail and Shelf"
 
 geometry='(() => {
   const unmodifiedPaint = element => {
@@ -109,7 +109,7 @@ geometry='(() => {
   const box = element => { const r = element.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom,height:r.height,visible:element.checkVisibility({checkOpacity:true,checkVisibilityCSS:true}) && unmodifiedPaint(element)}; };
   const rail = document.querySelector("[aria-label=Rail]");
   const centre = document.querySelector("[aria-label=Centre]");
-  const shelf = document.querySelector("[aria-label=Shelf]");
+  const shelf = document.querySelector("section.shelf");
   const drawer = document.querySelector("[aria-label=Drawer]");
   const overflow = [];
   if (document.documentElement.scrollWidth > innerWidth + 1) overflow.push("document wider than viewport");
@@ -142,7 +142,8 @@ measure() {
   jq -e '.overflow | type == "array"' <<< "$metrics" >/dev/null || fail "agent-browser returned no overflow boxes for $label"
   jq -e --argjson width "$width" --argjson height "$height" '.viewport == {width:$width,height:$height}' <<< "$metrics" >/dev/null || fail "viewport was not ${width}×${height} for $label"
   if [[ $(jq -r '.blank' <<< "$metrics") == true ]]; then fail "blank page at ${width}×${height}"; fi
-  if ! jq -e --argjson width "$width" --argjson height "$height" '[.boxes.rail,.boxes.centre,.boxes.shelf] | all(.visible == true and .width > 0 and .height > 0 and .left < $width and .right > 0 and .top < $height and .bottom > 0)' <<< "$metrics" >/dev/null; then
+  # U409: an open Drawer lies over the Shelf and hides it, so the Shelf must be visible only while the Drawer is closed.
+  if ! jq -e --argjson width "$width" --argjson height "$height" --arg open "$open" '[.boxes.rail,.boxes.centre,(.boxes.shelf | if $open == "true" then .visible = true else . end)] | all(.visible == true and .width > 0 and .height > 0 and .left < $width and .right > 0 and .top < $height and .bottom > 0)' <<< "$metrics" >/dev/null; then
     record_finding "$label at ${width}×${height}: Rail, centre or Shelf is hidden or outside the viewport"
   fi
   actual=$(jq -r '.drawer != null' <<< "$metrics")
@@ -179,18 +180,29 @@ for size in 1280x400 1280x800; do
   browser set viewport "$width" "$height" >/dev/null || fail "agent-browser could not set ${width}×${height}"
   measure workspace "$width" "$height" false
 
-  browser click '[aria-label="Todos"] [data-id="1"] .row-head button' >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
+  # The Unassigned group starts collapsed (U3717), so unfold it before the row's Open button is reachable.
+  # A first mouse click on the Open button is lost, so the Drawer opens by keyboard.
+  browser eval 'document.querySelector("[aria-label=Todos] [data-shelf-group=unassigned][aria-expanded=false] [data-part=branch-control]")?.click()' >/dev/null || fail "Unassigned group could not unfold at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] button[aria-label=Open]")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
+  browser focus '[aria-label="Todos"] [data-id="1"] button[aria-label="Open"]' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
+  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer did not open at ${width}×${height}"
   measure todo "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
   verify_closed todo "$width" "$height"
 
-  browser scrollintoview '[aria-label="Pads"] button[title="pad-3"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
-  browser click '[aria-label="Pads"] button[title="pad-3"]' >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
+  # U373: the Shelf mounts only its selected tab, so switch to Pads, then back for the next viewport.
+  browser click '.shelf-tab[data-value=pads]' >/dev/null || fail "Pads tab could not open at ${width}×${height}"
+  browser wait '[aria-label="Pads"]' >/dev/null || fail "Pads did not render at ${width}×${height}"
+  browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] button[aria-label="Open"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
+  browser focus '[aria-label="Pads"] [data-pad="pad-3"] button[aria-label="Open"]' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
+  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer did not open at ${width}×${height}"
   measure pad "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"
   verify_closed pad "$width" "$height"
+  browser click '.shelf-tab[data-value=todos]' >/dev/null || fail "Todos tab could not open at ${width}×${height}"
+  browser wait '[aria-label="Todos"]' >/dev/null || fail "Todos did not render at ${width}×${height}"
   jq -nc --arg size "${width}×${height}" '$size' >> "$work/viewports"
 done
 
