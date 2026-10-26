@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr or local> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -561,7 +561,9 @@ def empty_diff_gate(pr, base, head):
             '"Closes #N"; a PR that only undid its own change never merges.')
 
 try:
-    pr = one(pull)
+    # `local`: the checkout's HEAD against origin/main, before any PR exists (`just ready`); its author counts as a bot.
+    pr = {'base': {'ref': 'main', 'sha': git('rev-parse', 'origin/main')}, 'head': {'sha': git('rev-parse', 'HEAD')},
+          'user': {'type': 'Bot'}} if number == 'local' else one(pull)
     base_gate(pr)
     if command != 'base':
         head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
@@ -583,7 +585,7 @@ PY
 
 case "${1:-}" in
   base | ci-trailers | frozen | scenario-closes | empty-diff)
-    [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
+    [[ ${2:-} =~ ^([0-9]+|local)$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
   scenario-ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh scenario-ids" >&2; exit 2; }

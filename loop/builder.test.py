@@ -898,20 +898,20 @@ class Keep(unittest.TestCase):
         draft = ('pr', 'create', '--draft', '--base', 'main', '--head', 'build/U1', '--title', 'U1: Hide archived Agents',
                  '--body', body)
         revoke = ('api', '-X', 'DELETE', '/installation/token')
-        # (commits beyond main, whether the run pushed them, Issue, open PRs from the branch, whether the Issue is
-        # still ready): whether `keep` takes a fresh token, its writes.
+        # (commits, pushed, Issue, open PRs, still ready, an uncommitted file): whether `keep` takes a token, its writes.
         cases = (((1, False, 1, [], True), True, [draft, revoke]),
                  ((2, False, 1, [dict(number=9)], True), True, [revoke]),
                  ((1, False, 1, [], False), True, [revoke]),
                  ((1, False, None, [], True), True, [revoke]),
                  ((1, True, 1, [], True), True, [draft, revoke]),
                  ((1, True, 1, [dict(number=9)], True), False, []),
-                 ((1, True, None, [], True), False, []),
-                 ((0, False, 1, [], True), False, []))
-        for (commits, pushed, issue, prs, queued), minted, writes in cases:
+                 ((0, False, 1, [], True), False, []),
+                 ((0, False, 1, [], True, 'edit'), True, [draft, revoke]))
+        for (commits, pushed, issue, prs, queued, *dirty), minted, writes in cases:
             with self.subTest(commits=commits, pushed=pushed, issue=issue, prs=prs, queued=queued), \
                     tempfile.TemporaryDirectory() as path:
                 git = branch(path, commits, pushed)
+                [Path(f'{path}/work/{name}').write_text('x') for name in dirty]
                 with GitHub(prs=prs, queued=queued) as github, chdir(f'{path}/work'), \
                         patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                         patch.object(builder, 'app_token', return_value='fresh') as token, \
@@ -919,7 +919,7 @@ class Keep(unittest.TestCase):
                     builder.keep('build/U1', issue, 'https://run/1')
                 kept = subprocess.run(['git', '--git-dir', f'{path}/github.git', 'rev-parse', '--verify', '--quiet',
                                        'refs/heads/build/U1'], capture_output=True, text=True).stdout.strip()
-                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0)
+                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0 or bool(dirty))
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
 

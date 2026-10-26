@@ -1,19 +1,13 @@
-//! U2875a: recent top-level conversations of one Project. Vendor storage stays here (P4).
+//! SDK-backed import discovery and selected-source complete-record validation.
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-
+use super::{Launcher, is_uuid};
 use contracts::project::ImportExclusionCause;
 use rpc::RpcError;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
 use std::os::unix::fs::MetadataExt;
-use std::sync::atomic::Ordering;
-use std::time::{Duration, Instant, UNIX_EPOCH};
-use time::OffsetDateTime;
-use time::format_description::well_known::Rfc3339;
-
-use super::{Launcher, is_uuid};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// One conversation the user may import. `revision` binds the preview to the source file facts.
 #[derive(Debug, PartialEq, Eq)]
@@ -43,257 +37,44 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
-// U3082b: the owner measured 50 s for week/600 MB. Project only metadata,
-// skipping payload allocation; commit alone validates every complete record.
-const MAX_PREVIEW: u64 = 4_000_000_000;
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
-const MAX_METADATA: usize = 8 * 1024 * 1024;
 const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
-const MAX_FILES: usize = 10_000;
-
-pub(super) fn encoded(cwd: &Path) -> String {
-    cwd.to_string_lossy()
-        .encode_utf16()
-        .map(|unit| {
-            char::from_u32(u32::from(unit))
-                .filter(|c| c.is_ascii_alphanumeric())
-                .unwrap_or('-')
-        })
-        .collect()
-}
-
-fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
-    // Root already encodes its separator; requiring another would prune descendants.
-    if project.parent().is_none() {
-        return true;
-    }
-    let prefix = encoded(project);
-    // Long vendor bucket names can be truncated/hashed: keep them for record validation.
-    if prefix.len() > 200 {
-        return true;
-    }
-    let name = bucket.file_name().unwrap_or_default().to_string_lossy();
-    name == prefix
-        || name
-            .strip_prefix(&prefix)
-            .is_some_and(|rest| rest.starts_with('-'))
-}
-
-enum Membership<'a> {
-    Recorded(&'a Path),
-}
-
-enum Scan {
-    Member(ImportCandidate),
-    OtherProject,
-    Out,
-    Excluded(ImportExclusionCause, String),
-}
 
 impl Launcher {
-    /// Read the effective Claude storage for conversations of `project` active in
-    /// `[now_ms - period_ms, now_ms]`. A missing or unreadable storage is an error, never empty.
+    /// Compatibility entry point; SDK listing owns all storage discovery and membership.
     pub async fn discover_recent(
         &self,
         project: &Path,
+        worktrees: &[PathBuf],
         now_ms: i64,
         period_ms: i64,
     ) -> Result<ImportDiscovery, RpcError> {
-        let generation = self.discovery.0.fetch_add(1, Ordering::SeqCst) + 1;
-        let deadline = Instant::now() + Duration::from_secs(18);
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &self.import_observer {
-            observer(project, "request", 0);
-        }
-        // Wait without occupying a blocking worker. An abandoned reader keeps the
-        // owned permit until its next record boundary, even if its caller goes away.
-        let reader =
-            tokio::time::timeout_at(deadline.into(), self.discovery.1.clone().lock_owned())
-                .await
-                .map_err(|_| {
-                    RpcError::not_accepted("discovery took too long; Refresh to try again")
-                })?;
-        if self.discovery.0.load(Ordering::SeqCst) != generation {
-            return Err(RpcError::conflict(
-                "discovery superseded; Refresh to try again",
-            ));
-        }
-        let launcher = self.clone();
-        let project = project.to_path_buf();
-        tokio::task::spawn_blocking(move || {
-            let _reader = reader;
-            #[cfg(any(test, feature = "test-support"))]
-            if let Some(observer) = &launcher.import_observer {
-                observer(&project, "worker", 0);
-            }
-            let found = launcher.discover(&project, (now_ms, period_ms), generation, deadline);
-            #[cfg(any(test, feature = "test-support"))]
-            if let Some(observer) = &launcher.import_observer {
-                observer(&project, "finished", 0);
-            }
-            found
+        let listing = self
+            .list_current(project, worktrees, (now_ms, period_ms), false)
+            .await?;
+        Ok(ImportDiscovery {
+            candidates: listing
+                .candidates
+                .into_iter()
+                .map(|c| ImportCandidate {
+                    source: c.source,
+                    title: c.title,
+                    cwd: c.cwd,
+                    last_activity_ms: c.last_activity_ms,
+                    revision: c.revision,
+                })
+                .collect(),
+            excluded: listing.excluded,
         })
-        .await
-        .map_err(RpcError::internal)?
     }
 
-    fn discover(
-        &self,
-        project: &Path,
-        window: (i64, i64),
-        generation: u64,
-        deadline: Instant,
-    ) -> Result<ImportDiscovery, RpcError> {
-        let (now_ms, period_ms) = window;
-        let check = || {
-            if self.discovery.0.load(Ordering::SeqCst) != generation {
-                Err(RpcError::conflict(
-                    "discovery superseded; Refresh to try again",
-                ))
-            } else if Instant::now() >= deadline {
-                Err(RpcError::not_accepted(
-                    "discovery took too long; Refresh to try again",
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        check()?;
-        let project = project
-            .canonicalize()
-            .map_err(|err| io_error(project, err))?;
-        let root = self.conversation_dir.join("projects");
-        let buckets = std::fs::read_dir(&root).map_err(|err| {
-            if err.kind() == std::io::ErrorKind::NotFound {
-                RpcError::not_found(format!(
-                    "Claude Code has no saved conversations here ({}): {err}",
-                    root.display()
-                ))
-            } else {
-                io_error(&root, err)
-            }
-        })?;
-        let mut found: Vec<(String, Scan, Option<i64>)> = Vec::new();
-        let mut metadata_bytes = 0;
-        for (index, bucket) in buckets.enumerate() {
-            check()?;
-            if index >= MAX_FILES {
-                return Err(RpcError::not_accepted("too many storage buckets"));
-            }
-            let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
-            if !bucket
-                .metadata()
-                .map_err(|err| io_error(&bucket, err))?
-                .is_dir()
-            {
-                continue;
-            }
-            let possible = is_possible_bucket(&bucket, &project);
-            let files = match std::fs::read_dir(&bucket) {
-                Ok(files) => files,
-                Err(error) if possible => {
-                    return Err(io_error(&bucket, error));
-                }
-                Err(_) => continue,
-            };
-            for file in files {
-                check()?;
-                if found.len() >= MAX_FILES {
-                    return Err(RpcError::not_accepted(
-                        "storage contains too many conversation files to inspect",
-                    ));
-                }
-                let path = file.map_err(|err| io_error(&bucket, err))?.path();
-                if path.extension().is_none_or(|ext| ext != "jsonl") {
-                    continue;
-                }
-                let metadata = path.metadata().map_err(|err| io_error(&path, err))?;
-                if !metadata.is_file() {
-                    continue;
-                }
-                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                let old = metadata
-                    .modified()
-                    .ok()
-                    .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
-                    .is_some_and(|at| {
-                        i128::try_from(at.as_millis()).unwrap_or(i128::MAX)
-                            < i128::from(now_ms.saturating_sub(period_ms))
-                    });
-                let result = if !possible {
-                    Scan::OtherProject
-                } else if old {
-                    Scan::Out
-                } else {
-                    scan(
-                        self,
-                        &path,
-                        &stem,
-                        Membership::Recorded(&project),
-                        (now_ms, period_ms),
-                        &check,
-                        None,
-                    )?
-                };
-                if let Scan::Member(candidate) = &result {
-                    metadata_bytes += candidate.title.len() + candidate.cwd.as_os_str().len();
-                    if metadata_bytes > 16 * 1024 * 1024 {
-                        return Err(RpcError::not_accepted(
-                            "conversation metadata exceeds 16 MiB; narrow the period",
-                        ));
-                    }
-                }
-                let modified_ms = metadata
-                    .modified()
-                    .ok()
-                    .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
-                    .and_then(|at| i64::try_from(at.as_millis()).ok());
-                found.push((stem.to_string(), result, modified_ms));
-            }
-        }
-        let mut counts: HashMap<String, usize> = HashMap::new();
-        for (source, _, _) in &found {
-            *counts.entry(source.clone()).or_default() += 1;
-        }
-        let mut out = ImportDiscovery::default();
-        for (source, scan, modified_ms) in found {
-            match scan {
-                _ if counts[&source] > 1 => out.excluded.push(ImportExclusion {
-                    source,
-                    cause: ImportExclusionCause::DuplicateSource,
-                    reason: "duplicate source identity".into(),
-                    modified_ms,
-                }),
-                Scan::Member(candidate) => out.candidates.push(candidate),
-                Scan::Excluded(cause, reason) => out.excluded.push(ImportExclusion {
-                    source,
-                    cause,
-                    reason,
-                    modified_ms,
-                }),
-                Scan::OtherProject | Scan::Out => {}
-            }
-        }
-        out.candidates.sort_by(|a, b| {
-            b.last_activity_ms
-                .cmp(&a.last_activity_ms)
-                .then_with(|| a.source.cmp(&b.source))
-        });
-        out.excluded.sort_by(|a, b| a.source.cmp(&b.source));
-        out.excluded.dedup();
-        Ok(out)
-    }
-}
-
-impl Launcher {
-    /// The complete records of one selected conversation, only while they still match the
-    /// `revision` the user previewed (U2875c). A changed or vanished source is a conflict.
+    /// SDK membership supplies the mapped cwd; only the selected raw source is validated here.
     pub fn read_import_snapshot(
         &self,
         project: &Path,
         source: &str,
         revision: &str,
-        now_ms: i64,
+        _now_ms: i64,
         listed: Option<ImportCandidate>,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
         let changed = || {
@@ -304,90 +85,26 @@ impl Launcher {
         if !is_uuid(source) {
             return Err(changed());
         }
-        let project = project
-            .canonicalize()
-            .map_err(|err| io_error(project, err))?;
-        let selected = if listed.is_some() {
-            let mut files =
-                super::vendor_list::index_sources(&self.conversation_dir.join("projects"))?;
-            match files.remove(source).as_deref() {
-                Some([path]) => Some(path.clone()),
-                _ => return Err(changed()),
-            }
-        } else {
-            let file = format!("{source}.jsonl");
-            let mut selected = None;
-            let root = self.conversation_dir.join("projects");
-            let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
-            for (index, bucket) in buckets.enumerate() {
-                if index >= MAX_FILES {
-                    return Err(RpcError::not_accepted("too many storage buckets"));
-                }
-                let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
-                if !bucket
-                    .metadata()
-                    .map_err(|err| io_error(&bucket, err))?
-                    .is_dir()
-                {
-                    continue;
-                }
-                if !is_possible_bucket(&bucket, &project) {
-                    continue;
-                }
-                let path = bucket.join(&file);
-                #[cfg(any(test, feature = "test-support"))]
-                if let Some(observer) = &self.import_observer {
-                    observer(&path, "probe", 0);
-                }
-                if path.try_exists().map_err(|err| io_error(&path, err))? {
-                    if selected.is_some() {
-                        return Err(changed());
-                    }
-                    selected = Some(path);
-                }
-            }
-            selected
-        };
-        if let Some(path) = selected {
-            if source_revision(&path.metadata().map_err(|err| io_error(&path, err))?) != revision {
-                return Err(changed());
-            }
-            let deadline = Instant::now() + Duration::from_secs(18);
-            if let Some(candidate) = listed {
-                let bytes = read_snapshot(self, &path, source, revision, deadline)?;
-                return Ok((candidate, bytes));
-            }
-            let mut bytes = Vec::new();
-            let check = || {
-                if Instant::now() < deadline {
-                    Ok(())
-                } else {
-                    Err(RpcError::not_accepted(
-                        "source validation took too long; Refresh to try again",
-                    ))
-                }
-            };
-            match scan(
-                self,
-                &path,
-                source,
-                Membership::Recorded(&project),
-                (now_ms, i64::MAX),
-                &check,
-                Some(&mut bytes),
-            )? {
-                Scan::Member(candidate) if candidate.revision == revision => {
-                    return Ok((candidate, bytes));
-                }
-                Scan::Excluded(_, reason) => {
-                    return Err(RpcError::conflict(format!(
-                        "cannot import {source}: {reason}; Refresh to try again"
-                    )));
-                }
-                _ => {}
-            }
+        let candidate = listed
+            .filter(|c| c.source == source && c.revision == revision)
+            .ok_or_else(changed)?;
+        let path = self.conversation_path(project, source).map_err(|error| {
+            RpcError::conflict(format!(
+                "source changed since preview: {source}: {}; Refresh to try again",
+                error.message
+            ))
+        })?;
+        let bytes = read_snapshot(
+            self,
+            &path,
+            source,
+            revision,
+            Instant::now() + Duration::from_secs(18),
+        )?;
+        if self.conversation_path(project, source)? != path {
+            return Err(changed());
         }
-        Err(changed())
+        Ok((candidate, bytes))
     }
 }
 
@@ -507,392 +224,6 @@ fn read_snapshot(
     Ok(bytes)
 }
 
-fn scan(
-    launcher: &Launcher,
-    path: &Path,
-    stem: &str,
-    membership: Membership<'_>,
-    window: (i64, i64),
-    check: &impl Fn() -> Result<(), RpcError>,
-    retained: Option<&mut Vec<u8>>,
-) -> Result<Scan, RpcError> {
-    if !is_uuid(stem) {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::UnsupportedSource,
-            "unsupported source name".into(),
-        ));
-    }
-    let metadata = path.metadata().map_err(|err| io_error(path, err))?;
-    let len = metadata.len();
-    if retained.is_none() && len > MAX_PREVIEW {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::PreviewLimit,
-            "source exceeds 4,000,000,000 byte preview limit".into(),
-        ));
-    }
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(observer) = &launcher.import_observer {
-        observer(path, "open", 0);
-    }
-    let mut file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
-    let revision = source_revision(&file.metadata().map_err(|err| io_error(path, err))?);
-    // Capture size once: an append cannot extend this read or its deadline.
-    let result = scan_records(
-        launcher,
-        (path, stem),
-        membership,
-        window,
-        check,
-        retained,
-        (file.by_ref(), len),
-    )?;
-    check()?;
-    if source_revision(&metadata) != revision
-        || source_revision(&file.metadata().map_err(|err| io_error(path, err))?) != revision
-        || source_revision(&path.metadata().map_err(|err| io_error(path, err))?) != revision
-    {
-        return Err(RpcError::conflict(format!(
-            "source changed since preview: {}; Refresh to try again",
-            path.display()
-        )));
-    }
-    Ok(match result {
-        Scan::Member(mut candidate) => {
-            candidate.revision = revision;
-            Scan::Member(candidate)
-        }
-        other => other,
-    })
-}
-
-fn scan_records(
-    launcher: &Launcher,
-    source: (&Path, &str),
-    membership: Membership<'_>,
-    window: (i64, i64),
-    check: &impl Fn() -> Result<(), RpcError>,
-    mut retained: Option<&mut Vec<u8>>,
-    input: (impl Read, u64),
-) -> Result<Scan, RpcError> {
-    let (path, stem) = source;
-    let (now_ms, period_ms) = window;
-    let preview = retained.is_none();
-    let (input, len) = input;
-    if preview && len > MAX_PREVIEW {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::PreviewLimit,
-            format!(
-                "{}: source exceeds 4,000,000,000 byte preview limit",
-                path.display()
-            ),
-        ));
-    }
-    #[cfg(not(any(test, feature = "test-support")))]
-    let _ = launcher;
-    let mut reader = BufReader::with_capacity(64 * 1024, input.take(len));
-    let mut line = Vec::with_capacity(MAX_RECORD as usize);
-    #[cfg(any(test, feature = "test-support"))]
-    if let Some(observer) = &launcher.import_observer {
-        observer(path, "buffer", line.capacity() as u64);
-    }
-    let mut consumed = 0u64;
-    let mut complete = false;
-    let mut cwds: Vec<PathBuf> = Vec::new();
-    let mut latest: Option<i64> = None;
-    let (mut custom, mut agent, mut ai): (Option<String>, Option<String>, Option<String>) =
-        (None, None, None);
-    loop {
-        check()?;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &launcher.import_observer {
-            observer(path, "record", 0);
-        }
-        line.clear();
-        let read = reader
-            .by_ref()
-            .take(MAX_RECORD)
-            .read_until(b'\n', &mut line);
-        let size = read.map_err(|err| io_error(path, err))?;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &launcher.import_observer {
-            observer(path, "bytes", size as u64);
-        }
-        if size == 0 {
-            break;
-        }
-        consumed += size as u64;
-        if size as u64 == MAX_RECORD
-            && line.last() != Some(&b'\n')
-            && !reader
-                .fill_buf()
-                .map_err(|err| io_error(path, err))?
-                .is_empty()
-        {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::RecordLimit,
-                "record exceeds 8 MiB limit".into(),
-            ));
-        }
-        if line.last() != Some(&b'\n') {
-            break;
-        }
-        complete = true;
-        if let Some(bytes) = &mut retained {
-            if bytes.len() + line.len() > MAX_SNAPSHOT {
-                return Ok(Scan::Excluded(
-                    ImportExclusionCause::SnapshotLimit,
-                    "conversation exceeds 512 MiB import limit".into(),
-                ));
-            }
-            bytes.extend_from_slice(&line);
-        }
-        if line == b"\n" {
-            continue;
-        }
-        // Serde structs also accept arrays; vendor records must be objects.
-        if line.trim_ascii_start().first() != Some(&b'{') {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::MalformedRecord,
-                "malformed record".into(),
-            ));
-        }
-        // Unknown fields use Serde's IgnoredAny: inspect framing without
-        // materializing payloads or validating their UTF-8. Selected snapshots
-        // still go through Value so every complete payload is validated at commit.
-        if !preview && serde_json::from_slice::<Value>(&line).is_err() {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::MalformedRecord,
-                "malformed record".into(),
-            ));
-        }
-        let Ok(record) = serde_json::from_slice::<Metadata>(&line) else {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::MalformedRecord,
-                "malformed record".into(),
-            ));
-        };
-        if record.is_sidechain == Some(true) {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::SubagentRecord,
-                "subagent record".into(),
-            ));
-        }
-        if record.session_id.as_deref().is_some_and(|id| id != stem) {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::ForeignIdentity,
-                "identity does not match source".into(),
-            ));
-        }
-        let cwd = record
-            .cwd
-            .as_deref()
-            .filter(|cwd| !cwd.is_empty())
-            .map(PathBuf::from)
-            .filter(|cwd| !cwds.contains(cwd));
-        if cwd.is_some() && cwds.len() >= 64 {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::TooManyDirectories,
-                "too many recorded directories".into(),
-            ));
-        }
-        let mut next_titles = [custom.as_deref(), agent.as_deref(), ai.as_deref()];
-        let title = match record.kind.as_deref() {
-            Some("custom-title") => Some((0, record.custom_title)),
-            Some("agent-name") => Some((1, record.agent_name)),
-            Some("ai-title") => Some((2, record.ai_title)),
-            _ => None,
-        }
-        .and_then(|(index, text)| {
-            text.filter(|text| !text.trim().is_empty())
-                .map(|text| (index, text))
-        });
-        if let Some((index, text)) = &title {
-            next_titles[*index] = Some(text);
-        }
-        let metadata_bytes = cwds
-            .iter()
-            .chain(cwd.iter())
-            .map(|cwd| cwd.as_os_str().len())
-            .sum::<usize>()
-            + next_titles
-                .into_iter()
-                .flatten()
-                .map(str::len)
-                .sum::<usize>();
-        if metadata_bytes > MAX_METADATA {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::MetadataLimit,
-                "metadata exceeds 8 MiB limit".into(),
-            ));
-        }
-        if let Some(cwd) = cwd {
-            cwds.push(cwd);
-        }
-        if let Some((index, text)) = title {
-            match index {
-                0 => custom = Some(text),
-                1 => agent = Some(text),
-                _ => ai = Some(text),
-            }
-        }
-        if let Some(ms) = record.timestamp.as_deref().and_then(millis)
-            && ms <= now_ms
-        {
-            latest = latest.max(Some(ms));
-        }
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &launcher.import_observer {
-            observer(path, "metadata", metadata_bytes as u64);
-        }
-    }
-    check()?;
-    if consumed != len {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::IncompleteMetadata,
-            format!(
-                "{}: incomplete metadata coverage; source ended before captured size",
-                path.display()
-            ),
-        ));
-    }
-    if !complete {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::NoCompleteRecords,
-            "no complete records".into(),
-        ));
-    }
-    let Membership::Recorded(project) = membership;
-    let mut inside = Vec::new();
-    let mut outside = false;
-    for cwd in &cwds {
-        match cwd.canonicalize() {
-            Ok(real) if real.starts_with(project) => inside.push(real),
-            Ok(_) => outside = true,
-            Err(err) if cwd.starts_with(project) => {
-                return Ok(Scan::Excluded(
-                    ImportExclusionCause::MissingDirectory,
-                    format!("missing directory {}: {err}", cwd.display()),
-                ));
-            }
-            Err(_) => outside = true,
-        }
-    }
-    match (inside.as_slice(), outside) {
-        ([], true) => return Ok(Scan::OtherProject),
-        ([], false) => {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::NoDirectory,
-                "no recorded working directory".into(),
-            ));
-        }
-        ([_], false) => {}
-        _ => {
-            return Ok(Scan::Excluded(
-                ImportExclusionCause::AmbiguousProject,
-                "ambiguous Project membership".into(),
-            ));
-        }
-    }
-    let cwd = &inside[0];
-    let relative = cwd.strip_prefix(project).unwrap_or(Path::new(""));
-    if relative
-        .components()
-        .next()
-        .is_some_and(|c| c.as_os_str() == ".roundup")
-        || in_linked_worktree(cwd, project)
-    {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::InsideWorktree,
-            "inside a Worktree".into(),
-        ));
-    }
-    let Some(latest) = latest else {
-        return Ok(Scan::Excluded(
-            ImportExclusionCause::UnknownActivity,
-            "activity unknown or in the future".into(),
-        ));
-    };
-    if latest < now_ms.saturating_sub(period_ms) {
-        return Ok(Scan::Out);
-    }
-    Ok(Scan::Member(ImportCandidate {
-        source: stem.to_owned(),
-        title: custom
-            .or(agent)
-            .or(ai)
-            .unwrap_or_else(|| "Untitled conversation".into()),
-        cwd: relative.to_path_buf(),
-        last_activity_ms: latest,
-        revision: String::new(),
-    }))
-}
-
-// This projection owns the untyped vendor boundary; payload fields are never retained.
-#[derive(Default, serde::Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-struct Metadata {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    is_sidechain: Option<bool>,
-    session_id: Option<String>,
-    cwd: Option<String>,
-    timestamp: Option<String>,
-    custom_title: Option<String>,
-    agent_name: Option<String>,
-    ai_title: Option<String>,
-}
-
-fn millis(text: &str) -> Option<i64> {
-    let at = OffsetDateTime::parse(text, &Rfc3339).ok()?;
-    i64::try_from(at.unix_timestamp_nanos() / 1_000_000).ok()
-}
-
-/// A linked git Worktree has a `.git` file; the Project's own `.git` is not one.
-fn in_linked_worktree(cwd: &Path, project: &Path) -> bool {
-    cwd.ancestors()
-        .take_while(|dir| *dir != project)
-        .any(|dir| dir.join(".git").is_file())
-}
-
 #[cfg(test)]
 #[path = "discovery_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-mod preview_tests {
-    use super::*;
-
-    pub(super) const DAY: i64 = 86_400_000;
-    pub(super) const SESSION: &str = "11111111-1111-4111-8111-111111111111";
-
-    pub(super) fn record(kind: &str, cwd: &Path, ts: &str) -> String {
-        format!(
-            r#"{{"type":"{kind}","isSidechain":false,"cwd":"{}","sessionId":"{SESSION}","timestamp":"{ts}"}}"#,
-            cwd.display()
-        )
-    }
-
-    pub(super) fn store(config: &Path, bucket: &str, id: &str, text: &str) {
-        let cwd = text
-            .lines()
-            .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-            .find_map(|record| record["cwd"].as_str().map(str::to_owned))
-            .unwrap();
-        let cwd = PathBuf::from(cwd);
-        let bucket = if bucket == "y" {
-            cwd.join("duplicate")
-        } else {
-            cwd
-        };
-        let dir = config.join("projects").join(encoded(&bucket));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join(format!("{id}.jsonl")), text).unwrap();
-    }
-
-    pub(super) fn launcher(config: &Path) -> Launcher {
-        Launcher::new("claude", config.join(".claude.json"), "rup".into(), None)
-    }
-
-    /// 2026-10-19T12:00:00Z
-    pub(super) const NOW: i64 = 1_792_411_200_000;
-}
