@@ -59,7 +59,7 @@ describe("u13 size", () => {
     ]);
   });
 
-  it("z3788c_owner_cleanup_prevents_duplicate_work", async () => {
+  it.each(["window", "element"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", async (source) => {
     const observers = new Set<() => void>();
 
     vi.stubGlobal("ResizeObserver", class {
@@ -73,9 +73,12 @@ describe("u13 size", () => {
       const first = await mountPane([node("a")], [info("t-a")]);
 
       first.connected.rail.select("a");
-      const retired = first.emulators.get("t-a")!;
+      const changed = () => {
+        if (source === "window") window.dispatchEvent(new Event("resize"));
+        else observers.forEach(notify => notify());
+      };
 
-      window.dispatchEvent(new Event("resize"));
+      changed();
       cleanup();
 
       const current = await mountPane([node("b")], [info("t-b")]);
@@ -83,14 +86,13 @@ describe("u13 size", () => {
       current.connected.rail.select("b");
       const active = current.emulators.get("t-b")!;
 
-      // Window and element changes share one fit, even across an owner remount.
+      // Repeated notifications share one fit, even across an owner remount.
       for (let count = 0; count < 3; count += 1) {
-        window.dispatchEvent(new Event("resize"));
-        observers.forEach(changed => changed());
+        changed();
       }
       nextFrame();
 
-      expect([retired.fits, active.fits]).toEqual([0, 1]);
+      expect([first.emulators.get("t-a")!.fits, active.fits]).toEqual([0, 1]);
     } finally {
       cleanup();
       vi.unstubAllGlobals();
