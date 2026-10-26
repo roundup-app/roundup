@@ -60,11 +60,13 @@ export const prepareFixture = async (app: Pick<AppSeam, "rpc">, cwd: string, ter
     const parent = row.parent === null ? null : nodes.get(row.parent)?.id;
 
     if (parent === undefined) throw new Error(`missing fixture parent ${row.parent}`);
+
     const node = row.kind === "workstream"
       ? await app.rpc("rail.createWorkstream", { name: row.name, parent })
       : await app.rpc("agent.spawn", { cwd, prompt: null, parent, name: row.name });
 
     nodes.set(row.name, node);
+
     if (row.kind === "agent") await app.rpc("agent.signal", {
       id: node.id, attempt: node.attempt ?? "1",
       payload: description.working.includes(row.name) ? { hook_event_name: "UserPromptSubmit", prompt: "work" } : { hook_event_name: "Stop" },
@@ -98,6 +100,7 @@ export const prepareFixture = async (app: Pick<AppSeam, "rpc">, cwd: string, ter
   const [actualTree, actualTodos, actualPads, terminals] = await Promise.all([
     app.rpc("rail.tree", null), app.rpc("todo.list", null), app.rpc("pad.list", null), app.rpc("terminal.list", null),
   ]);
+
   const compatible = actualTree.length === 40 && fixture.rail.every(row => {
     const wanted = description.rail.find(other => other.name === row.name)!;
     const actual = actualTree.find(other => other.id === row.id);
@@ -107,7 +110,7 @@ export const prepareFixture = async (app: Pick<AppSeam, "rpc">, cwd: string, ter
   }) && actualTodos.length === 8 && made.every(row => {
     const actual = actualTodos.find(other => other.id === row.id);
 
-    return actual && !actual.done && actual.home === home.id && actual.title === row.title
+    return actual && !actual.done && actual.home === home.id && actual.title === row.title && actual.body === "body text"
       && JSON.stringify(actual.owner) === JSON.stringify(row.owner) && JSON.stringify(actual.blockers) === JSON.stringify(row.blockers);
   }) && actualPads.length === 4 && description.pads.every(row => actualPads.some(pad => pad.name === row.name && pad.text === row.text && pad.home === home.id))
     && fixture.working.every(id => actualTree.find(node => node.id === id)?.status?.kind === "working")
