@@ -208,22 +208,7 @@ async fn u4251b_sdk_membership_survives_snapshot_validation() {
         None,
     )
     .with_sidecar(sidecar);
-    let data = project.join(".roundup");
-    let daemon = Daemon::open_stores(&project, &data, |_| {
-        let bus = Bus::new();
-        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
-        agents::Agents::open_in(
-            &project,
-            &data,
-            bus,
-            terminals,
-            launcher.clone(),
-            agents::worktree::Git::from_env(),
-        )
-        .unwrap()
-        .with_clock(|| 1_793_036_800_000)
-    })
-    .unwrap();
+    let daemon = super::import_daemon_with_clock(&project, launcher.clone());
     let listed = import_rpc(&daemon, "project.importDiscover", json!({"period":"month"})).await;
     let picks = listed["result"]["candidates"].as_array().unwrap();
     let sources = [moved, deleted, linked_id];

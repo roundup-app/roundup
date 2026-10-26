@@ -6,6 +6,25 @@ mod fixtures;
 use fixtures::import_git;
 pub(super) use fixtures::{import_daemon, import_fixture, import_rpc, import_source};
 
+fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
+    let data = project.join(".roundup");
+    Daemon::open_stores(project, &data, |_| {
+        let bus = Bus::new();
+        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
+        agents::Agents::open_in(
+            project,
+            &data,
+            bus,
+            terminals,
+            launcher,
+            agents::worktree::Git::from_env(),
+        )
+        .unwrap()
+        .with_clock(|| 1_793_036_800_000)
+    })
+    .unwrap()
+}
+
 async fn import_resources(daemon: &Daemon, root: &Path) -> Value {
     fn files(dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
         for entry in std::fs::read_dir(dir).unwrap() {
