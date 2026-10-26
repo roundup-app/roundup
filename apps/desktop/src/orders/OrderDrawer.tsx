@@ -7,7 +7,7 @@ import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup, lazy } from "solid-js";
+import { For, Match, Show, Switch, Suspense, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup, lazy } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { ContextBar } from "./ContextBar";
 import "./styles.css";
@@ -47,7 +47,7 @@ const SessionId = (props: { id: string }) => {
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
 export const OrderDrawer = (props: OrderInput) =>
-  <Show when={props.id} keyed>{(id) => <OrderContent {...props} id={id} />}</Show>;
+  <Suspense><Show when={props.id} keyed>{(id) => <OrderContent {...props} id={id} />}</Show></Suspense>;
 
 const OrderContent = (props: OrderInput) => {
   const { rail, app, drafts, project } = useConnectedProject();
