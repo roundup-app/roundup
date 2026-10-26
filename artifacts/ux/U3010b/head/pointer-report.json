@@ -1,0 +1,14 @@
+{
+  "head": "cc28e989a61b9143576a5a32bb3076d65f98a093",
+  "result": "incomplete",
+  "validation": {
+    "lint-web": "pass",
+    "lint-rust": "pass",
+    "focused_lifetime_and_keyboard": "14 passed",
+    "typecheck": "pass",
+    "failure_screen": "all design Checks pass"
+  },
+  "remaining": "Complete trusted normal/quarter-speed pointer captures in both Shelf modes. The final native recording run failed on a missed half-crossing; earlier overlay runs revealed that recording resets stored widths. No complete both-mode rendered pass is claimed.",
+  "native_claim": "none",
+  "failed_run_log": "pointer-last-run.log"
+}
