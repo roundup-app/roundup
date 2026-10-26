@@ -1,16 +1,20 @@
 //! U3787f: native delivery waits for the main webview; URLs stay opaque until link.read.
 use std::collections::VecDeque;
+#[cfg(any(target_os = "macos", test))]
 use std::path::Path;
 use std::sync::Mutex;
 
 use serde::Serialize;
+#[cfg(target_os = "macos")]
+use tauri::Listener;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Listener, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum NativeOpen {
     Project { path: String },
+    #[cfg(any(target_os = "macos", test))]
     Link { url: String },
 }
 
@@ -46,6 +50,7 @@ pub(crate) fn deliver<R: Runtime>(app: &AppHandle<R>, request: NativeOpen) {
 
 /// The single-instance plugin already forwards links on Linux/Windows. macOS delivers
 /// URLs through RunEvent::Opened, which the deep-link plugin alone consumes.
+#[cfg(any(target_os = "macos", test))]
 pub(crate) fn second_launch<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: String) {
     if let Some(path) = args.get(1).filter(|arg| !arg.contains("://")) {
         deliver(
@@ -61,19 +66,19 @@ pub(crate) fn second_launch<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, c
             },
         );
     }
-    if let Some(window) = app.get_webview_window("main") {
-        if let Err(error) = window
+    if let Some(window) = app.get_webview_window("main")
+        && let Err(error) = window
             .show()
             .and_then(|()| window.unminimize())
             .and_then(|()| window.set_focus())
-        {
-            eprintln!("desktop: cannot show existing App: {error}");
-        }
+    {
+        eprintln!("desktop: cannot show existing App: {error}");
     }
 }
 
 /// Subscribe before deep-link initializes: its cold CLI delivery and later OS delivery
 /// then share the event route, with no get_current snapshot that can replay an invocation.
+#[cfg(target_os = "macos")]
 pub(crate) fn plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("native-open")
         .setup(|app, _| {

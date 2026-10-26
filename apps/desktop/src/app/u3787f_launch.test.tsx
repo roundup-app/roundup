@@ -7,11 +7,15 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import type { NativeOpen } from "./seam";
 
 let receive: ((request: NativeOpen) => void) | undefined;
+
 afterEach(() => { cleanup(); window.localStorage.clear(); receive = undefined; });
 
 it("u3787f_second_launch_reuses_the_app_opens_the_delivered_project", async () => {
   const app = createFakeApp();
-  app.onNativeOpen = async listener => { receive = listener; return () => {}; };
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "project", path: "/invocation/second" });
@@ -21,7 +25,10 @@ it("u3787f_second_launch_reuses_the_app_opens_the_delivered_project", async () =
 
 it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_path", async () => {
   const app = createFakeApp();
-  app.onNativeOpen = async listener => { receive = listener; return () => {}; };
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "link", url: "roundup://pad/notes?project=unavailable" });
@@ -32,13 +39,17 @@ it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_
 it("u3787f_deep_link_preserves_identity_and_authority_reveals_the_exact_terminal", async () => {
   const app = createFakeApp();
   app.add("/project");
-  app.onNativeOpen = async listener => { receive = listener; return () => {}; };
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
   app.handlers["rail.tree"] = () => [agent("a", "idle", "ready")];
   app.handlers["terminal.list"] = () => [info("t-a"), info("first", { owner: "a", title: "Chosen terminal" }), info("second", { owner: "a" })];
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["terminal.resize"] = () => null;
   app.handlers["link.read"] = () => ({ kind: "terminal", id: "first", screen: { cols: 80, rows: 24, offset: 0, lines: ["chosen screen"], truncated: false } });
   const { factory } = fakeEmulators();
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} />);
   await screen.findByRole("tab", { name: "project" });
   receive?.({ kind: "link", url: "roundup://terminal/first?project=project-0000000000000000" });

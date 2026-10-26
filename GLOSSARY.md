@@ -973,5 +973,5 @@ submission and acknowledged OS shortcut replacement. The panel starts no Project
 **System accent** (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`):
 The macOS accent preference as normalized sRGB channels, or null when unavailable. The App receives its initial value and changes; Token-owned tones preserve contrast, and unavailable delivery restores Radix blue. It changes appearance only, never Kind or failure Ink.
 
-**Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `native_open`):
+**Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
 One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.

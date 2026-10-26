@@ -45,6 +45,7 @@ export const nativeOpenSchema = v.variant("kind", [
   v.object({ kind: v.literal("project"), path: v.string() }),
   v.object({ kind: v.literal("link"), url: v.string() }),
 ]);
+
 export type NativeOpen = v.InferOutput<typeof nativeOpenSchema>;
 
 export type Unsubscribe = () => void;

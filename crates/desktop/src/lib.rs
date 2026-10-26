@@ -30,10 +30,11 @@ pub fn build<R: Runtime>(
     project_dir: Option<PathBuf>,
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
+    let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
+    #[cfg(target_os = "macos")]
     let builder = builder
         .plugin(launch::plugin())
-        .plugin(tauri_plugin_deep_link::init())
-        .manage(std::sync::Mutex::new(launch::Delivery::default()));
+        .plugin(tauri_plugin_deep_link::init());
     #[cfg(target_vendor = "apple")]
     let builder = native::register_capture(builder.plugin(native::plugin()));
     #[cfg(feature = "idle-perf")]
@@ -155,14 +156,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|argument| !argument.to_string_lossy().contains("://"))
         .map(std::path::absolute)
         .transpose()?;
-    build(
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(launch::second_launch)),
-        config,
-        project_dir,
-        |app, code| app.exit(code),
-    )
-    .build(context)?
-    .run(|app, event| handle_run_event(app, &event));
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(launch::second_launch));
+    build(builder, config, project_dir, |app, code| app.exit(code))
+        .build(context)?
+        .run(|app, event| handle_run_event(app, &event));
     Ok(())
 }
 

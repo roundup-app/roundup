@@ -96,6 +96,7 @@ export const createTauriApp = (): App => {
       let active = true;
       const channel = new Channel<unknown>(message => { if (active) listener(v.parse(nativeOpenSchema, message)); });
       await command<void>("native_open", { channel });
+
       return () => { active = false; };
     }),
     onSystemAccent: listener => guarded(async () => {
