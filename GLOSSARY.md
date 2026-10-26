@@ -941,7 +941,7 @@ The sole repository-owned unsafe integration crate. Its plugin configures every 
 One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
 
 **RPC error data** (`RpcErrorData`):
-The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. `other-project` marks a NOT_FOUND from `link.read` (or `deliverable.get`) for an object another Project owns; the App's native open skips those answers and shows only the owning Project's cause, or that the link's Project is not open when no open Project owns it. Diagnostics never supply a cursor.
 
 **Thrown outcome** (`outcomeOf`):
 The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
@@ -975,3 +975,6 @@ The macOS accent preference as normalized sRGB channels, or null when unavailabl
 
 **Native material** (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`):
 The main window's AppKit Sidebar effect, revealed only through the Rail and reserved Shelf. AppKit Reduce Transparency disables it and restores opaque grounds. Unsupported hosts report unavailable; floating surfaces and Terminal pixels remain opaque. The window-bar command reads the applied state and the native-material event reports changes.
+
+**Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
+One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.

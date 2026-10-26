@@ -18,6 +18,7 @@ import { TodoRefs } from "./TodoRefs";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
+import { useTodoList } from "./todoList";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
 import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { BlockerMenu } from "./BlockerMenu";
@@ -358,3 +359,6 @@ export const TodoDrawer = (props: {
 };
 
 todoEditor.set(TodoDrawer);
+
+/** The Todo's Drawer with the shared list the Shelf reads (U15); it lives while the Drawer does. */
+export const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
