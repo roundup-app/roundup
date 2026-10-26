@@ -65,8 +65,3 @@ opt-level = 3
 # consumed 27.8% of sampled user CPU. Keep the real quota commits within 5 s.
 [profile.dev.package.libsqlite3-sys]
 opt-level = 3
-
-# DV2 perf profile: its 32 zero-scans of 32 MiB (`iter().all`) ran unoptimised in the
-# test binary, about half of sampled CPU. Optimise the rup crate that holds the observer.
-[profile.dev.package.rup]
-opt-level = 3
