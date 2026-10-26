@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
@@ -6,7 +6,7 @@ import { journal } from "./mouseJournalHarness";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 
-/** U2680 selection and U3529 mouse bytes through the real Daemon and isolated Chromium. */
+/** U59's observer: ten Agents on the real `rupd` and a real Chromium; the selected Terminal passes D1, D6, D7 and D10. */
 
 const found = chromePath();
 
@@ -16,9 +16,9 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-run("u2680 on the real Daemon", () => {
+run("u59 on the real Daemon", () => {
   beforeAll(async () => {
-    if (!found) throw new Error("U2680 needs a Chrome binary: set CHROME_PATH");
+    if (!found) throw new Error("U59 needs a Chrome binary: set CHROME_PATH");
 
     real = await startRealDaemon({}, true);
     page = await openPage(found);
@@ -27,6 +27,47 @@ run("u2680 on the real Daemon", () => {
   afterAll(async () => {
     await page?.close();
     await real?.stop();
+  });
+
+  type Checks = Record<string, { status: string; selector: string }>;
+
+  /** A cold dev server may reload the page once it has bundled its dependencies, or a loaded runner may stall it, so the page is loaded again when the rail has not come up. */
+  const openHarness = async () => {
+    for (let attempt = 1; ; attempt += 1) {
+      await page.load(`${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1280, 800);
+
+      try {
+        await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`, 20_000);
+
+        return;
+      } catch (error) {
+        if (attempt === 3) throw error;
+      }
+    }
+  };
+
+  vi.setConfig({ testTimeout: 120_000 });
+
+  it("u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean", async () => {
+    await openHarness();
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+
+    await page.call(`async () => { window.__u59Menu = (await import('/src/testing/menuProbe.ts')).menuProbe; }`);
+
+    for (let count = 1; count <= 10; count += 1) {
+      await page.until(`() => document.querySelector('.rail-actions button')?.getAttribute('aria-disabled') !== 'true'`);
+      await page.call(`() => { window.__u59Menu.shown = null; document.querySelector('.rail-row').focus(); }`);
+      await page.press("F10", "F10", 8);
+      await page.until(`() => window.__u59Menu.shown?.some(item => item.id === 'add' && item.enabled)`);
+      await page.call(`() => window.__u59Menu.answer('add')`);
+      await page.until(`() => document.querySelectorAll('.rail-row').length >= ${count + 1}`);
+    }
+
+    await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
+
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(["D1", "D6", "D7", "D10"].map((id) => [id, checks[id]!.status, checks[id]!.selector])).toEqual([["D1", "pass", ""], ["D6", "pass", ""], ["D7", "pass", ""], ["D10", "pass", ""]]);
   });
 
   it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_selection_observer", async () => {
@@ -57,8 +98,8 @@ run("u2680 on the real Daemon", () => {
 
     try {
       await page.load(`${selectionDaemon.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1512, 950);
-      await until("!!document.querySelector('.rail-terminal-new')");
-      await click(".rail-terminal-new");
+      await until("!!document.querySelector('.terminal-new')");
+      await click(".terminal-new");
       await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
       await page.call("() => { window.__emu = [...window.__terminals.values()][0]; }");
       await page.call("() => document.querySelector('.bubble:not([hidden]) .xterm-helper-textarea').focus()");
@@ -100,8 +141,8 @@ it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () =
     const bytes = expected.bytes.flat();
     expect(bytes.length).toBeGreaterThan(0);
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await wait("!!document.querySelector('.rail-terminal-new')");
-    await browser("click", ".rail-terminal-new");
+    await wait("!!document.querySelector('.terminal-new')");
+    await browser("click", ".terminal-new");
     await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");
     await browser("eval", `(() => {
       window.__emu = [...window.__terminals.values()].at(-1);

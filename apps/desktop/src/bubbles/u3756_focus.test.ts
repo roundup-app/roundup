@@ -23,12 +23,12 @@ const load = async (seed = "empty-project", recording?: string) => {
   // agent-browser start creates a new context and drops media emulation; restart records this dark context.
   if (recording) await browser("record", "restart", recording);
 
-  await wait(`!!window.__fake && !!document.querySelector('.rail-actions [aria-label="Add Workstream"]')`);
+  await wait(`!!window.__fake && !!document.querySelector('.rail-actions button')`);
   await read(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    document.querySelector('.rail-actions [aria-label="Add Workstream"]').click();
+    document.querySelector('.rail-actions button').click();
   })()`);
   await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
 };
@@ -82,7 +82,7 @@ const fresh = async (seed = "tree-40") => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
-  await wait(`!!window.__fake && !!document.querySelector('.rail-terminal-new')`);
+  await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
 };
 
 const openRow = async (selector: string) => {
@@ -305,7 +305,7 @@ const loadDense = async () => {
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('.rail-actions [aria-label="Add Workstream"]').click();
+    document.querySelector('.rail-actions button').click();
   })()`);
   await wait(`!!window.arrive`);
   await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
