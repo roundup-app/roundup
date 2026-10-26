@@ -5,7 +5,7 @@ import type { App, NativeOpen } from "./seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { copy } from "../copy";
+import { linkCopy } from "../copy/link";
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
 export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup }, app, projects, connectionOf, item, fail }: {
@@ -65,7 +65,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         try {
           const content = await app.forProject(project.path).rpc("link.read", { url: request.url });
 
-          if (content.kind === "deliverable") throw new Error(copy.linkIsPublished);
+          if (content.kind === "deliverable") throw new Error(linkCopy.published);
           setLinked({ path: project.path, content });
           fail(null);
 
@@ -76,7 +76,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         }
       }
 
-      fail(failures.join("; ") || copy.linkProjectClosed);
+      fail(failures.join("; ") || linkCopy.projectClosed);
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
 };
