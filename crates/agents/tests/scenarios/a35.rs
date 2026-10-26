@@ -15,18 +15,15 @@ use std::{
 const ORIGINAL: &str = "12345678-1234-4234-8234-123456789abc";
 
 fn conversation(f: &Fixture, cwd: &str, id: &str) -> PathBuf {
-    let key: String = Path::new(cwd)
-        .canonicalize()
-        .unwrap()
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    f.dir
-        .path()
-        .join(".roundup/projects")
-        .join(key)
-        .join(format!("{id}.jsonl"))
+    let launcher = agents::claude_code::Launcher::new(
+        "unused",
+        f.dir.path().join(".roundup/claude.json"),
+        "rup".into(),
+        None,
+    );
+    launcher
+        .path_for_test(Path::new(cwd), id)
+        .unwrap_or_else(|_| launcher.save_for_test(Path::new(cwd), id, b"").unwrap())
 }
 
 async fn fixture(door: bool) -> (Arc<Fixture>, RailNode, checkpoints::Mark) {
@@ -95,7 +92,9 @@ async fn fixture_with_agents(
         let started: RailNode =
             serde_json::from_value(f.call("rail.startDoor", json!({"id": home})).await.unwrap())
                 .unwrap();
-        acknowledge(&f, &home, ORIGINAL, "startup").await.unwrap();
+        acknowledge(&f, &home, "23456789-1234-4234-8234-123456789abc", "startup")
+            .await
+            .unwrap();
         let cwd = f
             .terminals
             .list()
@@ -103,7 +102,7 @@ async fn fixture_with_agents(
             .find(|t| Some(&t.id) == started.terminal_id.as_ref())
             .unwrap()
             .cwd;
-        let path = conversation(&f, &cwd, ORIGINAL);
+        let path = conversation(&f, &cwd, "23456789-1234-4234-8234-123456789abc");
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, b"{\"message\":\"Door\"}\n").unwrap();
     }

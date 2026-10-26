@@ -51,7 +51,7 @@ impl Agents {
             .list_vendor(
                 self.project_dir(),
                 &worktrees,
-                (store::now_ms(), period_ms(params.period)),
+                ((self.shared.clock)(), period_ms(params.period)),
             )
             .await?;
         let rail = self.shared.rail();
@@ -151,11 +151,20 @@ impl Agents {
                 excluded: listed.excluded,
             });
         }
+        let worktrees = self
+            .shared
+            .git
+            .registered_worktrees(self.project_dir())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect::<Vec<_>>();
         let found = self
             .launcher
             .discover_recent(
                 self.project_dir(),
-                store::now_ms(),
+                &worktrees,
+                (self.shared.clock)(),
                 period_ms(params.period),
             )
             .await?;
@@ -223,7 +232,7 @@ impl Agents {
         }
         let mut outcomes = Vec::new();
         for selection in params.selections {
-            let now = store::now_ms();
+            let now = (self.shared.clock)();
             let live = listed.as_ref().is_some_and(|listed| {
                 listed.candidates.iter().any(|candidate| {
                     candidate.source == selection.source && candidate.live.is_some()
