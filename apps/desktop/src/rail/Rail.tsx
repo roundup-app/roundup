@@ -732,7 +732,7 @@ export const Rail = () => {
 
           return <Popover.Root open={clearPrompt()?.id === node.id}
             onOpenChange={({ open }) => { if (!open) { clearing.keep(); menu.hideClear(); } }}
-            finalFocusEl={() => rowElement(node.id)}
+            finalFocusEl={() => rowElement(node.id) ?? null}
             positioning={{ placement: "bottom-start", strategy: "fixed", boundary: () => container() ?? [], getAnchorElement: () => rowElement(node.id) ?? null, fitViewport: true }}>
             <Show when={clearPrompt()?.id === node.id}><Portal><Popover.Positioner><Popover.Content class="rail-clear" aria-label={copy.clearName(node.name)}>
               <ClearPrompt node={node} onHide={menu.hideClear} />
