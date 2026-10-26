@@ -274,3 +274,8 @@ body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="ch
   display: grid;
   align-items: baseline;
 }
+
+.reaction-field input:hover,
+.reaction-field textarea:hover {
+  color: var(--text);
+}
