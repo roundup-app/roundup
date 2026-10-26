@@ -1,12 +1,12 @@
 {
   "scenario": "U4277c",
   "base": "b466ef9e028560a10cf5d5ff41c32f0a039da79a",
-  "captured_head": "9edfff3ad43d03d7db3ec7621d06ea279d23188f",
+  "captured_head": "e1c45d3b86fbfda083645a0745d94089ce666256",
   "viewport": "1512x950",
   "scheme": "dark",
   "focused_tests": {
-    "passed": 45,
-    "existing_skips": 3
+    "passed": 84,
+    "existing_skips": 0
   },
   "capture_tests": {
     "base_passed": 6,
@@ -17,5 +17,8 @@
     "tabs-8 audit",
     "required checks and independent review"
   ],
-  "capture_command": "just capture U4277a,U4277b,U4277c started then stopped to avoid duplicate full-suite execution; targeted U4277c observers passed on base and head"
+  "capture_command": "ROUNDUP_CAPTURES=U4277c ROUNDUP_CAPTURE_PHASE=head pnpm --filter desktop exec vitest run src/settings/u3799_rendered.test.ts -t u4277c",
+  "real_daemon_tests": {
+    "passed": 8
+  }
 }
