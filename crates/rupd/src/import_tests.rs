@@ -1,5 +1,5 @@
 use super::*;
-use crate::tests::ask;
+use std::path::PathBuf;
 use std::time::Duration;
 
 mod fixtures;
@@ -799,4 +799,201 @@ async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
     );
     assert!(outcome["workstream"].is_null());
     assert!(outcome["agent"].is_null());
+}
+
+#[tokio::test]
+async fn u3523b_moved_deleted_and_hashed_sessions_import_and_resume() {
+    use crate::vendor_list_tests::{executable, git, package, real_node, session};
+    let (root, _launcher, daemon, _, seed) = import_fixture(0).await;
+    let seeded = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[seed]}),
+    )
+    .await;
+    let listing_agent = seeded["result"]["outcomes"][0]["agent"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let sub = project.join("sub");
+    let long = project.join("long".repeat(55));
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::create_dir(&long).unwrap();
+    let removed = root.path().join("removed-worktree");
+    git(
+        &project,
+        &["worktree", "add", "--detach", removed.to_str().unwrap()],
+    );
+    let moved = session(&config, &project, 2, &[&project, &sub], false);
+    let deleted = session(&config, &removed, 3, &[&removed, &project], false);
+    std::fs::remove_dir_all(&removed).unwrap();
+    let live = session(&config, &long, 4, &[&long], false);
+    let unshortened: String = long
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let hash = long
+        .to_string_lossy()
+        .chars()
+        .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
+        .unsigned_abs();
+    let mut digits = Vec::new();
+    let mut value = hash;
+    while value > 0 {
+        digits.push(char::from_digit(value % 36, 36).unwrap());
+        value /= 36;
+    }
+    let bucket = format!(
+        "{}-{}",
+        &unshortened[..200],
+        digits.into_iter().rev().collect::<String>()
+    );
+    std::fs::rename(
+        config.join("projects").join(&unshortened),
+        config.join("projects").join(bucket),
+    )
+    .unwrap();
+    let journal = root.path().join("continued");
+    let cli = root.path().join("fake-claude");
+    executable(
+        &cli,
+        &format!(
+            r#"#!/bin/sh
+if [ "$1" = agents ]; then printf '%s' '[{{"sessionId":"{live}","pid":424242,"cwd":"{}"}}]'; exit 0; fi
+if [ "$1" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi
+printf 'launch %s\n' "$*" >> '{}'
+pwd >> '{}'
+while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
+"#,
+            long.display(),
+            journal.display(),
+            journal.display(),
+            journal.display()
+        ),
+    );
+    let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    drop(daemon);
+    let rup = root.path().join("rup");
+    executable(&rup, "#!/bin/sh\nexit 0\n");
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        rup,
+        None,
+    )
+    .with_sidecar(package);
+    let daemon = std::sync::Arc::new(import_daemon(&project, launcher.clone()));
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: listing_agent.clone(),
+        parent: None,
+    });
+    let listed = daemon.modules["import"]
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let picks = listed["candidates"].as_array().unwrap();
+    assert_eq!(picks.len(), 3, "{listed}");
+    for source in [&moved, &deleted, &live] {
+        assert_eq!(picks.iter().filter(|p| p["source"] == *source).count(), 1);
+    }
+    let params = json!({"agent":listing_agent,"selections":picks.iter().map(|p| json!({"source":p["source"],"revision":p["revision"]})).collect::<Vec<_>>()});
+    let mut commit = {
+        let daemon = daemon.clone();
+        let params = params.clone();
+        tokio::spawn(async move { import_rpc(&daemon, "project.importCommit", params).await })
+    };
+    let ack = async {
+        loop {
+            let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+            if let Some(node) = tree["result"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["terminal_id"].is_string())
+            {
+                let reply = import_rpc(&daemon,"agent.signal",json!({"id":node["id"],"attempt":node["attempt"],"payload":{"hook_event_name":"SessionStart","source":"resume","session_id":live}})).await;
+                assert!(
+                    reply["error"].is_null(),
+                    "{reply}; node={node}; tree={tree}"
+                );
+                break;
+            }
+            if commit.is_finished() {
+                panic!(
+                    "commit ended before live acknowledgement: {:?}",
+                    (&mut commit).await
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(5), ack)
+        .await
+        .unwrap();
+    let reply = commit.await.unwrap();
+    let outcomes = reply["result"]["outcomes"].as_array().unwrap();
+    assert_eq!(outcomes.len(), 3, "{reply}");
+    for outcome in outcomes {
+        assert!(outcome["error"].is_null(), "{reply}");
+    }
+    let imported = outcomes.iter().find(|p| p["source"] == live).unwrap()["agent"]
+        .as_str()
+        .unwrap();
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    for outcome in outcomes.iter().filter(|p| p["source"] != live) {
+        let node = tree["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == outcome["agent"])
+            .unwrap();
+        assert_eq!(node["can_resume"], true);
+        assert!(node["attempt"].is_null());
+        assert!(node["overview"]["id"].is_string());
+    }
+    let prompt = import_rpc(
+        &daemon,
+        "agent.prompt",
+        json!({"id":imported,"text":"continue the imported work"}),
+    )
+    .await;
+    assert!(prompt["error"].is_null(), "{prompt}");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if std::fs::read_to_string(&journal)
+                .unwrap_or_default()
+                .contains("prompt continue the imported work")
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let launches = std::fs::read_to_string(&journal).unwrap();
+    assert!(launches.contains(&format!("--resume {live}")), "{launches}");
+    assert!(
+        launches.lines().any(|line| line == long.to_str().unwrap()),
+        "{launches}"
+    );
+    assert_eq!(
+        launches
+            .lines()
+            .filter(|line| line.starts_with("launch "))
+            .count(),
+        1
+    );
+    let replay = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+    assert_eq!(replay["result"], reply["result"]);
+    import_rpc(&daemon, "agent.stop", json!({"id":imported})).await;
+    drop(daemon);
+    let daemon = import_daemon(&project, launcher);
+    let replay = import_rpc(&daemon, "project.importCommit", params).await;
+    assert_eq!(replay["result"], reply["result"]);
+    assert_eq!(std::fs::read_to_string(&journal).unwrap(), launches);
 }
