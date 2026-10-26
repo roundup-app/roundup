@@ -38,7 +38,7 @@ class Release(unittest.TestCase):
     def test_c9b_binary_size_boundary(self):
         for size, code in [(14_999_999, 0), (15_000_000, 1), (15_000_001, 1)]:
             with self.subTest(size=size):
-                result = self.run_check("binary", self.file("rupd", size))
+                result = self.run_check("binary", self.file("daemon-bin", size))
                 self.assertEqual(result.returncode, code, result.stderr)
                 self.assertIn(str(size), result.stdout)
                 self.assertIn("15000000", result.stdout)
