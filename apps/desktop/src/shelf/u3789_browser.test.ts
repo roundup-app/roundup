@@ -224,7 +224,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
   }
 
   await load("tree-40");
-  await browser("click", '.rail-row[data-id="tokens"]');
+  await browser("focus", '.rail-row[data-id="tokens"]');
   await browser("press", "F2");
   await wait("document.activeElement?.getAttribute('aria-label') === 'Name'");
   await browser("fill", '.rail-row[data-id="tokens"] input', "  exact 日本語 🌱  ");
@@ -314,7 +314,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "nested-todos");
 
-        if (!base) {
+        {
           await browser("eval", "(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.openFailure = new RpcError(-32008, 'Folder unavailable; try again.'); })()");
           await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
           await browser("press", "Enter");
