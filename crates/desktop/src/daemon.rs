@@ -41,7 +41,9 @@ impl Drop for OwnedSocket {
         match std::fs::remove_file(&self.0) {
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => eprintln!("desktop: could not remove {}: {err}", self.0.display()),
+            Err(err) => {
+                log::warn!(target: "roundup::shell", "remove Daemon socket: IO {:?}", err.kind())
+            }
         }
     }
 }
@@ -88,6 +90,7 @@ pub async fn start(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| {
+            log::warn!(target: "roundup::shell", "start Project Daemon: IO {:?}", err.kind());
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
     let stdin = child.stdin.take().expect("stdin was requested piped");
@@ -109,7 +112,7 @@ pub async fn start(
         },
     };
     if let Err(err) = child.kill().await {
-        eprintln!("desktop: could not stop the Daemon that failed to start: {err}");
+        log::warn!(target: "roundup::shell", "stop refused Daemon: IO {:?}", err.kind());
     }
     // The drain ends when the pipe closes; if it does not, the tail is as complete as it will get.
     let _ = timeout(STDERR_DRAIN_BOUND, drain).await;
@@ -125,7 +128,7 @@ pub fn watch_exit(mut child: Child, on_exit: impl FnOnce(Option<i32>) + Send + '
         match child.wait().await {
             Ok(status) => on_exit(status.code()),
             Err(err) => {
-                eprintln!("desktop: lost track of the Daemon: {err}");
+                log::warn!(target: "roundup::shell", "wait for Daemon exit: IO {:?}", err.kind());
                 on_exit(None);
             }
         }
@@ -169,13 +172,36 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
             Ok(0) => return,
             Ok(_) => {
                 let line = String::from_utf8_lossy(&bytes).trim_end().to_owned();
-                eprintln!("{line}");
                 tail.push(line);
             }
             Err(err) => {
-                eprintln!("desktop: stopped reading the Daemon's stderr: {err}");
+                log::warn!(target: "roundup::shell", "read Daemon stderr: IO {:?}", err.kind());
                 return;
             }
         }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::path::Path;
+
+    // Keep attempted launches at the audited Daemon owner, using only the caller's temp folder.
+    pub(crate) fn refuse_missing_executable(
+        app: &tauri::AppHandle<tauri::test::MockRuntime>,
+        dir: &Path,
+        data: &Path,
+    ) {
+        let project = dir.join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = crate::Config::locate(
+            Some(data.join("missing-rupd").into_os_string()),
+            std::path::Path::new("/unused/roundup"),
+            dir,
+            std::process::id(),
+        )
+        .unwrap();
+        let state = crate::AppState::new(config);
+        assert!(tauri::async_runtime::block_on(state.open_project(app, &project)).is_err());
     }
 }

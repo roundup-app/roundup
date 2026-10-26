@@ -63,7 +63,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                     let applied = window.set_effects(effects);
                     let enabled = !reduced && applied.is_ok();
                     if let Err(error) = applied {
-                        eprintln!("desktop: native material unavailable: {error}");
+                        crate::diagnostics::failure("apply native material", &error);
                     }
                     *window
                         .state::<Material>()
@@ -71,22 +71,22 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                         .lock()
                         .expect("material state poisoned") = enabled;
                     if let Err(error) = window.emit("native-material", enabled) {
-                        eprintln!("desktop: native material delivery failed: {error}");
+                        crate::diagnostics::failure("deliver native material", &error);
                     }
                 });
             }
             #[cfg(target_vendor = "apple")]
             if window.label() == "main"
-                && let Err(error) = native::watch_fullscreen(window.clone(), {
+                && native::watch_fullscreen(window.clone(), {
                     let window = window.clone();
                     move |fullscreen| {
                         if let Err(error) = window.emit("window-fullscreen-completed", fullscreen) {
-                            eprintln!("window-state: report fullscreen completion failed: {error}");
+                            crate::diagnostics::failure("report fullscreen completion", &error);
                         }
                     }
-                })
+                }).is_err()
             {
-                eprintln!("window-state: observe fullscreen failed: {error}");
+                log::warn!(target: "roundup::shell", "observe fullscreen: native observer registration failed");
             }
             #[cfg(not(target_vendor = "apple"))]
             let _ = window;
