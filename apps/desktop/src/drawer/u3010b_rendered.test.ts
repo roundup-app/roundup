@@ -311,7 +311,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
     if (mode === "overlay") {
       // U371's full-viewport fixture needs a resize after the floor changes so Layout measures its placement.
-      await evaluate("document.querySelector('.window').style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 42) + 'px')");
+      await evaluate("document.documentElement.style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 42) + 'px')");
       await browser("set", "viewport", "1512", "949");
       await browser("set", "viewport", "1512", "950");
       await settle();
@@ -330,6 +330,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await browser("click", ".drawer .close");
     await settle();
     await browser("wait", "--load", "networkidle");
+    expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe(mode);
     await evaluate(`(() => {
       const drawer = document.querySelector('.drawer');
       const terminal = document.querySelector('.xterm-screen');
