@@ -1,4 +1,4 @@
-# C9 release reduction in progress (#3807)
+# C9 release size (#3807)
 
 Reference: `7ef5cb4b09f1cd90ea141dec5f185fd0adeedaa9`; measured implementation:
 `0ee9f45d4b81bf4cc7f77b71f8f6b6be4e645a48`. Ubuntu 24.04.5, AMD EPYC 7763,
@@ -7,14 +7,14 @@ x86_64-unknown-linux-gnu, LLVM 23.1.1, Node 22.23.3, pnpm 10.14.0.
 
 | Uncompressed artifact | Reference | Implementation | Exclusive cap |
 |---|---:|---:|---:|
-| Complete desktop dist, logical bytes | 27,673,763 | 17,046,144 (merged `main`) | 18,000,000 |
-| Regular files / JS files | 738 / 665 | 487 / 414 | — |
-| Native release rupd | 26,163,328 | 22,462,584 | 15,000,000 |
+| Complete desktop dist, logical bytes | 27,673,763 | 17,694,784 (`1d6bbeb43`) | 18,000,000 |
+| Regular files / JS files | 738 / 665 | 339 / 263 | — |
+| Native release rupd | 26,163,328 | 13,487,768 (`1d6bbeb43`) | 15,000,000 |
 
 Both production desktop builds exited 0. Reproduce with
 `pnpm install --frozen-lockfile`, `pnpm --filter desktop build`,
 `du -sh apps/desktop/dist`, `find apps/desktop/dist -name '*.js' | wc -l`, and
-`python3 tools/release/check.py dist apps/desktop/dist` (exit 1 for both measured trees).
+`python3 tools/release/check.py dist apps/desktop/dist` (exit 0 at `1d6bbeb43`; the module gate `check.py modules` also exits 0: 4,092 modules, 264 chunks).
 `du -sh` reported 28M on the reference; logical lengths, rather than disk allocation,
 determine the gate. The checker recursively includes every asset and refuses symlinks,
 special files, missing/empty output and unreadable files. Its six command tests cover
@@ -69,13 +69,19 @@ acceptance: rupd's `n7_launch_sites_clean_on_success_and_failure` and
 test failures, and `u3787f_panel_does_not_activate_main_window` catches worker failures
 for native cleanup; their macOS results remain outstanding.
 
-Neither byte cap is met. The qualified R13/R16 comparison, its cold-start and other
-metric table, macOS cold-start comparison, full registration inventory and C9d
-checker remain outstanding. `just perf --out /tmp/c9-reference-perf.json` built the
-reference release and entered the same-job paired observer; the superseded observer was terminated during its reference build with exit 143.
-No completed report or performance pass is claimed here. Hosted calibration #3706 is not needed by this
-new paired path. A manual check-workflow dispatch returned HTTP 403; draft PR jobs
-skip the release lanes, so their skipped runs are not macOS evidence.
+Both byte caps are met at `1d6bbeb43`: fat LTO, `opt-level = "z"`, symbol stripping and
+one codegen unit give a 13,487,768-byte `rupd` (checker exit 0, the workspace-stripped
+artifact itself). Re-run unwind cases at that head, all passing: the five B28 tests
+(`cargo nextest run -p messages -E 'test(b28)'`) and the seven `n7_` tests of rupd and rup.
+
+Paired `just perf` (Linux, AMD EPYC 9V45, 4 CPUs, rustc 1.99.0, exit 0), merge-base and head
+both `1d6bbeb43`, so it is the same-host noise floor of the shipped profile; every
+metric is within its ceiling and budget (base / head ms): cold_start 10.190 / 10.021 (budget 300),
+cold_plugin_materialization 10.661 / 10.270, hook_loop 205.354 / 199.839, ping_p95 0.0383 / 0.0379,
+rail_tree_10_p95 0.1266 / 0.1220, rail_tree_40_p95 0.3328 / 0.3225, rss_extra 2.148 / 2.102 MB,
+terminal_write_p95 0.0561 / 0.0562, write_to_output_p95 0.1128 / 0.1087. The pre-profile
+reference timing is in `docs/perf-release-profile.md`. A macOS cold-start comparison is read from the
+`macos-latest` lanes of `check` on `main`; no user-only observation is requested.
 
 Raw build logs, module graphs, command results and unwind-test output are retained
 in the producing [Builder run](https://github.com/roundup-app/roundup/actions/runs/40242009209),

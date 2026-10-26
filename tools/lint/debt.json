@@ -1,6 +1,5 @@
 {
   "size": [
-    {"path": "crates/agents/tests/scenarios/worktrees.rs", "ceiling": 2028, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/desktop/tests/app.rs", "ceiling": 2197, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/pads/tests/pads.rs", "ceiling": 1581, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/src/cli.rs", "ceiling": 1167, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
@@ -129,7 +128,6 @@
     {"rule": "sleep-poll", "path": "crates/rupd/tests/d1_attached.rs", "source": "std::thread::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "58:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/tests/scenarios/resume.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "595:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rupd/src/deliverables.rs", "source": "std::thread::sleep(std::time::Duration::from_millis(5))", "detail": "", "occurrence": 1, "location": "598:9", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
-    {"rule": "sleep-poll", "path": "crates/rup/tests/project_data.rs", "source": "std::thread::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 2, "location": "601:21", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/src/claude_code/measurement.rs", "source": "tokio::time::sleep(std::time::Duration::from_secs(1))", "detail": "", "occurrence": 1, "location": "60:21", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/agents/tests/scenarios/remove.rs", "source": "tokio::time::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "60:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/models.rs", "source": "std::thread::sleep(Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "62:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
