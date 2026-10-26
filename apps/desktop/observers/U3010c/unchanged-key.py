@@ -52,37 +52,38 @@ def pointer():
     browser('wait', '--fn', 'window.__fake.app.calls.filter(call=>call.method==="todo.reorder").length === window.__expectedCalls')
 
 
-try:
-    for list_name in ['shelf', 'agent']:
-        for reduced, quarter in [(False, False), (False, True), (True, False)]:
-            for mode in ['fresh', 'none', 'equal']:
-                for action in ['incoming', 'pointer']:
-                    setup(list_name, quarter, reduced)
-                    if mode != 'fresh':
-                        evaluate('window.__unchangedKey.key(' + json.dumps(mode) + ')')
-                    else:
-                        evaluate('window.__unchangedKey.rows()[1].focus()')
-                    if action == 'incoming':
-                        evaluate('window.__unchangedKey.incoming()')
-                    else:
-                        evaluate('window.__expectedCalls=' + str(1 if mode == 'fresh' else 2))
-                        pointer()
-                    trace = evaluate('window.__unchangedKey.finish()')
-                    if reduced:
-                        browser('set', 'media', 'dark')
-                        trace['afterPreferenceOff'] = evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(window.__unchangedKey.read("preference-off")))))')
-                    name = f'{list_name}-{mode}-{action}-' + ('reduced' if reduced else 'quarter' if quarter else 'normal')
-                    save(name, trace)
-                    if mode == 'none' and action == 'incoming':
-                        browser('screenshot', OUT / (name + '.png'))
-        setup(list_name)
-        evaluate('window.__unchangedKey.key("delayed")')
-        save(list_name + '-delayed-key', evaluate('window.__unchangedKey.finish()'))
-        setup(list_name)
-        evaluate('window.__fake.failNext(-32003, "Reorder refused: choose another position."); window.__unchangedKey.rows()[1].focus()')
-        browser('press', 'Alt+ArrowUp')
-        browser('wait', '[role=alert]')
-        save(list_name + '-refused', evaluate('window.__unchangedKey.finish()'))
-        browser('screenshot', OUT / (list_name + '-refused.png'))
-finally:
-    browser('close')
+if __name__ == "__main__":
+    try:
+        for list_name in ['shelf', 'agent']:
+            for reduced, quarter in [(False, False), (False, True), (True, False)]:
+                for mode in ['fresh', 'none', 'equal']:
+                    for action in ['incoming', 'pointer']:
+                        setup(list_name, quarter, reduced)
+                        if mode != 'fresh':
+                            evaluate('window.__unchangedKey.key(' + json.dumps(mode) + ')')
+                        else:
+                            evaluate('window.__unchangedKey.rows()[1].focus()')
+                        if action == 'incoming':
+                            evaluate('window.__unchangedKey.incoming()')
+                        else:
+                            evaluate('window.__expectedCalls=' + str(1 if mode == 'fresh' else 2))
+                            pointer()
+                        trace = evaluate('window.__unchangedKey.finish()')
+                        if reduced:
+                            browser('set', 'media', 'dark')
+                            trace['afterPreferenceOff'] = evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(window.__unchangedKey.read("preference-off")))))')
+                        name = f'{list_name}-{mode}-{action}-' + ('reduced' if reduced else 'quarter' if quarter else 'normal')
+                        save(name, trace)
+                        if mode == 'none' and action == 'incoming':
+                            browser('screenshot', OUT / (name + '.png'))
+            setup(list_name)
+            evaluate('window.__unchangedKey.key("delayed")')
+            save(list_name + '-delayed-key', evaluate('window.__unchangedKey.finish()'))
+            setup(list_name)
+            evaluate('window.__fake.failNext(-32003, "no room"); window.__unchangedKey.rows()[0].focus()')
+            browser('press', 'Alt+ArrowDown')
+            browser('wait', '--fn', 'Boolean(document.querySelector("[role=alert]"))')
+            save(list_name + '-refused', evaluate('window.__unchangedKey.finish()'))
+            browser('screenshot', OUT / (list_name + '-refused.png'))
+    finally:
+        browser('close')
