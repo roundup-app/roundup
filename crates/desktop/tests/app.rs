@@ -85,7 +85,7 @@ impl Fixture {
         );
         let script = dir.path().join("rupd");
         let body = body
-            .replace("{link}", &link)
+            .replace("{link}", &format!("{link}\nprintf 'rupd-bound\\n'"))
             .replace("{dir}", &dir.path().display().to_string());
         let go = dir.path().join("go");
         assert!(Command::new("mkfifo").arg(&go).status().unwrap().success());
@@ -248,7 +248,7 @@ const SERVE_AND_WAIT: &str = "{link}\nexec cat";
 
 /// A fake `rupd` for several Projects: each links its socket to `real-<folder name>.sock` and
 /// records what it was started with.
-const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat";
+const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat";
 
 #[test]
 fn s1_projects_is_empty_until_one_is_open_and_then_lists_the_open_one() {
@@ -1281,7 +1281,7 @@ fn s8_a_path_that_is_not_open_is_conflict_for_every_call() {
 #[test]
 fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1323,7 +1323,7 @@ fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
 #[test]
 fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 7; fi\nexec cat",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 7; fi\nexec cat",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1389,7 +1389,7 @@ fn s8_closing_one_daemon_leaves_the_other_answering() {
 #[test]
 fn s8_when_the_app_exits_every_daemons_stdin_closes() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1513,7 +1513,7 @@ fn s10_the_open_projects_are_stored_in_order_after_open_and_close() {
 fn s10_a_launch_reopens_the_stored_projects_in_order_drops_a_vanished_folder_and_keeps_a_failing_one()
  {
     let fx = Fixture::new(
-        "if [ \"$(basename \"$1\")\" = broken-project ]; then echo 'boom' >&2; exit 3; fi\nprintf '%s\\n' \"$1\" >> '{dir}/started'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat",
+        "if [ \"$(basename \"$1\")\" = broken-project ]; then echo 'boom' >&2; exit 3; fi\nprintf '%s\\n' \"$1\" >> '{dir}/started'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat",
     );
     let broken = fx.second_project("broken-project");
     let gone = fx.second_project("gone-project");

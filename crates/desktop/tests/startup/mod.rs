@@ -17,7 +17,7 @@ fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
     );
     assert_eq!(
         std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
-        format!("{}\n--attached\n", fx.project.display())
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
     );
     assert_eq!(
         std::fs::read_to_string(fx.dir.path().join("socket")).unwrap(),
@@ -63,7 +63,7 @@ fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
 fn z3799b_a_socket_without_the_complete_bound_signal_is_not_ready() {
     for signal in ["", "printf 'rupd-'", "printf 'other-bound\\n'"] {
         let fx = Fixture::new(&format!(
-            "{{link}}\n{signal}\nexec 1>&-\nexec cat > /dev/null"
+            "ln -s '{{dir}}/real.sock' \"$RUPD_SOCKET\"\n{signal}\nexec 1>&-\nexec cat > /dev/null"
         ));
         fx.serve_real_daemon();
         let (_app, webview) = app(fx.config.clone(), None);
@@ -135,7 +135,7 @@ fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
 
     assert_eq!(
         std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
-        format!("{}\n--attached\n", fx.project.display())
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
     );
     let reopened_socket = std::fs::read_to_string(fx.dir.path().join("socket")).unwrap();
     assert_ne!(reopened_socket, fx.config.socket.display().to_string());
