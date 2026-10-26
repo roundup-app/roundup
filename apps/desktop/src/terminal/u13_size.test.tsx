@@ -73,6 +73,7 @@ describe("u13 size", () => {
       const first = await mountPane([node("a")], [info("t-a")]);
 
       first.connected.rail.select("a");
+
       const changed = () => {
         if (source === "window") window.dispatchEvent(new Event("resize"));
         else observers.forEach(notify => notify());
@@ -84,12 +85,14 @@ describe("u13 size", () => {
       const current = await mountPane([node("b")], [info("t-b")]);
 
       current.connected.rail.select("b");
+
       const active = current.emulators.get("t-b")!;
 
       // Repeated notifications share one fit, even across an owner remount.
       for (let count = 0; count < 3; count += 1) {
         changed();
       }
+
       nextFrame();
 
       expect([first.emulators.get("t-a")!.fits, active.fits]).toEqual([0, 1]);
