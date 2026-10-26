@@ -516,7 +516,7 @@ const trace = (rate: number) => `(async () => {
   const box = () => { const r = drawer.getBoundingClientRect(); return { left: r.left, width: r.width }; };
   const slow = () => document.getAnimations().forEach(a => { a.playbackRate = ${rate}; });
   const samples = [];
-  const log = (event, source) => samples.push({ t: performance.now(), event, source, ...box(), focus: document.activeElement?.className ?? null, content: !!drawer.querySelector(':scope > :not(.drawer-close)') });
+  const log = (event, source) => samples.push({ t: performance.now(), event, source, ...box(), focus: document.activeElement?.className ?? null, content: !!drawer.querySelector(':scope > :not(.close)') });
   const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
   const advance = async (done) => { for (let i = 0; i < 600; i++) { slow(); await frame(); log('frame'); if (done()) return; } };
 
