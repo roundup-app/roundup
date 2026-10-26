@@ -7,11 +7,13 @@
 mod contract_handlers;
 mod integration;
 mod output;
+mod program;
 mod pty;
 mod recorder;
 mod scheme;
 mod screen;
 
+use program::Program;
 use screen::{ScreenParser, ScreenState, Seen};
 
 use std::collections::BTreeMap;
@@ -34,7 +36,7 @@ use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 
 /// Events a slow subscriber may fall behind by before it is told it lagged (it never blocks the reader).
 const EVENT_BACKLOG: usize = 1024;
@@ -46,7 +48,7 @@ const SNAPSHOT_MAX_CELLS: u32 = 65_536;
 const SNAPSHOT_MAX_HISTORY_CELLS: usize = 262_144;
 const TITLE_ROWS: u16 = 24;
 const TITLE_COLS: u16 = 80;
-/// How often the reader thread checks whether a program that closed its PTY has ended.
+/// How often the reaper checks whether the original program has ended.
 const REAP_POLL: Duration = Duration::from_millis(5);
 const READ_CHUNK: usize = 8192;
 /// Writes a Terminal accepts ahead of its program reading them. Past this, `write` is `CONFLICT`:
@@ -124,11 +126,6 @@ impl OutputStream {
     }
 }
 
-/// The program, shared by whoever reaps it and whoever stops it.
-/// Invariant: only code holding this lock reaps or signals, and signals only when `try_wait` under
-/// that lock has just said the program is still running. A reaped pid is never signalled.
-type Program = Arc<Mutex<Box<dyn Child + Send + Sync>>>;
-
 /// What it takes to drive a running program. Dropped from the Terminal's entry once it is reaped.
 struct Handle {
     master: Mutex<Box<dyn MasterPty + Send>>,
@@ -178,6 +175,8 @@ struct Shared {
     clock: Arc<dyn Fn() -> f64 + Send + Sync>,
     bus: Bus,
     table: Mutex<BTreeMap<u64, Entry>>,
+    /// Wait registrations exist until the original program ends, independently of its PTY.
+    program_ends: Mutex<BTreeMap<u64, watch::Receiver<bool>>>,
     /// Env var names stripped from every spawned program's environment, however they reached the
     /// Daemon: its own environment or a caller's `params.env` (`open_with`'s caller owns the list).
     clean_env: Vec<String>,
@@ -276,6 +275,7 @@ impl Terminals {
                 bus,
                 clock: recorder::clock(),
                 table: Mutex::new(BTreeMap::new()),
+                program_ends: Mutex::new(BTreeMap::new()),
                 clean_env: clean_env
                     .iter()
                     .map(|marker| (*marker).to_owned())
@@ -459,8 +459,8 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
-        // The reader and input threads start before the program (the reader receives the child over a
-        // channel), so no later failure can leave a program that nobody waits for.
+        // All three threads start before the program, so a thread-creation failure leaves no
+        // program behind. The reaper observes completion independently of PTY EOF.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
         let writer = pair.master.take_writer().map_err(RpcError::internal)?;
         let writer = match &self.input_writer {
@@ -485,6 +485,25 @@ impl Terminals {
             rows: params.rows,
             scheme_notices: false,
         }));
+        let (program_arrival, program_arrives) = mpsc::channel::<Program>();
+        let (reaped, completion) = mpsc::channel();
+        let (ended, program_ended) = watch::channel(false);
+        let program_shared = Arc::clone(&self.shared);
+        std::thread::Builder::new()
+            .name(format!("terminal-{number}-reap"))
+            .spawn(move || {
+                if let Ok(program) = program_arrives.recv() {
+                    let code = program::exit_code(number, reap(&program));
+                    ended.send_replace(true);
+                    program_shared
+                        .program_ends
+                        .lock()
+                        .expect("terminal program ends lock")
+                        .remove(&number);
+                    let _ = reaped.send(code);
+                }
+            })
+            .map_err(RpcError::internal)?;
         let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let pump_output = output.clone();
@@ -497,15 +516,22 @@ impl Terminals {
             .spawn(move || {
                 // No child means the program never started: nothing to report.
                 if let Ok(handle) = child_arrives.recv() {
-                    pty::pump(
+                    pty::read(
                         &shared,
                         number,
                         reader,
                         &handle,
                         &reader_screen,
-                        pump_output,
-                        exit_hold.as_deref(),
+                        &pump_output,
                     );
+                    let code = completion
+                        .recv()
+                        .expect("the reaper reports program completion");
+                    if let Some(hold) = exit_hold {
+                        hold();
+                    }
+                    drop(pump_output);
+                    shared.finish(number, code);
                 }
             })
             .map_err(RpcError::internal)?;
@@ -536,6 +562,12 @@ impl Terminals {
         });
 
         let (sender, events) = broadcast::channel(EVENT_BACKLOG);
+        // Install the wait registration before list can expose this Terminal.
+        self.shared
+            .program_ends
+            .lock()
+            .expect("terminal program ends lock")
+            .insert(number, program_ended);
         self.shared.table().insert(
             number,
             Entry {
@@ -555,6 +587,10 @@ impl Terminals {
                 handle: Some(Arc::clone(&handle)),
                 screen,
             },
+        );
+        assert!(
+            program_arrival.send(program).is_ok(),
+            "the reaper thread waits for its program"
         );
         assert!(
             arrival.send(handle).is_ok(),
@@ -754,42 +790,6 @@ impl Terminals {
             .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
     }
 
-    /// Stop a running Terminal's program (SIGHUP, then SIGKILL if it lingers) and return once it is
-    /// stopped. It stays listed as exited once `terminal.exited` is emitted. `NOT_FOUND` as for
-    /// [`Terminals::write`], including a program that ended just before this call.
-    pub async fn kill(&self, id: &str) -> Result<(), RpcError> {
-        let handle = self.running(id)?;
-        // portable-pty's `Child::kill` waits out the SIGHUP grace period, so keep it off the runtime.
-        tokio::task::spawn_blocking(move || {
-            let mut program = handle.program.lock().expect("terminal program lock");
-            match program.try_wait() {
-                Ok(None) => program.kill().map_err(RpcError::internal)?,
-                Ok(Some(_)) => return Err(RpcError::not_found("running terminal")),
-                Err(err) => return Err(RpcError::internal(err)),
-            }
-            drop(program);
-            // portable-pty returns right after SIGKILL; a second kill must already see the program gone.
-            reap(&handle.program).map(drop).map_err(RpcError::internal)
-        })
-        .await
-        .map_err(RpcError::internal)?
-    }
-
-    /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
-    /// descendant holding the PTY open delays `terminal.exited` on Linux. An unknown Terminal has
-    /// no program running either.
-    pub fn program_ended(&self, id: &str) -> bool {
-        match self.running(id) {
-            Ok(handle) => handle
-                .program
-                .lock()
-                .expect("terminal program lock")
-                .try_wait()
-                .map_or(true, |status| status.is_some()),
-            Err(_) => true,
-        }
-    }
-
     /// The pid of Terminal `id`'s program, only while it runs (H21).
     pub fn program_pid(&self, id: &str) -> Option<u32> {
         let number = parse_terminal_number(id).ok()?;
@@ -888,8 +888,6 @@ impl Terminals {
     }
 }
 
-/// Collects what the parser sees that the Daemon acts on: window titles (OSC 0 and 2) and the colour
-/// requests of X17. vt100 stitches sequences split across reads.
 /// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
 fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
     loop {
