@@ -11,13 +11,6 @@
   padding-inline: var(--space-2);
 }
 
-/* The home Ask surface covers the Pane body; failure recovery stays reachable above it. */
-.pane-failure:has([role="alert"]) {
-  position: relative;
-  z-index: var(--layer-drawer);
-  background-color: var(--ground);
-}
-
 .pane-body {
   position: relative;
   flex: 1;
