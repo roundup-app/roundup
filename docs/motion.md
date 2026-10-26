@@ -194,7 +194,7 @@ M9's Kind crossfade is delivered in `ink/KindGlyph.tsx`: a Kind change on a moun
 Glyph keeps the old mark as an inert, `aria-hidden` sibling and fades the two marks
 over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity only,
 so reduced motion needs no variant); the latest Kind cancels the running fade and
-disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
+disposal cancels it. The working arc is migrated to Motion in the subsequent slice below. Rendered Kind
 transitions, the M10 single-source collapse and the remaining slices stay open.
 
 M10 preference wiring now shares the App's injected live accessor with `ui/Dialog.tsx`
@@ -219,3 +219,31 @@ lazy Motion chunk; its dependency version and engine imports are unchanged. The
 original engine-plus-press increment remains in `press-bundle.json`; this delta
 measures only preference wiring. Both entries exceed 400,000 bytes. No native
 timing or complete reduced-motion pass is claimed here.
+
+The working arc now uses Motion rather than CSS `working-turn`. `--duration-working`
+retains the 960 ms constant turn; `--easing-working` and the two glyph crossfade
+curves are Tokens. A Kind change snapshots the outgoing arc's displayed transform
+before Solid redraws it; that inert mark stays frozen while fading. Disposing a
+working mark cancels its loop. Production arcs read the App's existing
+`ReducedMotionContext`; isolated fixtures use the existing preference holder.
+A live reduced-motion change cancels rotation and fades the static quarter over
+`--duration-reduced`, without adding attention or changing Kind. Re-enabling motion
+resumes the still-working indication, without replaying a Kind crossfade.
+
+The CSS build now preserves `--duration-reduced` while zeroing other legacy movement
+Tokens. This is a prerequisite for M10, not completion of the remaining legacy
+preference layers. `observers/U3010c/glyph.eval` records the actual App's arc matrices,
+mark alignment, opacity and browser animations. Its base/head traces under
+`artifacts/ux/U3010c/glyph-engine/` distinguish the previous outgoing arc's continued
+rotation from the new frozen phase. All layer/layout/completion adoption, remaining
+inventory, full capture and native scheduling obligations remain on #3821.
+
+The glyph slice's immutable production comparison is `docs/perf-motion-glyph.json`:
+base `3b6b9daaa52dd8cd25505d84b235e0c981779cf0`, source head
+`784719087648be9bb7845658c2d60c99c03c8143`, gzip-9 entry/eager JS
+433,360 → 433,586 bytes (+226). Both builds have 262 lazy JS chunks, all enumerated;
+Motion remains eager, with no dependency/engine change or new lazy Motion chunk.
+This is incremental glyph integration cost; the original engine/press delta remains
+in `press-bundle.json`. The repository startup observer's current 437,814-byte
+ceiling passes, but this Issue's 400,000-byte acceptance fails at both revisions.
+No performance baseline, native scheduling protocol or presentation claim changes.

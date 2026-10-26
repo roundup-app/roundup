@@ -2,6 +2,8 @@
 #[path = "common/served.rs"]
 mod common;
 use serde_json::{Value, json};
+#[path = "deliverables/publication.rs"]
+mod publication;
 async fn call(c: &rpc::Client, method: &str, args: Value) -> Value {
     c.request(method, args).await.unwrap()
 }
@@ -27,126 +29,7 @@ async fn pad_target(client: &rpc::Client, name: &str, revision: u64) -> Value {
     let source = call(client, "pad.read", json!({"name":name})).await;
     json!({"kind":"pad","name":name,"incarnation":source["incarnation"],"revision":revision})
 }
-#[tokio::test]
-async fn dv1_publication_identity() {
-    let mut projects = Vec::new();
-    let mut all = Vec::new();
-    for _ in 0..2 {
-        let p = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
-        let c = rpc::Client::connect(&p.socket()).await.unwrap();
-        let home = call(&c, "rail.createWorkstream", json!({"name":"Maker"})).await["id"].clone();
-        call(
-            &c,
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":home,"parent":null}}),
-        )
-        .await;
-        pad(&c, "notes", "revision one").await;
-        std::fs::write(p.dir.path().join("result.txt"), "retained file").unwrap();
-        let mut records = Vec::new();
-        for (key, target) in [
-            ("pad", pad_target(&c, "notes", 1).await),
-            ("file", json!({"kind":"file","path":"result.txt"})),
-            (
-                "external",
-                json!({"kind":"external","url":"https://example.com/pr/1"}),
-            ),
-        ] {
-            let request = json!({"key":key,"title":"Result","target":target});
-            let r = call(&c, "deliverable.publish", request.clone()).await;
-            assert_eq!(r["maker"]["id"], home);
-            assert_eq!(r["maker_name"], "Maker");
-            assert_eq!(r["home"], home);
-            assert_eq!(r["title"], "Result");
-            assert_eq!(r["target"]["kind"], key);
-            if key == "file" {
-                assert_eq!(r["target"]["length"], 13);
-                assert_eq!(
-                    r["target"]["sha256"],
-                    "c18472670a3f225d4bb83d2fd240712de2239e05650fa8723597cb7a0f6e2592"
-                );
-            }
-            assert_eq!(call(&c, "deliverable.publish", request).await, r);
-            assert!(
-                !records
-                    .iter()
-                    .any(|previous: &Value| previous["id"] == r["id"])
-            );
-            records.push(r);
-        }
-        assert_eq!(list_all(&c).await, json!(records));
-        all.push(records);
-        projects.push(p);
-    }
-    assert_ne!(all[0][0]["project"], all[1][0]["project"]);
-    let c = rpc::Client::connect(&projects[0].socket()).await.unwrap();
-    for r in &all[1] {
-        for method in ["deliverable.get", "deliverable.resolve"] {
-            refused(&c, method, identity(r)).await;
-            refused(
-                &c,
-                method,
-                json!({"project":all[0][0]["project"],"id":r["id"]}),
-            )
-            .await;
-        }
-    }
-}
-#[tokio::test]
-async fn dv1_publication_authority() {
-    let a = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
-    let c = rpc::Client::connect(&a.socket()).await.unwrap();
-    std::fs::write(a.dir.path().join("result.txt"), "F1").unwrap();
-    let file =
-        json!({"key":"file-1","title":"Result","target":{"kind":"file","path":"result.txt"}});
-    let p = call(&c, "deliverable.publish", file.clone()).await;
-    std::fs::write(a.dir.path().join("result.txt"), "F2").unwrap();
-    let r = call(&c, "deliverable.resolve", identity(&p)).await;
-    assert_eq!(std::fs::read(r["path"].as_str().unwrap()).unwrap(), b"F1");
-    assert_eq!(call(&c, "deliverable.publish", file).await, p);
-    let outside = tempfile::tempdir().unwrap();
-    std::fs::write(outside.path().join("secret"), "protected").unwrap();
-    std::os::unix::fs::symlink(outside.path(), a.dir.path().join("escape")).unwrap();
-    std::os::unix::fs::symlink(
-        a.dir.path().join(".roundup"),
-        a.dir.path().join("internal-escape"),
-    )
-    .unwrap();
-    std::os::unix::fs::symlink(
-        a.dir.path().join(".roundup/project.db"),
-        a.dir.path().join("internal-file"),
-    )
-    .unwrap();
-    std::fs::write(a.dir.path().join("unreadable"), "protected").unwrap();
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(
-        a.dir.path().join("unreadable"),
-        std::fs::Permissions::from_mode(0o0),
-    )
-    .unwrap();
-    for path in [
-        "../secret",
-        "escape/secret",
-        "internal-escape/project.db",
-        "internal-file",
-        "unreadable",
-        "escape",
-        ".roundup/project.db",
-        "/etc/passwd",
-    ] {
-        assert!(
-            c.request(
-                "deliverable.publish",
-                json!({"key":path,"title":"forbidden","target":{"kind":"file","path":path}})
-            )
-            .await
-            .is_err(),
-            "{path}"
-        );
-    }
-    refused(&c,"deliverable.publish",json!({"key":"spoof","title":"spoof","maker":{"kind":"agent","id":"other"},"target":{"kind":"external","url":"https://example.com"}})).await;
-    assert_eq!(list_all(&c).await.as_array().unwrap().len(), 1);
-}
+
 #[tokio::test]
 async fn dv4_user_home_wins() {
     let a = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
@@ -313,6 +196,7 @@ async fn dv3_external_target() {
         .await;
     }
 }
+
 #[tokio::test]
 async fn dv1_only_explicit_publication() {
     let a = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
@@ -453,13 +337,6 @@ async fn dv4_removal_replay() {
     refused(&c, "deliverable.get", id.clone()).await;
     refused(&c, "deliverable.resolve", id).await;
     assert_eq!(list_all(&c).await, json!([]));
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    assert_eq!(
-        db.query_row("SELECT count(*) FROM deliverable_bytes", [], |r| r
-            .get::<_, i64>(0))
-            .unwrap(),
-        0
-    );
     let mut fresh = request;
     fresh["key"] = json!("new deliberation");
     let next = call(&c, "deliverable.publish", fresh).await;
@@ -599,81 +476,6 @@ async fn dv4_home_lifecycle() {
 }
 
 #[tokio::test]
-async fn dv1_public_cli_mcp() {
-    use rmcp::ServiceExt;
-    use std::process::Stdio;
-    use tokio::process::Command;
-    let p = daemon::start(&[]);
-    let home = p
-        .client()
-        .await
-        .request("rail.createWorkstream", json!({"name":"Reader"}))
-        .await
-        .unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let output = Command::new(env!("CARGO_BIN_EXE_rup"))
-        .args([
-            "--json",
-            "--agent",
-            &home,
-            "deliverable",
-            "publish",
-            "cli",
-            "Result",
-            "--target",
-            r#"{"kind":"external","url":"https://example.com/pr/42"}"#,
-        ])
-        .env("RUPD_SOCKET", p.socket())
-        .env_remove("ROUNDUP_AGENT")
-        .output()
-        .await
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let published: Value = serde_json::from_slice(&output.stdout).unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_rup"));
-    command
-        .args(["mcp", &home])
-        .env("RUPD_SOCKET", p.socket())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
-    let mut child = command.spawn().unwrap();
-    let transport = (child.stdout.take().unwrap(), child.stdin.take().unwrap());
-    let client = ().serve(transport).await.unwrap();
-    let tools = client.list_all_tools().await.unwrap();
-    for name in [
-        "deliverable_publish",
-        "deliverable_list",
-        "deliverable_get",
-        "deliverable_resolve",
-        "deliverable_move",
-        "deliverable_remove",
-    ] {
-        assert!(tools.iter().any(|t| t.name == name));
-    }
-    // The public reader must preserve the Project/id pair received from the CLI writer.
-    let request = rmcp::model::CallToolRequestParams::new("deliverable_resolve")
-        .with_arguments(identity(&published).as_object().unwrap().clone());
-    let result = client.call_tool(request).await.unwrap();
-    assert!(!result.is_error.unwrap_or(false));
-    let value: Value = serde_json::from_str(&result.content[0].as_text().unwrap().text).unwrap();
-    assert_eq!(
-        value,
-        json!({"kind":"external","url":"https://example.com/pr/42","availability":"not-checked"})
-    );
-    client.cancel().await.unwrap();
-    child.kill().await.unwrap();
-    child.wait().await.unwrap();
-}
-
-#[tokio::test]
 async fn dv4_cached_access() {
     use std::os::unix::fs::PermissionsExt;
     let mut p = daemon::start(&[]);
@@ -729,29 +531,6 @@ async fn dv3_file_recreation_revokes_identity() {
         json!({"kind":"unavailable","cause":"access-revoked"})
     );
     assert_eq!(list_all(&c).await, json!([record]));
-}
-
-#[tokio::test]
-async fn dv1_stale_pad_source_cannot_publish_replacement() {
-    let p = daemon::start(&[]);
-    let c = p.client().await;
-    pad(&c, "notes", "original").await;
-    let target = pad_target(&c, "notes", 1).await;
-    call(
-        &c,
-        "deliverable.publish",
-        json!({"key":"original","title":"Original","target":target}),
-    )
-    .await;
-    call(&c, "pad.delete", json!({"name":"notes"})).await;
-    pad(&c, "notes", "replacement").await;
-    refused(
-        &c,
-        "deliverable.publish",
-        json!({"key":"stale-input","title":"Original","target":target}),
-    )
-    .await;
-    assert_eq!(list_all(&c).await.as_array().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -850,21 +629,7 @@ async fn r3778c_legacy_and_file_reopen() {
     pad(&c, "notes", "legacy revision").await;
     let request = json!({"key":"legacy","title":"Result","target":pad_target(&c,"notes",1).await});
     let legacy = call(&c, "deliverable.publish", request).await;
-    p.crash();
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
-    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files;").unwrap();
-    db.execute(
-        "INSERT INTO deliverable_bytes VALUES (?1,?2)",
-        rusqlite::params![legacy["id"].as_str().unwrap(), b"legacy revision"],
-    )
-    .unwrap();
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    db.pragma_update(None, "user_version", version - 1).unwrap();
-    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
-    p.restart(&[]);
+    legacy_blobs(&mut p, &[(&legacy, b"legacy revision")]);
     let c = p.client().await;
     call(
         &c,
@@ -997,4 +762,198 @@ async fn r3778c_durable_reference_order() {
             .join(" "),
         "capture_start hashed metadata_inserted parent_synced pending_directory_synced before_file_sync after_file_sync after_directory_sync before_commit after_commit before_cleanup pending_directory_synced before_reply"
     );
+}
+
+fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
+    p.crash();
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
+    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files;").unwrap();
+    for (record, bytes) in publications {
+        db.execute(
+            "INSERT INTO deliverable_bytes VALUES (?1,?2)",
+            rusqlite::params![record["id"].as_str().unwrap(), bytes],
+        )
+        .unwrap();
+    }
+    let version: i64 = db
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    db.pragma_update(None, "user_version", version - 1).unwrap();
+    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
+    p.restart(&[]);
+}
+
+async fn publish_bytes(
+    p: &daemon::Project,
+    c: &rpc::Client,
+    key: &str,
+    length: usize,
+    byte: u8,
+) -> Value {
+    std::fs::write(p.dir.path().join("quota.bin"), vec![byte; length]).unwrap();
+    call(
+        c,
+        "deliverable.publish",
+        json!({"key":key,"title":key,"target":{"kind":"file","path":"quota.bin"}}),
+    )
+    .await
+}
+
+async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
+    let c = p.client().await;
+    // Pad sources avoid making historical access depend on the reused file capture path.
+    pad(&c, "legacy-a", "aaaaaaa").await;
+    pad(&c, "legacy-b", "bbbbbbbbbbb").await;
+    let mut records = Vec::new();
+    for (name, length, byte) in [("legacy-a", 7, b'a'), ("legacy-b", 11, b'b')] {
+        let record = call(
+            &c,
+            "deliverable.publish",
+            json!({"key":name,"title":name,"target":pad_target(&c,name,1).await}),
+        )
+        .await;
+        records.push((record, length, byte));
+    }
+    legacy_blobs(
+        p,
+        &[(&records[0].0, b"aaaaaaa"), (&records[1].0, b"bbbbbbbbbbb")],
+    );
+    let c = p.client().await;
+    records.push((
+        publish_bytes(p, &c, "chosen-file", 13, b'c').await,
+        13,
+        b'c',
+    ));
+    for n in 0..32 {
+        let length = if n == 31 { 33_554_401 } else { 33_554_432 };
+        let byte = n + 1;
+        records.push((
+            publish_bytes(p, &c, &format!("fill-{n}"), length, byte).await,
+            length,
+            byte,
+        ));
+    }
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*),sum(length(bytes)) FROM deliverable_bytes",
+            [],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))
+        )
+        .unwrap(),
+        (2, 18)
+    );
+    records
+}
+
+fn allocation_bytes(p: &daemon::Project) -> i64 {
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    let blobs: i64 = db
+        .query_row(
+            "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let mut files = db
+        .prepare("SELECT id,length FROM deliverable_files")
+        .unwrap();
+    let files = files
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+        .unwrap();
+    blobs
+        + files
+            .map(|file| {
+                let (id, charged) = file.unwrap();
+                let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
+                    .unwrap()
+                    .len();
+                assert_eq!(actual, u64::try_from(charged).unwrap());
+                charged
+            })
+            .sum::<i64>()
+}
+
+async fn exact_publications(c: &rpc::Client, records: &[(Value, usize, u8)]) {
+    assert_eq!(
+        list_all(c).await,
+        json!(records.iter().map(|r| &r.0).collect::<Vec<_>>())
+    );
+    for (record, length, byte) in records {
+        assert_eq!(call(c, "deliverable.get", identity(record)).await, *record);
+        assert_eq!(retained(c, record).await, vec![*byte; *length]);
+    }
+}
+
+async fn refuses_one_byte(p: &daemon::Project, c: &rpc::Client, records: &[(Value, usize, u8)]) {
+    std::fs::write(p.dir.path().join("over.bin"), b"x").unwrap();
+    refused(
+        c,
+        "deliverable.publish",
+        json!({"key":"one-over","title":"Over quota","target":{"kind":"file","path":"over.bin"}}),
+    )
+    .await;
+    assert_eq!(
+        list_all(c).await,
+        json!(records.iter().map(|r| &r.0).collect::<Vec<_>>())
+    );
+    assert_eq!(allocation_bytes(p), 1_073_741_824);
+}
+
+#[tokio::test]
+async fn r4160a_mixed_quota_boundary() {
+    let mut p = daemon::start(&[]);
+    let records = mixed_quota(&mut p).await;
+    let c = p.client().await;
+    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+    refuses_one_byte(&p, &c, &records).await;
+    p.restart(&[]);
+    let c = p.client().await;
+    exact_publications(&c, &records).await;
+    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+}
+
+#[tokio::test]
+async fn r4160b_cleanup_releases_only_chosen_bytes() {
+    for chosen in [0, 2] {
+        let mut p = daemon::start(&[]);
+        let mut records = mixed_quota(&mut p).await;
+        let c = p.client().await;
+        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        let (removed, length, _) = records.remove(chosen);
+        let id = identity(&removed);
+        call(&c, "deliverable.remove", id.clone()).await;
+        for step in 0..4 {
+            if step == 2 {
+                p.restart(&[]);
+            }
+            let c = p.client().await;
+            if step == 1 || step == 3 {
+                refused(&c, "deliverable.remove", id.clone()).await;
+            }
+            refused(&c, "deliverable.get", id.clone()).await;
+            refused(&c, "deliverable.resolve", id.clone()).await;
+            assert_eq!(
+                allocation_bytes(&p),
+                1_073_741_824 - i64::try_from(length).unwrap()
+            );
+            let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
+            assert!(
+                !p.data_dir()
+                    .join("publication-files")
+                    .join(removed["id"].as_str().unwrap())
+                    .exists()
+            );
+            exact_publications(&c, &records).await;
+        }
+        let c = p.client().await;
+        let replacement = publish_bytes(&p, &c, "replacement", length, b'r').await;
+        assert_ne!(replacement["id"], removed["id"]);
+        records.push((replacement, length, b'r'));
+        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        refuses_one_byte(&p, &c, &records).await;
+        exact_publications(&c, &records).await;
+    }
 }
