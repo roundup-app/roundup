@@ -824,8 +824,6 @@ export const copy = {
   sendToAgentMenu: "Send to Agent",
   linkUrl: (kind: string, id: string, project: string) => `roundup://${kind}/${id}?project=${project}`,
   linkNote: (link: string) => `${link}\nrup link read ${link}`,
-  linkIsPublished: "This published link cannot be opened here. Open it from Results.",
-  linkProjectClosed: "The link's Project is not open. Open that Project and try the link again.",
   closeChord: "⌘K W",
   renameChord: "F2",
   copyLink: "Copy Link",
