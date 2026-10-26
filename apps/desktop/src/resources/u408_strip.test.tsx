@@ -126,10 +126,22 @@ describe("u408 the Resource strip", () => {
     expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
   });
 
-  it("u408_a_missing_agent_entry_never_uses_totals", async () => {
-    await mount([agent("a", "working", "x")], { result: () => ({ ...RESULT, agents: [] }) });
+  it("u4277c_resources_distinguishes_loading_empty_failure_and_close", async () => {
+    let release!: (value: Resources) => void;
+    const { app, connected } = await mount([agent("a", "working", "x")], { result: () => new Promise(resolve => { release = resolve; }) });
     await settle();
-    expect(words()).toBe("");
+    expect(strip()?.getAttribute("aria-busy")).toBe("true");
+    release({ ...RESULT, agents: [] });
+    await settle();
+    expect(strip()?.getAttribute("aria-busy")).toBe("false");
+    expect(strip()?.querySelector('[role="status"]')?.textContent?.trim()).toBeTruthy();
+    expect(document.querySelectorAll(".resource-value")).toHaveLength(0);
+    app.handlers["project.resources"] = () => { throw new RpcError(-32603, "gone"); };
+    await settle(2000);
+    expect(strip()?.querySelector('.resource-stale')?.textContent).toContain("Not updating");
+    strip()?.querySelector<HTMLButtonElement>('button')?.click();
+    expect(connected.hasView("resources")).toBe(false);
+    expect(app.calls.filter(call => ["agent.spawn", "ask.send", "terminal.write"].includes(call.method))).toHaveLength(0);
   });
 
   it("u408_polls_every_two_seconds_while_shown_and_never_twice_at_once", async () => {
