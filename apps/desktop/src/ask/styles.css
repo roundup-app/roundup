@@ -476,3 +476,19 @@
 }
 
 .ask-bar[data-mode="home"] :is(.ask-compose, .project-overview) { width: min(100%, var(--ask-width)); align-self: center; }
+
+.ask-rows,
+.made,
+.ask-history-status,
+.requested-empty {
+  box-sizing: border-box;
+  width: min(100%, var(--measure));
+  align-self: center;
+  min-width: 0;
+}
+
+.ask-history-status,
+.requested-empty {
+  margin: 0;
+  color: var(--grey);
+}

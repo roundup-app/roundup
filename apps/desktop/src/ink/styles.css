@@ -297,7 +297,7 @@ p.ink[role="alert"] {
   white-space: nowrap;
 }
 
-.reserved-line[data-overlay="true"][data-empty="true"] {
+.reserved-line[data-overlay="true"][data-empty="true"]:not([aria-live]) {
   visibility: hidden;
 }
 

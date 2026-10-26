@@ -1,5 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -41,34 +39,19 @@ it("u461_completion_success_keeps_drawer_focus", async () => {
   expect(panel().contains(document.activeElement)).toBe(true);
 });
 
-it("u461_keep_and_escape_restore_focus", async () => {
-  const { app } = await open();
-  const button = within(panel()).getByRole("button", { name: "Delete Todo" });
-  fireEvent.click(button);
-  await questionDialog();
-  await answerQuestion(false);
-  await waitFor(() => expect(document.activeElement).toBe(button));
-  await waitFor(() => expect(questionProbe.shown).toBeNull());
-  expect(todoCallsTo(app, "todo.delete")).toHaveLength(0);
-});
-
 it("u461_delete_failure_is_retryable", async () => {
   const { app, connected } = await open();
   let reject!: (error: RpcError) => void;
   app.handlers["todo.delete"] = () => new Promise((_, fail) => { reject = fail; });
 
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
-  await questionDialog();
-  await answerQuestion(true);
-  await answerQuestion(true);
+  fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
 
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
   await screen.findByText("Delete failed");
   app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
-  await questionDialog();
-  await answerQuestion(true);
 
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);
