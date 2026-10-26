@@ -153,11 +153,7 @@ impl AppState {
                 continue;
             }
             if let Err(err) = self.open(app, &path, true).await {
-                eprintln!(
-                    "desktop: could not reopen {}: {}",
-                    path.display(),
-                    err.message
-                );
+                log::warn!(target: "roundup::shell", "restore Project: RPC failure code {}; saved Project remains listed", err.code);
             }
         }
         self.save_open();
@@ -624,7 +620,7 @@ impl AppState {
                 cause,
             },
         ) {
-            eprintln!("desktop: could not report Daemon recovery: {err}");
+            crate::diagnostics::failure("report Daemon recovery", &err);
         }
     }
 
