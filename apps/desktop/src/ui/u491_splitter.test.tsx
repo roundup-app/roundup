@@ -6,7 +6,7 @@ import { Splitter } from "./Splitter";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 it.each(["hidden", "disabled"] as const)("u491_hidden_edge_is_not_focusable_%s", (mode) => {
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   const [off, setOff] = createSignal(false);
 
   render(() => <div data-layout-root=""><section data-layout-panel="rail" /><section data-layout-panel="centre" /><section data-layout-panel="shelf" hidden />
@@ -25,7 +25,7 @@ it.each(["hidden", "disabled"] as const)("u491_hidden_edge_is_not_focusable_%s",
 
 it("u491_disposal_during_drag_leaves_no_callbacks_or_work", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal("PointerEvent", class extends MouseEvent { readonly pointerId = 1; });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 800, right: 1280, bottom: 800, toJSON() {} });
   const preview = vi.fn();
