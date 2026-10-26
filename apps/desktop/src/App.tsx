@@ -335,6 +335,7 @@ export const App = (props: {
     onCleanup(() => void stop?.then(release => release()));
     void stop?.catch(error => setNativeFailure(String(error)));
   });
+
   const navigationRequested = () => connectionOf(projects.active() ?? "")?.hasView("workstreams")
     || connections().get(projects.active() ?? "") instanceof Error;
 
