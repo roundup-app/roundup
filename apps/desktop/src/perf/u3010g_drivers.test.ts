@@ -42,6 +42,7 @@ const fixtureApp = (prefix: string) => {
 
     return found;
   };
+
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => {
     const row = workstream(`${prefix}-${tree.length}`, { name, parent });
 
@@ -49,6 +50,7 @@ const fixtureApp = (prefix: string) => {
 
     return row;
   };
+
   app.handlers["agent.spawn"] = ({ name, parent }) => {
     const row = agent(`${prefix}-${tree.length}`, "idle", "idle", { name: name ?? "stand-in", parent });
 
@@ -56,6 +58,7 @@ const fixtureApp = (prefix: string) => {
 
     return row;
   };
+
   app.handlers["agent.signal"] = ({ id, payload }) => {
     const row = tree.find(row => row.id === id)!;
 
@@ -63,6 +66,7 @@ const fixtureApp = (prefix: string) => {
 
     return null;
   };
+
   app.handlers["terminal.list"] = () => [info("shell")];
 
   return app;

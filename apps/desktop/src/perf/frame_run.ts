@@ -293,8 +293,16 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], f
       for (let each = 0; each < 40; each += 1) await createHomed(app, home, `seed ${each}`);
     } else if (!fixture) throw new Error("missing native fixture");
 
+    if (fixture && document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelf !== "open") {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", bubbles: true, cancelable: true }));
+      await appears(() => document.querySelector(".shelf-groups"), "the scoped Shelf after the work-items command");
+    }
+
     // Open the existing owner groups through their controls; setup does not replace their state owner.
-    for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
+    if (fixture) {
+      for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
+    }
 
     if (workload === "drag") clickAt('.shelf-groups [aria-expanded="false"] .shelf-group-control');
 
@@ -409,7 +417,14 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
-      const observed = { ...result, observer: { viewport, shelf_mode: shelfMode, layer_actions: layerActions, ...(fixture ? { fixture } : {}), variant: "unqualified" as const, native_qualification: "incomplete: trusted pointer actions, restored Todo repeats, both Shelf cases and live preference variants remain unqualified" } };
+      const observer: NonNullable<FrameReport["observer"]> = {
+        viewport, shelf_mode: shelfMode, layer_actions: layerActions, variant: "unqualified",
+        native_qualification: "incomplete: trusted pointer actions, restored Todo repeats, both Shelf cases and live preference variants remain unqualified",
+      };
+
+      if (fixture) observer.fixture = fixture;
+
+      const observed = { ...result, observer };
 
       await report(observed);
     } finally {
