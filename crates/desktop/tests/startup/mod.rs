@@ -62,7 +62,9 @@ fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
 #[test]
 fn z3799b_a_socket_without_the_complete_bound_signal_is_not_ready() {
     for signal in ["", "printf 'rupd-'", "printf 'other-bound\\n'"] {
-        let fx = Fixture::new(&format!("{{link}}\n{signal}\nexec 1>&-\nexec cat"));
+        let fx = Fixture::new(&format!(
+            "{{link}}\n{signal}\nexec 1>&-\nexec cat > /dev/null"
+        ));
         fx.serve_real_daemon();
         let (_app, webview) = app(fx.config.clone(), None);
 
