@@ -4,18 +4,11 @@ import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "../copy";
 import { activationSource } from "../keys/registry";
-import { PadDrawer } from "../pads/PadDrawer";
-import { usePadList } from "../rail/pads/padList";
+import { PadHost } from "../pads/PadDrawer";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
 import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { refTarget } from "./refTarget";
-
-const PadAt = (props: { name: string; heading: string | null }) => {
-  const list = usePadList();
-
-  return <PadDrawer name={props.name} heading={props.heading ?? undefined} pads={list.pads} onLateFailure={() => {}} />;
-};
 
 /** U3760: the Todo's Pad links in the order added. An `ok` one opens its Pad; a `missing` one is text. An Agent's change shows without reopening. */
 export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: () => void }) => {
@@ -101,7 +94,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
 
           return <div class="todo-ref" data-state={ref.state}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
+              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event))}>{label}</button>
             </Show>
             <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={(event) => void remove(ref.url, event.currentTarget)}>{copy.remove}</button>
           </div>;

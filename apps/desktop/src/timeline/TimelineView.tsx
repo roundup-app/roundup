@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { queueFocus } from "../keys/focus";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
@@ -57,7 +58,7 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     if (shown) redraw();
   };
 
-  document.addEventListener("visibilitychange", onVisibility);
+  makeEventListener(document, "visibilitychange", onVisibility);
 
   const reduced = () => connected.reducedMotion();
   const axisEnd = () => reduced() ? anchor() + HEADROOM_MS : now();
@@ -106,10 +107,6 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
   });
 
   const waiting = (block: { open: boolean; kind: Kind }) => block.open && block.kind === "needs-you";
-
-  onCleanup(() => {
-    document.removeEventListener("visibilitychange", onVisibility);
-  });
 
   /** An open needs-you block selects the Agent's Terminal, where its native question waits. */
   const toAgent = (id: string) => {

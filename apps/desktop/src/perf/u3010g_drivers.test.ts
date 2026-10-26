@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { createHomed, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle } from "./frame_run";
+import { createHomed, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -188,6 +188,70 @@ describe("u3010g the frame recorder drives every workload", () => {
     const lone: Todos = { ...todos, open: async () => [9], complete: async () => true };
 
     expect(await todosCycle(lone)(1)).toBe(false);
+  });
+
+  it("u3010g_todo_repeats_restore_the_fixture_before_inserting_again", async () => {
+    const app = fixtureApp("repeat");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const initial = await app.rpc("todo.list", null);
+    const journal: import("./frames").TodoAction[] = [];
+
+    const controls = fixtureTodos(app, fixture, {
+      toggleFold: async () => true,
+      reorder: async (id, before) => {
+        await app.rpc("todo.reorder", { id, before });
+
+        return true;
+      },
+    }, journal);
+
+    const cycle = todosCycle(controls);
+
+    for (let index = 0; index < 8; index += 1) expect(await cycle(index)).toBe(true);
+    expect(journal.map(row => row.action)).toEqual(["insert", "complete", "fold", "reorder", "insert", "complete", "fold", "reorder"]);
+    expect(journal.every(row => row.completed)).toBe(true);
+    // A repeat restores every original row's home, owner, body, nesting and open state.
+    const actual = await app.rpc("todo.list", null);
+
+    expect(actual.filter(row => fixture.todos.some(target => target.id === row.id)).toSorted((a, b) => a.id - b.id)).toEqual(initial);
+    expect(actual).toHaveLength(9);
+    expect(actual.filter(row => row.done)).toHaveLength(1);
+    expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5]]);
+  });
+
+  it("u3010g_synthetic_pointer_events_cannot_complete_the_native_reorder_phase", async () => {
+    const run = pointerReorder(4);
+
+    window.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    window.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, button: 0 }));
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(await run).toBe(false);
+  });
+
+  it("u3010g_an_unapplied_pointer_reorder_is_not_completed", async () => {
+    const app = fixtureApp("no-order");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const journal: import("./frames").TodoAction[] = [];
+    const controls = fixtureTodos(app, fixture, { toggleFold: async () => true, reorder: async () => true }, journal);
+
+    await controls.create();
+    expect(await controls.reorder(4, 1)).toBe(false);
+    expect(journal.at(-1)).toMatchObject({ action: "reorder", targets: [4, 1], completed: false });
+  });
+
+  it("u3010g_an_unapplied_todo_action_is_not_completed", async () => {
+    const app = fixtureApp("unapplied");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const journal: import("./frames").TodoAction[] = [];
+    const controls = fixtureTodos(app, fixture, { toggleFold: async () => true, reorder: async () => true }, journal);
+
+    expect(await controls.create()).toBe(true);
+    app.handlers["todo.complete"] = ({ id }) => app.rpc("todo.get", { id });
+    const open = await controls.open();
+
+    expect(await controls.complete(open.at(-1)!)).toBe(false);
+    expect(journal.at(-1)).toMatchObject({ action: "complete", completed: false });
   });
 
   it("u3010g_a_driven_todo_is_homed_in_the_workstream_whose_shelf_shows_it", async () => {

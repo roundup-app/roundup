@@ -8,14 +8,13 @@ use std::time::Duration;
 
 use rpc::{Client, RpcError};
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, ChildStderr, ChildStdin, Command};
-use tokio::time::{sleep, timeout};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
+use tokio::time::timeout;
 
 use crate::config::Config;
 
 const STDERR_LINES_KEPT: usize = 20;
-const PING_RETRY: Duration = Duration::from_millis(25);
 /// A grandchild that inherited the Daemon's stderr can hold the pipe open after the Daemon is gone.
 const STDERR_DRAIN_BOUND: Duration = Duration::from_secs(1);
 
@@ -77,6 +76,7 @@ pub async fn start(
     command
         .arg(project)
         .arg("--attached")
+        .arg("--notify-bound")
         .env("RUPD_SOCKET", socket);
     if let Some(dir) = data_dir {
         command.env("ROUNDUP_DATA_DIR", dir);
@@ -84,12 +84,14 @@ pub async fn start(
     let mut child = command
         .kill_on_drop(true)
         .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| {
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
     let stdin = child.stdin.take().expect("stdin was requested piped");
+    let stdout = child.stdout.take().expect("stdout was requested piped");
     let stderr = child.stderr.take().expect("stderr was requested piped");
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
@@ -100,8 +102,9 @@ pub async fn start(
             Ok(status) => format!("exited before it answered ({})", describe(status)),
             Err(err) => format!("could not be waited on: {err}"),
         },
-        ready = timeout(config.ready_bound, ping_until_answered(socket)) => match ready {
-            Ok(client) => return Ok(Started { client, stdin, child, socket: owned_socket }),
+        ready = timeout(config.ready_bound, connect_after_bound(stdout, socket)) => match ready {
+            Ok(Ok(client)) => return Ok(Started { client, stdin, child, socket: owned_socket }),
+            Ok(Err(failure)) => failure,
             Err(_) => format!("did not answer daemon.ping within {:?}", config.ready_bound),
         },
     };
@@ -136,15 +139,25 @@ fn describe(status: ExitStatus) -> String {
     )
 }
 
-async fn ping_until_answered(socket: &Path) -> Client {
-    loop {
-        if let Ok(client) = Client::connect(socket).await
-            && client.request("daemon.ping", Value::Null).await.is_ok()
-        {
-            return client;
-        }
-        sleep(PING_RETRY).await;
+/// STARTUP.md's notification permits a connection attempt; only ping proves readiness.
+async fn connect_after_bound(mut stdout: ChildStdout, socket: &Path) -> Result<Client, String> {
+    let mut signal = [0; 11];
+    stdout
+        .read_exact(&mut signal)
+        .await
+        .map_err(|err| format!("could not read bound notification: {err}"))?;
+    if &signal != b"rupd-bound\n" {
+        return Err("sent an invalid bound notification".to_owned());
     }
+    drop(stdout);
+    let client = Client::connect(socket)
+        .await
+        .map_err(|err| format!("could not connect after bound notification: {err}"))?;
+    client
+        .request("daemon.ping", Value::Null)
+        .await
+        .map_err(|err| format!("did not answer daemon.ping after bound notification: {err}"))?;
+    Ok(client)
 }
 
 async fn drain(stderr: ChildStderr, tail: StderrTail) {
