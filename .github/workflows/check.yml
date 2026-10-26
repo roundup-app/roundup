@@ -4,6 +4,11 @@ run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.d
 
 on:
   workflow_dispatch:
+    inputs:
+      r3800_macos_pair:
+        description: Measure the fixed R3800 reference/implementation pair on one macOS host
+        type: boolean
+        default: false
   # A draft's head is skipped: its Builder is still pushing red tests. ready_for_review runs check on the finished
   # head, whose `pre` run starts its review (L24).
   pull_request:
@@ -340,6 +345,216 @@ jobs:
       - name: U26 held file-backed fault
         if: ${{ !cancelled() }}
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
+
+  # Opt-in evidence only: independent review and the existing required check aggregation stay unchanged.
+  r3800-macos-pair:
+    if: github.event_name == 'workflow_dispatch' && inputs.r3800_macos_pair
+    runs-on: macos-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    steps:
+      - name: Initialize evidence before setup
+        run: |
+          EVIDENCE="$RUNNER_TEMP/r3800-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "EVIDENCE=$EVIDENCE" >>"$GITHUB_ENV"
+          mkdir -p "$EVIDENCE"
+          echo '2' > "$EVIDENCE/result.exit"
+          echo 'Incomplete or cancelled observation; no performance acceptance' > "$EVIDENCE/status.txt"
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Build both sides, then observe each once
+        run: |
+          trap 'cat "$EVIDENCE/executor.stdout"; cat "$EVIDENCE/executor.stderr" >&2' EXIT
+          python3 - >"$EVIDENCE/executor.stdout" 2>"$EVIDENCE/executor.stderr" <<'PYTHON'
+          import hashlib
+          import json
+          import math
+          import os
+          import platform
+          import shlex
+          import socket
+          import statistics
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
+
+          root = Path.cwd()
+          evidence = Path(os.environ['EVIDENCE'])
+          owned = Path(os.environ['RUNNER_TEMP']) / ('r3800-sources-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT'])
+          owned.mkdir()
+          refs = {'reference': '593429cca5aaa7a05fe3500c9cb9306e4409b5c1',
+                  'implementation': 'cd1c277cdce1fb9797bfa049eb5d0cb250880c03'}
+          commands = []
+
+          def save(name, value):
+              (evidence / name).write_text(json.dumps(value, indent=2) + '\n')
+
+          def run(name, argv, cwd=root):
+              entry = {'name': name, 'cwd': str(cwd), 'argv': [str(v) for v in argv],
+                       'command': 'cd ' + shlex.quote(str(cwd)) + ' && ' + shlex.join([str(v) for v in argv]),
+                       'started': time.time(), 'exit': None}
+              commands.append(entry)
+              save('commands.json', commands)
+              with (evidence / (name + '.stdout')).open('wb') as out, (evidence / (name + '.stderr')).open('wb') as err:
+                  result = subprocess.run(argv, cwd=cwd, stdout=out, stderr=err, check=False)
+              entry.update(exit=result.returncode, ended=time.time())
+              save('commands.json', commands)
+              (evidence / (name + '.exit')).write_text(str(result.returncode) + '\n')
+              return result.returncode
+
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def identity():
+              return {'host': socket.gethostname(), 'os': platform.platform(), 'arch': platform.machine(),
+                      'boot': subprocess.check_output(['sysctl', '-n', 'kern.boottime'], text=True).strip(),
+                      'run': os.environ['GITHUB_RUN_ID'], 'attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                      'job': os.environ['GITHUB_JOB'], 'runner': os.environ['RUNNER_NAME']}
+
+          host = identity()
+          save('host.json', host)
+          for name, argv in [('os', ['sw_vers']), ('hardware', ['system_profiler', 'SPHardwareDataType']),
+                             ('toolchain', ['rustc', '-Vv']), ('cargo', ['cargo', '-V']),
+                             ('rustup', ['rustup', 'show']), ('source', ['git', 'rev-parse', 'HEAD']),
+                             ('dirty', ['git', 'status', '--porcelain=v1', '--untracked-files=all'])]:
+              if run(name, argv) != 0:
+                  sys.exit(2)
+          save('build-environment.json', {k: v for k, v in os.environ.items()
+               if k.startswith(('CARGO_', 'RUST')) or k in ('MACOSX_DEPLOYMENT_TARGET', 'SDKROOT')})
+          sides = {}
+          for side, sha in refs.items():
+              checkout = owned / side
+              if run(side + '-checkout', ['git', 'worktree', 'add', '--detach', str(checkout), sha]) != 0:
+                  continue
+              sides[side] = checkout
+              run(side + '-source', ['git', 'rev-parse', 'HEAD'], checkout)
+              run(side + '-dirty-before', ['git', 'status', '--porcelain=v1', '--untracked-files=all'], checkout)
+          # Pin the observer to the implementation, independent of the dispatched workflow's source.
+          observer_source = sides.get('implementation')
+          if observer_source is None:
+              sys.exit(2)
+          budgets = observer_source / 'crates/perf/budgets.json'
+          save('inputs.json', {side: {'sha': refs[side], 'files': {name: digest(path / name) for name in
+               ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'pnpm-lock.yaml', 'crates/perf/budgets.json')}}
+               for side, path in sides.items()})
+          if len(sides) == 2:
+              for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'pnpm-lock.yaml', 'crates/perf/budgets.json'):
+                  if (sides['reference'] / name).read_bytes() != (observer_source / name).read_bytes():
+                      raise RuntimeError('paired build input differs: ' + name)
+          built = {}
+          for side, checkout in sides.items():
+              built[side] = run(side + '-build', ['cargo', 'build', '--locked', '--release', '-p', 'rupd', '-p', 'rup'], checkout)
+          observer_exit = run('observer-build', ['cargo', 'build', '--locked', '--release', '-p', 'perf', '--bin', 'perf'], observer_source)
+          install_exit = run('sidecar-install', ['pnpm', 'install', '--frozen-lockfile', '--ignore-scripts'], observer_source)
+          sidecar = owned / 'sidecar'
+          sidecar_exit = run('sidecar-build', ['bash', 'tools/sidecar/bundle.sh', str(sidecar)], observer_source) if install_exit == 0 else 2
+          for side, checkout in sides.items():
+              if sidecar_exit == 0:
+                  run(side + '-sidecar-copy', ['cp', '-R', str(sidecar), str(checkout / 'target/release/sidecar')])
+              run(side + '-dirty-after', ['git', 'status', '--porcelain=v1', '--untracked-files=all'], checkout)
+          observer = observer_source / 'target/release/perf'
+          save('binaries.json', {'observer_sha': refs['implementation'], 'observer': digest(observer) if observer.is_file() else None,
+               'sides': {side: {name: digest(checkout / 'target/release' / name) for name in ('rupd', 'rup')
+                         if (checkout / 'target/release' / name).is_file()} for side, checkout in sides.items()},
+               'sidecars': {side: {str(p.relative_to(checkout / 'target/release/sidecar')): digest(p)
+                           for p in sorted((checkout / 'target/release/sidecar').rglob('*')) if p.is_file()}
+                           for side, checkout in sides.items()}})
+          # All build/install processes have joined before the first timed observation. No retries.
+          exits = {}
+          for side, checkout in sides.items():
+              if observer_exit == 0 and all((checkout / 'target/release' / name).is_file() for name in ('rupd', 'rup')):
+                  save(side + '-host-before.json', identity())
+                  exits[side] = run(side + '-observe', [str(observer), '--runs', '11', '--calls', '1000',
+                      '--rupd', str(checkout / 'target/release/rupd'), '--rup', str(checkout / 'target/release/rup'),
+                      '--budgets', str(budgets), '--out', str(evidence / (side + '.json'))], checkout)
+                  save(side + '-host-after.json', identity())
+          save('observer-exits.json', exits)
+          # Compare retained medians, including limit-only metrics, without modifying the budget file.
+          result = {'exit': 2, 'metrics': [], 'errors': [], 'skips': []}
+          save('comparison.json', result)
+          reports = {}
+          for side in refs:
+              path = evidence / (side + '.json')
+              if exits.get(side) not in (0, 1) or not path.is_file():
+                  result['errors'].append(side + ': missing/unsupported/failed observation')
+                  continue
+              report = json.loads(path.read_text())
+              reports[side] = report
+              if (report['os'] != 'macos' or report['runs'] != 11 or report['cpus'] <= 0
+                  or len(report['loads']) != 11 or report.get('skipped')):
+                  result['errors'].append(side + ': invalid workload or skipped comparison')
+              if any(not math.isfinite(v) or v < 0 for v in report['loads']):
+                  result['errors'].append(side + ': invalid loads')
+              if any(not (evidence / (side + '.startup-' + str(n) + '.log')).is_file() for n in range(1, 12)):
+                  result['errors'].append(side + ': missing startup logs')
+              for phase in ('before', 'after'):
+                  if json.loads((evidence / (side + '-host-' + phase + '.json')).read_text()) != host:
+                      result['errors'].append(side + ': host/session changed')
+          binaries = json.loads((evidence / 'binaries.json').read_text())
+          if (len(built) != 2 or any(built.values()) or observer_exit or sidecar_exit
+              or any(entry['exit'] != 0 for entry in commands if not entry['name'].endswith('-observe'))):
+              result['errors'].append('a build/setup/metadata command failed')
+          for side in sides:
+              for phase in ('before', 'after'):
+                  if (evidence / (side + '-dirty-' + phase + '.stdout')).read_text().strip():
+                      result['errors'].append(side + ': dirty source checkout')
+          if len(sides) != 2 or binaries['sidecars'].get('reference') != binaries['sidecars'].get('implementation'):
+              result['errors'].append('missing side or unequal sidecar bytes')
+          if len(reports) == 2:
+              if reports['reference']['cpus'] != reports['implementation']['cpus']:
+                  result['errors'].append('CPU count changed')
+              budget_data = json.loads(budgets.read_text())
+              names = set(budget_data) | set(reports['reference']['metrics']) | set(reports['implementation']['metrics'])
+              for name in sorted(names):
+                  budget = budget_data.get(name, {})
+                  values = {}
+                  for side, report in reports.items():
+                      value = report['metrics'].get(name)
+                      samples = report['per_run'].get(name, [])
+                      if (value is None or len(samples) != 11 or any(not math.isfinite(v) or v < 0 for v in samples)
+                          or not math.isfinite(value) or value < 0 or statistics.median(samples) != value):
+                          result['errors'].append(side + ': invalid metric/samples ' + name)
+                          continue
+                      values[side] = value
+                      load = statistics.median(report['loads']) / report['cpus']
+                      max_load = budget.get('max_load_per_cpu', {}).get('macos')
+                      if max_load is not None and load > max_load:
+                          result['skips'].append({'side': side, 'metric': name, 'load_per_cpu': load, 'max': max_load})
+                  if len(values) != 2:
+                      continue
+                  ceiling = values['reference'] * 1.10 + budget.get('noise', 0)
+                  limit = budget.get('limit')
+                  baseline = budget.get('baseline', {}).get('macos')
+                  stored_ceiling = baseline * 1.10 + budget.get('noise', 0) if baseline is not None else None
+                  result['metrics'].append({'metric': name, **values, 'paired_ceiling': ceiling,
+                      'limit': limit, 'stored_ceiling': stored_ceiling,
+                      'miss': values['implementation'] > ceiling or any(
+                          (limit is not None and v > limit) or (stored_ceiling is not None and v > stored_ceiling)
+                          or (name == 'cold_start_ms' and v >= 300) for v in values.values())})
+          invalid = result['errors'] or result['skips'] or len(reports) != 2
+          result['exit'] = 2 if invalid else int(any(m['miss'] for m in result['metrics']) or any(exits.values()))
+          save('comparison.json', result)
+          (evidence / 'result.exit').write_text(str(result['exit']) + '\n')
+          (evidence / 'status.txt').write_text({0: 'Complete valid pair passed', 1: 'Measured performance miss',
+              2: 'Invalid/unsupported/incomplete pair; supported same-host evidence still required'}[result['exit']] + '\n')
+          print(json.dumps(result, indent=2))
+          sys.exit(result['exit'])
+          PYTHON
+      - name: Retain all attempts, including failed or cancelled observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3800-macos-pair-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE }}/
+          if-no-files-found: error
+          retention-days: 30
 
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
