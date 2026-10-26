@@ -297,13 +297,6 @@ async fn dv4_removal_replay() {
     refused(&c, "deliverable.get", id.clone()).await;
     refused(&c, "deliverable.resolve", id).await;
     assert_eq!(list_all(&c).await, json!([]));
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    assert_eq!(
-        db.query_row("SELECT count(*) FROM deliverable_bytes", [], |r| r
-            .get::<_, i64>(0))
-            .unwrap(),
-        0
-    );
     let mut fresh = request;
     fresh["key"] = json!("new deliberation");
     let next = call(&c, "deliverable.publish", fresh).await;
@@ -596,21 +589,7 @@ async fn r3778c_legacy_and_file_reopen() {
     pad(&c, "notes", "legacy revision").await;
     let request = json!({"key":"legacy","title":"Result","target":pad_target(&c,"notes",1).await});
     let legacy = call(&c, "deliverable.publish", request).await;
-    p.crash();
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
-    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files;").unwrap();
-    db.execute(
-        "INSERT INTO deliverable_bytes VALUES (?1,?2)",
-        rusqlite::params![legacy["id"].as_str().unwrap(), b"legacy revision"],
-    )
-    .unwrap();
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    db.pragma_update(None, "user_version", version - 1).unwrap();
-    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
-    p.restart(&[]);
+    legacy_blobs(&mut p, &[(&legacy, b"legacy revision")]);
     let c = p.client().await;
     call(
         &c,
@@ -743,4 +722,185 @@ async fn r3778c_durable_reference_order() {
             .join(" "),
         "capture_start hashed metadata_inserted parent_synced pending_directory_synced before_file_sync after_file_sync after_directory_sync before_commit after_commit before_cleanup pending_directory_synced before_reply"
     );
+}
+
+fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
+    p.crash();
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
+    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files;").unwrap();
+    for (record, bytes) in publications {
+        db.execute(
+            "INSERT INTO deliverable_bytes VALUES (?1,?2)",
+            rusqlite::params![record["id"].as_str().unwrap(), bytes],
+        )
+        .unwrap();
+    }
+    let version: i64 = db
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    db.pragma_update(None, "user_version", version - 1).unwrap();
+    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
+    p.restart(&[]);
+}
+
+async fn publish_bytes(
+    p: &daemon::Project,
+    c: &rpc::Client,
+    key: &str,
+    length: usize,
+    byte: u8,
+) -> Value {
+    std::fs::write(p.dir.path().join("quota.bin"), vec![byte; length]).unwrap();
+    call(
+        c,
+        "deliverable.publish",
+        json!({"key":key,"title":key,"target":{"kind":"file","path":"quota.bin"}}),
+    )
+    .await
+}
+
+async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
+    let c = p.client().await;
+    // Pad sources avoid making historical access depend on the reused file capture path.
+    pad(&c, "legacy-a", "aaaaaaa").await;
+    pad(&c, "legacy-b", "bbbbbbbbbbb").await;
+    let mut records = Vec::new();
+    for (name, length, byte) in [("legacy-a", 7, b'a'), ("legacy-b", 11, b'b')] {
+        let record = call(
+            &c,
+            "deliverable.publish",
+            json!({"key":name,"title":name,"target":pad_target(&c,name,1).await}),
+        )
+        .await;
+        records.push((record, length, byte));
+    }
+    legacy_blobs(
+        p,
+        &[(&records[0].0, b"aaaaaaa"), (&records[1].0, b"bbbbbbbbbbb")],
+    );
+    let c = p.client().await;
+    records.push((
+        publish_bytes(p, &c, "chosen-file", 13, b'c').await,
+        13,
+        b'c',
+    ));
+    for n in 0..32 {
+        let length = if n == 31 { 33_554_401 } else { 33_554_432 };
+        let byte = n + 1;
+        records.push((
+            publish_bytes(p, &c, &format!("fill-{n}"), length, byte).await,
+            length,
+            byte,
+        ));
+    }
+    records
+}
+
+fn allocation_bytes(p: &daemon::Project) -> u64 {
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    let blobs: u64 = db
+        .query_row(
+            "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let mut files = db
+        .prepare("SELECT id,length FROM deliverable_files")
+        .unwrap();
+    let files = files
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, u64>(1)?)))
+        .unwrap();
+    blobs
+        + files
+            .map(|file| {
+                let (id, charged) = file.unwrap();
+                let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
+                    .unwrap()
+                    .len();
+                assert_eq!(actual, charged);
+                actual
+            })
+            .sum::<u64>()
+}
+
+async fn exact_publications(c: &rpc::Client, records: &[(Value, usize, u8)]) {
+    assert_eq!(
+        list_all(c).await,
+        json!(records.iter().map(|r| &r.0).collect::<Vec<_>>())
+    );
+    for (record, length, byte) in records {
+        assert_eq!(call(c, "deliverable.get", identity(record)).await, *record);
+        assert_eq!(retained(c, record).await, vec![*byte; *length]);
+    }
+}
+
+async fn refuses_one_byte(p: &daemon::Project, c: &rpc::Client, records: &[(Value, usize, u8)]) {
+    std::fs::write(p.dir.path().join("over.bin"), b"x").unwrap();
+    refused(
+        c,
+        "deliverable.publish",
+        json!({"key":"one-over","title":"Over quota","target":{"kind":"file","path":"over.bin"}}),
+    )
+    .await;
+    assert_eq!(
+        list_all(c).await,
+        json!(records.iter().map(|r| &r.0).collect::<Vec<_>>())
+    );
+    assert_eq!(allocation_bytes(p), 1_073_741_824);
+}
+
+#[tokio::test]
+async fn r4160a_mixed_quota_boundary() {
+    let mut p = daemon::start(&[]);
+    let records = mixed_quota(&mut p).await;
+    let c = p.client().await;
+    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+    refuses_one_byte(&p, &c, &records).await;
+    p.restart(&[]);
+    let c = p.client().await;
+    exact_publications(&c, &records).await;
+    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+}
+
+#[tokio::test]
+async fn r4160b_cleanup_releases_only_chosen_bytes() {
+    for chosen in [0, 2] {
+        let mut p = daemon::start(&[]);
+        let mut records = mixed_quota(&mut p).await;
+        let c = p.client().await;
+        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        let (removed, length, _) = records.remove(chosen);
+        let id = identity(&removed);
+        call(&c, "deliverable.remove", id.clone()).await;
+        for step in 0..3 {
+            if step == 2 {
+                p.restart(&[]);
+            }
+            let c = p.client().await;
+            if step > 0 {
+                call(&c, "deliverable.remove", id.clone()).await;
+            }
+            refused(&c, "deliverable.get", id.clone()).await;
+            refused(&c, "deliverable.resolve", id.clone()).await;
+            assert_eq!(allocation_bytes(&p), 1_073_741_824 - length as u64);
+            let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, u64>(0)).unwrap(), 0);
+            assert!(
+                !p.data_dir()
+                    .join("publication-files")
+                    .join(removed["id"].as_str().unwrap())
+                    .exists()
+            );
+            exact_publications(&c, &records).await;
+        }
+        let c = p.client().await;
+        let replacement = publish_bytes(&p, &c, "replacement", length, b'r').await;
+        assert_ne!(replacement["id"], removed["id"]);
+        records.push((replacement, length, b'r'));
+        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        refuses_one_byte(&p, &c, &records).await;
+        exact_publications(&c, &records).await;
+    }
 }
