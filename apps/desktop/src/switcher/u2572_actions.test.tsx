@@ -3,6 +3,7 @@ import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
+import { chooseAction as chooseRailAction } from "../rail/railFixture";
 import { CHORDS, LEADER } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
@@ -249,7 +250,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
   else if (change === "selection") connected.rail.select("ops");
   else {
     app.handlers["agent.spawn"] = () => new Promise(() => {});
-    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-id="lead"] button[aria-label="Add Agent"]')!);
+    await chooseRailAction(app, "ops", "Add Agent");
   }
 
   await waitFor(() => expect(actionNames()).not.toContain(label));
