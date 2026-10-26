@@ -329,6 +329,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await settle();
     await browser("click", ".drawer .close");
     await settle();
+    await browser("wait", "--load", "networkidle");
     await evaluate(`(() => {
       const drawer = document.querySelector('.drawer');
       const terminal = document.querySelector('.xterm-screen');
@@ -367,7 +368,11 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         const o = window.__pointerDrawer;
         // agent-browser's documented input stream emits native mouse input, without locator stability waits.
         const input = new WebSocket(${JSON.stringify(stream)});
-        await new Promise((resolve, reject) => { input.onopen = resolve; input.onerror = reject; });
+        // The stream's first rendered frame acknowledges screencast startup before input races the slide.
+        await new Promise((resolve, reject) => {
+          input.onerror = reject;
+          input.onmessage = event => { if (JSON.parse(event.data).type === 'frame') { input.onmessage = null; resolve(); } };
+        });
         const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
         const activate = async selector => {
           const target = document.querySelector(selector);
