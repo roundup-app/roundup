@@ -176,6 +176,7 @@ it("u2567d_a_failed_refetch_keeps_the_list_and_shows_the_error", async () => {
 
 const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
   const mounted = await mountQuietAskBar(...args);
+  mounted.connected.showView(null);
   mounted.connected.showView("workstreams");
 
   return mounted;
