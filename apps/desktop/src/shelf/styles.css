@@ -274,10 +274,13 @@
   margin-inline-end: var(--space-2);
 }
 
-/* U3010c: refusal causes wrap below the title and grow the row. */
-.todo-row-notice .ink {
+/* U3807: keep the failure on its fixed line despite the Shelf's wrapping prose. */
+.todo-row-notice p.ink[role="alert"] {
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .todo-row-estimate {
@@ -311,9 +314,23 @@
   pointer-events: none;
 }
 
-/* U3010c: an empty row has no reserved failure line. */
-.todo-inset .todo-row-notice {
-  position: relative;
+.todos-tab .todo-row-notice:has(.reserved-line:not([data-empty="true"])) {
   z-index: 1;
   pointer-events: auto;
+}
+
+/* U3309: reserve the second line even for a Todo without body prose. The notice stacks on the body's cell, in flow, so no positioned column paints over the title button's cover (U379). */
+.todo-inset .shelf-text {
+  display: grid;
+  min-block-size: var(--line);
+}
+
+.todo-inset :is(.item-description, .todo-row-notice) {
+  grid-area: 1 / 1;
+}
+
+.todo-inset .todo-row-notice {
+  align-self: start;
+  block-size: var(--line);
+  pointer-events: none;
 }
