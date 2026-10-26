@@ -7,11 +7,14 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("z3799d_dismissing_clear_returns_focus_without_a_call", async () => {
   const { app } = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
+
   const open = async () => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
     await app.pickMenu("Clear…");
+
     return screen.findByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
   };
+
   const reason = await open();
   fireEvent.input(reason, { target: { value: " exact e\u0301 😀 " } });
   await waitFor(() => expect(document.activeElement).toBe(reason));
