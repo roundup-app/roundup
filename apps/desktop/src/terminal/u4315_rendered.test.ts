@@ -5,12 +5,16 @@ import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 
 let page: LaneBrowser;
+
 beforeAll(async () => { page = await openLane(1512, "dark", "u4315"); }, 90_000);
+
 afterAll(async () => { await page?.close(); });
 
 it("u4315b_sub_links_switch_by_click_and_arrow", async () => {
   const dir = captureDir("U4315b");
+
   if (dir) { mkdirSync(dir, { recursive: true }); await page.browser("record", "start", join(dir, "navigation.webm")); }
+
   await page.until("!!document.querySelector('.rail-row[data-id=payments]')");
   await page.browser("click", ".rail-row[data-id=payments]");
   await page.until("!!document.querySelector('.pane-navigation [role=tab]')");
@@ -31,5 +35,6 @@ it("u4315b_sub_links_switch_by_click_and_arrow", async () => {
   await page.browser("press", "Escape");
   await page.until("!document.querySelector('.timeline-view')");
   expect(await page.focused()).toBe("Timeline");
+
   if (dir) await page.browser("record", "stop");
 }, 60_000);
