@@ -55,6 +55,7 @@ pnpm exec agent-browser --session z3788a-reproduce close
 node --input-type=module - <<'JS' || exit "$?"
 import fs from 'node:fs';
 const result = JSON.parse(fs.readFileSync('/tmp/z3788a-result.json', 'utf8'));
+if (![0, 1, 2].includes(result.exit) || !Array.isArray(result.rows) || result.rows.length !== 40) process.exit(2);
 console.log(result.rows.filter(row => !row.pass));
 process.exit(result.exit);
 JS
@@ -75,3 +76,5 @@ Selected candidates are the [xterm addons published in the 6.0.0 release](https:
 All 29 existing tests pass in `u102_emulator.test.ts`, `u103_snapshot.test.tsx` and `u103_webgl_reflow.test.tsx`; `regression.json` retains identities/results. No product source or test changes, no new duplicate test, and no visible App change is claimed. Existing input, fit, selection, context-loss and snapshot ordering owners stay intact.
 
 Remaining on #3853: integrate Find and query retention, serialize with authoritative Daemon snapshot offsets/reload recovery, route copy/failure through the real App clipboard owner, adopt bounded images lazily, prove native copy authority and ten-Agent memory, record production entry/lazy/WASM bytes, then make required real-Daemon captures. The Intervene journey, P1/P3/P9/P11 and D2/D5/D6 still require their App observers after integration. Z3788d's valid rendered list measurements remain separate; no virtualization is authorized or installed.
+
+`just ready` exits 0, including web/Rust lints, proofs, workflow checks, trailers, frozen checks and N7. The final report boundary lint also exits 0 after correcting two spelling matches. `validation.json` records these exits; merge-loss, vocabulary and whitespace checks pass.
