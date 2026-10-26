@@ -245,7 +245,14 @@ class CI3781(unittest.TestCase):
     def test_ci3781_interrupted_collection_stops_only_its_build_descendants(self):
         import psutil
         marker = self.root / 'child-pid'
-        (self.root / 'build.rs').write_text('fn main() { std::fs::write(std::env::var("CI3781_CHILD_PID").unwrap(), std::process::id().to_string()).unwrap(); std::thread::sleep(std::time::Duration::from_secs(60)); }')
+        # Publish readiness only after the PID is complete, before interrupting Cargo.
+        (self.root / 'build.rs').write_text('''fn main() {
+    let marker = std::path::PathBuf::from(std::env::var("CI3781_CHILD_PID").unwrap());
+    let pending = marker.with_extension("pending");
+    std::fs::write(&pending, std::process::id().to_string()).unwrap();
+    std::fs::rename(&pending, &marker).unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(60));
+}''')
         with (self.root / 'command.log').open('w') as log:
             child = subprocess.Popen(['cargo', 'build'], cwd=self.root, env=dict(self.env, CI3781_CHILD_PID=str(marker)), stdout=log, stderr=log)
             try:
