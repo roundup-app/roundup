@@ -8,6 +8,7 @@ import { chooseAction, mountRail, railCallsTo, rowOf } from "./railFixture";
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
 beforeEach(() => vi.stubGlobal("ResizeObserver", class {
   observe() {}
+  unobserve() {}
   disconnect() {}
 }));
 

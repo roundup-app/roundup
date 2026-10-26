@@ -83,7 +83,7 @@ it("u2773a_rail_clear_restores_exact_reason_and_selection", async () => {
   const { vi } = await import("vitest");
   const { door } = await import("../testing/nodes");
   const { rowOf } = await import("./railFixture");
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
   const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
@@ -173,7 +173,7 @@ it("u2773a_rail_clear_failure_does_not_take_focus", async () => {
   const { vi } = await import("vitest");
   const { door, event } = await import("../testing/nodes");
   const { rowOf, pinnedAdd } = await import("./railFixture");
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
   try {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
@@ -202,7 +202,7 @@ it("u2773a_rail_clear_reopens_on_same_project_connection", async () => {
   const { rowOf } = await import("./railFixture");
   const { ConnectedProjectContext } = await import("../state/connectedProject");
   const { Rail } = await import("./Rail");
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
   const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
@@ -288,7 +288,7 @@ it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
   const { door } = await import("../testing/nodes");
   const { rowOf } = await import("./railFixture");
   const { waitFor } = await import("@solidjs/testing-library");
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
   const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
@@ -326,7 +326,7 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
   const { door, event } = await import("../testing/nodes");
   const { rowOf } = await import("./railFixture");
   const { waitFor } = await import("@solidjs/testing-library");
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
   const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });

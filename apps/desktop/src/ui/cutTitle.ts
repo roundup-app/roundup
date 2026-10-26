@@ -1,4 +1,5 @@
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { createResizeObserver } from "@solid-primitives/resize-observer";
+import { createEffect, createSignal } from "solid-js";
 
 /** U2228a, U3296b: a text cut to `…` in the layout it has now puts its full text in the native `title`; a text that fits has none. */
 export const createCutTitle = (text: () => string, options: { track?: () => void; watch?: (box: HTMLElement) => Element | null } = {}) => {
@@ -18,18 +19,11 @@ export const createCutTitle = (text: () => string, options: { track?: () => void
     queueMicrotask(measure);
   });
 
-  createEffect(() => {
+  if (typeof ResizeObserver !== "undefined") createResizeObserver(() => {
     const el = box();
 
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver(measure);
-    const extra = options.watch?.(el);
-
-    if (extra) observer.observe(extra);
-    observer.observe(el);
-    onCleanup(() => observer.disconnect());
-  });
+    return el ? [el, options.watch?.(el)] : [];
+  }, measure);
 
   const title = () => (cut() ? text() : undefined);
 
