@@ -1,5 +1,8 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createContext, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
+
+/** The App supplies its live preference to portalled UI without another webview subscription. */
+export const ReducedMotionContext = createContext<Accessor<boolean>>();
 
 type Change = { matches: boolean };
 

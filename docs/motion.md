@@ -196,3 +196,18 @@ over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity on
 so reduced motion needs no variant); the latest Kind cancels the running fade and
 disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
 transitions, the M10 single-source collapse and the remaining slices stay open.
+
+M10 preference wiring now shares the App's injected live accessor with `ui/Dialog.tsx`
+and `ui/sortable.tsx` through Solid context, including portalled content. Production
+Dialogs create no extra subscription, and drag decisions read that same accessor.
+Standalone component fixtures without an App retain their existing preference fallback.
+`u3010d_app_dialogs_reuse_the_injected_preference_without_another_subscription`
+observes the App/fake-App boundary; `u5_a_change_of_the_preference_is_followed`
+now verifies both directions and removal of the listener on disposal. The old U5
+inline Drawer transition assertion is retired: U3010b owns destination/focus behavior
+and its rendered observer owns the reduced-motion appearance.
+
+This wiring is partial M10 delivery. The CSS media layers, live cancellation of drag
+effects, unified 150 ms fades, loop shutdown and complete rendered protocol remain
+open alongside the remaining migration, bundle-budget repair and scheduling evidence.
+No production bundle, native timing or complete reduced-motion pass is claimed here.
