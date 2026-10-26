@@ -1,11 +1,33 @@
 {
-  "head": "8f26d4d6b92542c1792453c663e154062f1aaec4",
-  "base": "a8912caab",
+  "head": "af211080adae955ae21c1d8a9551ec56c93b2b62",
+  "base": "475476fedeadfd655ff4a3c9e1df6c54231e752f",
   "viewport": [
     1512,
     950
   ],
   "scheme": "dark",
+  "nameWidths": {
+    "rest": {
+      "backend": 66.1875,
+      "tokens": 143,
+      "agent-4": 175
+    },
+    "hover": {
+      "backend": 66.1875,
+      "tokens": 143,
+      "agent-4": 175
+    },
+    "focus": {
+      "backend": 66.1875,
+      "tokens": 143,
+      "agent-4": 175
+    },
+    "selected": {
+      "backend": 66.1875,
+      "tokens": 143,
+      "agent-4": 175
+    }
+  },
   "railGlyphLeft": [
     32
   ],
