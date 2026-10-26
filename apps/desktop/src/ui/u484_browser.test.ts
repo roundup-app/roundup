@@ -309,3 +309,26 @@ it("u484_scroll_and_stop", async () => {
   await committed(final.join(","));
   expect(await stopped()).toBe(0);
 }, 90_000);
+
+const dragLoads = () => read<number>(`performance.getEntriesByType('resource').filter(entry => entry.name.includes('/sortableDnd')).length`);
+
+it("r3800_first_drag_loads_and_completes", async () => {
+  await load();
+  expect(await dragLoads()).toBe(0);
+  await browser("mouse", "move", "300", "300");
+  await browser("press", "Tab");
+  expect(await dragLoads()).toBe(0);
+
+  await drag("A", "C");
+  await browser("mouse", "up");
+  await committed("B,C,A");
+  expect(await dragLoads()).toBe(1);
+
+  await load();
+  expect(await dragLoads()).toBe(0);
+  await keyboard("A");
+  await down(["B", "A", "C"]);
+  await browser("press", "Space");
+  await committed("B,A,C");
+  expect(await dragLoads()).toBe(1);
+}, 60_000);
