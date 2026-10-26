@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 
-it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", async () => {
+it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", { timeout: 240_000, retry: 0 }, async () => {
   const lane = await openLane(1512, "dark", "builder-4277");
   const only = (process.env.ROUNDUP_CAPTURE_SCREENS ?? "").split(",").filter(Boolean);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
@@ -99,4 +99,4 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
 
     expect(await lane.evaluate("!!document.querySelector('.window')")).toBe(true);
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
-}, { timeout: 240_000, retry: 0 });
+});
