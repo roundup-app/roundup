@@ -473,7 +473,7 @@
 
 /* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
 [data-part="branch-control"].rail-row .row-icons {
-  gap: 0;
+  gap: var(--space-1);
 }
 
 .rail-add {
@@ -678,7 +678,6 @@
   color: var(--grey);
 }
 .rail-row:has(.row-name-state) .row-icons {
-  position: static;
   transform: none;
 }
 .rail-row:has(.row-name-state) .line {
@@ -847,7 +846,9 @@
   display: inline-flex;
   align-items: center;
   flex: none;
-  margin-inline-start: auto;
+  position: absolute;
+  inset-inline-end: calc(var(--space-4) + var(--space-6) * 2 + var(--space-1));
+  background: var(--sunken);
   opacity: 0;
   pointer-events: none;
 }
@@ -855,7 +856,7 @@
   opacity: 1;
   pointer-events: auto;
 }
-.rail-row:hover .row-controls { opacity: 1; pointer-events: auto; }
+.rail-row[data-selected="true"] .row-icons { background: var(--selected); }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline: 0; }

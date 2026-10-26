@@ -199,6 +199,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     ], x, y));
   };
 
+  const nested = createMemo(() => treeRows(props.pads.ownedTodos()));
+
   const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
   const last = (at: number) => at === leaves() - 1 && !props.children;
 
@@ -223,8 +225,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
               </Leaf>
             )}
           </For>
-          <For each={treeRows(props.pads.ownedTodos())}>
-            {(place, at) => { const todo = place.todo;
+          <For each={nested().map(place => place.todo)}>
+            {(todo, at) => { const place = () => nested().find(place => place.todo.id === todo.id)!;
 
  return (
               <Sortable.Item id={String(todo.id)} index={at()} pressable>
@@ -241,7 +243,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                           return () => { if (copiedTodos.get(id) === feedback) copiedTodos.delete(id); };
                         }}
                         nested
-                        place={place}
+                        place={place()}
                         failWith={(show, message) => todoFailures.set(todo.id, { show, message })}
                         todo={todo}
                         pressed={todoSelection.selected().includes(todo.id)}
