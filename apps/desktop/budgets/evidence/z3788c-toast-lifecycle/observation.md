@@ -7,6 +7,7 @@ Z3788c Toast queue row, Linux/Chromium, 2026-10-26. Base `07cdccb91`; production
 | Cleanup mutation | Omitting cleanup fails both new event cases: the retired owner's foreground capability is called once. |
 | Dark 1512×950 webview | Twelve paired screens on tree-40, agents-10 and conflict. Queued error appears after return, activation opens agent-3's Terminal, and Daemon-exit text remains visible. All emitted Checks pass, including D2/D5/D6. |
 | Input boundary | Six call journals contain no terminal.write calls. |
+| Required lints | `just lint-web` and `just lint-rust` exit 0, including proofs; `merge-loss` passes. |
 | Production entry closure | 407406 → 407473 gzip bytes, level 9, same host and build settings. The unchanged 437814 ceiling passes. |
 
 The archived Python observer uses a dedicated headless session, fresh profile and the existing Vite harness on localhost:5215 (base) and :5216 (head). It overrides only the fake webview's focus query to hold and release queued attention. It proves neither native focus delivery nor real Daemon execution. The user reports what they meet on the Mac.
