@@ -31,6 +31,7 @@ import "./styles.css";
  */
 // The production entry exceeded its 437814-byte gzip budget; load optional views when opened.
 const TimelineView = lazy(() => import("../timeline/TimelineView").then(module => ({ default: module.TimelineView })));
+
 const MeasurementDashboard = lazy(() => import("./MeasurementDashboard").then(module => ({ default: module.MeasurementDashboard })));
 
 export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
