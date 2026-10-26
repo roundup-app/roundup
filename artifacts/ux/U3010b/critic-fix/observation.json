@@ -52,7 +52,7 @@
   ],
   "captureCommand": {
     "command": "just capture U3010b",
-    "result": "Stopped after the 90-second outer run budget; full workspace capture did not complete. Focused pointer videos and Pad inspector PNGs were captured separately."
+    "result": "Stopped after the 90-second outer run budget; full workspace capture did not complete. Focused pointer videos and Pad inspector images were captured separately."
   },
   "halfwayGeometry": {
     "panelWidth": 560,
