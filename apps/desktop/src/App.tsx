@@ -452,7 +452,7 @@ export const App = (props: {
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-              <InProject open={activeConnection()} pending={<p role="status">{copy.loadingProject}</p>}>
+              <InProject open={activeConnection()} pending={<p role="status" class="light" style={{ padding: "var(--space-4)" }}>{copy.loadingProject}</p>}>
                 {() => (
                   <>
                     <Keys />
@@ -484,7 +484,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failed={failureLine} pending={<p role="status">{copy.loadingProject}</p>}>
+            <InProject open={activeConnection()} failed={failureLine} pending={<p role="status" class="light" style={{ padding: "var(--space-4)" }}>{copy.loadingProject}</p>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();

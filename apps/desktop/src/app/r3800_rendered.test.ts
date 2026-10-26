@@ -7,6 +7,7 @@ it("r3800_enter_loading_populated_and_failure", async () => {
   try {
     await until("document.querySelectorAll('.rail-row').length > 10");
     await capture("R3800", "populated-dense");
+    await evaluate("localStorage.clear(); true");
     await browser("open", await evaluate<string>("location.origin + '/harness.html?seed=first-run'"));
     await until("!!window.__fake && !!document.querySelector('.word')");
     await evaluate(`(() => {
@@ -21,7 +22,7 @@ it("r3800_enter_loading_populated_and_failure", async () => {
     expect(await evaluate("document.querySelectorAll('.rail-row').length")).toBe(0);
     await capture("R3800", "loading");
     await evaluate("window.releaseStartup(); true");
-    await until("!!document.querySelector('.ask-input')");
+    await until("[...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'New Workstream')");
     await capture("R3800", "populated-empty");
     await evaluate("window.__fake.app.exitDaemon({code:1,cause:'Cannot start Daemon. Reopen the Project.'}); true");
     await until("!!document.querySelector('[role=alert]')");
