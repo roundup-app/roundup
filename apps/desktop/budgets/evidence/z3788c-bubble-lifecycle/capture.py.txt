@@ -1,0 +1,44 @@
+import json, os, pathlib, subprocess, tempfile, uuid
+root=pathlib.Path(os.environ["Z3788_REPO"]); out=root/'artifacts/ux/Z3788c';out.mkdir(parents=True,exist_ok=True)
+session='z3788c-bubble-'+uuid.uuid4().hex
+with tempfile.TemporaryDirectory(prefix='z3788c-bubble-profile-') as profile:
+ config=pathlib.Path(profile)/'config.json';config.write_text('{}')
+ env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+ def browser(*args):
+  p=subprocess.run([str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',profile,'--config',str(config),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args],env=env,capture_output=True,text=True,timeout=60)
+  if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+  r=json.loads(p.stdout)
+  if not r.get('success'):raise RuntimeError(r)
+  return r['data']
+ def ev(s):return browser('eval',s)['result']
+ def shot(seed,phase,step):
+  print(seed,phase,step,flush=True);browser('screenshot',str(out/f'{seed}-{phase}-{step}.png'))
+  (out/f'{seed}-{phase}-{step}.checks.json').write_text(json.dumps(ev('window.__checks()'),indent=2))
+ try:
+  for phase,port in [('base',5215),('head',5216)]:
+   for seed in ['tree-40','agents-10','conflict']:
+    browser('open',f'http://localhost:{port}/harness.html?view=workstreams&view=terminal-tabs&seed={seed}')
+    browser('set','viewport','1512','950');browser('set','media','dark')
+    browser('wait','--fn',"!!window.__fake && !!document.querySelector('.rail-row')")
+    ev('document.fonts.ready')
+    browser('wait','--fn',"!!document.querySelector('.terminal-new')")
+    # Conflict deliberately rejects the initial request; retry remains user-owned.
+    browser('click','.terminal-new')
+    if seed=='conflict':
+     browser('wait','--fn',"document.body.textContent.includes('CONFLICT') || !!document.querySelector('.bubble:not([hidden])') || !!document.querySelector('[role=alert]')")
+     if not ev("!!document.querySelector('.bubble:not([hidden])')"):browser('click','.terminal-new')
+    browser('wait','--fn',"!!document.querySelector('.bubble:not([hidden]) .bubble-header')")
+    ev("document.querySelector('.bubble:not([hidden]) .bubble-header').focus()")
+    browser('press','ArrowRight')
+    browser('press','Shift+ArrowDown')
+    ev("window.__fake.writeOutput(document.querySelector('.bubble:not([hidden])').dataset.bubble, 'Retained output after refitting\\r\\n')")
+    x,y=ev("(()=>{const r=document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2]})()")
+    browser('mouse','move',str(x),str(y));browser('mouse','down','left')
+    browser('mouse','move',str(x+24),str(y+16));browser('mouse','up','left')
+    shot(seed,phase,'return')
+    ev("window.__fake.app.handlers['terminal.resize']=()=>{throw new Error('Terminal resize unavailable; retry')}")
+    browser('press','Shift+ArrowDown')
+    browser('wait','--fn',"document.body.textContent.includes('Terminal resize unavailable; retry')")
+    shot(seed,phase,'failure')
+    (out/f'{seed}-{phase}-calls.json').write_text(json.dumps(ev("window.__fake.app.calls.filter(c=>c.method==='terminal.write')"),indent=2))
+ finally:browser('close')
