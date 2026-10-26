@@ -19,7 +19,7 @@ const placeAt = (focus: Element | null): HintPlace | null =>
     : null;
 
 /** U2230a: the quiet line of the keys that act where focus is, from the same `CHORDS` rows Help lists and the registry binds. */
-export const HintLine = () => {
+export const HintLine = (props: { reserved?: boolean }) => {
   const [focus, setFocus] = createSignal<Element | null>(null);
 
   const place = createMemo(() => placeAt(focus()));
@@ -27,7 +27,7 @@ export const HintLine = () => {
   const hints = () => {
     const at = place();
 
-    if (at === null) return [];
+    if (props.reserved || at === null) return [];
 
     const shown = hintsFor(at);
 

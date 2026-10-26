@@ -1,4 +1,5 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
+import { HintLine } from "../keys/HintLine";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
@@ -121,6 +122,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
     <div class="resource-strip" aria-live="off">
       <WorktreeControl returnFocus={props.returnFocus} />
     </div>
+    <HintLine reserved />
     <span class="resource-agent" />
   </>);
 };
