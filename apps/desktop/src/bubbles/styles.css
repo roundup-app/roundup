@@ -288,6 +288,13 @@
   background: var(--ground);
 }
 
+/* The centre-wide failure stays above navigation; a Bubble’s own failure stays inside its frame. */
+.bubbles .bubble-failure[data-overlay="true"] {
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  inset-inline: var(--space-2);
+  inline-size: auto;
+}
+
 .bubble-recovery {
   width: calc(100% - var(--space-5) * 2);
   max-width: calc(var(--space-5) * 20);
