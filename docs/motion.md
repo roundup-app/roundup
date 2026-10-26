@@ -210,4 +210,12 @@ and its rendered observer owns the reduced-motion appearance.
 This wiring is partial M10 delivery. The CSS media layers, live cancellation of drag
 effects, unified 150 ms fades, loop shutdown and complete rendered protocol remain
 open alongside the remaining migration, bundle-budget repair and scheduling evidence.
-No production bundle, native timing or complete reduced-motion pass is claimed here.
+`artifacts/ux/U3010d/preference-bundle.json` records production builds at immutable
+base `697b285406d76e0f93b5ff2830381f822dcaabeb` and source head
+`382fc7369fb9fd579ab73eda81659b9641fbb795`: entry plus eager JS gzip-9 is
+415,900 → 415,937 bytes (+37); eager CSS is 26,389 bytes in both. Each build
+has 262 lazy JS chunks, all enumerated. Motion remains in the eager entry with no
+lazy Motion chunk; its dependency version and engine imports are unchanged. The
+original engine-plus-press increment remains in `press-bundle.json`; this delta
+measures only preference wiring. Both entries exceed 400,000 bytes. No native
+timing or complete reduced-motion pass is claimed here.
