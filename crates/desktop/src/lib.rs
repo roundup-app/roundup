@@ -37,6 +37,17 @@ pub fn build<R: Runtime>(
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_filter(|label| label == "main")
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED
+                        | tauri_plugin_window_state::StateFlags::FULLSCREEN,
+                )
+                .build(),
+        )
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
@@ -45,6 +56,8 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
+            #[cfg(target_vendor = "apple")]
+            native::watch_accent(app.handle().clone());
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
                 Ok(dir) => state.use_data_dir(dir),
@@ -70,6 +83,7 @@ pub fn build<R: Runtime>(
 
 fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
+        system_accent,
         projects,
         open_project,
         close_project,
@@ -235,4 +249,17 @@ fn save_pasted_image(request: tauri::ipc::Request<'_>) -> Result<String, RpcErro
         .unwrap_or_default();
 
     paste::save_in_cache(media_type, bytes).map(|path| path.display().to_string())
+}
+
+/// Current native accent, unavailable on hosts without AppKit.
+#[tauri::command]
+fn system_accent() -> Option<[f64; 3]> {
+    #[cfg(target_vendor = "apple")]
+    {
+        native::system_accent()
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        None
+    }
 }
