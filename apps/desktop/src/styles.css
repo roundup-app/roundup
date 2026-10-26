@@ -311,7 +311,7 @@ p {
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
-.window:has(.drawer[data-mounted="true"]) .columns {
+.window[data-rail="open"]:has(.drawer[data-mounted="true"]) .columns {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
@@ -511,4 +511,15 @@ li:has([aria-pressed="true"]) .draft-name,
 ::selection {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
+}
+
+.window[data-rail="closed"] .columns { grid-template-columns: minmax(0, 1fr); }
+.window[data-rail="closed"] :is(.rail, .rail-edge) { display: none; }
+
+.choose-project { padding-inline: var(--space-4); }
+
+.project-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }

@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { underSettings } from "../testing/media";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";

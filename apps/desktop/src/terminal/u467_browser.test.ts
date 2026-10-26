@@ -23,7 +23,7 @@ const SCHEMES = ["light", "dark"] as const;
 
 const open = async (width: number, scheme: (typeof SCHEMES)[number]) => {
   await page.scheme(scheme);
-  await page.load("/harness.html?seed=tree-40", width, 800);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, 800);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
 };
 

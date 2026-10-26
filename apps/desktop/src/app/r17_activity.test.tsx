@@ -5,7 +5,7 @@ import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { measurementFixture } from "../testing/measurementFixture";
@@ -34,7 +34,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
-  app.handlers["agent.changedFiles"] = () => ({ files: [] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
   app.handlers["project.measurementSummary"] = ({ home }) => {
     const sample = measurementFixture(home);
 
@@ -43,7 +43,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
 
   setup?.(app);
   const clock = vi.fn(() => Date.now());
-  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
+  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} prepareIdle={open => open.showView("resources")} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
   const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
@@ -153,7 +153,7 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } })]);
   const reads = () => app.calls.filter((call) => call.method === "agent.worktreeState").length;
   expect(reads()).toBe(1);
-  fireEvent.click(screen.getByRole("button", { name: "branch-a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await settle();
   expect(reads()).toBe(2);
   status(app, "a", "blocked");

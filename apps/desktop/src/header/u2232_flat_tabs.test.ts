@@ -15,13 +15,13 @@ afterAll(async () => { await page?.close(); });
 
 const strip = async (scheme: "light" | "dark") => {
   await page.scheme(scheme);
-  await page.load("/harness.html?seed=tabs-8", 1512, 950);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8", 1512, 950);
   await page.until(`() => document.querySelectorAll('.project-tab').length === 8`);
 };
 
 const runs = async (scheme: "light" | "dark", contrast?: "more", agent: "runner" | "first-workstream" | "dense" = "runner") => {
   await page.scheme(scheme, contrast);
-  await page.load("/harness.html?seed=bubbles", 1512, 950);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", 1512, 950);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`(id) => document.querySelector('[data-id="' + id + '"]').click()`, agent);
   await page.until(`() => document.querySelectorAll('.terminal-tab-pair').length > ${agent === "first-workstream" ? 0 : 1}`);

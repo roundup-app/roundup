@@ -48,7 +48,7 @@ it("u3791b_rendered_failure_keeps_explicit_recovery", async () => {
   try {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await wait("!!window.__fake && document.querySelectorAll('.rail-row').length > 10");
     await evaluate(`(async () => {
       const app = window.__fake.app;

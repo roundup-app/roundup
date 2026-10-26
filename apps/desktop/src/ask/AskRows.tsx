@@ -32,7 +32,18 @@ const focusPane = (): void => {
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail } = useConnectedProject();
 
-  const parts = createMemo(() => asks.entries().flatMap((entry) => entry.parts.map((part, index) => ({ entry, part, index }))));
+  const parts = createMemo(() => {
+    const shown = new Set<string>();
+
+    return asks.entries().flatMap(entry => entry.parts.map((part, index) => {
+      const id = workstreamOf(part);
+      const live = part.state === "typed" && id !== null && !shown.has(id);
+
+      if (live) shown.add(id!);
+
+      return { entry, part, index, live };
+    }));
+  });
 
   const nameOf = (id: string): string => rail.nodes.find((node) => node.id === id)?.name ?? id;
 
@@ -55,13 +66,13 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   return (
     <ul class="ask-rows" aria-label={copy.askRows}>
       <For each={parts()}>
-        {({ entry, part, index }) => <AskRow keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
+        {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
   );
 };
 
-const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;
@@ -105,7 +116,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
   };
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
-  const status = () => (props.part.state === "typed" ? node()?.status ?? null : null);
+  const status = () => (props.live && props.part.state === "typed" ? node()?.status ?? null : null);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
   const failure = () => asks.partFailure(props.entry.key, props.index);

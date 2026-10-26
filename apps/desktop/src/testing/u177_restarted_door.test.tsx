@@ -2,11 +2,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
+import { showShelfTab } from "./shelfTabs";
 import { menuProbe } from "./menuProbe";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -77,6 +78,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
     fireEvent.click(document.querySelector("[data-todo-root]")!);
+    showShelfTab("Todos");
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");
 

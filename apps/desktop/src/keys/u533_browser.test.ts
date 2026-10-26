@@ -32,7 +32,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("set", "viewport", "1280", "800");
 }, 90_000);
 
