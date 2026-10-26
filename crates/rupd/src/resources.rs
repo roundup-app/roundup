@@ -185,6 +185,7 @@ pub(crate) struct Sampler {
     state: tokio::sync::Mutex<State>,
     disks: Arc<Mutex<HashMap<PathBuf, Disk>>>,
     walk: Walk,
+    walked: Arc<tokio::sync::Notify>,
 }
 
 impl Default for Sampler {
@@ -193,6 +194,7 @@ impl Default for Sampler {
             state: Default::default(),
             disks: Default::default(),
             walk: Arc::new(dir_size),
+            walked: Default::default(),
         }
     }
 }
@@ -265,10 +267,11 @@ impl Sampler {
             let stale = disk.walked.is_none_or(|at| at.elapsed() >= DISK_TTL);
             if stale && !disk.walking {
                 disk.walking = true;
-                let (disks, path, walk) = (
+                let (disks, path, walk, walked) = (
                     Arc::clone(&self.disks),
                     (*path).clone(),
                     Arc::clone(&self.walk),
+                    Arc::clone(&self.walked),
                 );
                 std::thread::spawn(move || {
                     let bytes = walk(&path);
@@ -277,21 +280,24 @@ impl Sampler {
                     disk.bytes = bytes;
                     disk.walked = Some(Instant::now());
                     disk.walking = false;
+                    drop(disks);
+                    walked.notify_waiters();
                 });
             }
         }
-        let deadline = Instant::now() + WALK_WAIT;
+        let deadline = tokio::time::Instant::now() + WALK_WAIT;
         loop {
+            // Register before reading the predicate so completion cannot miss this waiter.
+            let walked = self.walked.notified();
             let done = {
                 let disks = self.disks.lock().unwrap_or_else(|p| p.into_inner());
                 paths
                     .iter()
                     .all(|path| disks.get(*path).is_none_or(|d| !d.walking))
             };
-            if done || Instant::now() >= deadline {
+            if done || tokio::time::timeout_at(deadline, walked).await.is_err() {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
         }
         let disks = self.disks.lock().unwrap_or_else(|p| p.into_inner());
         paths
