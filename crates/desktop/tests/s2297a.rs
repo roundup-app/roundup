@@ -2,6 +2,7 @@
 
 #[cfg(target_vendor = "apple")]
 mod capture_panel;
+mod saved_window;
 mod store_durability;
 
 #[cfg(target_vendor = "apple")]
@@ -51,7 +52,33 @@ fn s2297a_the_app_builds_with_the_setup_registered() {
 // WebKit asserts it is on the main thread, which libtest's worker threads are not, so this binary has its own `main`
 // (`harness = false`) that speaks the part of libtest's protocol nextest uses: `--list` and `--exact <name>`.
 fn main() {
+    // Compile native observers everywhere; only AppKit CI executes them.
+    #[cfg(not(target_vendor = "apple"))]
+    let _native_observers: &[fn()] = &[
+        saved_window::u3787e_restore_uses_saved_normal_bounds,
+        saved_window::u3787e_missing_invalid_and_offscreen_state_are_reachable,
+        saved_window::u3787e_missing_state_is_reachable,
+        saved_window::u3787e_invalid_state_is_reachable,
+        saved_window::u3787e_corrupt_state_is_reachable,
+        saved_window::u3787e_maximized_state_keeps_normal_bounds,
+        saved_window::u3787e_fullscreen_state_keeps_normal_bounds,
+    ];
+
     let tests: &[(&str, fn())] = &[
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_restore_uses_saved_normal_bounds", saved_window::u3787e_restore_uses_saved_normal_bounds),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_missing_invalid_and_offscreen_state_are_reachable", saved_window::u3787e_missing_invalid_and_offscreen_state_are_reachable),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_missing_state_is_reachable", saved_window::u3787e_missing_state_is_reachable),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_invalid_state_is_reachable", saved_window::u3787e_invalid_state_is_reachable),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_corrupt_state_is_reachable", saved_window::u3787e_corrupt_state_is_reachable),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_maximized_state_keeps_normal_bounds", saved_window::u3787e_maximized_state_keeps_normal_bounds),
+        #[cfg(target_vendor = "apple")]
+        ("u3787e_fullscreen_state_keeps_normal_bounds", saved_window::u3787e_fullscreen_state_keeps_normal_bounds),
         #[cfg(target_vendor = "apple")]
         ("u3787f_panel_uses_invoking_display", capture_panel::u3787f_panel_uses_invoking_display),
         #[cfg(target_vendor = "apple")]
@@ -95,9 +122,11 @@ fn main() {
     let mut failed = false;
     for (name, test) in tests {
         let wanted = args.iter().any(|arg| arg == name)
-            || !args
-                .iter()
-                .any(|arg| arg.starts_with("s2297a_") || arg.starts_with("u3787f_"));
+            || !args.iter().any(|arg| {
+                arg.starts_with("s2297a_")
+                    || arg.starts_with("u3787f_")
+                    || arg.starts_with("u3787e_")
+            });
         if wanted {
             let ok = std::panic::catch_unwind(test).is_ok();
             println!("test {name} ... {}", if ok { "ok" } else { "FAILED" });
