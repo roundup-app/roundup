@@ -165,7 +165,7 @@
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
-  height: var(--space-5);
+  height: var(--rail-actions-height);
   position: relative;
   z-index: 1;
   overflow-x: auto;

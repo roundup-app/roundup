@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { info } from "../testing/nodes";
+import { agent, info } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -116,7 +116,13 @@ it.each(["home", "a1", null, "empty"])("u4313a_rail_agent_uses_the_new_agent_act
   for (const source of ["keyboard", "footer"]) {
     const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
     if (selection !== "empty") connected().rail.select(selection);
-    daemon.handlers["agent.spawn"] = () => ({ ...nodes.find(node => node.kind === "agent"), id: "fresh", kind: "agent", name: "Fresh", parent: "home" });
+    daemon.handlers["agent.spawn"] = () => {
+      const spawned = agent("fresh", "idle", "starting", { parent: selection === "empty" ? null : "home" });
+      nodes.push(spawned);
+      queueMicrotask(() => daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" }));
+
+      return spawned;
+    };
     if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
     else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
     await waitFor(() => expect(daemon.calls.some(call => call.method === "agent.spawn")).toBe(true));
