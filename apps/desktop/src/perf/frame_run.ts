@@ -2,6 +2,8 @@
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
+import { prepareFixture } from "./fixture";
+import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
 import type { FrameReport, LayerAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
@@ -224,7 +226,11 @@ export const domLayers = (journal: LayerAction[]): Layers => ({
   halfway: (panel, action) => halfDisplacement(panel, action, journal),
 });
 
-const workingGlyphs = () => document.querySelectorAll('.rail .glyph[data-drawing="quarter"]').length;
+const workingGlyphs = () => [...document.querySelectorAll('.rail .glyph[data-drawing="quarter"]')].filter(glyph => {
+  const box = glyph.getBoundingClientRect();
+
+  return box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
+}).length;
 
 const wallClock: Clock = { sleep };
 
@@ -277,32 +283,18 @@ const domTodos = (app: AppSeam, home: string): Todos => {
   };
 };
 
-/** Ten Agents of the temporary Project, each told by a prompt that it works, so ten Glyphs turn their arc. */
-const startWorkingAgents = async (app: AppSeam, cwd: string) => {
-  const tree = await app.rpc("rail.tree", null);
-  const parent = tree.filter((node) => node.kind === "workstream").at(-1)?.id;
-
-  if (!parent) throw new Error("the Project has no Workstream to hold ten working Glyphs");
-
-  for (let each = 0; each < WORKING_GLYPHS; each += 1) {
-    const agent = await app.rpc("agent.spawn", { cwd, prompt: null, parent });
-
-    await app.rpc("agent.signal", { id: agent.id, attempt: agent.attempt ?? "1", payload: { hook_event_name: "UserPromptSubmit", prompt: "work" } });
-  }
-
-  await Promise.race([
-    appears(() => (workingGlyphs() >= WORKING_GLYPHS ? true : null), "ten working Glyphs"),
-    sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`fewer than ${WORKING_GLYPHS} Glyphs work`))),
-  ]);
-};
-
 /** The workload's setup, then the cycle its actions repeat; an unknown workload is an error, never an empty run. */
-const prepare = async (app: AppSeam, workload: string, cwd: string, journal: LayerAction[]): Promise<(index: number) => Promise<boolean>> => {
+const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], fixture?: Fixture): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos" || workload === "drag") {
     // Rows to open, complete and reorder; one open Todo always stays.
-    const home = await runWorkstream(app);
+    const home = fixture?.home ?? await runWorkstream(app);
 
-    for (let each = 0; each < (workload === "drag" ? 40 : 4); each += 1) await createHomed(app, home, `seed ${each}`);
+    if (workload === "drag") {
+      for (let each = 0; each < 40; each += 1) await createHomed(app, home, `seed ${each}`);
+    } else if (!fixture) throw new Error("missing native fixture");
+
+    // Open the existing owner groups through their controls; setup does not replace their state owner.
+    for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
 
     if (workload === "drag") clickAt('.shelf-groups [aria-expanded="false"] .shelf-group-control');
 
@@ -318,7 +310,8 @@ const prepare = async (app: AppSeam, workload: string, cwd: string, journal: Lay
   }
 
   if (workload === "glyphs") {
-    await startWorkingAgents(app, cwd);
+    if (!fixture) throw new Error("missing native fixture");
+    await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
 
     return glyphsCycle(workingGlyphs);
   }
@@ -342,7 +335,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   const measure = async () => {
-    await terminalReady(app, terminal);
+    const input = await terminalReady(app, terminal);
 
     if (workload === "drag-compatibility") {
       const { runNativeDragProbe } = await import("./nativeDragProbe");
@@ -355,7 +348,27 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     const layerActions: LayerAction[] = [];
     const viewport = { width: innerWidth, height: innerHeight, device_pixel_ratio: devicePixelRatio };
     const shelfMode = document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelfMode ?? "missing";
-    const cycle = await bounded(prepare(app, workload, cwd, layerActions), SETUP_BOUND_MS, `the ${workload} setup`);
+    const nativeFixture = ["layers", "todos", "glyphs"].includes(workload);
+
+    if (nativeFixture && (viewport.width !== 1512 || viewport.height !== 950 || !matchMedia("(prefers-color-scheme: dark)").matches || !["reserved", "overlay"].includes(shelfMode))) {
+      throw new Error("native motion needs dark 1512×950 and an identified reserved or overlay Shelf");
+    }
+
+    const fixture = nativeFixture ? await bounded(prepareFixture(app, cwd, terminal.target()!), SETUP_BOUND_MS, "the native fixture setup") : undefined;
+
+    if (fixture) {
+      for (const control of document.querySelectorAll<HTMLElement>('.rail [aria-expanded="false"] .rail-chevron')) control.click();
+      await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
+    }
+
+    const cycle = await bounded(prepare(app, workload, layerActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
+
+    if (fixture) {
+      const bubble = input.closest<HTMLElement>(".bubble[data-bubble]");
+
+      if (!bubble || bubble.hidden || bubble.dataset.bubble !== fixture.terminal) throw new Error("the fixture streaming Terminal is not selected and visible");
+      input.focus();
+    }
 
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
@@ -396,7 +409,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
-      const observed = { ...result, observer: { viewport, shelf_mode: shelfMode, layer_actions: layerActions, native_qualification: "incomplete: fixture, trusted pointer actions and live preference variants remain unqualified" } };
+      const observed = { ...result, observer: { viewport, shelf_mode: shelfMode, layer_actions: layerActions, ...(fixture ? { fixture } : {}), variant: "unqualified" as const, native_qualification: "incomplete: trusted pointer actions, restored Todo repeats, both Shelf cases and live preference variants remain unqualified" } };
 
       await report(observed);
     } finally {
