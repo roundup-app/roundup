@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { node } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { beforeOf } from "./beforeOf";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
@@ -80,6 +81,39 @@ describe("u155 reorder a Todo row", () => {
 
 
 });
+
+for (const list of ["Shelf", "Agent"] as const) for (const unchangedEvent of [false, true]) {
+  it(`u4231_unchanged_key_acknowledgement_keeps_order_and_focus ${list} event=${unchangedEvent}`, async () => {
+    const initial = [1, 2, 3].map(id => todo(id, list === "Agent" ? { creator: { kind: "agent", id: "a", parent: null } } : {}));
+    const mounted = await mountTodos(initial, false, list === "Agent" ? [node("a")] : [], list === "Agent");
+
+    if (list === "Agent") fireEvent.click(document.querySelector<HTMLElement>("[data-pads-control]")!);
+    const selector = list === "Agent" ? "[data-pads] .todo-row-button" : "[data-shelf-row] .todo-row-button";
+    const rows = () => [...document.querySelectorAll<HTMLButtonElement>(selector)];
+    const order = () => rows().map(row => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
+    await waitFor(() => expect(order()).toEqual([1, 2, 3]));
+    let read = false;
+    mounted.app.handlers["todo.list"] = () => { read = true; return mounted.store.todos; };
+    mounted.app.handlers["todo.reorder"] = ({ id }) => {
+      if (unchangedEvent) refetch(mounted);
+      return { ...mounted.store.todos.find(todo => todo.id === id)! };
+    };
+    const focused = rows()[0]!;
+    focused.focus();
+    fireEvent.keyDown(focused, { key: "ArrowDown", altKey: true });
+    // The post-acknowledgement read is the authoritative boundary even when T11 emits nothing.
+    await waitFor(() => expect(read).toBe(true));
+    await mounted.todos.reload();
+    expect(order()).toEqual([1, 2, 3]);
+    expect(document.activeElement).toBe(focused);
+    expect(screen.queryByRole("alert")).toBeNull();
+    mounted.store.todos = [initial[2]!, initial[0]!, initial[1]!];
+    refetch(mounted);
+    await waitFor(() => expect(order()).toEqual([3, 1, 2]));
+    expect(document.activeElement).toBe(focused);
+    expect(callsTo(mounted.app, "todo.reorder")).toEqual([{ method: "todo.reorder", params: { id: 1, before: 3 } }]);
+  });
+}
 
 describe("u155 where a moved row goes", () => {
   const all = [1, 2, 3, 4, 5].map((id) => todo(id));
