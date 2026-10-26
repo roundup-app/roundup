@@ -71,42 +71,43 @@ impl Agents {
                 .prepare_conversation(&effective, conversation)?;
             self.shared.rail().closed_copy(source, &ownership)?;
             self.launcher.write_conversation(&ownership)?;
-            self.shared.rail().save_conversation(
-                &ids.1,
-                if resume.is_some() { source } else { &id },
-                &effective.to_string_lossy(),
-            )?;
+            self.shared
+                .rail()
+                .save_conversation(&ids.1, &id, &effective.to_string_lossy())?;
             self.shared.rail().publish_closed(source)?;
-            Ok::<_, RpcError>(())
+            Ok::<_, RpcError>(effective)
         }
         .await;
-        if let Err(error) = outcome {
-            let (shared, launcher, dir, source) = (
-                Arc::clone(&self.shared),
-                self.launcher.clone(),
-                self.dir.clone(),
-                source.to_owned(),
-            );
-            let recovery = tokio::task::spawn_blocking(move || {
-                reconcile_closed(
-                    &mut shared.rail(),
-                    &shared.git.bounded(),
-                    &shared.project_dir,
-                    &dir,
-                    &launcher,
-                    &source,
-                )
-            })
-            .await
-            .map_err(RpcError::internal)?;
-            if let Err(recovery) = recovery {
-                return Err(RpcError::internal(format!(
-                    "{}; recovery refused: {}",
-                    error.message, recovery.message
-                )));
+        let effective = match outcome {
+            Ok(effective) => effective,
+            Err(error) => {
+                let (shared, launcher, dir, source) = (
+                    Arc::clone(&self.shared),
+                    self.launcher.clone(),
+                    self.dir.clone(),
+                    source.to_owned(),
+                );
+                let recovery = tokio::task::spawn_blocking(move || {
+                    reconcile_closed(
+                        &mut shared.rail(),
+                        &shared.git.bounded(),
+                        &shared.project_dir,
+                        &dir,
+                        &launcher,
+                        &source,
+                    )
+                })
+                .await
+                .map_err(RpcError::internal)?;
+                if let Err(recovery) = recovery {
+                    return Err(RpcError::internal(format!(
+                        "{}; recovery refused: {}",
+                        error.message, recovery.message
+                    )));
+                }
+                return Err(error);
             }
-            return Err(error);
-        }
+        };
         let copies = self.shared.rail().closed_copies()?;
         for (key, ownership) in copies {
             if key == source {
@@ -130,8 +131,19 @@ impl Agents {
         // Keep the publication lock through the automatic launch: a concurrent commit
         // must observe the published source and return it, never launch it a second time.
         if let Some(ctx) = resume {
-            self.resume_saved(ctx, &ids.1, RESUME_ACK_BOUND, None)
-                .await?;
+            // Only acknowledgement replaces the retained continuation with the live source.
+            // A failed launch must remain resumable after the external original is deleted.
+            self.resume_conversation(
+                ctx,
+                &ids.1,
+                RESUME_ACK_BOUND,
+                Some((source, &effective.to_string_lossy())),
+                None,
+                RailPublication::Immediate,
+                None,
+                None,
+            )
+            .await?;
         }
         Ok(ids)
     }
