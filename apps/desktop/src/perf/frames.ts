@@ -1,3 +1,5 @@
+import type { Fixture } from "./fixture";
+
 /** Seconds of the `docs/motion.md` Native performance protocol, in ms. */
 const PROTOCOL = { warmup: 10_000, sample: 60_000, idle: 30_000 };
 
@@ -54,6 +56,8 @@ export type FrameReport = {
     viewport: { width: number; height: number; device_pixel_ratio: number };
     shelf_mode: string;
     layer_actions: LayerAction[];
+    fixture?: Fixture;
+    variant: "unqualified";
     native_qualification: string;
   };
   workload: string;
