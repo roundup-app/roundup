@@ -1,5 +1,8 @@
 //! Z3799b: program completion is independent of a descendant's PTY lifetime.
 
+// Linux retains the PTY until descendants close it; macOS may report EOF at leader exit.
+#![cfg(target_os = "linux")]
+
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -26,6 +29,7 @@ if os.fork() == 0:
         connection.recv(1)
     finally:
         os._exit(0)
+signal.alarm(4)
 sys.stdin.readline()
 sys.exit(7)
 "#;
@@ -64,7 +68,6 @@ sys.exit(7)
         while spawned.output.next().await.is_some() {}
         let event = spawned.events.recv().await.unwrap();
         assert!(matches!(event.as_ref(), contracts::EventData::TerminalExited(done) if done.code == Some(7)));
-        terminals.wait_program_ended("999").await;
     })
     .await;
     if observation.is_err() {

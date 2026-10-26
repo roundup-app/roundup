@@ -1,7 +1,6 @@
 //! Original program ownership and completion, independent of PTY output.
 
 use super::*;
-use portable_pty::Child;
 
 /// The program, shared by whoever reaps it and whoever stops it.
 /// Invariant: only code holding this lock reaps or signals, and signals only when `try_wait` under
@@ -9,6 +8,28 @@ use portable_pty::Child;
 pub(super) type Program = Arc<Mutex<Box<dyn Child + Send + Sync>>>;
 
 impl Terminals {
+    /// Wait for the original program to end, independently of PTY EOF and `terminal.exited`.
+    /// Unknown (including malformed) or already-ended Terminals complete immediately. Completion
+    /// is retained for late callers; concurrent callers and cancellation cannot consume it.
+    /// As with `program_ended`, a failure to observe the child is treated as ended.
+    pub async fn wait_program_ended(&self, id: &str) {
+        let ended = parse_terminal_number(id).ok().and_then(|number| {
+            self.shared
+                .program_ends
+                .lock()
+                .expect("terminal program ends lock")
+                .get(&number)
+                .cloned()
+        });
+        let Some(mut ended) = ended else {
+            return;
+        };
+        ended
+            .wait_for(|ended| *ended)
+            .await
+            .expect("the reaper publishes completion before closing");
+    }
+
     /// Stop a running Terminal's program (SIGHUP, then SIGKILL if it lingers) and return once it is
     /// stopped. It stays listed as exited once `terminal.exited` is emitted. `NOT_FOUND` as for
     /// [`Terminals::write`], including a program that ended just before this call.
@@ -46,13 +67,18 @@ impl Terminals {
     }
 }
 
-/// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
-pub(super) fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
-    loop {
-        let status = program.lock().expect("terminal program lock").try_wait()?;
-        match status {
-            Some(status) => return Ok(status),
-            None => std::thread::sleep(REAP_POLL),
+/// Preserve the exit-code mapping used after the PTY drains, even for an unknown ending.
+pub(super) fn exit_code(
+    number: u64,
+    result: std::io::Result<portable_pty::ExitStatus>,
+) -> Option<i32> {
+    match result {
+        Ok(status) if status.signal().is_some() => None,
+        Ok(status) => Some(i32::try_from(status.exit_code()).unwrap_or(i32::MAX)),
+        Err(err) => {
+            // `None` means "killed by a signal"; an unknown ending must not look like one.
+            eprintln!("terminal {number}: cannot wait for program: {err}");
+            Some(-1)
         }
     }
 }
