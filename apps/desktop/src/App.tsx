@@ -486,7 +486,7 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
-          <Show when={nativeFailure()}>{message => <div role="alert" class="ink" data-tone="red" style={{ padding: "var(--space-3)", "white-space": "pre-wrap", "overflow-wrap": "anywhere" }}>{message()}</div>}</Show>
+          <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
