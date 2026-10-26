@@ -3,9 +3,9 @@
 mod webkit_rate;
 #[cfg(target_vendor = "apple")]
 pub use webkit_rate::{Missing, Preferences, plugin};
-#[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
+#[cfg(target_vendor = "apple")]
 mod application;
-#[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
+#[cfg(target_vendor = "apple")]
 pub use application::{watch, watch_fullscreen};
 
 #[cfg(target_vendor = "apple")]
