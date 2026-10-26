@@ -34,6 +34,7 @@ record() {{ printf '%s\n' "$1" >> '{d}/starts'; }}
 if test -f "$1/fail"; then record "$1"; exit 17; fi
 if test -f "$1/hold"; then echo $$ > "$1/held-pid"; record "$1"; exec cat > "$1/input"; fi
 ln -s '{d}/real.sock' "$RUPD_SOCKET"
+printf 'rupd-bound\n'
 echo $$ > "$1/pid"
 record "$1"
 if test -f "$1/late-exit"; then cat > "$1/input"; echo closed > "$1/closed"; read go < "$1/exit-fifo"; exit 7; fi
