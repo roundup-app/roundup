@@ -194,5 +194,5 @@
 }
 
 .settings-field input[data-invalid] {
-  border-color: var(--red);
+  color: var(--red);
 }
