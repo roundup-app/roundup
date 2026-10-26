@@ -856,7 +856,7 @@
   opacity: 1;
   pointer-events: auto;
 }
-.rail-row[data-selected="true"] .row-icons { background: var(--selected); }
+.rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline: 0; }
