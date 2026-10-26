@@ -1,4 +1,4 @@
-import { followMaterial } from "./app/material";
+import { followMaterial } from "./app/tauri";
 import { StorageRecovery } from "./app/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
