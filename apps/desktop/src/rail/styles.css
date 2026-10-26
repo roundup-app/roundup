@@ -476,22 +476,6 @@
   gap: var(--space-1);
 }
 
-/* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
-@container rail (width <= env(--query-rail-detail)) {
- [data-part="branch-control"].rail-row :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
-    position: absolute;
-    right: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
- [data-part="branch-control"].rail-row :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
-    opacity: 1;
-    pointer-events: auto;
-    --button-surface: var(--sunken);
-  }
-}
-
 .rail-add {
   display: inline-flex;
   align-items: center;
@@ -853,3 +837,40 @@
 .rail-command-notice .reserved-content {
   align-items: baseline;
 }
+
+/* U4275: disclosure and nesting use space after the fixed state column. */
+.rail-tree .rail-leaf { grid-template-columns: var(--length-zero) minmax(0, 1fr); }
+.rail-row .line::before { content: ""; width: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--rail-gap)); flex: none; }
+.rail-row .row-state { position: absolute; left: var(--space-6); margin-inline-start: 0; }
+.rail-row .rail-chevron { left: var(--space-1); transform: none; }
+.rail-row .row-icons {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-inline-start: auto;
+  opacity: 0;
+  pointer-events: none;
+}
+.rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-icons {
+  opacity: 1;
+  pointer-events: auto;
+}
+.rail-row:hover .row-controls { opacity: 1; pointer-events: auto; }
+.rail-row .row-state { flex: none; }
+
+.rail-leaf[data-leaf="todo"] { padding-inline: 0; }
+.rail-leaf[data-leaf="todo"] .shelf-row {
+  padding-inline-start: var(--space-6);
+  padding-inline-end: var(--space-4);
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+.rail-leaf[data-leaf="todo"] .shelf-glyph { margin-inline-start: 0; }
+.rail-leaf[data-leaf="todo"] .shelf-text { padding-inline-start: 0; }
+.rail-tree { --rail-step: var(--space-2); }
+.rail-pass,
+.rail-stem,
+.rail-branch {
+  left: calc(var(--row-text-inset) - var(--space-2) + var(--level) * var(--rail-step));
+}
+.rail-branch { width: var(--rail-step); }

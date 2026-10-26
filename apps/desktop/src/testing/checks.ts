@@ -669,7 +669,7 @@ const d12 = (page: Page): Measure => {
     const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
       ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
 
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null));
 
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
@@ -697,7 +697,7 @@ const d12 = (page: Page): Measure => {
     own.forEach(({ row }) => {
       found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
 
-      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
+      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].filter(line => line.textContent?.trim() && !line.matches(".todo-group-status"))) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });
   }
 

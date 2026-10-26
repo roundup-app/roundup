@@ -240,3 +240,91 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
   expect(await read("document.activeElement.value")).toBe("  exact 日本語 🌱  ");
   await shot("U3789d", "head", "rail-rename-retry");
 }, 180_000);
+
+it("u4275b_tab_reaches_quick_actions", async () => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  await load("tree-40");
+  await browser("focus", '.rail-row[data-id="tokens"]');
+  await browser("press", "Tab");
+  await wait("document.activeElement?.getAttribute('aria-label') === 'Stop'");
+  await browser("press", "Tab");
+  await wait("document.activeElement?.getAttribute('aria-label') === 'Open folder'");
+  await browser("press", "Tab");
+  await wait("document.activeElement?.getAttribute('aria-label') === 'Open in editor'");
+  await browser("press", "Shift+Tab");
+  await wait("document.activeElement?.getAttribute('aria-label') === 'Open folder'");
+  await browser("press", "Enter");
+  await wait("window.__fake.app.openedTargets.length === 1");
+  await browser("press", "Space");
+  await wait("window.__fake.app.openedTargets.length === 2");
+  expect(await read("window.__fake.app.openedTargets[0]")).toEqual(await read("window.__fake.app.openedTargets[1]"));
+}, 120_000);
+
+it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  const baselines = new Map<string, Checks>();
+
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    for (const seed of ["tree-40", "agents-10"]) {
+      const video = !base && seed === "tree-40" ? captureDir("U4275b") : null;
+
+      if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await browser("set", "viewport", "1512", "950"); await browser("set", "media", "dark"); }
+
+      await load(seed, base);
+      await overview();
+
+      if (seed === "tree-40") {
+        await dense();
+        await browser("eval", `(async () => {
+          const rpc = window.__fake.app.rpc;
+          const parent = await rpc('todo.create', {title: 'Parent Todo', body: 'Body stays in the opened Todo', blockers: null});
+          const child = await rpc('todo.create', {title: 'Child Todo', body: null, blockers: null});
+          const grandchild = await rpc('todo.create', {title: 'Grandchild Todo', body: null, blockers: null});
+          await rpc('todo.setBlockers', {id:child.id,blockers:[parent.id]});
+          await rpc('todo.setBlockers', {id:grandchild.id,blockers:[child.id]});
+        })()`);
+      }
+
+      await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+      const stage = base ? "base" : "head";
+
+      for (const step of ["rest", "hover", "focus", "selected"]) {
+        await browser("mouse", "move", "1", "1");
+        await browser("eval", "document.activeElement.blur()");
+
+        if (step === "hover") await browser("hover", '.rail-row[data-id="agent-4"]');
+
+        if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
+
+        if (step === "selected") await browser("click", '.rail-row[data-id="agent-4"]');
+
+        for (const id of ["U4275a", "U4275b", "U4275c"]) {
+          const checks = await shot(id, stage, `${seed}-${step}`);
+          const key = `${seed}-${step}`;
+
+          if (base) baselines.set(key, checks);
+          else for (const check of CHECK_IDS) if (baselines.get(key)?.[check].status === "pass") expect(checks[check].status, `${key} ${check}`).toBe("pass");
+        }
+      }
+
+      if (seed === "tree-40") {
+        await browser("eval", "document.querySelector('.todos-tab [data-todo=\"19\"]')?.scrollIntoView({block:'center'})");
+
+        for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "nested-todos");
+
+        if (!base) {
+          await browser("eval", "(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.openFailure = new RpcError(-32008, 'Folder unavailable; try again.'); })()");
+          await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
+          await browser("press", "Enter");
+          await wait("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Folder unavailable')");
+
+          for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "dense-action-failure");
+        }
+      }
+
+      if (video) await browser("record", "stop");
+    }
+  }
+}, 300_000);
