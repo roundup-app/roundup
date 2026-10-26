@@ -565,12 +565,15 @@ export const App = (props: {
           <For each={drafts.paths?.() ?? keys()}>{path => {
             const undo = drafts(path).todoUndo;
 
-            return <Show when={undo.visible()}><div role="status" style={{ padding: "var(--space-3)", display: "flex", "flex-wrap": "wrap", gap: "var(--space-3)", "align-items": "baseline" }}>
-              <span>{undo.failure() ?? copy.todoDeletedFeedback}</span>
+            const shown = () => projects.active() === path && undo.visible();
+            const failure = () => shown() && (undo.uncertain() || !connectionOf(path)?.drawer.content()) ? undo.failure() : null;
+            const status = () => shown() && undo.available() ? copy.todoDeletedFeedback : null;
+
+            return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
               <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
-            </div></Show>;
+            </ReservedLine>;
           }}</For>
           <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
