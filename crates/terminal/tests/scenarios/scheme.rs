@@ -122,7 +122,15 @@ async fn z3799g_scheme_hex_keeps_its_input_language() {
     let mut mixed = params(Scheme::Light);
     mixed.background = "#AbCdEf".into();
     assert!(terminals.set_scheme(mixed).await.is_ok());
-    for refused in ["#fff", "ffffff", "#ffffff00", "#gggggg", "#ffffé", "# fffff", "#+fffff"] {
+    for refused in [
+        "#fff",
+        "ffffff",
+        "#ffffff00",
+        "#gggggg",
+        "#ffffé",
+        "# fffff",
+        "#+fffff",
+    ] {
         let mut bad = params(Scheme::Light);
         bad.foreground = refused.into();
         assert!(terminals.set_scheme(bad).await.is_err(), "{refused:?}");
