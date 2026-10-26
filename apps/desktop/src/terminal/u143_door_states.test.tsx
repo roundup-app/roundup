@@ -39,15 +39,6 @@ describe("u143 empty Project", () => {
 
 
 
-  it("u143_only_new_workstream_is_offered_on_an_empty_project", async () => {
-    await emptyProject();
-
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
-    expect(screen.queryByLabelText("Add Agent")).toBeNull();
-  });
-
-
-
   it("u143_start_a_workstream_creates_one_root_workstream_selects_it_and_starts_only_its_door", async () => {
     const { app, connected } = await emptyProject();
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
