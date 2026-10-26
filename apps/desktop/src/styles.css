@@ -46,7 +46,7 @@ p {
   pointer-events: none;
 }
 
-.overlay > * {
+.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line) {
   pointer-events: auto;
 }
 
@@ -98,7 +98,7 @@ p {
   overflow: clip;
 }
 
-.rail > :not(.rail-actions):not(.rail-scroll) {
+.rail :is(.todo-project-root, .rail-recovery, .rail-command-notice) {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);
@@ -311,11 +311,11 @@ p {
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
-.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns {
+.window:has(.drawer[data-mounted="true"]) .columns {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"][data-open="true"], .drawer[data-motion="slide"] > :not(.close)) .columns {
+.window:has(.drawer[data-motion="slide"][data-mounted="true"]) .columns {
   transition: width var(--duration-drawer) var(--easing-out);
 }
 
@@ -334,7 +334,7 @@ p {
   transition: none;
 }
 
-.drawer > .close {
+.drawer .close {
   position: absolute;
   top: var(--space-2);
   right: var(--space-4);
@@ -342,25 +342,6 @@ p {
 
 .header .ink:not(.tab-mark):not(.strip-edge) {
   display: inline;
-}
-
-/* Settings (docs/design-system.md, "Surfaces and depth"; U135). Colour and contrast settings live in tokens.css; these two remove a look. */
-@media (prefers-reduced-transparency: reduce) {
-  *,
-  *::before,
-  *::after,
-  *::backdrop {
-    backdrop-filter: none !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: var(--duration-instant) !important;
-    animation-duration: var(--duration-instant) !important;
-  }
 }
 
 /* U54, U371: Help floats in the overlay layer, over the pane and the open Shelf; it opens in the frame of the key, with no motion. */
@@ -374,10 +355,10 @@ p {
   overscroll-behavior: contain;
 }
 
-.help > .app-dialog-actions { grid-column: 1 / -1; }
+.help .app-dialog-actions { grid-column: 1 / -1; }
 
 .help-line,
-.help-shelf > p {
+.help-shelf p {
   margin: 0;
 }
 
@@ -418,7 +399,7 @@ p {
 }
 
 /* U430: each resource group must fit the centre or flex-end clips its start. */
-.centre .resource-strip > span {
+.resource-strip .resource-agent {
   min-width: 0;
   max-width: 100%;
 }
@@ -502,7 +483,7 @@ code {
   min-width: 0;
 }
 
-.draft-text > .draft-name {
+.draft-text .draft-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -515,12 +496,12 @@ code {
 
 .draft-identity, .draft-object { color: var(--grey); }
 .draft-object { font-family: var(--font-mono); }
-.draft-revisions li:has([aria-pressed="true"]) .draft-name,
+li:has([aria-pressed="true"]) .draft-name,
 .draft-revisions button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 .draft-detail { margin-top: var(--space-6); }
-.draft-detail > h3 { overflow-wrap: anywhere; }
+.draft-detail h3 { overflow-wrap: anywhere; }
 .draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
-.draft-destination > .icon { flex-shrink: 0; }
+.draft-destination .icon { flex-shrink: 0; }
 
 .draft-revisions li { align-items: baseline; }
 .draft-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }

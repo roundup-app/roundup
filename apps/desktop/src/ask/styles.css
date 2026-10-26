@@ -9,7 +9,7 @@
 }
 
 /* Empty supporting content must not leave a flex gap beside the field (U504). */
-.ask-bar > :empty {
+.ask-bar :is(.ask-compose, .overview, .ask-rows, .made, .reactions):empty {
   display: none;
 }
 
@@ -107,7 +107,7 @@
 }
 
 .ask-kind .glyph,
-.ask-kind .glyph svg {
+.ask-kind svg {
   width: var(--space-3);
   height: var(--space-3);
 }
@@ -179,7 +179,7 @@
   clip-path: inset(50%);
 }
 
-.ask-choices > button {
+.ask-choices button {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -256,7 +256,7 @@
 }
 
 .overview-state .glyph,
-.overview-state .glyph svg {
+.overview-state svg {
   display: block;
   width: var(--space-3);
   height: var(--space-3);
@@ -433,17 +433,17 @@
 }
 
 @keyframes call-fold-open {
-  from { height: 0; }
-  to { height: var(--height); }
+ from { height: 0; }
+ to { height: var(--height); }
 }
 
 @keyframes call-fold-close {
-  from { height: var(--height); }
-  to { height: 0; }
+ from { height: var(--height); }
+ to { height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .call-fold { animation-name: none; }
+ .call-fold { animation-name: none; }
 }
 
 .call-payload-head {
