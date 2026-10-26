@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # U3523f: assembles the listing sidecar folder the Daemon finds beside its executable:
 # the pinned Node binary, list.mjs, the pinned SDK in node_modules, and NOTICES.md.
-# Usage: bundle.sh <dest-dir>   (run after `pnpm install`)
+# Usage: bundle.sh <dest-dir> [--local-node]   (run after `pnpm install`)
 set -euo pipefail
 
 NODE_VERSION=22.23.3
