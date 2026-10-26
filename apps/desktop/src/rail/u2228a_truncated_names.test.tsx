@@ -78,13 +78,16 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
   const measured = vi.fn(() => 200);
 
   Object.defineProperty(current, "scrollWidth", { get: measured });
+
   const owner = () => createRoot(dispose => {
     const [watched, setWatched] = createSignal<Element>(extra);
     const title = createCutTitle(() => NAME, { watch: () => watched() });
 
     title.ref(old);
+
     return { dispose, setWatched, ref: title.ref };
   });
+
   const first = owner();
 
   // createCutTitle schedules its text/ref measurement in a microtask.
@@ -93,8 +96,11 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
   first.setWatched(nextExtra);
   await Promise.resolve();
   measured.mockClear();
+
   for (const observer of observers) { observer.notify(old); observer.notify(extra); }
+
   expect(measured).not.toHaveBeenCalled();
+
   for (const observer of observers) observer.notify(nextExtra);
   expect(measured).toHaveBeenCalledTimes(1);
   first.dispose();
@@ -103,10 +109,12 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
   second.ref(current);
   await Promise.resolve();
   measured.mockClear();
+
   for (const observer of observers) observer.notify(current);
   expect(measured).toHaveBeenCalledTimes(1);
   second.dispose();
   measured.mockClear();
+
   for (const observer of observers) observer.notify(current);
   expect(measured).not.toHaveBeenCalled();
 });
