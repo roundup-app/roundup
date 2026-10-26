@@ -8,7 +8,7 @@ Z3788c ResourceStrip visibility row, Linux/Chromium, 2026-10-26. Base `d330caaab
 | Input boundary | Six call journals contain zero terminal.write calls. |
 | Production entry closure | 407473 → 407463 gzip bytes, level 9, same host/build settings, recursive static imports counted once. Unchanged ceiling 437814 passes. |
 
-`just capture Z3788c` exits 0 with the desktop test script temporarily selecting the archived observer, then restored. It uses a dedicated headless agent-browser session, a fresh profile, and Vite on localhost:5215 (base) / :5216 (head). It overrides only the fake webview visibility capability and sampling failure. Two initial cold-load attempts timed out; the final observer also waits for populated failure text before capturing. PNGs remain uncommitted under artifacts/ux/Z3788c. Run the archived observer with Z3788_REPO pointing to its checkout after starting the two servers.
+`just capture Z3788c` exits 0 with the desktop test script temporarily selecting the archived observer, then restored. It uses a dedicated headless agent-browser session, a fresh profile, and Vite on localhost:5215 (base) / :5216 (head). It overrides only the fake webview visibility capability and sampling failure. Two initial cold-load attempts timed out; the final observer also waits for populated failure text before capturing. Screenshots remain uncommitted under artifacts/ux/Z3788c. Run the archived observer with Z3788_REPO pointing to its checkout after starting the two servers.
 
 Two duplicate tests were cut: `u444_a_missing_value_hides_with_its_icon` retains null-disk coverage, and `u408_other_selections_are_empty_and_make_no_calls` retains the non-working selection case.
 

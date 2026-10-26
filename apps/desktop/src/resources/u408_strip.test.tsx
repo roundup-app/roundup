@@ -90,7 +90,6 @@ describe("u408 the Resource strip", () => {
     expect(cpuText(Number.NaN)).toBe("–");
   });
 
-
   it("u408_other_selections_are_empty_and_make_no_calls", async () => {
     const { connected, calls, app } = await mount([agent("a", "done", "x"), workstream("w"), terminal("t"), agent("b", "working", "y")], { select: "a" });
 
@@ -132,7 +131,6 @@ describe("u408 the Resource strip", () => {
     await settle();
     expect(words()).toBe("");
   });
-
 
   it("u408_polls_every_two_seconds_while_shown_and_never_twice_at_once", async () => {
     const { app, calls } = await mount([agent("a", "working", "x")]);
