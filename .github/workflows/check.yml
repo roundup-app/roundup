@@ -274,6 +274,11 @@ jobs:
           browser: 'true'
       - name: R3800 startup artifact checker observers
         run: node --test apps/desktop/budgets/*.test.mjs
+      # A failed build or checker fails this job, and `check` needs it to succeed.
+      - name: R3800 production entry budget
+        run: |
+          pnpm --filter desktop build
+          pnpm --filter desktop check:startup
       - name: T3797a real-tool lint observers
         run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies
