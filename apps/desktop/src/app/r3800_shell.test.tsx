@@ -3,8 +3,10 @@ import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { node } from "../testing/nodes";
+import { openProjectPage } from "../testing/menuProbe";
+import { fakeEmulators } from "../terminal/paneHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s", async mode => {
   const app = createFakeApp();
@@ -48,9 +50,11 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
     return open(path);
   };
 
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
   if (mode === "reopen") {
+    await screen.findByRole("textbox", { name: "Ask" });
+    openProjectPage("view:workstreams", app.opened.project.path);
     await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
     holding = true;
     completed = 0;
@@ -62,7 +66,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   await waitFor(() => expect(pending.length).toBeGreaterThan(0));
   const rail = await screen.findByRole("region", { name: "Rail" });
   const centre = screen.getByRole("region", { name: "Centre" });
-  expect(screen.getByRole("tab", { name: /payments-api/ })).toBeTruthy();
+  expect(screen.getByRole("tabpanel", { name: "payments-api" })).toBeTruthy();
 
   if (mode === "initial open") {
     expect(rail.getAttribute("aria-busy")).toBe("true");
@@ -76,14 +80,16 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   holding = false;
 
   for (const resolve of pending) resolve();
+  if (reopen) await waitFor(() => expect(reopen?.isConnected).toBe(false));
+  await screen.findByRole("textbox", { name: "Ask" });
+  openProjectPage("view:workstreams", app.opened.project.path);
   await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
 
   expect(rail.hasAttribute("aria-busy")).toBe(false);
   expect(centre.hasAttribute("aria-busy")).toBe(false);
 
-  if (reopen) await waitFor(() => expect(reopen?.isConnected).toBe(false));
-  fireEvent.click(within(rail).getByText("Seeded Agent"));
-  await waitFor(() => expect(rail.querySelector('[data-selected="true"]')?.getAttribute("data-id")).toBe("seeded"));
+  fireEvent.click(within(screen.getByRole("region", { name: "Rail" })).getByText("Seeded Agent"));
+  await screen.findByRole("heading", { name: "Seeded Agent" });
 });
 
 it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contract_scheme_and_event_order: %s", async contract => {
@@ -135,7 +141,7 @@ it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contrac
   };
 
   subscription.resolve();
-  await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ });
+  await screen.findByRole("textbox", { name: "Ask" });
 
   if (contract !== "equal") {
     expect(screen.getByRole("alert").textContent).toMatch(contract === "newer" ? /newer/ : /older/);
