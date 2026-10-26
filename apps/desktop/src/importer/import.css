@@ -83,6 +83,7 @@
 
 .import-title {
   min-width: 0;
+  padding-inline-end: calc(var(--space-6) * 2);
   overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -151,17 +152,15 @@
   gap: var(--space-3);
 }
 
-.import-candidate .reserved-line {
-  grid-column: 1 / -1;
-  font-size: var(--text-small);
-}
-
 .import-candidate .import-check {
-  flex: 1;
+  grid-column: 1 / -1;
+  grid-row: 1;
   min-width: 0;
 }
 
 .import-candidate button {
+  grid-column: 2;
+  grid-row: 1;
   opacity: 0;
 }
 
