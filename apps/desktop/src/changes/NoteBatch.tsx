@@ -128,10 +128,9 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
 
   createEffect(() => { if (!props.open) setEditing(undefined); });
 
-  return <Dialog.Root instant open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
+  return <Dialog.Root instant modal={false} trapFocus={false} closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
     <Show when={retained() && !props.open}><Dialog.Trigger data-button="quiet">{copy.recoverNotes}</Dialog.Trigger></Show>
-    <Dialog.Backdrop />
-    <Dialog.Positioner><Dialog.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
+    <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><p>No drafts to recover</p></Show>
       <ReservedLine message={props.notes.problem()} />
