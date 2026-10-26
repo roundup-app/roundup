@@ -8,7 +8,7 @@
 }
 
 /* Ark owns keyboard and checked state; the transparent input covers the complete labelled hit area. */
-.app-checkbox > input {
+.app-checkbox input {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -19,7 +19,7 @@
   cursor: pointer;
 }
 
-.app-checkbox > input:hover:not(:disabled),
+.app-checkbox input:hover:not(:disabled),
 .app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-label {
   color: var(--text);
 }

@@ -655,6 +655,7 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -727,7 +728,7 @@ export const Rail = () => {
               };
 
               return (
-                <details>
+                <details class="rail-recovery-detail">
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />

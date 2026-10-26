@@ -24,7 +24,7 @@
   cursor: pointer;
 }
 
-.app-select-trigger > [data-part="value-text"] {
+.app-select-trigger [data-part="value-text"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

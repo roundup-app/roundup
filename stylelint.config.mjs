@@ -58,9 +58,46 @@ const tokenElevation = stylelint.createPlugin(elevationRule, () => (root, result
   });
 });
 
+const containerRule = 'roundup/container-token-threshold';
+
+// The built-in unit rule visits media preludes, but not container preludes.
+const containerTokenThreshold = stylelint.createPlugin(containerRule, () => async (root, result) => {
+  const queries = [];
+  root.walkAtRules(/^container$/i, query => { queries.push(query); });
+
+  for (const query of queries) {
+    const media = query.clone({ name: 'media', params: query.params.slice(query.params.indexOf('(')) });
+    media.removeAll();
+    const probe = root.clone().removeAll().append(media);
+
+    await stylelint.utils.checkAgainstRule({
+      ruleName: 'unit-disallowed-list', ruleSettings: ['px', 'ms', 's', 'rem'], root: probe,
+    }, warning => {
+      stylelint.utils.report({ ruleName: containerRule, result, node: query, message: warning.text });
+    });
+  }
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation],
+  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation, containerTokenThreshold],
+  overrides: [{ files: ['**/tokens.css'], rules: {
+    'unit-disallowed-list': null,
+    'color-no-hex': null,
+    'color-named': null,
+    'declaration-property-value-disallowed-list': null,
+    [containerRule]: null,
+  } }],
   rules: {
+    'declaration-no-important': true,
+    'unit-disallowed-list': ['px', 'ms', 's'],
+    'selector-max-compound-selectors': 2,
+    'selector-combinator-disallowed-list': ['>'],
+    'color-no-hex': true,
+    'color-named': 'never',
+    'declaration-property-value-disallowed-list': {
+      '/.*/': [/(?<![-\w])transparent\b/i, /(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^;]*?[\s,(/][+-]?(?:\d|\.\d)/i],
+    },
+    [containerRule]: true,
     [focusRingRule]: true,
     [elevationRule]: true,
     'declaration-property-value-allowed-list': {
