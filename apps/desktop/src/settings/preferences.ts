@@ -165,6 +165,7 @@ export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
       const mix = interpolate([colour, { mode: "rgb", r: pole, g: pole, b: pole }], "rgb");
       let low = 0;
       let high = 1;
+
       const readable = (amount: number) => [scale.gray1, scale.gray2, scale.gray3, scale.gray4, scale.gray5]
         .every(ground => wcagContrast(mix(amount), ground) >= 4.7);
 
@@ -180,6 +181,7 @@ export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
       const toned = mix(high);
       root.style.setProperty(`--system-accent-${scheme}-channels`, [toned.r, toned.g, toned.b].map(channel => channel * 255).join(" "));
     }
+
     root.style.setProperty("--system-accent-channels", accent.map(channel => channel * 255).join(" "));
     root.dataset.systemAccent = "true";
   }).then(stop => { if (active) release = stop; else stop(); }, () => { if (active) clear(); });

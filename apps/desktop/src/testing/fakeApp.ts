@@ -130,7 +130,12 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
-    onSystemAccent: async listener => { accentListeners.add(listener); listener(null); return () => { accentListeners.delete(listener); }; },
+    onSystemAccent: async listener => {
+      accentListeners.add(listener);
+      listener(null);
+
+      return () => { accentListeners.delete(listener); };
+    },
     setSystemAccent: accent => accentListeners.forEach(listener => listener(accent)),
     calls: [],
     handlers: { ...emptyReads },
