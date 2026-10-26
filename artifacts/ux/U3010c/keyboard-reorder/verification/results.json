@@ -47,5 +47,8 @@
   "web_lint_artifact_scan": {
     "complete": true,
     "result": "uncommitted raw logs repeated baseline spellings; retained compressed logs and reran gate"
+  },
+  "final_web_lint": {
+    "exit": 0
   }
 }
