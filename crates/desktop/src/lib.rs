@@ -31,6 +31,7 @@ pub fn build<R: Runtime>(
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
     let builder = builder
+        .plugin(launch::plugin())
         .plugin(tauri_plugin_deep_link::init())
         .manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_vendor = "apple")]
@@ -60,7 +61,6 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
-            launch::listen(app.handle())?;
             #[cfg(target_vendor = "apple")]
             native::watch_accent(app.handle().clone());
             let state = app.state::<AppState>();

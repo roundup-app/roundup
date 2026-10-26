@@ -5,8 +5,7 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager, Runtime, State};
-use tauri_plugin_deep_link::DeepLinkExt;
+use tauri::{AppHandle, Listener, Manager, Runtime, State};
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -73,31 +72,26 @@ pub(crate) fn second_launch<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, c
     }
 }
 
-pub(crate) fn listen<R: Runtime>(app: &AppHandle<R>) -> tauri_plugin_deep_link::Result<()> {
-    let handle = app.clone();
-    app.deep_link().on_open_url(move |event| {
-        for url in event.urls() {
-            deliver(
-                &handle,
-                NativeOpen::Link {
-                    url: url.to_string(),
+/// Subscribe before deep-link initializes: its cold CLI delivery and later OS delivery
+/// then share the event route, with no get_current snapshot that can replay an invocation.
+pub(crate) fn plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("native-open")
+        .setup(|app, _| {
+            let handle = app.clone();
+            app.listen(
+                "deep-link://new-url",
+                move |event| match serde_json::from_str::<Vec<String>>(event.payload()) {
+                    Ok(urls) => {
+                        for url in urls {
+                            deliver(&handle, NativeOpen::Link { url });
+                        }
+                    }
+                    Err(error) => eprintln!("desktop: invalid native link delivery: {error}"),
                 },
             );
-        }
-    });
-    // During setup no lifecycle event can run on this thread. Subsequent Opened events
-    // arrive only at the listener above, never through a second lifecycle dispatcher.
-    if let Some(urls) = app.deep_link().get_current()? {
-        for url in urls {
-            deliver(
-                app,
-                NativeOpen::Link {
-                    url: url.to_string(),
-                },
-            );
-        }
-    }
-    Ok(())
+            Ok(())
+        })
+        .build()
 }
 
 #[tauri::command]
