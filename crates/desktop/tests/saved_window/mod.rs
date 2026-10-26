@@ -14,7 +14,7 @@ fn saved() -> serde_json::Value {
 
 fn observe(
     record: Option<Vec<u8>>,
-    check: impl FnOnce(tauri::AppHandle, std::path::PathBuf) + Send + 'static,
+    check: impl FnOnce(tauri::AppHandle, std::path::PathBuf, mpsc::Receiver<bool>) + Send + 'static,
 ) {
     let dir = tempfile::tempdir().unwrap();
     let mut probe_context = tauri::test::mock_context(tauri::test::noop_assets());
@@ -39,11 +39,22 @@ fn observe(
         desktop::Config::locate(None, std::path::Path::new("/unused"), dir.path(), 1).unwrap();
     config.data_dir = Some(dir.path().join("projects"));
     let (sender, restored) = mpsc::channel();
+    let (fullscreen_sender, fullscreen_completed) = mpsc::channel();
     let observer = tauri::plugin::Builder::<tauri::Wry, ()>::new("restore-observer")
         .on_window_ready(move |window| {
             if window.label() != "main" {
                 return;
             }
+            #[cfg(target_vendor = "apple")]
+            {
+                let sender = fullscreen_sender.clone();
+                native::watch_fullscreen(window.clone(), move |fullscreen| {
+                    let _ = sender.send(fullscreen);
+                })
+                .unwrap();
+            }
+            #[cfg(not(target_vendor = "apple"))]
+            let _ = &fullscreen_sender;
             let restored_window = window.clone();
             let sender = sender.clone();
             window.listen("window-state-restored", move |_| {
@@ -78,7 +89,7 @@ fn observe(
                     .is_visible()
                     .unwrap()
             );
-            check(handle.clone(), path);
+            check(handle.clone(), path, fullscreen_completed);
             assert_eq!(
                 std::fs::read_to_string(drafts).unwrap(),
                 "original draft 雪"
@@ -123,84 +134,90 @@ fn expected(main: &tauri::WebviewWindow) -> (f64, f64, f64, f64) {
 }
 
 pub fn u3787e_restore_uses_saved_normal_bounds() {
-    observe(Some(serde_json::to_vec(&saved()).unwrap()), |app, path| {
-        let main = app.get_webview_window("main").unwrap();
-        assert!(!main.is_maximized().unwrap());
-        assert!(!main.is_fullscreen().unwrap());
-        let scale = main.scale_factor().unwrap();
-        let (want_w, want_h, want_x, want_y) = expected(&main);
-        wait(|| {
+    observe(
+        Some(serde_json::to_vec(&saved()).unwrap()),
+        |app, path, fullscreen_completed| {
+            let main = app.get_webview_window("main").unwrap();
+            assert!(!main.is_maximized().unwrap());
+            assert!(!main.is_fullscreen().unwrap());
+            let scale = main.scale_factor().unwrap();
+            let (want_w, want_h, want_x, want_y) = expected(&main);
+            wait(|| {
+                let size = main.outer_size().unwrap().to_logical::<f64>(scale);
+                (size.width - want_w).abs() <= 1.0
+            });
             let size = main.outer_size().unwrap().to_logical::<f64>(scale);
-            (size.width - want_w).abs() <= 1.0
-        });
-        let size = main.outer_size().unwrap().to_logical::<f64>(scale);
-        assert!((size.width - want_w).abs() <= 1.0, "{size:?}");
-        let inner = main.inner_size().unwrap().to_logical::<f64>(scale);
-        // The runner's display and title bar decide the height; the saved one is only an upper bound.
-        assert!(inner.height <= want_h + 1.0, "{inner:?} want {want_h}");
-        assert!(inner.height >= 100.0, "{inner:?}");
-        let position = main.outer_position().unwrap().to_logical::<f64>(scale);
-        assert!((position.x - want_x).abs() <= 1.0, "{position:?}");
-        assert!((position.y - want_y).abs() <= 1.0, "{position:?}");
-        let original = main.outer_size().unwrap();
-        // Actual native transitions, with native state/geometry as the completion signal.
-        for fullscreen in [false, true] {
-            if fullscreen {
-                main.set_fullscreen(true).unwrap();
-            } else {
-                main.maximize().unwrap();
-            }
-            wait(|| {
-                if fullscreen {
-                    main.is_fullscreen().unwrap()
-                } else {
-                    main.is_maximized().unwrap()
-                }
-            });
-            app.save_window_state(
-                StateFlags::SIZE
-                    | StateFlags::POSITION
-                    | StateFlags::MAXIMIZED
-                    | StateFlags::FULLSCREEN,
-            )
-            .unwrap();
-            let stored: serde_json::Value =
-                serde_json::from_slice(&std::fs::read(path.join(".window-state.json")).unwrap())
-                    .unwrap();
-            assert_eq!(
-                stored["main"]["width"].as_f64().unwrap()
-                    / stored["main"]["scale"].as_f64().unwrap(),
-                want_w
-            );
-            if fullscreen {
-                main.set_fullscreen(false).unwrap();
-            } else {
-                main.unmaximize().unwrap();
-            }
-            wait(|| {
-                !main.is_fullscreen().unwrap()
-                    && !main.is_maximized().unwrap()
-                    && main.outer_size().unwrap() == original
-            });
-        }
-        #[cfg(target_vendor = "apple")]
-        {
+            assert!((size.width - want_w).abs() <= 1.0, "{size:?}");
+            let inner = main.inner_size().unwrap().to_logical::<f64>(scale);
+            // The runner's display and title bar decide the height; the saved one is only an upper bound.
+            assert!(inner.height <= want_h + 1.0, "{inner:?} want {want_h}");
+            assert!(inner.height >= 100.0, "{inner:?}");
             let position = main.outer_position().unwrap().to_logical::<f64>(scale);
-            let panel = native::CapturePanel::new(
-                app.clone(),
-                tauri::WebviewUrl::External("about:blank".parse().unwrap()),
-            )
-            .unwrap();
-            panel.show().unwrap();
-            panel.dismiss().unwrap();
-            panel.release().unwrap();
-            assert_eq!(
-                main.outer_position().unwrap().to_logical::<f64>(scale),
-                position
-            );
-            assert_eq!(main.outer_size().unwrap(), original);
-        }
-    });
+            assert!((position.x - want_x).abs() <= 1.0, "{position:?}");
+            assert!((position.y - want_y).abs() <= 1.0, "{position:?}");
+            let original = main.outer_size().unwrap();
+            // Actual native transitions, with native state/geometry as the completion signal.
+            for fullscreen in [false, true] {
+                if fullscreen {
+                    main.set_fullscreen(true).unwrap();
+                    fullscreen_transition(&main, &fullscreen_completed, true);
+                } else {
+                    main.maximize().unwrap();
+                }
+                wait(|| {
+                    if fullscreen {
+                        main.is_fullscreen().unwrap()
+                    } else {
+                        main.is_maximized().unwrap()
+                    }
+                });
+                app.save_window_state(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::FULLSCREEN,
+                )
+                .unwrap();
+                let stored: serde_json::Value = serde_json::from_slice(
+                    &std::fs::read(path.join(".window-state.json")).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(
+                    stored["main"]["width"].as_f64().unwrap()
+                        / stored["main"]["scale"].as_f64().unwrap(),
+                    want_w
+                );
+                if fullscreen {
+                    main.set_fullscreen(false).unwrap();
+                    fullscreen_transition(&main, &fullscreen_completed, false);
+                } else {
+                    main.unmaximize().unwrap();
+                }
+                wait(|| {
+                    !main.is_fullscreen().unwrap()
+                        && !main.is_maximized().unwrap()
+                        && main.outer_size().unwrap() == original
+                });
+            }
+            #[cfg(target_vendor = "apple")]
+            {
+                let position = main.outer_position().unwrap().to_logical::<f64>(scale);
+                let panel = native::CapturePanel::new(
+                    app.clone(),
+                    tauri::WebviewUrl::External("about:blank".parse().unwrap()),
+                )
+                .unwrap();
+                panel.show().unwrap();
+                panel.dismiss().unwrap();
+                panel.release().unwrap();
+                assert_eq!(
+                    main.outer_position().unwrap().to_logical::<f64>(scale),
+                    position
+                );
+                assert_eq!(main.outer_size().unwrap(), original);
+            }
+        },
+    );
 }
 
 // The read is the wait; the deadline bounds a missing native transition, with no fixed delay.
@@ -211,6 +228,7 @@ fn wait(mut completed: impl FnMut() -> bool) {
             Instant::now() < deadline,
             "native transition did not settle"
         );
+        std::thread::yield_now();
     }
 }
 
@@ -229,16 +247,19 @@ pub fn u3787e_invalid_state_is_reachable() {
     observe(Some(serde_json::to_vec(&record).unwrap()), reachable);
 }
 pub fn u3787e_corrupt_state_is_reachable() {
-    observe(Some(b"{broken".to_vec()), |app, path| {
-        reachable(app.clone(), path.clone());
-        assert!(app.save_window_state(StateFlags::all()).is_err());
-        assert_eq!(
-            std::fs::read(path.join(".window-state.json")).unwrap(),
-            b"{broken"
-        );
-    });
+    observe(
+        Some(b"{broken".to_vec()),
+        |app, path, fullscreen_completed| {
+            reachable(app.clone(), path.clone(), fullscreen_completed);
+            assert!(app.save_window_state(StateFlags::all()).is_err());
+            assert_eq!(
+                std::fs::read(path.join(".window-state.json")).unwrap(),
+                b"{broken"
+            );
+        },
+    );
 }
-fn reachable(app: tauri::AppHandle, _: std::path::PathBuf) {
+fn reachable(app: tauri::AppHandle, _: std::path::PathBuf, _: mpsc::Receiver<bool>) {
     let main = app.get_webview_window("main").unwrap();
     let scale = main.scale_factor().unwrap();
     let area = *main.current_monitor().unwrap().unwrap().work_area();
@@ -266,63 +287,65 @@ fn state_reopens(fullscreen: bool) {
     } else {
         "maximized"
     }] = true.into();
-    observe(Some(serde_json::to_vec(&record).unwrap()), move |app, _| {
-        let main = app.get_webview_window("main").unwrap();
-        let (want_w, _, want_x, want_y) = expected(&main);
-        if fullscreen {
-            // AppKit on a CI runner may refuse fullscreen while the App is inactive: ask again once it is up,
-            // and when it still refuses, the restored window must still sit at the normal bounds.
-            let until = Instant::now() + Duration::from_secs(3);
-            while !main.is_fullscreen().unwrap() && Instant::now() < until {}
-            if !main.is_fullscreen().unwrap() {
-                main.set_fullscreen(true).unwrap();
-                let until = Instant::now() + Duration::from_secs(3);
-                while !main.is_fullscreen().unwrap() && Instant::now() < until {}
+    observe(
+        Some(serde_json::to_vec(&record).unwrap()),
+        move |app, _, fullscreen_completed| {
+            let main = app.get_webview_window("main").unwrap();
+            let (want_w, _, want_x, want_y) = expected(&main);
+            if fullscreen {
+                fullscreen_transition(&main, &fullscreen_completed, true);
+            } else {
+                wait(|| main.is_maximized().unwrap());
             }
-            if !main.is_fullscreen().unwrap() {
-                let scale = main.scale_factor().unwrap();
-                let size = main.outer_size().unwrap().to_logical::<f64>(scale);
-                assert!(
-                    (size.width - want_w).abs() <= 1.0,
-                    "{size:?} want width {want_w}"
-                );
-                return;
-            }
-        } else {
-            wait(|| main.is_maximized().unwrap());
-        }
-        let leave = || {
             if fullscreen {
                 main.set_fullscreen(false).unwrap();
+                fullscreen_transition(&main, &fullscreen_completed, false);
             } else {
                 main.unmaximize().unwrap();
             }
-        };
-        leave();
-        // AppKit drops an exit request that lands mid-transition, so repeat it while the window stays up.
-        let mut asked = Instant::now();
-        wait(|| {
-            let still = main.is_maximized().unwrap() || main.is_fullscreen().unwrap();
-            if still && asked.elapsed() > Duration::from_secs(2) {
-                leave();
-                asked = Instant::now();
-            }
-            !still
-                && (main
+            let deadline = Instant::now() + Duration::from_secs(8);
+            loop {
+                let full = main.is_fullscreen().unwrap();
+                let zoomed = main.is_maximized().unwrap();
+                let size = main
                     .outer_size()
                     .unwrap()
-                    .to_logical::<f64>(main.scale_factor().unwrap())
-                    .width
-                    - want_w)
-                    .abs()
-                    <= 1.0
-        });
-        let scale = main.scale_factor().unwrap();
-        let near = |p: tauri::LogicalPosition<f64>| {
-            (p.x - want_x).abs() <= 1.0 && (p.y - want_y).abs() <= 1.0
-        };
-        wait(|| near(main.outer_position().unwrap().to_logical::<f64>(scale)));
-        let position = main.outer_position().unwrap().to_logical::<f64>(scale);
-        assert!(near(position), "{position:?} want ({want_x}, {want_y})");
-    });
+                    .to_logical::<f64>(main.scale_factor().unwrap());
+                let position = main
+                    .outer_position()
+                    .unwrap()
+                    .to_logical::<f64>(main.scale_factor().unwrap());
+                if !full
+                    && !zoomed
+                    && (size.width - want_w).abs() <= 1.0
+                    && (position.x - want_x).abs() <= 1.0
+                    && (position.y - want_y).abs() <= 1.0
+                {
+                    break;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "normal bounds did not settle: fullscreen={full}, maximized={zoomed}, size={size:?}, position={position:?}; want width={want_w}, position=({want_x}, {want_y})"
+                );
+                std::thread::yield_now();
+            }
+        },
+    );
+}
+
+// AppKit's didEnter/didExit notification is the fence between native input operations.
+fn fullscreen_transition(
+    main: &tauri::WebviewWindow,
+    completed: &mpsc::Receiver<bool>,
+    want: bool,
+) {
+    let result = completed.recv_timeout(Duration::from_secs(8));
+    assert!(
+        matches!(result, Ok(fullscreen) if fullscreen == want),
+        "fullscreen completion {want} missing: {result:?}; fullscreen={:?}, maximized={:?}, size={:?}, position={:?}",
+        main.is_fullscreen(),
+        main.is_maximized(),
+        main.outer_size(),
+        main.outer_position()
+    );
 }
