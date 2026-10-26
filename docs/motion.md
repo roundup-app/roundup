@@ -219,3 +219,21 @@ lazy Motion chunk; its dependency version and engine imports are unchanged. The
 original engine-plus-press increment remains in `press-bundle.json`; this delta
 measures only preference wiring. Both entries exceed 400,000 bytes. No native
 timing or complete reduced-motion pass is claimed here.
+
+The working arc now uses Motion rather than CSS `working-turn`. `--duration-working`
+retains the 960 ms constant turn; `--easing-working` and the two glyph crossfade
+curves are Tokens. A Kind change snapshots the outgoing arc's displayed transform
+before Solid redraws it; that inert mark stays frozen while fading. Disposing a
+working mark cancels its loop. Production arcs read the App's existing
+`ReducedMotionContext`; isolated fixtures use the existing preference holder.
+A live reduced-motion change cancels rotation and fades the static quarter over
+`--duration-reduced`, without adding attention or changing Kind. Re-enabling motion
+resumes the still-working indication, without replaying a Kind crossfade.
+
+The CSS build now preserves `--duration-reduced` while zeroing other legacy movement
+Tokens. This is a prerequisite for M10, not completion of the remaining legacy
+preference layers. `observers/U3010c/glyph.eval` records the actual App's arc matrices,
+mark alignment, opacity and browser animations. Its base/head traces under
+`artifacts/ux/U3010c/glyph-engine/` distinguish the previous outgoing arc's continued
+rotation from the new frozen phase. All layer/layout/completion adoption, remaining
+inventory, full capture and native scheduling obligations remain on #3821.
