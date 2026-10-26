@@ -26,5 +26,5 @@
     "Project-tab pointer/caret observer is still under final verification.",
     "Native appearance is not observed; the user reports what they meet on the Mac."
   ],
-  "captures": "base/ and head/; PNGs remain uncommitted"
+  "captures": "base/ and head/; capture images remain uncommitted"
 }
