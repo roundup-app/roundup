@@ -6,7 +6,7 @@ pub use webkit_rate::{Missing, Preferences, plugin};
 #[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
 mod application;
 #[cfg(all(target_vendor = "apple", feature = "idle-perf"))]
-pub use application::watch;
+pub use application::{watch, watch_fullscreen};
 
 #[cfg(target_vendor = "apple")]
 mod capture;

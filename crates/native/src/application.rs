@@ -23,7 +23,10 @@ impl Drop for Observers {
         }
     }
 }
-thread_local! { static OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers([None, None])) }; }
+thread_local! {
+    static OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers([None, None])) };
+    static FULLSCREEN_OBSERVERS: RefCell<Observers> = const { RefCell::new(Observers([None, None])) };
+}
 
 /// Register hide/unhide observation on Tauri's main thread; replacement unregisters the old callbacks.
 pub fn watch<R: Runtime>(
@@ -76,4 +79,53 @@ fn watch_on_main<R: Runtime>(
             }
         });
     }
+}
+
+/// Observe completed fullscreen transitions for one native window. Register before requesting
+/// fullscreen; Tauri's is_fullscreen also reports the in-progress target, not completion.
+/// Replacement unregisters the previous window's callbacks on the main thread.
+pub fn watch_fullscreen<R: Runtime>(
+    window: tauri::Window<R>,
+    observed: impl Fn(bool) + Send + Sync + 'static,
+) -> tauri::Result<()> {
+    let dispatch = window.clone();
+    dispatch.run_on_main_thread(move || {
+        let _main = MainThreadMarker::new().expect("Tauri dispatches observers on the main thread");
+        let pointer = window
+            .ns_window()
+            .expect("the observed native window exists");
+        // SAFETY: Tauri supplies this live NSWindow; it is borrowed only on its main thread.
+        let object = unsafe { &*pointer.cast::<AnyObject>() };
+        let observed = std::sync::Arc::new(observed);
+        let center = NSNotificationCenter::defaultCenter();
+        for (index, (name, fullscreen)) in [
+            ("NSWindowDidEnterFullScreenNotification", true),
+            ("NSWindowDidExitFullScreenNotification", false),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let observed = observed.clone();
+            let block =
+                RcBlock::new(move |_notification: NonNull<NSNotification>| observed(fullscreen));
+            // SAFETY: AppKit delivers this window's notifications on the main thread;
+            // the center copies the block and the retained token controls its lifetime.
+            let token = unsafe {
+                center.addObserverForName_object_queue_usingBlock(
+                    Some(&NSString::from_str(name)),
+                    Some(object),
+                    None,
+                    &block,
+                )
+            };
+            FULLSCREEN_OBSERVERS.with(|observers| {
+                if let Some(previous) = observers.borrow_mut().0[index].replace(token) {
+                    // SAFETY: this is the exact token this center returned.
+                    unsafe {
+                        center.removeObserver((*previous).as_ref());
+                    }
+                }
+            });
+        }
+    })
 }
