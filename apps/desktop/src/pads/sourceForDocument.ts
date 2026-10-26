@@ -3,6 +3,8 @@ import { parserCtx, remarkCtx, schemaCtx, serializerCtx } from "@milkdown/kit/co
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
 import { ParserState } from "@milkdown/kit/transformer";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
+// Reuse: jsdiff 9.0.0 (the npm latest, modified 2026-04-13) aligns block arrays with an identity-aware comparator. Milkdown's
+// prosemirror-changeset 2.4.4 diffs document steps, not arrays under a caller comparator, and remark offers no diff.
 import { diffArrays } from "diff";
 
 const comparable = (node: DocumentNode): DocumentNode => {
