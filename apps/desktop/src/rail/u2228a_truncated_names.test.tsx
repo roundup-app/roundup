@@ -1,3 +1,5 @@
+import { createRoot, createSignal } from "solid-js";
+import { createCutTitle } from "../ui/cutTitle";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { agent, workstream } from "../testing/nodes";
@@ -6,6 +8,7 @@ import { itemOf, mountRail, rowOf } from "./railFixture";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const NAME = `payments workstream ${"with a very long tail ".repeat(3)}`.trim();
@@ -53,4 +56,57 @@ it("u2228c_a_row_opens_no_tooltip", async () => {
 
   await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
+});
+
+it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => {
+  const observers: { targets: Set<Element>; notify(target: Element): void }[] = [];
+
+  vi.stubGlobal("ResizeObserver", class {
+    targets = new Set<Element>();
+    constructor(private callback: ResizeObserverCallback) { observers.push(this); }
+    observe(target: Element) { this.targets.add(target); }
+    unobserve(target: Element) { this.targets.delete(target); }
+    disconnect() { this.targets.clear(); }
+    notify(target: Element) {
+      if (this.targets.has(target)) this.callback([{ target, contentRect: new DOMRect(0, 0, 100, 20), borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] }], this);
+    }
+  });
+  const old = document.createElement("span");
+  const current = document.createElement("span");
+  const extra = document.createElement("div");
+  const nextExtra = document.createElement("div");
+  const measured = vi.fn(() => 200);
+
+  Object.defineProperty(current, "scrollWidth", { get: measured });
+  const owner = () => createRoot(dispose => {
+    const [watched, setWatched] = createSignal<Element>(extra);
+    const title = createCutTitle(() => NAME, { watch: () => watched() });
+
+    title.ref(old);
+    return { dispose, setWatched, ref: title.ref };
+  });
+  const first = owner();
+
+  // createCutTitle schedules its text/ref measurement in a microtask.
+  await Promise.resolve();
+  first.ref(current);
+  first.setWatched(nextExtra);
+  await Promise.resolve();
+  measured.mockClear();
+  for (const observer of observers) { observer.notify(old); observer.notify(extra); }
+  expect(measured).not.toHaveBeenCalled();
+  for (const observer of observers) observer.notify(nextExtra);
+  expect(measured).toHaveBeenCalledTimes(1);
+  first.dispose();
+  const second = owner();
+
+  second.ref(current);
+  await Promise.resolve();
+  measured.mockClear();
+  for (const observer of observers) observer.notify(current);
+  expect(measured).toHaveBeenCalledTimes(1);
+  second.dispose();
+  measured.mockClear();
+  for (const observer of observers) observer.notify(current);
+  expect(measured).not.toHaveBeenCalled();
 });
