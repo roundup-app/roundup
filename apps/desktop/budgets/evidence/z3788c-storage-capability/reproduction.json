@@ -1,0 +1,7 @@
+{
+  "fresh_npm_ci_exit": 0,
+  "production_probe_exit": 1,
+  "stdout_matches_archived_result": true,
+  "wrong_condition_exit": 2,
+  "cleanup": "temporary directory removed on context exit"
+}
