@@ -1,3 +1,4 @@
+import { chooseAction as chooseRailAction } from "../rail/railFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -249,10 +250,10 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
   else if (change === "selection") connected.rail.select("ops");
   else {
     app.handlers["agent.spawn"] = () => new Promise(() => {});
-    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-id="lead"] button[aria-label="Add Agent"]')!);
+    await chooseRailAction(app, "lead", "Add Agent");
   }
 
-  await waitFor(() => expect(actionNames()).not.toContain(label));
+  await waitFor(() => expect(actionRows()).not.toContain(stale));
   const afterChange = app.calls.length;
   fireEvent.pointerDown(stale, { button: 0 });
   fireEvent.click(stale);
