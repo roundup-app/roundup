@@ -30,6 +30,7 @@
   --terminal-bright-cyan: #3e999f;
   --terminal-bright-white: #ffffff;
 
+  --transparent: transparent;
   --ground: #ffffff;
   --sunken: #f5f5f7;
   --hover: rgba(0, 0, 0, 0.04);
@@ -155,6 +156,13 @@
   --pad-menu-max-height: 320px;
   --pad-menu-min-width: 192px;
 
+  /* Container query thresholds. */
+  --query-rail-actions: 252px;
+  --query-rail-compact: 220px;
+  --query-rail-detail: 360px;
+  --query-name-compact: 12rem;
+  --query-name-minimal: 6rem;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -166,7 +174,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+ :root {
     --terminal-background: #282c34;
     --terminal-foreground: #ffffff;
     --terminal-cursor: #ffffff;
@@ -215,7 +223,7 @@
 }
 
 @media (prefers-contrast: more) {
-  :root {
+ :root {
     --grey: var(--text);
     --hairline: rgba(0, 0, 0, 0.4);
     --scrollbar-thumb: rgba(0, 0, 0, 0.6);
@@ -223,7 +231,7 @@
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root {
+ :root {
     --hairline: rgba(255, 255, 255, 0.4);
     --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
@@ -327,7 +335,7 @@ button, file-tree-container, diffs-container {
 }
 
 @media (prefers-contrast: more) {
-  :root[data-mode="light"] {
+ :root[data-mode="light"] {
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
   --terminal-cursor: #4d4d4c;
@@ -356,7 +364,7 @@ button, file-tree-container, diffs-container {
     --scrollbar-thumb: rgba(0, 0, 0, 0.6);
   }
 
-  :root[data-mode="dark"] {
+ :root[data-mode="dark"] {
     --grey: var(--text);
     --hairline: rgba(255, 255, 255, 0.4);
     --scrollbar-thumb: rgba(255, 255, 255, 0.6);
@@ -418,7 +426,7 @@ button, file-tree-container, diffs-container {
 .drawer[data-open="true"] {
   box-shadow: var(--elevation)
 }
-.pane .xterm .xterm-helper-textarea:focus-visible {
+.pane .xterm-helper-textarea:focus-visible {
   box-shadow: none
 }
 [data-flat-tab] {
@@ -432,4 +440,10 @@ button, file-tree-container, diffs-container {
   border: 0;
   border-radius: var(--radius-drawer);
   box-shadow: var(--elevation);
+}
+
+/* Vendor defaults have no owned duration; application durations are generated
+   from every duration/delay Token by the CSS build. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-vendor: 0s; }
 }
