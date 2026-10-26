@@ -410,6 +410,10 @@ mod tests {
             app.handle().clone(),
             Some("/A".to_owned()),
             Some(vec![
+                item("action:chord:⇧⌘T", "Capture a Todo", Some("⇧⌘T"), None),
+                item("action:chord:⌘/", "Focus Ask", Some("⌘/"), None),
+                item("action:leader:A", "Assign Todo", Some("⌘K A"), None),
+                item("action:leader:S", "Open work items", Some("⌘K S"), None),
                 item("view:notes", "Recover notes", None, None),
                 item("action:leader:C", "Review changes", Some("⌘K C"), None),
                 item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
@@ -452,6 +456,7 @@ mod tests {
             [
                 "action:chord:⌘N",
                 "action:chord:⌘T",
+                "action:chord:⇧⌘T",
                 "action:chord:⇧⌘N",
                 "action:leader:T",
                 "separator",
@@ -459,6 +464,9 @@ mod tests {
                 "action:leader:J",
                 "action:leader:I",
                 "action:leader:C",
+                "action:chord:⌘/",
+                "action:leader:A",
+                "action:leader:S",
                 "separator",
                 "view:notes",
                 "view:workstreams",
