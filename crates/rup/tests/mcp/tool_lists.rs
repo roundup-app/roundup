@@ -214,7 +214,8 @@ pub const NO_TOOL: [&str; 73] = [
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
     "plugin:window-bar|zoom_window",
-    "plugin:window-bar|native_material", // U134: native appearance, no Agent authority.
+    // U134: the user's window material, which an Agent cannot change.
+    "plugin:window-bar|native_material",
     "rpc",
     "subscribe",
     "terminal_output",
