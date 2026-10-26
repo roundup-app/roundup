@@ -364,7 +364,7 @@ const ProjectOverview = () => {
     </div>}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
-    <Show when={hasView("workstreams") && workstreams().length === 0 && rail.failure() === null}><p class="requested-empty" role="status">{copy.noWorkstreamYet}</p></Show>
+    <Show when={hasView("workstreams") && workstreams().length === 0 && rail.failure() === null}><ReservedLine class="requested-empty" status={copy.noWorkstreamYet} /></Show>
     <ul class="overview-list">
       <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
         {entry(node)}
@@ -522,7 +522,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
-      <ReservedLine message={props.state.failure()} status={props.state.loading() ? "Loading Made…" : records().length === 0 && props.state.failure() === null ? "Nothing published yet" : null} />
+      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : records().length === 0 && props.state.failure() === null ? copy.deliverablesEmpty : null} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
