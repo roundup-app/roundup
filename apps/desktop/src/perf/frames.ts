@@ -49,6 +49,9 @@ const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: 
 
 export type LayerAction = { panel: "drawer" | "shelf"; source: "synthetic-pointer" | "synthetic-key"; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
 
+/** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
+export type TodoAction = { action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
+
 export type FrameReport = {
   probe: "roundup-frame-recorder";
   /** App-driver facts are absent from recorder-only harness runs; they confer no native qualification. */
@@ -56,6 +59,7 @@ export type FrameReport = {
     viewport: { width: number; height: number; device_pixel_ratio: number };
     shelf_mode: string;
     layer_actions: LayerAction[];
+    todo_actions?: TodoAction[];
     fixture?: Fixture;
     variant: "unqualified";
     native_qualification: string;
