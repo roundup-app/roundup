@@ -1,6 +1,6 @@
 import * as v from "valibot";
-import { batch, createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
-import { ImportPanel } from "../importer/ImportPanel";
+import { batch, createEffect, createSignal, on, onCleanup, onMount, Show, lazy } from "solid-js";
+const ImportPanel = lazy(() => import("../importer/ImportPanel").then(module => ({ default: module.ImportPanel })));
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
