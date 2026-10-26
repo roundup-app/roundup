@@ -7,8 +7,7 @@ import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
-import { OrderDrawer } from "../orders/OrderDrawer";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack, lazy } from "solid-js";
 import { OrderLine } from "../orders/OrderLine";
 import { ReservedLine } from "../ink/ReservedLine";
 import { NoteQueue } from "./NoteQueue";
@@ -22,6 +21,8 @@ import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
+
+const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
 /**
  * The selected row's Terminal. Every error line of the centre lives in the pane's one fixed-height slot, so the

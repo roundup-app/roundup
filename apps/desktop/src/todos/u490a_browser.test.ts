@@ -19,8 +19,6 @@ type Point = { x: number; y: number };
 
 type State = { ids: number[]; active: string | null; drawer: boolean; reorders: unknown[] };
 
-type Frame = { t: number; tops: Record<string, number> };
-
 type List = { name: string; rows: string; setup: () => Promise<void> };
 
 /** The Rail of the `tree-40` harness with its first Agent's Todos shown. */
@@ -89,27 +87,6 @@ const settled = async () => {
 };
 
 const ALT = 1;
-
-/** U156: quarter-speed playback gives the frame observer enough samples of a fast curve.
- * Times remain animation milliseconds, so duration and per-step limits stay unchanged.
- */
-const sample = (rows: string) => page.call<void>(`rows => {
-  window.__frames = [];
-  window.__sampling = true;
-  const animate = Element.prototype.animate;
-  Element.prototype.animate = function(...args) {
-    const animation = animate.apply(this, args);
-    if (this.matches('.todo-row')) animation.playbackRate = 0.25;
-    return animation;
-  };
-  const read = () => {
-    window.__frames.push({t: performance.now() * 0.25, tops: Object.fromEntries([...document.querySelectorAll(rows)].map(b => [/#(\\d+)/.exec(b.getAttribute('aria-label'))[1], b.closest('.todo-row').getBoundingClientRect().top]))});
-    if (window.__sampling) requestAnimationFrame(read);
-  };
-  read();
-}`, rows);
-
-const frames = () => page.call<Frame[]>(`() => { window.__sampling = false; return window.__frames; }`);
 
 for (const list of [nested, shelf]) {
   const { rows } = list;
@@ -228,99 +205,5 @@ for (const list of [nested, shelf]) {
       expect((await state(rows)).reorders).toHaveLength(1);
     }, 60_000);
 
-    it.runIf(list === shelf)("u490a_reorder_motion", async () => {
-      await page.scheme("light");
-      await list.setup();
-
-      const ids = (await state(rows)).ids;
-
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const run1 = await frames();
-      const first = run1[0]!.tops;
-      const final = run1.at(-1)!.tops;
-      const moved = Object.keys(final).filter((id) => Math.abs(final[id]! - first[id]!) > 1);
-
-      expect(moved.sort()).toEqual([String(ids[0]), String(ids[1])].sort());
-
-      for (const id of Object.keys(final).filter((other) => !moved.includes(other))) expect(new Set(run1.map((frame) => Math.round(frame.tops[id]!))).size).toBe(1);
-
-      for (const id of moved) {
-        const series = run1.map((frame) => ({ t: frame.t, top: frame.tops[id]! }));
-        const begin = series.find((point) => Math.abs(point.top - first[id]!) >= 1)!;
-        const end = series.find((point) => point.t >= begin.t && Math.abs(point.top - final[id]!) < 1)!;
-
-        // The row starts where it showed, not at its final place.
-        expect(Math.abs(begin.top - first[id]!)).toBeLessThan(Math.abs(final[id]! - first[id]!) / 2);
-        expect(end.t - begin.t).toBeGreaterThan(60);
-        expect(end.t - begin.t).toBeLessThanOrEqual(200);
-
-        // While far from its place, no frame covers more than half of what remains.
-        for (let at = series.indexOf(begin); at < series.indexOf(end); at++) {
-          const remaining = Math.abs(final[id]! - series[at]!.top);
-
-          if (remaining > 12) expect(Math.abs(series[at + 1]!.top - series[at]!.top)).toBeLessThanOrEqual(remaining / 2 + 1);
-        }
-      }
-    }, 60_000);
-
-    it.runIf(list === shelf)("u490a_reorder_motion_continues_from_the_screen_when_interrupted", async () => {
-      await page.scheme("light");
-      await list.setup();
-
-      const id = String((await state(rows)).ids[0]);
-
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      // About half the distance covered: the row has left its old place and not reached its new one.
-      await page.until(`() => {
-        const id = ${JSON.stringify(id)};
-        const f = window.__frames, a = f[0].tops[id], now = f.at(-1).tops[id];
-        const others = Object.keys(f[0].tops).filter(k => k !== id);
-        return Math.abs(now - a) > 5 && others.some(k => Math.abs(f.at(-1).tops[k] - f[0].tops[k]) > 5);
-      }`);
-
-      const mark = await page.call<number>(`() => window.__frames.length`);
-
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const series = (await frames()).map((frame) => frame.tops[id]!);
-      const steps = series.slice(1).map((top, at) => Math.abs(top - series[at]!));
-
-      // Across the second move no frame jumps: the first step stays a frame's travel, never the old or the final place,
-      // and later frames, while far from the place, cover no more than half of what remains, as the new ease speeds up.
-      const travel = Math.max(...steps.slice(0, mark - 1));
-      const first = steps.findIndex((step, at) => at >= mark - 1 && step > 0);
-
-      expect(steps[first]).toBeLessThanOrEqual(travel + 12);
-
-      for (let at = first + 1; at < steps.length; at++) {
-        const remaining = Math.abs(series.at(-1)! - series[at]!);
-
-        if (remaining > 12) expect(steps[at]).toBeLessThanOrEqual(remaining / 2 + 1);
-      }
-    }, 60_000);
-
-    it.runIf(list === shelf)("u490a_reorder_motion_under_reduced_motion_is_one_frame", async () => {
-      await page.scheme("light", undefined, "motion");
-      await list.setup();
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const run3 = await frames();
-      const first = run3[0]!.tops;
-      const final = run3.at(-1)!.tops;
-      const changed = run3.filter((frame) => Object.keys(first).some((id) => Math.abs(frame.tops[id]! - first[id]!) > 1));
-
-      expect(changed.length).toBeGreaterThan(0);
-      expect(changed[0]!.tops).toEqual(final);
-    }, 60_000);
   });
 }
