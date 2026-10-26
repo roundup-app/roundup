@@ -247,3 +247,26 @@ This is incremental glyph integration cost; the original engine/press delta rema
 in `press-bundle.json`. The repository startup observer's current 437,814-byte
 ceiling passes, but this Issue's 400,000-byte acceptance fails at both revisions.
 No performance baseline, native scheduling protocol or presentation claim changes.
+
+M1 keyboard ordering now cancels any running row projection before an Alt+Up/Down
+request and suppresses the slide when that order arrives. The shared
+`createSortedList` still owns reorder calls, focus permission, refusal and scroll;
+its pointer/incoming engine remains pending M5 migration. This is limited to the
+Alt ordering path, not completion, nesting or keyboard drag acceptance.
+
+`observers/U3010c/keyboard-reorder.eval` records the rendered Shelf action on dark
+`tree-40`, 1512×950. Evaluate with `agent-browser eval --stdin` in an isolated
+headless harness. The base trace starts two row animations after one reorder;
+the head starts none and retains focus on Todo 2 at the final order on the first
+sample after acknowledgement. Raw samples and Checks are under
+`artifacts/ux/U3010c/keyboard-reorder/`. This is partial M1 evidence, not the full
+U3010b/c capture protocol.
+
+The three old U490a geometry tests (`u490a_reorder_motion`,
+`u490a_reorder_motion_continues_from_the_screen_when_interrupted`, and
+`u490a_reorder_motion_under_reduced_motion_is_one_frame`) all drove Alt ordering.
+Their timed key-slide requirement is retired by M1; the eval observer holds its
+replacement geometry evidence. `u490a_keyboard_reorders` still proves one call,
+final order and focus in both Rail and Shelf. U155 retains refusal/boundary/order
+behavior. Pointer/cancel behavior stays in U490a. No behavior test duplicates
+those proofs or asserts appearance.

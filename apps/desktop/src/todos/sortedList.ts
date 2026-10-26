@@ -46,6 +46,7 @@ export const createSortedList = (source: {
   let scroll: { element: HTMLElement; top: number; left: number } | null = null;
   onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
+  let instantOrder = false;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
@@ -72,6 +73,8 @@ export const createSortedList = (source: {
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
+    const instant = instantOrder;
+    instantOrder = false;
     if (scroll) {
       scroll.element.scrollTop = scroll.top;
       scroll.element.scrollLeft = scroll.left;
@@ -94,7 +97,7 @@ export const createSortedList = (source: {
 
       positions.set(id, position);
 
-      if (was === undefined || source.reducedMotion() || !("animate" in el)) continue;
+      if (was === undefined || instant || source.reducedMotion() || !("animate" in el)) continue;
       const x = was.left - position.left;
       const y = was.top - position.top;
 
@@ -161,6 +164,7 @@ export const createSortedList = (source: {
 
     if (message !== null) {
       refocus = null;
+      instantOrder = false;
       focus(() => buttons.get(id)?.focus());
     }
   };
@@ -170,6 +174,10 @@ export const createSortedList = (source: {
 
     if (to < 0 || to >= ids.length) return;
 
+    // M1: a key interrupts the displayed projection now; its acknowledged order never starts another slide.
+    animations.forEach(animation => animation.cancel());
+    animations.clear();
+    instantOrder = true;
     measure();
     requestedFocus = captureFocus();
     refocus = id;
@@ -180,6 +188,7 @@ export const createSortedList = (source: {
     step,
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
+      instantOrder = false;
       measure();
       requestedFocus = captureFocus();
       refocus = id;
@@ -201,6 +210,7 @@ export const createSortedList = (source: {
       const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
+      instantOrder = false;
       measure();
       requestedFocus = captureFocus();
       refocus = Number(moved);
