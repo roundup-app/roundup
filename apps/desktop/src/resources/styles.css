@@ -1,5 +1,10 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
+/* Overlays reserve only the footer while no hint row is mounted. */
+:root {
+  --hint-row-height: var(--length-zero);
+}
+
 /* U444, U2340c: the centre's last line, one line the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
 .resource-strip {
   position: relative;
