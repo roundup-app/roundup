@@ -61,7 +61,7 @@ class Release(unittest.TestCase):
                 self.assertIn(str(path), result.stderr)
 
     def test_c9c_dist_size_boundary(self):
-        for size, code in [(9_999_999, 0), (10_000_000, 1), (10_000_001, 1)]:
+        for size, code in [(17_999_999, 0), (18_000_000, 1), (18_000_001, 1)]:
             with self.subTest(size=size):
                 dist = self.root / str(size)
                 self.file(f"{size}/assets/lazy.js", size - 11)
@@ -70,7 +70,7 @@ class Release(unittest.TestCase):
                 result = self.run_check("dist", dist)
                 self.assertEqual(result.returncode, code, result.stderr)
                 self.assertIn(str(size), result.stdout)
-                self.assertIn("10000000", result.stdout)
+                self.assertIn("18000000", result.stdout)
 
     def test_c9c_invalid_dist_is_an_observer_error(self):
         empty = self.root / "empty"
