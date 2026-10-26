@@ -15,7 +15,7 @@ impl Observation {
 
 pub(super) struct State {
     /// Wake lifecycle observers even when an acknowledgement leaves Status unchanged.
-    pub(super) observed: tokio::sync::Notify,
+    pub(super) observed: Arc<tokio::sync::Notify>,
     /// H19: a test's observer of each gate decision; absent in production.
     pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
@@ -25,6 +25,13 @@ pub(super) struct State {
     pub(super) inbox: Arc<InboxState>,
     /// U3780a: the current or last tool call of each Agent.
     pub(super) tool_calls: Mutex<HashMap<String, claude_code::toolcall::Tracked>>,
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        // Receiver shutdown holds only the notification, so Project teardown must wake it.
+        self.observed.notify_waiters();
+    }
 }
 
 /// B50, B51: told the Message ids an Agent's transcript records as received from another session.

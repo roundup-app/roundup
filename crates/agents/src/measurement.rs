@@ -63,6 +63,7 @@ impl Agents {
     ) -> Result<std::collections::BTreeMap<String, String>, RpcError> {
         let me = Arc::downgrade(&self.shared);
         let alive = me.clone();
+        let observed = Arc::clone(&self.shared.events.observed);
         let failure = me.clone();
         let failed_agent = id.to_owned();
         let failed_attempt = attempt.to_owned();
@@ -101,13 +102,18 @@ impl Agents {
                     rail.record_interval_failure(&failed_agent,&failed_attempt,&cause);
                 }
             },
-            move || {
-                alive.upgrade().is_some_and(|shared| {
-                    shared
-                        .runs()
-                        .get(&owner)
-                        .is_some_and(|slot| slot.attempt() == lifetime)
-                })
+            async move {
+                loop {
+                    // Register before the authoritative read; a replacement or teardown in
+                    // between that read and the await must not strand the receiver.
+                    let changed = observed.notified();
+                    if !alive.upgrade().is_some_and(|shared| {
+                        shared.runs().get(&owner).is_some_and(|slot| slot.attempt() == lifetime)
+                    }) {
+                        break;
+                    }
+                    changed.await;
+                }
             },
         )
         .await
@@ -635,7 +641,7 @@ mod time_tests {
     #[tokio::test]
     async fn z3799b_interval_receiver_closes_with_its_attempt_or_project() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        for close_project in [false, true] {
+        for ending in ["removed", "replaced", "project closed"] {
             let (dir, _, shared) = crate::tests::shared_over_temp_dir(Arc::new(|| 1000));
             let agents = crate::tests::owner_agents(shared, dir.path());
             agents.shared.mark_starting("receiver", "1".into());
@@ -658,14 +664,20 @@ mod time_tests {
             assert!(response.starts_with(b"HTTP/1.1 404"));
             // The response proves Axum is serving this Attempt before its lifetime ends.
             let mut retained = Some(agents);
-            if close_project {
-                retained.take();
-            } else {
-                retained
+            match ending {
+                "project closed" => {
+                    retained.take();
+                }
+                "replaced" => retained
                     .as_ref()
                     .unwrap()
                     .shared
-                    .release_closing("receiver", false);
+                    .mark_starting("receiver", "2".into()),
+                _ => retained
+                    .as_ref()
+                    .unwrap()
+                    .shared
+                    .release_closing("receiver", false),
             }
             assert_eq!(
                 tokio::time::timeout(Duration::from_secs(2), connection.read_u8())
