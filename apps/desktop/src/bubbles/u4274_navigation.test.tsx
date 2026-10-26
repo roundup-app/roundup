@@ -101,3 +101,16 @@ it("u4274c_closing_the_last_terminal_returns_focus_to_rail", async () => {
   expect(document.querySelector(".terminal-tabs")).toBeNull();
   expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]);
 });
+
+it.each(["empty", "hidden", "shown"])("u4277c_terminal_empty_feedback_uses_project_inventory_%s", async inventory => {
+  const { connected, shells } = await mountNavigation(true);
+
+  if (inventory !== "empty") {
+    shells.push(info("shell", { owner: inventory === "hidden" ? "other" : "/p" }));
+    await connected().rail.refresh({ terminals: true });
+  }
+
+  connected().showView("terminal-tabs");
+  const bar = await screen.findByRole("group", { name: "Terminals" });
+  expect(within(bar).queryByRole("status") !== null).toBe(inventory === "empty");
+});
