@@ -26,7 +26,6 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
       ease = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
     };
-    resolveTokens();
     const stop = () => { effects.forEach((effect, el) => { effect.animation.cancel(); effect.restore(); releases.delete(el); }); effects.clear(); };
 
     const move = (el: Element, down: boolean) => {
@@ -38,8 +37,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       const computed = getComputedStyle(visual);
       const fromTransform = computed.transform === "none" ? new DOMMatrix().toString() : computed.transform;
       const transform = visual.style.transform;
-      const opacity = visual.style.opacity;
-      const restore = previous?.restore ?? (() => { visual.style.transform = transform; visual.style.opacity = opacity; });
+      const restore = previous?.restore ?? (() => { visual.style.transform = transform; });
       previous?.animation.cancel();
       restore();
       const base = getComputedStyle(visual).transform;
