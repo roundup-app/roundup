@@ -146,6 +146,10 @@ pub enum ImportPeriod {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportDiscoverParams {
+    /// Read the last list published by this Agent in this Project; absent uses direct discovery.
+    #[serde(default)]
+    #[specta(optional, type = String)]
+    pub agent: Option<String>,
     pub period: ImportPeriod,
 }
 
@@ -261,6 +265,10 @@ pub struct ImportSelection {
 /// U2875b: import the user's selection into this Project. At most 50 selections per call.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportCommitParams {
+    /// When confirming an Agent list, bind every pick to its retained preview. User-only.
+    #[serde(default)]
+    #[specta(optional, type = String)]
+    pub agent: Option<String>,
     pub selections: Vec<ImportSelection>,
 }
 
