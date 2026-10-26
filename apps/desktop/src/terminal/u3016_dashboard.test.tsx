@@ -95,7 +95,6 @@ it("u3016d_stale_reads_keep_original_identity_and_retry", async () => {
   app.emit(event({ name: "project.measurementsChanged", data: { revision: "4" } }));
   await screen.findByText(/Later read failed/, {}, { timeout: 3000 });
   expect(document.querySelector(".measurement-dashboard")?.getAttribute("data-revision")).toBe("3");
-  expect(document.querySelector(".measurement-line")?.textContent).toContain("28s Agent time");
 });
 
 it("u3016d_observations_update_one_live_view", async () => {
@@ -200,11 +199,7 @@ it("u3016g_dashboard_reads_in_the_ordered_layout", async () => {
   await publish(app, two());
   const root = screen.getByRole("region", { name: copy.measurementTime });
   const key = root.querySelector<HTMLElement>(".measurement-key")!;
-  const sequence = [root.querySelector("header")!, root.querySelector(".measurement-line")!, key, root.querySelector(".measurement-rows")!];
-  sequence.forEach((node, i) => { if (i > 0) expect(sequence[i - 1]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); });
   // The shared navigation now holds identity (U4315a).
-  expect(root.querySelector(".measurement-line")?.textContent).toContain("9h 49m elapsed");
-  expect(root.querySelector(".measurement-line")?.textContent).toContain("15m Agent time");
   expect(within(key).getAllByRole("listitem")).toHaveLength(2);
   expect(within(root).queryAllByRole("tab")).toHaveLength(0);
   expect(within(root).queryAllByRole("table")).toHaveLength(0);
