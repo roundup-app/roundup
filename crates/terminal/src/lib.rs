@@ -13,7 +13,7 @@ mod recorder;
 mod scheme;
 mod screen;
 
-use program::{Program, reap};
+use program::Program;
 use screen::{ScreenParser, ScreenState, Seen};
 
 use std::collections::BTreeMap;
@@ -33,10 +33,10 @@ use contracts::terminal::{
     TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
-use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
+use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 
 /// Events a slow subscriber may fall behind by before it is told it lagged (it never blocks the reader).
 const EVENT_BACKLOG: usize = 1024;
@@ -48,7 +48,7 @@ const SNAPSHOT_MAX_CELLS: u32 = 65_536;
 const SNAPSHOT_MAX_HISTORY_CELLS: usize = 262_144;
 const TITLE_ROWS: u16 = 24;
 const TITLE_COLS: u16 = 80;
-/// How often the reader thread checks whether a program that closed its PTY has ended.
+/// How often the reaper checks whether the original program has ended.
 const REAP_POLL: Duration = Duration::from_millis(5);
 const READ_CHUNK: usize = 8192;
 /// Writes a Terminal accepts ahead of its program reading them. Past this, `write` is `CONFLICT`:
@@ -175,6 +175,8 @@ struct Shared {
     clock: Arc<dyn Fn() -> f64 + Send + Sync>,
     bus: Bus,
     table: Mutex<BTreeMap<u64, Entry>>,
+    /// Wait registrations exist until the original program ends, independently of its PTY.
+    program_ends: Mutex<BTreeMap<u64, watch::Receiver<bool>>>,
     /// Env var names stripped from every spawned program's environment, however they reached the
     /// Daemon: its own environment or a caller's `params.env` (`open_with`'s caller owns the list).
     clean_env: Vec<String>,
@@ -273,6 +275,7 @@ impl Terminals {
                 bus,
                 clock: recorder::clock(),
                 table: Mutex::new(BTreeMap::new()),
+                program_ends: Mutex::new(BTreeMap::new()),
                 clean_env: clean_env
                     .iter()
                     .map(|marker| (*marker).to_owned())
@@ -456,8 +459,8 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
-        // The reader and input threads start before the program (the reader receives the child over a
-        // channel), so no later failure can leave a program that nobody waits for.
+        // All three threads start before the program, so a thread-creation failure leaves no
+        // program behind. The reaper observes completion independently of PTY EOF.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
         let writer = pair.master.take_writer().map_err(RpcError::internal)?;
         let writer = match &self.input_writer {
@@ -482,6 +485,25 @@ impl Terminals {
             rows: params.rows,
             scheme_notices: false,
         }));
+        let (program_arrival, program_arrives) = mpsc::channel::<Program>();
+        let (reaped, completion) = mpsc::channel();
+        let (ended, program_ended) = watch::channel(false);
+        let program_shared = Arc::clone(&self.shared);
+        std::thread::Builder::new()
+            .name(format!("terminal-{number}-reap"))
+            .spawn(move || {
+                if let Ok(program) = program_arrives.recv() {
+                    let code = program::exit_code(number, reap(&program));
+                    ended.send_replace(true);
+                    program_shared
+                        .program_ends
+                        .lock()
+                        .expect("terminal program ends lock")
+                        .remove(&number);
+                    let _ = reaped.send(code);
+                }
+            })
+            .map_err(RpcError::internal)?;
         let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let pump_output = output.clone();
@@ -494,15 +516,22 @@ impl Terminals {
             .spawn(move || {
                 // No child means the program never started: nothing to report.
                 if let Ok(handle) = child_arrives.recv() {
-                    pty::pump(
+                    pty::read(
                         &shared,
                         number,
                         reader,
                         &handle,
                         &reader_screen,
-                        pump_output,
-                        exit_hold.as_deref(),
+                        &pump_output,
                     );
+                    let code = completion
+                        .recv()
+                        .expect("the reaper reports program completion");
+                    if let Some(hold) = exit_hold {
+                        hold();
+                    }
+                    drop(pump_output);
+                    shared.finish(number, code);
                 }
             })
             .map_err(RpcError::internal)?;
@@ -552,6 +581,15 @@ impl Terminals {
                 handle: Some(Arc::clone(&handle)),
                 screen,
             },
+        );
+        self.shared
+            .program_ends
+            .lock()
+            .expect("terminal program ends lock")
+            .insert(number, program_ended);
+        assert!(
+            program_arrival.send(program).is_ok(),
+            "the reaper thread waits for its program"
         );
         assert!(
             arrival.send(handle).is_ok(),
@@ -846,6 +884,17 @@ impl Terminals {
             .values()
             .map(|entry| entry.info.clone())
             .collect()
+    }
+}
+
+/// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
+fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
+    loop {
+        let status = program.lock().expect("terminal program lock").try_wait()?;
+        match status {
+            Some(status) => return Ok(status),
+            None => std::thread::sleep(REAP_POLL),
+        }
     }
 }
 
