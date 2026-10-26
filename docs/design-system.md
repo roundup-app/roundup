@@ -78,7 +78,10 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-strike` / `--delay-strike` | `620ms` / `220ms` | same | the label strike (U3771) |
 | `--strike-thickness` / `--strike-offset` / `--stroke-tick` | `1px` / `55%` / `1.5` | same | the label strike line's thickness and height in the label, and the tick mark's stroke width (U3769) |
 | `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
-| `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
+| `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses `--duration-working` (U446). U105 periphery dimming is retired |
+| `--duration-working` | `960ms` | same | Motion working arc; cancelled on Kind change, disposal or live reduced motion |
+| `--easing-working` | `cubic-bezier(0, 0, 1, 1)` | same | constant working turn |
+| `--easing-glyph-in`, `--easing-glyph-out` | `cubic-bezier(0, 0, 0.58, 1)`, `cubic-bezier(0.42, 0, 1, 1)` | same | overlapping glyph fades, including the static reduced-motion quarter |
 
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
