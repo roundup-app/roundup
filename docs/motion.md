@@ -247,3 +247,42 @@ This is incremental glyph integration cost; the original engine/press delta rema
 in `press-bundle.json`. The repository startup observer's current 437,814-byte
 ceiling passes, but this Issue's 400,000-byte acceptance fails at both revisions.
 No performance baseline, native scheduling protocol or presentation claim changes.
+
+M1 keyboard ordering now cancels any running row projection before an Alt+Up/Down
+request and suppresses the slide when that order arrives. The shared
+`createSortedList` still owns reorder calls, focus permission, refusal and scroll;
+its pointer/incoming engine remains pending M5 migration. This is limited to the
+Alt ordering path, not completion, nesting or keyboard drag acceptance.
+
+`observers/U3010c/keyboard-reorder.eval` records the rendered Shelf action on dark
+`tree-40`, 1512×950. Evaluate with `agent-browser eval --stdin` in an isolated
+headless harness. The base trace starts two row animations after one reorder;
+the head starts none and retains focus on Todo 2 at the final order on the first
+sample after acknowledgement. Raw samples and Checks are under
+`artifacts/ux/U3010c/keyboard-reorder/`. This is partial M1 evidence, not the full
+U3010b/c capture protocol.
+
+The three old U490a geometry tests (`u490a_reorder_motion`,
+`u490a_reorder_motion_continues_from_the_screen_when_interrupted`, and
+`u490a_reorder_motion_under_reduced_motion_is_one_frame`) all drove Alt ordering.
+Their timed key-slide requirement is retired by M1; the eval observer holds its
+replacement geometry evidence. `u490a_keyboard_reorders` still proves one call,
+final order and focus in both Rail and Shelf. U155 retains refusal/boundary/order
+behavior. Pointer/cancel behavior stays in U490a. No behavior test duplicates
+those proofs or asserts appearance.
+
+`keyboard-interrupt.eval` starts an authoritative incoming reorder, then interrupts
+its running projection with Alt+Up. The retained trace records two effects before
+the key and still two total, with every subsequent sampled transform `none`.
+The reduced-motion key trace also starts no effects. Refusal keeps the original
+order. All automated Checks pass in both refusal captures, but the existing
+ReservedLine clips its multiline failure in both base and head; these captures
+make no complete visual acceptance claim.
+
+`docs/perf-motion-keyboard.json` compares production base
+`a592831a8` and source head `147847b5e`: entry/eager JS gzip-9 is
+437,770 → 437,808 bytes (+38), with 262 lazy JS chunks each, all enumerated.
+Motion remains eager; its version/imports are unchanged. This is the keyboard
+integration delta; the original engine increment remains in `press-bundle.json`.
+Both totals exceed 400,000 bytes. CSS is reported separately. Existing rule 7
+baselines and native scheduling obligations remain unchanged and unmeasured here.
