@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Kind } from "@contracts/Kind";
@@ -68,5 +69,18 @@ describe("u401 ring-fill", () => {
 
     expect([span?.getAttribute("role"), span?.getAttribute("aria-label")]).toEqual(["img", "Working"]);
     expect(container.querySelector("svg")?.querySelector("animate, animateTransform")).toBeNull();
+  });
+});
+
+describe("u3010c_m9", () => {
+  it("u3010c_a_kind_change_keeps_one_accessible_glyph_and_drops_the_old_mark", async () => {
+    const [kind, setKind] = createSignal<Kind>("idle");
+    const { container } = render(() => <KindGlyph kind={kind()} />);
+
+    setKind("working");
+    expect(container.querySelectorAll("[role=img]")).toHaveLength(1);
+    expect(container.querySelector("span")?.dataset["drawing"]).toBe("quarter");
+    cleanup();
+    expect(container.querySelector("svg")).toBeNull();
   });
 });
