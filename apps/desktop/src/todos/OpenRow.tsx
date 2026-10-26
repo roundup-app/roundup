@@ -163,7 +163,7 @@ export const OpenRow = (props: {
         </Show>
         <span class="row-controls">
           <IconButton aria-label={copy.openDraft} onClick={event => props.onOpen(props.todo, activationSource(event))}><Icon name="right" /></IconButton>
-          <Show when={props.groupComplete === undefined}><TickBox todo={props.todo} onToggle={toggle} /></Show>
+          <Show when={props.groupComplete === undefined}><TickBox motion={props.motion === true} todo={props.todo} onToggle={toggle} /></Show>
         </span>
       </div>
   );

@@ -632,6 +632,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "time",
  "tokio",
  "wait-timeout",
 ]
@@ -1017,6 +1018,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-window-state",
  "tempfile",
+ "time",
  "tokio",
 ]
 
@@ -3512,6 +3514,7 @@ dependencies = [
  "rusqlite",
  "rusqlite_migration",
  "tempfile",
+ "time",
 ]
 
 [[package]]
@@ -3889,6 +3892,7 @@ dependencies = [
  "rpc",
  "rupd",
  "rusqlite",
+ "rusqlite_migration",
  "schemars 1.2.2",
  "serde_json",
  "tempfile",

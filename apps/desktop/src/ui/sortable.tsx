@@ -1,3 +1,4 @@
+import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import "./sortable.css";
 import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
@@ -246,9 +247,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const source = event.operation.source;
 
     if (source?.element) {
-      source.element.removeAttribute("data-pressed");
+      clearPress(source.element);
 
-      for (const control of source.element.querySelectorAll("[data-pressed]")) control.removeAttribute("data-pressed");
+      for (const control of source.element.querySelectorAll("[data-pressed]")) clearPress(control);
     }
 
     previewed = null;

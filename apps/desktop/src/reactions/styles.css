@@ -168,7 +168,7 @@ body:has(.reaction-form) .app-select-item {
 
 body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="checked"]) {
   color: var(--text);
-  background-color: transparent;
+  background-color: var(--transparent);
 }
 
 .reactions {

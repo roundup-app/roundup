@@ -51,10 +51,7 @@
   display: none;
 }
 
-/* The library's open state is the only display rule; the popover is shown in the same turn. */
-.bubble-frame[data-state="open"] {
-  display: block !important;
-}
+
 
 .bubble {
   position: absolute;
@@ -70,8 +67,8 @@
 
 /* U3517c: the shell viewport shares the Terminal canvas ground. */
 .bubble-body,
-.bubble .xterm .xterm-viewport,
-.bubble .xterm .xterm-scrollable-element {
+.bubble .xterm-viewport.xterm-viewport,
+.bubble .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
 }
 
@@ -119,8 +116,8 @@
   opacity: 0;
 }
 
-.bubble-header:hover .bubble-dot .icon,
-.bubble-header:focus-within .bubble-dot .icon {
+.bubble-header:hover .icon,
+.bubble-header:focus-within .icon {
   opacity: 1;
 }
 
@@ -141,7 +138,7 @@
   background: var(--terminal-background);
 }
 
-.bubble-body > div {
+.bubble-body div {
   height: 100%;
   width: 100%;
 }
@@ -307,4 +304,10 @@
 .bubble-recovery.draft-recovery [data-part="title"] {
   font-size: var(--text-title);
   font-weight: 600;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+ :root:has(.bubble:focus-within) .centre-stack::before {
+    backdrop-filter: none;
+  }
 }
