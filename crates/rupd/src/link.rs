@@ -216,7 +216,11 @@ impl Daemon {
             .await
             .map_err(|err| {
                 if err.code == code::NOT_FOUND && !err.message.contains(kind) {
-                    RpcError::new(code::NOT_FOUND, format!("not found: {kind} {id}"))
+                    // The data still tells the caller whether another Project owns the object.
+                    RpcError {
+                        message: format!("not found: {kind} {id}"),
+                        ..err
+                    }
                 } else {
                     err
                 }
