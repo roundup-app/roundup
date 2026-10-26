@@ -440,12 +440,10 @@ rendered(`u3010b_padding_preserves_drawer_and_close_returns_${mode}_${rate}`, { 
         try {
           const initial = o.state();
           await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
-          await halfway(initial.left, initial.left - initial.width);
+          // Padding is inert at rest; it is no longer a dismissal control during opening.
+          await Promise.all(o.panel.getAnimations().map(animation => animation.finished.catch(() => {})));
           const pressed = await activate('.drawer');
           if (pressed.open !== 'true') throw new Error('Empty Drawer padding dismissed the Todo');
-          // The critic requires the corner Close to ride the panel. It is off-screen at half-opening.
-          // Wait for the actual opening completion before using that visible control; this is not a half-opening reversal.
-          await Promise.all(o.panel.getAnimations().map(animation => animation.finished.catch(() => {})));
           const closed = await activate('.drawer .close');
           if (closed.open !== 'false') throw new Error('Close did not dismiss Drawer');
           const returning = closed.left;
