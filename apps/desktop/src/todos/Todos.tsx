@@ -310,6 +310,7 @@ export const Todos = (props: {
   /** U3709, U3711: Tab nests a row under the one above it and ⇧Tab un-nests it, each one `todo.setBlockers`; the Daemon refuses a cycle (T4). */
   const nestOf = (todo: Todo, parent: number | null, above: Todo | null, first: boolean) => {
     const call = (blockers: number[]) => async () => {
+      sorted.stop();
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
