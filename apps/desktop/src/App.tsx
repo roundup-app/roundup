@@ -44,7 +44,7 @@ import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
-import { createXtermEmulators } from "./terminal/emulator";
+import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
@@ -209,7 +209,7 @@ export const App = (props: {
   };
 
   onMount(() => {
-    onCleanup(pressFeedback(document));
+    onCleanup(pressFeedback(document, props.reducedMotion));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
@@ -399,7 +399,7 @@ export const App = (props: {
     };
   } }]);
 
-  const emulators = () => props.createEmulator ?? createXtermEmulators();
+  const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>

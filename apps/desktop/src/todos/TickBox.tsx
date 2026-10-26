@@ -4,7 +4,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import "./rowButton.styles.css";
 
 /** U361/U461a: the native tick box in the Glyph's place; it completes or reopens the Todo. Reopening keeps the accepted check until refetch. */
-export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | null> }) => {
+export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | null>; motion?: boolean }) => {
   const [pending, setPending] = createSignal(false);
 
   createEffect(on(() => props.todo.done, () => setPending(false), { defer: true }));
@@ -36,7 +36,7 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
       }}
     />
     {/* U3769: the tick is a stroke on the box, its dash offset runs 1 (hidden) to 0 (drawn); the input stays the one control. */}
-    <svg class="todo-tick-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8.5 L6.8 11 L12 5.5" pathLength="1" /></svg>
+    <svg class="todo-tick-mark" data-checked={props.todo.done} data-motion={props.motion ? "play" : undefined} viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8.5 L6.8 11 L12 5.5" pathLength="1" /></svg>
     </span>
   );
 };

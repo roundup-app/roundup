@@ -3,7 +3,7 @@
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
   /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -110,7 +110,7 @@ button:hover:not([aria-disabled="true"]),
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
 button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   color: var(--text);
-  background-color: transparent;
+  background-color: var(--transparent);
 }
 
 button[data-feedback="ink"][data-pressed="true"]:not([aria-disabled="true"]) {
@@ -164,7 +164,7 @@ button[aria-disabled="true"] {
 }
 
 /* U2716a: the Overview band's washes and tile are the owner's explicit chrome exception. */
-.rail > .todo-project-root {
+.rail .todo-project-root {
   position: relative;
   flex: none;
   height: calc(var(--space-6) + var(--space-2));
@@ -181,11 +181,11 @@ button[aria-disabled="true"] {
 }
 
 /* The band's inset overrides the Rail's padding for its other fixed children. */
-.rail > button.todo-project-root[data-todo-root] {
+.rail button.todo-project-root[data-todo-root] {
   padding-inline: var(--space-3);
 }
 
-.todo-project-root > .overview-tile {
+.todo-project-root .overview-tile {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -197,20 +197,20 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 
-.rail > .todo-project-root:hover {
+.rail .todo-project-root:hover {
   background: var(--hover);
 }
 
-.rail > .todo-project-root[aria-pressed="true"] {
+.rail .todo-project-root[aria-pressed="true"] {
   background: var(--ground);
 }
 
-.todo-project-root[aria-pressed="true"] > .overview-tile {
+.todo-project-root[aria-pressed="true"] .overview-tile {
   background: var(--accent);
   color: var(--ground);
 }
 
-.rail > .todo-project-root[data-todo-drop] {
+.rail .todo-project-root[data-todo-drop] {
   background: var(--hover);
 }
 

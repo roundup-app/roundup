@@ -48,7 +48,7 @@
 }
 
 /* U524: a Terminal opened from the Project root replaces the placeholder. */
-[data-root-terminal] .pane .pane-empty {
+[data-root-terminal] .pane-empty {
   display: none;
 }
 
@@ -85,10 +85,10 @@
   padding-top: var(--space-2);
 }
 
-/* U3517c: the viewport and the surrounding inset share the canvas ground. */
+/* U3517c: the viewport and the surrounding inset share the canvas ground; the doubled class outranks the lazy xterm.css whatever order the sheets load in. */
 .pane-screen,
-.pane .xterm .xterm-viewport,
-.pane .xterm .xterm-scrollable-element {
+.pane .xterm-viewport.xterm-viewport,
+.pane .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
 }
 
@@ -97,14 +97,14 @@
 }
 
 /* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
-.pane .xterm .xterm-helper-textarea {
+.pane .xterm-helper-textarea {
   cursor: pointer;
   min-height: var(--space-5);
   color: var(--text);
   background-color: var(--ground);
 }
 
-.pane .xterm .xterm-helper-textarea:hover {
+.pane .xterm-helper-textarea:hover {
   color: var(--text);
   background-color: var(--ground);
 }
@@ -142,11 +142,7 @@
   height: 100%;
 }
 
-.centre-stack > .pane {
-  flex: 1;
-  height: auto;
-  min-height: 0;
-}
+
 
 .pane-empty-keys {
   display: flex;

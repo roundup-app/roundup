@@ -1,0 +1,2 @@
+// Evaluate in the isolated Vite harness with agent-browser eval --stdin.
+import("/observers/U3010c/layout.js").then(module => module.default())
