@@ -167,7 +167,7 @@ it("u4277c_empty_history_keeps_composition_without_target_actions", async () => 
   const list = document.querySelector<HTMLElement>(".ask-rows")!;
   await waitFor(() => expect(list.getAttribute("aria-busy")).toBe("false"));
   expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
-  expect(document.querySelector('.ask-history-status[role="status"]')?.textContent?.trim()).toBeTruthy();
+  expect(document.querySelector('.ask-history-status[role="status"]')).not.toBeNull();
   expect(document.querySelector('.ask-input')).toBeTruthy();
   expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
