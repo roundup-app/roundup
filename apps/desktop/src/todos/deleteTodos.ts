@@ -92,6 +92,9 @@ export function createTodoUndo() {
       return receipt.deleted.length > 0;
     } catch (error) {
       if (!(error instanceof Error)) throw error;
+      const identity = JSON.stringify([...new Set(chosen)].toSorted((a, b) => a - b));
+
+      if (!calls.get(forwarding)?.has(identity)) setUncertain(undefined);
       setFailure(error.message);
       setVisible(true);
 
