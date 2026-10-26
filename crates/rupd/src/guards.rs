@@ -52,13 +52,24 @@ impl Daemon {
             return Ok(());
         }
         std::fs::write(gate.with_extension("arrived"), method).map_err(RpcError::internal)?;
-        tokio::time::timeout(std::time::Duration::from_secs(10), async {
-            while gate.is_file() {
-                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-            }
+        let gate = gate.clone();
+        let released = tokio::task::spawn_blocking(move || {
+            crate::observers::wait_for_gate(
+                gate.parent()
+                    .filter(|dir| !dir.as_os_str().is_empty())
+                    .unwrap_or(std::path::Path::new(".")),
+                std::time::Duration::from_secs(10),
+                || !gate.is_file(),
+            )
         })
         .await
-        .map_err(|_| RpcError::conflict("original prompt effect observer was not released"))?;
+        .map_err(RpcError::internal)?
+        .map_err(RpcError::internal)?;
+        if !released {
+            return Err(RpcError::conflict(
+                "original prompt effect observer was not released",
+            ));
+        }
         Ok(())
     }
 
