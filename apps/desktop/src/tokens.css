@@ -482,7 +482,8 @@ button, file-tree-container, diffs-container {
   background: var(--transparent);
 }
 
-:root[data-native-material] :is(.rail, .window[data-shelf-mode="reserved"] .shelf) {
+:root[data-native-material] .rail,
+:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
   background-color: var(--material-tint);
 }
 
@@ -492,7 +493,8 @@ button, file-tree-container, diffs-container {
     background: var(--ground);
   }
 
-  :root[data-native-material] :is(.rail, .window[data-shelf-mode="reserved"] .shelf) {
+  :root[data-native-material] .rail,
+:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
     background-color: var(--sunken);
   }
 }

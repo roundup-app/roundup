@@ -4,15 +4,16 @@ import * as v from "valibot";
 
 /** Reveal material only after the native window confirms it; a missing capability stays opaque. */
 export const followMaterial = async (root: HTMLElement): Promise<() => void> => {
-  const apply = (enabled: unknown) => root.toggleAttribute("data-native-material", v.parse(v.boolean(), enabled));
+  const apply = (enabled: boolean) => root.toggleAttribute("data-native-material", enabled);
   let changed = false;
+
   const release = await listen("native-material", event => {
     changed = true;
-    apply(event.payload);
+    apply(v.parse(v.boolean(), event.payload));
   });
 
   try {
-    const initial = await invoke<boolean>("plugin:window-bar|native_material");
+    const initial = v.parse(v.boolean(), await invoke("plugin:window-bar|native_material"));
 
     if (!changed) apply(initial);
   } catch (error) {
