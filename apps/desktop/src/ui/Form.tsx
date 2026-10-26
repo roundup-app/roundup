@@ -18,13 +18,13 @@ const Group = (props: { label: string; children: JSX.Element }) =>
   <Fieldset.Root class="reaction-group"><Fieldset.Legend class="reaction-legend">{props.label}</Fieldset.Legend>{props.children}</Fieldset.Root>;
 
 /** Ark supplies spinbutton parsing, bounds and arrow-key increments. */
-const Number = (props: { label: string; value: string; onChange: (value: string) => void }) =>
+const Numeric = (props: { label: string; value: string; onChange: (value: string) => void }) =>
   <NumberInput.Root class="reaction-field" min={1} value={props.value} onValueChange={details => props.onChange(details.value)}>
     <NumberInput.Label class="reaction-label">{props.label}</NumberInput.Label><NumberInput.Input type="text" />
   </NumberInput.Root>;
 
 /** Ark's date input commits an explicit civil date; the caller retains unfinished text. */
-const Date = (props: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) =>
+const CivilDate = (props: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) =>
   <DatePicker.Root class="reaction-field" locale="en-CA" format={value => value.toString()} onValueChange={details => props.onChange(details.value[0]?.toString() ?? "")}>
     <DatePicker.Label class="reaction-label">{props.label}</DatePicker.Label>
     <DatePicker.Control><DatePicker.Input type="text" value={props.value} placeholder={props.placeholder} onInput={event => props.onChange(event.currentTarget.value)} /></DatePicker.Control>
@@ -39,4 +39,4 @@ const Checks = (props: { label: string; values: string[]; items: { value: string
     </ArkCheckbox.Root>}</For>
   </ArkCheckbox.Group>;
 
-export const Form = { Text, Group, Number, Date, Checks };
+export const Form = { Text, Group, Number: Numeric, Date: CivilDate, Checks };
