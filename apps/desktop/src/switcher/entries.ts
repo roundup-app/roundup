@@ -1,3 +1,4 @@
+import { single } from "fuzzysort";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { railOrder, resolvedWorkstream } from "../rail/layout";
@@ -26,9 +27,18 @@ export const entriesOf = (nodes: readonly RailNode[], terminals: readonly Termin
   return [...rows.map((entry, at) => ({ entry, at })).sort((a, b) => urgency(a.entry) - urgency(b.entry) || a.at - b.at).map(({ entry }) => entry), ...own];
 };
 
-/** The case-blind contains-filter of U51. */
+/** Z3788b: blank queries retain domain order; fuzzy matches rank stably within each group. */
 export const matching = (entries: readonly Entry[], text: string): Entry[] => {
-  const needle = text.trim().toLowerCase();
+  const needle = text.trim();
 
-  return entries.filter((entry) => entry.label.toLowerCase().includes(needle));
+  if (!needle) return [...entries];
+
+  return entries
+    .flatMap(entry => {
+      const match = single(needle, entry.label);
+
+      return match ? [{ entry, score: match.score }] : [];
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ entry }) => entry);
 };
