@@ -298,13 +298,22 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
   mkdirSync(directory, { recursive: true });
 
   for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) for (const run of (rate === 1 ? [1, 2, 3] : [1])) {
-    await openShelf("tree-40", mode === "overlay" ? 480 : 288, mode === "overlay" ? 645 : 320, 1512, "dark");
+    await openShelf("tree-40", mode === "overlay" ? 480 : 288, mode === "overlay" ? 560 : 320, 1512, "dark");
     await browser("set", "viewport", "1512", "950");
     const name = `pointer-${mode}-${rate}-run${run}`;
 
     await browser("record", "start", join(directory, `${name}.webm`));
 
     await browser("wait", ".shelf-tabs");
+
+    if (mode === "overlay") {
+      // U371's full-viewport fixture needs a resize after the floor changes so Layout measures its placement.
+      await evaluate("document.querySelector('.window').style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 25) + 'px')");
+      await browser("set", "viewport", "1512", "949");
+      await browser("set", "viewport", "1512", "950");
+      await settle();
+    }
+
 
     await browser("click", '.rail [data-id="tokens"] .name');
     await browser("wait", ".xterm-screen");
