@@ -15,16 +15,38 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   const pending: (() => void)[] = [];
   let holding = mode === "initial open";
   let completed = 0;
+  let reopen: HTMLElement | undefined;
+
   const reply = async () => {
     if (holding) await new Promise<void>(resolve => pending.push(resolve));
     completed++;
   };
-  app.rpc = async (method, params) => { await reply(); return rpc(method, params); };
-  app.subscribe = async (...args) => { await reply(); return subscribe(...args); };
+
+  app.rpc = async (method, params) => {
+    await reply();
+
+    return rpc(method, params);
+  };
+
+  app.subscribe = async (...args) => {
+    await reply();
+
+    return subscribe(...args);
+  };
+
   const projects = app.projects;
-  app.projects = async () => { completed++; return projects(); };
+  app.projects = async () => {
+    completed++;
+
+    return projects();
+  };
+
   const open = app.openProject;
-  app.openProject = async path => { completed++; return open(path); };
+  app.openProject = async path => {
+    completed++;
+
+    return open(path);
+  };
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
 
@@ -33,26 +55,31 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
     holding = true;
     completed = 0;
     app.exitDaemon({ code: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+    reopen = screen.getByRole("button", { name: "Reopen" });
+    fireEvent.click(reopen);
   }
 
   await waitFor(() => expect(pending.length).toBeGreaterThan(0));
   const rail = await screen.findByRole("region", { name: "Rail" });
   const centre = screen.getByRole("region", { name: "Centre" });
   expect(screen.getByRole("tab", { name: /payments-api/ })).toBeTruthy();
+
   if (mode === "initial open") {
     expect(within(rail).getByRole("status")).toBeTruthy();
     expect(within(centre).getByRole("status")).toBeTruthy();
   }
+
   expect(completed).toBeLessThanOrEqual(1);
   expect(pending.length).toBeGreaterThan(0);
 
   holding = false;
+
   for (const resolve of pending) resolve();
   await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+
+  if (reopen) await waitFor(() => expect(reopen?.isConnected).toBe(false));
   fireEvent.click(within(rail).getByText("Seeded Agent"));
-  await waitFor(() => expect(rail.querySelector('[data-selected="true"]')).toBeTruthy());
+  await waitFor(() => expect(rail.querySelector('[data-selected="true"]')?.getAttribute("data-id")).toBe("seeded"));
 });
 
 it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contract_scheme_and_event_order: %s", async contract => {
@@ -62,22 +89,33 @@ it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contrac
   const methods = app.handlers["daemon.methods"]!;
   app.handlers["daemon.ping"] = async () => {
     const result = await ping(null);
+
     if (contract === "equal") return result;
+
     if (contract === "missing") {
       // SAFETY: pre-contract Daemons return a ping without the now-required contract field.
       return { pong: true } as typeof result;
     }
+
     return { ...result, contract: { fingerprint: "different" } };
   };
+
   app.handlers["daemon.methods"] = async () => {
     const names = await methods(null);
+
     return contract === "older" ? names.slice(1) : [...names, "future.method"];
   };
+
   const scheme = Promise.withResolvers<null>();
   const subscription = Promise.withResolvers<void>();
   app.handlers["terminal.scheme"] = () => scheme.promise;
   const subscribe = app.subscribe;
-  app.subscribe = async (...args) => { await subscription.promise; return subscribe(...args); };
+  app.subscribe = async (...args) => {
+    await subscription.promise;
+
+    return subscribe(...args);
+  };
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(app.calls.some(call => call.method === "terminal.scheme")).toBe(true));
   expect(app.calls[0]?.method).toBe("daemon.ping");
@@ -88,10 +126,13 @@ it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contrac
   expect(app.calls.some(call => call.method === "rail.tree")).toBe(false);
   app.handlers["rail.tree"] = () => {
     expect(app.subscribed).toHaveLength(1);
+
     return [];
   };
+
   subscription.resolve();
   await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ });
+
   if (contract !== "equal") {
     expect(screen.getByRole("alert").textContent).toMatch(contract === "newer" ? /newer/ : /older/);
   }
