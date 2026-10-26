@@ -13,9 +13,13 @@ use tauri::{AppHandle, Manager, Runtime, State};
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum NativeOpen {
-    Project { path: String },
+    Project {
+        path: String,
+    },
     #[cfg(any(target_os = "macos", test))]
-    Link { url: String },
+    Link {
+        url: String,
+    },
 }
 
 #[derive(Default)]

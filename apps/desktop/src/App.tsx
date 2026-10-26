@@ -334,6 +334,7 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
+  const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
   const [linked, setLinked] = createSignal<{ path: string; content: LinkContent } | null>(null);
   createEffect(() => {
     const target = linked();
@@ -353,7 +354,7 @@ export const App = (props: {
       // The active Project mounts its existing Bubble listener after selection.
       queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
     } else if (content.kind === "pad" || content.kind === "todo") {
-      open.drawer.open(() => <LinkedItem content={content} onLateFailure={setWindowFailure} />, "key");
+      open.drawer.open(() => <LinkedItem content={content} onLateFailure={setNativeFailure} />, "key");
     }
 
     setLinked(null);
@@ -384,7 +385,7 @@ export const App = (props: {
 
             if (content.kind === "deliverable") throw new Error("This published link cannot be opened here. Open it from Results.");
             setLinked({ path: project.path, content });
-            setWindowFailure(null);
+            setNativeFailure(null);
 
             return;
           } catch (error) {
@@ -393,9 +394,9 @@ export const App = (props: {
           }
         }
 
-        setWindowFailure(failures.join("; ") || "The link's Project is not open. Open that Project and try the link again.");
-      }).catch(error => { if (!(error instanceof Error)) throw error; setWindowFailure(error.message); });
-    }).then(stop => { if (stopped) stop(); else release = stop; }).catch(error => setWindowFailure(String(error)));
+        setNativeFailure(failures.join("; ") || "The link's Project is not open. Open that Project and try the link again.");
+      }).catch(error => { if (!(error instanceof Error)) throw error; setNativeFailure(error.message); });
+    }).then(stop => { if (stopped) stop(); else release = stop; }).catch(error => setNativeFailure(String(error)));
     onCleanup(() => { stopped = true; release?.(); });
   });
 
@@ -553,6 +554,7 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
+          <Show when={nativeFailure()}>{message => <div role="alert" class="ink" data-tone="red" style={{ padding: "var(--space-3)", "white-space": "pre-wrap", "overflow-wrap": "anywhere" }}>{message()}</div>}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
