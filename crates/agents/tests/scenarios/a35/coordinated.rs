@@ -66,13 +66,16 @@ async fn subagent(f: &Fixture, parent: &str) -> RailNode {
     let node: RailNode = serde_json::from_value(f.agents.call(&ctx, "agent.spawn", json!({
         "cwd": f.dir.path().to_string_lossy(), "parent": parent, "order": {"kind": "work", "ask": "previous order", "done": "done", "limits": []}
     })).await.unwrap()).unwrap();
-    acknowledge(f, &node.id, ORIGINAL, "startup").await.unwrap();
+    let original = format!("87654321-1234-4234-8234-{:0>12}", node.id);
+    acknowledge(f, &node.id, &original, "startup")
+        .await
+        .unwrap();
     let cwd = conversation_cwd(f, &node.id).await;
-    let path = conversation(f, &cwd, ORIGINAL);
+    let path = conversation(f, &cwd, &original);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(
         path,
-        format!("{{\"sessionId\":\"{ORIGINAL}\",\"message\":\"at Mark\"}}\n"),
+        format!("{{\"sessionId\":\"{original}\",\"message\":\"at Mark\"}}\n"),
     )
     .unwrap();
     f.tree()

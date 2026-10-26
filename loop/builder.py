@@ -547,9 +547,12 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
 
 
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not. When the commits a run left on `branch` beyond `main`
-    are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
+    """L23: the action's App token lasts an hour and a run may not. Work the run left uncommitted
+    is committed first. When the commits a run left on `branch` beyond `main` are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
     open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
+
+    push.save(branch, CLAUDE_ACCOUNT)
+
     def rev(ref):
         return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
                               timeout=60).stdout.strip()
@@ -592,12 +595,7 @@ def attach(branch):
     on its `Scenarios:` line, until its body holds `ATTACH_MOST`, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
-    # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
-    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
-                             timeout=60).stdout
-    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
-             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
-    base = Path(trees.get(branch, '.'))
+    base = push.worktree(branch)
     captures = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
                       for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
                       if 'base' not in path.parts and 'head' not in path.parts)
