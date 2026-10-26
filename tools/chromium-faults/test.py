@@ -432,6 +432,92 @@ snapshot("FINAL\n", "FINAL_END\n", {}, {})
             self.assertEqual(lifecycle, ["pending", "resolved", "completed", "completed"], events)  # live and final evidence
             self.assertEqual(events[-1]["still_pending"], 0)
 
+    def test_u4237_exited_fault_completion_after_absent_snapshot_survives_full_stdout(self):
+        # Control only the tracer transport; run the observer and command intact.
+        # Each snapshot acknowledgement fences all preceding stream records.
+        tracer = r"""#!/usr/bin/env python3
+import json, os, signal, socket, sys
+def printf(text): print(json.dumps({"type": "printf", "data": text}), flush=True)
+def finish(*_):
+    printf("FINAL\n")
+    for name, data in (("@live", {"0": [0] * 9 + [""]}), ("@stack", {}), ("@integrity", 0)):
+        print(json.dumps({"type": "map", "data": {name: data}}), flush=True)
+    printf("FINAL_END\n")
+    sys.exit(0)
+if "bpftrace" not in sys.argv:
+    arguments = sys.argv[2:] if sys.argv[1] == "-n" else sys.argv[1:]
+    os.execvp(arguments[0], arguments)
+signal.signal(signal.SIGTERM, finish)
+with socket.socket(socket.AF_UNIX) as connection:
+    connection.connect(os.environ["U4237_CONTROL"])
+    with connection.makefile("r") as stream:
+        for row in stream:
+            print(row, end="", flush=True)
+"""
+        with tempfile.TemporaryDirectory(prefix="u4237-completion-") as directory:
+            root = Path(directory)
+            fake = root / "sudo"
+            fake.write_text(tracer)
+            fake.chmod(0o755)
+            log = root / "trace.jsonl"
+            read_fd, write_fd = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)
+            with socket.socket(socket.AF_UNIX) as listener, artifact_watch(log) as watch:
+                listener.bind(str(root / "control"))
+                listener.listen(1)
+                listener.settimeout(30)
+                fill_pipe(write_fd)
+                task = subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read(1)"], stdin=subprocess.PIPE)
+                observer = subprocess.Popen([sys.executable, str(HERE / "observe.py"), "--log", str(log), "--", sys.executable, "-c", "import sys; sys.stdin.read(1); sys.exit(37)"], stdin=subprocess.PIPE, stdout=write_fd, stderr=subprocess.PIPE, env=dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}", U4237_CONTROL=str(root / "control")))
+                try:
+                    connection, _ = listener.accept()
+                    with connection:
+                        def send(kind, data):
+                            connection.sendall((json.dumps({"type": kind, "data": data}) + "\n").encode())
+
+                        def snapshot(live, stacks):
+                            boundary = time.monotonic_ns()
+                            send("printf", "SNAPSHOT\n")
+                            for name, data in (("@live", {"0": [0] * 9 + [""], **live}), ("@stack", stacks), ("@integrity", 0)):
+                                send("map", {name: data})
+                            send("printf", "SNAPSHOT_END\n")
+                            return self.artifact_event(log, watch, "live_snapshot", None, after_ns=boundary)
+
+                        tid, entry = task.pid, time.monotonic_ns() - 1_000_000_000
+                        send("printf", "READY\n")
+                        snapshot({str(tid): [tid, 4096, 4096, entry, 4096, 8192, 4096, 2, 49, "held"]}, {f"{tid},{entry}": "folio_wait_bit_common+307"})
+                        pending = self.artifact_event(log, watch, "pending", tid, 4096)
+                        task.stdin.write(b"G")
+                        task.stdin.flush()
+                        self.assertEqual(task.wait(timeout=10), 0)
+                        self.assertFalse(Path(f"/proc/{tid}").exists())
+                        snapshot({}, {})
+                        send("printf", f"COMPLETED {tid} {tid} 4096 4096 {entry} 4096 8192 4096 2 49 500000000 4\nheld\n")
+                        snapshot({}, {})
+                        events = [json.loads(row) for row in log.read_text().splitlines()]
+                        completed = [event for event in events if event["status"] == "completed"]
+                        self.assertEqual(len(completed), 1, events)
+                        expected = {key: value for key, value in pending.items() if key not in ("status", "reported", "quiet")}
+                        expected.update(status="completed", duration_ns=500000000, **{"return": 4})
+                        self.assertEqual(completed[0], expected)
+                        self.assertIsNone(observer.poll(), "completion must be published before command exit")
+                        observer.stdin.write(b"G")
+                        observer.stdin.flush()
+                        self.assertEqual(observer.wait(timeout=30), 37)
+                        events = [json.loads(row) for row in log.read_text().splitlines()]
+                        self.assertEqual([event for event in events if event["status"] == "completed"], [expected, expected])
+                        finished = events[-1]
+                        for key, value in {"command_status": 37, "still_pending": 0, "live_state_verified": True, "history_complete": True}.items():
+                            self.assertEqual(finished[key], value, finished)
+                        self.assertEqual(sum("stdout disabled" in event.get("detail", "") for event in events), 1)
+                finally:
+                    task.stdin.close()
+                    task.wait(timeout=10)
+                    observer.stdin.close()
+                    observer.wait(timeout=30)
+                    observer.stderr.close()
+                    os.close(read_fd)
+                    os.close(write_fd)
+
     def test_u26_tracer_launch_failure_preserves_the_command_exit(self):
         with tempfile.TemporaryDirectory(prefix="u26-no-tracer-") as directory:
             environment = dict(os.environ, PATH=directory)
