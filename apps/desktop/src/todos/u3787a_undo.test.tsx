@@ -85,9 +85,14 @@ it("u3787a_undo_stays_with_its_project", async () => {
     await waitFor(() => expect([connections.get(path)!.drawer.content()]).toEqual([null]));
   }
 
-  // The feedback for A still acts on A while B is selected.
-  fireEvent.click(screen.getAllByRole("button", { name: "Undo" })[0]!);
+  // Only the active Project offers feedback; selecting A restores its own action.
+  expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("tab", { name: /^a/ }));
+  await screen.findByRole("tabpanel", { name: "a" });
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
+  fireEvent.click(screen.getByRole("tab", { name: /^b/ }));
+  await screen.findByRole("tabpanel", { name: "b" });
   document.body.focus();
   undoKey();
   await waitFor(() => expect(app.of("/b").calls.filter(call => call.method === "todo.restore").length).toBe(1));
