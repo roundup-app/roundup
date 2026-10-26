@@ -11,6 +11,7 @@ afterAll(async () => { await page?.close(); });
 it("u4315b_sub_links_switch_by_click_and_arrow", async () => {
   const dir = captureDir("U4315b");
   if (dir) { mkdirSync(dir, { recursive: true }); await page.browser("record", "start", join(dir, "navigation.webm")); }
+  await page.until("!!document.querySelector('.rail-row[data-id=payments]')");
   await page.browser("click", ".rail-row[data-id=payments]");
   await page.until("!!document.querySelector('.pane-navigation [role=tab]')");
   await page.browser("click", '.pane-navigation [data-value="dashboard"]');
