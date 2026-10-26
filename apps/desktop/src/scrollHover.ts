@@ -155,12 +155,18 @@ export const trackScrollbars = (doc: Document): void => {
     }
 
     const observer = new MutationObserver((records) => {
+      // One scan per mutated parent: a list that mounts 200 rows reports 200 records for the same parent,
+      // and each scan walks that parent's whole subtree.
+      const parents = new Set<Element | Document | ShadowRoot>();
+
       for (const record of records) {
         if (record.target instanceof Element && record.target.closest(".scrollbar-slot, .os-size-observer, .os-trinsic-observer, .xterm")) continue;
 
         // Inspect the parent too: a newly mounted node can itself be the viewport.
-        if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) discover(record.target);
+        if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) parents.add(record.target);
       }
+
+      for (const parent of parents) discover(parent);
 
       flush();
     });
