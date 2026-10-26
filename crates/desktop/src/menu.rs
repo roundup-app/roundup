@@ -45,7 +45,7 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
-            eprintln!("desktop: could not open Settings: {error}");
+            crate::diagnostics::failure("open Settings", &error);
         }
     } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
         || event.id().0.starts_with("view:")
@@ -77,7 +77,7 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
                 serde_json::json!({ "path": path, "command": event.id().0 }),
             )
         {
-            eprintln!("desktop: could not open Project page: {error}");
+            crate::diagnostics::failure("open Project page", &error);
         }
     } else {
         app.state::<Choice>().chosen(event);
