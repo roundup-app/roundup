@@ -188,7 +188,7 @@
   color: var(--red);
 }
 
-.settings-shortcut button span {
+.settings-shortcut span {
   color: inherit;
   font: inherit;
 }

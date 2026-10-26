@@ -6,6 +6,7 @@ import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { ReservedLine } from "../ink/ReservedLine";
+import { modalOutside } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
 import { useConnectedProject } from "../state/connectedProject";
 import { reply } from "./notes";
@@ -79,6 +80,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 /** Project-local access stays available when the original Agent or Worktree is gone. */
 export const NoteRecovery = (props: { notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { app } = useConnectedProject();
+  const [element, setElement] = createSignal<HTMLElement>();
   const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison>>(new Map());
 
   createEffect(on(() => props.open, open => {
@@ -127,12 +129,13 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   const retained = () => entries().length > 0 || props.notes.invalid().length > 0 || !!props.notes.problem();
 
   createEffect(() => { if (!props.open) setEditing(undefined); });
+  createEffect(() => { if (props.open && element() && modalOutside(element())) close(); });
 
   return <Dialog.Root instant modal={false} trapFocus={false} closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
     <Show when={retained() && !props.open}><Dialog.Trigger data-button="quiet">{copy.recoverNotes}</Dialog.Trigger></Show>
-    <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
+    <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
-      <Show when={!retained()}><p>No drafts to recover</p></Show>
+      <Show when={!retained()}><p>{copy.noNoteDrafts}</p></Show>
       <ReservedLine message={props.notes.problem()} />
       <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" data-button="quiet" onClick={() => clear(key)}>{copy.dismissFailure}</button></ReservedLine>}</For>
       <Show when={retained()}><div class="diff-actions"><CopyButton app={app} text={props.notes.copy()} identity={"all"} onSuccess={() => clear("all")} onFailure={error => setFailures(previous => new Map(previous).set("all", clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.notes.retry}>{copy.retry}</button></Show></div></Show>
