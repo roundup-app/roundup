@@ -76,7 +76,8 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         }
       }
 
-      fail(failures.join("; ") || linkCopy.projectClosed);
+      // Every open Project answers; Projects that share a cause name it once.
+      fail([...new Set(failures)].join("; ") || linkCopy.projectClosed);
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
 };
