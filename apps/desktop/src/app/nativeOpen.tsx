@@ -72,6 +72,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
           return;
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+
           // Only the link's own Project names its cause; every other Project answers that it is not theirs.
           if (error instanceof RpcError && error.data?.kind === "other-project") continue;
 
