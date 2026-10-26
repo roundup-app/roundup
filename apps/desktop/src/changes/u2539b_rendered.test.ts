@@ -55,6 +55,27 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           await until("!!document.querySelector('.ask-input')");
         }
 
+        if (lane === "head" && seed === "tree-40") {
+          await browser("press", "Meta+Shift+t");
+          await until("document.activeElement === document.querySelector('.capture-field')");
+          await capture(lane, "tree-40-quick-add");
+          await browser("press", "Escape");
+          await until("!document.querySelector('.capture-field')");
+          await browser("press", "Meta+k");
+          await browser("press", "s");
+          await until("!!document.querySelector('[data-shelf-group=unassigned]')");
+          await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
+          await browser("click", '[data-todo="5"] .todo-row-button');
+          await browser("press", "Enter");
+          await until("!!document.querySelector('.drawer[data-open=true]')");
+          await capture(lane, "tree-40-todo-drawer");
+          await browser("press", "Escape");
+          await until("!!document.querySelector('.drawer[data-open=false]')");
+          await browser("press", "Meta+k");
+          await browser("press", "s");
+          await until("document.querySelector('.window').dataset.shelf === 'closed'");
+        }
+
         if (lane === "head") {
           expect(await evaluate("document.querySelectorAll('.rail-tree, .todos-tab, .terminal-tabs, .resource-value, .ask-rows').length")).toBe(0);
           await evaluate("window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path: JSON.parse(localStorage.getItem('roundup:open-tab') ?? 'null') ?? list.at(-1).path,command:'view:workstreams'}})))");
