@@ -14,8 +14,8 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  if (lane && captureDir("U3787a")) await lane.browser("record", "stop");
-  await lane?.close();
+  try { if (lane && captureDir("U3787a")) await lane.browser("record", "stop"); }
+  finally { await lane?.close(); }
 });
 
 it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () => {
