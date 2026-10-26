@@ -16,6 +16,8 @@
 .ask-bar[data-mode="home"] {
   position: absolute;
   inset: 0;
+  /* The Pane's reserved failure line sits under the home Ask and keeps its Retry reachable. */
+  bottom: var(--line);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
