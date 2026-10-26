@@ -615,3 +615,15 @@ it.each([
   expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
   expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
 });
+
+it("u4276a_nested_close_returns_to_its_opener", async () => {
+  await mount(() => [saved()]);
+  const row = await screen.findByRole("button", { name: /Ship it/ });
+  fireEvent.click(row);
+  fireEvent.click(await screen.findByRole("button", { name: "Close Ship it" }));
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  const create = screen.getByRole("button", { name: copy.reactionCreate });
+  fireEvent.click(create);
+  fireEvent.click(await screen.findByRole("button", { name: "Close New reaction" }));
+  await waitFor(() => expect(document.activeElement).toBe(create));
+});
