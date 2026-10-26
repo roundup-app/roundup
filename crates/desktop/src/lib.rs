@@ -2,6 +2,7 @@
 
 mod config;
 mod daemon;
+mod diagnostics;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
 mod launch;
