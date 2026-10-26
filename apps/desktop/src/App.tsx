@@ -236,6 +236,10 @@ export const App = (props: {
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
+  registerKeys({ kind: "app" }, [{ chords: ["Meta+KeyZ"],
+    when: event => !event.shiftKey && !(document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]")),
+    run: event => { if (!event.repeat && projects.active()) void drafts(projects.active()!).todoUndo.undo(); },
+  }]);
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
@@ -558,6 +562,16 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
+          <For each={drafts.paths?.() ?? keys()}>{path => {
+            const undo = drafts(path).todoUndo;
+
+            return <Show when={undo.visible()}><div role="status" style={{ padding: "var(--space-3)", display: "flex", "flex-wrap": "wrap", gap: "var(--space-3)", "align-items": "baseline" }}>
+              <span>{undo.failure() ?? copy.todoDeletedFeedback}</span>
+              <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
+              <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
+              <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
+            </div></Show>;
+          }}</For>
           <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>

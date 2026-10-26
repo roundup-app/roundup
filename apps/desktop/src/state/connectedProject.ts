@@ -1,3 +1,4 @@
+import { createTodoUndo } from "../todos/deleteTodos";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
@@ -42,6 +43,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
+  todoUndo: ReturnType<typeof createTodoUndo>;
   importing: ReturnType<typeof createImport> | null;
   settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
@@ -55,10 +57,11 @@ type ProjectDrafts = Drafts & {
  * Surface owners use connected.drafts for complete forms and captured submission revisions;
  * never construct another draftStorage for a connected Project. No operation delivers work.
  */
-export const createProjectDrafts = () => {
+export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { paths?: Accessor<string[]> } => {
   const projects = new Map<string, ProjectDrafts>();
 
-  return (path: string): ProjectDrafts => {
+  const [paths, setPaths] = createSignal<string[]>([]);
+  const forProject = (path: string): ProjectDrafts => {
     const existing = projects.get(path);
 
     if (existing) return existing;
@@ -75,6 +78,7 @@ export const createProjectDrafts = () => {
     const recovery = new Map<string, Recovery>();
 
     const holder: ProjectDrafts = {
+      todoUndo: createTodoUndo(),
       importing: null,
       settingsView: createSettingsView(),
       editor: storage.editor,
@@ -114,9 +118,12 @@ export const createProjectDrafts = () => {
     };
 
     projects.set(path, holder);
+    setPaths(all => [...all, path]);
 
     return holder;
   };
+
+  return Object.assign(forProject, { paths });
 };
 
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
@@ -185,6 +192,7 @@ export const connectProject = async (
   /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
   viewing: Accessor<boolean> = () => true,
 ): Promise<ConnectedProject> => {
+  drafts.todoUndo.reconnect(app);
   const original = app;
 
   notesFor(original, project.path, drafts);

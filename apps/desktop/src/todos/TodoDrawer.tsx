@@ -1,9 +1,7 @@
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
-import { deleteTodos } from "./deleteTodos";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
-import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
@@ -73,9 +71,7 @@ export const TodoDrawer = (props: {
   const [offering, setOffering] = createSignal(false);
   const [noticeDismissed, setNoticeDismissed] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
-  const [asking, setAsking] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
-  let deleteButton: HTMLButtonElement | undefined;
 
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
@@ -261,20 +257,6 @@ export const TodoDrawer = (props: {
   return (
     <>
       <div class="todo-detail">
-        <NativeAlert app={app} open={asking() && !!todo()}
-          question={{ title: copy.deleteTodoQuestion, message: todo() ? `#${props.id} ${todo()!.title}` : "", okLabel: copy.delete, cancelLabel: copy.keep }}
-          onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
-          onConfirm={() => {
-            setAsking(false);
-
-            if (deleting()) return;
-            setDeleting(true);
-            void attempt(async () => {
-              await deleteTodos(app, [props.id]);
-              setRemovedByMe(true);
-              drawer.close("key");
-            }).then(() => setDeleting(false));
-          }} />
         <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
           <Show
             when={todo()}
@@ -349,8 +331,20 @@ export const TodoDrawer = (props: {
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
-          ref={(button) => { deleteButton = button; }}
-          onClick={() => { if (!deleting()) setAsking(true); }}>
+          disabled={deleting() || drafts.todoUndo.pending()}
+          onClick={() => {
+            if (deleting()) return;
+            const id = props.id;
+            const opening = drawer.content();
+            setDeleting(true);
+            void drafts.todoUndo.remove([id]).then(removed => {
+              if (removed) { setRemovedByMe(true);
+
+ if (drawer.content() === opening) drawer.close("key"); }
+              else setFailure(drafts.todoUndo.failure());
+              setDeleting(false);
+            });
+          }}>
           <Icon name="trash" />
         </IconButton>
       </Show>
