@@ -10,6 +10,16 @@ check-rust base="":
     just lint-rust {{quote(base)}}
     just test-rust-since {{quote(base)}}
 
+# The deterministic checks a Builder run's pushes failed on, run before the push and against origin/main: no browser, no test binary, no real process (L23).
+[script('loop/keep-going.sh')]
+ready:
+    just lint-web
+    just lint-rust origin/main
+    loop/rules.sh ci-trailers local
+    loop/rules.sh frozen local
+    python3 loop/workflows.test.py
+    python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
+
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
 lint-rust base="":
