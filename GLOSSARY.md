@@ -972,3 +972,6 @@ submission and acknowledged OS shortcut replacement. The panel starts no Project
 
 **System accent** (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`):
 The macOS accent preference as normalized sRGB channels, or null when unavailable. The App receives its initial value and changes; Token-owned tones preserve contrast, and unavailable delivery restores Radix blue. It changes appearance only, never Kind or failure Ink.
+
+**Native material** (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`):
+The main window's AppKit Sidebar effect, revealed only through the Rail and reserved Shelf. AppKit Reduce Transparency disables it and restores opaque grounds. Unsupported hosts report unavailable; floating surfaces and Terminal pixels remain opaque. The window-bar command reads the applied state and the native-material event reports changes.
