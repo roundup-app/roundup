@@ -8,6 +8,7 @@ version.workspace = true
 contracts = { path = "../contracts" }
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
+time = "0.3.55"
 
 [lints]
 workspace = true
