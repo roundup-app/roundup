@@ -1,0 +1,18 @@
+ROUNDUP_CAPTURES='Z3788b' just packages test
+pnpm -r --if-present test 
+Scope: 4 of 5 workspace projects
+apps/desktop test$ vitest run src/testing/z3788_observation.test.ts
+apps/desktop test: (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+apps/desktop test:   - import "../perf/idle" without a file extension (src/app/seam.ts:4:35). Add the file extension
+apps/desktop test: Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+apps/desktop test:  RUN  v5.0.3 /tmp/roundup-app-libraries/apps/desktop
+apps/desktop test: Chrome first start: 17224 ms
+apps/desktop test: [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.30s
+apps/desktop test:  ✓ src/testing/z3788_observation.test.ts (1 test) 93089ms
+apps/desktop test:    ✓ z3788b_real_destination_and_action_observation 93086ms
+apps/desktop test:  Test Files  1 passed (1)
+apps/desktop test:       Tests  1 passed (1)
+apps/desktop test:    Start at  10:15:44
+apps/desktop test:    Duration  126.15s (tests 97%, environment 2%, import 1%)
+apps/desktop test: {"numTotalTestSuites":1,"numPassedTestSuites":1,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"snapshot":{"added":0,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0,"didUpdate":false},"startTime":1793009744074,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"z3788b_real_destination_and_action_observation","status":"passed","title":"z3788b_real_destination_and_action_observation","duration":93086.01486400001,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]}],"startTime":1793009777203,"endTime":1793009870289.015,"status":"passed","message":"","name":"/tmp/roundup-app-libraries/apps/desktop/src/testing/z3788_observation.test.ts"}]}
+apps/desktop test: Done
