@@ -166,7 +166,7 @@ impl Type for Pong {
     }
 }
 
-/// Structured JSON-RPC error data for operation-specific Event replay recovery.
+/// Structured JSON-RPC error data a caller acts on: Event replay recovery, or a link another Project owns.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RpcErrorData {
@@ -175,4 +175,6 @@ pub enum RpcErrorData {
         #[specta(type = specta_typescript::Number)]
         oldest: u64,
     },
+    /// `link.read` names an object of another Project; the Daemon of the link's Project answers it.
+    OtherProject,
 }

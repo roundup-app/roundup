@@ -97,6 +97,7 @@ async fn lk1_a_link_for_another_project_is_not_found_and_never_resolved_here() {
 
     assert_eq!(err.code, code::NOT_FOUND);
     assert!(err.message.contains("another Project"), "{}", err.message);
+    assert_eq!(err.data, Some(contracts::RpcErrorData::OtherProject));
     assert!(
         err.message.contains("other-0123456789abcdef"),
         "{}",

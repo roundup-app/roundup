@@ -5,6 +5,7 @@ import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 import type { NativeOpen } from "./seam";
+import { linkCopy } from "../copy/link";
 
 let first: StartedDaemon;
 
@@ -53,5 +54,9 @@ it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_
   expect(await b.rpc("pad.read", { name })).toMatchObject({ text: secondText });
   receive?.({ kind: "link", url: `roundup://pad/missing?project=${encodeURIComponent(key)}` });
   await screen.findByText(/missing/);
+  expect(screen.queryByText(/another Project/)).toBeNull();
+  projects.splice(1, 1);
+  receive?.({ kind: "link", url: `roundup://pad/${encodeURIComponent(name)}?project=${encodeURIComponent(key)}` });
+  await screen.findByText(linkCopy.projectClosed);
   expect(await b.rpc("rail.tree", null)).toEqual([]);
 });
