@@ -11,8 +11,8 @@ The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`.
 ## Before you run
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
-- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the `glyphs` run starts ten stand-in Agents (`fake_claude.py`, no model call) and tells each it works. `layers` and `todos` first make four Todos.
-- The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
+- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the all three motion workloads prepare the same `tree-40-native-v1` fixture using the stand-in Agents (`fake_claude.py`, no model call). The fixture derives the nested tree, names, Todo body/long title and Pad contents from `testing/seeds.ts`: its 38-node tree gains two Agent leaves, all eight Todos start open, and each of two owners has a three-level branch plus a reorder sibling. Ten Agents work. The selected streaming shell remains visible. Setup refuses existing Todos/Pads or any Rail beyond the measurement Workstream; it neither adopts nor deletes user data. It requires dark 1512×950 and identifies the actual reserved/overlay Shelf mode. A fixture not prepared within the existing ten-second setup bound is incomplete; never increase the bound.
+- The command schedules one workload cycle every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or observed native pointer reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Glyphs uses page-driven preparation; Layers observes trusted pointer/key activation. For Todos, the page performs insertion, completion and done-fold; pointer reorder is observed, never generated (see implementation status). A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
 
@@ -55,3 +55,76 @@ Use the build and machine controls above. Start dragging during the ten-second w
 For the provisional installed dnd-kit candidate, retain three same-host reports, the commit and binary hashes, dependency versions and each failed command/exit. For the 10% regression check, alternate three base and three head runs. The base is main `a87bbeffc`; transfer only this head's `apps/desktop/src/perf/frame_run.ts` observer to a separate base checkout, retaining the base revision and observer-patch hash separately. The observer accepts the existing library drag marker as well as the new source marker, so both builds count actual gestures. Keep U3010d's thresholds and rule 7's 10% bound. Report presentation stages as unmeasured; scheduling evidence makes no displayed-frame claim. No Chromium result selects a WKWebView timing winner.
 
 In a normal App build of that same commit, also exercise a Rail, Todo and Pad drag, Escape, a small-travel click and keyboard reorder. With Tauri file handling enabled, drop two real files into a Terminal and verify their quoted absolute paths arrive once. A failed internal drag or lost/duplicate path rejects this candidate; a missing native observation leaves qualification incomplete. Retain #3551's Pragmatic failure as its disqualification, not as evidence about this pointer-based implementation.
+
+## Observer implementation status (#4244)
+
+Do not request another owner sequence from this partial observer. The three reports
+already returned at `95e2219df28a5483a869415f72ed64c557fa555b` stay retained,
+including their missing viewport and possibly disturbed Glyphs tail. They are
+historical scheduling evidence, with presentation unmeasured.
+
+The Layers driver samples displayed bounding boxes to reverse at the first
+observed crossing of half the remaining displacement to the requested destination.
+It refuses missing targets, absent displacement, a jump directly to the endpoint,
+and movement not observed within the existing 400 ms settling bound. Drawer
+open/close/reopen segments each wait for that observation, then Escape interrupts
+the reopening segment. Shelf closes/opens/closes at the same measured boundaries,
+then a trusted keyboard activation reopens it immediately. The report's `observer` retains the viewport, actual Shelf
+mode and layer segments (targets, timestamps, start/destination/observed positions
+and completion), with trusted pointer/key sources named explicitly. The observer
+never generates those inputs or changes focus. Each activation has the existing
+one-second input bound; geometry retains the 400 ms settling bound. A reversal
+or key interruption arriving after the preceding segment reaches its endpoint
+is refused. The action's start box is read at activation, rather than when the
+input phase began waiting. Missing activation is retained as an incomplete action.
+
+In an eventual qualified Mac Layers sequence, select the first original Todo
+during warmup so its Open control is exposed; this is preparation, not a measured
+open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, pointer-close,
+pointer-reopen, then Escape from inside the Drawer. For Shelf, pointer-toggle
+closed/open/closed, then activate its focused tab with Space or Return. Reverse
+on each measured half-displacement, and interrupt the third segment while it is
+still moving. The page observes the existing controls; it cannot supply native
+pointer input. Late, synthetic or missing input makes the run invalid. This is an
+observer implementation, not a request to perform that sequence: complete the
+remaining qualifications below first.
+
+The App now prepares the same deterministic derived fixture for layers, Todos and
+Glyphs. `observer.fixture` retains canonical UTF-8 JSON bytes, SHA-256, logical
+identity, allocated Rail/Todo/owner/blocker targets, Pads, working Agent ids and
+streaming Terminal id. Its readback must match the fixture; all ten Glyphs must be
+visible before sampling, and the selected streaming Terminal must remain visible.
+Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
+separately and need not match. Preserve this entire observer overlay unchanged on
+both immutable sources. This is a preparation implementation, not native evidence.
+
+The Todo driver restores the original eight open rows in canonical order before each
+four-action repeat. It deletes only its recorded temporary insertion, preserves
+original owners, bodies, homes and blockers, and refuses changed fixture content.
+Each repeat inserts a temporary root in alternating owner groups, completes it,
+toggles the done fold, then observes a pointer reorder of that group's original
+root sibling before its first root. The report's `todo_actions` names actual ids,
+input sources and completion, including refused/unapplied actions. Restoration
+RPC reorders are preparation and never counted as pointer gestures.
+
+For the eventual qualified Mac procedure, Todo cycles 3, 7, 11, … are observed
+input phases: move the original sibling (`todo 4`, then `todo 8`, alternating)
+before that owner's first root (`todo 1`, then `todo 5`) using the native pointer.
+The phase begins 6 seconds after sampling starts and repeats every 8 seconds;
+release within its one-second input bound. The existing drag owner performs the
+mutation and focus work. Missing trusted down/release, missing rows, cancellation
+or an order not acknowledged within the existing 400 ms settling bound leaves
+the action incomplete. Synthetic events and RPC-only order changes cannot pass
+this phase. Do not perform these steps yet: this partial observer still needs the
+remaining qualification below, and no new owner sequence is requested.
+
+Before #4244 can close, demonstrate this setup and trusted pointer reorder on the
+rendered observer, qualify the trusted layer interruption sequence in both Shelf cases and complete the measured live reduced
+motion variants through the existing preference owner. The report marks its variant `unqualified` and explicitly marks native
+qualification incomplete. A scheduling pass alone does not complete that work.
+
+Before any new Mac request, #3013 also needs its separately scoped `crates/perf`
+stream/idle repair: qualify the exact batches and received bytes and stop the load
+before settled idle. This App change neither qualifies nor changes that producer.
+Keep the existing warmup/sample/idle windows, stream rate, scheduling thresholds,
+pairing, baselines and native permission unchanged.

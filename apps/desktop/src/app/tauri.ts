@@ -159,7 +159,7 @@ export const createTauriApp = (): App => {
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
-    selectProjectMenu: (path) => command("select_project_menu", { path }),
+    selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
     onProjectPage: (listener) => guarded(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
     onAppSettings: (listener) => guarded(() => listen("open-app-settings", listener)),
     onDaemonExited: (listener) =>
@@ -215,4 +215,27 @@ export const createTauriApp = (): App => {
   };
 
   return app;
+};
+
+/** Reveal material only after the native window confirms it; a missing capability stays opaque. */
+export const followMaterial = async (root: HTMLElement): Promise<() => void> => {
+  const apply = (enabled: boolean) => root.toggleAttribute("data-native-material", enabled);
+  let changed = false;
+
+  const release = await listen("native-material", event => {
+    changed = true;
+    apply(v.parse(v.boolean(), event.payload));
+  });
+
+  try {
+    const initial = v.parse(v.boolean(), await invoke("plugin:window-bar|native_material"));
+
+    if (!changed) apply(initial);
+  } catch (error) {
+    release();
+    root.removeAttribute("data-native-material");
+    throw error;
+  }
+
+  return () => { release(); root.removeAttribute("data-native-material"); };
 };

@@ -4,7 +4,7 @@ import { render } from "solid-js/web";
 import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
-import { createTauriApp } from "./app/tauri";
+import { createTauriApp, followMaterial } from "./app/tauri";
 import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
@@ -17,6 +17,10 @@ const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");
 
 const tauri = createTauriApp();
+
+if (!new URLSearchParams(location.search).has("capture")) {
+  void followMaterial(document.documentElement).catch(error => console.error(error));
+}
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 

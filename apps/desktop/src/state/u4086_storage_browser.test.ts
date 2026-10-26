@@ -17,7 +17,7 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
         value: { text: 'Original saved work 雪', workstream: null, name: null }, selection: null, status: 'draft', policy: 'ordinary',
       }] }));
     })()`);
-    await lane.browser("open", `${origin}/harness.html?seed=tree-40&storage-recovery=1`);
+    await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&storage-recovery=1`);
     await lane.until("document.querySelector('.storage-gate button:last-child') !== null");
     expect(await lane.calls("agent.spawn")).toEqual([]);
     await lane.capture("U4086a", "head-invalid-shelf");

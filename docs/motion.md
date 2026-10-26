@@ -194,7 +194,7 @@ M9's Kind crossfade is delivered in `ink/KindGlyph.tsx`: a Kind change on a moun
 Glyph keeps the old mark as an inert, `aria-hidden` sibling and fades the two marks
 over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity only,
 so reduced motion needs no variant); the latest Kind cancels the running fade and
-disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
+disposal cancels it. The working arc is migrated to Motion in the subsequent slice below. Rendered Kind
 transitions, the M10 single-source collapse and the remaining slices stay open.
 
 M10 preference wiring now shares the App's injected live accessor with `ui/Dialog.tsx`
@@ -219,3 +219,80 @@ lazy Motion chunk; its dependency version and engine imports are unchanged. The
 original engine-plus-press increment remains in `press-bundle.json`; this delta
 measures only preference wiring. Both entries exceed 400,000 bytes. No native
 timing or complete reduced-motion pass is claimed here.
+
+The working arc now uses Motion rather than CSS `working-turn`. `--duration-working`
+retains the 960 ms constant turn; `--easing-working` and the two glyph crossfade
+curves are Tokens. A Kind change snapshots the outgoing arc's displayed transform
+before Solid redraws it; that inert mark stays frozen while fading. Disposing a
+working mark cancels its loop. Production arcs read the App's existing
+`ReducedMotionContext`; isolated fixtures use the existing preference holder.
+A live reduced-motion change cancels rotation and fades the static quarter over
+`--duration-reduced`, without adding attention or changing Kind. Re-enabling motion
+resumes the still-working indication, without replaying a Kind crossfade.
+
+The CSS build now preserves `--duration-reduced` while zeroing other legacy movement
+Tokens. This is a prerequisite for M10, not completion of the remaining legacy
+preference layers. `observers/U3010c/glyph.eval` records the actual App's arc matrices,
+mark alignment, opacity and browser animations. Its base/head traces under
+`artifacts/ux/U3010c/glyph-engine/` distinguish the previous outgoing arc's continued
+rotation from the new frozen phase. All layer/layout/completion adoption, remaining
+inventory, full capture and native scheduling obligations remain on #3821.
+
+The glyph slice's immutable production comparison is `docs/perf-motion-glyph.json`:
+base `3b6b9daaa52dd8cd25505d84b235e0c981779cf0`, source head
+`784719087648be9bb7845658c2d60c99c03c8143`, gzip-9 entry/eager JS
+433,360 → 433,586 bytes (+226). Both builds have 262 lazy JS chunks, all enumerated;
+Motion remains eager, with no dependency/engine change or new lazy Motion chunk.
+This is incremental glyph integration cost; the original engine/press delta remains
+in `press-bundle.json`. The repository startup observer's current 437,814-byte
+ceiling passes, but this Issue's 400,000-byte acceptance fails at both revisions.
+No performance baseline, native scheduling protocol or presentation claim changes.
+
+M1 keyboard ordering now cancels any running row projection before an Alt+Up/Down
+request and suppresses the slide when that order arrives. The shared
+`createSortedList` still owns reorder calls, focus permission, refusal and scroll;
+its pointer/incoming engine remains pending M5 migration. This is limited to the
+Alt ordering path, not completion, nesting or keyboard drag acceptance.
+
+`observers/U3010c/keyboard-reorder.eval` records the rendered Shelf action on dark
+`tree-40`, 1512×950. Evaluate with `agent-browser eval --stdin` in an isolated
+headless harness. The base trace starts two row animations after one reorder;
+the head starts none and retains focus on Todo 2 at the final order on the first
+sample after acknowledgement. Raw samples and Checks are under
+`artifacts/ux/U3010c/keyboard-reorder/`. This is partial M1 evidence, not the full
+U3010b/c capture protocol.
+
+The three old U490a geometry tests (`u490a_reorder_motion`,
+`u490a_reorder_motion_continues_from_the_screen_when_interrupted`, and
+`u490a_reorder_motion_under_reduced_motion_is_one_frame`) all drove Alt ordering.
+Their timed key-slide requirement is retired by M1; the eval observer holds its
+replacement geometry evidence. `u490a_keyboard_reorders` still proves one call,
+final order and focus in both Rail and Shelf. U155 retains refusal/boundary/order
+behavior. Pointer/cancel behavior stays in U490a. No behavior test duplicates
+those proofs or asserts appearance.
+
+`keyboard-interrupt.eval` starts an authoritative incoming reorder, then interrupts
+its running projection with Alt+Up. The retained trace records two effects before
+the key and still two total, with every subsequent sampled transform `none`.
+The reduced-motion key trace also starts no effects. Refusal keeps the original
+order. All automated Checks pass in both refusal captures, but the existing
+ReservedLine clips its multiline failure in both base and head; these captures
+make no complete visual acceptance claim.
+
+`docs/perf-motion-keyboard.json` compares production base
+`a592831a8` and source head `147847b5e`: entry/eager JS gzip-9 is
+437,770 → 437,808 bytes (+38), with 262 lazy JS chunks each, all enumerated.
+Motion remains eager; its version/imports are unchanged. This is the keyboard
+integration delta; the original engine increment remains in `press-bundle.json`.
+Both totals exceed 400,000 bytes. CSS is reported separately. Existing rule 7
+baselines and native scheduling obligations remain unchanged and unmeasured here.
+
+M1 keyboard nesting also cancels the list owner's running sibling projections before
+Tab or Shift+Tab dispatches `todo.setBlockers`. The same cancellation is shared with
+Alt ordering; it changes no blocker, drag, focus or refusal ownership. Nesting itself
+starts no projection, so this path arms no suppression for a later pointer reorder.
+`observers/U3010c/keyboard-nest.eval` records a lower-row incoming reorder interrupted
+by nesting a different upper row, including the synchronous post-key state. Existing
+U3709/U3711 tests retain the mutation/focus/refusal proof; geometry remains a rendered
+observation. This does not complete keyboard completion, Motion layout, layer springs,
+retirement, the preference/inventory migration or the full capture/performance protocol.

@@ -63,6 +63,7 @@ impl Agents {
     ) -> Result<std::collections::BTreeMap<String, String>, RpcError> {
         let me = Arc::downgrade(&self.shared);
         let alive = me.clone();
+        let observed = Arc::clone(&self.shared.events.observed);
         let failure = me.clone();
         let failed_agent = id.to_owned();
         let failed_attempt = attempt.to_owned();
@@ -101,13 +102,18 @@ impl Agents {
                     rail.record_interval_failure(&failed_agent,&failed_attempt,&cause);
                 }
             },
-            move || {
-                alive.upgrade().is_some_and(|shared| {
-                    shared
-                        .runs()
-                        .get(&owner)
-                        .is_some_and(|slot| slot.attempt() == lifetime)
-                })
+            async move {
+                loop {
+                    // Register before the authoritative read; a replacement or teardown in
+                    // between that read and the await must not strand the receiver.
+                    let changed = observed.notified();
+                    if !alive.upgrade().is_some_and(|shared| {
+                        shared.runs().get(&owner).is_some_and(|slot| slot.attempt() == lifetime)
+                    }) {
+                        break;
+                    }
+                    changed.await;
+                }
             },
         )
         .await
@@ -629,6 +635,58 @@ mod time_tests {
             }
             assert_eq!(read["time"]["active"], false);
             w.advance(10).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn z3799b_interval_receiver_closes_with_its_attempt_or_project() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        for ending in ["removed", "replaced", "project closed"] {
+            let (dir, _, shared) = crate::tests::shared_over_temp_dir(Arc::new(|| 1000));
+            let agents = crate::tests::owner_agents(shared, dir.path());
+            agents.shared.mark_starting("receiver", "1".into());
+            let env = agents.listen_measurements("receiver", "1").await.unwrap();
+            let endpoint = url::Url::parse(&env["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"]).unwrap();
+            let mut connection = tokio::net::TcpStream::connect((
+                endpoint.host_str().unwrap(),
+                endpoint.port().unwrap(),
+            ))
+            .await
+            .unwrap();
+            connection
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .await
+                .unwrap();
+            let mut response = Vec::new();
+            while !response.ends_with(b"\r\n\r\n") {
+                response.push(connection.read_u8().await.unwrap());
+            }
+            assert!(response.starts_with(b"HTTP/1.1 404"));
+            // The response proves Axum is serving this Attempt before its lifetime ends.
+            let mut retained = Some(agents);
+            match ending {
+                "project closed" => {
+                    retained.take();
+                }
+                "replaced" => retained
+                    .as_ref()
+                    .unwrap()
+                    .shared
+                    .mark_starting("receiver", "2".into()),
+                _ => retained
+                    .as_ref()
+                    .unwrap()
+                    .shared
+                    .release_closing("receiver", false),
+            }
+            assert_eq!(
+                tokio::time::timeout(Duration::from_secs(2), connection.read_u8())
+                    .await
+                    .unwrap()
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof,
+            );
         }
     }
 

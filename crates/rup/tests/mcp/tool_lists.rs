@@ -119,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 72] = [
+pub const NO_TOOL: [&str; 74] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -214,6 +214,10 @@ pub const NO_TOOL: [&str; 72] = [
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
     "plugin:window-bar|zoom_window",
+    // U134: the user's native window appearance, which an Agent cannot change.
+    "plugin:window-bar|native_material",
+    // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
+    "native_open",
     "rpc",
     "subscribe",
     "terminal_output",

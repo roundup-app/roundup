@@ -1,0 +1,49 @@
+# Archived rendered observer; start base/head Vite on 5215/5216 and set Z3788_REPO.
+import json, os, pathlib, subprocess, tempfile, uuid
+root=pathlib.Path(os.environ["Z3788_REPO"])
+out=root/'artifacts/ux/Z3788c'; out.mkdir(parents=True,exist_ok=True)
+session='z3788c-reactions-'+uuid.uuid4().hex
+with tempfile.TemporaryDirectory(prefix='z3788c-reactions-profile-') as profile:
+ config=pathlib.Path(profile)/'config.json'; config.write_text('{}')
+ env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+ def browser(*args):
+  cmd=[str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',profile,'--config',str(config),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args]
+  p=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=60)
+  if p.returncode: raise RuntimeError(p.stdout+p.stderr)
+  r=json.loads(p.stdout)
+  if not r.get('success'): raise RuntimeError(r)
+  return r['data']
+ def ev(s): return browser('eval',s)['result']
+ def shot(seed,step):
+  print(seed,step,flush=True)
+  browser('screenshot',str(out/f'{seed}-{step}.png'))
+  checks=ev('window.__checks()')
+  (out/f'{seed}-{step}.checks.json').write_text(json.dumps(checks,indent=2))
+ try:
+  for phase,port in [('base',5215),('head',5216)]:
+   for seed in ['tree-40','agents-10','conflict']:
+    browser('open',f'http://localhost:{port}/harness.html?view=reactions&view=workstreams&items=1&tabs=1&seed={seed}')
+    browser('set','viewport','1512','950'); browser('set','media','dark')
+    browser('wait','--fn',"!!window.__fake && !!document.querySelector('.rail-row')")
+    ev('document.fonts.ready')
+    browser('wait','--fn',"!!document.querySelector('.reactions')")
+    ev("window.__fake.app.handlers['reaction.list']=()=>Array.from({length:10},(_,i)=>({id:'reaction-'+i,name:'Refresh retained release '+i,state:'active',observation:{evidence:null,health_code:'observing'}})); window.dispatchEvent(new Event('focus'))")
+    browser('wait','--fn',"document.querySelectorAll('.reaction-row').length === 10")
+    browser('find','role','button','click','--name','New reaction','--exact')
+    browser('wait','--fn',"!!document.querySelector('.reaction-form')")
+    browser('fill','.reaction-form textarea',' exact unsent instruction 🧭 ')
+    ev("window.dispatchEvent(new Event('focus'))")
+    browser('click','.reaction-back')
+    browser('wait','--fn',"!document.querySelector('.reaction-form')")
+    browser('find','role','button','click','--name','New reaction','--exact')
+    browser('wait','--fn',"document.querySelector('.reaction-form textarea')?.value === ' exact unsent instruction 🧭 '")
+    browser('click','.reaction-back')
+    browser('wait','--fn',"!document.querySelector('.reaction-form')")
+    shot(seed,phase+'-return')
+    ev("window.__fake.app.handlers['reaction.list']=()=>{throw new Error('Reaction list unavailable')}; window.dispatchEvent(new Event('focus'))")
+    browser('wait','--fn',"document.body.textContent.includes('Reaction list unavailable')")
+    shot(seed,phase+'-failure')
+    (out/f'{seed}-{phase}-calls.json').write_text(json.dumps(ev("window.__fake.app.calls.filter(c=>c.method==='terminal.write')"),indent=2))
+
+ finally:
+  browser('close')

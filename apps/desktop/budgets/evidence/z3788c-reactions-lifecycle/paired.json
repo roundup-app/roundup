@@ -1,0 +1,67 @@
+{
+  "scenario": "Z3788c",
+  "scope": "createReactions focus listener only",
+  "base_revision": "5f08776c3186d549f6dc891f3628157950b5caea",
+  "head_revision": "13fbe731f4b6e0c5242ce046e860eaa55a7a9d38",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "gzip": "level 9; recursive manifest static imports; each file counted once",
+  "base": {
+    "exit": 0,
+    "entry": "assets/index-B-uzWpSE.js",
+    "files": [
+      "assets/index-B-uzWpSE.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-DcJrub12.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js"
+    ],
+    "raw": 1279361,
+    "gzip": 408660,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "head": {
+    "exit": 0,
+    "entry": "assets/index-DtVZbThs.js",
+    "files": [
+      "assets/index-DtVZbThs.js",
+      "assets/copy-BAdCaRTu.js",
+      "assets/dist-BNvtSeKL.js",
+      "assets/ReservedLine-D6Ce7xri.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-DcJrub12.js",
+      "assets/layout-DGXyyLX7.js",
+      "assets/theme-CrzaQGOJ.js"
+    ],
+    "raw": 1279302,
+    "gzip": 408663,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "discarded_baseline": {
+    "reason": "build overlapped temporary cleanup mutation; not revision-paired",
+    "result": {
+      "exit": 0,
+      "entry": "assets/index-BwnTTzaU.js",
+      "files": [
+        "assets/index-BwnTTzaU.js",
+        "assets/copy-BAdCaRTu.js",
+        "assets/dist-BNvtSeKL.js",
+        "assets/ReservedLine-D6Ce7xri.js",
+        "assets/floating-ui.dom-vtOd0C_f.js",
+        "assets/CopyButton-DcJrub12.js",
+        "assets/layout-DGXyyLX7.js",
+        "assets/theme-CrzaQGOJ.js"
+      ],
+      "raw": 1279316,
+      "gzip": 408658,
+      "ceiling": 437814,
+      "diagnostic": ""
+    }
+  }
+}

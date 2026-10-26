@@ -258,6 +258,7 @@
 
 .todo-inset .shelf-glyph {
   margin-inline-start: var(--space-2);
+  justify-content: flex-end;
 }
 
 .pad-inset .shelf-glyph {

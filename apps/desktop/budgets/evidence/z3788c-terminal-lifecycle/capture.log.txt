@@ -1,0 +1,5 @@
+ROUNDUP_CAPTURES='Z3788c' just packages test
+pnpm -r --if-present test 
+Scope: 4 of 5 workspace projects
+apps/desktop test$ Z3788_REPO=/tmp/roundup-3853 python3 /tmp/3853-capture.py
+apps/desktop test: Done

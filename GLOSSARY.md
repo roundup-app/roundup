@@ -223,7 +223,7 @@ Permission prompts off for one Attempt. The Rail reports the last acknowledged A
 Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens, model limit and, only where the program itself wrote one, the split of used (`ContextPart`, `ContextPartKind`: system, tools, files, conversation, other). The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
-The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
+The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. An import Agent lists candidates with `import.list`; only the user confirms them on Import. `ImportDiscoverParams.agent` reads that Agent’s last retained list in this Project; `ImportCommitParams.agent` binds every selected identity and revision to it before the existing source-revision guard. Agents never commit imports. Files come from the Project's current Base, never a recovered historical filesystem.
 
 **Vendor listing sidecar** (`import.list`, `ImportList`, `ImportListed`, `ImportLive`):
 The read-only listing of the Project's saved and live top-level Claude Code sessions, each once with the `revision` an approval binds to. The Adapter runs a bundled Node program with the pinned TypeScript Agent SDK only while a listing runs and reaps it after; opening a Project starts none. A missing or incompatible runtime or CLI is an error naming its cause and recovery, never an empty list.
@@ -897,7 +897,7 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 An expandable App region with a named trigger; closing it retains its content.
 
 **Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
-The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+The native actions for the selected Project: import, settings, requested views and the shortcut registry's actions. Each activation keeps that Project's identity; an unavailable action cannot run. Opening a view changes no Daemon data and starts no Agent.
 
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
@@ -941,7 +941,7 @@ The sole repository-owned unsafe integration crate. Its plugin configures every 
 One Actor's exact chosen Todo identities in their original Project, bound to a caller-captured operation key. The acknowledged successful subset is one recoverable operation; absent chosen ids are reported separately. Equal-key replay cannot delete twice, even after restoration; a different chosen set with that key conflicts. A lost reply is unknown until reconciliation or equal-key replay acknowledges the retained result. Restore accepts only the retained key, restores original identities and relationships once, and keeps conflicting operations recoverable without overwriting current work.
 
 **RPC error data** (`RpcErrorData`):
-The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. Diagnostics never supply a cursor.
+The optional JSON-RPC `data` carried with an RpcError. `events-expired` supplies `oldest`, the oldest retained Event number from the log bounds; only EVENTS_EXPIRED authorizes replay from `oldest - 1`. `other-project` marks a NOT_FOUND from `link.read` (or `deliverable.get`) for an object another Project owns; the App's native open skips those answers and shows only the owning Project's cause, or that the link's Project is not open when no open Project owns it. Diagnostics never supply a cursor.
 
 **Thrown outcome** (`outcomeOf`):
 The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
@@ -972,6 +972,9 @@ submission and acknowledged OS shortcut replacement. The panel starts no Project
 
 **System accent** (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`):
 The macOS accent preference as normalized sRGB channels, or null when unavailable. The App receives its initial value and changes; Token-owned tones preserve contrast, and unavailable delivery restores Radix blue. It changes appearance only, never Kind or failure Ink.
+
+**Native material** (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`):
+The main window's AppKit Sidebar effect, revealed only through the Rail and reserved Shelf. AppKit Reduce Transparency disables it and restores opaque grounds. Unsupported hosts report unavailable; floating surfaces and Terminal pixels remain opaque. The window-bar command reads the applied state and the native-material event reports changes.
 
 **Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
 One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.

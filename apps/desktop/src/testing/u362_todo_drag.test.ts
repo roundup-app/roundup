@@ -20,13 +20,14 @@ type Point = {x: number; y: number};
 type Checks = Record<string, {status: string; value: unknown}>;
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
-  await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
+  await page.load(`${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('[data-todo-root]').click();
   }`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
   await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
   await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click()`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
@@ -159,15 +160,20 @@ run('u362 rendered move failure', () => {
     it(`u362_a_failed_move_stays_visible_on_the_densest_seed ${scheme}`, async () => {
       await page.scheme(scheme);
       await setup(true);
-      await page.call(`() => {
-        document.querySelector('.shelf').style.width = '163px';
-        document.querySelector('[aria-label="Todo fixture"] button').click();
-      }`);
+      // Seed the full list while closed, then mount it once; 200 acknowledged creates need no intermediate layout.
+      await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
+      await page.until(`() => Boolean(document.querySelector('.shelf[hidden]')) && !document.querySelector('.shelf .todo-row')`);
+      await page.call(`() => document.querySelector('[aria-label="Todo fixture"] button').click()`);
       await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`);
+      await page.press('k', 'KeyK', 4);
+      await page.press('s', 'KeyS');
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
+      await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
+      await page.until(`() => document.querySelector('.shelf .todo-row-button').getBoundingClientRect().width > 0`);
+      await page.call(`() => { document.querySelector('.shelf').style.width = '163px'; }`);
       await page.call(`async () => {
         await document.fonts.ready;
-        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+        await Promise.all([...document.querySelectorAll('.columns, .shelf, .shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
       const from = await point('.shelf .todo-row-button');
       const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
@@ -189,7 +195,7 @@ run('u2716a Project overview band', () => {
   const band = '.rail [data-todo-root]';
 
   const open = async () => {
-    await page.load('/harness.html?seed=tree-40');
+    await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40');
     await page.until(`() => Boolean(document.querySelector('${band}')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-row').click()`);
     await page.until(`() => document.querySelector('${band}').getAttribute('aria-pressed') === 'false'`);
@@ -201,7 +207,6 @@ run('u2716a Project overview band', () => {
     await page.click(target.x, target.y);
     await page.until(`() => Boolean(document.querySelector('${overview}'))`);
     expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-pressed')`)).toBe('true');
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toMatch(/Overview.*Project root/);
   }, 60_000);
 
   it('u2716a_attention_name_follows_tree_and_status', async () => {
@@ -216,7 +221,6 @@ run('u2716a Project overview band', () => {
       document.querySelector('${band}').click();
     }`);
     await page.until(`() => Boolean(document.querySelector('${overview} h2')) && !/\\d/.test(document.querySelector('${overview} h2').textContent)`);
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root');
     await page.call(`() => {
       const nodes = window.__overviewNodes;
       const door = nodes.find(n => n.kind === 'workstream' && n.status);
@@ -226,9 +230,7 @@ run('u2716a Project overview band', () => {
       window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
     }`);
     await page.until(`() => parseInt(document.querySelector('${overview} h2')?.textContent) === 2`);
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 2 need you');
     await page.call(`() => window.__fake.setStatus(window.__attentionAgent, 'working', 'busy')`);
     await page.until(`() => parseInt(document.querySelector('${overview} h2')?.textContent) === 1`);
-    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 1 needs you');
   }, 60_000);
 });

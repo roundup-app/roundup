@@ -45,6 +45,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, daemonExit);
+  connected.showView("terminal-tabs");
   const emulators = fakeEmulators();
   const failures: (string | null)[] = [];
 
@@ -62,7 +63,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-          <div class="resource-strip" />
+          <div class="resource-strip" /><span class="resource-agent" />
           <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
       </ConnectedProjectContext.Provider>

@@ -149,7 +149,11 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
             let (want_w, want_h, want_x, want_y) = normal_bounds;
             wait(|| {
                 let size = main.outer_size().unwrap().to_logical::<f64>(scale);
+                let position = main.outer_position().unwrap().to_logical::<f64>(scale);
+                // Tao queues resize and reposition separately; width alone can precede the move.
                 (size.width - want_w).abs() <= 1.0
+                    && (position.x - want_x).abs() <= 1.0
+                    && (position.y - want_y).abs() <= 1.0
             });
             let inner = main.inner_size().unwrap().to_logical::<f64>(scale);
             // The runner's display and title bar decide the height; the saved one is only an upper bound.

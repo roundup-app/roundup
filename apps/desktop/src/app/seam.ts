@@ -9,7 +9,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 export const projectSchema = v.object({ name: v.string(), path: v.string() });
 
 /** U3813: a native command with its captured selected Project. */
-export const projectPageSchema = v.object({ path: v.string(), command: v.picklist(["import-work", "project-settings"]) });
+export const projectPageSchema = v.object({ path: v.string(), command: v.string() });
 
 /** One entry of `projects`, in tab order (S8): `running` is false once that Project's Daemon exited. */
 export const listedProjectSchema = v.object({ name: v.string(), path: v.string(), running: v.boolean() });
@@ -107,6 +107,7 @@ export const SEAM_COMMANDS = [
   "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
+  "plugin:window-bar|native_material",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
 ] as const;
@@ -192,9 +193,9 @@ export type App = {
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   /** Synchronizes native Project-menu availability with the selected tab. */
-  selectProjectMenu(path: string | null): Promise<void>;
+  selectProjectMenu(path: string | null, items?: MenuItem[]): Promise<void>;
   /** Native commands carry the selected Project captured by the host at activation. */
-  onProjectPage(listener: (page: { path: string; command: "import-work" | "project-settings" }) => void): Promise<Unsubscribe>;
+  onProjectPage(listener: (page: { path: string; command: string }) => void): Promise<Unsubscribe>;
   /** Opens the app-wide center settings view; no payload. */
   onAppSettings(listener: () => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
@@ -211,10 +212,10 @@ export const INTERNAL_CODE = -32603;
 export const rpcFailureSchema = v.object({
   code: v.number(),
   message: v.string(),
-  data: v.fallback(v.optional(v.object({
-    kind: v.literal("events-expired"),
-    oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
-  })), undefined),
+  data: v.fallback(v.optional(v.variant("kind", [
+    v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
+    v.object({ kind: v.literal("other-project") }),
+  ])), undefined),
 });
 
 /** A failed call: the Daemon's own `code` and `message`, or INTERNAL when Tauri, a plugin or a malformed answer failed. */
