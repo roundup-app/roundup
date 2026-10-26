@@ -86,10 +86,10 @@ export const ImportPanel = (props: { onClose: () => void }) => {
                       <span class="import-meta">
                         <span class="import-cwd"><bdi>{copy.importLocation(candidate.cwd, project.name)}</bdi></span>
                         <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
-                        <ReservedLine message={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                       </span>
                     </Checkbox>
                     <CopyButton app={app} text={JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
+                    <ReservedLine message={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                   </li>
                 )}</For>
                 <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li class="import-candidate"><div class="import-text"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={copy.importRowRefusal(reason)} /></div><CopyButton app={app} text={JSON.stringify({ source, error: reason }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton></li>}</For>
