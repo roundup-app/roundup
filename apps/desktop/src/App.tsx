@@ -1,8 +1,3 @@
-import { PadDrawer } from "./pads/PadDrawer";
-import { TodoDrawer } from "./todos/TodoDrawer";
-import { usePadList } from "./rail/pads/padList";
-import { useTodoList } from "./todos/todoList";
-import type { LinkContent } from "@contracts/link/LinkContent";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
@@ -18,7 +13,7 @@ import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -43,6 +38,9 @@ import { Rail } from "./rail/Rail";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import type { LinkContent } from "@contracts/link/LinkContent";
+import { PadHost } from "./pads/PadDrawer";
+import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
@@ -60,7 +58,6 @@ import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
-import { REVEAL_BUBBLE } from "./bubbles/places";
 import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
@@ -74,17 +71,9 @@ import { createWidths } from "./resize/widths";
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
-const LinkedItem = (props: { content: LinkContent; onLateFailure: (message: string) => void }) => {
-  const pads = usePadList();
-  const todos = useTodoList();
-  const content = props.content;
-
-  if (content.kind === "pad") return <PadDrawer name={content.id} heading={content.section?.heading} pads={pads.pads} onLateFailure={props.onLateFailure} />;
-
-  if (content.kind === "todo") return <TodoDrawer id={content.todo.id} todos={todos} />;
-
-  return null;
-};
+const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
+  content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
+    : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -335,69 +324,12 @@ export const App = (props: {
   };
 
   const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
-  const [linked, setLinked] = createSignal<{ path: string; content: LinkContent } | null>(null);
-  createEffect(() => {
-    const target = linked();
-    const open = target && connectionOf(target.path);
-
-    if (!target || !open) return;
-    const content = target.content;
-    projects.select(target.path);
-    open.settingsView.close();
-
-    if (content.kind === "agent" || content.kind === "workstream") open.rail.select(content.id);
-    else if (content.kind === "terminal") {
-      const owner = open.rail.nodes.find(node => node.terminal_id === content.id)?.id
-        ?? open.rail.terminals().find(terminal => terminal.id === content.id)?.owner;
-
-      open.rail.select(owner === target.path ? null : owner ?? null);
-      // The active Project mounts its existing Bubble listener after selection.
-      queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
-    } else if (content.kind === "pad" || content.kind === "todo") {
-      open.drawer.open(() => <LinkedItem content={content} onLateFailure={setNativeFailure} />, "key");
-    }
-
-    setLinked(null);
-  });
-
   onMount(() => {
-    let stopped = false;
-    let release: (() => void) | undefined;
-    let pending = Promise.resolve();
-    void props.app.onNativeOpen?.(request => {
-      pending = pending.then(async () => {
-        if (stopped) return;
-
-        if (request.kind === "project") {
-          await projects.open(request.path);
-
-          return;
-        }
-        // Only link.read parses and authorizes the URL. A foreign Project cannot resolve
-        // a same-named object; unopened Projects are never discovered from filesystem names.
-
-        const listed = await props.app.projects();
-        const failures: string[] = [];
-
-        for (const project of listed.filter(project => project.running)) {
-          try {
-            const content = await props.app.forProject(project.path).rpc("link.read", { url: request.url });
-
-            if (content.kind === "deliverable") throw new Error("This published link cannot be opened here. Open it from Results.");
-            setLinked({ path: project.path, content });
-            setNativeFailure(null);
-
-            return;
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            failures.push(error.message);
-          }
-        }
-
-        setNativeFailure(failures.join("; ") || "The link's Project is not open. Open that Project and try the link again.");
-      }).catch(error => { if (!(error instanceof Error)) throw error; setNativeFailure(error.message); });
-    }).then(stop => { if (stopped) stop(); else release = stop; }).catch(error => setNativeFailure(String(error)));
-    onCleanup(() => { stopped = true; release?.(); });
+    const owner = getOwner();
+    const handler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    const stop = props.app.onNativeOpen?.(request => void handler.then(handle => handle(request)).catch(error => setNativeFailure(String(error))));
+    onCleanup(() => void stop?.then(release => release()));
+    void stop?.catch(error => setNativeFailure(String(error)));
   });
 
   const stripTabs = createMemo<StripTab[]>(() =>
