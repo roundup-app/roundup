@@ -135,11 +135,10 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
         });
         let size = main.outer_size().unwrap().to_logical::<f64>(scale);
         assert!((size.width - want_w).abs() <= 1.0, "{size:?}");
-        let titlebar = main.inner_position().unwrap().y - main.outer_position().unwrap().y;
+        let inner = main.inner_size().unwrap().to_logical::<f64>(scale);
         assert!(
-            ((f64::from(main.outer_size().unwrap().height) - f64::from(titlebar)) / scale - want_h)
-                .abs()
-                <= 1.0
+            (inner.height - want_h).abs() <= 1.0,
+            "{inner:?} want {want_h}"
         );
         let position = main.outer_position().unwrap().to_logical::<f64>(scale);
         assert!((position.x - want_x).abs() <= 1.0, "{position:?}");
@@ -245,25 +244,17 @@ pub fn u3787e_corrupt_state_is_reachable() {
 }
 fn reachable(app: tauri::AppHandle, _: std::path::PathBuf) {
     let main = app.get_webview_window("main").unwrap();
-    wait(|| {
-        main.inner_size()
-            .unwrap()
-            .to_logical::<f64>(main.scale_factor().unwrap())
-            .width
-            >= 1280.0
-    });
+    let scale = main.scale_factor().unwrap();
+    let area = *main.current_monitor().unwrap().unwrap().work_area();
+    // A display narrower than the 1280 minimum can only show its own width.
+    let floor = 1280.0_f64.min(f64::from(area.size.width) / scale) - 1.0;
+    wait(|| main.inner_size().unwrap().to_logical::<f64>(scale).width >= floor);
     let position = main.outer_position().unwrap();
     let monitor = main.current_monitor().unwrap().unwrap();
     let area = monitor.work_area();
     assert!(position.x >= area.position.x && position.y >= area.position.y);
     assert!(i64::from(position.y) + 32 <= i64::from(area.position.y) + i64::from(area.size.height));
-    assert!(
-        main.inner_size()
-            .unwrap()
-            .to_logical::<f64>(main.scale_factor().unwrap())
-            .width
-            >= 1280.0
-    );
+    assert!(main.inner_size().unwrap().to_logical::<f64>(scale).width >= floor);
 }
 
 pub fn u3787e_maximized_state_keeps_normal_bounds() {
@@ -306,10 +297,12 @@ fn state_reopens(fullscreen: bool) {
                     .abs()
                     <= 1.0
         });
-        let position = main
-            .outer_position()
-            .unwrap()
-            .to_logical::<f64>(main.scale_factor().unwrap());
-        assert!((position.x - want_x).abs() <= 1.0 && (position.y - want_y).abs() <= 1.0);
+        let scale = main.scale_factor().unwrap();
+        let near = |p: tauri::LogicalPosition<f64>| {
+            (p.x - want_x).abs() <= 1.0 && (p.y - want_y).abs() <= 1.0
+        };
+        wait(|| near(main.outer_position().unwrap().to_logical::<f64>(scale)));
+        let position = main.outer_position().unwrap().to_logical::<f64>(scale);
+        assert!(near(position), "{position:?} want ({want_x}, {want_y})");
     });
 }
