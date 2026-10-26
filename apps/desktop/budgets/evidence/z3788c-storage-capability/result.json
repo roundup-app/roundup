@@ -1,0 +1,182 @@
+{
+  "node": "v22.23.3",
+  "conditions": "browser, production (no development condition)",
+  "rows": [
+    {
+      "name": "missing",
+      "value": {
+        "text": "recoverable memory"
+      },
+      "raw": null,
+      "thrown": null,
+      "warnings": 0
+    },
+    {
+      "name": "valid",
+      "value": {
+        "text": " exact\n雪 😀 "
+      },
+      "raw": "{\"text\":\" exact\\n雪 😀 \"}",
+      "thrown": null,
+      "warnings": 0
+    },
+    {
+      "name": "invalid-json",
+      "value": {
+        "text": "recoverable memory"
+      },
+      "raw": "{broken",
+      "thrown": null,
+      "warnings": 0
+    },
+    {
+      "name": "invalid-schema",
+      "value": {
+        "text": "recoverable memory"
+      },
+      "raw": "{\"text\":4}",
+      "thrown": null,
+      "warnings": 0
+    },
+    {
+      "name": "unreadable-sync",
+      "thrown": "unreadable"
+    },
+    {
+      "name": "set-null",
+      "value": null,
+      "operations": [
+        {
+          "operation": "remove",
+          "key": "probe"
+        }
+      ]
+    },
+    {
+      "name": "set-undefined",
+      "value": null,
+      "operations": [
+        {
+          "operation": "remove",
+          "key": "probe"
+        }
+      ]
+    },
+    {
+      "name": "failed-sync-write",
+      "value": {
+        "text": "new recoverable memory"
+      },
+      "thrown": "quota"
+    },
+    {
+      "name": "failed-async-write",
+      "value": {
+        "text": "unacknowledged"
+      },
+      "setterReturnsPromise": false,
+      "failure": "save reply lost"
+    },
+    {
+      "name": "tauri-load",
+      "calls": [
+        {
+          "command": "plugin:store|get",
+          "args": {
+            "rid": "work.json",
+            "key": "probe"
+          }
+        }
+      ],
+      "failure": "probe IPC boundary: no native store loaded"
+    }
+  ],
+  "failedCapabilities": [
+    {
+      "capability": "invalid JSON reports recoverable restore failure",
+      "observed": {
+        "name": "invalid-json",
+        "value": {
+          "text": "recoverable memory"
+        },
+        "raw": "{broken",
+        "thrown": null,
+        "warnings": 0
+      },
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "capability": "invalid schema reports recoverable restore failure",
+      "observed": {
+        "name": "invalid-schema",
+        "value": {
+          "text": "recoverable memory"
+        },
+        "raw": "{\"text\":4}",
+        "thrown": null,
+        "warnings": 0
+      },
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "capability": "nullable value persists distinctly from explicit removal",
+      "observed": [
+        {
+          "name": "set-null",
+          "value": null,
+          "operations": [
+            {
+              "operation": "remove",
+              "key": "probe"
+            }
+          ]
+        },
+        {
+          "name": "set-undefined",
+          "value": null,
+          "operations": [
+            {
+              "operation": "remove",
+              "key": "probe"
+            }
+          ]
+        }
+      ],
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "capability": "async setter acknowledges failed write",
+      "observed": {
+        "name": "failed-async-write",
+        "value": {
+          "text": "unacknowledged"
+        },
+        "setterReturnsPromise": false,
+        "failure": "save reply lost"
+      },
+      "supported": false,
+      "exit": 1
+    },
+    {
+      "capability": "Tauri helper loads a numeric store resource before get",
+      "observed": {
+        "name": "tauri-load",
+        "calls": [
+          {
+            "command": "plugin:store|get",
+            "args": {
+              "rid": "work.json",
+              "key": "probe"
+            }
+          }
+        ],
+        "failure": "probe IPC boundary: no native store loaded"
+      },
+      "supported": false,
+      "exit": 1
+    }
+  ]
+}
