@@ -84,8 +84,8 @@
 .import-title {
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .import-meta {
@@ -216,4 +216,13 @@
   align-items: center;
   gap: var(--space-2);
   margin: 0;
+}
+
+.import-content,
+.import-words {
+  box-sizing: border-box;
+  width: min(100%, var(--measure));
+  min-width: 0;
+  align-self: center;
+  overflow-wrap: anywhere;
 }

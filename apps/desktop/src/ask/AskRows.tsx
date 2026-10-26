@@ -64,11 +64,14 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   };
 
   return (
-    <ul class="ask-rows" aria-label={copy.askRows}>
+    <>
+    <Show when={parts().length === 0 && asks.loadState() !== "failed"}><p class="ask-history-status" role="status">{asks.loadState() === "loading" ? "Loading Ask history…" : "No Asks yet"}</p></Show>
+    <ul class="ask-rows" aria-label={copy.askRows} aria-busy={asks.loadState() === "loading"}>
       <For each={parts()}>
         {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
+    </>
   );
 };
 

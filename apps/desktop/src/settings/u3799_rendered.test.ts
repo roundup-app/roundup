@@ -17,3 +17,70 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
     expect(stdout).toContain("ok");
   }, 180_000);
 });
+
+it.skipIf(!captureDir("U4277c"))("u4277c_requested_screens_empty_and_filled", async () => {
+  const { openLane } = await import("../todos/laneBrowser");
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { execFileSync } = await import("node:child_process");
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const dir = join(captureDir("U4277c")!, phase);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "commit.txt"), execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }));
+  const lane = await openLane(1512, "dark", "u4277c");
+  const origin = await lane.evaluate<string>("location.origin");
+  const capture = async (name: string) => {
+    writeFileSync(join(dir, name + ".checks.json"), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", join(dir, name + ".png"));
+  };
+  const command = async (name: string) => {
+    await lane.evaluate(`window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:window.__auditPath,command:${JSON.stringify(name)}}}))`);
+  };
+  try {
+    await lane.browser("record", "start", join(dir, "requested-screens.webm"));
+    for (const filled of [false, true]) {
+      for (const view of ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"]) {
+        await lane.evaluate("localStorage.clear()");
+        await lane.browser("open");
+        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(filled || view === "resources" ? "tree-40" : "empty-project")})); true`);
+        await lane.until("!!window.__fake && !!document.querySelector('.ask-input')");
+        await lane.browser("set", "media", "dark");
+        await lane.evaluate("window.__fake.app.projects().then(projects => {window.__auditPath = projects.at(-1).path; return true;})");
+        await lane.evaluate(`(() => {
+          const app = window.__fake.app;
+          app.handlers['ask.list'] = () => [];
+          app.handlers['deliverable.list'] = () => [];
+          app.handlers['project.resources'] = () => ({agents: ${filled ? "[{id:'agent-2',memory_bytes:412000000,cpu_percent:18,disk_bytes:2100000000}]" : "[]"},total:{memory_bytes:0,cpu_percent:0,disk_bytes:0}});
+          app.handlers['project.importDiscover'] = () => ({candidates:${filled ? "Array.from({length:3},(_,i)=>({source:'s'+i,revision:'r'+i,title:('Distinct conversation '+i+' 長い名前 ').repeat(12),cwd:'src',last_activity_ms:1n}))" : "[]"},excluded:[]});
+          return true;
+        })()`);
+        if (view === "resources") {
+          await command("view:workstreams");
+          await lane.browser("click", '.rail-row[data-id="agent-2"]');
+          await lane.evaluate("window.__fake.setStatus('agent-2','working','building')");
+        }
+        if (filled && view === "ask-history") await lane.evaluate(`window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'audit',at:'1',text:'Audit',parts:[{text:'Long authored request '.repeat(20),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
+        if (filled && view === "made") await lane.evaluate(`(() => {
+          window.__fake.app.handlers['deliverable.list'] = () => [{id:'publication-a',project:window.__auditPath,maker:{kind:'agent',id:'agent-2',parent:null},maker_name:'Retained maker',home:null,title:'Published result 長い名前 '.repeat(20),published_at:1,target:{kind:'external',url:'https://example.com/exact-target',availability:'unchecked'}}];
+          window.dispatchEvent(new Event('focus')); return true;
+        })()`);
+        await command(view === "import-work" ? view : `view:${view}`);
+        const selector = {"ask-history":".ask-rows",made:".ask-bar",resources:".resource-inspection",workstreams:".project-overview","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
+        await lane.until(`!!document.querySelector('${selector}')`);
+        if (filled && view === "made") await lane.until("!!document.querySelector('.made-row')");
+        if (filled && view === "import-work") {
+          await lane.until("document.querySelectorAll('.import-check').length === 3");
+          await lane.browser("click", ".import-check");
+          await lane.browser("click", ".import-candidate:nth-child(2) .import-check");
+          await capture(`${view}-selected`);
+          await lane.evaluate(`(() => {window.__fake.app.handlers['project.importCommit'] = () => ({outcomes:[{source:'s0',workstream:'imported',agent:'imported-agent',error:null},{source:'s1',workstream:null,agent:null,error:{code:-32003,message:'Storage is unavailable. Free disk space, refresh the conversation list, then retry the selected conversation. '+ 'Complete recovery details '.repeat(15),outcome:'failed'}}]});return true;})()`);
+          await lane.browser("click", ".import-confirm");
+          await lane.until("document.querySelector('.import-panel').textContent.includes('Refresh to check available conversations')");
+        }
+        await capture(`${view}-${filled ? "filled" : "empty"}`);
+      }
+    }
+  } finally {
+    try { await lane.browser("record", "stop"); } finally { await lane.close(); }
+  }
+}, 180_000);
