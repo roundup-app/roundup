@@ -2,5 +2,7 @@
 
 import type * as project$ImportPeriod from "./ImportPeriod";
 export type ImportDiscoverParams = {
+	/**  Read the last list published by this Agent in this Project; absent uses direct discovery. */
+	agent?: string,
 	period: project$ImportPeriod.ImportPeriod,
 };
