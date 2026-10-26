@@ -1,4 +1,5 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
+import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
@@ -51,16 +52,16 @@ export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Pr
   return { performed, completed: true };
 };
 
-/** What the Layers driver presses; each answers whether its control was found. */
+/** The Layers actions: test controls activate directly; the App observes native input and its result. */
 export type Layers = {
-  openDrawer(): boolean;
-  closeDrawer(): boolean;
+  openDrawer(): boolean | Promise<boolean>;
+  closeDrawer(): boolean | Promise<boolean>;
   /** The key close: Escape inside the Drawer. */
-  escapeDrawer(): boolean;
-  toggleShelf(): boolean;
-  keyShelf(): boolean;
+  escapeDrawer(): boolean | Promise<boolean>;
+  toggleShelf(): boolean | Promise<boolean>;
+  keyShelf(): boolean | Promise<boolean>;
   /** Performs an action and waits for half the actual distance to its destination; missing movement fails. */
-  halfway(panel: "drawer" | "shelf", action: () => boolean): Promise<boolean>;
+  halfway(panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>): Promise<boolean>;
 };
 
 /** One Layers cycle: a Drawer cycle, then a Shelf cycle, alternating. Each reverses twice at measured half-displacement, then interrupts by key. */
@@ -135,27 +136,34 @@ const clickAt = (selector: string): boolean => {
 };
 
 /** Reads displayed boxes, as the U3010b rendered observer does; animation progress/time is not displacement. */
-const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean, journal: LayerAction[]): Promise<boolean> => {
+const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[]): Promise<boolean> => {
   const element = document.querySelector<HTMLElement>(`.${panel}`);
   const root = document.querySelector("[data-layout-root]");
 
   if (!element || !root) return false;
-  const before = element.getBoundingClientRect();
+  const initial = element.getBoundingClientRect();
   const edge = root.getBoundingClientRect().right;
+  const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
+  const opening = element.dataset.open !== "true";
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
+  const entry: LayerAction = { panel, source: "trusted-pointer", target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
-  if (before.width <= 0 || !action()) return false;
-  // Solid commits the requested open state synchronously; geometry still reflects the displayed start.
+  journal.push(entry);
+
+  if (initial.width <= 0 || !(await action())) return false;
+  // Read the displayed start at activation, not when the input phase began waiting.
+  const before = element.getBoundingClientRect();
   const open = element.dataset.open === "true";
   const destination = open ? edge - before.width : edge;
   const distance = destination - before.left;
-  const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
-  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : open ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
-  const entry: LayerAction = { panel, source: "synthetic-pointer", target, at_ms: performance.now(), from: before.left, destination, observed: null, completed: false, samples: [] };
+
+  entry.at_ms = performance.now();
+  entry.from = before.left;
+  entry.destination = destination;
 
   // Read the requested style before the lifetime owner's next-frame animation observation.
   // Otherwise its animation list can still be empty when a first Shelf close starts.
   entry.samples.push({ at_ms: performance.now(), left: element.getBoundingClientRect().left });
-  journal.push(entry);
 
   if (Math.abs(distance) < 1) return false;
 
@@ -192,39 +200,79 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   });
 };
 
-export const domLayers = (journal: LayerAction[]): Layers => ({
-  openDrawer: () => clickAt(SHELF_ROW),
-  closeDrawer: () => clickAt(".drawer .close"),
-  escapeDrawer: () => {
-    const close = document.querySelector<HTMLElement>(".drawer .close");
+/** Observe the platform's real activation; never send input or take focus from its current owner. */
+const observeActivation = (selector: string, source: "pointer" | "key" | "escape", accept: () => boolean): Promise<boolean> => {
+  const target = document.querySelector(selector);
 
-    close?.focus();
-    const box = close?.closest(".drawer")?.getBoundingClientRect();
+  if (!target) return Promise.resolve(false);
 
-    close?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+  return new Promise(resolve => {
+    const finish = (completed: boolean) => {
+      clearTimeout(timer);
+      clear();
+      resolve(completed);
+    };
 
-    if (close && box) journal.push({ panel: "drawer", source: "synthetic-key", target: ".drawer .close", at_ms: performance.now(), from: box.left, destination: document.querySelector("[data-layout-root]")?.getBoundingClientRect().right ?? box.right, observed: box.left, completed: document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false", samples: [] });
+    const timer = setTimeout(() => finish(false), CYCLE_MS / 2);
 
-    return close !== null && document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false";
-  },
-  toggleShelf: () => clickAt(".shelf-tab[data-selected]"),
-  keyShelf: () => {
-    const tab = document.querySelector<HTMLElement>(".shelf-tab[data-selected]");
-    const shelf = document.querySelector<HTMLElement>(".shelf");
+    const clear = makeEventListener(window, source === "escape" ? "keydown" : "click", event => {
+      if (!event.isTrusted || !(event.target instanceof Node) || !target.contains(event.target)) return;
 
-    if (!tab || !shelf) return false;
-    const before = shelf.getBoundingClientRect();
+      if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
 
-    // HTMLElement.click has detail=0, which the existing activation owner classifies as key input.
-    tab.click();
-    const completed = document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelf === "open";
+      if (!accept()) return;
+      // Native event dispatch can checkpoint microtasks between listeners. A task observes
+      // the existing activation/keyboard owner after propagation, including Solid delegation.
+      afterUpdate(() => finish(target.isConnected));
+    }, { capture: true });
+  });
+};
 
-    journal.push({ panel: "shelf", source: "synthetic-key", target: ".shelf-tab[data-selected]", at_ms: performance.now(), from: before.left, destination: (document.querySelector("[data-layout-root]")?.getBoundingClientRect().right ?? before.right) - before.width, observed: before.left, completed, samples: [] });
+export const domLayers = (journal: LayerAction[]): Layers => {
+  let pending: LayerAction | null = null;
 
-    return completed;
-  },
-  halfway: (panel, action) => halfDisplacement(panel, action, journal),
-});
+  const interruptible = () => {
+    if (!pending) return true;
+    const element = document.querySelector<HTMLElement>(`.${pending.panel}`);
+
+    return element !== null && element.isConnected && !element.hidden && Math.abs(element.getBoundingClientRect().left - pending.destination) >= 1;
+  };
+
+  const keyInterruption = async (panel: "drawer" | "shelf", target: string, source: "key" | "escape", open: boolean) => {
+    const element = document.querySelector<HTMLElement>(`.${panel}`);
+    const root = document.querySelector<HTMLElement>("[data-layout-root]");
+
+    if (!element || !root) return false;
+    const before = element.getBoundingClientRect();
+    const entry: LayerAction = { panel, source: "trusted-key", target, at_ms: performance.now(), from: before.left, destination: root.getBoundingClientRect().right - (open ? before.width : 0), observed: null, completed: false, samples: [] };
+
+    journal.push(entry);
+
+    if (!(await observeActivation(target, source, interruptible))) return false;
+    entry.at_ms = performance.now();
+    entry.observed = element.getBoundingClientRect().left;
+    entry.completed = panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed");
+
+    if (entry.completed) pending = null;
+
+    return entry.completed;
+  };
+
+  return {
+    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible),
+    closeDrawer: () => observeActivation(".drawer .close", "pointer", interruptible),
+    escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
+    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible),
+    keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
+    halfway: async (panel, action) => {
+      const completed = await halfDisplacement(panel, action, journal);
+
+      if (completed) pending = journal.at(-1) ?? null;
+
+      return completed;
+    },
+  };
+};
 
 const workingGlyphs = () => [...document.querySelectorAll('.rail .glyph[data-drawing="quarter"]')].filter(glyph => {
   const box = glyph.getBoundingClientRect();
@@ -534,7 +582,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
       const observer: NonNullable<FrameReport["observer"]> = {
         viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, variant: "unqualified",
-        native_qualification: "incomplete: trusted layer actions, both Shelf cases and live preference variants remain unqualified",
+        native_qualification: "incomplete: trusted layer sequence, both Shelf cases and live preference variants remain unqualified",
       };
 
       if (fixture) observer.fixture = fixture;

@@ -12,7 +12,7 @@ The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`.
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
 - No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the all three motion workloads prepare the same `tree-40-native-v1` fixture using the stand-in Agents (`fake_claude.py`, no model call). The fixture derives the nested tree, names, Todo body/long title and Pad contents from `testing/seeds.ts`: its 38-node tree gains two Agent leaves, all eight Todos start open, and each of two owners has a three-level branch plus a reorder sibling. Ten Agents work. The selected streaming shell remains visible. Setup refuses existing Todos/Pads or any Rail beyond the measurement Workstream; it neither adopts nor deletes user data. It requires dark 1512×950 and identifies the actual reserved/overlay Shelf mode. A fixture not prepared within the existing ten-second setup bound is incomplete; never increase the bound.
-- The command schedules one workload cycle every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or observed native pointer reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Layers and Glyphs currently use page-driven preparation. For Todos, the page performs insertion, completion and done-fold; pointer reorder is observed, never generated (see implementation status). A control the command cannot find leaves the run invalid (exit 2).
+- The command schedules one workload cycle every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or observed native pointer reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Glyphs uses page-driven preparation; Layers observes trusted pointer/key activation. For Todos, the page performs insertion, completion and done-fold; pointer reorder is observed, never generated (see implementation status). A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
 
@@ -69,10 +69,25 @@ It refuses missing targets, absent displacement, a jump directly to the endpoint
 and movement not observed within the existing 400 ms settling bound. Drawer
 open/close/reopen segments each wait for that observation, then Escape interrupts
 the reopening segment. Shelf closes/opens/closes at the same measured boundaries,
-then a synthetic key activation reopens it immediately. The report's `observer` retains the viewport, actual Shelf
+then a trusted keyboard activation reopens it immediately. The report's `observer` retains the viewport, actual Shelf
 mode and layer segments (targets, timestamps, start/destination/observed positions
-and completion), with synthetic pointer/key sources named explicitly. These are
-page-driven actions and never trusted native gestures.
+and completion), with trusted pointer/key sources named explicitly. The observer
+never generates those inputs or changes focus. Each activation has the existing
+one-second input bound; geometry retains the 400 ms settling bound. A reversal
+or key interruption arriving after the preceding segment reaches its endpoint
+is refused. The action's start box is read at activation, rather than when the
+input phase began waiting. Missing activation is retained as an incomplete action.
+
+In an eventual qualified Mac Layers sequence, select the first original Todo
+during warmup so its Open control is exposed; this is preparation, not a measured
+open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, pointer-close,
+pointer-reopen, then Escape from inside the Drawer. For Shelf, pointer-toggle
+closed/open/closed, then activate its focused tab with Space or Return. Reverse
+on each measured half-displacement, and interrupt the third segment while it is
+still moving. The page observes the existing controls; it cannot supply native
+pointer input. Late, synthetic or missing input makes the run invalid. This is an
+observer implementation, not a request to perform that sequence: complete the
+remaining qualifications below first.
 
 The App now prepares the same deterministic derived fixture for layers, Todos and
 Glyphs. `observer.fixture` retains canonical UTF-8 JSON bytes, SHA-256, logical
@@ -104,7 +119,7 @@ this phase. Do not perform these steps yet: this partial observer still needs th
 remaining qualification below, and no new owner sequence is requested.
 
 Before #4244 can close, demonstrate this setup and trusted pointer reorder on the
-rendered observer, identify both Shelf cases and complete the measured live reduced
+rendered observer, qualify the trusted layer interruption sequence in both Shelf cases and complete the measured live reduced
 motion variants through the existing preference owner. The report marks its variant `unqualified` and explicitly marks native
 qualification incomplete. A scheduling pass alone does not complete that work.
 
