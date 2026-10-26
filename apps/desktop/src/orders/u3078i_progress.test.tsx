@@ -32,7 +32,7 @@ const openWork = async (prepare: (app: FakeApp) => void = () => {}) => {
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return { ...mounted, section: await screen.findByRole("region", { name: "Progress" }, { timeout: 10_000 }) };
+  return { ...mounted, section: await screen.findByRole("region", { name: "Progress" }) };
 };
 
 /** SAFETY: the handlers under test are the only callers, and each is given this shape. */
