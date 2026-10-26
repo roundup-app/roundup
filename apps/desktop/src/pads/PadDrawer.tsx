@@ -603,3 +603,8 @@ export const PadDrawer = (props: {
     </ItemDrawer>
   );
 };
+
+/** The Pad's Drawer over the shared list; a late failure is the caller's to show. */
+export const PadHost = (props: { name: string; heading?: string | undefined; onLateFailure?: (message: string) => void }) => (
+  <PadDrawer name={props.name} heading={props.heading} pads={usePadList().pads} onLateFailure={props.onLateFailure ?? (() => {})} />
+);

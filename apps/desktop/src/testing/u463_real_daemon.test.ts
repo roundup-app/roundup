@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { captureDir } from "./captures";
 import { chromePath } from "./chromePage";
 import { startRealDaemon, startWorktreeProject } from "./realDaemonFixture";
@@ -447,10 +447,13 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     // Imported rows already report idle. Wait for the new Attempt and Terminal so
     // that status cannot acknowledge a resume/start which has not completed yet.
-    const idle = async (id: string) => wait(`(async () => {
-      const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
-      return (await response.json()).result?.some(node => node.id === '${id}' && node.attempt === '1' && node.terminal_id !== null && node.status?.kind === 'idle');
-    })()`);
+    const idle = async (id: string) => vi.waitFor(async () => {
+      const node = (await app.rpc("rail.tree", null)).find((row) => row.id === id);
+
+      expect(node?.attempt).toBe("1");
+      expect(node?.terminal_id).toBeTruthy();
+      expect(node?.status?.kind).toBe("idle");
+    }, { timeout: 30_000 });
 
     await rightClick(parent.id);
     await wait("window.__importMenu.shown?.some(item => item.id === 'start' && item.enabled !== false)");

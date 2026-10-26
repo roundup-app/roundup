@@ -85,7 +85,7 @@ impl Fixture {
         );
         let script = dir.path().join("rupd");
         let body = body
-            .replace("{link}", &link)
+            .replace("{link}", &format!("{link}\nprintf 'rupd-bound\\n'"))
             .replace("{dir}", &dir.path().display().to_string());
         let go = dir.path().join("go");
         assert!(Command::new("mkfifo").arg(&go).status().unwrap().success());
@@ -248,31 +248,7 @@ const SERVE_AND_WAIT: &str = "{link}\nexec cat";
 
 /// A fake `rupd` for several Projects: each links its socket to `real-<folder name>.sock` and
 /// records what it was started with.
-const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat";
-
-#[test]
-fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
-    let fx = Fixture::new(
-        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nexec cat",
-    );
-    fx.serve_real_daemon();
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let opened = open(&webview, &fx.project);
-
-    assert_eq!(
-        opened,
-        json!({ "name": "my-project", "path": fx.project.display().to_string() })
-    );
-    assert_eq!(
-        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
-        format!("{}\n--attached\n", fx.project.display())
-    );
-    assert_eq!(
-        std::fs::read_to_string(fx.dir.path().join("socket")).unwrap(),
-        fx.config.socket.display().to_string()
-    );
-}
+const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat";
 
 #[test]
 fn s1_projects_is_empty_until_one_is_open_and_then_lists_the_open_one() {
@@ -328,40 +304,6 @@ fn s1_a_path_that_is_not_a_directory_is_invalid_params_naming_it() {
             .as_str()
             .unwrap()
             .contains(&file.display().to_string())
-    );
-}
-
-#[test]
-fn s1_a_daemon_that_exits_is_internal_and_carries_its_stderr() {
-    let fx = Fixture::new("echo 'boom: cannot open the database' >&2\nexit 3");
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("boom: cannot open the database")
-    );
-}
-
-#[test]
-fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
-    let fx = Fixture::new("exec cat");
-    let mut config = fx.config.clone();
-    config.ready_bound = Duration::from_millis(300);
-    let (_app, webview) = app(config, None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("did not answer daemon.ping within 300ms")
     );
 }
 
@@ -849,44 +791,6 @@ fn s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected() {
 }
 
 #[test]
-fn s1_a_daemon_that_accepts_connections_but_never_answers_ping_is_silent_past_the_bound() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    let listener = std::os::unix::net::UnixListener::bind(fx.real_daemon_socket()).unwrap();
-    std::thread::spawn(move || {
-        let held: Vec<_> = listener.incoming().collect();
-        drop(held);
-    });
-    let mut config = fx.config.clone();
-    config.ready_bound = Duration::from_millis(300);
-    let (_app, webview) = app(config, None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::INTERNAL);
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("did not answer daemon.ping")
-    );
-}
-
-#[test]
-fn s1_stderr_that_is_not_utf8_does_not_stop_the_tail() {
-    let fx = Fixture::new("printf 'bad \\377 line\\n' >&2\necho 'after the bad line' >&2\nexit 3");
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("after the bad line")
-    );
-}
-
-#[test]
 fn s1_a_project_path_ending_in_dotdot_is_named_after_the_directory_it_reaches() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     fx.serve_real_daemon();
@@ -1101,30 +1005,6 @@ fn s5_after_a_failed_reopen_the_same_path_can_be_retried() {
         reopened,
         json!({ "name": "my-project", "path": fx.project.display().to_string() })
     );
-}
-
-#[test]
-fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
-    let fx = Fixture::new(
-        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nread go < '{dir}/go'\nexit 0",
-    );
-    fx.serve_real_daemon();
-    let (app, webview) = app(fx.config.clone(), None);
-    let exited = daemon_exited(&app);
-    open(&webview, &fx.project);
-    fx.release();
-    exited.recv_timeout(WAIT).unwrap();
-
-    invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
-
-    assert_eq!(
-        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
-        format!("{}\n--attached\n", fx.project.display())
-    );
-    let reopened_socket = std::fs::read_to_string(fx.dir.path().join("socket")).unwrap();
-    assert_ne!(reopened_socket, fx.config.socket.display().to_string());
-
-    fx.release();
 }
 
 #[test]
@@ -1401,7 +1281,7 @@ fn s8_a_path_that_is_not_open_is_conflict_for_every_call() {
 #[test]
 fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1443,7 +1323,7 @@ fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
 #[test]
 fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 7; fi\nexec cat",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 7; fi\nexec cat",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1509,7 +1389,7 @@ fn s8_closing_one_daemon_leaves_the_other_answering() {
 #[test]
 fn s8_when_the_app_exits_every_daemons_stdin_closes() {
     let fx = Fixture::new(
-        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
     );
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1524,72 +1404,6 @@ fn s8_when_the_app_exits_every_daemons_stdin_closes() {
         fx.dir.path().join("stdin-closed-my-project").exists()
             && fx.dir.path().join("stdin-closed-other-project").exists()
     });
-}
-
-#[test]
-fn s10_a_rename_is_trimmed_listed_and_restored_and_an_empty_name_removes_it() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
-    let path = fx.project.display().to_string();
-    {
-        let (_app, webview) = app(fx.config.clone(), None);
-        open(&webview, &fx.project);
-
-        let renamed = invoke(
-            &webview,
-            "rename_project",
-            json!({ "path": path, "name": "  api  " }),
-        );
-
-        assert_eq!(renamed, Ok(json!({ "name": "api", "path": path })));
-        assert_eq!(
-            invoke(&webview, "projects", json!({})),
-            Ok(json!([project_json(&fx.project, "api", true)]))
-        );
-    }
-    let (_app, webview) = app(fx.config.clone(), None);
-    assert_eq!(open(&webview, &fx.project)["name"], "api");
-
-    let cleared = invoke(
-        &webview,
-        "rename_project",
-        json!({ "path": path, "name": "   " }),
-    );
-
-    assert_eq!(cleared, Ok(json!({ "name": "my-project", "path": path })));
-}
-
-#[test]
-fn s10_a_name_over_forty_characters_or_with_a_line_break_is_invalid_params() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
-    let (_app, webview) = app(fx.config.clone(), None);
-    open(&webview, &fx.project);
-    let path = fx.project.display().to_string();
-
-    let forty = invoke(
-        &webview,
-        "rename_project",
-        json!({ "path": path, "name": "x".repeat(40) }),
-    );
-    let long = invoke(
-        &webview,
-        "rename_project",
-        json!({ "path": path, "name": "x".repeat(41) }),
-    )
-    .unwrap_err();
-    let broken = invoke(
-        &webview,
-        "rename_project",
-        json!({ "path": path, "name": "a\nb" }),
-    )
-    .unwrap_err();
-
-    assert!(forty.is_ok());
-    for error in [long, broken] {
-        assert_eq!(error["code"], code::INVALID_PARAMS);
-        assert!(error["message"].as_str().unwrap().contains("40"));
-    }
 }
 
 #[test]
@@ -1633,7 +1447,7 @@ fn s10_the_open_projects_are_stored_in_order_after_open_and_close() {
 fn s10_a_launch_reopens_the_stored_projects_in_order_drops_a_vanished_folder_and_keeps_a_failing_one()
  {
     let fx = Fixture::new(
-        "if [ \"$(basename \"$1\")\" = broken-project ]; then echo 'boom' >&2; exit 3; fi\nprintf '%s\\n' \"$1\" >> '{dir}/started'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat",
+        "if [ \"$(basename \"$1\")\" = broken-project ]; then echo 'boom' >&2; exit 3; fi\nprintf '%s\\n' \"$1\" >> '{dir}/started'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat",
     );
     let broken = fx.second_project("broken-project");
     let gone = fx.second_project("gone-project");
@@ -1669,28 +1483,6 @@ fn s10_a_launch_reopens_the_stored_projects_in_order_drops_a_vanished_folder_and
             third.display().to_string()
         ]
     );
-}
-
-#[test]
-fn s10_a_failed_write_of_the_names_never_fails_the_call() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
-    std::fs::write(
-        fx.dir.path().join("data"),
-        "a file where the folder should be",
-    )
-    .unwrap();
-    let (_app, webview) = app(fx.config.clone(), None);
-
-    let opened = open(&webview, &fx.project);
-    let renamed = invoke(
-        &webview,
-        "rename_project",
-        json!({ "path": fx.project.display().to_string(), "name": "still works" }),
-    );
-
-    assert_eq!(opened["name"], "my-project");
-    assert_eq!(renamed.unwrap()["name"], "still works");
 }
 
 #[test]
@@ -2072,126 +1864,146 @@ fn x14_desktop_output_channel_uses_raw_bodies() {
 }
 
 #[test]
-fn u2773c_header_external_change_keeps_original() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
+fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
+    let fx = Fixture::new(
+        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nexec cat",
+    );
     fx.serve_real_daemon();
     let (_app, webview) = app(fx.config.clone(), None);
-    let path = fx.project.display().to_string();
-    let captured = open(&webview, &fx.project)["name"].clone();
-    let rename = |name: &str, base: Value| {
-        invoke(
-            &webview,
-            "rename_project",
-            json!({ "path": path, "name": name, "base": base }),
-        )
-    };
-    assert!(rename("B", Value::Null).is_ok());
+
+    let opened = open(&webview, &fx.project);
+
     assert_eq!(
-        rename(" exact 雪 ", captured).unwrap_err()["code"],
-        code::CONFLICT
+        opened,
+        json!({ "name": "my-project", "path": fx.project.display().to_string() })
     );
     assert_eq!(
-        invoke(&webview, "projects", json!({})),
-        Ok(json!([project_json(&fx.project, "B", true)]))
+        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
+    );
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("socket")).unwrap(),
+        fx.config.socket.display().to_string()
     );
 }
 
 #[test]
-fn u2773c_header_unavailable_original_never_substitutes_same_named_project() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
+fn s1_a_daemon_that_exits_is_internal_and_carries_its_stderr() {
+    let fx = Fixture::new("echo 'boom: cannot open the database' >&2\nexit 3");
     let (_app, webview) = app(fx.config.clone(), None);
-    let path = fx.project.display().to_string();
-    open(&webview, &fx.project);
-    let other = fx.second_project("other-project");
-    fx.serve_real_daemon_named("other-project");
-    open(&webview, &other);
-    invoke(
-        &webview,
-        "rename_project",
-        json!({"path": other, "name": "my-project"}),
-    )
-    .unwrap();
-    invoke(&webview, "close_project", json!({"path": path})).unwrap();
-    assert_eq!(
-        invoke(
-            &webview,
-            "rename_project",
-            json!({"path": path, "name": "unavailable", "base": "my-project"})
-        )
-        .unwrap_err()["code"],
-        code::CONFLICT
-    );
-    assert_eq!(
-        invoke(&webview, "projects", json!({})),
-        Ok(json!([project_json(&other, "my-project", true)]))
+
+    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+
+    assert_eq!(error["code"], code::INTERNAL);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("boom: cannot open the database")
     );
 }
 
 #[test]
-fn u2773c_header_unchanged_base_keeps_name_rules() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
-    let (_app, webview) = app(fx.config.clone(), None);
-    let path = fx.project.display().to_string();
-    open(&webview, &fx.project);
-    for (name, expected) in [(" C ", "C"), ("  ", "my-project")] {
-        let current = invoke(&webview, "projects", json!({})).unwrap()[0]["name"].clone();
-        let result = invoke(
-            &webview,
-            "rename_project",
-            json!({"path": path, "name": name, "base": current}),
+fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
+    let fx = Fixture::new("exec cat");
+    let mut config = fx.config.clone();
+    config.ready_bound = Duration::from_millis(300);
+    let (_app, webview) = app(config, None);
+
+    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+
+    assert_eq!(error["code"], code::INTERNAL);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("did not answer daemon.ping within 300ms")
+    );
+}
+
+#[test]
+fn z3799b_a_socket_without_the_complete_bound_signal_is_not_ready() {
+    for signal in ["", "printf 'rupd-'", "printf 'other-bound\\n'"] {
+        let fx = Fixture::new(&format!(
+            "ln -s '{{dir}}/real.sock' \"$RUPD_SOCKET\"\n{signal}\nexec 1>&-\nexec cat > /dev/null"
+        ));
+        fx.serve_real_daemon();
+        let (_app, webview) = app(fx.config.clone(), None);
+
+        let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+
+        assert_eq!(error["code"], code::INTERNAL);
+        assert!(
+            error["message"]
+                .as_str()
+                .unwrap()
+                .contains("bound notification")
         );
-        assert_eq!(result.unwrap()["name"], expected);
-        assert_eq!(
-            invoke(&webview, "projects", json!({})),
-            Ok(json!([project_json(&fx.project, expected, true)]))
-        );
+        assert!(!fx.config.socket.exists());
     }
 }
 
 #[test]
-fn u2773c_header_overlapping_captured_writes_accept_only_one() {
+fn s1_a_daemon_that_accepts_connections_but_never_answers_ping_is_silent_past_the_bound() {
     let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
-    let (app, webview) = app(fx.config.clone(), None);
-    open(&webview, &fx.project);
-    let path = fx.project.display().to_string();
-    let state = app.state::<AppState>();
-    let barrier = std::sync::Barrier::new(8);
-    let replies = std::thread::scope(|scope| {
-        let calls: Vec<_> = (0..8)
-            .map(|i| {
-                let barrier = &barrier;
-                let state = &state;
-                let path = &path;
-                scope.spawn(move || {
-                    barrier.wait();
-                    state.rename_project(path, &format!("name-{i}"), Some("my-project"))
-                })
-            })
-            .collect();
-        calls
-            .into_iter()
-            .map(|call| call.join().unwrap())
-            .collect::<Vec<_>>()
+    let listener = std::os::unix::net::UnixListener::bind(fx.real_daemon_socket()).unwrap();
+    std::thread::spawn(move || {
+        let held: Vec<_> = listener.incoming().collect();
+        drop(held);
     });
-    let accepted: Vec<_> = replies
-        .iter()
-        .filter_map(|reply| reply.as_ref().ok())
-        .collect();
-    assert_eq!(accepted.len(), 1);
-    assert_eq!(
-        replies
-            .iter()
-            .filter(|reply| reply
-                .as_ref()
-                .is_err_and(|error| error.code == code::CONFLICT))
-            .count(),
-        7
-    );
-    assert_eq!(
-        invoke(&webview, "projects", json!({})),
-        Ok(json!([project_json(&fx.project, &accepted[0].name, true)]))
+    let mut config = fx.config.clone();
+    config.ready_bound = Duration::from_millis(300);
+    let (_app, webview) = app(config, None);
+
+    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+
+    assert_eq!(error["code"], code::INTERNAL);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("did not answer daemon.ping")
     );
 }
+
+#[test]
+fn s1_stderr_that_is_not_utf8_does_not_stop_the_tail() {
+    let fx = Fixture::new("printf 'bad \\377 line\\n' >&2\necho 'after the bad line' >&2\nexit 3");
+    let (_app, webview) = app(fx.config.clone(), None);
+
+    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("after the bad line")
+    );
+}
+
+#[test]
+fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
+    let fx = Fixture::new(
+        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nread go < '{dir}/go'\nexit 0",
+    );
+    fx.serve_real_daemon();
+    let (app, webview) = app(fx.config.clone(), None);
+    let exited = daemon_exited(&app);
+    open(&webview, &fx.project);
+    fx.release();
+    exited.recv_timeout(WAIT).unwrap();
+
+    invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
+    );
+    let reopened_socket = std::fs::read_to_string(fx.dir.path().join("socket")).unwrap();
+    assert_ne!(reopened_socket, fx.config.socket.display().to_string());
+
+    fx.release();
+}
+
+#[path = "project_names/mod.rs"]
+mod project_names;
