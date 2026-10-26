@@ -73,12 +73,8 @@ pub(super) fn session(
     sidechain: bool,
 ) -> String {
     let id = format!("{number:08}-1111-4111-8111-111111111111");
-    let name: String = bucket
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let dir = config.join("projects").join(name);
+    // Deliberately historical fixture labels: the SDK, never a cwd encoder, resolves them.
+    let dir = config.join("projects").join(bucket.file_name().unwrap());
     std::fs::create_dir_all(&dir).unwrap();
     let lines: Vec<String> = cwds.iter().map(|cwd| record(cwd, &id, sidechain)).collect();
     std::fs::write(dir.join(format!("{id}.jsonl")), lines.join("\n") + "\n").unwrap();
@@ -584,14 +580,9 @@ async fn u3523h_unrelated_sessions_are_not_read() {
             root.path().join(format!("gone-{}", n % 7))
         };
         let id = session(&config, &bucket, 100 + n, &[&bucket, &project], false);
-        let name: String = bucket
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
         let file = config
             .join("projects")
-            .join(name)
+            .join(bucket.file_name().unwrap())
             .join(format!("{id}.jsonl"));
         let pad = vec![b' '; 1024 * 1024];
         let mut body = std::fs::read(&file).unwrap();
