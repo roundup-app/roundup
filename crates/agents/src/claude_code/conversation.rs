@@ -596,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn a35_the_original_conversation_is_untouched() {
+    fn u4251c_retained_copy_is_sdk_readable() {
         let dir = tempfile::tempdir().unwrap();
         let launcher = Launcher::new(
             "unused",
@@ -605,13 +605,14 @@ mod tests {
             None,
         );
         let original = "12345678-1234-4234-8234-123456789abc";
-        let path = launcher.conversation_path(dir.path(), original).unwrap();
+        let path = dir.path().join("projects/historical-location").join(format!("{original}.jsonl"));
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let mark = format!(
             "{{\"sessionId\":\"{original}\",\"message\":\"at Mark\"}}\n{{\"type\":\"system\"}}\n"
         );
         let before = format!("{mark}{{\"message\":\"after mark\"}}\n");
         std::fs::write(&path, &before).unwrap();
+        assert_eq!(launcher.record_conversation(dir.path(), original).unwrap(), before.as_bytes());
         let id = launcher
             .copy_conversation(dir.path(), mark.as_bytes())
             .unwrap();
