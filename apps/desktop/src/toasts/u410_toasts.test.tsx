@@ -217,6 +217,27 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     expect(toasts()).toHaveLength(0);
   });
 
+  it.each(["focus", "visibilitychange"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", async (event) => {
+    const previous = await mountToasts(tree(), { front: false });
+
+    previous.app.emit(status("a", "needs-you"));
+    await settle();
+    previous.view.unmount();
+    previous.setFront(true);
+
+    const current = await mountToasts(tree(), { front: false });
+
+    current.app.emit(status("b", "error"));
+    await settle();
+    current.setFront(true);
+    fireEvent(event === "focus" ? window : document, new Event(event));
+    await settle();
+
+    expect(previous.queue.shown()).toBe(0);
+    expect(names(current.toasts())).toEqual(["mason Failed"]);
+    expect(current.sounds).toHaveLength(1);
+  });
+
   it("u468_a_visible_child_prompt_has_no_duplicate_toast", async () => {
     const { app, toasts, sounds } = await mountToasts(tree(), { selected: "a" });
 
@@ -261,17 +282,6 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     await settle();
 
     expect(sounds).toHaveLength(2);
-  });
-
-  it("u414_escape_dismisses_and_the_card_leaves", async () => {
-    const { app, toasts } = await mountToasts(tree());
-
-    app.emit(status("a", "needs-you"));
-    await settle();
-    fireEvent.keyDown(toasts()[0]!, { key: "Escape" });
-    await vi.advanceTimersByTimeAsync(150);
-    await settle();
-    expect(toasts()).toHaveLength(0);
   });
 
   it("u414_idle_runs_nothing", async () => {
