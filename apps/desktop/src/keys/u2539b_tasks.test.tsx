@@ -52,6 +52,27 @@ it("u2539b_landing_mounts_only_ask_and_attention", async () => {
   await waitFor(() => expect(document.querySelector(".pane-screen [data-terminal]")).not.toBeNull());
 });
 
+it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () => {
+  await mount();
+  key("KeyT", { metaKey: true, shiftKey: true });
+  const field = await screen.findByRole("textbox", { name: "Capture a Todo" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect(document.querySelector(".todos-tab, .shelf-tabs")).toBeNull();
+});
+
+it("u2539b_drawer_keeps_attention_reachable", async () => {
+  const { connected } = await mount();
+  leader("KeyS");
+  const row = await screen.findByText("Selected work");
+  fireEvent.click(row);
+  fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(connected().drawer.content()).not.toBeNull());
+  const attention = document.querySelector<HTMLButtonElement>(".overview-entry");
+  expect(attention).not.toBeNull();
+  fireEvent.click(attention!);
+  await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
+});
+
 it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
   const { connected, nodes } = await mount();
   fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
