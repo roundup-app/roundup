@@ -10,7 +10,7 @@ import { rowOf } from "../rail/railFixture";
 import { workstream } from "../testing/nodes";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -259,7 +259,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
 
     for (const seed of ["agents-10", "tree-40", "first-run"]) {
       await lane.evaluate("localStorage.clear()");
-      await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
+      await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
       await lane.until("!!document.querySelector('.window')");
 
       if (seed !== "first-run") {

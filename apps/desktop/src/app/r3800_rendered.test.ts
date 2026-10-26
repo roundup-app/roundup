@@ -26,7 +26,7 @@ it("r3800_enter_loading_populated_and_failure", async () => {
     await until("!!window.releaseStartup && document.querySelectorAll('[aria-busy=true][data-layout-panel]').length === 2");
     await capture("R3800", "loading");
     await evaluate("window.releaseStartup(); true");
-    await until("[...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'New Workstream')");
+    await until("!!document.querySelector('.ask-input') && !document.querySelector('[aria-busy=true][data-layout-panel]')");
     await capture("R3800", "populated-empty");
     await evaluate("window.__fake.app.exitDaemon({code:1,cause:'Cannot start Daemon. Reopen the Project.'}); true");
     await until("!!document.querySelector('[role=alert]')");

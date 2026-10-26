@@ -119,7 +119,7 @@ export const Bubbles = (props: {
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
-  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
+  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -883,13 +883,14 @@ export const Bubbles = (props: {
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} screens={props.screens} name={nameFor(shown().find(terminal => terminal.id === id)!)} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} toggleMinimised={toggleMinimised} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
-        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+        <Show when={connected.hasView("terminal-tabs")}><div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
           <For each={shownIds()}>{id => <Tab id={id} />}</For>
           <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
-        </div>
+          <button data-button="quiet" type="button" onClick={() => connected.hideView("terminal-tabs")}>{copy.close}</button>
+        </div></Show>
       </Portal>}</Show>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>

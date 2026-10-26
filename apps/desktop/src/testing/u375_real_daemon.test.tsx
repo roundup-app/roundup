@@ -8,7 +8,7 @@ import { chromePath } from "./chromePage";
 import { openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -117,7 +117,7 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
   })()`);
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
     await open();
@@ -141,7 +141,7 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     await browser("wait", "--fn", "document.querySelector('.switcher input')?.value === '  é 🧭 東京  ' && document.querySelector('.switcher input').selectionStart === 2");
     expect((await browser("eval", "(() => { const input = document.querySelector('.switcher input'); return [input.selectionStart, input.selectionEnd, input.selectionDirection, document.activeElement === input, window.__queryCalls]; })()")).result).toEqual([2, 9, "backward", true, []]);
 
-    await browser("open", `${real.base}/harness.html?seed=tree-40`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
     await open();
     await browser("wait", "--fn", "!!document.querySelector('.switcher input')");

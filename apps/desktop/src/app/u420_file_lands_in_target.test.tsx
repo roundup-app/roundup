@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { FileDrop } from "./seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info } from "../testing/nodes";
@@ -39,7 +39,7 @@ const mount = async (trees: Record<string, RailNode[]>) => {
   }
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={factory} />);
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(names.length));
+  await waitFor(() => expect(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")).toHaveLength(names.length));
   await waitFor(() => expect(document.querySelectorAll(".rail-row").length).toBe((trees[names.at(-1)!] ?? []).length));
 
   const index = (element: Element, selector: string) => [...document.querySelectorAll(selector)].indexOf(element);
@@ -88,11 +88,11 @@ describe("u420 a file dropped on a target lands in that target", () => {
   it("u420_a_drop_on_a_project_tab_lands_in_its_selected_agent", async () => {
     const { app, made } = await mount({ web: TREE, api: [agent("z", "idle", "z")] });
 
-    fireEvent.click(screen.getAllByRole("tab")[0]!);
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")[0]!);
     await waitFor(() => expect(document.querySelectorAll(".rail-row")).toHaveLength(3));
     fireEvent.click(document.querySelector('.rail-row[data-id="a1"]')!);
     await waitFor(() => expect(selected()).toBe("a1"));
-    fireEvent.click(screen.getAllByRole("tab")[1]!);
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")[1]!);
     await waitFor(() => expect(selected()).not.toBe("a1"));
     app.dropFiles(drop(tabX(0), 15, "/p/a b.txt"));
 
@@ -102,11 +102,11 @@ describe("u420 a file dropped on a target lands in that target", () => {
   it("u420_a_drop_on_a_project_tab_lands_in_its_selected_workstream", async () => {
     const { app, made } = await mount({ web: TREE, api: [agent("z", "idle", "z")] });
 
-    fireEvent.click(screen.getAllByRole("tab")[0]!);
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")[0]!);
     await waitFor(() => expect(document.querySelectorAll(".rail-row")).toHaveLength(3));
     fireEvent.click(document.querySelector('.rail-row[data-id="w1"]')!);
     await waitFor(() => expect(selected()).toBe("w1"));
-    fireEvent.click(screen.getAllByRole("tab")[1]!);
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")[1]!);
     await waitFor(() => expect(selected()).not.toBe("w1"));
     app.dropFiles(drop(tabX(0), 15, "/p/notes.txt"));
 

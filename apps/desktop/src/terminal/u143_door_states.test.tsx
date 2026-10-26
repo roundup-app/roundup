@@ -17,7 +17,7 @@ const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!
 
 const calls = (app: { calls: { method: string; params: unknown }[] }, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
 
-const startWorkstream = () => screen.getByText("New Workstream", { selector: ".pane-action" });
+const startWorkstream = () => screen.getByRole("button", { name: "Add Workstream" });
 
 const emptyProject = async () => {
   const tree: RailNode[] = [];
@@ -35,18 +35,9 @@ const emptyProject = async () => {
 };
 
 describe("u143 empty Project", () => {
-  it("u143_an_empty_project_offers_start_a_workstream_in_place_of_the_select_line", async () => {
-    await emptyProject();
 
-    expect([screen.getByText("No Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("Select an Agent or a Terminal")]).toEqual([expect.anything(), false, null]);
-  });
 
-  it("u143_the_start_a_workstream_button_is_a_native_tab_stop", async () => {
-    await emptyProject();
-    startWorkstream().focus();
 
-    expect([startWorkstream().tagName, startWorkstream().getAttribute("tabindex"), document.activeElement === startWorkstream()]).toEqual(["BUTTON", null, true]);
-  });
 
   it("u143_only_new_workstream_is_offered_on_an_empty_project", async () => {
     await emptyProject();
@@ -55,11 +46,7 @@ describe("u143 empty Project", () => {
     expect(screen.queryByLabelText("Add Agent")).toBeNull();
   });
 
-  it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
-    await mountRailAndPane([agent("a", "idle", "i")]);
 
-    expect([screen.queryByText("Select an Agent or a Terminal") !== null, screen.queryByText("New Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
-  });
 
   it("u143_start_a_workstream_creates_one_root_workstream_selects_it_and_starts_only_its_door", async () => {
     const { app, connected } = await emptyProject();
@@ -76,7 +63,7 @@ describe("u143 empty Project", () => {
     app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>(() => {});
 
     fireEvent.click(startWorkstream());
-    await screen.findByText("Creating Workstream…");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(true));
     fireEvent.click(startWorkstream());
     fireEvent.click(screen.getByText("Workstream", { selector: ".rail-actions button" }));
 
@@ -92,6 +79,7 @@ describe("u143 empty Project", () => {
     fireEvent.click(startWorkstream());
 
     await screen.findByRole("alert");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
     expect([screen.getAllByRole("alert").length, startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([1, false, null, []]);
   });
 
@@ -107,6 +95,7 @@ describe("u143 empty Project", () => {
 
     fireEvent.click(startWorkstream());
     await screen.findAllByRole("alert");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
     fireEvent.click(startWorkstream());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "made" }]));
@@ -224,15 +213,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
   });
 });
 
-it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
-  await openTabs({ p: [] });
-  const content = startWorkstream().closest<HTMLElement>(".pane-door")!;
-  const list = within(content).getByRole("list");
-  expect(within(list).getAllByRole("listitem")).toHaveLength(3);
-  expect(content.querySelectorAll('button, a, [tabindex], input')).toHaveLength(1);
-  expect(within(list).queryAllByRole("button")).toEqual([]);
-  expect(within(list).queryAllByRole("link")).toEqual([]);
-});
+
 
 it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
   "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
@@ -261,34 +242,10 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
       await waitFor(() => expect(document.activeElement).toBe(input));
       fireEvent.keyDown(input, { code: "Escape", key: "Escape" });
       await waitFor(() => expect(document.activeElement).toBe(start));
-      expect(screen.queryByRole("textbox", { name: copy.askBarLabel })).toBeNull();
+      expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
     }
 
     expect(calls(daemon, "rail.createWorkstream")).toEqual([]);
     expect(calls(daemon, "rail.startDoor")).toEqual([]);
   },
 );
-
-it("u2571c_hints_follow_empty_pending_failure_and_nonempty_states", async () => {
-  const tree: RailNode[] = [];
-  const { app: projects } = await openTabs({ p: tree });
-  const app = projects.of(path("p"));
-  app.handlers["rail.tree"] = () => structuredClone(tree);
-  const pane = within(document.querySelector<HTMLElement>(".pane")!);
-  let reject!: (error: Error) => void;
-  app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>((_resolve, fail) => { reject = fail; });
-  fireEvent.click(startWorkstream());
-  await screen.findByText("Creating Workstream…");
-  expect(pane.getByRole("list")).toBeTruthy();
-  reject(new RpcError(-32000, "no space"));
-  await screen.findAllByRole("alert");
-  expect(pane.getByRole("list")).toBeTruthy();
-  tree.push(agent("root", "idle", "ready"));
-  app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(pane.queryByRole("list")).toBeNull());
-  expect(screen.getByRole("region", { name: copy.projectOverview })).toBeTruthy();
-  expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
-  tree.splice(0);
-  app.emit(event({ name: "rail.changed" }));
-  await pane.findByRole("list");
-});

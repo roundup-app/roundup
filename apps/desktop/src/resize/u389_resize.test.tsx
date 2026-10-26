@@ -1,7 +1,7 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, render, renderHook, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import tokenCss from "../tokens.css?raw";
