@@ -698,8 +698,8 @@ fn resolve(
             .create_new(true)
             .mode(0o400)
             .open(&path)?;
-        file.write_all(&bytes)?;
-        file.sync_all()
+        // A cache copy is never authoritative and is dropped on restart; only the retained file syncs.
+        file.write_all(&bytes)
     };
     if materialize().is_err() {
         if path.exists() {
