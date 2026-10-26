@@ -107,9 +107,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       }}
 
     >
-      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
-        <Icon name="x" />
-      </IconButton>
+      <div class="drawer-close">
+        <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
+          <Icon name="x" />
+        </IconButton>
+      </div>
       <Show when={mounted()} keyed>
         {(content) => content()}
       </Show>
