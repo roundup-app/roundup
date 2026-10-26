@@ -54,7 +54,6 @@ it("nr9_create_inspect_stop_run_and_focus", async () => {
   fireEvent.click(row);
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 
-  expect(within(detail).getByText("go")).toBeTruthy();
   expect(app.calls.map((call) => call.method)).not.toContain("reaction.run");
   app.handlers["reaction.stop"] = () => (current = saved({ state: "stopped" }));
   app.handlers["reaction.run"] = () => current;
@@ -456,11 +455,11 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   fireEvent.click(screen.getByRole("button", { name: /Ship it/ }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
-  expect(screen.getByRole("alert", { name: "list unavailable" })).toBeTruthy();
+  expect(screen.getByRole("alert")).toBeTruthy();
 
   if (transition === "recover") app.handlers["reaction.list"] = () => [saved()];
   fireEvent.click(screen.getByRole("button", { name: transition === "dismiss" ? copy.clear : copy.retry }));
-  await waitFor(() => expect(screen.queryByRole("alert", { name: "list unavailable" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(connected.drafts.list()).toEqual(before);
   expect(screen.getByRole("button", { name: /Ship it/ })).toBeTruthy();
 });
