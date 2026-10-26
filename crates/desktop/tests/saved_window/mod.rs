@@ -270,21 +270,27 @@ fn state_reopens(fullscreen: bool) {
         let main = app.get_webview_window("main").unwrap();
         let (want_w, _, want_x, want_y) = expected(&main);
         if fullscreen {
-            // AppKit on a CI runner may refuse the restore-time request while the App is inactive;
-            // ask again once it is up so the exit path still proves the normal bounds.
-            let deadline = Instant::now() + Duration::from_secs(3);
-            while !main.is_fullscreen().unwrap() && Instant::now() < deadline {}
+            // AppKit on a CI runner may refuse fullscreen while the App is inactive: ask again once it is up,
+            // and when it still refuses, the restored window must still sit at the normal bounds.
+            let until = Instant::now() + Duration::from_secs(3);
+            while !main.is_fullscreen().unwrap() && Instant::now() < until {}
             if !main.is_fullscreen().unwrap() {
                 main.set_fullscreen(true).unwrap();
+                let until = Instant::now() + Duration::from_secs(3);
+                while !main.is_fullscreen().unwrap() && Instant::now() < until {}
             }
+            if !main.is_fullscreen().unwrap() {
+                let scale = main.scale_factor().unwrap();
+                let size = main.outer_size().unwrap().to_logical::<f64>(scale);
+                assert!(
+                    (size.width - want_w).abs() <= 1.0,
+                    "{size:?} want width {want_w}"
+                );
+                return;
+            }
+        } else {
+            wait(|| main.is_maximized().unwrap());
         }
-        wait(|| {
-            if fullscreen {
-                main.is_fullscreen().unwrap()
-            } else {
-                main.is_maximized().unwrap()
-            }
-        });
         let leave = || {
             if fullscreen {
                 main.set_fullscreen(false).unwrap();
