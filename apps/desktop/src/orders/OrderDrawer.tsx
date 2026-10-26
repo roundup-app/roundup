@@ -7,18 +7,13 @@ import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, Suspense, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup, lazy } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { ContextBar } from "./ContextBar";
+import { Markdown } from "../plain/Markdown";
 import "./styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { WorkProgress } from "./WorkProgress";
-
-// R3800: eager Markdown made the production entry exceed its 437814-byte gzip budget.
-const LoadedMarkdown = lazy(() => import("../plain/Markdown").then(module => ({ default: module.Markdown })));
-
-const Markdown = (props: Parameters<typeof import("../plain/Markdown").Markdown>[0]) =>
-  <Suspense fallback={<div class={`markdown ${props.class ?? ""}`.trim()} ref={props.ref}>{props.body}</div>}><LoadedMarkdown {...props} /></Suspense>;
 
 type SpawnRead = { id: string; prompt: string | null; error: string | null };
 
