@@ -1,3 +1,4 @@
+import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./copy/storage";
@@ -403,7 +404,7 @@ export const App = (props: {
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   return (
-    <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
@@ -540,6 +541,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider>
+    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider></ReducedMotionContext.Provider>
   );
 };
