@@ -1,5 +1,3 @@
-import { KindGlyph } from "./ink/KindGlyph";
-import { MARKS, markOf } from "./header/tab";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
@@ -336,9 +334,6 @@ export const App = (props: {
     void stop?.catch(error => setNativeFailure(String(error)));
   });
 
-  const navigationRequested = () => connectionOf(projects.active() ?? "")?.hasView("workstreams")
-    || connections().get(projects.active() ?? "") instanceof Error;
-
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -402,8 +397,8 @@ export const App = (props: {
   onCleanup(() => document.removeEventListener("focusin", recordFocus));
 
   const views = [
-    ["workstreams", copy.workstreams], ["ask-history", copy.askHistory], ["resources", copy.resources],
-    ["terminal-tabs", copy.terminalTabs], ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
+    ["ask-history", copy.askHistory], ["resources", copy.resources],
+    ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
   const taskKeys = new Set(["⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C"]);
@@ -513,7 +508,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        railOpen={navigationRequested()}
+        railOpen={projects.tabs().length > 0}
         busy={projects.tabs().length > 0 && activeConnection() === undefined}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
@@ -523,7 +518,16 @@ export const App = (props: {
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            <For each={stripTabs().filter(tab => tab.path !== projects.active() && markOf(tab) !== null)}>{tab => <button type="button" data-button="quiet" class="project-attention" aria-label={copy.projectMark(tab.name, MARKS[markOf(tab)!].label)} onClick={() => jumpTo(tab.path)}>{tab.name}<KindGlyph kind={markOf(tab)!} /></button>}</For>
+            <Show when={projects.tabs().length > 0}><Strip
+              tabs={stripTabs()}
+              active={projects.active()}
+              onSelect={projects.select}
+              onMark={jumpTo}
+              onRename={renameProject}
+              onClose={(path) => projects.close(path)}
+              onChoose={() => void projects.choose()}
+              app={props.app}
+            /></Show>
           </WindowBar>
         }
         rail={
@@ -533,23 +537,12 @@ export const App = (props: {
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-                    <Strip requested={navigationRequested()}
-                      tabs={stripTabs()}
-                      active={projects.active()}
-                      onSelect={projects.select}
-                      onMark={jumpTo}
-                      onRename={renameProject}
-                      onClose={(path) => projects.close(path)}
-                      onChoose={() => void projects.choose()}
-                      app={props.app}
-                    />
-
               <InProject open={activeConnection()}>
                 {() => (
                   <>
                     <Keys />
                     <AttentionKey />
-                    <Rail requested={connectionOf(projects.active() ?? "")?.hasView("workstreams") ?? false} />
+                    <Rail />
                   </>
                 )}
               </InProject>
