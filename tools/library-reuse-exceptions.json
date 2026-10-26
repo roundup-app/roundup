@@ -49,7 +49,7 @@
   },
   {
     "telltale": "system-time",
-    "file": "crates/provenance/src/lib.rs",
+    "file": "crates/provenance/src/store.rs",
     "symbol": "Touches::record_revision",
     "reason": "Existing provenance milliseconds with saturating overflow; Z3799c / #3830 owns the migration preserving recorded ordering."
   },
