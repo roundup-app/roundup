@@ -224,7 +224,13 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                     assert_eq!(plan.worktree.path.exists(), mode == 2);
                 }
                 let result = agents
-                    .prepare_closed("interrupted", "retry", &dir.path().join("src"), RETAINED)
+                    .prepare_closed(
+                        "interrupted",
+                        "retry",
+                        &dir.path().join("src"),
+                        RETAINED,
+                        None,
+                    )
                     .await
                     .unwrap();
                 assert_ne!(result.1, agent);
@@ -293,7 +299,7 @@ async fn u2875c_recovery_refusal_keeps_user_work_hidden_and_blocks_reuse() {
             assert!(agents.shared.node(&agent).is_err());
             assert_eq!(agents.shared.rail().tree().unwrap().len(), 1);
             let error = agents
-                .prepare_closed("another", "another", dir.path(), RETAINED)
+                .prepare_closed("another", "another", dir.path(), RETAINED, None)
                 .await
                 .unwrap_err();
             assert!(error.message.contains("recovery refused"));
