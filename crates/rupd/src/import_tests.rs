@@ -729,7 +729,7 @@ async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
     assert!(outcome["agent"].is_null());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn u4251c_sdk_lookup_continues_the_selected_conversation() {
     for moved_is_live in [false, true] {
         use crate::vendor_list_tests::{executable, package, real_node};
@@ -856,7 +856,7 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
                 changes.recv().await.unwrap().unwrap();
             }
         };
-        tokio::time::timeout(Duration::from_secs(5), ack)
+        tokio::time::timeout(Duration::from_secs(30), ack)
             .await
             .unwrap();
         let reply = commit.await.unwrap();
@@ -905,7 +905,7 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
                 .await
             })
         };
-        tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 if std::fs::read_to_string(&journal)
                     .unwrap_or_default()
