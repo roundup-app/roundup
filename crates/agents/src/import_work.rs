@@ -198,17 +198,21 @@ impl Agents {
         params: ImportCommitParams,
     ) -> Result<ImportResult, RpcError> {
         user_only(ctx)?;
-        if let Some(agent) = &params.agent {
-            let listed = self.import_agent_list(agent)?;
-            if !params.selections.iter().all(|pick| {
+        let listed = params
+            .agent
+            .as_deref()
+            .map(|agent| self.import_agent_list(agent))
+            .transpose()?;
+        if let Some(listed) = &listed
+            && !params.selections.iter().all(|pick| {
                 listed.candidates.iter().any(|candidate| {
                     candidate.source == pick.source && candidate.revision == pick.revision
                 })
-            }) {
-                return Err(RpcError::forbidden(
-                    "The selection does not match this Agent's preview. Refresh Import.",
-                ));
-            }
+            })
+        {
+            return Err(RpcError::forbidden(
+                "The selection does not match this Agent's preview. Refresh Import.",
+            ));
         }
         if params.selections.len() > MAX_SELECTIONS {
             return Err(RpcError::not_accepted(format!(
@@ -218,8 +222,18 @@ impl Agents {
         let mut outcomes = Vec::new();
         for selection in params.selections {
             let now = store::now_ms();
+            let live = listed.as_ref().is_some_and(|listed| {
+                listed.candidates.iter().any(|candidate| {
+                    candidate.source == selection.source && candidate.live.is_some()
+                })
+            });
             let outcome = match self
-                .import_conversation(&selection.source, &selection.revision, now)
+                .import_conversation(
+                    &selection.source,
+                    &selection.revision,
+                    now,
+                    live.then_some(ctx),
+                )
                 .await
             {
                 Ok((workstream, agent)) => {
@@ -232,31 +246,45 @@ impl Agents {
                         error: None,
                     }
                 }
-                Err(err) => ImportOutcome {
-                    source: selection.source,
-                    workstream: None,
-                    agent: None,
-                    error: Some(ImportFailure {
-                        outcome: match err.code {
-                            rpc::code::PARSE_ERROR
-                            | rpc::code::METHOD_NOT_FOUND
-                            | rpc::code::INVALID_PARAMS
-                            | rpc::code::NOT_FOUND
-                            | rpc::code::FORBIDDEN
-                            | rpc::code::CONFLICT
-                            | rpc::code::BUSY
-                            | rpc::code::NOT_RUNNING
-                            | rpc::code::EVENTS_EXPIRED
-                            | rpc::code::INBOX_UNAVAILABLE => ImportDisposition::Failed,
-                            _ => ImportDisposition::Unknown,
-                        },
-                        code: err.code,
-                        message: err.message,
-                    }),
-                },
+                Err(err) => {
+                    // Launch can fail after publication; expose the retained Agent for Resume.
+                    let published = self
+                        .shared
+                        .rail()
+                        .closed_source(&selection.source)?
+                        .filter(|(_, _, published)| *published);
+                    ImportOutcome {
+                        source: selection.source,
+                        workstream: published
+                            .as_ref()
+                            .map(|(workstream, _, _)| workstream.clone()),
+                        agent: published.map(|(_, agent, _)| agent),
+                        error: Some(import_failure(err)),
+                    }
+                }
             };
             outcomes.push(outcome);
         }
         Ok(ImportResult { outcomes })
+    }
+}
+
+fn import_failure(err: RpcError) -> ImportFailure {
+    ImportFailure {
+        outcome: match err.code {
+            rpc::code::PARSE_ERROR
+            | rpc::code::METHOD_NOT_FOUND
+            | rpc::code::INVALID_PARAMS
+            | rpc::code::NOT_FOUND
+            | rpc::code::FORBIDDEN
+            | rpc::code::CONFLICT
+            | rpc::code::BUSY
+            | rpc::code::NOT_RUNNING
+            | rpc::code::EVENTS_EXPIRED
+            | rpc::code::INBOX_UNAVAILABLE => ImportDisposition::Failed,
+            _ => ImportDisposition::Unknown,
+        },
+        code: err.code,
+        message: err.message,
     }
 }
