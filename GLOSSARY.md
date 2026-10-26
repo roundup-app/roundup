@@ -896,7 +896,7 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
 
-**Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
+**Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`):
 The native actions for the selected Project: import, settings, requested views and the shortcut registry's actions. Each activation keeps that Project's identity; an unavailable action cannot run. Opening a view changes no Daemon data and starts no Agent.
 
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):

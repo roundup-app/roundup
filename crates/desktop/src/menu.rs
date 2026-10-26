@@ -37,7 +37,7 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         1,
     )?;
-    let project = Submenu::with_id(app, "project-menu", "Project", true)?;
+    let project = Submenu::with_id(app, "project-menu", "Project", false)?;
     menu.insert(&project, 1)?;
     Ok(menu)
 }
@@ -101,17 +101,18 @@ pub fn select_project_menu<R: Runtime>(
     for item in project.items().map_err(internal)? {
         project.remove(&item).map_err(internal)?;
     }
+    project.set_enabled(path.is_some()).map_err(internal)?;
     if path.is_some() {
         let items = items.unwrap_or_default();
         // Keep native separators between nonempty groups, including when availability changes.
         let mut separated = false;
+        let mut hints = Vec::new();
         for group in [
             &[
                 "action:chord:⌘N",
-                "action:chord:⌘T",
-                "capture",
                 "action:chord:⇧⌘N",
-                "action:leader:T",
+                "action:chord:⌘T",
+                "create",
             ][..],
             &[
                 "action:leader:P",
@@ -130,16 +131,7 @@ pub fn select_project_menu<R: Runtime>(
                     items.iter().filter(move |item| {
                         item.enabled
                             && match *id {
-                                "capture" => {
-                                    item.id.starts_with("action:chord:")
-                                        && !matches!(
-                                            item.id.as_str(),
-                                            "action:chord:⌘N"
-                                                | "action:chord:⇧⌘N"
-                                                | "action:chord:⌘T"
-                                                | "action:chord:⌘/"
-                                        )
-                                }
+                                "create" => item.group.as_deref() == Some("create"),
                                 "views" => item.id.starts_with("view:"),
                                 id => item.id == id,
                             }
@@ -155,9 +147,16 @@ pub fn select_project_menu<R: Runtime>(
                     .map_err(internal)?;
             }
             for item in entries {
-                project
-                    .append(&kind(&app, item).map_err(internal)?)
+                let (entry, hint) =
+                    project_kind(&app, item, |app, id, label, enabled, accelerator| {
+                        MenuItem::with_id(app, id, label, enabled, accelerator)
+                    })
                     .map_err(internal)?;
+                let index = project.items().map_err(internal)?.len();
+                project.append(&entry).map_err(internal)?;
+                if let Some(hint) = hint {
+                    hints.push((index, hint));
+                }
             }
             separated = true;
         }
@@ -174,6 +173,8 @@ pub fn select_project_menu<R: Runtime>(
                 .append(&MenuItem::with_id(&app, id, label, true, None::<&str>).map_err(internal)?)
                 .map_err(internal)?;
         }
+        #[cfg(target_vendor = "apple")]
+        native::project_menu_hints(&app, hints).map_err(internal)?;
     }
     *app.state::<ProjectMenu>()
         .0
@@ -182,12 +183,13 @@ pub fn select_project_menu<R: Runtime>(
     Ok(())
 }
 
-/// One item of the webview's menu model. `shortcut` is text appended to the label, never an accelerator.
+/// Context menus display shortcut text; the Project menu projects accelerators and separate hints.
 #[derive(Deserialize)]
 pub struct Item {
     id: String,
     label: String,
     shortcut: Option<String>,
+    group: Option<String>,
     enabled: bool,
     children: Option<Vec<Item>>,
 }
@@ -237,6 +239,43 @@ fn kind<R: Runtime>(app: &AppHandle<R>, item: &Item) -> tauri::Result<MenuItemKi
     }
 }
 
+// The constructor is the platform boundary: observers can inspect the actual arguments supplied to Tauri.
+fn project_kind<R: Runtime>(
+    app: &AppHandle<R>,
+    item: &Item,
+    build: impl FnOnce(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>>,
+) -> tauri::Result<(MenuItemKind<R>, Option<String>)> {
+    let (accelerator, hint) = match item.shortcut.as_deref() {
+        Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
+        Some(shortcut) => (
+            Some(
+                shortcut
+                    .replace('⌃', "Ctrl+")
+                    .replace('⌥', "Alt+")
+                    .replace('⇧', "Shift+")
+                    .replace('⌘', "Super+")
+                    .replace('⏎', "Enter")
+                    .replace('⌫', "Backspace")
+                    .replace('⌦', "Delete")
+                    .replace('↑', "ArrowUp")
+                    .replace('↓', "ArrowDown")
+                    .replace('←', "ArrowLeft")
+                    .replace('→', "ArrowRight"),
+            ),
+            None,
+        ),
+        None => (None, None),
+    };
+    let entry = build(
+        app,
+        &item.id,
+        &item.label,
+        item.enabled,
+        accelerator.as_deref(),
+    )?;
+    Ok((MenuItemKind::MenuItem(entry), hint))
+}
+
 fn internal(error: impl ToString) -> RpcError {
     RpcError::new(code::INTERNAL, error.to_string())
 }
@@ -282,6 +321,8 @@ mod tests {
             id: id.to_owned(),
             label: label.to_owned(),
             shortcut: shortcut.map(str::to_owned),
+            group: (label == "Capture a Todo" && id.starts_with("action:chord:"))
+                .then(|| "create".to_owned()),
             enabled: true,
             children,
         }
@@ -478,6 +519,63 @@ mod tests {
     }
 
     #[test]
+    fn u4278b_one_step_items_carry_native_accelerators() {
+        let app = mock_app();
+        for (chord, expected) in [
+            ("⌘N", "Super+N"),
+            ("⌘T", "Super+T"),
+            ("⇧⌘T", "Shift+Super+T"),
+            ("⌃⇧Y", "Ctrl+Shift+Y"),
+            ("⌘/", "Super+/"),
+            ("⌥⏎", "Alt+Enter"),
+            ("⌃↑", "Ctrl+ArrowUp"),
+        ] {
+            let source = item(
+                &format!("action:chord:{chord}"),
+                "Run action",
+                Some(chord),
+                None,
+            );
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, Some(expected));
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint, None);
+        }
+    }
+
+    #[test]
+    fn u4278b_leader_hints_register_no_accelerator() {
+        let app = mock_app();
+        for key in ["P", "J", "I", "C", "A", "S"] {
+            let shortcut = format!("⌘K {key}");
+            let source = item(
+                &format!("action:leader:{key}"),
+                "Run action",
+                Some(&shortcut),
+                None,
+            );
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, None);
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint.as_deref(), Some(shortcut.as_str()));
+        }
+    }
+
+    #[test]
     fn u2539b_native_menu_projects_the_task_chords() {
         use std::sync::Arc;
         use tauri::Listener;
@@ -512,7 +610,7 @@ mod tests {
                 panic!("Project submenu");
             };
             let changes = plain(project.get("action:leader:C").unwrap());
-            assert_eq!(changes.text().unwrap(), "Review changes\t⌘K C");
+            assert_eq!(changes.text().unwrap(), "Review changes");
             for id in ["action:leader:C", "action:leader:A"] {
                 app_chosen(app.handle(), &MenuEvent { id: id.into() });
             }

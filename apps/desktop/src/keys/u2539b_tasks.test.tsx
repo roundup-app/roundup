@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
+import { saveAppSettings } from "../settings/preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { mountNavigation as mount } from "../testing/navigationFixture";
 import { agent, info } from "../testing/nodes";
@@ -180,8 +181,13 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
     ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
-    ["action:leader:S", "⌘K S"], ["action:leader:T", "⌘K T"], ["action:leader:I", "⌘K I"],
+    ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
   ]);
+  await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
+  await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
+  openProjectPage("action:chord:⌃⇧Y", "/p");
+  await screen.findByRole("textbox", { name: "Capture a Todo" });
+  key("Escape");
   openProjectPage("action:leader:J", "/wrong-project");
   expect(connected().rail.selected()).toBeNull();
   openProjectPage("action:leader:J", "/p");

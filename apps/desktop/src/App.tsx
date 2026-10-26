@@ -417,11 +417,11 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? label : ["ask-history", "resources", "terminal-tabs"].includes(id) ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => taskKeys.has(row.keys))].map(row => {
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? label : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
+      ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
-        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.showOrHideTheShelf) : row.what, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: row.what === copy.captureATodo ? "create" as const : undefined, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
       }),
     ].filter(item => item.enabled);
   });
