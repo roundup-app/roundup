@@ -285,14 +285,23 @@ fn state_reopens(fullscreen: bool) {
                 main.is_maximized().unwrap()
             }
         });
-        if fullscreen {
-            main.set_fullscreen(false).unwrap();
-        } else {
-            main.unmaximize().unwrap();
-        }
+        let leave = || {
+            if fullscreen {
+                main.set_fullscreen(false).unwrap();
+            } else {
+                main.unmaximize().unwrap();
+            }
+        };
+        leave();
+        // AppKit drops an exit request that lands mid-transition, so repeat it while the window stays up.
+        let mut asked = Instant::now();
         wait(|| {
-            !main.is_maximized().unwrap()
-                && !main.is_fullscreen().unwrap()
+            let still = main.is_maximized().unwrap() || main.is_fullscreen().unwrap();
+            if still && asked.elapsed() > Duration::from_secs(2) {
+                leave();
+                asked = Instant::now();
+            }
+            !still
                 && (main
                     .outer_size()
                     .unwrap()
