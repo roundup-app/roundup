@@ -169,3 +169,51 @@
 .import-candidate:focus-within button {
   opacity: 1;
 }
+
+.import-prompt {
+  width: 100%;
+  min-width: 0;
+  height: var(--space-6);
+  box-sizing: border-box;
+  resize: none;
+  border: 0;
+  padding: var(--space-2);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+}
+
+.import-prompt:focus {
+  height: calc(var(--space-6) * 2);
+}
+
+.import-instructions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.import-instructions button {
+  flex: none;
+}
+
+.import-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.import-words {
+  flex: none;
+}
+
+.import-listing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
