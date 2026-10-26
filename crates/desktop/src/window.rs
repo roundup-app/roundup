@@ -1,6 +1,8 @@
 //! U449–U451: window operations use the invoking native window, never a webview-selected label.
 
 use rpc::{RpcError, code};
+#[cfg(target_vendor = "apple")]
+use tauri::Emitter;
 use tauri::{Runtime, Window, plugin::TauriPlugin};
 
 #[tauri::command]
@@ -31,6 +33,23 @@ fn zoom_window<R: Runtime>(window: Window<R>) -> Result<(), RpcError> {
 
 pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("window-bar")
+        .on_window_ready(|window| {
+            #[cfg(target_vendor = "apple")]
+            if window.label() == "main"
+                && let Err(error) = native::watch_fullscreen(window.clone(), {
+                    let window = window.clone();
+                    move |fullscreen| {
+                        if let Err(error) = window.emit("window-fullscreen-completed", fullscreen) {
+                            eprintln!("window-state: report fullscreen completion failed: {error}");
+                        }
+                    }
+                })
+            {
+                eprintln!("window-state: observe fullscreen failed: {error}");
+            }
+            #[cfg(not(target_vendor = "apple"))]
+            let _ = window;
+        })
         .invoke_handler(tauri::generate_handler![
             set_window_title,
             drag_window,

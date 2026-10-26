@@ -829,14 +829,16 @@ fn observe(stage: &str) -> Result<(), RpcError> {
     };
     std::fs::create_dir_all(&dir).map_err(RpcError::internal)?;
     std::fs::write(dir.join(stage), b"reached").map_err(RpcError::internal)?;
-    let start = std::time::Instant::now();
-    while !dir.join("release").exists() {
-        if start.elapsed() > std::time::Duration::from_secs(10) {
-            return Err(RpcError::conflict(
-                "publication observer interrupted before reply",
-            ));
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5));
+    let release = dir.join("release");
+    let released =
+        crate::observers::wait_for_gate(&dir, std::time::Duration::from_secs(10), || {
+            release.exists()
+        })
+        .map_err(RpcError::internal)?;
+    if !released {
+        return Err(RpcError::conflict(
+            "publication observer interrupted before reply",
+        ));
     }
     Ok(())
 }
