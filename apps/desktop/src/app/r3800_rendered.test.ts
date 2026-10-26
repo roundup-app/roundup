@@ -23,7 +23,7 @@ it("r3800_enter_loading_populated_and_failure", async () => {
       return true;
     })()`);
     await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
-    await until("!!window.releaseStartup && document.querySelectorAll('[role=status]').length >= 2");
+    await until("!!window.releaseStartup && document.querySelectorAll('[aria-busy=true][data-layout-panel]').length === 2");
     await capture("R3800", "loading");
     await evaluate("window.releaseStartup(); true");
     await until("[...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'New Workstream')");

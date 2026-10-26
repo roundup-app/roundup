@@ -65,8 +65,9 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   expect(screen.getByRole("tab", { name: /payments-api/ })).toBeTruthy();
 
   if (mode === "initial open") {
-    expect(within(rail).getByRole("status")).toBeTruthy();
-    expect(within(centre).getByRole("status")).toBeTruthy();
+    expect(rail.getAttribute("aria-busy")).toBe("true");
+    expect(centre.getAttribute("aria-busy")).toBe("true");
+    expect(within(centre).getAllByRole("img")).toHaveLength(1);
   }
 
   expect(completed).toBeLessThanOrEqual(1);
@@ -76,6 +77,9 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
 
   for (const resolve of pending) resolve();
   await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
+
+  expect(rail.hasAttribute("aria-busy")).toBe(false);
+  expect(centre.hasAttribute("aria-busy")).toBe(false);
 
   if (reopen) await waitFor(() => expect(reopen?.isConnected).toBe(false));
   fireEvent.click(within(rail).getByText("Seeded Agent"));

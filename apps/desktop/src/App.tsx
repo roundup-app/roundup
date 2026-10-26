@@ -1,3 +1,4 @@
+import Hourglass from "lucide-solid/icons/hourglass";
 import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./copy/storage";
@@ -416,6 +417,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
+        busy={projects.tabs().length > 0 && activeConnection() === undefined}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
@@ -452,7 +454,7 @@ export const App = (props: {
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-              <InProject open={activeConnection()} pending={<p role="status" class="light" style={{ padding: "var(--space-4)" }}>{copy.loadingProject}</p>}>
+              <InProject open={activeConnection()}>
                 {() => (
                   <>
                     <Keys />
@@ -484,7 +486,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failed={failureLine} pending={<p role="status" class="light" style={{ padding: "var(--space-4)" }}>{copy.loadingProject}</p>}>
+            <InProject open={activeConnection()} failed={failureLine} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
