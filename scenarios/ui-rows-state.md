@@ -40,6 +40,6 @@ Checks moved, defined on main by `docs/design-system.md`, heading **The checks**
 3. D6: reachable quick actions, hit areas and visible keyboard focus.
 4. D12: glyph/text alignment, including nested rows and the existing Todo entry-field alignment; preserve every passing Check while implementing the fixed glyph column.
 
-Policy — implementation evidence: wire all three ids into the existing capture-producing tests, then run `just capture U4275a,U4275b,U4275c`. Leave paired main/head PNGs, interaction video and Check readings under `artifacts/ux/<id>/base/` and `head/` as `.agents/data/harness.md`, **Captures**, requires; never commit images/videos. Run `just ready` and tests reached by changed code under the Code recipe. This specification claims no implemented behavior or rendered result.
+Policy — implementation evidence: wire all three ids into the existing capture-producing tests, then run `just capture U4275a,U4275b,U4275c`. Leave paired main/head screenshots, interaction video and Check readings under `artifacts/ux/<id>/base/` and `head/` as `.agents/data/harness.md`, **Captures**, requires; never commit images/videos. Run `just ready` and tests reached by changed code under the Code recipe. This specification claims no implemented behavior or rendered result.
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Record progress and unresolved engineering questions on Issue #4275, never in scenario Work tables. Any command failure reported there has one row naming command, exit code and repair/result.
