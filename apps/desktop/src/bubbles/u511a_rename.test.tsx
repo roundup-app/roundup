@@ -582,7 +582,9 @@ it.each(["stopped", "removed", "last-removed", "replaced"] as const)("u3021c_bub
 
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
-  fireEvent.input(field()!, { target: { value: "  unsent edit 雪  " } });
+  const unsent = "  unsent edit 雪  ";
+
+  fireEvent.input(field()!, { target: { value: unsent } });
   const before = drafts.list();
 
   setListed(unavailable === "last-removed" ? [] : unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
@@ -597,8 +599,8 @@ it.each(["stopped", "removed", "last-removed", "replaced"] as const)("u3021c_bub
     fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · Terminal name" }));
     const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
 
-    expect(within(recovery).getByText("Original object unavailable")).toBeDefined();
-    expect(within(recovery).getByText("  unsent edit 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+    fireEvent.click(within(recovery).getByRole("button", { name: "Inspect · Current work · zsh · 1" }));
+    expect(recovery.querySelector(".draft-value")?.textContent).toBe(unsent);
   }
 
   if (unavailable === "replaced") {
