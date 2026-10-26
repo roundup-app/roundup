@@ -1,0 +1,42 @@
+{
+  "scenario": "Z3788c",
+  "scope": "ResourceStrip visibility listener only",
+  "base_revision": "d330caaab",
+  "head_revision": "96efce898",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "gzip": "level 9; recursive manifest static imports; count each file once",
+  "base": {
+    "exit": 0,
+    "entry": "assets/index-ByucXsDV.js",
+    "files": [
+      "assets/index-ByucXsDV.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278428,
+    "gzip": 407473,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "head": {
+    "exit": 0,
+    "entry": "assets/index-CdmHxUnH.js",
+    "files": [
+      "assets/index-CdmHxUnH.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278352,
+    "gzip": 407463,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "pnpm": "10.14.0"
+}

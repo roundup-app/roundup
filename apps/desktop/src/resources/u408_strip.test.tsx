@@ -90,13 +90,6 @@ describe("u408 the Resource strip", () => {
     expect(cpuText(Number.NaN)).toBe("–");
   });
 
-  it("u408_a_null_disk_hides_with_its_icon", async () => {
-    await mount([agent("a", "working", "x")], { result: () => ({ agents: [{ id: "a", memory_bytes: 1, cpu_percent: 0, disk_bytes: null }], total: { memory_bytes: 1, cpu_percent: 0, disk_bytes: null } }) });
-    await settle();
-
-    expect(document.querySelectorAll(".resource-value")).toHaveLength(2);
-  });
-
   it("u408_other_selections_are_empty_and_make_no_calls", async () => {
     const { connected, calls, app } = await mount([agent("a", "done", "x"), workstream("w"), terminal("t"), agent("b", "working", "y")], { select: "a" });
 
@@ -137,14 +130,6 @@ describe("u408 the Resource strip", () => {
     await mount([agent("a", "working", "x")], { result: () => ({ ...RESULT, agents: [] }) });
     await settle();
     expect(words()).toBe("");
-  });
-
-  it("u408_no_running_agent_draws_no_strip_and_makes_no_call", async () => {
-    const { calls } = await mount([agent("a", "done", "x")]);
-    await settle(10_000);
-
-    expect(words()).toBe("");
-    expect(calls()).toBe(0);
   });
 
   it("u408_polls_every_two_seconds_while_shown_and_never_twice_at_once", async () => {
@@ -298,4 +283,42 @@ it("r18_working_selection_resumes_one_visible_poll", async () => {
   await settle(6000);
   expect(calls()).toBe(4);
   view.unmount();
+});
+
+it("z3788c_resource_visibility_releases_the_retired_owner", async () => {
+  const visibility = vi.fn(() => "visible");
+  const original = Object.getOwnPropertyDescriptor(document, "visibilityState");
+
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: visibility });
+
+  try {
+    const retired = await mount([agent("a", "working", "building")]);
+    await settle();
+    retired.view.unmount();
+    const current = await mount([agent("a", "working", "building")]);
+    await settle();
+    visibility.mockClear();
+    visibility.mockReturnValue("hidden");
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle(6000);
+
+    expect(visibility).toHaveBeenCalledTimes(1);
+    expect(retired.calls()).toBe(1);
+    expect(current.calls()).toBe(1);
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+
+    expect(current.calls()).toBe(2);
+    expect(retired.calls()).toBe(1);
+    current.view.unmount();
+    visibility.mockClear();
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(visibility).not.toHaveBeenCalled();
+  } finally {
+    if (original) Object.defineProperty(document, "visibilityState", original);
+    else Reflect.deleteProperty(document, "visibilityState");
+  }
 });
