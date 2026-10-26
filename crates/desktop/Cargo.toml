@@ -23,10 +23,12 @@ native = { path = "../native" }
 rpc = { path = "../rpc" }
 serde.workspace = true
 serde_json.workspace = true
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
 tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
+time = "0.3.55"
 tokio = { workspace = true, features = ["process", "io-util"] }
 
 [[test]]

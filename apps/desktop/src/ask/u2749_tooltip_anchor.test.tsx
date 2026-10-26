@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { IconButton } from "../ui/IconButton";
 import { door } from "../testing/nodes";
-import { mountAskBar } from "./askFixture";
+import { mountAskBar as mountQuietAskBar } from "./askFixture";
 
 // jsdom has no layout-shift observer; this test controls the anchor rectangles.
 beforeEach(() => vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} }));
@@ -41,3 +41,11 @@ it("u2749b_focus_opens_without_a_pointer", async () => {
   screen.getByRole("button", { name: "outside" }).focus();
   await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
 });
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
+  const mounted = await mountQuietAskBar(...args);
+  mounted.connected.showView(null);
+  mounted.connected.showView("workstreams");
+
+  return mounted;
+};

@@ -327,3 +327,39 @@ against 8.110 and Rail 40 at 0.154 ms against 0.149
 Budgets remain unchanged. Cold-start repair, full R3696c Mac acceptance, the
 owner's unchanged-code false-fail evidence and the separate later main pass
 remain on #3696. This change establishes no baseline rebase or Mac gate pass.
+
+
+## Unchanged Linux observation after #4148 (#3696)
+
+`just perf` at `3ec0edde5eb805f01cbbbc0963a36e687b4f382d` exits **0**,
+with `clean: true` and no skips. The
+[raw record](perf-3696-linux-40245804422.json) retains the complete output,
+report, all 22 startup logs, build commands/logs, executable hashes, host/boot
+identity and successful lint output (the three large outputs sit base64-encoded under
+`logs_utf8_base64`, decoding noted in the record, so the spelling gate skips them). This completes the routine Linux observation
+requested by the screened continuation. No production code or budget changes.
+
+The uncalibrated `linux-7763` path builds and compares the same source revision
+twice; these numbers establish one unchanged-code pass, not a repair speedup.
+
+| Metric | Base | Head | Paired ceiling |
+|---|---:|---:|---:|
+| Cold start, ms | 13.423393 | 13.580371 | 15.065732 |
+| Rail 40 p95, ms | 0.449305 | 0.445356 | 0.495236 |
+| Terminal write p95, ms | 0.097924 | 0.099016 | 0.108716 |
+| Write to output p95, ms | 0.206608 | 0.206688 | 0.228269 |
+| Extra RSS, MB | 2.289063 | 2.289063 | 2.567969 |
+
+Host: AMD EPYC 7763, Ubuntu 24.04 x86_64, four CPUs;
+session `builder-40245804422`, completed 2026-10-26 UTC. Both builds finish
+before sampling. Their release dependency caches were seeded from the initial
+build using `cp -a --reflink=auto`; normal locked release builds still ran.
+Lints and cache copying finished before sampling; no observation was retried.
+Reproduce with `pnpm install --frozen-lockfile` then `just perf` at that revision
+on the same host class; cache seeding affects build time only.
+
+This is not the M4 Max observer: Linux ceilings and latencies cannot decide the
+Mac's remaining cold-start or Rail failure. Full R3696c acceptance, Mac startup
+attribution, the owner's unchanged-code false-fail evidence and separate later
+main pass remain open on #3696. No new production cause or baseline rebase is
+established by this unchanged-source pair.

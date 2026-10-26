@@ -62,6 +62,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   let generation = 0;
 
   const refresh = async () => {
+    if (open() && document.activeElement?.closest(".worktree-tree")) treeFocus = captureFocus();
     const request = ++generation;
     let changed: ChangedFiles | undefined;
     const failure = await failureOf(async () => { changed = await app.rpc("agent.changedFiles", { id: props.id }); });

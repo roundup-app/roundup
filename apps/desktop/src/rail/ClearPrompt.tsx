@@ -4,8 +4,8 @@ import { copy } from "../copy";
 import { onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { useConnectedProject } from "../state/connectedProject";
-import { registerKeys } from "../keys/registry";
 import { clearingOf } from "./clear";
+import { registerKeys } from "../keys/registry";
 
 /** U350: the Workstream's reason prompt, open once `Clear…` in the `⋯` menu is chosen. */
 export const ClearPrompt = (props: { node: RailNode; onHide: () => void }) => {
@@ -15,6 +15,7 @@ export const ClearPrompt = (props: { node: RailNode; onHide: () => void }) => {
   let form: HTMLFormElement | undefined;
   const hide = () => { clearing.keep(); props.onHide(); };
 
+  // Ark's document listener is deferred; the registry preserves Escape before its first frame.
   registerKeys({ kind: "layer", element: () => form, active: () => clearing.phase() !== "closed", modal: false }, [{
     chords: ["Escape"],
     when: (press) => press.target === document || document.activeElement === document.body || (press.target instanceof Node && !!form?.contains(press.target)),

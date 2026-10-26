@@ -161,11 +161,11 @@
   min-width: 0;
 }
 
-.import-candidate > button {
+.import-candidate button {
   opacity: 0;
 }
 
-.import-candidate:hover > button,
-.import-candidate:focus-within > button {
+.import-candidate:hover button,
+.import-candidate:focus-within button {
   opacity: 1;
 }

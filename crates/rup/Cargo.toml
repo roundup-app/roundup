@@ -21,6 +21,7 @@ checkpoints = { path = "../checkpoints" }
 rmcp = { version = "3.5.1", default-features = false, features = ["client"] }
 rupd = { path = "../rupd" }
 rusqlite.workspace = true
+rusqlite_migration.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["process", "test-util"] }
 

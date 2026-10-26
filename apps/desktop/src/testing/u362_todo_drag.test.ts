@@ -27,6 +27,7 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('[data-todo-root]').click();
   }`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
   await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
   await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click()`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
@@ -159,15 +160,20 @@ run('u362 rendered move failure', () => {
     it(`u362_a_failed_move_stays_visible_on_the_densest_seed ${scheme}`, async () => {
       await page.scheme(scheme);
       await setup(true);
-      await page.call(`() => {
-        document.querySelector('.shelf').style.width = '163px';
-        document.querySelector('[aria-label="Todo fixture"] button').click();
-      }`);
+      // Seed the full list while closed, then mount it once; 200 acknowledged creates need no intermediate layout.
+      await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
+      await page.until(`() => Boolean(document.querySelector('.shelf[hidden]')) && !document.querySelector('.shelf .todo-row')`);
+      await page.call(`() => document.querySelector('[aria-label="Todo fixture"] button').click()`);
       await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`);
+      await page.press('k', 'KeyK', 4);
+      await page.press('s', 'KeyS');
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
+      await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
+      await page.until(`() => document.querySelector('.shelf .todo-row-button').getBoundingClientRect().width > 0`);
+      await page.call(`() => { document.querySelector('.shelf').style.width = '163px'; }`);
       await page.call(`async () => {
         await document.fonts.ready;
-        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+        await Promise.all([...document.querySelectorAll('.columns, .shelf, .shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
       const from = await point('.shelf .todo-row-button');
       const to = await point('[data-part="branch"][aria-expanded] > .rail-row');

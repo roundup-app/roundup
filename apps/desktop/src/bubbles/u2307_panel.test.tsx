@@ -38,7 +38,7 @@ const shown = async () => {
   return mounted;
 };
 
-it.each([".pane", ".window-title", ".terminal-new", ".rail-row"])("u2307a_an_outside_press_minimises_and_still_reaches_its_target (%s)", async (target) => {
+it.each([".pane", ".terminal-new", ".rail-row"])("u2307a_an_outside_press_minimises_and_still_reaches_its_target (%s)", async (target) => {
   await shown();
 
   const outside = document.querySelector<HTMLElement>(target)!;

@@ -1,0 +1,742 @@
+{
+  "scenario": "Z3788b",
+  "reference": "6d1d47f82ab5bb27a9ed1570cda723e164c765c5",
+  "head": "45fb5f9ded2966697151f45df784bbc3476b9de2",
+  "environment": {
+    "host": "runnervmtai0g",
+    "platform": "Linux",
+    "node": "v22.23.3",
+    "pnpm": "10.14.0",
+    "vite": "8.3.5"
+  },
+  "build": "pnpm --filter desktop exec vite build --outDir <isolated-output>",
+  "observer": "node apps/desktop/budgets/startup.mjs <isolated-output>",
+  "gzip": "level 9 per emitted file; recursive static imports counted once; dynamic chunks excluded",
+  "before": {
+    "exit": 0,
+    "entry": "assets/index-BlivJmac.js",
+    "files": [
+      "assets/index-BlivJmac.js"
+    ],
+    "raw": 1378591,
+    "gzip": 433360,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "after": {
+    "exit": 0,
+    "entry": "assets/index-C_j6dCpq.js",
+    "files": [
+      "assets/index-C_j6dCpq.js"
+    ],
+    "raw": 1387259,
+    "gzip": 437374,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "gzip_delta": 4014,
+  "scope": "Switcher ranking only; no addon, virtualization or native performance completion. Current R3800 ceiling is unchanged. Earlier 409600-byte target is not met.",
+  "rendered": {
+    "observer": "dedicated headless agent-browser sessions, fresh profiles",
+    "viewport": "1512x950",
+    "scheme": "dark",
+    "seeds": [
+      "tree-40",
+      "agents-10",
+      "conflict"
+    ],
+    "screens": {
+      "agents-10-blank.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "agents-10-failure.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "agents-10-fuzzy.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "agents-10-no-match.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "agents-10-ranked.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "conflict-blank.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "conflict-failure.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "conflict-fuzzy.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "conflict-no-match.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "conflict-ranked.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "tree-40-blank.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "tree-40-failure.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "tree-40-fuzzy.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "tree-40-no-match.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "tree-40-ranked.checks": {
+        "base": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "head": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    },
+    "real_daemon": {
+      "observer": "one-off startRealDaemon({}, true) with fresh agent-browser session and profile; fake vendor, real Daemon and emulator; dark 1512x950",
+      "actions": [
+        "Create one Workstream through rail.createWorkstream",
+        "Open Switcher using Meta+K then K",
+        "Type ntr once",
+        "Press Enter once",
+        "Observe one terminal.list result owned by the created Workstream and the opened Bubble"
+      ],
+      "result": {
+        "workstream": "1",
+        "terminals": [
+          {
+            "id": "1",
+            "owner": "1"
+          }
+        ],
+        "checks": {
+          "success": true,
+          "data": {
+            "origin": "http://127.0.0.1:45667/harness.html?daemon=1",
+            "result": {
+              "D1": {
+                "selector": "",
+                "status": "pass",
+                "value": []
+              },
+              "D10": {
+                "selector": "",
+                "status": "pass",
+                "value": {
+                  "contrast": "no-preference",
+                  "failing": [],
+                  "scheme": "dark",
+                  "viewport": "1512x950"
+                }
+              },
+              "D11": {
+                "selector": "",
+                "status": "pass",
+                "value": "no Thread"
+              },
+              "D12": {
+                "selector": "",
+                "status": "pass",
+                "value": "no Shelf row"
+              },
+              "D13": {
+                "selector": "",
+                "status": "pass",
+                "value": 0
+              },
+              "D14": {
+                "selector": "",
+                "status": "pass",
+                "value": "no Shelf row"
+              },
+              "D16": {
+                "selector": "",
+                "status": "pass",
+                "value": "no Thread"
+              },
+              "D2": {
+                "selector": "",
+                "status": "pass",
+                "value": []
+              },
+              "D3": {
+                "selector": "",
+                "status": "pass",
+                "value": []
+              },
+              "D4": {
+                "selector": "",
+                "status": "pass",
+                "value": {
+                  "extension": {
+                    "controls": 23,
+                    "feedback": "instant Token recipe; frame readings in paired observer"
+                  },
+                  "original": {
+                    "rows": 1
+                  }
+                }
+              },
+              "D5": {
+                "selector": "",
+                "status": "pass",
+                "value": []
+              },
+              "D6": {
+                "selector": "",
+                "status": "pass",
+                "value": {
+                  "targets": 26
+                }
+              },
+              "D7": {
+                "selector": "",
+                "status": "pass",
+                "value": {
+                  "extension": {
+                    "cue": "one selected wash; Kind ink retained",
+                    "rows": 1
+                  },
+                  "original": {
+                    "targets": 25
+                  }
+                }
+              },
+              "D8": {
+                "selector": "",
+                "status": "pass",
+                "value": {
+                  "extension": {
+                    "expected": 56,
+                    "readings": [
+                      {
+                        "baseline": 0.359375,
+                        "inset": 56,
+                        "row": "div.rail-row"
+                      },
+                      {
+                        "baseline": null,
+                        "inset": 56,
+                        "row": "div.terminal-tab-pair"
+                      }
+                    ]
+                  },
+                  "original": []
+                }
+              },
+              "D9": {
+                "selector": "",
+                "status": "pass",
+                "value": []
+              }
+            }
+          },
+          "error": null
+        }
+      },
+      "setup_failure": "Initial observation was blocked by an orphaned roundup-cargo-build.lock left by the interrupted broad related-test worker. Removed the orphan after verifying its build processes had exited, then reran successfully."
+    }
+  },
+  "verification": {
+    "switcher_tests": {
+      "command": "pnpm --filter desktop exec vitest run src/switcher/u529_switcher.test.tsx src/switcher/u2572_actions.test.tsx --retry 0",
+      "passed": 62
+    },
+    "capture_recipe": "timeout 90 just capture Z3788b ended 124 during the full workspace suite; no full-suite pass claimed. The paired screenshots and Checks were completed independently through the dedicated headless sessions above."
+  }
+}

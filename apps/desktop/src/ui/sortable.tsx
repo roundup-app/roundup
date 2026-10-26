@@ -1,3 +1,5 @@
+import { ReducedMotionContext } from "../app/reducedMotion";
+import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import "./sortable.css";
 import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
@@ -7,7 +9,7 @@ import { effect } from "@dnd-kit/state";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
+import { mergeProps, onCleanup, splitProps, useContext, type JSX } from "solid-js";
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -134,6 +136,7 @@ const swallowNextClick = (): (() => void) => {
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
+  const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
@@ -218,7 +221,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       });
     };
 
-    if (animate && ending?.isConnected && ending.dataset.keyboard !== "true" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (animate && ending?.isConnected && ending.dataset.keyboard !== "true" && !reduced()) {
       closingSlot = ending;
       const styles = getComputedStyle(ending);
       const opacity = styles.opacity;
@@ -246,9 +249,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const source = event.operation.source;
 
     if (source?.element) {
-      source.element.removeAttribute("data-pressed");
+      clearPress(source.element);
 
-      for (const control of source.element.querySelectorAll("[data-pressed]")) control.removeAttribute("data-pressed");
+      for (const control of source.element.querySelectorAll("[data-pressed]")) clearPress(control);
     }
 
     previewed = null;
@@ -279,7 +282,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       sourceRow.insertAdjacentElement("afterend", slot);
 
       // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
-      if (!keyboardLift && !matchMedia("(prefers-reduced-motion: reduce)").matches) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
+      if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
       if (isSortable(source)) {

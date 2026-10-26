@@ -34,6 +34,8 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     props.onDone(saved, refocus);
   };
 
+  onCleanup(() => { if (!finished && field) props.onEdit(field); });
+
   registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
     { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
@@ -48,7 +50,16 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
-    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false)} />;
+    onBlur={event => {
+      // Keep the tab geometry until Ark receives the destination tab's click; selection closes this editor.
+      if (event.relatedTarget instanceof Element && event.relatedTarget.closest('[role="tab"]')) {
+        finished = true;
+
+        return;
+      }
+
+      finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false);
+    }} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */

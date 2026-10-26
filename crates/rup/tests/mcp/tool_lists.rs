@@ -119,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 71] = [
+pub const NO_TOOL: [&str; 73] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -200,6 +200,7 @@ pub const NO_TOOL: [&str; 71] = [
     "open_in_editor",
     "save_pasted_image",
     // U3787f: only the user opens and controls the native Capture presentation.
+    "system_accent", // App appearance preference, no Agent tool.
     "plugin:capture-panel|control",
     // U3560a: only the user writes the native pasteboard.
     "plugin:clipboard-manager|write_text",
@@ -213,6 +214,8 @@ pub const NO_TOOL: [&str; 71] = [
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
     "plugin:window-bar|zoom_window",
+    // U134: the user's native window appearance, which an Agent cannot change.
+    "plugin:window-bar|native_material",
     "rpc",
     "subscribe",
     "terminal_output",

@@ -24,7 +24,7 @@
 }
 
 /* Each part stays whole; a value is never split from its icon (D10). */
-.resource-strip > span {
+.resource-strip .resource-agent {
   display: flex;
   align-items: center;
   gap: var(--space-3);

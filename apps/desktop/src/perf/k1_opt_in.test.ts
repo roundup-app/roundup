@@ -1,12 +1,10 @@
-import solid from "vite-plugin-solid";
 import { build } from "vite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const bundled = async (): Promise<string> => {
   const built = await build({
     root: ".",
-    configFile: false,
-    plugins: [solid()],
+    configFile: "vite.config.ts",
     logLevel: "silent",
     build: { write: false },
   });

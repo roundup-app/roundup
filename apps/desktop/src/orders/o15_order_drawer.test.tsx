@@ -180,16 +180,16 @@ it("u2773a_orders_agent_switch_keeps_recipient", async () => {
 
  return {}; },
   } });
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  alpha original 🧭\n" } });
   select("beta");
   fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(full.ask);
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  beta original 👋\n" } });
   select("alpha");
   fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  alpha original 🧭\n");
   expect(sent).toEqual([]);
 });

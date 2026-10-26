@@ -439,7 +439,6 @@ explanation remains unproven. The native observations below use
 The [retained reports](perf-keystroke-mac-observations.json) include the owner's
 complete comments, console output, source links and JSON, including the failures.
 
-
 The recorder repairs in #3694 and #3717 merged before a further native run at
 `01dacd91ce7b1e5ffd874202df4ada323e114d5c`. The command above exited 2: all
 three reports contained `{"probe":"roundup-keystroke-probe","error":"no key was echoed and rendered after the warm-up"}`.
@@ -493,7 +492,6 @@ repair with before/after distributions, the shared Agent/shell input-path test,
 and three passing runs while another Terminal floods output. The three idle
 runs above meet the numerical idle budget only. No further Mac timing is
 requested by this evidence update.
-
 
 ## X14 retained flood observation
 
@@ -771,7 +769,6 @@ memory aims here with justification. File measured repairs in their owning
 modules with same-observer/same-Mac before/after evidence; #3802 consumes these
 measurements and this observer selects no allocator.
 
-
 Release profile measurements: [code generation comparison](perf-release-profile.md).
 
 ### R23 correlated write capture (#3976)
@@ -810,7 +807,6 @@ calibration, baseline, production repair or Mac observation is supplied.
 
 ### R23 producer/dispatch continuation (#4032)
 
-
 [Builder 40212001837](../crates/perf/evidence/r23-host-40212001837/README.md)
 retains an unchanged exact-model qualification miss: AMD EPYC 9V74, exit 2.
 Commands, actual statuses, runner/job identity, matching before/after boot IDs,
@@ -821,7 +817,6 @@ controls ran. #4032 remains incomplete; this miss supplies no timing observation
 attribution or overhead bound.
 
 
-
 [Builder 40208780160](../crates/perf/evidence/r23-host-40208780160/README.md)
 retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
 Original commands, statuses, runner/job identity, matching before/after boot IDs,
@@ -830,7 +825,6 @@ inventory returned HTTP 403 (exit 1); available job metadata and launch inputs
 identify no accessible qualified target. No producer/dispatch collection or
 controls ran. #4032 remains incomplete; this miss supplies no timing observation,
 attribution or overhead bound.
-
 
 [Builder 40206540231](../crates/perf/evidence/r23-host-40206540231/README.md)
 retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
@@ -847,7 +841,6 @@ again returned HTTP 403 (exit 1); available job metadata and existing launch
 inputs identify no accessible qualified lifetime. No build or collection ran.
 This host-only report leaves producer/initial-dispatch attempts, isolated
 repeated controls and their assessment incomplete; it supplies no overhead bound.
-
 
 [Builder 40200071512's retained qualification](../crates/perf/evidence/r23-producer-40200071512/README.md)
 passed on an exact 9V45 host, but its build job ended with failure at
@@ -987,3 +980,20 @@ work from useful-task CPU. Function entry/return supplies bounds, not
 linearization. Pending-read idle exclusion, overlapping branches and the
 selected-future/full-poll distinction remain. The original six clean observations
 are history only; this investigation creates no clean R16 verdict or baseline.
+
+C9 release artifacts, dependency attribution and remaining acceptance: [release sizes](release-size.md).
+
+## Plugin materialization check for #4196
+
+The reported plugin miss was not reproduced by the permitted current-main R16 pair on 2026-10-26. `just perf` exited 0: every metric passed, no comparisons were skipped, and both eleven-Daemon invocations used 1000 calls. The complete report is [perf-linux-7763-plugins.json](perf-linux-7763-plugins.json). This is a same-job comparison on `linux-8573c`, not a new 7763 calibration or a claim about the earlier VM. No implementation repair is indicated by this pair. Plugin materialization: base 7.583291 ms; head 7.519237 ms; paired ceiling 8.3426201 ms; absolute limit 300 ms.
+Both immutable references are `f1f59fb1d218120f3f2e321a64e480686f9a88a0` (current main and its merge base at invocation), built separately with Rust 1.99.0 and the unchanged locked release settings. Host `runnervmtai0g`, boot `75d56492-f160-4056-8ff2-2e813bf4296d`, session `40298544515/1/build`: Ubuntu 24.04, Intel 8573C, four online/available CPUs and affinity `0-3`. Base/head median loads were 3.77 and 2.91 on four CPUs. The common observer SHA-256 is `01d2b1ffc5443e1d36b590bacd225b26f676f888c7ab1c35f55fa4f8293aac15`; Daemon, CLI and sidecar hashes match across the two isolated builds. All hashes, samples, verdicts and commands are in the report. The 7763 baseline 11.940635 ms, stored ceiling 13.1356985 ms, 300 ms limit and every other budget remain unchanged.
+Raw evidence: [Builder 40298544515](https://github.com/roundup-app/roundup/actions/runs/40298544515), job `build #4196 / build`, artifact `answer-4196` (publication follows the run). Its `perf-4196.tar.gz` has SHA-256 `9bc32eb651d921fc0e89e9d5028dc2c9ec0aa9422d7c96aa67839dd5a97a679d`; its README and SHA256SUMS enumerate the original output, command/build logs, observer metadata, both invocation reports, all startup logs and actual exits. No failed observation was discarded.
+Validation: `pnpm install`, `just lint-web`, `just lint-rust` and `cargo nextest run -p agents --test plugins` exited 0. All six ordinary Q11 tests passed; the existing real-Claude test remains ignored because it requires `ROUNDUP_CLAUDE`. No plugin bytes, modes, registration, validation or launch code changed.
+
+## R4229 startup headroom
+
+Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.0: base `6db8b27bda83f7b3c21a1f6d6088156dbd1a90b4` = **437,808 gzip bytes** (1,388,635 raw); implementation `6c19d0a20767f73e8a2f0bdc3a12122aff71eb0a` = **422,146 gzip bytes** (1,329,400 raw), saving **15,662 bytes**. Both checkers exit 0 against the unchanged 437,814 ceiling. Later test/evidence commits change no production input.
+
+Measured moves: ImportPanel alone grew the closure by 1,491 to 439,299 (checker exit 1), so it was discarded. Deferring OrderDrawer at its three production callers saved 15,662 relative to base; a clean committed-head rebuild reproduced 422,146. Solid's existing `lazy` and native dynamic imports defer the Order editor and progress view until shown. Shared chunks remain counted: `index-BIzfQbNs.js`, `copy-CGbSrKPM.js`, `ReservedLine-BMsOCD5R.js`, `floating-ui.dom-vtOd0C_f.js` (all under `assets/`). No budget, observer, compression, dependency or bundler configuration changed; drag remains eager and Terminal remains lazy.
+
+Reproduce in separate base/head worktrees with identical environment: `pnpm install --frozen-lockfile`; remove each `apps/desktop/dist`; `pnpm --filter desktop build`; `pnpm --filter desktop run check:startup`. Each install/build exits 0. Raw reports for every attempt, logs, commands, observer hashes and final revision metadata: [Builder 40319239117](https://github.com/roundup-app/roundup/actions/runs/40319239117), job `build #4229 / build`, artifact `answer-4229`, `r4229-measurements.tar.gz` SHA-256 `d1685adf27de76673d61c3a2ff01e84fdd637333d1f6e0df1d61a2fff82f1eb1` and directory `r4229` (published after this run). Existing affected behavior observers, R3800 startup tests and rendered Order/progress observers cover first opening, editing, recovery, dismissal and focus; no tests are weakened or removed. All 68 Order/progress tests and the six R3800 shell tests pass. Dark 1512×950 first-open/edit/Escape observations call each opening read once; P3557c’s rendered failure/dismissal observer passes D2/D5/D6. The opt-in U3078i earlier-expansion capture times out on both base and head; its failed attempts are retained too.

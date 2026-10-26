@@ -1,0 +1,14 @@
+{
+  "options": [
+    {
+      "id": "action:chord:\u2318T",
+      "label": "New Terminal \u2318T"
+    },
+    {
+      "id": "action:chord:\u21e7\u2318N",
+      "label": "New Agent with a prompt \u21e7\u2318N"
+    }
+  ],
+  "query": "ntr",
+  "writes": []
+}

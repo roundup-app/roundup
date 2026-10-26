@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
+import { systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -92,6 +92,31 @@ export const createTauriApp = (): App => {
   const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
 
   const app: App = {
+    onSystemAccent: listener => guarded(async () => {
+      if (!/mac/i.test(navigator.platform)) {
+        listener(null);
+
+        return () => {};
+      }
+
+      let changed = false;
+
+      const release = await listen("system-accent", event => {
+        changed = true;
+        listener(v.parse(systemAccentSchema, event.payload));
+      });
+
+      try {
+        const initial = await parsedCommand(systemAccentSchema, "system_accent", {});
+
+        if (!changed) listener(initial);
+
+        return release;
+      } catch (error) {
+        release();
+        throw error;
+      }
+    }),
     capture: /mac/i.test(navigator.platform) ? {
       configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
       show: () => captureControl({ kind: "show" }),
@@ -183,4 +208,27 @@ export const createTauriApp = (): App => {
   };
 
   return app;
+};
+
+/** Reveal material only after the native window confirms it; a missing capability stays opaque. */
+export const followMaterial = async (root: HTMLElement): Promise<() => void> => {
+  const apply = (enabled: boolean) => root.toggleAttribute("data-native-material", enabled);
+  let changed = false;
+
+  const release = await listen("native-material", event => {
+    changed = true;
+    apply(v.parse(v.boolean(), event.payload));
+  });
+
+  try {
+    const initial = v.parse(v.boolean(), await invoke("plugin:window-bar|native_material"));
+
+    if (!changed) apply(initial);
+  } catch (error) {
+    release();
+    root.removeAttribute("data-native-material");
+    throw error;
+  }
+
+  return () => { release(); root.removeAttribute("data-native-material"); };
 };

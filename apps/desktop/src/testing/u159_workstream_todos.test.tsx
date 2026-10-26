@@ -204,7 +204,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
   connected.rail.select(selected);
 
   if (terminal) await chooseTerminal(terminal);
-  fireEvent.click(within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).getByRole("button", { name: /add todo to/i }));
+  fireEvent.click(await within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).findByRole("button", { name: /add todo to/i }));
   const title = await screen.findByRole("textbox", { name: /New Todo title/ });
   fireEvent.input(title, { target: { value: "new scope item" } });
   fireEvent.keyDown(title, { key: "Enter" });
