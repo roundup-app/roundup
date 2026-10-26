@@ -24,7 +24,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
     mkdirSync(videoDir, { recursive: true });
     await lane.browser("record", "start", join(videoDir, `screens${only.length ? "-" + only.join("-") : ""}.webm`));
 
-    for (const seed of (only.length ? [] : ["tree-40", "tabs-8", "first-run"])) {
+    for (const seed of (only.length ? [] : ["tree-40", "tabs-8", "first-run", "agents-10", "conflict"])) {
       await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
       await lane.until("!!window.__fake && !!document.querySelector('.window')");
 
@@ -34,8 +34,23 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
       await lane.until("!!document.querySelector('.settings-view')");
 
       for (const section of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
-        await lane.evaluate(`document.querySelector('[role=tab][data-value="${section}"]')?.click()`);
+        await lane.browser("click", `[role=tab][data-value="${section}"]`);
+        await lane.until(`!!document.querySelector('[role=tab][data-value="${section}"][aria-selected=true]')`);
+        await lane.browser("press", "Tab");
+        await lane.until("!!document.activeElement.closest('.settings-content')");
+        expect(await lane.evaluate("!!document.activeElement.closest('[role=tabpanel]:not([hidden])')")).toBe(true);
+
         await capture("U4277a", `${seed}-${section}`);
+
+        if (section === "Shortcuts" && seed === "tree-40") {
+          await lane.browser("click", ".settings-shortcut button");
+          await lane.until("!!document.querySelector('.settings-shortcut [aria-pressed=true]')");
+          await capture("U4277a", "tree-40-shortcut-recording");
+          await lane.browser("press", "Meta+q");
+          await lane.until("!!document.querySelector('.settings-shortcut [aria-invalid=true]')");
+          await capture("U4277a", "tree-40-shortcut-refusal");
+          await lane.browser("press", "Escape");
+        }
 
         if (section === "Terminal" && seed === "tree-40") {
           await lane.evaluate(`(() => { const field = document.querySelector('input[aria-label="Font size"]'); field.value = '300'; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',bubbles:true})); return true; })()`);
@@ -98,6 +113,5 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
       }
     }
 
-    expect(await lane.evaluate("!!document.querySelector('.window')")).toBe(true);
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
 });

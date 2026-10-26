@@ -1,6 +1,7 @@
 import type { CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, Show } from "solid-js";
 import { copy } from "../copy";
+import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER, pressOf, shortcutLabel } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -40,7 +41,7 @@ export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFa
       <span id={caption}>{copy.quickAddTodo}</span>
       <div class="settings-shortcut">
       <button ref={button} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
-        <span id={value}>{recording() ? copy.recordShortcut : shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}</span>
+        <span id={value}><Show when={recording()} fallback={<KeyChip keys={shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)} />}><span class="settings-recording-mark" aria-hidden="true">●</span> {copy.recordShortcut}</Show></span>
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
       </div>
