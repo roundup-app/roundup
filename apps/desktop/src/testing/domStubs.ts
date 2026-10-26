@@ -1,9 +1,13 @@
 import { useBrowserStorage } from "../state/storage";
+import { configure } from "@solidjs/testing-library";
 import { beforeEach } from "vitest";
 
 useBrowserStorage(window.localStorage);
 
 beforeEach(() => useBrowserStorage(window.localStorage));
+
+// A lazily mounted tab (Todos, Progress) on a CPU-starved shard outlasts the 1000 ms default of `waitFor` and `findBy`; the 15 s test timeout decides instead.
+configure({ asyncUtilTimeout: 10_000 });
 
 // jsdom has no layout, so it has no scrollIntoView; the Rail calls it on a jump.
 Element.prototype.scrollIntoView ??= () => undefined;
