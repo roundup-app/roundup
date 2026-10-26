@@ -32,7 +32,7 @@ impl Agents {
     /// the sidecar behind it runs only for this call.
     pub(super) async fn import_list(
         &self,
-        _ctx: &Ctx,
+        ctx: &Ctx,
         params: ImportListParams,
     ) -> Result<ImportList, RpcError> {
         // A Project that is not a repository has no registered Worktrees to add.
@@ -93,7 +93,37 @@ impl Agents {
                 title: None,
                 last_activity_ms: e.modified_ms,
             }));
+        drop(rail);
+        if ctx.actor.kind == ActorKind::Agent {
+            let node = self.shared.rail().node(&ctx.actor.id)?;
+            let directory = self.dir.join("import-lists");
+            std::fs::create_dir_all(&directory).map_err(RpcError::internal)?;
+            let mut file =
+                tempfile::NamedTempFile::new_in(&directory).map_err(RpcError::internal)?;
+            serde_json::to_writer(&mut file, &out).map_err(RpcError::internal)?;
+            file.persist(directory.join(format!("{}.json", node.id)))
+                .map_err(RpcError::internal)?;
+            ctx.emit(EventData::RailChanged);
+        }
         Ok(out)
+    }
+
+    fn import_agent_list(&self, agent: &str) -> Result<ImportList, RpcError> {
+        let node = self.shared.rail().node(agent)?;
+        if node.kind != NodeKind::Agent {
+            return Err(RpcError::forbidden("the listing identity must be an Agent"));
+        }
+        let file = std::fs::File::open(
+            self.dir
+                .join("import-lists")
+                .join(format!("{}.json", node.id)),
+        )
+        .map_err(|_| {
+            RpcError::conflict(
+                "The Agent has not listed candidates. Refresh after it calls import.list.",
+            )
+        })?;
+        serde_json::from_reader(file).map_err(RpcError::internal)
     }
 
     pub(super) async fn import_discover(
@@ -102,6 +132,23 @@ impl Agents {
         params: ImportDiscoverParams,
     ) -> Result<ImportDiscovery, RpcError> {
         user_only(ctx)?;
+        if let Some(agent) = &params.agent {
+            let listed = self.import_agent_list(agent)?;
+            return Ok(ImportDiscovery {
+                candidates: listed
+                    .candidates
+                    .into_iter()
+                    .map(|c| ImportCandidate {
+                        source: c.source,
+                        title: c.title,
+                        cwd: c.cwd,
+                        last_activity_ms: c.last_activity_ms,
+                        revision: c.revision,
+                    })
+                    .collect(),
+                excluded: listed.excluded,
+            });
+        }
         let found = self
             .launcher
             .discover_recent(
@@ -151,6 +198,18 @@ impl Agents {
         params: ImportCommitParams,
     ) -> Result<ImportResult, RpcError> {
         user_only(ctx)?;
+        if let Some(agent) = &params.agent {
+            let listed = self.import_agent_list(agent)?;
+            if !params.selections.iter().all(|pick| {
+                listed.candidates.iter().any(|candidate| {
+                    candidate.source == pick.source && candidate.revision == pick.revision
+                })
+            }) {
+                return Err(RpcError::forbidden(
+                    "The selection does not match this Agent's preview. Refresh Import.",
+                ));
+            }
+        }
         if params.selections.len() > MAX_SELECTIONS {
             return Err(RpcError::not_accepted(format!(
                 "import at most {MAX_SELECTIONS} conversations at once"

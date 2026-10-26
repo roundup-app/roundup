@@ -2,6 +2,7 @@
 use super::*;
 use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams};
 use rusqlite::{Connection, OptionalExtension};
+use std::path::Path;
 
 fn project(db: &Connection) -> Result<String, RpcError> {
     db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
@@ -340,5 +341,96 @@ impl Pads {
             events.push(EventData::PadChanged(PadName { name }));
         }
         Ok((files, events))
+    }
+
+    /// A34: stage file deletions and change Pad rows in the coordinator's Project transaction.
+    /// Dropping the returned guard restores the files; commit it only after the Rail commits.
+    pub fn remove_workstream(
+        &self,
+        db: &rusqlite::Connection,
+        home: &str,
+        removal: &mut contracts::agent::Removal,
+    ) -> Result<(RemovalFiles, Vec<EventData>), RpcError> {
+        use contracts::agent::{KeptItem, RemovalKind, RemovedItem};
+        let store = self.store()?;
+        let pads = store.list().map_err(RpcError::internal)?;
+        let files = store.files().map_err(RpcError::internal)?;
+        let mut undo = RemovalFiles::default();
+        let mut events = Vec::new();
+        for pad in pads.into_iter().filter(|p| p.home.as_deref() == Some(home)) {
+            let kept = (pad.owner.kind == ActorKind::Agent)
+                .then(|| {
+                    removal
+                        .kept
+                        .iter()
+                        .find(|i| i.kind == RemovalKind::Agent && i.id == pad.owner.id)
+                })
+                .flatten();
+            if let Some(owner) = kept {
+                db.execute(
+                    "UPDATE pads SET home = NULL WHERE key = ?",
+                    [store::key(&pad.name)],
+                )
+                .map_err(RpcError::internal)?;
+                removal.kept.push(KeptItem {
+                    id: pad.name.clone(),
+                    kind: RemovalKind::Pad,
+                    name: pad.name.clone(),
+                    reason: owner.reason,
+                });
+                events.push(EventData::PadChanged(PadName { name: pad.name }));
+            } else {
+                if files {
+                    undo.stage(&self.files_dir, &pad.name)?;
+                }
+                db.execute("DELETE FROM pads WHERE key = ?", [store::key(&pad.name)])
+                    .map_err(RpcError::internal)?;
+                removal.removed.push(RemovedItem {
+                    id: pad.name.clone(),
+                    kind: RemovalKind::Pad,
+                    name: pad.name.clone(),
+                });
+                events.push(EventData::PadDeleted(PadName { name: pad.name }));
+            }
+        }
+        Ok((undo, events))
+    }
+}
+
+impl RemovalFiles {
+    pub(super) fn stage(&mut self, dir: &Path, name: &str) -> Result<(), RpcError> {
+        let path = dir.join(format!("{name}.md"));
+        match std::fs::symlink_metadata(&path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(RpcError::internal(e)),
+            Ok(meta) if meta.is_dir() => {
+                return Err(RpcError::internal(format!(
+                    "pad file {name}.md is a directory"
+                )));
+            }
+            Ok(_) => {}
+        }
+        let backup = tempfile::NamedTempFile::new_in(dir)
+            .map_err(RpcError::internal)?
+            .into_temp_path();
+        std::fs::rename(&path, &backup).map_err(RpcError::internal)?;
+        self.files.push((path, backup));
+        Ok(())
+    }
+
+    /// The coordinated database commit succeeded; dropping the backups now completes deletion.
+    pub fn commit(mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for RemovalFiles {
+    fn drop(&mut self) {
+        if !self.committed {
+            for (path, backup) in self.files.iter().rev() {
+                std::fs::rename(backup, path)
+                    .expect("restore staged Pad file after rejected removal");
+            }
+        }
     }
 }

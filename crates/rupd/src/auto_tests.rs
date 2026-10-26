@@ -495,3 +495,27 @@ async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
     );
     daemon.stop_terminals().await.unwrap();
 }
+
+#[tokio::test]
+async fn u3523c_import_agent_receives_prompt_and_tools() {
+    let root = tempfile::tempdir().unwrap();
+    let daemon = running_daemon(root.path());
+    let prompt = "  List recent sessions with import.list\nLeave confirmation to the user.  ";
+    let node = call(
+        &daemon,
+        "agent.spawn",
+        json!({"cwd":root.path(), "prompt":prompt, "parent":null, "name":"Import"}),
+    )
+    .await;
+    assert_eq!(node["work"]["ask"], prompt);
+    let id = node["id"].as_str().unwrap();
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: id.into(),
+        parent: None,
+    });
+    let refused = daemon.modules["project"]
+        .call(&ctx, "project.importCommit", json!({"selections":[]}))
+        .await;
+    assert!(refused.is_err());
+}
