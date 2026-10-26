@@ -10,7 +10,7 @@ use rpc::{Bus, Ctx, OpenError, RpcError, reply};
 use serde_json::Value;
 
 use crate::store::Store;
-use crate::{Pads, files, name, reference, section, store};
+use crate::{Pads, files, name, reference, section};
 
 impl Pads {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.

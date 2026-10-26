@@ -1,5 +1,7 @@
 use super::*;
 
+const DOC: &str = "# Notes\n\n## Plan\n- one\n\n### Detail\nmore\n\n## Done\n- x\n";
+
 async fn section(rig: &Rig, who: &Actor, heading: &str, text: &str) -> Value {
     let params = json!({"name": "notes", "heading": heading, "text": text});
     rig.ok(who, "pad.appendSection", params).await

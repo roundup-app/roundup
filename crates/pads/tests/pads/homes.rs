@@ -141,5 +141,3 @@ async fn p12_the_home_survives_open() {
     let listed = reopened.call(&ctx, "pad.list", Value::Null).await.unwrap();
     assert_eq!(listed[0]["home"], "r1");
 }
-
-const DOC: &str = "# Notes\n\n## Plan\n- one\n\n### Detail\nmore\n\n## Done\n- x\n";
