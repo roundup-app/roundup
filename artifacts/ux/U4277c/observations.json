@@ -1,24 +1,25 @@
 {
   "scenario": "U4277c",
   "base": "b466ef9e028560a10cf5d5ff41c32f0a039da79a",
-  "captured_head": "e1c45d3b86fbfda083645a0745d94089ce666256",
+  "critic_base": "25442fceb57300af346e1aebac07cc122ca12175",
+  "captured_head": "57538f013da503dd701d38a073096620117bd84b",
   "viewport": "1512x950",
   "scheme": "dark",
   "focused_tests": {
-    "passed": 84,
-    "existing_skips": 0
+    "navigation_passed": 17,
+    "import_passed": 20,
+    "existing_import_skips": 3
   },
   "capture_tests": {
-    "base_passed": 6,
+    "critic_base_passed": 6,
     "head_passed": 6
   },
   "paired_check_regressions": [],
   "remaining": [
     "tabs-8 audit",
-    "required checks and independent review"
+    "required CI checks and independent review"
   ],
-  "capture_command": "ROUNDUP_CAPTURES=U4277c ROUNDUP_CAPTURE_PHASE=head pnpm --filter desktop exec vitest run src/settings/u3799_rendered.test.ts -t u4277c",
-  "real_daemon_tests": {
-    "passed": 8
-  }
+  "capture_command": "ROUNDUP_CAPTURES=U4277c ROUNDUP_CAPTURE_PHASE=complete-head pnpm --filter desktop exec vitest run src/settings/u3799_rendered.test.ts -t u4277c --retry 0",
+  "broad_related_run": "Interrupted with exit 130 after 12 minutes; not counted as a pass.",
+  "just_ready": "passed (exit 0)"
 }
