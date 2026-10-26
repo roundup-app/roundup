@@ -23,7 +23,7 @@ const reactionBrowser = async () => {
 
   if (!executable) throw new Error("NR9 needs headless Chromium");
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-  const session = `nr9-${process.pid}`;
+  const session = `nr9-${process.pid}-${profile.split("-").at(-1)}`;
 
   const browser = async (...args: string[]) => {
     const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
@@ -363,12 +363,12 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
   const dir = captureDir("U4276b");
 
   const tabTo = async (selector: string) => {
-    for (let step = 0; step < 80; step++) {
+    for (let step = 0; step < 40; step++) {
       if (await evaluate(`document.activeElement?.matches(${JSON.stringify(selector)})`)) return;
       await browser("press", "Tab");
     }
 
-    throw new Error(`Keyboard could not reach ${selector}`);
+    throw new Error(`Keyboard could not reach ${selector}: ${await evaluate("document.activeElement?.outerHTML")}`);
   };
 
   const type = (text: string) => browser("keyboard", "type", text);
@@ -435,8 +435,8 @@ it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s",
     const listed = await app.rpc("reaction.list", null);
     expect(listed).toHaveLength(1);
     const saved = await app.rpc("reaction.get", { id: listed[0]!.id });
-    expect(saved).toMatchObject({ target: agents[0]!.id, instruction, max_firings: 1, expires_at: "2099-01-01T09:00:00+00:00" });
-    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00+00:00", late: "once-before-expiry" } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
+    expect(saved).toMatchObject({ target: agents[0]!.id, instruction, max_firings: 1, expires_at: "2099-01-01T09:00:00Z" });
+    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00Z", late: "once-before-expiry" } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
     expect(saved.firings.every(firing => firing.matched)).toBe(true);
   } finally { await close(); await real.stop(); }
 }, 60_000);
