@@ -5,6 +5,7 @@ import type { App, NativeOpen } from "./seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
+import { copy } from "../copy";
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
 export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup }, app, projects, connectionOf, item, fail }: {
@@ -64,7 +65,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         try {
           const content = await app.forProject(project.path).rpc("link.read", { url: request.url });
 
-          if (content.kind === "deliverable") throw new Error("This published link cannot be opened here. Open it from Results.");
+          if (content.kind === "deliverable") throw new Error(copy.linkIsPublished);
           setLinked({ path: project.path, content });
           fail(null);
 
@@ -75,7 +76,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         }
       }
 
-      fail(failures.join("; ") || "The link's Project is not open. Open that Project and try the link again.");
+      fail(failures.join("; ") || copy.linkProjectClosed);
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
 };
