@@ -298,7 +298,7 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
 // Hit testing belongs to this rendered observer, rather than the behavioral App tests.
 for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) {
 rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate}`, { retry: 0, timeout: 180_000 }, async () => {
-  const directory = join(art!, "head");
+  const directory = join(art!, "edge");
   mkdirSync(directory, { recursive: true });
 
   for (const run of (rate === 1 ? [1, 2, 3] : [1])) {
