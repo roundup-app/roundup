@@ -174,3 +174,103 @@ body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="ch
 .reactions {
   position: relative;
 }
+
+.reactions {
+  width: min(100%, var(--ask-width));
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+}
+
+.reaction-head {
+  align-items: baseline;
+  padding-bottom: var(--space-3);
+}
+
+.reaction-head .overview-heading,
+.reaction-head .reaction-title {
+  font-size: var(--text-title);
+  color: var(--text);
+}
+
+.reaction-form,
+.reaction-detail {
+  gap: var(--space-4);
+}
+
+.reaction-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 var(--space-4);
+  border: 0;
+}
+
+.reaction-legend {
+  padding: 0 0 var(--space-3);
+  color: var(--text);
+  font-size: var(--text-body);
+}
+
+.reaction-time-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.reaction-time-fields .app-select-label {
+  display: block;
+}
+
+.reaction-agents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-3);
+}
+
+.reaction-form .app-checkbox-label {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.reaction-form .app-checkbox {
+  padding-inline: 0;
+}
+
+.reaction-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-block: var(--space-6);
+}
+
+.reaction-empty p {
+  margin: 0;
+  max-width: var(--ask-width);
+  text-wrap: balance;
+}
+
+.reaction-list {
+  gap: var(--space-2);
+}
+
+.reaction-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: baseline;
+  width: 100%;
+  padding-block: var(--space-2);
+  text-align: start;
+}
+
+.reaction-preview {
+  gap: var(--space-3);
+}
+
+.reactions .reaction-row {
+  display: grid;
+  align-items: baseline;
+}
