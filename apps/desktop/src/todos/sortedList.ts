@@ -75,6 +75,7 @@ export const createSortedList = (source: {
   const settle = () => {
     const instant = instantOrder;
     instantOrder = false;
+
     if (scroll) {
       scroll.element.scrollTop = scroll.top;
       scroll.element.scrollLeft = scroll.left;
