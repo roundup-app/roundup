@@ -133,6 +133,7 @@ impl Agents {
                     interrupt_bound: interrupt_bound_from_env(),
                 },
                 events: events::State {
+                    observed: Default::default(),
                     gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
@@ -590,6 +591,7 @@ pub(super) mod tests {
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
             events: events::State {
+                observed: Default::default(),
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
@@ -654,6 +656,7 @@ pub(super) mod tests {
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
             events: events::State {
+                observed: Default::default(),
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
@@ -750,6 +753,7 @@ pub(super) mod tests {
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
             events: events::State {
+                observed: Default::default(),
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
