@@ -123,6 +123,10 @@
   --duration-copy: 1500ms;
   --duration-press: 100ms;
   --duration-reduced: 150ms;
+  --duration-working: 960ms;
+  --easing-working: cubic-bezier(0, 0, 1, 1);
+  --easing-glyph-in: cubic-bezier(0, 0, 0.58, 1);
+  --easing-glyph-out: cubic-bezier(0.42, 0, 1, 1);
   --scale-press: 0.97;
   --duration-todo: 150ms;
   --ease-todo: cubic-bezier(0.22, 1, 0.36, 1);
