@@ -34,15 +34,14 @@ pub(super) fn type_queued(
     }
 }
 
-/// Read until the program closes the PTY, publishing each chunk, then report how it ended.
-pub(super) fn pump(
+/// Read until the PTY closes, publishing every chunk before the reader reports the exit.
+pub(super) fn read(
     shared: &Shared,
     number: u64,
     mut reader: Box<dyn Read + Send>,
     handle: &Handle,
     screen: &Mutex<ScreenState>,
-    output: broadcast::Sender<Chunk>,
-    exit_hold: Option<&ExitHold>,
+    output: &broadcast::Sender<Chunk>,
 ) {
     let mut chunk = [0u8; READ_CHUNK];
     // Linux reports the closed PTY as an error, macOS as end of file: both mean "no more output".
@@ -95,15 +94,21 @@ pub(super) fn pump(
             .into_iter()
             .for_each(|title| shared.retitle(number, title));
     }
-    let code = match reap(&handle.program) {
-        Ok(status) if status.signal().is_some() => None,
-        Ok(status) => Some(i32::try_from(status.exit_code()).unwrap_or(i32::MAX)),
-        Err(err) => {
-            // `None` means "killed by a signal"; an unknown ending must not look like one.
-            eprintln!("terminal {number}: cannot wait for program: {err}");
-            Some(-1)
-        }
-    };
+}
+
+/// Exercise the same PTY reader and exit publication with an in-process observer's child.
+#[cfg(test)]
+pub(super) fn pump(
+    shared: &Shared,
+    number: u64,
+    reader: Box<dyn Read + Send>,
+    handle: &Handle,
+    screen: &Mutex<ScreenState>,
+    output: broadcast::Sender<Chunk>,
+    exit_hold: Option<&ExitHold>,
+) {
+    read(shared, number, reader, handle, screen, &output);
+    let code = program::exit_code(number, reap(&handle.program));
     if let Some(hold) = exit_hold {
         hold();
     }
