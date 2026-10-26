@@ -342,9 +342,7 @@ impl Pads {
         }
         Ok((files, events))
     }
-}
 
-impl Pads {
     /// A34: stage file deletions and change Pad rows in the coordinator's Project transaction.
     /// Dropping the returned guard restores the files; commit it only after the Rail commits.
     pub fn remove_workstream(
