@@ -3,5 +3,7 @@
 import type * as project$ImportSelection from "./ImportSelection";
 /**  U2875b: import the user's selection into this Project. At most 50 selections per call. */
 export type ImportCommitParams = {
+	/**  When confirming an Agent list, bind every pick to its retained preview. User-only. */
+	agent?: string,
 	selections: project$ImportSelection.ImportSelection[],
 };

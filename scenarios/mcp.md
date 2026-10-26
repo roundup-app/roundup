@@ -42,6 +42,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
 | `plugin:window-bar\|native_material` | the App reads its native appearance capability (U134/U135); no Agent action |
 | `select_project_menu` | the webview’s selected tab and native Project-menu availability (U3813); an Agent does not navigate the user’s window |
+| `plugin:window-bar\|native_material` | the App reads its applied native appearance (U135); this supplies no Agent action |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon; an Agent reaches its own Project's Daemon alone (S8) |
 
