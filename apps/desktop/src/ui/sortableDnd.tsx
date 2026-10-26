@@ -9,7 +9,7 @@ import { DragDropProvider, DragOverlay, useDragDropManager } from "@dnd-kit/soli
 import { Sortable as DomSortable, defaultSortableTransition, isSortable } from "@dnd-kit/dom/sortable";
 import { createEffect, on, onCleanup } from "solid-js";
 import { render } from "solid-js/web";
-import type { ExternalTarget, ItemBinding, RootBinding, SortableDrop, SortableTree, TreeRow } from "./sortable";
+import type { ExternalTarget, ItemBinding, RootBinding, SortableDrop, SortableTree, TreeRow } from "./sortableTypes";
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -394,7 +394,11 @@ export const mountDrag = <T extends ExternalTarget>(local: RootBinding<T>) => {
 
   /** The library's sortable for a row the entry rendered, kept in step with the row's id, index and elements as `useSortable` does. */
   const attach = (item: ItemBinding) => {
-    const sortable = new DomSortable({ id: item.id(), index: item.index(), register: false, transition: { ...defaultSortableTransition, duration: 0 }, ...(item.pressable ? { sensors: sensorsOf() } : {}) }, manager ?? undefined);
+    const input: ConstructorParameters<typeof DomSortable>[0] = { id: item.id(), index: item.index(), register: false, transition: { ...defaultSortableTransition, duration: 0 } };
+
+    if (item.pressable) input.sensors = sensorsOf();
+
+    const sortable = new DomSortable(input, manager ?? undefined);
 
     createEffect(() => {
       sortable.manager = manager ?? undefined;
