@@ -210,8 +210,6 @@ pub const NO_TOOL: [&str; 73] = [
     "select_project_menu",
     // R24: the measurement-only producer has no Agent tool or execution authority.
     "record_idle_evidence",
-    // U134: the App reads native appearance; this grants no Agent action.
-    "plugin:window-bar|native_material",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",

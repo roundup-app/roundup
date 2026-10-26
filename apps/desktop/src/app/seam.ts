@@ -97,7 +97,6 @@ export const SEAM_COMMANDS = [
   "save_pasted_image",
   "plugin:clipboard-manager|write_text",
   "show_context_menu",
-  "plugin:window-bar|native_material",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
