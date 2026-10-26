@@ -2,6 +2,8 @@ import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
+import { agent, info } from "../testing/nodes";
+import { fakeEmulators } from "../terminal/paneHarness";
 import type { NativeOpen } from "./seam";
 
 let receive: ((request: NativeOpen) => void) | undefined;
@@ -24,5 +26,22 @@ it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_
   await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "link", url: "roundup://pad/notes?project=unavailable" });
   await screen.findByText(/Project.*not open/);
+  expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
+});
+
+it("u3787f_deep_link_preserves_identity_and_authority_reveals_the_exact_terminal", async () => {
+  const app = createFakeApp();
+  app.add("/project");
+  app.onNativeOpen = async listener => { receive = listener; return () => {}; };
+  app.handlers["rail.tree"] = () => [agent("a", "idle", "ready")];
+  app.handlers["terminal.list"] = () => [info("t-a"), info("first", { owner: "a", title: "Chosen terminal" }), info("second", { owner: "a" })];
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
+  app.handlers["terminal.resize"] = () => null;
+  app.handlers["link.read"] = () => ({ kind: "terminal", id: "first", screen: { cols: 80, rows: 24, offset: 0, lines: ["chosen screen"], truncated: false } });
+  const { factory } = fakeEmulators();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} />);
+  await screen.findByRole("tab", { name: "project" });
+  receive?.({ kind: "link", url: "roundup://terminal/first?project=project-0000000000000000" });
+  await screen.findByRole("group", { name: "Chosen terminal" });
   expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
 });
