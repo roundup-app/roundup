@@ -626,3 +626,89 @@ async fn u3523h_unrelated_sessions_are_not_read() {
         );
     }
 }
+
+#[tokio::test]
+async fn u3523d_agent_listing_binds_user_confirmation() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    std::fs::create_dir_all(&project).unwrap();
+    git(&project, &["init", "-q", "-b", "main"]);
+    git(&project, &["commit", "-q", "--allow-empty", "-m", "base"]);
+    session(&config, &project, 1, &[&project], false);
+    session(&config, &project, 2, &[&project], false);
+    let cli = root.path().join("claude");
+    executable(&cli, "#!/bin/sh\nprintf '[]\\n'\n");
+    let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    )
+    .with_sidecar(package);
+    let daemon = daemon(&project, launcher);
+    let rpc = |method: &str, params: Value| {
+        json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}).to_string()
+    };
+    let discovered = ask(
+        &daemon,
+        &rpc("project.importDiscover", json!({"period":"month"})),
+    )
+    .await;
+    let seed = &discovered["result"]["candidates"][0];
+    let imported = ask(
+        &daemon,
+        &rpc(
+            "project.importCommit",
+            json!({"selections":[{"source":seed["source"],"revision":seed["revision"]}]}),
+        ),
+    )
+    .await;
+    let id = imported["result"]["outcomes"][0]["agent"].as_str().unwrap();
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: id.into(),
+        parent: None,
+    });
+    let module = daemon.modules.get("import").unwrap();
+    let listed = module
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let pick = &listed["candidates"][0];
+    let preview = ask(
+        &daemon,
+        &rpc(
+            "project.importDiscover",
+            json!({"period":"month", "agent":id}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        preview["result"]["candidates"][0]["revision"],
+        pick["revision"]
+    );
+    let commit = daemon.modules.get("project").unwrap();
+    assert!(commit.call(&ctx, "project.importCommit", json!({"agent":id,"selections":[{"source":pick["source"],"revision":pick["revision"]}]})).await.is_err());
+    for (agent, source, revision) in [
+        (id, pick["source"].clone(), json!("forged")),
+        (id, json!("unlisted"), pick["revision"].clone()),
+        ("other", pick["source"].clone(), pick["revision"].clone()),
+    ] {
+        let refused = ask(
+            &daemon,
+            &rpc(
+                "project.importCommit",
+                json!({"agent":agent,"selections":[{"source":source,"revision":revision}]}),
+            ),
+        )
+        .await;
+        assert!(refused["error"].is_object(), "{refused}");
+    }
+    let result = ask(&daemon, &rpc("project.importCommit", json!({"agent":id,"selections":[{"source":pick["source"],"revision":pick["revision"]}]}))).await;
+    assert!(
+        result["result"]["outcomes"][0]["agent"].is_string(),
+        "{result}"
+    );
+}
