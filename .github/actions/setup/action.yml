@@ -40,13 +40,15 @@ runs:
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
     # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
-    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of.
+    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of,
+    # so an older entry restores under `restore-keys` and an edit here never leaves every lane downloading all 61 MB.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       id: apt-archives
       uses: actions/cache@v5
       with:
         path: ~/apt-archives/*.deb
         key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup/action.yml') }}
+        restore-keys: apt-tauri-${{ runner.os }}-${{ runner.arch }}-
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Start Tauri packages
       shell: bash
