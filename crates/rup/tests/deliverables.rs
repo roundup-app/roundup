@@ -197,6 +197,46 @@ async fn dv3_external_target() {
     }
 }
 
+#[tokio::test]
+async fn dv1_only_explicit_publication() {
+    let a = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
+    let c = rpc::Client::connect(&a.socket()).await.unwrap();
+    std::fs::write(a.dir.path().join("scratch.md"), "scratch").unwrap();
+    pad(&c, "scratch", "unpublished").await;
+    call(
+        &c,
+        "pad.write",
+        json!({"name":"scratch","text":"still unpublished"}),
+    )
+    .await;
+    let t = call(&c, "todo.create", json!({"title":"scratch"})).await;
+    call(&c, "todo.complete", json!({"id":t["id"]})).await;
+    let terminal=call(&c,"terminal.spawn",json!({"cwd":a.dir.path(),"command":["/bin/sh","-c","printf 'unpublished result'"],"env":{},"cols":80,"rows":24})).await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let output = call(&c, "terminal.read", json!({"id":terminal["id"],"after":0})).await;
+            if output["text"]
+                .as_str()
+                .unwrap()
+                .contains("unpublished result")
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("Terminal emitted its unregistered output");
+    assert_eq!(list_all(&c).await, json!([]));
+    call(
+        &c,
+        "deliverable.publish",
+        json!({"key":"deliberate","title":"Result","target":pad_target(&c,"scratch",2).await}),
+    )
+    .await;
+    assert_eq!(list_all(&c).await.as_array().unwrap().len(), 1);
+}
+
 #[allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;
