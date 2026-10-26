@@ -2,13 +2,12 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
-import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { lazy, For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -31,6 +30,9 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
+// The production entry exceeded its 437814-byte gzip budget; load measurements when opened.
+const MeasurementDashboard = lazy(() => import("./MeasurementDashboard").then(module => ({ default: module.MeasurementDashboard })));
+
 export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
