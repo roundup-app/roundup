@@ -518,8 +518,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
     : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
-  return <>
-    <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+  return <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
@@ -539,6 +538,5 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
         </button>}</Tip>
         <ReservedLine overlay message={failure(record.id)}><button type="button" data-button="quiet" onClick={() => clear(record.id)}>{copy.dismiss}</button></ReservedLine>
       </li>}</For></ul>
-    </section>
-  </>;
+    </section>;
 };

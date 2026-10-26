@@ -18,7 +18,7 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
   }, 180_000);
 });
 
-it.skipIf(!captureDir("U4277c"))("u4277c_requested_screens_empty_and_filled", async () => {
+it.skipIf(!captureDir("U4277c")).each(["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"])("u4277c_requested_%s_empty_and_filled", async view => {
   const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -42,14 +42,13 @@ it.skipIf(!captureDir("U4277c"))("u4277c_requested_screens_empty_and_filled", as
   };
 
   try {
-    await lane.browser("record", "start", join(dir, "requested-screens.webm"));
+    await lane.browser("record", "start", join(dir, view + ".webm"));
 
     for (const filled of [false, true]) {
-      for (const view of ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"]) {
         await lane.evaluate("localStorage.clear()");
         await lane.browser("open");
         await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(filled || view === "resources" ? "tree-40" : "empty-project")})); true`);
-        await lane.until("!!window.__fake && !!document.querySelector('.window')");
+        await lane.until("!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
         await lane.evaluate("window.__fake.app.projects().then(projects => {window.__auditPath = projects.at(-1).path; return true;})");
@@ -94,7 +93,6 @@ it.skipIf(!captureDir("U4277c"))("u4277c_requested_screens_empty_and_filled", as
         }
 
         await capture(`${view}-${filled ? "filled" : "empty"}`);
-      }
     }
   } finally {
     try { await lane.browser("record", "stop"); } finally { await lane.close(); }
