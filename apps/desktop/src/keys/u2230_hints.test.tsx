@@ -2,6 +2,8 @@ import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
+import { HintLine } from "./HintLine";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
 import { rowOf, settled } from "../rail/railFixture";
@@ -65,7 +67,7 @@ const open = async () => {
     return null;
   };
 
-  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
+  render(() => <App prepareIdle={open => { open.showView("workstreams"); open.showView("terminal-tabs"); render(() => <ConnectedProjectContext.Provider value={open}><HintLine /></ConnectedProjectContext.Provider>); }} app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
 
   return app;

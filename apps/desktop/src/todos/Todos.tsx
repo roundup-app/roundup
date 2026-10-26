@@ -42,7 +42,7 @@ import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
-import { OwnerPicker } from "./OwnerPicker";
+import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
 import { sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
@@ -238,6 +238,7 @@ export const Todos = (props: {
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
+    reload: todos.reload,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
@@ -785,6 +786,7 @@ export const Todos = (props: {
 
   return (
     <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
+      <OwnerCommand active={active} selected={() => selection.focused() ?? (selection.selected().length === 1 ? selection.selected()[0] : undefined)} todos={todos} connected={connected} assign={assign} />
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
       <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">

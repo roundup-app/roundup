@@ -204,7 +204,7 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
   } else if (kind === "diff") {
     await browser("open", url("/src/changes/u2540.html"));
     await wait("!!document.querySelector('.worktree-control')");
-    await browser("find", "role", "button", "click", "--name", "roundup/agent-1", "--exact");
+    await browser("click", ".worktree-control");
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
     await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
     await browser("find", "role", "button", "click", "--name", "View diff", "--exact");

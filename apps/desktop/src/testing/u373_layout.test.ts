@@ -26,7 +26,7 @@ afterAll(async () => {
 
 const load = async () => {
   await page.scheme("light");
-  await page.load("/harness.html?seed=tree-40", 1280, 820);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
   await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null && document.querySelector('.shelf-tabs [role="tab"]') !== null`);
   await page.until(`() => { const left = document.querySelector(".shelf").getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return same && left < window.innerWidth; }`);
 };

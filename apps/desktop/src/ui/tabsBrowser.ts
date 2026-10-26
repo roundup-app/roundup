@@ -84,4 +84,14 @@ export const selected = async (name: "Todos" | "Pads", focused = false) => {
   })()`)).toEqual({ roving: true, selected: 1, name: `${name} ·`, visible: 1, linked: true });
 };
 
-export const url = (path: string, base = false) => new URL(path, base ? baselineOrigin ?? origin : origin).href;
+export const url = (path: string, base = false) => {
+  const target = new URL(path, base ? baselineOrigin ?? origin : origin);
+
+  if (target.pathname.endsWith("harness.html") && !target.searchParams.has("rest")) {
+    target.searchParams.set("view", "workstreams");
+    target.searchParams.set("items", "1");
+    target.searchParams.set("tabs", "1");
+  }
+
+  return target.href;
+};

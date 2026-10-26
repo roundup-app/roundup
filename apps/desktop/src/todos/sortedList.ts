@@ -24,6 +24,7 @@ export const createSortedList = (source: {
   all: Accessor<readonly Todo[]>;
   call: (params: { id: number; before: number | null }) => Promise<string | null>;
   reducedMotion: Accessor<boolean>;
+  reload: () => Promise<void>;
   /** U362: only the Shelf's rows can be dropped on a Rail Home. */
   home?: {
     target: (id: number, x: number, y: number) => HomeTarget | null;
@@ -46,7 +47,7 @@ export const createSortedList = (source: {
   let scroll: { element: HTMLElement; top: number; left: number } | null = null;
   onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
-  let instantOrder = false;
+  let instantOrder: symbol | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
@@ -73,8 +74,8 @@ export const createSortedList = (source: {
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
-    const instant = instantOrder;
-    instantOrder = false;
+    const instant = instantOrder !== null;
+    instantOrder = null;
 
     if (scroll) {
       scroll.element.scrollTop = scroll.top;
@@ -157,15 +158,25 @@ export const createSortedList = (source: {
   });
 
   /** One `todo.reorder` putting `id` at index `to` of this list. */
-  const move = async (id: number, to: number, ids = source.ids()) => {
+  const move = async (id: number, to: number, ids = source.ids(), key: symbol | null = null) => {
     const focus = requestedFocus;
     const message = await source.call({ id, before: beforeOf(source.all(), ids, id, to) });
 
     fails.get(id)?.(message);
 
+    if (message === null && key !== null) {
+      // T11 can succeed without an event. Read the order before releasing the key so a delayed real move still settles instantly.
+      await source.reload();
+
+      if (instantOrder === key) {
+        instantOrder = null;
+        refocus = null;
+      }
+    }
+
     if (message !== null) {
       refocus = null;
-      instantOrder = false;
+      instantOrder = null;
       focus(() => buttons.get(id)?.focus());
     }
   };
@@ -182,11 +193,13 @@ export const createSortedList = (source: {
 
     // M1: a key interrupts the displayed projection now; its acknowledged order never starts another slide.
     stop();
-    instantOrder = true;
+    const key = Symbol();
+
+    instantOrder = key;
     measure();
     requestedFocus = captureFocus();
     refocus = id;
-    void move(id, to, ids);
+    void move(id, to, ids, key);
   };
 
   return {
@@ -194,7 +207,7 @@ export const createSortedList = (source: {
     step,
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
-      instantOrder = false;
+      instantOrder = null;
       measure();
       requestedFocus = captureFocus();
       refocus = id;
@@ -216,7 +229,7 @@ export const createSortedList = (source: {
       const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
-      instantOrder = false;
+      instantOrder = null;
       measure();
       requestedFocus = captureFocus();
       refocus = Number(moved);

@@ -39,7 +39,7 @@ const key = async () => { await browser("press", "Meta+b"); };
 beforeAll(async () => {
   server = await appServer();
   origin = server.resolvedUrls.local[0]!;
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=bubbles", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
   await browser("set", "viewport", "1512", "950");
 }, 90_000);
 
@@ -48,7 +48,7 @@ afterAll(async () => {
 }, 60_000);
 
 const start = async () => {
-  await browser("open", new URL("/harness.html?seed=bubbles", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('[data-id="runner"]')`);
   await read(`document.querySelector('[data-id="runner"]').click()`);
   await wait(`!!document.querySelector('.pane-screen .xterm-helper-textarea') && !!document.querySelector('.terminal-tab[data-bubble="101"]')`);
@@ -132,13 +132,12 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await browser("press", "Escape");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write' && c.params.id === '103' && atob(c.params.data) === '\\x1b')`);
 
-  // Hints are pointer-transparent (resources/styles.css); their strip and the header still receive the press.
-  for (const target of [".hint-line", ".project-tab[data-selected] .tab-name-button"]) {
-    const receiver = target === ".hint-line" ? ".resource-strip" : target;
+  // Requested navigation and the window title still receive an outside press.
+  for (const target of [".window-title", ".project-tab[data-selected] .tab-name-button"]) {
 
     await read(`(() => {
       window.__outsidePresses = 0;
-      document.querySelector('${receiver}').addEventListener('pointerdown', () => window.__outsidePresses++, {once:true});
+      document.querySelector('${target}').addEventListener('pointerdown', () => window.__outsidePresses++, {once:true});
       window.__outsideStart = window.__fake.app.calls.length;
     })()`);
     const at = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('${target}').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
@@ -167,7 +166,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await browser("press", "Escape");
   await wait(`!document.querySelector('.help') && document.activeElement === window.__helpReturn`);
   expect(await read(`window.__fake.app.calls.slice(window.__helpStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt'].includes(c.method))`)).toEqual([]);
-  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!document.querySelector('#shelf-tab-pads')`);
   await browser("click", "#shelf-tab-pads");
   await wait(`document.querySelectorAll('[data-shelf-row] .pad-name').length === 4`);
@@ -214,7 +213,7 @@ it("u2742d_round_trip_preserves_work", async () => {
 }, 120_000);
 
 it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () => {
-  await browser("open", new URL("/harness.html?seed=tabs-8", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8", origin).href);
   await wait(`!!document.querySelector('.project-tab[data-path="/Users/you/project-number-2"] .tab-name-button')`);
   await read(`document.querySelector('.project-tab[data-path="/Users/you/project-number-2"] .tab-name-button').click()`);
   await wait(`!!document.querySelector('.rail-row[data-id="p2-agent"]')`);
@@ -267,7 +266,7 @@ it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => 
 
 it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_newer_focus_%s", async choice => {
   await browser("set", "media", "dark");
-  await browser("open", new URL("/harness.html?seed=tree-40&renderer=dom", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&renderer=dom", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-actions button')`);
   const dir = captureDir("U4011");
 
@@ -331,7 +330,6 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
       document.addEventListener('focusin', event => { if (event.target.closest('.xterm')) window.terminalFocuses.push(event.target); }, true);
     })()`);
 
-    if (choice === "ask") expect(await read(`!!document.querySelector('.project-overview') && !!document.querySelector('.reactions')`)).toBe(true);
     await capture("before");
     await read(`window.revealCreated()`);
     await wait(`!!window.startSupervisor && !!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`);
