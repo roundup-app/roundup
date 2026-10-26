@@ -55,7 +55,7 @@ run("u59 on the real Daemon", () => {
     await page.call(`async () => { window.__u59Menu = (await import('/src/testing/menuProbe.ts')).menuProbe; }`);
 
     for (let count = 1; count <= 10; count += 1) {
-      await page.until(`() => document.querySelector('.rail-actions button')?.getAttribute('aria-disabled') !== 'true'`);
+      await page.until(`() => document.querySelector('.rail-actions [aria-label="Add Workstream"]')?.getAttribute('aria-disabled') !== 'true'`);
       await page.call(`() => { window.__u59Menu.shown = null; document.querySelector('.rail-row').focus(); }`);
       await page.press("F10", "F10", 8);
       await page.until(`() => window.__u59Menu.shown?.some(item => item.id === 'add' && item.enabled)`);
@@ -98,8 +98,8 @@ run("u59 on the real Daemon", () => {
 
     try {
       await page.load(`${selectionDaemon.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1512, 950);
-      await until("!!document.querySelector('.terminal-new')");
-      await click(".terminal-new");
+      await until("!!document.querySelector('.rail-terminal-new')");
+      await click(".rail-terminal-new");
       await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
       await page.call("() => { window.__emu = [...window.__terminals.values()][0]; }");
       await page.call("() => document.querySelector('.bubble:not([hidden]) .xterm-helper-textarea').focus()");
@@ -141,8 +141,8 @@ it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () =
     const bytes = expected.bytes.flat();
     expect(bytes.length).toBeGreaterThan(0);
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await wait("!!document.querySelector('.terminal-new')");
-    await browser("click", ".terminal-new");
+    await wait("!!document.querySelector('.rail-terminal-new')");
+    await browser("click", ".rail-terminal-new");
     await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");
     await browser("eval", `(() => {
       window.__emu = [...window.__terminals.values()].at(-1);
