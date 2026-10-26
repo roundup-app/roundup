@@ -404,18 +404,20 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
         const activate = async selector => {
           const target = document.querySelector(selector);
-          const r = (target.querySelector('svg') ?? target).getBoundingClientRect();
-          const x = r.left + r.width / 2, y = r.top + r.height / 2;
+          const edge = selector === '.drawer';
+          const r = (edge ? target : target.querySelector('svg') ?? target).getBoundingClientRect();
+          const x = r.left + (edge ? parseFloat(getComputedStyle(target).paddingLeft) / 2 : r.width / 2);
+          const y = r.top + r.height / 2;
           const hit = document.elementFromPoint(x, y);
           o.events.push({ phase: 'hit-test', t: performance.now(), selector, x, y, hit: hit?.outerHTML, ...o.state() });
           if (!target.contains(hit)) throw new Error('Unreachable pointer target: ' + selector);
           const clicked = new Promise(resolve => {
             const observed = event => {
               if (!target.contains(event.target)) return;
-              window.removeEventListener('click', observed);
+              window.removeEventListener(edge ? 'pointerdown' : 'click', observed);
               resolve({ trusted: event.isTrusted, ...o.state() });
             };
-            window.addEventListener('click', observed);
+            window.addEventListener(edge ? 'pointerdown' : 'click', observed);
           });
           for (const eventType of ['mousePressed', 'mouseReleased']) input.send(JSON.stringify({ type: 'input_mouse', eventType, x, y, button: 'left', clickCount: 1 }));
           const activated = await clicked;
@@ -439,8 +441,8 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
           const initial = o.state();
           await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
           await halfway(initial.left, initial.left - initial.width);
-          const closed = await activate('.drawer .close');
-          if (Math.abs(closed.left - (initial.left - initial.width)) < 1) throw new Error('Close arrived after opening settled');
+          const closed = await activate('.drawer');
+          if (Math.abs(closed.left - (initial.left - initial.width)) < 1) throw new Error('Edge press arrived after opening settled');
           const returning = closed.left;
           await halfway(returning, initial.left);
           const reopened = await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
