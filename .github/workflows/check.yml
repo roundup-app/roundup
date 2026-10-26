@@ -110,6 +110,8 @@ jobs:
         with:
           # Empty BASE makes the unchanged R26 baseline guard read origin/main.
           fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
+          # Repeated experiment pushes retain their source tree despite unrelated main merges.
+          ref: ${{ env.CI3781_CACHE != '' && github.event.pull_request.head.sha || '' }}
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
