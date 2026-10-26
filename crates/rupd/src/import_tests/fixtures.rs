@@ -132,7 +132,13 @@ pub(super) fn journey_sources(
         project,
         &["worktree", "add", "--detach", removed.to_str().unwrap()],
     );
-    let moved = session(config, project, 2, &[project, &sub], false);
+    let historical: Vec<_> = (0..65)
+        .map(|n| project.join(format!("removed-{n}")))
+        .collect();
+    let mut cwds = vec![project];
+    cwds.extend(historical.iter().map(PathBuf::as_path));
+    cwds.push(&sub);
+    let moved = session(config, project, 2, &cwds, false);
     let deleted = session(config, &removed, 3, &[&removed, project], false);
     std::fs::remove_dir_all(&removed).unwrap();
     let live = session(config, &long, 4, &[&long], false);
