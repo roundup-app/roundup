@@ -335,12 +335,12 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await evaluate(`(() => {
       const drawer = document.querySelector('.drawer');
       const terminal = document.querySelector('.xterm-screen');
-      const selected = document.querySelector('.rail [aria-selected=true]');
+      const selected = document.querySelector('.rail .rail-row[data-selected=true]');
       const todo = document.querySelector('.shelf [data-todo="1"]');
       const state = () => ({ closeLeft: drawer.querySelector('.close').getBoundingClientRect().left, closeTranslate: getComputedStyle(drawer.querySelector('.close')).translate, left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
         open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
         focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('button[aria-label="Open"]'), home: selected?.dataset.id, todo: todo.dataset.todo,
-        sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail [aria-selected=true]'),
+        sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail .rail-row[data-selected=true]'),
         mode: document.querySelector('.window').dataset.shelfMode });
       const samples = [];
       const events = [];
@@ -459,7 +459,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
       await settle();
       const state = await evaluate("window.__pointerDrawer.state()");
-      expect(state).toMatchObject({ open: "false", mounted: "false", sameTerminal: true, sameHome: true, returned: true, todo: "1", mode });
+      expect(state).toMatchObject({ open: "false", mounted: "false", sameTerminal: true, sameHome: true, returned: true, home: "tokens", todo: "1", mode });
       expect(await evaluate("window.__pointerDrawer.events.filter(event => !event.phase).every(event => event.trusted)")).toBe(true);
       const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
 
