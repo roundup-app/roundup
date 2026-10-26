@@ -20,4 +20,8 @@ The first focused execution overlapped a temporary package-script write and two 
 
 The final `just capture Z3788c` exits 0 with pointer movement and output in the observer. All twelve dark screens pass every emitted Check, including D2/D5/D6; the six journals contain zero Terminal input writes. The resize failure remains fully visible. Screens show the same existing bottom-row output clipping on main and head; no new clipping is claimed resolved.
 
-The first complete lint invocations ended with signal 143 after web type checking and Rust proof-mutation checks. Fresh complete reruns are in progress; those interrupted invocations are not counted as passes. The broad related run is still incomplete and initially waited for the cold Cargo build. CI judges the full pushed head.
+The first complete lint invocations ended with signal 143 after web type checking and Rust proof-mutation checks. Fresh complete reruns both exit 0, including ALL PROOFS CHECK, type checks and zero dependency cycles; the interrupted invocations are not counted as passes. The broad related run is still incomplete and initially waited for the cold Cargo build. CI judges the full pushed head.
+
+The fresh A3564a real-Daemon attention execution passes without a retry. The broad related run's initial A3564a took a retry across the cold build; U166 failed during that execution and its fresh focused rerun is in progress. The broad run was interrupted before completion; no full related-suite pass is claimed.
+
+Final merge-loss and whitespace checks pass. The PR is ready with auto-merge enabled.
