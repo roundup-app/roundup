@@ -1,3 +1,5 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
@@ -123,10 +125,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   const refitNextFrame = () => {
     pendingFrame ??= requestAnimationFrame(refit);
-  };
-
-  const onWindowResize = () => {
-    refitNextFrame();
   };
 
   // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
@@ -270,21 +268,11 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     unlistenDrop?.();
   });
 
-  let watched: ResizeObserver | undefined;
-
   // A Card appearing, growing or going changes the Terminal's room without a window resize.
-  const watch = (body: HTMLElement) => {
-    if (typeof ResizeObserver === "undefined") return;
+  const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : makeResizeObserver(refitNextFrame);
 
-    watched = new ResizeObserver(refitNextFrame);
-    watched.observe(body);
-    onCleanup(() => watched?.disconnect());
-  };
-
-  window.addEventListener("resize", onWindowResize);
+  makeEventListener(window, "resize", refitNextFrame);
   onCleanup(() => {
-    window.removeEventListener("resize", onWindowResize);
-
     if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
 
     screens.dispose();
@@ -306,7 +294,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         classList={{ "drop-over": dropOver() }}
         ref={(element) => {
           body = element;
-          watch(element);
+          resizeObserver?.observe(element);
         }}
       >
         <div class="pane-screen" ref={setScreen} />
