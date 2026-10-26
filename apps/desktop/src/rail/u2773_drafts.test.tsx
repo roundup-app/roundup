@@ -342,7 +342,7 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
     fireEvent.input(reason, { target: { value: " exact\ne\u0301 😀 " } });
     fireEvent.submit(reason.closest("form")!);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "Clear ws" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" exact\ne\u0301 😀 ");
     mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
     await reopen(mounted.app);
