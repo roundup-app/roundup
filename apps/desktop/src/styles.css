@@ -250,7 +250,7 @@ p {
   display: flex;
   flex-direction: column;
   width: var(--drawer-span);
-  /* Keep content below the close control so reversal remains available without covering an editable field. */
+  /* The close word sits in the top-right corner (top 8px, 24px high), so the content starts below it: 32px of top padding. */
   padding-top: var(--space-6);
   padding-right: var(--space-4);
   padding-bottom: var(--space-4);
@@ -337,10 +337,16 @@ p {
 .drawer .close {
   position: absolute;
   top: var(--space-2);
-  left: var(--space-4);
   right: var(--space-4);
-  width: auto;
-  justify-content: flex-start;
+  z-index: 1;
+  /* Cancel the panel translation so the corner stays reachable during pointer reversal. */
+  translate: 0;
+  transition: inherit;
+  transition-property: translate;
+}
+
+.drawer[data-open="false"] .close {
+  translate: calc(-1 * var(--drawer-span));
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {

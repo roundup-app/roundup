@@ -1,5 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -346,7 +347,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
       let output = 0;
       let written = 0;
       const sample = () => {
-        drawer.getAnimations().forEach(animation => { if (animation.playbackRate !== ${rate}) animation.playbackRate = ${rate}; });
+        drawer.getAnimations({ subtree: true }).forEach(animation => { if (animation.playbackRate !== ${rate}) animation.playbackRate = ${rate}; });
         if (!samples.length || performance.now() - written >= 100) {
           written = performance.now();
           window.__fake.writeOutput('t-tokens', 'drawer pointer ' + (++output) + '\\r\\n');
@@ -366,15 +367,27 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
     // Record the existing screencast once. Page.captureScreenshot's second 100 ms loop can hide an entire half-crossing.
     const frames = mkdtempSync(join(tmpdir(), "drawer-frames-"));
-    const stamps: number[] = [];
-    const recording = new WebSocket(stream);
-    recording.addEventListener("message", event => {
-      const message = JSON.parse(String(event.data));
-
-      if (message.type !== "frame") return;
-      writeFileSync(join(frames, `${stamps.length}.jpg`), Buffer.from(message.data, "base64"));
-      stamps.push(performance.now());
-    });
+    // A Node process owns the stream: jsdom's Event realm cannot receive Node WebSocket events.
+    const recording = spawn(process.execPath, ["--input-type=module", "-e", `
+      import { writeFileSync } from 'node:fs';
+      import { join } from 'node:path';
+      const stamps = [];
+      const socket = new WebSocket(process.argv[1]);
+      socket.onmessage = event => {
+        const message = JSON.parse(String(event.data));
+        if (message.type !== 'frame') return;
+        writeFileSync(join(process.argv[2], stamps.length + '.jpg'), Buffer.from(message.data, 'base64'));
+        stamps.push(performance.now());
+        if (stamps.length === 1) process.stdout.write('ready');
+      };
+      process.on('SIGTERM', () => {
+        const list = stamps.map((stamp, index) => "file '" + index + ".jpg'\\nduration " + ((stamps[index + 1] ?? stamp + 16.667) - stamp) / 1000).join('\\n');
+        writeFileSync(join(process.argv[2], 'frames.txt'), list);
+        socket.close();
+        process.exit(0);
+      });
+    `, stream, frames], { stdio: ["ignore", "pipe", "inherit"] });
+    await once(recording.stdout!, "data");
 
     try {
       await evaluate(`(async () => {
@@ -389,7 +402,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
         const activate = async selector => {
           const target = document.querySelector(selector);
-          const r = target.getBoundingClientRect();
+          const r = (target.querySelector('svg') ?? target).getBoundingClientRect();
           const x = r.left + r.width / 2, y = r.top + r.height / 2;
           const hit = document.elementFromPoint(x, y);
           o.events.push({ phase: 'hit-test', t: performance.now(), selector, x, y, hit: hit?.outerHTML, ...o.state() });
@@ -409,7 +422,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         };
         const halfway = async (from, destination) => {
           while (o.panel.getAnimations().some(animation => animation.playState === 'running')) {
-            o.panel.getAnimations().forEach(a => { if (a.playbackRate !== o.rate) a.playbackRate = o.rate; });
+            o.panel.getAnimations({ subtree: true }).forEach(a => { if (a.playbackRate !== o.rate) a.playbackRate = o.rate; });
             await frame();
             const left = o.state().left;
             if (Math.abs(left - from) >= Math.abs(destination - from) / 2) {
@@ -475,9 +488,8 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     } finally {
       const trace = await evaluate("(() => { const o = window.__pointerDrawer; cancelAnimationFrame(o.frame); return { samples: o.samples, events: o.events }; })()");
       writeFileSync(join(directory, `${name}-frames.json`), JSON.stringify(trace));
-      recording.close();
-      const list = stamps.map((stamp, index) => `file '${index}.jpg'\nduration ${((stamps[index + 1] ?? stamp + 16.667) - stamp) / 1000}`).join("\n");
-      writeFileSync(join(frames, "frames.txt"), list);
+      recording.kill("SIGTERM");
+      await once(recording, "exit");
       execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", join(frames, "frames.txt"), "-fps_mode", "vfr", "-c:v", "libvpx-vp9", join(directory, `${name}.webm`)]);
       rmSync(frames, { recursive: true });
       // Close each run's fixture before starting the next recording.
