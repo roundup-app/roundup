@@ -987,3 +987,6 @@ work from useful-task CPU. Function entry/return supplies bounds, not
 linearization. Pending-read idle exclusion, overlapping branches and the
 selected-future/full-poll distinction remain. The original six clean observations
 are history only; this investigation creates no clean R16 verdict or baseline.
+
+
+C9 release artifacts, dependency attribution and remaining acceptance: [release sizes](release-size.md).

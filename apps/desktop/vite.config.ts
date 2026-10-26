@@ -3,6 +3,7 @@ import postcss from "postcss";
 import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
+import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
@@ -22,7 +23,7 @@ const served = realDaemonFromEnv(process.env);
 // stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
 export default defineConfig({
   build: { manifest: true },
-  plugins: [solid(), buildModules(), ...(served ? [realDaemon(served)] : []), {
+  plugins: [solid(), buildModules(), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
     configureServer(server) {
