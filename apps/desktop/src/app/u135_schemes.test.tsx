@@ -1,9 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
-import { createFakeApp } from "../testing/fakeApp";
-import { applySystemAccent } from "../settings/preferences";
-import { createRoot } from "solid-js";
 import { underSettings } from "../testing/media";
 import { resolveToken, tokensOf } from "../testing/contrast";
 import type { Setting } from "../testing/media";
@@ -65,6 +62,8 @@ const mount = async (settings: Setting[]) => {
   const controls = seedApp("agents-10", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => settings.includes("reduced-motion")} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
+
+  return controls;
 };
 
 describe("u135 schemes", () => {
@@ -98,9 +97,10 @@ describe("u135 schemes", () => {
 });
 
 it("u130_system_accent_updates_without_changing_kind", async () => {
-  const app = createFakeApp();
-  const dispose = createRoot(dispose => { applySystemAccent(app); return dispose; });
-  await Promise.resolve();
+  const { app } = await mount([]);
+  const kinds = () => [...document.querySelectorAll("[data-state]")].map(mark => [mark.getAttribute("data-tone"), mark.getAttribute("data-drawing"), mark.getAttribute("aria-label")]);
+  const before = kinds();
+  expect(before.length).toBeGreaterThan(0);
   const root = document.documentElement;
   expect(root.hasAttribute("data-system-accent")).toBe(false);
   app.setSystemAccent([0.2, 0.4, 0.8]);
@@ -108,11 +108,11 @@ it("u130_system_accent_updates_without_changing_kind", async () => {
   const first = root.style.getPropertyValue("--system-accent-channels");
   app.setSystemAccent([0.7, 0.3, 0.2]);
   expect(root.style.getPropertyValue("--system-accent-channels")).not.toBe(first);
-  expect(app.calls).toEqual([]);
+  expect(kinds()).toEqual(before);
   app.setSystemAccent(null);
   expect(root.hasAttribute("data-system-accent")).toBe(false);
   expect(root.style.getPropertyValue("--system-accent-channels")).toBe("");
-  dispose();
+  cleanup();
   app.setSystemAccent([0.2, 0.4, 0.8]);
   expect(root.hasAttribute("data-system-accent")).toBe(false);
 });

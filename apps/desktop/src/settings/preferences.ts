@@ -2,7 +2,7 @@ import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "
 import * as v from "valibot";
 import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
-import type { CapturePort, AppSeam } from "../app/seam";
+import type { App, CapturePort, AppSeam } from "../app/seam";
 
 const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
@@ -131,4 +131,30 @@ export const followAppAppearance = (changed: () => void): (() => void) => {
   query?.addEventListener("change", follow);
 
   return () => { dispose(); query?.removeEventListener("change", follow); };
+};
+
+/** Keep native preference delivery outside Agent state; unavailable delivery restores the Token fallback. */
+export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
+  const root = document.documentElement;
+  let active = true;
+  let release: (() => void) | undefined;
+
+  const clear = () => {
+    delete root.dataset.systemAccent;
+    root.style.removeProperty("--system-accent-channels");
+  };
+
+  void app.onSystemAccent(accent => {
+    if (!active) return;
+
+    if (accent === null) {
+      clear();
+
+      return;
+    }
+
+    root.style.setProperty("--system-accent-channels", accent.map(channel => channel * 255).join(" "));
+    root.dataset.systemAccent = "true";
+  }).then(stop => { if (active) release = stop; else stop(); }, () => { if (active) clear(); });
+  onCleanup(() => { active = false; release?.(); clear(); });
 };
