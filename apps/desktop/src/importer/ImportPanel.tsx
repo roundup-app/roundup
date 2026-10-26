@@ -1,3 +1,4 @@
+import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
@@ -13,7 +14,7 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { onClose: () => void }) => {
-  const { app, importing: state, drafts, project, daemonExit, now, events } = useConnectedProject();
+  const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
@@ -21,6 +22,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   onCleanup(events.subscribe(event => {
     if (state.listingAgent() && event.name === "rail.changed" && event.actor.id === state.listingAgent()) void state.refresh();
   }));
+  const listing = () => rail.nodes.find(node => node.id === state.listingAgent());
   const period = state.period;
   const wanted = state.selected;
   const found = state.discovery;
@@ -35,11 +37,13 @@ export const ImportPanel = (props: { onClose: () => void }) => {
 
   return (
     <SettingsShell heading={copy.importTitle} onClose={dismiss}>
+      <div class="import-content">
       <SettingsGroup name={copy.importPrompt}>
-        <div class="import-recovery">
-          <textarea class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
+        <div class="import-instructions">
+          <textarea rows={1} class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
           <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
         </div>
+        <Show when={state.startFailure()}>{message => <ReservedLine message={message()} />}</Show>
       </SettingsGroup>
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
@@ -51,6 +55,9 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           </div>
       </SettingsGroup>
       <SettingsGroup name={copy.importResults}><div class="import-panel">
+          <Show when={state.listingAgent() && !found()?.candidates.length}>
+            <p class="import-listing" role="status"><KindGlyph kind={listing()?.status?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></p>
+          </Show>
           <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null)}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
             <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
@@ -102,6 +109,8 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             </>}
           </Show>
           <ReservedLine message={copyFailure()} />
+      </div></SettingsGroup>
+      </div>
           <p class="import-words">
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
@@ -111,7 +120,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
               </button>
             </span>
           </p>
-      </div></SettingsGroup>
     </SettingsShell>
   );
 };
