@@ -101,7 +101,6 @@ export const SEAM_COMMANDS = [
   "plugin:window-bar|native_material",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
-  "plugin:window-bar|native_material",
 ] as const;
 
 /** U3787f: the panel displays the main window's Capture owner; it stores no drafts. */
