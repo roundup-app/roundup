@@ -1,0 +1,35 @@
+(async () => {
+  const rows = () => [...document.querySelectorAll('.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button')];
+  const frame = () => new Promise(requestAnimationFrame);
+  if (!rows().length) {
+    const tab = document.querySelector('#shelf-tab-todos');
+    if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+    document.querySelector('[data-todo-root]').click();
+    await frame();
+    document.querySelector('[data-todo-root]').click();
+    document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
+  }
+  const group = document.querySelector('.shelf [data-shelf-group="unassigned"]');
+  if (group?.getAttribute('aria-expanded') !== 'true') group?.querySelector('[data-part="branch-control"]')?.click();
+  for (let i = 0; i < 120 && (rows().length < 2 || !rows()[1].getBoundingClientRect().height); i++) await frame();
+  if (rows().length < 2) throw new Error('missing reorder target');
+  const callsBefore = window.__fake.app.calls.filter(call => call.method === 'todo.reorder').length;
+  const effects = [];
+  const original = Element.prototype.animate;
+  Element.prototype.animate = function(...args) {
+    if (this.matches('.todo-row')) effects.push({ frames: args[0], options: args[1] });
+    return original.apply(this, args);
+  };
+  const read = () => ({ t: performance.now(), rows: rows().map(row => ({ label: row.getAttribute('aria-label'), top: row.closest('.todo-row').getBoundingClientRect().top, transform: getComputedStyle(row.closest('.todo-row')).transform })), focus: document.activeElement?.getAttribute('aria-label') });
+  const samples = [read()];
+  const id = row => Number(/#(\d+)/.exec(row.getAttribute('aria-label'))[1]);
+  await window.__fake.app.rpc('todo.reorder', { id: id(rows()[0]), before: id(rows()[2]) });
+  for (let i = 0; i < 120 && !rows().some(row => row.closest('.todo-row').getAnimations().some(animation => animation.currentTime > 0)); i++) await frame();
+  const effectsBeforeKey = effects.length;
+  samples.push(read());
+  rows()[1].focus();
+  rows()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true }));
+  for (let i = 0; i < 35; i++) { await frame(); samples.push(read()); }
+  Element.prototype.animate = original;
+  return { effectsBeforeKey, viewport: [innerWidth, innerHeight], dark: matchMedia('(prefers-color-scheme: dark)').matches, effects, samples, calls: window.__fake.app.calls.filter(call => call.method === 'todo.reorder').slice(callsBefore), checks: await window.__checks() };
+})()
