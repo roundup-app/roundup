@@ -460,3 +460,17 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+
+it.each(["payments", "tokens", "auth"])("u4275b_quick_actions_use_the_rows_directory_%s", async id => {
+  const { app } = await open();
+  const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
+  const node = (await app.rpc("rail.list", null)).find(node => node.id === id)!;
+  const directory = node.worktree?.path ?? "/Users/you/harness";
+  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
+  fireEvent.click(row.querySelector('[aria-label="Open folder"]')!);
+  await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: directory, line: null }]));
+  fireEvent.click(row.querySelector('[aria-label="Open in editor"]')!);
+  await waitFor(() => expect(app.editorOpened).toEqual([directory]));
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+});
