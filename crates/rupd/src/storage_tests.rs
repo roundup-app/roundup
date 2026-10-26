@@ -49,12 +49,33 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     open(b.path()).unwrap();
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
-    apply(&mut db, migrations()).unwrap();
-    let fresh = Connection::open(a.path().join("project.db")).unwrap();
+    let mut historical = migrations();
+    historical.pop();
+    apply(&mut db, historical).unwrap();
+    assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
+    db.prepare("SELECT operation FROM rail_deletions").unwrap();
     let version = |d: &Connection| {
         d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap()
     };
+    let version_before = version(&db);
+    let before = dump(&db);
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+    db.authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
+        AuthAction::Pragma {
+            pragma_name: "user_version",
+            pragma_value: Some(_),
+        } => Authorization::Deny,
+        _ => Authorization::Allow,
+    }))
+    .unwrap();
+    assert!(apply(&mut db, migrations()).is_err());
+    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .unwrap();
+    assert_eq!(dump(&db), before);
+    assert_eq!(version(&db), version_before);
+    apply(&mut db, migrations()).unwrap();
+    let fresh = Connection::open(a.path().join("project.db")).unwrap();
     assert_eq!(version(&fresh), version(&db));
     assert_eq!(dump(&fresh), dump(&db));
     let id = |dir: &Path, table: &str| -> String {
@@ -68,13 +89,9 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
         assert_ne!(own, id(b.path(), table));
         assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
     }
+    let image = std::fs::read(a.path().join("project.db")).unwrap();
     for placeholder in IDENTITIES {
-        assert!(
-            !std::fs::read(a.path().join("project.db"))
-                .unwrap()
-                .windows(32)
-                .any(|window| window == placeholder)
-        );
+        assert!(!image.windows(32).any(|window| window == placeholder));
     }
 }
 
@@ -507,6 +524,11 @@ async fn n16_all_stores_share_one_project_database() {
     // Publications extend the Project owner, rather than a second standalone store.
     resize_schema
         .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
+        .unwrap();
+    resize_schema
+        .execute_batch(include_str!(
+            "../migrations/project/0028-deliverable-files.sql"
+        ))
         .unwrap();
     expected.extend(standalone::schema(&resize_schema));
     resize_schema
