@@ -1,0 +1,103 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+let modules;
+try {
+  modules = await Promise.all([import('solid-js'), import('solid-js/web'), import('@solid-primitives/storage'), import('valibot'), import('./places.ts')]);
+  if (modules[1].isServer || modules[1].isDev) throw new Error('Use browser production exports');
+} catch (error) {
+  console.error('Setup failure:', error);
+  process.exit(2);
+}
+const [{ createSignal, createRoot }, , { makePersisted }, v, { placesStorage }] = modules;
+const key = 'roundup:bubble-places:/p';
+const place = { '2': { x: 10, y: 20, w: 400, h: 300, min: false, name: ' exact\n雪 😀 ', restore: { x: 1, y: 2, w: 200, h: 100 } } };
+const next = { '2': { ...place['2'], name: 'rejected name' } };
+const schema = v.record(v.string(), v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number(), min: v.boolean(), name: v.optional(v.string()), restore: v.optional(v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() })) }));
+const describe = error => error instanceof Error ? error.message : String(error);
+const rows = [];
+const fixture = (raw, refusal) => {
+  const data = new Map(raw === null ? [] : [[key, raw]]);
+  const operations = [];
+  return {
+    data, operations,
+    getItem: name => { if (refusal === 'read') throw new Error('read refused'); return data.get(name) ?? null; },
+    setItem: (name, value) => { operations.push({ operation: 'set', name, value }); if (refusal === 'write') throw new Error('quota'); data.set(name, value); },
+    removeItem: name => { operations.push({ operation: 'remove', name }); if (refusal === 'remove') throw new Error('remove refused'); data.delete(name); },
+  };
+};
+for (const [name, raw, refusal] of [
+  ['valid', JSON.stringify(place)], ['missing', null], ['invalid-json', '{broken'],
+  ['invalid-schema', '{"2":{"name":4}}'], ['unreadable', JSON.stringify(place), 'read'],
+]) {
+  const storage = fixture(raw, refusal);
+  globalThis.window = { sessionStorage: storage };
+  const current = placesStorage('/p').read();
+  let candidate, thrown = null;
+  createRoot(dispose => {
+    try { candidate = makePersisted(createSignal({}), { name: key, storage, deserialize: bytes => v.parse(schema, JSON.parse(bytes)) })[0](); }
+    catch (error) { thrown = describe(error); }
+    dispose();
+  });
+  rows.push({ name, current, candidate: candidate ?? null, thrown });
+}
+for (const refusal of [undefined, 'write']) {
+  const storage = fixture(JSON.stringify(place), refusal);
+  globalThis.window = { sessionStorage: storage };
+  const currentStore = placesStorage('/p');
+  const before = currentStore.read();
+  const failure = currentStore.write(next);
+  const currentCommitted = failure === null ? next : before;
+  let candidate, thrown = null;
+  const candidateStorage = fixture(JSON.stringify(place), refusal);
+  createRoot(dispose => {
+    const [get, set] = makePersisted(createSignal({}), { name: key, storage: candidateStorage, deserialize: bytes => v.parse(schema, JSON.parse(bytes)) });
+    try { set(next); } catch (error) { thrown = describe(error); }
+    candidate = get();
+    dispose();
+  });
+  rows.push({ name: refusal ? 'failed-write' : 'successful-write', currentCommitted, failure, candidate, thrown, persisted: JSON.parse(candidateStorage.data.get(key)), operations: candidateStorage.operations });
+}
+{
+  const storage = fixture(JSON.stringify(place));
+  globalThis.window = { sessionStorage: storage };
+  const currentStore = placesStorage('/p');
+  const retainedScreen = currentStore.read();
+  currentStore.clear();
+  const current = { retainedScreen, keyPresent: storage.data.has(key) };
+  const candidateStorage = fixture(JSON.stringify(place));
+  let candidate;
+  createRoot(dispose => {
+    const [get, set] = makePersisted(createSignal({}), { name: key, storage: candidateStorage });
+    set(undefined);
+    candidate = { retainedScreen: get() ?? null, keyPresent: candidateStorage.data.has(key) };
+    dispose();
+  });
+  rows.push({ name: 'daemon-exit-removal', current, candidate });
+}
+{
+  const storage = fixture(JSON.stringify(place));
+  globalThis.window = { sessionStorage: storage };
+  globalThis.location = { href: 'https://probe.invalid/' };
+  const currentStore = placesStorage('/p');
+  let subscribed, candidate;
+  createRoot(dispose => {
+    const [get] = makePersisted(createSignal({}), {
+      name: key, storage, deserialize: bytes => v.parse(schema, JSON.parse(bytes)),
+      sync: [subscriber => { subscribed = subscriber; }, () => {}],
+    });
+    storage.data.set(key, '{broken');
+    subscribed({ key, newValue: '{broken' });
+    candidate = get();
+    dispose();
+  });
+  rows.push({ name: 'changed-invalid-record', current: currentStore.read(), candidate });
+}
+delete globalThis.window;
+delete globalThis.location;
+const failedCapabilities = [
+  { name: 'failed-write', capability: 'rejected rename keeps the acknowledged name', supported: JSON.stringify(rows.find(row => row.name === 'failed-write').candidate) === JSON.stringify(place) },
+  { name: 'daemon-exit-removal', capability: 'remove saved geometry without changing the last readable screen', supported: JSON.stringify(rows.find(row => row.name === 'daemon-exit-removal').candidate) === JSON.stringify(rows.find(row => row.name === 'daemon-exit-removal').current) },
+  { name: 'changed-invalid-record', capability: 'invalid reread returns the existing empty fallback', supported: JSON.stringify(rows.find(row => row.name === 'changed-invalid-record').candidate) === '{}' },
+].filter(row => !row.supported).map(row => ({ ...row, exit: 1 }));
+console.log(JSON.stringify({ node: process.version, conditions: 'browser, production', excerptSHA256: createHash('sha256').update(readFileSync(new URL('./places.ts', import.meta.url))).digest('hex'), rows, failedCapabilities }, null, 2));
+process.exitCode = failedCapabilities.length ? 1 : 0;
