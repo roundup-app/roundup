@@ -102,7 +102,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 
 export const RailRowView = (props: {
-  row: NodeRow; selected: boolean; tabbable: boolean; branch: boolean;
+  row: NodeRow; rootDivider?: boolean; selected: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
@@ -146,7 +146,7 @@ export const RailRowView = (props: {
   };
 
   const rowProps = () => ({
-    class: "rail-row", "data-id": props.row.node.id,
+    class: "rail-row", classList: { "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
@@ -192,7 +192,7 @@ export const RailRowView = (props: {
 
   return <>
     <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch data-id={props.row.node.id} aria-label={[props.row.node.name, ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>
