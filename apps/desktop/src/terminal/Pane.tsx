@@ -287,7 +287,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
     return current !== null && ["ask-history", "reactions", "made", "notes", "resources"].includes(current) ? current : null;
   });
 
-  const navigation = () => <nav class="pane-navigation" aria-label={copy.centreViews}>
+  const navigation = () => <nav class="pane-navigation" aria-label={copy.centreRegion}>
     <div class="pane-identity">
       <Show when={!props.requested && !requested() && selected()?.kind === "workstream"} fallback={
         <Show when={props.requested ?? requested()} fallback={<Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={connected.drawer.content() === null ? selected()?.status?.kind : undefined}>{kind => <KindGlyph kind={kind()} />}</Show></Show>}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>

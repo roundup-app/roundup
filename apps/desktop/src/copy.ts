@@ -135,7 +135,6 @@ export const copy = {
   projectMark: (name: string, mark: string) => `${name}: ${mark}`,
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
-  centreViews: "Centre views",
   backToAsk: "Back to Ask",
   closeView: (name: string) => `Close ${name}`,
   ...railDraftCopy,
