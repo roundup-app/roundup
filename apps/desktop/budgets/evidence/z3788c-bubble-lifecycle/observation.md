@@ -22,6 +22,6 @@ The final `just capture Z3788c` exits 0 with pointer movement and output in the 
 
 The first complete lint invocations ended with signal 143 after web type checking and Rust proof-mutation checks. Fresh complete reruns both exit 0, including ALL PROOFS CHECK, type checks and zero dependency cycles; the interrupted invocations are not counted as passes. The broad related run is still incomplete and initially waited for the cold Cargo build. CI judges the full pushed head.
 
-The fresh A3564a real-Daemon attention execution passes without a retry. The broad related run's initial A3564a took a retry across the cold build; U166 failed during that execution and its fresh focused rerun is in progress. The broad run was interrupted before completion; no full related-suite pass is claimed.
+The fresh A3564a real-Daemon attention execution passes without a retry. The broad related run's initial A3564a took a retry across the cold build; U166 failed during that execution and its fresh focused rerun was stopped incomplete at the run limit. The broad run was interrupted before completion; no full related-suite pass is claimed.
 
 Final merge-loss and whitespace checks pass. The PR is ready with auto-merge enabled.
