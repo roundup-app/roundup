@@ -47,9 +47,6 @@
 .todo-comment p { margin: 0; }
 .todo-comment-parts { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* U3776: a comment that arrives while the Drawer is open fades in once; the reduced-motion rule in styles.css makes it instant. */
-.todo-comment[data-fresh] { animation: todo-comment-in var(--duration-todo) var(--easing-out) both; }
-@keyframes todo-comment-in { from { opacity: 0; } }
 /* Visually hidden, still announced. */
 .todo-comments-live { position: absolute; width: var(--hairline-width); height: var(--hairline-width); overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
 /* U3775: a status line is a quiet button; its details show as plain text beneath it. */
