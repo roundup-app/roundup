@@ -11,7 +11,6 @@ pub use marks::{File, FileContent, Mark, Marks, RecordMarks};
 
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::checkpoint::{Block, Checkpoint, ListParams, WriteParams};
@@ -65,13 +64,8 @@ impl Checkpoints {
         }
         check::write(&p)?;
         let workstream = ctx.actor.id.clone();
-        let at = i64::try_from(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis(),
-        )
-        .map_err(RpcError::internal)?;
+        let at = i64::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
+            .map_err(RpcError::internal)?;
         let blocks = serde_json::to_string(&p.blocks).map_err(RpcError::internal)?;
         let id: u32 = {
             let db = self.db()?;
