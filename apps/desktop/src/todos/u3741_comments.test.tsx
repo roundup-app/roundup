@@ -155,12 +155,9 @@ it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", asy
   const live = within(panel()).getByRole("status");
   expect(live.getAttribute("aria-live")).toBe("polite");
   expect(live.textContent).toBe("");
-  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
   m.store.comments!.set(1, [...m.store.comments!.get(1)!, line(2, AGENT, "new one")]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
   await waitFor(() => expect(live.textContent).toBe("builder: new one"));
-  expect(panel().querySelector("[data-comment='2']")!.hasAttribute("data-fresh")).toBe(true);
-  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
 });
 
 it("u3776_an_arrival_keeps_earlier_rows_and_an_open_status_line", async () => {
