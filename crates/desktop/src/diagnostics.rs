@@ -75,19 +75,7 @@ pub(crate) mod tests {
             .set_name("original", Some(private.into()), None, "original")
             .unwrap();
         assert_eq!(store.name("original").as_deref(), Some(private));
-        let project = dir.path().join("project");
-        std::fs::create_dir(&project).unwrap();
-        let config = crate::Config::locate(
-            Some(data.join("missing-rupd").into_os_string()),
-            std::path::Path::new("/unused/roundup"),
-            dir.path(),
-            std::process::id(),
-        )
-        .unwrap();
-        let state = crate::AppState::new(config);
-        assert!(
-            tauri::async_runtime::block_on(state.open_project(app.handle(), &project)).is_err()
-        );
+        crate::daemon::tests::refuse_missing_executable(app.handle(), dir.path(), &data);
         let window_file = app
             .path()
             .app_config_dir()
