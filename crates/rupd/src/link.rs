@@ -100,13 +100,9 @@ impl Daemon {
         // Publications carry their stored Project identity; their reader checks it rather than
         // the current-content link key, so neither identity can substitute for the other.
         if !matches!(&target, Target::Deliverable(_)) && key != self.project_key {
-            return Err(RpcError {
-                data: Some(contracts::RpcErrorData::OtherProject),
-                ..RpcError::new(
-                    code::NOT_FOUND,
-                    format!("the link belongs to another Project, `{key}`"),
-                )
-            });
+            return Err(RpcError::other_project(format!(
+                "the link belongs to another Project, `{key}`"
+            )));
         }
         let content = match target {
             Target::Deliverable(id) => {

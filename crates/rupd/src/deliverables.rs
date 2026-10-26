@@ -549,10 +549,7 @@ impl Daemon {
 
 fn get(db: &Connection, project: &str, p: &DeliverableId) -> Result<Deliverable, RpcError> {
     if p.project != project {
-        return Err(RpcError {
-            data: Some(contracts::RpcErrorData::OtherProject),
-            ..RpcError::not_found("publication Project differs")
-        });
+        return Err(RpcError::other_project("publication of another Project"));
     }
     let record: Option<String> = db
         .query_row(
