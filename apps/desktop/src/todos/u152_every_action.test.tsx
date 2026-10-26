@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
@@ -138,8 +137,6 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
-      await questionDialog();
-      await answerQuestion(true);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
@@ -198,7 +195,7 @@ describe("u152 remove a blocker", () => {
 });
 
 
-it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelated"] as const)("p3557c_failure_lifetime_todo_drawer_%s", async action => {
+it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p3557c_failure_lifetime_todo_drawer_%s", async action => {
   const m = await mountTodos([todo(1), todo(2)]);
   await openDrawerOf(1);
   const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
@@ -220,10 +217,6 @@ it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelat
   } else {
     if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, "Cannot delete; retry"));
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    await questionDialog();
-    // Opening the confirmation cannot consume the original failure.
-    expect(within(drawer()).getByRole("alert").getAttribute("aria-label")).toContain("Cannot save; retry");
-    await answerQuestion(action !== "cancel-delete");
   }
 
   if (action === "delete") {
@@ -233,7 +226,7 @@ it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelat
     await openDrawerOf(2);
     expect(within(drawer()).queryByRole("alert")).toBeNull();
   } else {
-    const stays = action === "cancel-delete" || action === "unrelated";
+    const stays = action === "unrelated";
     const message = action === "failed-delete" ? "Cannot delete; retry" : "Cannot save; retry";
     await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: message }) !== null).toBe(stays || action === "failed-delete"));
     expect(field.value).toBe(text);
@@ -248,7 +241,7 @@ const exactDraft = "  e\u0301 🧪\n次の行  ";
 
 const writes = (calls: Mounted["app"]["calls"]) => calls.filter(call => ["todo.complete", "todo.reopen", "todo.update", "todo.comment", "todo.delete", "todo.removeRef", "todo.setBlockers", "todo.reorder", "workstream.setAuto"].includes(call.method));
 
-const lifetimeActions = ["dismiss", "save", "delete", "cancel-delete", "failed-delete"] as const;
+const lifetimeActions = ["dismiss", "save", "delete", "failed-delete"] as const;
 
 for (const owner of ["open_row", "open_row_move", "editable_text_title", "editable_text_body", "todo_comments", "todo_refs", "todo_history"] as const) {
   it.each(lifetimeActions)(`p3557c_failure_lifetime_${owner}_%s`, async action => {
@@ -331,9 +324,6 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     } else {
       if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, deleteRefusal));
       fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-      await questionDialog();
-      expect(region().getByRole("alert", { name: message })).toBeTruthy();
-      await answerQuestion(action !== "cancel-delete");
     }
 
     if (action === "delete") {
@@ -348,7 +338,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       await openDrawerOf(1);
       expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe(exactDraft);
     } else {
-      const remains = action === "cancel-delete" || action === "failed-delete";
+      const remains = action === "failed-delete";
       await waitFor(() => expect(region().queryByRole("alert", { name: message }) !== null).toBe(remains));
       expect(comment.value).toBe(exactDraft);
 
@@ -445,7 +435,6 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
   } else {
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    await questionDialog(); await answerQuestion(true);
     await waitFor(() => expect(drawer().inert).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
   }
