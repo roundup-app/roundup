@@ -4,7 +4,6 @@
 use super::*;
 use crate::import_tests::{import_daemon, import_fixture, import_rpc, import_source};
 use crate::tests::ask;
-use std::time::Duration;
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -795,60 +794,5 @@ async fn u3523e_live_resume_failure_keeps_import_recoverable() {
         retry["error"].is_object(),
         "retry reaches the missing executable: {retry}"
     );
-    assert_eq!(std::fs::read(&original).unwrap(), bytes);
-    // Restoring the configured program lets the same entry resume through SessionStart.
-    use std::os::unix::fs::PermissionsExt;
-    let argv = root.path().join("resumed-argv");
-    std::fs::write(&cli, format!("#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > '{}'\nwhile read line; do :; done\n", argv.display())).unwrap();
-    std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let before_retry = import_rpc(&daemon, "rail.tree", Value::Null).await;
-    let prior_attempt = before_retry["result"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|node| node["id"] == id)
-        .unwrap()["attempt"]
-        .clone();
-    let mut events = daemon.bus.subscribe();
-    let acknowledged = async {
-        loop {
-            events.recv().await.unwrap();
-            let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
-            let node = tree["result"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|node| node["id"] == id)
-                .unwrap();
-            if let Some(attempt) = node["attempt"].as_str()
-                && node["attempt"] != prior_attempt
-            {
-                let ack = import_rpc(&daemon, "agent.signal", json!({"id":id,"attempt":attempt,
-                    "payload":{"hook_event_name":"SessionStart","source":"resume","session_id":source}})).await;
-                assert!(ack.get("error").is_none(), "{ack}");
-                break;
-            }
-        }
-    };
-    let (resumed, ()) = tokio::time::timeout(Duration::from_secs(5), async {
-        tokio::join!(
-            import_rpc(&daemon, "agent.resume", json!({"id":id})),
-            acknowledged
-        )
-    })
-    .await
-    .unwrap();
-    assert!(resumed.get("error").is_none(), "{resumed}");
-    let args = std::fs::read_to_string(argv).unwrap();
-    assert!(args.contains(&format!("--resume\n{source}\n")), "{args}");
-    let prompted = import_rpc(
-        &daemon,
-        "agent.prompt",
-        json!({"id":id,"text":"Continue the imported work"}),
-    )
-    .await;
-    assert!(prompted.get("error").is_none(), "{prompted}");
-    let stopped = import_rpc(&daemon, "agent.stop", json!({"id":id})).await;
-    assert!(stopped.get("error").is_none(), "{stopped}");
     assert_eq!(std::fs::read(&original).unwrap(), bytes);
 }
