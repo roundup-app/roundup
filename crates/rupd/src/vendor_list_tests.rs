@@ -14,12 +14,12 @@ fn now() -> String {
         .unwrap()
 }
 
-fn executable(path: &Path, text: &str) {
+pub(super) fn executable(path: &Path, text: &str) {
     std::fs::write(path, text).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-fn git(project: &Path, args: &[&str]) {
+pub(super) fn git(project: &Path, args: &[&str]) {
     let output = std::process::Command::new("git")
         .arg("-C")
         .arg(project)
@@ -30,7 +30,7 @@ fn git(project: &Path, args: &[&str]) {
     assert!(output.status.success(), "{output:?}");
 }
 
-fn real_node() -> String {
+pub(super) fn real_node() -> String {
     let output = std::process::Command::new("node")
         .args(["-p", "process.execPath"])
         .output()
@@ -40,7 +40,7 @@ fn real_node() -> String {
 
 /// The packaged folder: the repository's `list.mjs` (its `node_modules` resolve through the real
 /// path) and a `node` that journals each start's pid before it becomes the real runtime.
-fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
+pub(super) fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
     let dir = root.join("sidecar");
     std::fs::create_dir_all(&dir).unwrap();
     let journal = root.join("children");
@@ -65,7 +65,13 @@ fn uuid_for(id: &str, cwd: &Path) -> String {
 }
 
 /// A session file in the bucket Claude Code names for `bucket`, holding one record per cwd.
-fn session(config: &Path, bucket: &Path, number: usize, cwds: &[&Path], sidechain: bool) -> String {
+pub(super) fn session(
+    config: &Path,
+    bucket: &Path,
+    number: usize,
+    cwds: &[&Path],
+    sidechain: bool,
+) -> String {
     let id = format!("{number:08}-1111-4111-8111-111111111111");
     let name: String = bucket
         .to_string_lossy()

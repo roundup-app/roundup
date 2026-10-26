@@ -3,7 +3,7 @@ import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
-import type { FrameReport } from "./frames";
+import type { FrameReport, LayerAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
@@ -11,9 +11,6 @@ import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady,
 const CYCLE_MS = 2000;
 
 const CYCLES = 30;
-
-/** Half of the 180 ms Drawer and Shelf slide: where the protocol reverses a layer. */
-const HALF_SLIDE_MS = 90;
 
 const SETTLE_MS = 400;
 
@@ -59,38 +56,32 @@ export type Layers = {
   /** The key close: Escape inside the Drawer. */
   escapeDrawer(): boolean;
   toggleShelf(): boolean;
+  keyShelf(): boolean;
+  /** Performs an action and waits for half the actual distance to its destination; missing movement fails. */
+  halfway(panel: "drawer" | "shelf", action: () => boolean): Promise<boolean>;
 };
 
-/** One Layers cycle: a Drawer cycle, then a Shelf cycle, alternating. Each opens, reverses at half the slide, reopens and settles. */
-export const layersCycle = (layers: Layers, clock: Clock) => async (index: number): Promise<boolean> => {
-  const pause = (ms: number) => clock.sleep(ms);
-
+/** One Layers cycle: a Drawer cycle, then a Shelf cycle, alternating. Each reverses twice at measured half-displacement, then interrupts by key. */
+export const layersCycle = (layers: Layers) => async (index: number): Promise<boolean> => {
   if (index % 2 === 0) {
-    if (!layers.openDrawer()) return false;
+    if (!(await layers.halfway("drawer", layers.openDrawer))) return false;
 
-    await pause(HALF_SLIDE_MS);
+    if (!(await layers.halfway("drawer", layers.closeDrawer))) return false;
 
-    if (!layers.closeDrawer()) return false;
+    if (!(await layers.halfway("drawer", layers.openDrawer))) return false;
 
-    await pause(HALF_SLIDE_MS);
-
-    if (!layers.openDrawer()) return false;
-
-    await pause(SETTLE_MS);
-
+    // Interrupt the reopened movement with a key before it settles.
     return layers.escapeDrawer();
   }
 
-  // The Shelf starts open: close, reverse at half, and settle open.
-  if (!layers.toggleShelf()) return false;
+  // Start open, reverse twice, then interrupt by key back to open for the next cycle.
+  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
 
-  await pause(HALF_SLIDE_MS);
+  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
 
-  if (!layers.toggleShelf()) return false;
+  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
 
-  await pause(SETTLE_MS);
-
-  return true;
+  return layers.keyShelf();
 };
 
 /** What the Todos driver does to the temporary Project's Todos; each answers whether it completed. */
@@ -129,7 +120,7 @@ export const todosCycle = (todos: Todos) => async (index: number): Promise<boole
 /** The Glyphs workload acts on nothing: it holds that ten working Glyphs stay in the Rail for the whole sample, under the one stream. */
 export const glyphsCycle = (working: () => number) => async (): Promise<boolean> => working() >= WORKING_GLYPHS;
 
-const SHELF_ROW = ".shelf [data-todo] .todo-row-button";
+const SHELF_ROW = '.shelf [data-todo] .row-controls button[aria-label="Open"]';
 
 const clickAt = (selector: string): boolean => {
   const target = document.querySelector(selector);
@@ -141,19 +132,97 @@ const clickAt = (selector: string): boolean => {
   return true;
 };
 
-const domLayers: Layers = {
+/** Reads displayed boxes, as the U3010b rendered observer does; animation progress/time is not displacement. */
+const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean, journal: LayerAction[]): Promise<boolean> => {
+  const element = document.querySelector<HTMLElement>(`.${panel}`);
+  const root = document.querySelector("[data-layout-root]");
+
+  if (!element || !root) return false;
+  const before = element.getBoundingClientRect();
+  const edge = root.getBoundingClientRect().right;
+
+  if (before.width <= 0 || !action()) return false;
+  // Solid commits the requested open state synchronously; geometry still reflects the displayed start.
+  const open = element.dataset.open === "true";
+  const destination = open ? edge - before.width : edge;
+  const distance = destination - before.left;
+  const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : open ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
+  const entry: LayerAction = { panel, source: "synthetic-pointer", target, at_ms: performance.now(), from: before.left, destination, observed: null, completed: false, samples: [] };
+
+  // Read the requested style before the lifetime owner's next-frame animation observation.
+  // Otherwise its animation list can still be empty when a first Shelf close starts.
+  entry.samples.push({ at_ms: performance.now(), left: element.getBoundingClientRect().left });
+  journal.push(entry);
+
+  if (Math.abs(distance) < 1) return false;
+
+  return new Promise(resolve => {
+    const deadline = performance.now() + SETTLE_MS;
+    let finished = false;
+    let frame = 0;
+
+    const finish = (done: boolean) => {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      entry.completed = done;
+      resolve(done);
+    };
+
+    const sample = () => {
+      if (!element.isConnected || element.hidden || performance.now() >= deadline) return finish(false);
+      const left = element.getBoundingClientRect().left;
+      const progress = (left - before.left) / distance;
+
+      entry.observed = left;
+      entry.samples.push({ at_ms: performance.now(), left });
+
+      // A jump to final geometry did not expose an interruptible half-displacement.
+      if (progress >= 0.5) return finish(progress < 1 - 1 / Math.abs(distance));
+      frame = requestAnimationFrame(sample);
+    };
+
+    const timer = setTimeout(() => finish(false), SETTLE_MS);
+
+    frame = requestAnimationFrame(sample);
+  });
+};
+
+export const domLayers = (journal: LayerAction[]): Layers => ({
   openDrawer: () => clickAt(SHELF_ROW),
   closeDrawer: () => clickAt(".drawer .close"),
   escapeDrawer: () => {
     const close = document.querySelector<HTMLElement>(".drawer .close");
 
     close?.focus();
+    const box = close?.closest(".drawer")?.getBoundingClientRect();
+
     close?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
 
-    return close !== null;
+    if (close && box) journal.push({ panel: "drawer", source: "synthetic-key", target: ".drawer .close", at_ms: performance.now(), from: box.left, destination: document.querySelector("[data-layout-root]")?.getBoundingClientRect().right ?? box.right, observed: box.left, completed: document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false", samples: [] });
+
+    return close !== null && document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false";
   },
   toggleShelf: () => clickAt(".shelf-tab[data-selected]"),
-};
+  keyShelf: () => {
+    const tab = document.querySelector<HTMLElement>(".shelf-tab[data-selected]");
+    const shelf = document.querySelector<HTMLElement>(".shelf");
+
+    if (!tab || !shelf) return false;
+    const before = shelf.getBoundingClientRect();
+
+    // HTMLElement.click has detail=0, which the existing activation owner classifies as key input.
+    tab.click();
+    const completed = document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelf === "open";
+
+    journal.push({ panel: "shelf", source: "synthetic-key", target: ".shelf-tab[data-selected]", at_ms: performance.now(), from: before.left, destination: (document.querySelector("[data-layout-root]")?.getBoundingClientRect().right ?? before.right) - before.width, observed: before.left, completed, samples: [] });
+
+    return completed;
+  },
+  halfway: (panel, action) => halfDisplacement(panel, action, journal),
+});
 
 const workingGlyphs = () => document.querySelectorAll('.rail .glyph[data-drawing="quarter"]').length;
 
@@ -228,7 +297,7 @@ const startWorkingAgents = async (app: AppSeam, cwd: string) => {
 };
 
 /** The workload's setup, then the cycle its actions repeat; an unknown workload is an error, never an empty run. */
-const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(index: number) => Promise<boolean>> => {
+const prepare = async (app: AppSeam, workload: string, cwd: string, journal: LayerAction[]): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos" || workload === "drag") {
     // Rows to open, complete and reorder; one open Todo always stays.
     const home = await runWorkstream(app);
@@ -243,7 +312,7 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
     // Native pointer input is supplied by the Mac observer, never by a synthetic event driver.
     if (workload === "drag") return async () => true;
 
-    if (workload === "layers") return layersCycle(domLayers, wallClock);
+    if (workload === "layers") return layersCycle(domLayers(journal));
 
     return todosCycle(domTodos(app, home));
   }
@@ -283,7 +352,10 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       return;
     }
 
-    const cycle = await bounded(prepare(app, workload, cwd), SETUP_BOUND_MS, `the ${workload} setup`);
+    const layerActions: LayerAction[] = [];
+    const viewport = { width: innerWidth, height: innerHeight, device_pixel_ratio: devicePixelRatio };
+    const shelfMode = document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelfMode ?? "missing";
+    const cycle = await bounded(prepare(app, workload, cwd, layerActions), SETUP_BOUND_MS, `the ${workload} setup`);
 
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
@@ -324,7 +396,9 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
-      await report(result);
+      const observed = { ...result, observer: { viewport, shelf_mode: shelfMode, layer_actions: layerActions, native_qualification: "incomplete: fixture, trusted pointer actions and live preference variants remain unqualified" } };
+
+      await report(observed);
     } finally {
       controller.abort();
     }

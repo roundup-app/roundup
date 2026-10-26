@@ -420,7 +420,7 @@ fn read_records(
 }
 
 /// Every saved source file by session id; an id in two buckets is listed under both.
-fn index_sources(root: &Path) -> Result<HashMap<String, Vec<PathBuf>>, RpcError> {
+pub(super) fn index_sources(root: &Path) -> Result<HashMap<String, Vec<PathBuf>>, RpcError> {
     let mut files: HashMap<String, Vec<PathBuf>> = HashMap::new();
     let buckets = match std::fs::read_dir(root) {
         Ok(buckets) => buckets,
@@ -481,11 +481,21 @@ impl Launcher {
         });
         let mut newer = self.listings.subscribe();
         tokio::select! {
-            found = self.list_once(project, worktrees, window) => found,
+            found = self.list_once(project, worktrees, window, true) => found,
             _ = newer.wait_for(|count| *count != mine) => Err(RpcError::conflict(
                 "a newer listing replaced this one; Refresh to see its result",
             )),
         }
+    }
+
+    /// Commit rechecks saved membership without requiring the external live program to remain.
+    pub(crate) async fn list_saved(
+        &self,
+        project: &Path,
+        worktrees: &[PathBuf],
+        window: (i64, i64),
+    ) -> Result<Listing, RpcError> {
+        self.list_once(project, worktrees, window, false).await
     }
 
     async fn list_once(
@@ -493,6 +503,7 @@ impl Launcher {
         project: &Path,
         worktrees: &[PathBuf],
         window: (i64, i64),
+        include_live: bool,
     ) -> Result<Listing, RpcError> {
         let (now_ms, period_ms) = window;
         let deadline = Instant::now() + BUDGET;
@@ -510,9 +521,11 @@ impl Launcher {
                 .cloned(),
         );
         let mut live: HashMap<String, Live> = HashMap::new();
-        for root in &roots {
-            for (id, row) in live_rows(&self.bin, root, deadline).await? {
-                live.entry(id).or_insert(row);
+        if include_live {
+            for root in &roots {
+                for (id, row) in live_rows(&self.bin, root, deadline).await? {
+                    live.entry(id).or_insert(row);
+                }
             }
         }
         let mut running = sidecar.start(&self.conversation_dir, deadline).await?;

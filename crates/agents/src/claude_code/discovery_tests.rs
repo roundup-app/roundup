@@ -355,7 +355,7 @@ async fn u3037b_streaming_preserves_candidate_and_revision() {
     assert_eq!(candidate.title, "Observed import name");
     assert!(!candidate.revision.is_empty());
     let (retained, bytes) = launcher
-        .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+        .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
         .unwrap();
     assert_eq!(retained, candidate);
     assert_eq!(bytes, complete.as_bytes());
@@ -436,7 +436,7 @@ async fn u3037b_preview_preserves_records_crossing_boundaries() {
             assert_eq!(candidate.title, "Boundary rename", "{len}/{boundary}");
             assert_eq!(candidate.last_activity_ms, NOW - DAY);
             let (confirmed, retained) = launcher
-                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
                 .unwrap();
             assert_eq!(&confirmed, candidate);
             assert_eq!(retained, bytes[..bytes.len() - 8]);
@@ -531,7 +531,7 @@ async fn u3037b_middle_metadata_is_preserved() {
                     );
                 }
                 let (confirmed, _) = launcher
-                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
                     .unwrap();
                 assert_eq!(&confirmed, candidate);
             } else {
@@ -572,7 +572,7 @@ async fn u3037b_malformed_complete_record_is_refused() {
         let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
         assert_eq!(found.candidates.len(), 1, "payload is deferred: {found:?}");
         let refused = launcher
-            .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW)
+            .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW, None)
             .unwrap_err();
         assert!(refused.message.contains("malformed record"), "{refused:?}");
     }
@@ -646,7 +646,7 @@ async fn u3082d_io_errors_name_their_paths() {
         };
         let result = if operation.starts_with("snapshot") {
             launcher
-                .read_import_snapshot(&project, SESSION, &revision, NOW)
+                .read_import_snapshot(&project, SESSION, &revision, NOW, None)
                 .map(|_| ())
         } else {
             launcher
@@ -674,7 +674,7 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     let result = scan_records(
         &launcher(root.path()),
         (Path::new("source.jsonl"), SESSION),
-        &project,
+        Membership::Recorded(&project),
         (NOW, DAY),
         &|| Ok(()),
         None,
@@ -689,7 +689,7 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     let result = scan_records(
         &launcher(root.path()),
         (Path::new("source.jsonl"), SESSION),
-        &project,
+        Membership::Recorded(&project),
         (NOW, DAY),
         &|| Ok(()),
         None,
@@ -737,7 +737,7 @@ fn u3037b_preview_bounds_are_explicit_at_read_ceiling() {
     let result = scan_records(
         &launcher(root.path()),
         (&project.join("synthetic.jsonl"), SESSION),
-        &project,
+        Membership::Recorded(&project),
         (NOW, DAY),
         &|| Ok(()),
         None,
