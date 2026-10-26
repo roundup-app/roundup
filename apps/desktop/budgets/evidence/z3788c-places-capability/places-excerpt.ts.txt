@@ -1,0 +1,35 @@
+import * as v from "valibot";
+const placesSchema = v.record(v.string(), v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number(), min: v.boolean(), name: v.optional(v.string()), restore: v.optional(v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() })) }));
+
+/** The places live for the Daemon's life: they survive a webview reload (U103) in this window's session storage. */
+export const placesStorage = (path: string) => {
+  const key = `roundup:bubble-places:${path}`;
+
+  return {
+    read: (): Record<string, Place> => {
+      try {
+        const parsed = v.safeParse(placesSchema, JSON.parse(window.sessionStorage.getItem(key) ?? "null"));
+
+        return parsed.success ? parsed.output : {};
+      } catch {
+        return {};
+      }
+    },
+    write: (places: Record<string, Place>): string | null => {
+      try {
+        window.sessionStorage.setItem(key, JSON.stringify(places));
+
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    },
+    clear: (): void => {
+      try {
+        window.sessionStorage.removeItem(key);
+      } catch {
+        // As above.
+      }
+    },
+  };
+};

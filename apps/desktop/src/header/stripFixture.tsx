@@ -26,7 +26,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
     daemon.handlers["terminal.list"] = () => [];
   }
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { open.showView("workstreams"); open.showView("terminal-tabs"); }} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
   return { app, view };
 };
