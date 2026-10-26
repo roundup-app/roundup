@@ -1,3 +1,5 @@
+mod publication;
+
 //! U2875a, U2875b: the user's import of recent Claude Code conversations into this Project.
 
 use super::*;
