@@ -181,3 +181,27 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::path::Path;
+
+    // Keep attempted launches at the audited Daemon owner, using only the caller's temp folder.
+    pub(crate) fn refuse_missing_executable(
+        app: &tauri::AppHandle<tauri::test::MockRuntime>,
+        dir: &Path,
+        data: &Path,
+    ) {
+        let project = dir.join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = crate::Config::locate(
+            Some(data.join("missing-rupd").into_os_string()),
+            std::path::Path::new("/unused/roundup"),
+            dir,
+            std::process::id(),
+        )
+        .unwrap();
+        let state = crate::AppState::new(config);
+        assert!(tauri::async_runtime::block_on(state.open_project(app, &project)).is_err());
+    }
+}
