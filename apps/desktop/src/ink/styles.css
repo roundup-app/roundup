@@ -6,6 +6,7 @@
 }
 
 .glyph {
+  position: relative;
   display: inline-flex;
   width: var(--space-4);
   height: var(--space-4);
@@ -37,7 +38,7 @@
   color: var(--accent);
 }
 
-p.ink > .icon {
+p.ink .icon {
   margin-right: var(--space-1);
 }
 
@@ -45,9 +46,7 @@ p.ink > .icon {
   min-height: var(--space-5);
 }
 
-.rail-row .line > .glyph {
-  width: var(--space-4);
-}
+
 
 p.ink[role="alert"] {
   overflow: hidden;
@@ -75,17 +74,17 @@ p.ink[role="alert"] {
   column-gap: var(--space-2);
   padding-top: var(--space-1);
   padding-bottom: var(--space-1);
-  background-color: transparent;
+  background-color: var(--transparent);
 }
 
 /* Rail leaves keep the tick's existing target and title column. */
-.rail-leaf .shelf-row:has(> .shelf-glyph .todo-tick) {
+.rail-leaf .shelf-row:has(.todo-tick) {
   grid-template-columns: var(--space-5) minmax(0, 1fr);
   column-gap: 0;
 }
 
 /* An external-blocker mark needs space beside the tick before text begins. */
-.rail-leaf .shelf-row:has(> .shelf-glyph .todo-tick):has(> .shelf-glyph > [data-state]) {
+.rail-leaf .shelf-row:has(.todo-tick):has([data-state]) {
   grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
   column-gap: var(--space-2);
 }
@@ -103,7 +102,7 @@ p.ink[role="alert"] {
 }
 
 /* Keep the title above the expanded row hit area so it receives tooltip pointer events. */
-.shelf-row :is(.todo-row-button, .pad-name) > [data-scope="tooltip"][data-part="trigger"] {
+:is(.todo-row-button, .pad-name) [data-scope="tooltip"][data-part="trigger"] {
   position: relative;
   z-index: 1;
 }
@@ -130,7 +129,7 @@ p.ink[role="alert"] {
 }
 
 /* U16, U19, U359: a Shelf row's title line, a Todo's, a Pad's and the entry field's alike, is one 16 px line in a 24 px box, so the Glyph's centre is the first line's centre however far the title wraps. */
-.shelf .shelf-row :is(.todo-row-button, .pad-name),
+.shelf-row :is(.todo-row-button, .pad-name),
 .entry-row .entry-field {
   display: block;
   box-sizing: border-box;
@@ -176,12 +175,12 @@ p.ink[role="alert"] {
 }
 
 @keyframes working-turn {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+ from { transform: rotate(0deg); }
+ to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .working-arc { animation-name: none; animation-duration: var(--duration-instant); }
+ .working-arc { animation-name: none; animation-duration: var(--duration-instant); }
 }
 
 .section-head {
@@ -194,7 +193,7 @@ p.ink[role="alert"] {
   letter-spacing: calc(var(--space-1) / 4);
 }
 
-.section-head > span {
+.section-head span {
   flex: none;
   white-space: nowrap;
 }
@@ -219,7 +218,7 @@ p.ink[role="alert"] {
   text-wrap: balance;
 }
 
-.empty-state > .icon {
+.empty-state .icon {
   width: var(--space-5);
   height: var(--space-5);
 }
@@ -235,7 +234,7 @@ p.ink[role="alert"] {
   margin: 0;
   padding: 0;
   border: 0;
-  background: transparent;
+  background: var(--transparent);
   color: var(--text);
 }
 
@@ -244,7 +243,7 @@ p.ink[role="alert"] {
   opacity: 1;
 }
 
-.entry-row > .shelf-glyph > .todo-tick {
+.entry-row .todo-tick {
   pointer-events: none;
 }
 
@@ -274,7 +273,7 @@ p.ink[role="alert"] {
   background: var(--ground);
 }
 
-.reserved-content > :is(.ink, .reserved-status) {
+.reserved-content :is(.ink, .reserved-status) {
   flex: 1;
   min-inline-size: 0;
   margin: 0;
@@ -315,7 +314,7 @@ p.ink[role="alert"] {
   visibility: hidden;
 }
 
-.reserved-line .ink > .glyph {
+.reserved-line .glyph {
   margin-inline-end: var(--space-1);
 }
 
@@ -329,6 +328,12 @@ p.ink[role="alert"] {
 }
 
 /* U131: align the visible Kind mark to the title's first baseline without moving its slot or the tick. */
-.shelf .shelf-row .glyph[data-drawing] svg {
-  transform: translateY(calc(var(--space-1) * -0.75));
+.shelf .shelf-glyph {
+  --glyph-optical-transform: translateY(calc(var(--space-1) * -0.75));
 }
+
+.kind-mark { transform: var(--glyph-optical-transform, none); }
+.kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
+.kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
+.kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
+.kind-mark-leaving .working-arc { animation-delay: var(--turn-elapsed); }

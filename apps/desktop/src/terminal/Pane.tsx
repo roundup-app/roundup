@@ -16,7 +16,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { createXtermEmulators } from "./emulator";
+import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
@@ -35,7 +35,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   let fontSize: number | undefined;
   let zoomed = storage.read() !== null;
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
-  const createEmulator = props.createEmulator ?? createXtermEmulators();
+  const createEmulator = props.createEmulator ?? lazyXtermEmulators();
 
   const screens = createScreens(connected, (id) => {
     fontSize ??= storage.read() ?? appSettings().fontSize;

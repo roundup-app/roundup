@@ -1,3 +1,4 @@
+import { createReducedMotion } from "../app/reducedMotion";
 import { pressFeedback } from "./pressFeedback";
 import { createSignal, onMount, onCleanup } from "solid-js";
 import { render } from "solid-js/web";
@@ -17,7 +18,8 @@ import "../styles.css";
 import "../buttons.css";
 
 function ChoiceControls() {
-  onMount(() => onCleanup(pressFeedback(document)));
+  const reduced = createReducedMotion(query => window.matchMedia(query));
+  onMount(() => onCleanup(pressFeedback(document, reduced)));
   const [select, setSelect] = createSignal("first");
   const [calls, setCalls] = createSignal(0);
   const [radio, setRadio] = createSignal("first");

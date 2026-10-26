@@ -69,8 +69,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   };
 
   const [sending, setSending] = createSignal(false);
-  // U3776: the comments shown once the Drawer has read them; later arrivals fade in and are announced once.
-  const [fresh, setFresh] = createSignal<ReadonlySet<number>>(new Set<number>());
+  // U3776: the comments shown once the Drawer has read them; later arrivals are announced once.
   const [announcement, setAnnouncement] = createSignal("");
   let shown: Set<number> | null = null;
   let latest = 0;
@@ -91,7 +90,6 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
       if (!alive || mine !== latest || id !== props.id) return;
       const arrived = shown === null ? [] : comments.filter((comment) => !shown!.has(comment.id));
       shown = new Set(comments.map((comment) => comment.id));
-      setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
 
       if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
       setThread(reconcile(comments, byId));
@@ -102,7 +100,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
   onCleanup(events.subscribe((event) => {
     if (doesClearTodoFailure(event, props.id)) setSendFailure(null);
 
@@ -140,7 +138,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
     <h3>{copy.commentsHeading(thread.length)}</h3>
     <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
-    <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
+    <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)

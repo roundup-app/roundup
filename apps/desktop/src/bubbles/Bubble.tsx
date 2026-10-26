@@ -201,7 +201,7 @@ export const Bubble = (props: {
     <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
       <Portal>
         <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
-          style={{ left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
+          style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
           <section class="bubble" data-bubble={id} role="group" aria-label={props.name} hidden={place().min}
             style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
             <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {

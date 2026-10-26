@@ -41,7 +41,7 @@
   max-block-size: none;
 }
 
-.storage-gate .reserved-content > .ink {
+.storage-gate .ink {
   overflow: visible;
   white-space: normal;
 }
