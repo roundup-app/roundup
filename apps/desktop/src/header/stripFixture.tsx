@@ -26,7 +26,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
     daemon.handlers["terminal.list"] = () => [];
   }
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { open.showView("workstreams"); open.showView("terminal-tabs"); }} />);
 
   return { app, view };
 };
@@ -37,12 +37,14 @@ export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = 
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 
+  await (await import("../rail/railFixture")).settled();
+
   return opened;
 };
 
 export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
 
-export const header = (): HTMLElement => screen.getByRole("banner");
+export const header = (): HTMLElement => screen.getByRole("region", { name: "Rail" });
 
 export const rowSelected = (id: string): string | null => document.querySelector(`[role=treeitem][data-id="${id}"]`)?.getAttribute("aria-selected") ?? null;
 

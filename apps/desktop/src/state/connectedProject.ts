@@ -134,6 +134,10 @@ export type ConnectedProject = {
   /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
   timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
+  view: Accessor<string | null>;
+  hasView: (view: string) => boolean;
+  hideView: (view: string) => void;
+  showView: (view: string | null) => void;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
@@ -252,7 +256,14 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
-  return { project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  const [views, setViews] = createSignal<readonly string[]>([]);
+  const view = () => views().at(-1) ?? null;
+  const hasView = (name: string) => views().includes(name);
+  const showView = (name: string | null) => { setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); };
+
+  const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
+
+  return { view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

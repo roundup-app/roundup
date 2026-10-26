@@ -90,7 +90,7 @@ export const WindowBar = (props: {
       if (event.button === 0 && empty(event.target)) void action(event.detail === 2 ? "zoom" : "drag");
     }}>
       <div class="traffic-lights" aria-hidden="true" />
-      {props.children}
+      <div class="window-actions">{props.children}</div>
       <Tip text={title()}>
         {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
       </Tip>

@@ -1,7 +1,7 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { agent } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { openTabs, path, rowSelected, tab, projectTabs } from "./stripFixture";

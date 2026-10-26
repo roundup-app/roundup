@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -47,7 +47,7 @@ describe("a3564a a Door's native prompt is attended to in its own Terminal on th
     fireEvent.click(rail.querySelector(`[data-id="${(await door()).id}"] .name`)!);
     const id = (await door()).id;
 
-    await waitFor(() => expect(rail.querySelector("[data-selected=true]")?.getAttribute("data-id")).toBe(id));
+    await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(id));
     fireEvent.keyDown(rail.querySelector(`.rail-row[data-id="${id}"]`)!, { key: "Enter" });
     await waitFor(async () => expect(emulators.made.get((await door()).terminal_id!)?.host?.contains(document.activeElement)).toBe(true));
     expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();

@@ -393,7 +393,7 @@ export const createFakeApp = (): FakeApp => {
 
       return () => dropListeners.delete(listener);
     },
-    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 
