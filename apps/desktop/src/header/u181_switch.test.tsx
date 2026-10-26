@@ -106,3 +106,11 @@ describe("u181 clicking a tab", () => {
     expect(app.of(path("web")).calls.some((call) => call.method === "rail.tree")).toBe(false);
   });
 });
+
+it("u4274a_project_tabs_mount_in_window_bar", async () => {
+  await openTabs({ empty: [] });
+  const tabs = screen.getByRole("tablist", { name: "Projects" });
+  expect(tabs.closest(".window-bar")).not.toBeNull();
+  expect(tabs.querySelectorAll('[role="tab"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[role="tablist"][aria-label="Projects"]')).toHaveLength(1);
+});
