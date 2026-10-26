@@ -13,6 +13,9 @@ import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
+import { Form as Fields } from "../ui/Form";
+import { Combobox } from "../ui/Combobox";
+import { RadioGroup } from "../ui/RadioGroup";
 import { Select } from "../ui/Select";
 import "./styles.css";
 
@@ -93,7 +96,7 @@ export const createReactions = () => {
 
 /** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
 export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
-  const { app, drafts, daemonExit } = useConnectedProject();
+  const { app, drafts, daemonExit, hideView } = useConnectedProject();
   const [view, setView] = createSignal<View>({ kind: "list" });
   const [actionFailure, setActionFailure] = createSignal<Record<string, string | null>>({});
   const [pending, setPending] = createSignal(false);
@@ -178,8 +181,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
-          <ExitButton class="reaction-back" onClick={back} />
-          <h3 class="reaction-title">{reaction().name}</h3>
+          <div class="reaction-head"><h3 class="reaction-title">{reaction().name}</h3><button type="button" data-button="quiet" class="reaction-back" onClick={back}>{copy.closeView(reaction().name)}</button></div>
           <ReservedLine message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
             <button type="button" data-button="quiet" onClick={() => {
               if (inspection()?.id === selected() && inspection()?.failure) inspectValue(value => value ? { ...value, failure: null } : value);
@@ -198,13 +200,13 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "list"}>
       <div class="reaction-head">
         <h2 class="overview-heading">{copy.reactions}</h2>
-        <button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>
+        <div class="reaction-actions"><Show when={read().list.length > 0}><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button></Show><button type="button" data-button="quiet" onClick={() => { hideView("reactions"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.reactions)}</button></div>
       </div>
       <ReservedLine overlay message={read().failure}>
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<p class="reaction-empty">{copy.reactionsEmpty}</p>}>
+      <Show when={read().list.length > 0} fallback={<div class="reaction-empty"><h3 class="reaction-title">{copy.reactionsEmpty}</h3><p>Send an instruction when Agents finish, checks pass, or a chosen time arrives.</p><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button></div>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
@@ -432,59 +434,56 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     }
   };
 
-  const text = (label: string, key: keyof Form, options: { area?: boolean; placeholder?: string } = {}) => <label class="reaction-field">
-    <span class="reaction-label">{label}</span>
-    {options.area
-      ? <textarea rows={3} value={String(form()[key])} onInput={(event) => set({ [key]: event.currentTarget.value })} />
-      : <input type="text" value={String(form()[key])} placeholder={options.placeholder} onInput={(event) => set({ [key]: event.currentTarget.value })} />}
-  </label>;
+  const text = (label: string, key: keyof Form, options: { area?: boolean; placeholder?: string } = {}) => <Fields.Text label={label} value={String(form()[key])} {...options} onInput={value => set({ [key]: value })} />;
 
-  const when = (label: string, date: "atDate" | "expDate", time: "atTime" | "expTime", offset: "atOffset" | "expOffset", read: typeof instant) => {
-    const dateField = text(copy.reactionDate, date, { placeholder: copy.reactionDatePlaceholder });
-    const timeField = text(copy.reactionTime, time, { placeholder: copy.reactionTimePlaceholder });
-    const offsetField = text(copy.reactionOffset, offset, { placeholder: copy.reactionOffsetPlaceholder });
-
-    return <div class="reaction-when" role="group" aria-label={label}>
+  const zones = [
+    { value: "Z", label: "UTC (UTC+00:00)" },
+    { value: "-08:00", label: "UTC−08:00" }, { value: "-07:00", label: "UTC−07:00" },
+    { value: "-05:00", label: "UTC−05:00" }, { value: "-04:00", label: "UTC−04:00" },
+    { value: "+01:00", label: "UTC+01:00" }, { value: "+02:00", label: "UTC+02:00" },
+    { value: "+05:30", label: "UTC+05:30" }, { value: "+05:45", label: "UTC+05:45" },
+    { value: "+08:00", label: "UTC+08:00" }, { value: "+09:00", label: "UTC+09:00" },
+    { value: "+10:00", label: "UTC+10:00" }, { value: "+12:00", label: "UTC+12:00" },
+  ];
+  const when = (label: string, date: "atDate" | "expDate", time: "atTime" | "expTime", offset: "atOffset" | "expOffset", read: typeof instant) => <div class="reaction-when" role="group" aria-label={label}>
     <span class="reaction-label">{label}</span>
-    {dateField}
-    {timeField}
-    {offsetField}
+    <div class="reaction-time-fields">
+      <Fields.Date label={copy.reactionDate} value={form()[date]} onChange={value => set({ [date]: value })} />
+      {text(copy.reactionTime, time, { placeholder: copy.reactionTimePlaceholder })}
+      <Select label="Time zone" value={form()[offset]} choices={zones.some(zone => zone.value === form()[offset]) ? zones : [...zones, { value: form()[offset], label: `UTC${form()[offset]}` }]} onValueChange={value => set({ [offset]: value })} />
+    </div>
     <ReservedLine message={read()?.error} status={read()?.preview ? copy.reactionResolved(read()!.preview!) : null} />
   </div>;
-  };
 
   const nameField = text(copy.reactionName, "name");
   const instructionField = text(copy.reactionInstruction, "instruction", { area: true });
   const repositoryField = text(copy.reactionRepository, "repository", { placeholder: copy.reactionRepositoryPlaceholder });
-  const numberField = text(copy.reactionPr, "number");
-  const maxField = text(copy.reactionMax, "maxFirings");
+  const numberField = <Fields.Number label={copy.reactionPr} value={form().number} onChange={number => set({ number })} />;
+  const maxField = <Fields.Number label={copy.reactionMax} value={form().maxFirings} onChange={maxFirings => set({ maxFirings })} />;
   const atFields = when(copy.reactionAt, "atDate", "atTime", "atOffset", instant);
   const expiryFields = when(copy.reactionExpires, "expDate", "expTime", "expOffset", expiry);
 
   return <form class="reaction-form" aria-label={copy.reactionCreate} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <ExitButton class="reaction-back" onClick={props.onCancel} />
-    <h3 class="reaction-title">{copy.reactionCreate}</h3>
-    {nameField}
-    <Select label={copy.reactionTarget} value={form().target}
-      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
-      onValueChange={(target) => set({ target })} />
-    {instructionField}
+    <div class="reaction-head"><h3 class="reaction-title">{copy.reactionCreate}</h3><button type="button" data-button="quiet" class="reaction-back" onClick={props.onCancel}>{copy.closeView(copy.reactionCreate)}</button></div>
+    <Fields.Group label="What to send">{nameField}
+    <Combobox.Picker label={copy.reactionTarget} value={form().target}
+      items={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
+      onSelect={(target) => set({ target })} />
+    {instructionField}</Fields.Group>
+    <Fields.Group label="When to send">
     <Select label={copy.reactionCondition} value={form().kind}
       choices={[{ value: "agents", label: copy.reactionKindAgents }, { value: "pr-checks", label: copy.reactionKindPr }, { value: "instant", label: copy.reactionKindInstant }]}
-      onValueChange={(kind) => set({ kind })} />
+      onValueChange={(kind) => set({ kind, ...(kind !== "agents" ? { maxFirings: "1", rearm: false } : {}) })} />
     <Show when={form().kind === "agents"}>
-      <div class="reaction-agents" role="group" aria-label={copy.reactionWatched}>
-        <span class="reaction-label">{copy.reactionWatched}</span>
-        <For each={agents()}>{(node) => <Checkbox checked={form().ids.includes(node.id)}
-          onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })}>{nameOf(node.id)}</Checkbox>}</For>
-        <Checkbox checked={form().any} onCheckedChange={(any) => set({ any })}>{copy.reactionAny}</Checkbox>
-      </div>
+      <Fields.Checks label={copy.reactionWatched} values={form().ids} items={agents().map(node => ({ value: node.id, label: nameOf(node.id) }))} onChange={ids => set({ ids })} />
+      <RadioGroup label="Send when" value={form().any ? "any" : "all"} choices={[{ value: "all", label: "All selected Agents finish" }, { value: "any", label: "Any selected Agent finishes" }]} onValueChange={value => set({ any: value === "any" })} />
     </Show>
     <Show when={form().kind === "pr-checks"}>{repositoryField}{numberField}</Show>
     <Show when={form().kind === "instant"}>{atFields}</Show>
-    {expiryFields}
-    {maxField}
-    <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox>
+    </Fields.Group>
+    <Fields.Group label="Limits">{expiryFields}
+    <Show when={form().kind === "agents"}>{maxField}
+    <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox></Show></Fields.Group>
     <section class="reaction-preview" aria-label={copy.reactionPreview}>
       <span class="reaction-label">{copy.reactionPreview}</span>
       <dl class="reaction-facts">

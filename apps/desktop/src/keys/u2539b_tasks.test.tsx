@@ -347,3 +347,17 @@ it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
   openProjectPage("action:leader:J", "/p");
   expect(daemon.calls.filter(call => ["agent.changedFiles", "todo.assign", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
+
+it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
+  const { connected, daemon } = await mount();
+  const order = reverse ? ["terminal-tabs", "reactions"] : ["reactions", "terminal-tabs"];
+  for (const view of order) openProjectPage(`view:${view}`, "/p");
+  await screen.findByRole("button", { name: "Close Named reactions" });
+  await screen.findByRole("button", { name: "Close Terminal tabs" });
+  const selection = connected().rail.selected();
+  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Named reactions" : "Close Terminal tabs" }));
+  expect(connected().hasView(closeReactions ? "terminal-tabs" : "reactions")).toBe(true);
+  expect(connected().hasView(closeReactions ? "reactions" : "terminal-tabs")).toBe(false);
+  expect(connected().rail.selected()).toBe(selection);
+  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
+});

@@ -42,7 +42,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
   const cli = (...args: string[]) => execute(resolve("../../target/debug/rup"), ["--json", ...args], { env: socketEnv });
 
   const capture = async (step: string, screenshot = true) => {
-    const dir = captureDir("NR9");
+    const dir = captureDir("U4276c") ?? captureDir("U4276b") ?? captureDir("U4276a") ?? captureDir("NR9");
 
     if (!dir) return;
     await mkdir(dir, { recursive: true });
@@ -134,33 +134,29 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("document.activeElement?.matches('.reaction-row')");
     await activate('[data-reaction-opener="create"]', true);
     await wait("!!document.querySelector('.reaction-form')");
-    const trigger = await evaluate("(() => { const bounds = document.querySelector('.reaction-form .app-select-trigger').getBoundingClientRect(); return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }; })()");
+    const trigger = await evaluate("(() => { const bounds = document.querySelector('.reaction-form [data-scope=popover][data-part=trigger]').getBoundingClientRect(); return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }; })()");
     await browser("mouse", "move", String(Math.round(trigger.x)), String(Math.round(trigger.y)));
     await browser("mouse", "down", "left");
     await capture("target-pressed");
     await browser("mouse", "up", "left");
-    await wait("!!document.querySelector('.app-select-list [role=option]')");
-    await browser("hover", '.app-select-list [role="option"]:nth-child(2)');
+    await wait("!!document.querySelector('.choice-picker [role=option]')");
+    await browser("hover", '.choice-picker [role="option"]:nth-child(2)');
     await capture("target-options");
-    await activate('.app-select-list [role="option"]:nth-child(2)');
-    await wait("!document.querySelector('.app-select-list [role=option]')");
+    await activate('.choice-picker [role="option"]:nth-child(2)');
+    await wait("!document.querySelector('.choice-picker [role=option]')");
     await evaluate(`(() => {
       const field = (label, value) => {
-        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('span').textContent === label).querySelector('input,textarea');
+        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('label')?.textContent === label).querySelector('input,textarea');
         element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
       };
       field('Name', 'Form reaction'); field('Instruction', ' exact newer\\n words 🧭 ');
-      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))}); field('UTC offset', '+00:00');
+      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))});
     })()`);
     await evaluate("document.querySelector('.app-checkbox input').focus()");
     await browser("press", "Space");
     await browser("press", "Tab");
     await capture("form");
-    await browser("set", "media", "light");
-    await wait("matchMedia('(prefers-color-scheme: light)').matches");
-    await capture("light-form", false);
-    await browser("set", "media", "dark");
-    await wait("matchMedia('(prefers-color-scheme: dark)').matches");
+
 
     await evaluate("document.querySelector('.reaction-form .reaction-actions button').scrollIntoView({ block: 'center' })");
     await capture("form-bottom");
@@ -241,8 +237,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("!!document.querySelector('.reaction-detail .reaction-facts')");
     expect((await app.rpc("reaction.get", { id: created.id })).target).toBe(target.id);
     await capture("retired-project");
-    await browser("set", "media", "light");
-    await wait("matchMedia('(prefers-color-scheme: light)').matches");
+
   } finally {
     await browser("close").catch(() => {});
     await real.stop();

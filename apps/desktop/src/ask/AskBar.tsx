@@ -1,5 +1,5 @@
 import { useDialog } from "@ark-ui/solid/dialog";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
@@ -335,9 +335,7 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <Show when={connected.view()}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
-
-          if (current) connected.hideView(current); }}>{props.viewLabel?.(connected.view()!) ? copy.closeView(props.viewLabel!(connected.view()!)!) : copy.close}</button></Show>
+        <For each={["workstreams", "resources", "terminal-tabs", "made", "ask-history"].filter(connected.hasView)}>{view => <button type="button" data-button="quiet" onClick={() => { connected.hideView(view); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(props.viewLabel?.(view) ?? view)}</button>}</For>
         <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
         <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>
