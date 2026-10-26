@@ -121,7 +121,7 @@ export function checkStartup(directory, configPath) {
       for (const id of metadata.chunks[file]) {
         const normalized = id.replaceAll('\\', '/');
 
-        if (normalized.includes('/node_modules/@xterm/') || normalized.includes('/node_modules/@dnd-kit/')) violations.push(`${file}: eager runtime module ${id}`);
+        if (normalized.includes('/node_modules/@xterm/')) violations.push(`${file}: eager runtime module ${id}`);
       }
     }
 

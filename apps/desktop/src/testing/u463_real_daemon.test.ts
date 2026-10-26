@@ -445,9 +445,11 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await browser("eval", `window.__importMenu.answer('${action}')`);
     };
 
+    // Imported rows already report idle. Wait for the new Attempt and Terminal so
+    // that status cannot acknowledge a resume/start which has not completed yet.
     const idle = async (id: string) => wait(`(async () => {
       const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
-      return (await response.json()).result?.some(node => node.id === '${id}' && node.status?.kind === 'idle');
+      return (await response.json()).result?.some(node => node.id === '${id}' && node.attempt === '1' && node.terminal_id !== null && node.status?.kind === 'idle');
     })()`);
 
     await rightClick(parent.id);
