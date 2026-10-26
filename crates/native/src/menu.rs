@@ -36,12 +36,15 @@ pub fn project_menu_hints<R: Runtime>(
             let Some(submenu) = submenu else {
                 return;
             };
-            let count: usize = msg_send![&*submenu, numberOfItems];
+            let count: isize = msg_send![&*submenu, numberOfItems];
             for (index, hint) in hints {
+                let Ok(index) = isize::try_from(index) else {
+                    continue;
+                };
                 if index >= count {
                     continue;
                 }
-                let item: Retained<AnyObject> = msg_send![&*submenu, itemAtIndex: index as isize];
+                let item: Retained<AnyObject> = msg_send![&*submenu, itemAtIndex: index];
                 let badge: Allocated<AnyObject> = msg_send![badge_class, alloc];
                 let badge: Retained<AnyObject> =
                     msg_send![badge, initWithString: &*NSString::from_str(&hint)];
