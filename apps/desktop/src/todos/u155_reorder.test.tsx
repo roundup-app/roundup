@@ -93,11 +93,16 @@ for (const list of ["Shelf", "Agent"] as const) for (const unchangedEvent of [fa
     const order = () => rows().map(row => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
     await waitFor(() => expect(order()).toEqual([1, 2, 3]));
     let read = false;
-    mounted.app.handlers["todo.list"] = () => { read = true; return mounted.store.todos; };
+    mounted.app.handlers["todo.list"] = () => { read = true;
+
+ return mounted.store.todos; };
+
     mounted.app.handlers["todo.reorder"] = ({ id }) => {
       if (unchangedEvent) refetch(mounted);
+
       return { ...mounted.store.todos.find(todo => todo.id === id)! };
     };
+
     const focused = rows()[0]!;
     focused.focus();
     fireEvent.keyDown(focused, { key: "ArrowDown", altKey: true });
