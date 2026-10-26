@@ -3,7 +3,7 @@ Z3788c Toast queue row, Linux/Chromium, 2026-10-26. Base `07cdccb91`; production
 | Observer | Result |
 | --- | --- |
 | Toast regression suite | 51 tests pass, including owner disposal/remount on focus and visibilitychange, early listener removal after drain, activation, sound, pause and failure ownership. |
-| Real Daemon | Fresh A3564a attention observer passes in 12 s after the cold build; the earlier broad run needed a retry and is not clean evidence. |
+| Real Daemon | Fresh A3564a attention observer passes in 12 s. Broad related execution failed U176 Agent names and U2540 selected-worktree inspection/Message delivery; all three pass a focused fresh rerun. Broad execution also reports worker shutdown timeouts and an A3564a retry, so no clean full-suite pass is claimed. |
 | Cleanup mutation | Omitting cleanup fails both new event cases: the retired owner's foreground capability is called once. |
 | Dark 1512×950 webview | Twelve paired screens on tree-40, agents-10 and conflict. Queued error appears after return, activation opens agent-3's Terminal, and Daemon-exit text remains visible. All emitted Checks pass, including D2/D5/D6. |
 | Input boundary | Six call journals contain no terminal.write calls. |
