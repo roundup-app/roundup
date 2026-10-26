@@ -104,6 +104,16 @@ async fn lk1_a_link_for_another_project_is_not_found_and_never_resolved_here() {
         err.message
     );
     assert!(read(&client, &link("pad", "notes", &own)).await.is_ok());
+
+    // A publication checks its own stored Project, and still marks the answer as another Project's.
+    let err = read(
+        &client,
+        &link("deliverable", "d1", "other-0123456789abcdef"),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.code, code::NOT_FOUND);
+    assert_eq!(err.data, Some(contracts::RpcErrorData::OtherProject));
 }
 
 #[tokio::test]
