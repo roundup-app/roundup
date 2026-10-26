@@ -18,6 +18,7 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
+import { surfaceOpen } from "../ui/openSurfaces";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
@@ -460,7 +461,7 @@ export const Bubbles = (props: {
     createEffect(on(() => rail.selected(), () => { generation += 1; cancel(); }, { defer: true }));
 
     const blocked = (): boolean =>
-      resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || document.querySelector('[role="menu"], .switcher') !== null;
+      resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || surfaceOpen();
 
     const start = (): void => {
       active = true;
