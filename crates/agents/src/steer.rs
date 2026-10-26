@@ -90,6 +90,7 @@ impl Shared {
             return;
         }
         run.first_pending = false;
+        self.events.observed.notify_waiters();
         if let Some(status) = run.adapter.refuse_prompt() {
             run.status_revision = run
                 .status_revision

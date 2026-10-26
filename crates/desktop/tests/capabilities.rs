@@ -36,6 +36,7 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
         "dialog:allow-message",
         "core:window:allow-set-badge-count",
         "capture-panel:allow-control",
+        "window-bar:allow-native-material",
         "window-bar:allow-set-window-title",
         "window-bar:allow-drag-window",
         "window-bar:allow-zoom-window",

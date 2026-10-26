@@ -123,6 +123,10 @@
   --duration-copy: 1500ms;
   --duration-press: 100ms;
   --duration-reduced: 150ms;
+  --duration-working: 960ms;
+  --easing-working: cubic-bezier(0, 0, 1, 1);
+  --easing-glyph-in: cubic-bezier(0, 0, 0.58, 1);
+  --easing-glyph-out: cubic-bezier(0.42, 0, 1, 1);
   --scale-press: 0.97;
   --duration-todo: 150ms;
   --ease-todo: cubic-bezier(0.22, 1, 0.36, 1);
@@ -471,4 +475,30 @@ button, file-tree-container, diffs-container {
 }
 :root[data-system-accent][data-mode="dark"] {
   --accent: rgb(var(--system-accent-dark-channels));
+}
+
+/* Native material is revealed through one neutral tint; every other region keeps its opaque ground. */
+:root {
+  --material-tint: color-mix(in srgb, var(--sunken) 85%, transparent);
+}
+
+:root[data-native-material]:has(.rail) {
+  background: var(--transparent);
+}
+
+:root[data-native-material] .rail,
+:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
+  background-color: var(--material-tint);
+}
+
+/* A floating Shelf covers the opaque centre and stays opaque itself. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-native-material] {
+    background: var(--ground);
+  }
+
+  :root[data-native-material] .rail,
+:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
+    background-color: var(--sunken);
+  }
 }
