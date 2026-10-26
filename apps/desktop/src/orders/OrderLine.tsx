@@ -1,11 +1,12 @@
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { Show, onCleanup } from "solid-js";
+import { Show, onCleanup, lazy } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
-import { OrderDrawer } from "./OrderDrawer";
 import { orderLine } from "./orderText";
 import "./styles.css";
+
+const OrderDrawer = lazy(() => import("./OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
 /**
  * O6: the selected Agent's or Door's order on one line above its Terminal. Activating it opens
