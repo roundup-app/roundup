@@ -562,6 +562,12 @@ impl Terminals {
         });
 
         let (sender, events) = broadcast::channel(EVENT_BACKLOG);
+        // Install the wait registration before list can expose this Terminal.
+        self.shared
+            .program_ends
+            .lock()
+            .expect("terminal program ends lock")
+            .insert(number, program_ended);
         self.shared.table().insert(
             number,
             Entry {
@@ -582,11 +588,6 @@ impl Terminals {
                 screen,
             },
         );
-        self.shared
-            .program_ends
-            .lock()
-            .expect("terminal program ends lock")
-            .insert(number, program_ended);
         assert!(
             program_arrival.send(program).is_ok(),
             "the reaper thread waits for its program"
