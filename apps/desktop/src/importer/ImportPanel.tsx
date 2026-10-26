@@ -13,11 +13,14 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { onClose: () => void }) => {
-  const { app, importing: state, drafts, project, daemonExit, now } = useConnectedProject();
+  const { app, importing: state, drafts, project, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
+  onCleanup(events.subscribe(event => {
+    if (state.listingAgent() && event.name === "rail.changed" && event.actor.id === state.listingAgent()) void state.refresh();
+  }));
   const period = state.period;
   const wanted = state.selected;
   const found = state.discovery;
@@ -32,6 +35,12 @@ export const ImportPanel = (props: { onClose: () => void }) => {
 
   return (
     <SettingsShell heading={copy.importTitle} onClose={dismiss}>
+      <SettingsGroup name={copy.importPrompt}>
+        <div class="import-recovery">
+          <textarea class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
+          <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
+        </div>
+      </SettingsGroup>
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
             <For each={PERIODS}>{(each) => (
@@ -50,7 +59,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             <section class="import-recovery" aria-label={copy.importChoices}>
               <For each={state.choices()}>{(choice, at) => (
                 <section aria-label={copy.importChoice(at() + 1)}>
-                  <p>{copy.importPeriodName(choice.period)}</p>
+                  <p>{copy.importPeriodName(choice.period)}</p><p>{choice.prompt}</p>
                   <ul><For each={choice.sources}>{(_source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
                   <div class="import-actions">
                     <CopyButton app={app} text={JSON.stringify(choice, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
@@ -97,7 +106,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
               <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
-              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
+              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}
               </button>
             </span>

@@ -9,12 +9,16 @@ import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storageSchema, storedValue, type draftStorage } from "../state/storage";
 
+const DEFAULT_PROMPT = copy.importDefaultPrompt;
+
 const PERIODS = ["day", "week", "month"] as const;
 
-const form = v.object({ period: v.picklist(PERIODS), sources: v.array(v.string()), revisions: v.array(v.string()), titles: v.optional(v.array(v.string())), external: v.optional(v.boolean()) });
+const form = v.object({ prompt: v.optional(v.string()), agent: v.optional(v.string()), period: v.picklist(PERIODS), sources: v.array(v.string()), revisions: v.array(v.string()), titles: v.optional(v.array(v.string())), external: v.optional(v.boolean()) });
 
 const savedSchema = storageSchema("roundup:import", v.object({
   revision: v.optional(v.string()),
+  prompt: v.optional(v.string()),
+  agent: v.optional(v.string()),
   open: v.boolean(),
   period: v.picklist(PERIODS),
   selected: v.array(v.object({ source: v.string(), revision: v.string(), title: v.string() })),
@@ -38,7 +42,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const usable = record !== null && (!drafts || !record.revision || drafts.problem() !== null || versions().some(entry => entry.revision === record.revision));
 
   const saved = usable ? record : parsed.success ? {
-    open: false, period: parsed.output.period, selected: parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? copy.importUnnamed })),
+    open: false, prompt: parsed.output.prompt, agent: parsed.output.agent, period: parsed.output.period, selected: parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? copy.importUnnamed })),
   } : null;
 
   let draftRevision = record && usable ? versions().find(entry => {
@@ -50,6 +54,9 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
   let baseline = JSON.stringify(record);
 
+  const [prompt, setPromptSignal] = createSignal(saved?.prompt ?? DEFAULT_PROMPT);
+  const [listingAgent, setListingAgent] = createSignal<string | undefined>(saved?.agent);
+  const [starting, setStarting] = createSignal(false);
   const [open, setOpen] = createSignal(saved?.open ?? false);
   const [period, setPeriodSignal] = createSignal<ImportPeriod>(saved?.period ?? "week");
   const [selected, setSelected] = createSignal<ReadonlyMap<string, { revision: string; title: string }>>(new Map(saved?.selected.map((entry) => [entry.source, entry]) ?? []));
@@ -73,7 +80,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   }).sort((a, b) => Number(Boolean(b.external)) - Number(Boolean(a.external)));
 
   const hasConflict = () => choices().length > 1 && (choices().some(entry => entry.external) || choices().filter(entry => entry.status === "draft").length > 1);
-  const value = () => ({ external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
+  const value = () => ({ prompt: prompt(), agent: listingAgent(), external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
 
   // The Import record is a second writer's input, not a cache we may replace blindly.
   // Retain it in the existing Project revision holder before advancing our baseline.
@@ -104,8 +111,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         if (problem?.cause === "changed") await drafts?.retry();
       }
 
-      const external = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
-      const known = choices().some(entry => JSON.stringify({ period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
+      const external = { prompt: saved.prompt, agent: saved.agent, period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
+      const known = choices().some(entry => JSON.stringify({ prompt: entry.prompt, agent: entry.agent, period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
 
       if (!known && drafts) await drafts.edit(destination, { ...external, external: true }, null, "ordinary", null).retained;
     }
@@ -123,7 +130,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     if (retained) draftRevision = retained.draft.revision;
 
-    const next = { revision: draftRevision, open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) };
+    const next = { prompt: prompt(), agent: listingAgent(), revision: draftRevision, open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) };
 
     const pending = saving.then(async () => {
       const reading = await readExternal();
@@ -159,6 +166,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     invalidate();
     draftRevision = revision;
     batch(() => {
+      setPromptSignal(choice.prompt ?? DEFAULT_PROMPT); setListingAgent(choice.agent);
       setPeriodSignal(choice.period);
       setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
       setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
@@ -181,7 +189,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     setFailure(null);
 
     try {
-      const found = await app.rpc("project.importDiscover", { period: period() });
+      const found = await app.rpc("project.importDiscover", { period: period(), ...(listingAgent() ? { agent: listingAgent() } : {}) });
 
       if (mine !== latest) return;
 
@@ -210,6 +218,26 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   };
 
   return {
+    prompt, listingAgent, starting,
+    setPrompt: (text: string) => { setPromptSignal(text); return persist(); },
+    start: async () => {
+      if (starting() || pending()) return;
+      setStarting(true); setFailure(null); invalidate(); setLoading(false);
+      const text = prompt();
+      const submittedRevision = draftRevision;
+      if (submittedRevision) await drafts?.submit(submittedRevision);
+      try {
+        const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: "Import" });
+        if (submittedRevision) drafts?.settle(submittedRevision, "acknowledged");
+        if (draftRevision === submittedRevision) draftRevision = undefined;
+        setListingAgent(node.id); setDiscovery(null); setVerified(false);
+        if (prompt() === text) setPromptSignal(DEFAULT_PROMPT);
+        await persist();
+      } catch (error) {
+        if (submittedRevision) drafts?.settle(submittedRevision, outcomeOf(error));
+        setFailure(error instanceof Error ? error.message : String(error));
+      } finally { setStarting(false); }
+    },
     open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure, restoreFailure, choices, hasConflict,
     restoreChoice,
     discardChoice: (revision: string) => {
@@ -225,7 +253,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
           return restoreChoice(remaining.revision);
         }
 
-        setSelected(new Map()); setPeriodSignal("week"); setVerified(false);
+        setPromptSignal(DEFAULT_PROMPT); setListingAgent(undefined); setSelected(new Map()); setPeriodSignal("week"); setVerified(false);
       }
 
       return persist(false);
@@ -281,7 +309,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       return persist();
     },
     confirm: async () => {
-      if (pending() || !verified() || selected().size === 0) return;
+      if (starting() || pending() || !verified() || selected().size === 0) return;
       setPending(true);
       setFailure(null);
       const submitted = new Map(selected());
@@ -292,7 +320,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       const selections: ImportSelection[] = [...submitted].map(([source, entry]) => ({ source, revision: entry.revision }));
 
       try {
-        const { outcomes } = await app.rpc("project.importCommit", { selections });
+        const { outcomes } = await app.rpc("project.importCommit", { selections, ...(listingAgent() ? { agent: listingAgent() } : {}) });
         const refused = new Map<string, ImportFailure>();
         const created: { workstream: string; agent: string | null }[] = [];
 
