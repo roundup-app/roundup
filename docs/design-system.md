@@ -31,20 +31,20 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--ground` | `#ffffff` | `#1c1c1e` | the pane and the Drawer |
-| `--sunken` | `#f5f5f7` | `#141416` | the Rail and the Shelf |
-| `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
-| `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.10)` | the selected row |
-| `--selected-hover` | `rgba(0,0,0,.07)` | `rgba(255,255,255,.13)` | the selected row under the pointer |
+| `--ground` | `var(--gray-1)` | `var(--gray-1)` | the pane and the Drawer |
+| `--sunken` | `var(--gray-2)` | `var(--gray-2)` | the Rail and the Shelf |
+| `--hover` | `var(--gray-3)` | `var(--gray-3)` | a row or button under the pointer |
+| `--selected` | `var(--gray-4)` | `var(--gray-4)` | the selected row |
+| `--selected-hover` | `var(--gray-5)` | `var(--gray-5)` | the selected row under the pointer |
 | `--scrim` | `rgba(0,0,0,.40)` | same | darkens the centre beneath an overlay Shelf |
-| `--text` | `#1d1d1f` | `#f5f5f7` | body text |
-| `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
-| `--cache-write` | `#b4b4b9` | `#636368` | Measurement cache-write segment and swatch |
-| `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
+| `--text` | `var(--gray-12)` | `var(--gray-12)` | body text |
+| `--grey` | `var(--gray-11)` | `var(--gray-11)` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
+| `--cache-write` | `var(--gray-9)` | `var(--gray-9)` | Measurement cache-write segment and swatch |
+| `--disabled` | `var(--gray-11)` | `var(--gray-11)` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
-| `--accent` | `#0a60d8` | `#4d9bff` | Glyph tone of `working`, the primary action |
-| `--amber` | `#975900` | `#f0a030` | `needs-you` |
-| `--red` | `#c4262e` | `#ff6b6b` | `error` |
+| `--accent` | `var(--blue-11)` | `var(--blue-11)` | Glyph tone of `working`, the primary action |
+| `--amber` | `var(--amber-11)` | `var(--amber-11)` | `needs-you` |
+| `--red` | `var(--red-11)` | `var(--red-11)` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--scrollbar-thumb` | `rgba(0,0,0,.30)` | `rgba(255,255,255,.30)` | the thumb of every scrollbar, shown only while the pointer is over its scrolling element (U3747) |
 | `--elevation-contact` | `0 2px 4px 0 rgba(0,0,0,.12)` | `0 2px 4px 0 rgba(0,0,0,.28)` | tight contact shadow on floating surfaces and the Shelf |
@@ -211,13 +211,13 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 |---|---|---|---|
 | header backdrop and bare header controls | `--ground` | root `--sunken`: `#f5f5f7` | root `--ground`: `#1c1c1e` |
 | unselected tab base | `--sunken` | root `#f5f5f7` | root `#141416` |
-| tab selected base | `--selected` | `#ffffff` | `#2b2b2d` |
-| tab selected under pointer | `--selected-hover` | `#fafafa` | `#323234` |
+| tab selected base | `--selected` | `var(--gray-4)` | `var(--gray-4)` |
+| tab selected under pointer | `--selected-hover` | `var(--gray-5)` | `var(--gray-5)` |
 | header rule and tab borders | `--hairline` | opaque `#68686d` | opaque `#8e8e93` |
 | header and tabs | `--text` | root `#1d1d1f` | root `#f5f5f7` |
 | bare header controls | `--grey` / `--disabled` | root `#68686d` / `#6f6f74` | root `#a1a1a6` / `#8e8e93` |
 | unselected tabs | `--grey` | root `#68686d` | root `#a1a1a6` |
-| tab controls | `--disabled` | `--text` | `--text` |
+| tab controls | `--disabled` | `var(--gray-11)` | `var(--gray-11)` |
 | header and tab focus | no paint (U3528) | none | none |
 | header Ink and Tab marks, including overflow | `--red` / `--amber` | root `#c4262e` / `#975900` | root `#ff6b6b` / `#f0a030` |
 | bare header controls | `--hover` | root values | root values |
@@ -238,7 +238,7 @@ no border and a `--space-4` (16 px) height.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--key-chip-fill` | `rgba(0, 0, 0, 0.06)` | `rgba(255, 255, 255, 0.08)` |
+| `--key-chip-fill` | `var(--gray-3)` | `var(--gray-3)` |
 | `--radius-chip` | `4px` | same |
 | `--key-chip-padding` | `5px` | same |
 
@@ -266,9 +266,9 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--surface` | `#f5f5f7` | `#242426` | Opaque floating surface |
-| `--button-neutral` | `#ededf0` | `#343438` | Secondary/action button fill |
-| `--button-accent-ink` | `#ffffff` | `#101014` | Label on accent fill |
+| `--surface` | `var(--gray-2)` | `var(--gray-2)` | Opaque floating surface |
+| `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
+| `--button-accent-ink` | `var(--gray-1)` | `var(--gray-1)` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
 The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
@@ -311,3 +311,5 @@ The elevation recipe is implemented; the remaining requirements below are specif
 | D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the system accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
 
 D10’s edge ring is not a control outline or focus ring. Native material is the sole new transparency exception for Rail/Shelf. No shader or WebGL background. Terminal ANSI remains U3517’s palette. Browser captures prove web rendering only; native material and launch cost require the implementation’s Mac observation. No new Token values, App seam names or native performance claims are established by this policy merge.
+
+U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. Native macOS accent delivery supplies normalized sRGB channels; tokens tone its hue toward black in light and white in dark for readable accent labels and fills. Unavailable native delivery removes the override and restores Radix blue 11. Explicit App appearance choices also select the corresponding Radix scale. Terminal ANSI and program-authored colours retain U3517.
