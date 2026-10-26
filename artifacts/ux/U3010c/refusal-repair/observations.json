@@ -142,6 +142,23 @@
       "D7": "pass",
       "D8": "pass",
       "D9": "pass"
+    },
+    "conflict-pad": {
+      "D1": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass"
     }
   },
   "refusal": {
@@ -197,5 +214,27 @@
     32
   ],
   "glyphs": "right aligned in the reserved leading slot; tree depth retains U3708 indentation",
-  "motion": "no added animation; keyboard mutations remain immediate"
+  "motion": "no added animation; keyboard mutations remain immediate",
+  "behavior": {
+    "command": "pnpm --filter desktop exec vitest run --retry 0 src/todos/u3708_nesting.test.tsx src/todos/u361_todo_row.test.tsx",
+    "tests": 27,
+    "passed": 27,
+    "retries": 0
+  },
+  "broad_capture": {
+    "command": "timeout 240 just capture U3010c",
+    "exit": 124,
+    "complete": false,
+    "focused_headless_captures_complete": true
+  },
+  "lints": {
+    "just lint-web": 0,
+    "just lint-rust": 0,
+    "merge-loss": 0
+  },
+  "broad_related": {
+    "complete": false,
+    "exit": 130,
+    "attention_observer": "passed on retry; not a clean pass"
+  }
 }
