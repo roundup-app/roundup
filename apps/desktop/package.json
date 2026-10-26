@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc",
-    "test": "node --test reporting/*.test.mjs && vitest run"
+    "test": "node --test reporting/*.test.mjs budgets/*.test.mjs && vitest run",
+    "check:startup": "node budgets/startup.mjs"
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
