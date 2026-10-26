@@ -923,6 +923,28 @@ class Keep(unittest.TestCase):
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
 
+    def test_l23_work_a_killed_run_left_uncommitted_is_committed_pushed_and_keeps_the_captures_out(self):
+        with tempfile.TemporaryDirectory() as path:
+            git = branch(path, 0, False)
+            Path(path, 'work/.gitignore').write_text('ignored.log\n')
+            git('add', '.gitignore')
+            git('commit', '-m', 'ignore')
+            Path(path, 'work/new.txt').write_text('untracked\n')
+            Path(path, 'work/.gitignore').write_text('ignored.log\nedited\n')
+            Path(path, 'work/ignored.log').write_text('ignored\n')
+            Path(path, 'work/artifacts/ux/U1').mkdir(parents=True)
+            Path(path, 'work/artifacts/ux/U1/a.png').write_text('capture')
+            with GitHub(prs=[], queued=False), chdir(f'{path}/work'), \
+                    patch.dict(os.environ, GITHUB_REPOSITORY='a/b', GITHUB_RUN_ID='77'), \
+                    patch.object(builder, 'app_token', return_value='fresh'), \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                builder.keep('build/U1', 1, 'https://run/1')
+            self.assertEqual(git('show', '--name-only', '--format=%an|%(trailers:key=Author-Agent,valueonly)', 'HEAD').split(),
+                             ['claude[bot]|builder-77', '.gitignore', 'new.txt'])
+            self.assertTrue(git('log', '-1', '--format=%B').endswith('\n\nAuthor-Agent: builder-77'))
+            self.assertEqual(git('rev-parse', 'refs/heads/build/U1'),
+                             git('--git-dir', f'{path}/github.git', 'rev-parse', 'refs/heads/build/U1'))
+
     def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
         answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))
         out = io.StringIO()
