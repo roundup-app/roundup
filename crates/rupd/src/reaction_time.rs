@@ -36,6 +36,8 @@ pub(crate) fn canonical(at: &str) -> Result<OffsetDateTime, RpcError> {
     Ok(parsed)
 }
 
+/// Kept over `time` format descriptions: none refuses a leading `+` on the year (`+2026-10-21` parses
+/// under `[year]` and `[year sign:mandatory]`), which the input language forbids.
 fn shaped(text: &str, pattern: &str) -> bool {
     text.len() == pattern.len()
         && text.bytes().zip(pattern.bytes()).all(|(c, p)| match p {
@@ -354,5 +356,45 @@ mod tests {
         );
         assert_eq!(at(t("2026-10-21T11:00:00Z"), once), Verdict::Expired);
         assert_eq!(at(t("2026-10-22T00:00:00Z"), once), Verdict::Expired);
+    }
+
+    #[test]
+    fn z3799f_preview_preserves_lexical_acceptance() {
+        let run = |date: &str, time: &str, offset: &str| {
+            preview(&PreviewParams {
+                date: date.into(),
+                time: time.into(),
+                offset: offset.into(),
+            })
+        };
+        let kept = run("2026-10-21", "09:00", "-00:00").unwrap();
+        assert_eq!(kept.at, "2026-10-21T09:00:00Z");
+        assert_eq!(kept.offset, "-00:00");
+        assert_eq!(
+            run("2026-10-21", "09:00:30", "+01:00").unwrap().utc,
+            "2026-10-21T08:00:30Z"
+        );
+        for (date, time, offset) in [
+            ("+2026-10-21", "09:00", "Z"),
+            ("2026-1-21", "09:00", "Z"),
+            ("2026-10-21 ", "09:00", "Z"),
+            ("2026-02-30", "09:00", "Z"),
+            ("2026-10-21", "9:00", "Z"),
+            ("2026-10-21", "09:00:3", "Z"),
+            ("2026-10-21", "24:00", "Z"),
+            ("2026-10-21", "09:00 ", "Z"),
+            ("2026-10-21", "09:00", "z"),
+            ("2026-10-21", "09:00", "+1:00"),
+            ("2026-10-21", "09:00", "01:00"),
+            ("2026-10-21", "09:00", "+01:00 "),
+            ("2026-10-21", "09:00", "+24:00"),
+        ] {
+            let refused = run(date, time, offset).unwrap_err();
+            assert_eq!(
+                refused.code,
+                rpc::code::INVALID_PARAMS,
+                "{date} {time} {offset}"
+            );
+        }
     }
 }
