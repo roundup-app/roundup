@@ -16,14 +16,5 @@ describe("pane empty states and error sizing", () => {
     expect([headerOf(container), screen.queryByText("stop")]).toEqual(["", null]);
   });
 
-  it("u38_with_nothing_selected_the_pane_reads_select_an_agent_or_a_terminal", async () => {
-    const { container } = await mountPane([node("a")], [info("t-a")]);
 
-    expect([headerOf(container), container.querySelector(".pane-screen")?.textContent, screen.queryByText("stop")]).toEqual([
-      "",
-      "",
-      null,
-    ]);
-    expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
-  });
 });

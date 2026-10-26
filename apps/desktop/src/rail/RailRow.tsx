@@ -124,7 +124,7 @@ export const RailRowView = (props: {
   const cutName = createCutTitle(() => props.row.node.name);
 
   const kind = (): Kind | null => {
-    const kinds = [props.row.node.status?.kind, ...(workstream() ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
+    const kinds = [props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
 
     return (["error", "needs-you", "blocked", "working", "done"] as const).find(kind => kinds.includes(kind)) ?? null;
   };

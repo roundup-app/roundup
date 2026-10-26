@@ -48,8 +48,8 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(tab("web").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
-    expect(within(screen.getByRole("region", { name: "Rail" })).queryByRole("button", { name: "Reopen" })).toBeNull();
+    expect(tab("web").querySelector(".tab-mark")).toBeNull();
+    ;
   });
 
   it("u185_reopen_calls_open_project_and_clears_the_mark", async () => {

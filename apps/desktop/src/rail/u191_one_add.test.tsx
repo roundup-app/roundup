@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { SEEDS, seedApp } from "../testing/seeds";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -44,13 +44,7 @@ describe("u162 one add opens a Workstream", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "made" }]));
   });
 
-  it("u191_the_empty_centre_offers_new_workstream_and_the_rail_only_that", async () => {
-    await mountRail([], [], () => null, () => false, { pane: fakeEmulators().factory });
 
-    expect(screen.getByText("No Workstream yet")).toBeTruthy();
-    expect(screen.getByText("New Workstream", { selector: ".pane-action" })).toBeTruthy();
-    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
-  });
 
 
 

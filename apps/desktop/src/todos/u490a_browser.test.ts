@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { captureDir } from "../testing/captures";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
@@ -13,7 +16,17 @@ beforeAll(async () => {
   page = await openPage(found);
 }, 90_000);
 
-afterAll(async () => { await page?.close(); });
+afterAll(async () => {
+  if (page && captureDir("U3010c")) {
+    const origin = await page.call<string>(`() => location.origin`);
+
+    await promisify(execFile)("python3", ["observers/U3010c/unchanged-key.py"], {
+      env: { ...process.env, ROUNDUP_HARNESS_URL: origin }, maxBuffer: 1024 * 1024,
+    });
+  }
+
+  await page?.close();
+}, 600_000);
 
 type Point = { x: number; y: number };
 
@@ -26,7 +39,7 @@ const nested: List = {
   name: "an Agent's Todos in the Rail",
   rows: "[data-pads] .todo-row-button",
   setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-pads-control').click()`);
     await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
@@ -38,13 +51,14 @@ const shelf: List = {
   name: "the Shelf's Todos",
   rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
       if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
       document.querySelector('[data-todo-root]').click();
     }`);
+    await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
     await page.call(`() => {
       document.querySelector('[data-todo-root]').click();
       document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
@@ -91,9 +105,33 @@ for (const list of [nested, shelf]) {
   const { rows } = list;
 
   run(`u490a ${list.name} order on the shared Sortable`, () => {
-    it("u490a_pointer_reorders", async () => {
+    it.each(["fresh", "no event", "equal refetch"])("u490a_pointer_reorders after %s", async (preceding) => {
       await page.scheme("light");
       await list.setup();
+
+      if (preceding !== "fresh") {
+        await page.call(`(rows, event) => {
+          const app = window.__fake.app;
+          const reorder = app.handlers['todo.reorder'];
+          const read = app.handlers['todo.list'];
+          window.__keyRead = false;
+          app.handlers['todo.reorder'] = ({id}) => {
+            const todo = read(null).find(todo => todo.id === id);
+            if (event) window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'todo.updated', data: todo});
+            app.handlers['todo.reorder'] = reorder;
+            return {...todo};
+          };
+          app.handlers['todo.list'] = (...args) => {
+            const result = read(...args);
+            // sortedList settles in a microtask; two frames observe the completed read and its DOM placement.
+            requestAnimationFrame(() => requestAnimationFrame(() => { window.__keyRead = true; }));
+            return result;
+          };
+          document.querySelectorAll(rows)[1].focus();
+        }`, rows, preceding === "equal refetch");
+        await page.press("ArrowUp", "ArrowUp", ALT);
+        await page.until(`() => window.__keyRead`);
+      }
 
       const before = await state(rows);
       const last = before.ids.length - 1;
@@ -104,7 +142,7 @@ for (const list of [nested, shelf]) {
 
       const after = await state(rows);
 
-      expect(after.reorders).toEqual([{ id: before.ids[last], before: before.ids[0] }]);
+      expect(after.reorders).toEqual([...before.reorders, { id: before.ids[last], before: before.ids[0] }]);
       expect(after.ids[0]).toBe(before.ids[last]);
       expect(after.drawer).toBe(false);
       expect(after.active).toContain(`#${before.ids[last]} `);
