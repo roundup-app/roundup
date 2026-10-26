@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
@@ -55,8 +56,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
 
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
 
-  document.addEventListener("visibilitychange", onVisibility);
-  onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+  makeEventListener(document, "visibilitychange", onVisibility);
 
   // No call is pending twice at once, and none is made while the strip is not shown.
   let pending = false;
