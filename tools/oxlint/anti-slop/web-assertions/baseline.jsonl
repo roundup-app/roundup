@@ -519,11 +519,6 @@
 {"file":"apps/desktop/src/testing/u26_harness.test.tsx","test":"u26 the harness seeds > u26_tree_40_shows_an_agent_two_groups_deep_and_its_last_agent_in_the_rail","identity":"14e0807085417a60188dfb38dc57fefb5375501fb0cd7c3fc4e0c41df4334cef"}
 {"file":"apps/desktop/src/testing/u26_harness.test.tsx","test":"u26 the harness seeds > u26_tree_40_shows_an_agent_two_groups_deep_and_its_last_agent_in_the_rail","identity":"879ce65d368c191a2cbf141e4e9fce039c602b5f27e8c17614f4e32a51d7c64a"}
 {"file":"apps/desktop/src/testing/u26_harness.test.tsx","test":"u26 the harness seeds > u26_daemon_exits_shows_the_exit_in_the_centre","identity":"30f222c5e4bda35d8c6b90b0f89d66936f792a128c7ee794d816db9d70baa3de"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"8ada2d5981533b3e4292885622cc8eea000e6a13f7ed072f341332877b23f576"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"4196382bf78d2168d140cc2cad186580a9c1754fec113cd8155df9bd45159e43"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"81427cf3da4733e9d34b27f2bfb76eccdba040a4290e5ca65b39f0b638443cd2"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_reopen_and_resume","identity":"5e4222049e5f8b920318926962c446ceb6b8aaba160927cad5fe1cff0f28ff4c"}
-{"file":"apps/desktop/src/testing/u3078i_real_daemon.test.tsx","test":"u3078i_real_daemon_document_work_resumes_the_same_way","identity":"bf24897c681ec32d013a265eb5198cec9070c7371af172d9e59ca3335b79d1ad"}
 {"file":"apps/desktop/src/testing/u347_real_daemon.test.tsx","test":"u2744a_shelf_scope_no_scope_button","identity":"c612cc5ae169f408a0b4760cbac14f0b2f307d924735d1a8719cf2fa67186e8f"}
 {"file":"apps/desktop/src/testing/u389_geometry.test.ts","test":"u389_a_drag_sets_the_width_and_clamps","identity":"17c3f641349f948494c9834486a13cf6ebfe15fc11baed5e72e81f1e5a61c697"}
 {"file":"apps/desktop/src/testing/u389_geometry.test.ts","test":"u389_a_drag_sets_the_width_and_clamps","identity":"897b82fa7f84ebb53685123e23e12dcbcb024a6404db8eb05851599fb7b2e414"}

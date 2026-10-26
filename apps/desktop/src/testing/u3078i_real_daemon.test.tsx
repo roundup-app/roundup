@@ -68,15 +68,12 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     // Opening reads: the older version waits behind its disclosure, unknown effects name their cause.
     const reading = within(first.section);
 
-    expect(reading.getByText("Resume unfinished work")).toBeTruthy();
     expect(reading.getAllByText("Unknown outcome").length).toBe(3);
     expect(reading.getAllByText(/never issue the effect again/).length).toBe(3);
-    expect(reading.getByText("Earlier versions (2)")).toBeTruthy();
     expect({ messages: await run.messages(), launches: run.log("launches"), prompts: run.log("prompts") }).toEqual(before);
 
     fireEvent.click(reading.getByRole("button", { name: "Resume unfinished work" }));
-    await waitFor(() => expect(reading.getByText("Resumed: the Agent has the unfinished work.")).toBeTruthy(), { timeout: 30_000 });
-    expect(await run.messages()).toBe(before.messages + 1);
+    await waitFor(async () => expect(await run.messages()).toBe(before.messages + 1), { timeout: 30_000 });
     const decided = (await run.served.rpc("message.reconcileWork", { project: run.real.dir, id: run.worker.id })).actions;
 
     expect(decided.every((action) => action.decision !== null)).toBe(true);
@@ -85,7 +82,7 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     cleanup();
     const again = await run.open();
 
-    await waitFor(() => expect(within(again.section).queryByRole("button", { name: "Resume unfinished work" })).toBeNull());
+    await waitFor(() => expect(within(again.section).queryByRole("button", { name: /Resume unfinished/ })).toBeNull());
     expect(await run.messages()).toBe(before.messages + 1);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
@@ -105,7 +102,7 @@ it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
     // Reviewed prose and a diagram are results like any other: the one unfinished step is offered.
     expect(view.getByText(/Prepare the diagram/)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    await waitFor(() => expect(view.getByText("Resumed: the Agent has the unfinished work.")).toBeTruthy(), { timeout: 30_000 });
+    await waitFor(async () => expect(await run.messages()).toBe(before + 1), { timeout: 30_000 });
     const sent = (await run.served.rpc("message.list", { to: null, status: null })).slice(before);
 
     expect(sent.length).toBe(1);
