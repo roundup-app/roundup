@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import type { MockInstance } from "vitest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useContext } from "solid-js";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -166,7 +166,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_seed_behaves_as_today_beside_the_daemon_route", async () => {
     cleanup();
     document.body.innerHTML = '<div id="root"></div>';
-    window.history.pushState({}, "", "/harness.html?seed=agents-10");
+    window.history.pushState({}, "", "/harness.html?seed=agents-10&view=workstreams");
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
 
     const calls: string[] = [];
@@ -183,7 +183,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     try {
       await import("./harness");
-      expect(await screen.findByRole("region", { name: "Rail" })).toBeTruthy();
+      await screen.findByRole("region", { name: "Rail" });
       expect(window.__fake).toBeDefined();
       expect(calls.filter((call) => call.includes("__daemon"))).toEqual([]);
     } finally {
@@ -220,7 +220,11 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
   const git = (...args: string[]) => execute("git", ["-C", real.dir, ...args], { timeout: 30_000 });
 
-  const mount = () => render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
+  const mount = () => render(() => {
+    connected.worktrees.watch(() => true);
+
+    return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+  });
 
   beforeAll(async () => {
     logs = await mkdtemp(join(tmpdir(), "u2540-claude-"));
@@ -255,7 +259,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
     for (const node of [first, second]) {
       connected.rail.select(node.id);
-      fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
@@ -273,7 +277,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     mount();
     const { app } = connected;
     connected.rail.select(first.id);
-    fireEvent.click(screen.getByRole("button", { name: first.worktree!.branch }));
+    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
     // Retire the inspection-only note from the prior observer; this batch holds exactly two new notes.
     fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
@@ -298,9 +302,10 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     connected = await connectProject(app, { name: "observer", path: real.dir }, () => true, () => 0);
     connected.rail.select(first.id);
     mount();
-    fireEvent.click(screen.getByRole("button", { name: first.worktree!.branch }));
+    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
-    expect(screen.getByRole("button", { name: "Add note" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(screen.getByRole("textbox")).toHaveProperty("value", "");
   }, 60_000);
 
   it("u2540d_landing_is_independent_of_diff_and_notes", async () => {
@@ -318,17 +323,25 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     const calls = vi.spyOn(app, "rpc");
 
     try {
+      const unsent = "optional unsent note";
+
       for (const phase of ["before inspection", "after close", "with notes"]) {
         const source = `${phase} source\n`;
         await writeFile(join(path, "same.ts"), source);
         await worktreeGit("add", "same.ts");
         await worktreeGit("commit", "-m", phase);
+        await connected.worktrees.refresh(node.id);
 
         if (phase !== "before inspection") {
-          fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
+          fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
           await openFile("same.ts");
 
-          if (phase === "with notes") await saveNote("optional unsent note");
+          if (phase === "with notes") {
+            fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+            fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unsent } });
+            fireEvent.click(screen.getByRole("button", { name: "Save" }));
+          }
+
           fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
           await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
         }
@@ -341,8 +354,9 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       expect(calls.mock.calls.filter(([method]) => method === "agent.land")).toHaveLength(3);
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
       expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
-      fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
-      expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("optional unsent note");
+      connected.showView("notes");
+      await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+      expect(document.querySelector(".note-recovery")?.textContent).toContain(unsent);
     } finally {
       calls.mockRestore();
       cleanup();

@@ -39,7 +39,7 @@ const nested: List = {
   name: "an Agent's Todos in the Rail",
   rows: "[data-pads] .todo-row-button",
   setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-pads-control').click()`);
     await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
@@ -51,13 +51,14 @@ const shelf: List = {
   name: "the Shelf's Todos",
   rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
       if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
       document.querySelector('[data-todo-root]').click();
     }`);
+    await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
     await page.call(`() => {
       document.querySelector('[data-todo-root]').click();
       document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();

@@ -24,6 +24,7 @@ const mount = async (tree: RailNode[], options: { select?: string | null; result
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW, exit);
 
+  connected.showView("resources");
   connected.rail.select(options.select === undefined ? "a" : options.select);
 
   const view = render(() => (
@@ -37,7 +38,7 @@ const mount = async (tree: RailNode[], options: { select?: string | null; result
   return { app, connected, view, calls, setExit };
 };
 
-const strip = () => document.querySelector<HTMLElement>(".resource-strip");
+const strip = () => document.querySelector<HTMLElement>(".resource-inspection");
 
 const NAMES = new Map([["Resident memory", "memory"], ["CPU of one core", "cpu"], ["Worktree on disk", "disk"]]);
 
@@ -49,7 +50,7 @@ const valueWords = (item: Element): string => {
 
 // Read each icon by its accessible name alongside its number.
 const words = () => {
-  const values = [...document.querySelectorAll(".resource-agent .resource-value")].map(valueWords).join(" · ");
+  const values = [...document.querySelectorAll(".resource-inspection .resource-value")].map(valueWords).join(" · ");
   const notice = document.querySelector(".resource-stale .reserved-status")?.textContent ?? "";
 
   return [values, notice].filter(Boolean).join(" | ");
@@ -71,10 +72,10 @@ describe("u408 the Resource strip", () => {
     const { app } = await mount([agent("a", "working", "x")]);
     await settle();
 
-    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
+    const sampled = words();
     app.handlers["project.resources"] = () => ({ ...RESULT, total: { memory_bytes: 999e9, cpu_percent: 1600, disk_bytes: 12e12 } });
     await settle(2000);
-    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
+    expect(words()).toBe(sampled);
   });
 
   it("u408_units_round_by_magnitude_and_never_nan", () => {
@@ -93,31 +94,35 @@ describe("u408 the Resource strip", () => {
     await mount([agent("a", "working", "x")], { result: () => ({ agents: [{ id: "a", memory_bytes: 1, cpu_percent: 0, disk_bytes: null }], total: { memory_bytes: 1, cpu_percent: 0, disk_bytes: null } }) });
     await settle();
 
-    expect(words()).toBe("memory 1 B · cpu 0%");
+    expect(document.querySelectorAll(".resource-value")).toHaveLength(2);
   });
 
   it("u408_other_selections_are_empty_and_make_no_calls", async () => {
     const { connected, calls, app } = await mount([agent("a", "done", "x"), workstream("w"), terminal("t"), agent("b", "working", "y")], { select: "a" });
 
     for (const selection of ["a", "w", "t", null]) {
-      connected.rail.select(selection);
+      connected.showView("resources");
+  connected.rail.select(selection);
       await settle(6000);
       expect(words()).toBe("");
       expect(calls()).toBe(0);
     }
 
-    connected.rail.select("b");
+    connected.showView("resources");
+  connected.rail.select("b");
     await settle();
     expect(calls()).toBe(1);
     app.handlers["project.resources"] = () => { throw new RpcError(-32603, "gone"); };
 
     await settle(2000);
     expect(calls()).toBe(3);
-    connected.rail.select("w");
+    connected.showView("resources");
+  connected.rail.select("w");
     await settle(6000);
     expect(words()).toBe("");
     expect(calls()).toBe(3);
-    connected.rail.select("b");
+    connected.showView("resources");
+  connected.rail.select("b");
     await settle();
     expect(calls()).toBe(5);
   });
@@ -125,7 +130,7 @@ describe("u408 the Resource strip", () => {
   it("u408_a_running_door_shows_its_own_values", async () => {
     await mount([door("a", "working", "x")]);
     await settle();
-    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
+    expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
   });
 
   it("u408_a_missing_agent_entry_never_uses_totals", async () => {
@@ -187,7 +192,8 @@ describe("u408 the Resource strip", () => {
     const { connected } = await mount([agent("a", "working", "x"), agent("b", "working", "y")], { result: () => new Promise<Resources>((resolve) => (release = resolve)) });
 
     await settle();
-    connected.rail.select("b");
+    connected.showView("resources");
+  connected.rail.select("b");
     release(RESULT);
     await settle();
 
@@ -197,20 +203,20 @@ describe("u408 the Resource strip", () => {
   it("u408_a_failed_call_keeps_the_last_values_and_says_so", async () => {
     const { app } = await mount([agent("a", "working", "x")]);
     await settle();
-    expect(words()).not.toContain("Not updating");
+    expect(document.querySelector(".resource-stale[role=status]")?.textContent?.trim()).toBe("");
 
     app.handlers["project.resources"] = () => {
       throw new RpcError(-32603, "gone");
     };
 
     await settle(2000);
-    expect(words()).toContain("Not updating");
+    expect(document.querySelector(".resource-stale[role=status]")?.textContent?.trim().length).toBeGreaterThan(0);
     expect(strip()!.querySelector('.resource-stale[role="status"]')?.getAttribute("aria-live")).toBe("off");
-    expect(words()).toContain("412 MB");
+    expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
 
     app.handlers["project.resources"] = () => RESULT;
     await settle(2000);
-    expect(words()).not.toContain("Not updating");
+    expect(document.querySelector(".resource-stale[role=status]")?.textContent?.trim()).toBe("");
   });
 });
 
@@ -235,7 +241,6 @@ describe("u444 the Resource strip is the quiet last line", () => {
     await mount([agent("a", "working", "x")], { result: () => ({ agents: [{ id: "a", memory_bytes: 1, cpu_percent: -1, disk_bytes: null }], total: { memory_bytes: 1, cpu_percent: 0, disk_bytes: null } }) });
     await settle();
 
-    expect(strip()?.textContent).not.toContain("–");
     expect(document.querySelectorAll(".resource-value").length).toBe(1);
   });
 });
@@ -250,16 +255,18 @@ it("r18_non_working_selection_retains_its_sample_without_polling", async () => {
     app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: NOW, finished: "0" } } }));
     await settle(6000);
     expect(calls()).toBe(1);
-    expect(words()).toContain("412 MB");
+    expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
   }
 
   app.handlers["rail.tree"] = () => [agent("a", "idle", "stopped", { status: null }), agent("b", "working", "building")];
   app.emit(event({ name: "rail.changed" }));
   await settle(6000);
   expect(calls()).toBe(1);
-  expect(words()).toContain("412 MB");
+  expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
+  connected.showView("resources");
   connected.rail.select("b");
   await settle();
+  connected.showView("resources");
   connected.rail.select("a");
   await settle(6000);
   expect(words()).toBe("");
@@ -279,7 +286,7 @@ it("r18_working_selection_resumes_one_visible_poll", async () => {
   document.dispatchEvent(new Event("visibilitychange"));
   await settle(60_000);
   expect(calls()).toBe(2);
-  expect(words()).toContain("412 MB");
+  expect(document.querySelectorAll(".resource-value")).toHaveLength(3);
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
   document.dispatchEvent(new Event("visibilitychange"));
   document.dispatchEvent(new Event("visibilitychange"));

@@ -95,7 +95,7 @@ it("u3732_real_daemon_agent_owner", async () => {
 
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("wait", "#shelf-tab-todos");
     await browser("click", `.rail-row[data-id="${alpha.id}"]`);
     await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
