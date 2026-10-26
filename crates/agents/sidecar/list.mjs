@@ -2,7 +2,7 @@
 // stdout line; it ends when stdin closes. Only the Claude Code Adapter spawns it (P4), and only
 // for Import work. The SDK reads the vendor storage `CLAUDE_CONFIG_DIR` names; no Model is called.
 import { readFileSync } from 'node:fs';
-import { open, stat } from 'node:fs/promises';
+import { open, stat, unlink } from 'node:fs/promises';
 import * as vendor from '@anthropic-ai/claude-agent-sdk';
 import { createInterface } from 'node:readline';
 import {
@@ -115,14 +115,26 @@ async function snapshot(request) {
   }
 }
 
+async function resolve(request) {
+  const lookup = storageCapability('roundupResolveSession');
+
+  return { sdk, path: await lookup(request.sessionId) };
+}
+
 async function destination(request) {
   const create = storageCapability('roundupCreateDestination');
   const path = await create(request.sessionId, request.dir);
 
-  return { sdk, path, revision: revision(await stat(path, { bigint: true })) };
+  const current = revision(await stat(path, { bigint: true }));
+
+  // Publication reserves its ownership record before writing any retained bytes. The SDK
+  // supplies the destination; release its empty reservation for the existing no-clobber writer.
+  if (request.prepare) await unlink(path);
+
+  return { sdk, path, revision: current };
 }
 
-const ops = { list, read, snapshot, destination };
+const ops = { list, read, snapshot, destination, resolve };
 
 for await (const line of createInterface({ input: process.stdin })) {
   if (!line.trim()) continue;
