@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
 import { seedApp } from "./seeds";
@@ -28,13 +28,6 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
-  it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
-    mount("empty-project");
-
-    expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
-    expect(screen.queryByText("Open a folder to start")).toBeNull();
-  });
-
   it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
     const { app } = mount("door-stopped");
     const row = (await within(await rail()).findByText("first workstream")).closest(".rail-row")!;

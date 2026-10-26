@@ -32,7 +32,7 @@ const READ = `() => {
 type Read = { shown: string; full: string; name: string };
 
 const load = async (width: number) => {
-  await page.load("/harness.html?seed=tree-40", width, 800);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, 800);
   await page.until(`() => document.querySelectorAll(".rail-row").length > 10`);
 };
 

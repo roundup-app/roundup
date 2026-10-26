@@ -28,7 +28,7 @@ it("u3530a_terminal_scrollbar_tracks_scrollable_content", async () => {
   };
 
   await page.scheme("dark");
-  await page.load("/harness.html?seed=door-stopped");
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-stopped");
   await page.until("() => Boolean(window.__fake && document.querySelector('.terminal-new'))");
   await page.call("() => document.querySelector('.terminal-new').click()");
   await page.until("() => Boolean(document.querySelector('.bubble:not([hidden]) .xterm-scrollable-element .slider'))");
