@@ -1,7 +1,15 @@
-import { createSignal } from 'solid-js';
-import { makePersisted } from '@solid-primitives/storage';
-import { tauriStorage } from '@solid-primitives/storage/tauri';
-import * as v from 'valibot';
+let modules;
+try {
+  modules = await Promise.all([
+    import('solid-js'), import('@solid-primitives/storage'),
+    import('@solid-primitives/storage/tauri'), import('valibot'), import('solid-js/web'),
+  ]);
+  if (modules[4].isServer || modules[4].isDev) throw new Error('Use --conditions=browser without development');
+} catch (error) {
+  console.error('Setup failure:', error);
+  process.exit(2);
+}
+const [{ createSignal }, { makePersisted }, { tauriStorage }, v] = modules;
 
 // Run from an isolated package directory; no App dependency or persisted user data is changed.
 const rows = [];

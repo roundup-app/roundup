@@ -23,7 +23,7 @@ cp "$evidence/probe.mjs.txt" "$probe_dir/probe.mjs"
 node --conditions=browser "$probe_dir/probe.mjs"
 ```
 
-The probe exits **1**, recording unsupported capabilities, rather than presenting them as passing acceptance. `result.json` is the complete stdout. `probe-lock.json` pins transitive dependencies; `packages.json` records primary npm metadata, publication times, tarball integrity and the probed source hashes. This uses Solid's browser export without its development condition; it claims neither browser rendering nor native durability. Remove only the temporary directory created above after inspection.
+The probe exits **1** for observed unsupported capabilities and **2** for missing dependencies or the wrong Solid export condition; **0** requires every probed capability to be supported. `result.json` is the complete stdout. `probe-lock.json` pins transitive dependencies; `packages.json` records primary npm metadata, publication times, tarball integrity and the probed source hashes. This uses Solid's browser export without its development condition; it claims neither browser rendering nor native durability. Remove only the temporary directory created above after inspection.
 
 ## Observations
 
