@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, info } from "../testing/nodes";
+import { agent, info, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { NativeOpen } from "./seam";
 
@@ -54,5 +54,24 @@ it("u3787f_deep_link_preserves_identity_and_authority_reveals_the_exact_terminal
   await screen.findByRole("tab", { name: "project" });
   receive?.({ kind: "link", url: "roundup://terminal/first?project=project-0000000000000000" });
   await screen.findByRole("group", { name: "Chosen terminal" });
+  expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
+});
+
+it.each(["agent", "workstream"] as const)("u3787f_deep_link_preserves_identity_and_authority_selects_the_exact_%s", async kind => {
+  const app = createFakeApp();
+  const target = kind === "agent" ? agent("chosen", "done", "finished") : workstream("chosen");
+  app.add("/project");
+  app.handlers["rail.tree"] = () => [target, agent("other", "done", "finished")];
+  app.handlers["link.read"] = () => kind === "agent"
+    ? { kind, id: target.id, node: target, digest: null }
+    : { kind, id: target.id, node: target, children: [] };
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await screen.findByRole("tab", { name: "project" });
+  receive?.({ kind: "link", url: `roundup://${kind}/chosen?project=project-0000000000000000` });
+  await waitFor(() => expect(document.querySelector('[data-id="chosen"]')?.getAttribute("aria-selected")).toBe("true"));
   expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
 });

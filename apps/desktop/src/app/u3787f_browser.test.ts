@@ -10,6 +10,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787f_deep_link_preserves_identity_
 
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`));
   await wait("!!window.__fake && document.querySelector('.window')");
+  await read("window.__fake.app.rpc('daemon.ping', null).catch(() => null)");
   await read("window.__fake.app.handlers['link.read'] = () => { throw new Error('The linked Pad is unavailable. Open its Project and copy the link again.'); }");
   await read("window.__fake.app.nativeOpen({kind:'link', url:'roundup://pad/missing?project=unavailable'})");
   await wait("document.body.textContent.includes('The linked Pad is unavailable.')");

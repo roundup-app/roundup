@@ -31,7 +31,7 @@ autoexamples = false
 autotests = false
 autobenches = false
 description = "Set your Tauri application as the default handler for an URL"
-readme = "README.md"
+readme = "ROUNDUP.md"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/tauri-apps/plugins-workspace"
 

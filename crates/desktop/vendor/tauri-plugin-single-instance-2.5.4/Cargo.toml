@@ -26,7 +26,7 @@ autoexamples = false
 autotests = false
 autobenches = false
 description = "Ensure a single instance of your tauri app is running."
-readme = "README.md"
+readme = "ROUNDUP.md"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/tauri-apps/plugins-workspace"
 
