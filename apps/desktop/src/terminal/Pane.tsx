@@ -3,6 +3,8 @@ import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
+import { MeasurementDashboard } from "./MeasurementDashboard";
+import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
@@ -21,11 +23,6 @@ import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
-
-// The production entry exceeded its 437814-byte gzip budget; load optional views when opened.
-const TimelineView = lazy(() => import("../timeline/TimelineView").then(module => ({ default: module.TimelineView })));
-
-const MeasurementDashboard = lazy(() => import("./MeasurementDashboard").then(module => ({ default: module.MeasurementDashboard })));
 
 const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
