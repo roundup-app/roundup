@@ -52,7 +52,7 @@ runs:
       shell: bash
       run: |
         mkdir -p "$HOME/apt-archives/partial"
-        setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq mold; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
+        setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
@@ -76,19 +76,16 @@ runs:
       with:
         shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
-    # CI3781: mold links the hosted Linux x86_64 test binaries through a linker wrapper, not rustflags: Cargo fingerprints
-    # rustflags into every unit, so a flag would rebuild the dependency tree main's cache holds, while the linker is not fingerprinted; a `build` job installs it here because no Tauri install runs. macOS and self-hosted runners keep their linker.
-    - if: runner.environment != 'self-hosted' && inputs.rust == 'build' && runner.os == 'Linux'
-      name: Install mold
-      shell: bash
-      run: sudo apt-get install -y mold
-    - if: runner.environment != 'self-hosted' && (inputs.rust == 'true' || inputs.rust == 'build') && runner.os == 'Linux' && runner.arch == 'X64'
-      name: Link with mold
+    # CI3781: sccache stores compiled units in the Actions cache beside rust-cache, so a lane whose rust-cache entry misses
+    # still reuses units another lane or run compiled. macOS and self-hosted runners keep plain rustc.
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && (inputs.rust == 'true' || inputs.rust == 'build')
+      uses: mozilla-actions/sccache-action@v0.0.9
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && (inputs.rust == 'true' || inputs.rust == 'build')
+      name: Route rustc through sccache
       shell: bash
       run: |
-        printf '#!/bin/sh\nexec cc -fuse-ld=mold "$@"\n' >"$RUNNER_TEMP/mold-cc"
-        chmod +x "$RUNNER_TEMP/mold-cc"
-        echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$RUNNER_TEMP/mold-cc" >>"$GITHUB_ENV"
+        echo "RUSTC_WRAPPER=sccache" >>"$GITHUB_ENV"
+        echo "SCCACHE_GHA_ENABLED=true" >>"$GITHUB_ENV"
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
