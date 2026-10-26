@@ -1,6 +1,7 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
-import { createMemo, createSignal, onCleanup } from "solid-js";
+import { createEventListener } from "@solid-primitives/event-listener";
+import { createMemo, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
@@ -63,7 +64,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   const displayed = new Set<string>();
   let lastChime = Number.NEGATIVE_INFINITY;
   let next = 0;
-  let listening = false;
+  const [listening, setListening] = createSignal(false);
 
   const toast = createToast({
     limit: MOST_SHOWN,
@@ -161,7 +162,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   const comeBack = () => {
     if (!inFront()) return;
 
-    stopListening();
+    setListening(false);
 
     const waiting = [...kept.values()];
 
@@ -169,19 +170,8 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     waiting.forEach(show);
   };
 
-  const stopListening = () => {
-    listening = false;
-    window.removeEventListener("focus", comeBack);
-    document.removeEventListener("visibilitychange", comeBack);
-  };
-
-  const listenForReturn = () => {
-    if (listening) return;
-
-    listening = true;
-    window.addEventListener("focus", comeBack);
-    document.addEventListener("visibilitychange", comeBack);
-  };
+  createEventListener(window, () => listening() ? "focus" : [], comeBack);
+  createEventListener(document, () => listening() ? "visibilitychange" : [], comeBack);
 
   const sound = () => {
     const at = now();
@@ -191,8 +181,6 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     lastChime = at;
     chime();
   };
-
-  onCleanup(stopListening);
 
   return {
     toast,
@@ -209,7 +197,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
         show(candidate);
       } else {
         kept.set(candidate.key, candidate);
-        listenForReturn();
+        setListening(true);
       }
 
       sound();
