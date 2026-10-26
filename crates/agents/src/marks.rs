@@ -698,6 +698,8 @@ impl Agents {
             if retained.prompt.is_some() {
                 let acknowledged = async {
                     loop {
+                        // Register before reading so a concurrent acknowledgement cannot be lost.
+                        let observed = self.shared.events.observed.notified();
                         {
                             let runs = self.shared.runs();
                             match runs.get(&node.id) {
@@ -728,7 +730,7 @@ impl Agents {
                                 }
                             }
                         }
-                        tokio::time::sleep(Duration::from_millis(20)).await;
+                        observed.await;
                     }
                 };
                 tokio::time::timeout(
