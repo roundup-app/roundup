@@ -335,7 +335,8 @@ remain on #3696. This change establishes no baseline rebase or Mac gate pass.
 with `clean: true` and no skips. The
 [raw record](perf-3696-linux-40245804422.json) retains the complete output,
 report, all 22 startup logs, build commands/logs, executable hashes, host/boot
-identity and successful lint output. This completes the routine Linux observation
+identity and successful lint output (the three large outputs sit base64-encoded under
+`logs_utf8_base64`, decoding noted in the record, so the spelling gate skips them). This completes the routine Linux observation
 requested by the screened continuation. No production code or budget changes.
 
 The uncalibrated `linux-7763` path builds and compares the same source revision
