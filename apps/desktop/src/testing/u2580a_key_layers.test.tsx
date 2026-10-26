@@ -67,7 +67,7 @@ const load = async (reduced = false) => {
 // Native Enter/Space clicks are observed by the click listener installed before the real key.
 const activate = async (selector: string, key: "Enter" | "Space", expression = `({
   open: document.querySelector('.drawer').dataset.open === 'true',
-  content: !!document.querySelector('.drawer > :not(.close)'),
+  content: !!document.querySelector('.drawer > :not(.drawer-close)'),
   focus: document.querySelector('.drawer .close') === document.activeElement,
   returned: document.activeElement === window.__layerOrigin
 })`) => {
@@ -162,7 +162,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
       await new Promise(resolve => requestAnimationFrame(resolve));
       document.querySelector('.drawer .close').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true}));
       return await new Promise(resolve => requestAnimationFrame(() => resolve({
-        content: !!document.querySelector('.drawer > :not(.close)'),
+        content: !!document.querySelector('.drawer > :not(.drawer-close)'),
         returned: document.activeElement === button
       })));
     })()`);
@@ -189,7 +189,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
         close.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key === "Space" ? " " : key)}, code: ${JSON.stringify(key)}, bubbles: true}));
         if (${JSON.stringify(key)} !== 'Escape') close.click();
         return await new Promise(resolve => requestAnimationFrame(() => resolve({
-          content: !!document.querySelector('.drawer > :not(.close)'),
+          content: !!document.querySelector('.drawer > :not(.drawer-close)'),
           returned: document.activeElement === button
         })));
       })()`);
