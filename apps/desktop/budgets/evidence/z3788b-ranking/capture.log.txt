@@ -1,5 +1,5 @@
 ROUNDUP_CAPTURES='Z3788b' just packages test
-pnpm -r --if-present test 
+pnpm -r --if-present test
 Scope: 4 of 5 workspace projects
 apps/desktop test$ vitest run src/testing/z3788_observation.test.ts
 apps/desktop test: (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
