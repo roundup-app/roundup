@@ -79,7 +79,6 @@
 {"file":"apps/desktop/src/bubbles/u3661_retry.test.tsx","test":"u3661_a_later_failure_replaces_the_earlier_retry","identity":"c98e6d37a1e25cedb6db2ddc1e94237da7fad9a9b18efa5d3eac011e5d152562"}
 {"file":"apps/desktop/src/bubbles/u421_pull.test.tsx","test":"u421 a right-button drag pulls a bubble out > u421_a_failed_open_shows_the_failure_line_and_opens_nothing","identity":"67a333852a88998b4bc6f3d19bb53d0fa84da517fec8ee58e54ccb89c54395fc"}
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u469_failed_close_keeps_the_tab_bubble_and_visible_failure","identity":"88468a41d5b5b7dfda0a1da010d70de5aa4e8a2a3122705e10578882d715a98b"}
-{"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u524_a_failed_empty_project_open_can_be_retried","identity":"d158cb828df8cfcc669152432c63ad3f544124166d263300722a1b237d76a450"}
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u469_open_guards_and_failures_preserve_the_existing_bubble","identity":"916d988c27c41d5d4dbf948bc16a9025c7313c5ab6db87bec7657442668c8eff"}
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u3512a_terminal_alert_failure_keeps_the_terminal_for_retry","identity":"db10dc3ceee11121453470988253460ed0fb9b36c5e349a63faa14337bb65e74"}
 {"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_controls_use_sentence_case","identity":"708990b2aeb59a3db40ba8b1155c55d0efa548c6ac4757e73c23f21b275c65bf"}
