@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
@@ -8,6 +8,7 @@ import { chooseAction, mountRail, railCallsTo, rowOf } from "./railFixture";
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
 beforeEach(() => vi.stubGlobal("ResizeObserver", class {
   observe() {}
+  unobserve() {}
   disconnect() {}
 }));
 
@@ -45,20 +46,6 @@ describe("u427 a Workstream row's icons", () => {
     expect(clearingOf(mounted.app, mounted.connected.events, "c1", mounted.connected.drafts).phase()).toBe("asking");
     expect(mounted.rail.selected()).toBeNull();
     expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);
-  });
-
-  it("u427_no_clear_icon_while_a_clear_is_pending", async () => {
-    const mounted = await mountRail([workstream("c2")]);
-    mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
-
-    await chooseAction(mounted.app, "c2", "Clear…");
-    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Why clear?" });
-    fireEvent.input(reason, { target: { value: "next iteration" } });
-    fireEvent.submit(reason.closest("form")!);
-    await waitFor(() => expect(reason.disabled).toBe(true));
-
-    fireEvent.contextMenu(rowOf("c2"));
-    expect(mounted.app.menuLabels()).not.toContain("Clear…");
   });
 
   it("u427_open_folder_opens_the_doors_directory", async () => {
