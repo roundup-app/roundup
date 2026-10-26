@@ -1,3 +1,4 @@
+window.__u4231Options ? import("/observers/U3010c/layout.js").then(module => module.observeUnchangedKey(window.__u4231Options)) :
 (async () => {
   const rows = () => [...document.querySelectorAll('.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button')];
   const frame = () => new Promise(requestAnimationFrame);

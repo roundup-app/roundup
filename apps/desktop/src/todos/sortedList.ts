@@ -167,6 +167,7 @@ export const createSortedList = (source: {
     if (message === null && key !== null) {
       // T11 can succeed without an event. Read the order before releasing the key so a delayed real move still settles instantly.
       await source.reload();
+
       if (instantOrder === key) {
         instantOrder = null;
         refocus = null;
