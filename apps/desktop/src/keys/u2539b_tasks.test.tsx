@@ -210,9 +210,9 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
-    ["action:leader:A", "⌘K A"], ["action:leader:P", "⌘K P"], ["action:leader:C", "⌘K C"], ["action:leader:J", "⌘K J"],
-    ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
+    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
+    ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
+    ["action:leader:S", "⌘K S"], ["action:leader:T", "⌘K T"], ["action:leader:I", "⌘K I"],
   ]);
   openProjectPage("action:leader:J", "/wrong-project");
   expect(connected().rail.selected()).toBeNull();
@@ -347,4 +347,14 @@ it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
   expect(daemon.calls.filter(call => ["agent.changedFiles", "todo.assign", "terminal.write"].includes(call.method))).toHaveLength(0);
+});
+
+
+it("u4278a_no_selected_project_projects_no_actions", async () => {
+  const app = createFakeApp();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await waitFor(() => expect(projectMenu.path).toBeNull());
+  expect(projectMenu.items).toEqual([]);
+  openProjectPage("action:chord:⌘N", "/p");
+  expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });

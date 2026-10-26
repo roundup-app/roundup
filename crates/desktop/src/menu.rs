@@ -38,20 +38,6 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         1,
     )?;
     let project = Submenu::with_id(app, "project-menu", "Project", true)?;
-    project.append(&MenuItem::with_id(
-        app,
-        "import-work",
-        "Import Claude Code Work…",
-        false,
-        None::<&str>,
-    )?)?;
-    project.append(&MenuItem::with_id(
-        app,
-        "project-settings",
-        "Project Settings…",
-        false,
-        None::<&str>,
-    )?)?;
     menu.insert(&project, 1)?;
     Ok(menu)
 }
@@ -112,20 +98,80 @@ pub fn select_project_menu<R: Runtime>(
     let Some(MenuItemKind::Submenu(project)) = menu.get("project-menu") else {
         return Err(internal("No Project menu"));
     };
-    for id in ["import-work", "project-settings"] {
-        let Some(MenuItemKind::MenuItem(item)) = project.get(id) else {
-            return Err(internal("No Project command"));
-        };
-        item.set_enabled(path.is_some()).map_err(internal)?;
+    for item in project.items().map_err(internal)? {
+        project.remove(&item).map_err(internal)?;
     }
-    if let Some(items) = items {
-        let previous = project.items().map_err(internal)?;
-        for item in previous.into_iter().skip(2) {
-            project.remove(&item).map_err(internal)?;
+    if path.is_some() {
+        let items = items.unwrap_or_default();
+        // Keep native separators between nonempty groups, including when availability changes.
+        let mut separated = false;
+        for group in [
+            &[
+                "action:chord:⌘N",
+                "action:chord:⌘T",
+                "capture",
+                "action:chord:⇧⌘N",
+                "action:leader:T",
+            ][..],
+            &[
+                "action:leader:P",
+                "action:leader:J",
+                "action:leader:I",
+                "action:leader:C",
+                "action:chord:⌘/",
+                "action:leader:A",
+                "action:leader:S",
+            ][..],
+            &["views"][..],
+        ] {
+            let entries: Vec<_> = group
+                .iter()
+                .flat_map(|id| {
+                    items.iter().filter(move |item| {
+                        item.enabled
+                            && match *id {
+                                "capture" => {
+                                    item.id.starts_with("action:chord:")
+                                        && !matches!(
+                                            item.id.as_str(),
+                                            "action:chord:⌘N"
+                                                | "action:chord:⇧⌘N"
+                                                | "action:chord:⌘T"
+                                                | "action:chord:⌘/"
+                                        )
+                                }
+                                "views" => item.id.starts_with("view:"),
+                                id => item.id == id,
+                            }
+                    })
+                })
+                .collect();
+            if entries.is_empty() {
+                continue;
+            }
+            if separated {
+                project
+                    .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
+                    .map_err(internal)?;
+            }
+            for item in entries {
+                project
+                    .append(&kind(&app, item).map_err(internal)?)
+                    .map_err(internal)?;
+            }
+            separated = true;
         }
-        for item in items {
+        if separated {
             project
-                .append(&kind(&app, &item).map_err(internal)?)
+                .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
+                .map_err(internal)?;
+        }
+        for (id, label) in [
+            ("import-work", "Import Claude Code work…"),
+            ("project-settings", "Open Project settings…"),
+        ] {
+            project
+                .append(&MenuItem::with_id(&app, id, label, true, None::<&str>).map_err(internal)?)
                 .map_err(internal)?;
         }
     }
@@ -316,14 +362,6 @@ mod tests {
                 _ => None,
             })
             .expect("Project menu");
-        let items: Vec<_> = project.items().unwrap().into_iter().map(plain).collect();
-        assert_eq!(
-            items
-                .iter()
-                .map(|item| item.text().unwrap())
-                .collect::<Vec<_>>(),
-            ["Import Claude Code Work…", "Project Settings…"]
-        );
         let received = Arc::new(Mutex::new(Vec::new()));
         let observed = Arc::clone(&received);
         app.listen("open-project-page", move |event| {
@@ -335,8 +373,10 @@ mod tests {
         for path in [None, Some("/A"), Some("/B"), None] {
             select_project_menu(app.handle().clone(), path.map(str::to_owned), None).unwrap();
             let before = received.lock().unwrap().len();
-            for item in &items {
-                assert_eq!(item.is_enabled().unwrap(), path.is_some());
+            let items = project.items().unwrap();
+            assert_eq!(items.len(), if path.is_some() { 2 } else { 0 });
+            for item in items.into_iter().map(plain) {
+                assert!(item.is_enabled().unwrap());
                 app_chosen(
                     app.handle(),
                     &MenuEvent {
@@ -375,26 +415,58 @@ mod tests {
                 item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
                 item("action:chord:⌘T", "New Terminal", Some("⌘T"), None),
                 item("action:leader:T", "Capture a Todo", Some("⌘K T"), None),
-                item("action:chord:⇧⌘N", "New Agent with a prompt", Some("⇧⌘N"), None),
+                item(
+                    "action:chord:⇧⌘N",
+                    "New Agent with a prompt",
+                    Some("⇧⌘N"),
+                    None,
+                ),
                 item("action:leader:P", "Switch Project", Some("⌘K P"), None),
-                item("action:leader:J", "Jump to what needs you", Some("⌘K J"), None),
+                item(
+                    "action:leader:J",
+                    "Jump to what needs you",
+                    Some("⌘K J"),
+                    None,
+                ),
                 item("action:leader:I", "Open the Inbox", Some("⌘K I"), None),
                 item("view:workstreams", "Open Workstreams", None, None),
             ]),
-        ).unwrap();
-        let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap() else {
+        )
+        .unwrap();
+        let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap()
+        else {
             panic!("Project submenu");
         };
-        let ids: Vec<_> = project.items().unwrap().into_iter().map(|entry| match entry {
-            MenuItemKind::MenuItem(entry) => entry.id().0.clone(),
-            MenuItemKind::Predefined(_) => "separator".to_owned(),
-            _ => panic!("Unexpected submenu"),
-        }).collect();
-        assert_eq!(ids, [
-            "action:chord:⌘N", "action:chord:⌘T", "action:leader:T", "action:chord:⇧⌘N",
-            "separator", "action:leader:P", "action:leader:J", "action:leader:I", "action:leader:C",
-            "separator", "view:notes", "view:workstreams", "separator", "import-work", "project-settings",
-        ]);
+        let ids: Vec<_> = project
+            .items()
+            .unwrap()
+            .into_iter()
+            .map(|entry| match entry {
+                MenuItemKind::MenuItem(entry) => entry.id().0.clone(),
+                MenuItemKind::Predefined(_) => "separator".to_owned(),
+                _ => panic!("Unexpected submenu"),
+            })
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "action:chord:⌘N",
+                "action:chord:⌘T",
+                "action:chord:⇧⌘N",
+                "action:leader:T",
+                "separator",
+                "action:leader:P",
+                "action:leader:J",
+                "action:leader:I",
+                "action:leader:C",
+                "separator",
+                "view:notes",
+                "view:workstreams",
+                "separator",
+                "import-work",
+                "project-settings",
+            ]
+        );
     }
 
     #[test]

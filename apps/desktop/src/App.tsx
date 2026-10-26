@@ -396,6 +396,13 @@ export const App = (props: {
     if (open && !(open instanceof Error)) props.prepareIdle(open);
   });
 
+  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
+  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
+  const widths = createWidths(projects.active);
+  const shelfTabs = createShelfTabs(frame);
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+
   const [menuFocus, setMenuFocus] = createSignal<Element | null>(null);
   const recordFocus = () => setMenuFocus(document.activeElement);
   document.addEventListener("focusin", recordFocus);
@@ -406,7 +413,7 @@ export const App = (props: {
     ["terminal-tabs", copy.terminalTabs], ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C"]);
+  const taskKeys = new Set(["⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -415,13 +422,13 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? label : ["ask-history", "resources", "terminal-tabs"].includes(id) ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
-        return { id, label: row.what, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.showOrHideTheShelf) : row.what, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
       }),
-    ];
+    ].filter(item => item.enabled);
   });
 
   let menuWriting = false;
@@ -468,13 +475,6 @@ export const App = (props: {
 
     if (next) rail?.select(next.id);
   };
-
-  // U370, U373: the Shelf's open state and open tab, kept per Project.
-  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
-  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
-  const widths = createWidths(projects.active);
-  const shelfTabs = createShelfTabs(frame);
-  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
   registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
