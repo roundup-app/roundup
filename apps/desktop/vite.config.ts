@@ -66,7 +66,7 @@ export default defineConfig({
 
             root.walkDecls(/^--(?:duration|delay)-/, declaration => { motionTokens.add(declaration.prop); });
 
-            for (const prop of motionTokens) rule.append(postcss.decl({ prop, value: "0s" }));
+            for (const prop of motionTokens) if (prop !== "--duration-reduced") rule.append(postcss.decl({ prop, value: "0s" }));
 
             if (motionTokens.size === 0) return;
 

@@ -168,19 +168,6 @@ p.ink[role="alert"] {
 .working-arc {
   transform-origin: center;
   transform-box: view-box;
-  animation-name: working-turn;
-  animation-duration: calc(var(--duration-crossfade) * 8);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-@keyframes working-turn {
- from { transform: rotate(0deg); }
- to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
- .working-arc { animation-name: none; animation-duration: var(--duration-instant); }
 }
 
 .section-head {
@@ -336,4 +323,3 @@ p.ink[role="alert"] {
 .kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
-.kind-mark-leaving .working-arc { animation-delay: var(--turn-elapsed); }

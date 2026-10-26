@@ -24,3 +24,8 @@ fn main() {
 mod accent;
 #[cfg(target_vendor = "apple")]
 pub use accent::{system_accent, watch_accent};
+
+#[cfg(target_vendor = "apple")]
+mod transparency;
+#[cfg(target_vendor = "apple")]
+pub use transparency::watch_transparency;
