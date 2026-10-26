@@ -147,7 +147,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     if (retained) draftRevision = retained.draft.revision;
 
-    const next = { prompt: prompt(), agent: listingAgent(), revision: draftRevision, open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) };
+    // Match savedSchema's key order so a parsed own write does not become an external edit.
+    const next = { revision: draftRevision, prompt: prompt(), agent: listingAgent(), open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) };
 
     const pending = saving.then(async () => {
       const reading = await readExternal();
