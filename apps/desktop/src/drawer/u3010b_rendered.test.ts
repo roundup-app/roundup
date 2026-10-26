@@ -337,7 +337,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
       const terminal = document.querySelector('.xterm-screen');
       const selected = document.querySelector('.rail [aria-selected=true]');
       const todo = document.querySelector('.shelf [data-todo="1"]');
-      const state = () => ({ left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
+      const state = () => ({ closeLeft: drawer.querySelector('.close').getBoundingClientRect().left, closeTranslate: getComputedStyle(drawer.querySelector('.close')).translate, left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
         open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
         focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('button[aria-label="Open"]'), home: selected?.dataset.id, todo: todo.dataset.todo,
         sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail [aria-selected=true]'),
@@ -355,7 +355,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         samples.push({ t: performance.now(), output, ...state() });
         window.__pointerDrawer.frame = requestAnimationFrame(sample);
       };
-      document.addEventListener('click', event => events.push({ t: performance.now(), trusted: event.isTrusted, target: event.target.outerHTML, x: event.clientX, y: event.clientY, ...state() }));
+      for (const kind of ['pointerdown', 'pointerup', 'click']) document.addEventListener(kind, event => events.push({ t: performance.now(), trusted: event.isTrusted, kind, target: event.target.outerHTML, x: event.clientX, y: event.clientY, ...state() }));
       window.__pointerDrawer = { state, samples, events, panel: drawer, terminal, selected, todo, rate: ${rate} };
       window.__pointerDrawer.frame = requestAnimationFrame(sample);
       return true;
@@ -367,6 +367,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
     // Record the existing screencast once. Page.captureScreenshot's second 100 ms loop can hide an entire half-crossing.
     const frames = mkdtempSync(join(tmpdir(), "drawer-frames-"));
+
     // A Node process owns the stream: jsdom's Event realm cannot receive Node WebSocket events.
     const recording = spawn(process.execPath, ["--input-type=module", "-e", `
       import { writeFileSync } from 'node:fs';
@@ -387,6 +388,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         process.exit(0);
       });
     `, stream, frames], { stdio: ["ignore", "pipe", "inherit"] });
+
     await once(recording.stdout!, "data");
 
     try {
@@ -470,6 +472,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
       for (const id of ["D2", "D5", "D6"]) expect(openChecks[id]?.status).toBe("pass");
       writeFileSync(join(directory, `${name}-open.checks.json`), JSON.stringify(openChecks));
+
       if (run === 1 && rate === 1) {
         await evaluate(`(async () => {
           const { RpcError } = await import('/src/app/seam.ts');
@@ -507,7 +510,7 @@ const trace = (rate: number) => `(async () => {
   const box = () => { const r = drawer.getBoundingClientRect(); return { left: r.left, width: r.width }; };
   const slow = () => document.getAnimations().forEach(a => { a.playbackRate = ${rate}; });
   const samples = [];
-  const log = (event, source) => samples.push({ t: performance.now(), event, source, ...box(), focus: document.activeElement?.className ?? null, content: !!drawer.querySelector(':scope > :not(.close)') });
+  const log = (event, source) => samples.push({ t: performance.now(), event, source, ...box(), focus: document.activeElement?.className ?? null, content: drawer.dataset.mounted === 'true' });
   const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
   const advance = async (done) => { for (let i = 0; i < 600; i++) { slow(); await frame(); log('frame'); if (done()) return; } };
 
