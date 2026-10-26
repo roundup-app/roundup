@@ -69,6 +69,14 @@ impl RpcError {
         Self::new(code::NOT_FOUND, format!("not found: {what}"))
     }
 
+    /// NOT_FOUND for an object another Project owns, marked so a caller asking every Project can skip it.
+    pub fn other_project(message: impl Into<String>) -> Self {
+        Self {
+            data: Some(contracts::RpcErrorData::OtherProject),
+            ..Self::new(code::NOT_FOUND, message)
+        }
+    }
+
     pub fn forbidden(message: impl Into<String>) -> Self {
         Self::new(code::FORBIDDEN, message)
     }
