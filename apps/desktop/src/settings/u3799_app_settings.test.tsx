@@ -56,7 +56,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo ⇧⌘T" }));
   expect(screen.getByRole("button", { name: "Quick add a Todo Press a shortcut" })).toBeTruthy();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -84,7 +84,8 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
       else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", String(cap)));
-      fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+      // Shared-row return is proved by u4315b_back_to_ask_clears_centre_navigation.
+      fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
     }
 
     expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(1);
@@ -180,7 +181,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
   expect(app.of(path("api")).calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 
-it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_previous_center_and_focus_missing_element_%s", async command => {
+it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the_previous_center_and_focus_missing_element_%s", async command => {
   await openTabs({ api: [workstream("w")] });
   const opener = document.createElement("button");
   document.body.append(opener);
@@ -188,7 +189,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_
   openProjectPage(command);
   const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code work" : "Project settings" });
   opener.remove();
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview, Project root/ })));
 });
 
@@ -204,7 +205,7 @@ it("u3814_switching_settings_pages_keeps_the_original_return_destination", async
   expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
   openProjectPage("project-settings");
   const page = await screen.findByRole("region", { name: "Project settings" });
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
   expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull();
 });

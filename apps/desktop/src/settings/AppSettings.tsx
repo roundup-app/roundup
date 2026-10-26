@@ -14,8 +14,9 @@ import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; closeRef?: (close: () => void) => void; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
+  props.closeRef?.(() => { props.onOpenChange?.(false); view.close(false); });
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
   const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();
@@ -88,7 +89,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const defaults = [{ value: "", label: copy.modelDefault }];
 
   return <Show when={view.open()}>
-    <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
+    <SettingsShell compact={props.project() !== null} heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
       <SettingsGroup name={copy.settingsAgents}>
         <Select label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },

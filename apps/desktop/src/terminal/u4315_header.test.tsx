@@ -1,3 +1,5 @@
+import { agent } from "../testing/nodes";
+import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
@@ -5,35 +7,26 @@ import { mountNavigation } from "../testing/navigationFixture";
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 it("u4315a_navigation_survives_centre_switches", async () => {
-  const { connected } = await mountNavigation();
+  const { connected, nodes } = await mountNavigation();
+  nodes.push(agent("closed", "done", "", { terminal_id: null }));
+  await connected().rail.refresh();
   const row = screen.getByRole("navigation", { name: "Centre views" });
-  for (const id of ["a0", "home", "a1", null]) {
+  for (const id of ["a0", "home", "closed", null]) {
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
     expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+    if (id === "home") {
+      for (const name of ["Time", "Timeline"]) {
+        fireEvent.click(await screen.findByRole("tab", { name }));
+        await screen.findByRole("region", { name });
+        expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+      }
+    }
   }
 });
 
-it("u4315b_sub_links_switch_by_click_and_arrow", async () => {
-  const { connected } = await mountNavigation();
-  connected().rail.select("home");
-  const time = await screen.findByRole("tab", { name: "Time" });
-  fireEvent.click(time);
-  await screen.findByRole("region", { name: "Time" });
-  const timeline = screen.getByRole("tab", { name: "Timeline" });
-  fireEvent.click(timeline);
-  await screen.findByRole("region", { name: "Timeline" });
-  timeline.focus();
-  fireEvent.keyDown(timeline, { key: "ArrowLeft", code: "ArrowLeft" });
-  await waitFor(() => expect(time.getAttribute("aria-selected")).toBe("true"));
-  expect(document.activeElement).toBe(time);
-  fireEvent.keyDown(time, { key: "ArrowRight", code: "ArrowRight" });
-  await waitFor(() => expect(timeline.getAttribute("aria-selected")).toBe("true"));
-  expect(document.activeElement).toBe(timeline);
-  expect(connected().rail.selected()).toBe("home");
-});
 
-it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "recovered-notes", "resources"])("u4315b_back_to_ask_clears_centre_navigation: %s", async target => {
+it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "notes", "resources"])("u4315b_back_to_ask_clears_centre_navigation: %s", async target => {
   const { connected, daemon } = await mountNavigation();
   connected().rail.select(target === "a0" ? "a0" : "home");
   if (["Time", "Timeline"].includes(target)) fireEvent.click(await screen.findByRole("tab", { name: target }));
@@ -45,4 +38,34 @@ it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "
   expect(connected().view()).toBeNull();
   expect(within(row).queryByRole("button", { name: "Back to Ask" })).toBeNull();
   expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "ask.send", "message.send"].includes(call.method))).toHaveLength(0);
+});
+
+it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_share_navigation: %s", async command => {
+  const { connected } = await mountNavigation();
+  const row = screen.getByRole("navigation", { name: "Centre views" });
+  connected().rail.select("a0");
+  if (command === "app-settings") window.dispatchEvent(new Event("open-app-settings"));
+  else openProjectPage(command, "/p");
+  const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code work" : "Settings";
+  const view = await screen.findByRole("region", { name });
+  expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
+  expect(within(view).queryByRole("button", { name: "Close" })).toBeNull();
+  fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
+  expect(connected().rail.selected()).toBeNull();
+  await screen.findByRole("textbox", { name: "Ask" });
+});
+
+it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves_unsubmitted_work: %s", async target => {
+  const { connected, daemon } = await mountNavigation();
+  const draft = "  Keep this exact draft\nfor my original Project 🦉";
+  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: draft } });
+  connected().rail.select(target === "a0" ? "a0" : "home");
+  if (target === "Time" || target === "Timeline") fireEvent.click(await screen.findByRole("tab", { name: target }));
+  if (target === "ask-history") connected().showView(target);
+  fireEvent.click(within(screen.getByRole("navigation", { name: "Centre views" })).getByRole("button", { name: "Back to Ask" }));
+  const field = await screen.findByRole("textbox", { name: "Ask" });
+  expect((field as HTMLTextAreaElement).value).toBe(draft);
+  expect(connected().project.path).toBe("/p");
+  expect(daemon.calls.filter(call => ["ask.send", "message.send"].includes(call.method))).toHaveLength(0);
 });

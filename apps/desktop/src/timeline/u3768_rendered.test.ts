@@ -59,7 +59,7 @@ const capture = async (name: string) => {
 const select = async (id: string) => {
   await browser("click", `[role=treeitem][data-id="${id}"]`);
   await wait("!!Array.from(document.querySelectorAll('button')).find(e => e.textContent === 'Timeline')");
-  await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
+  await browser("find", "role", "tab", "click", "--name", "Timeline", "--exact");
   await wait("!!document.querySelector('.timeline-view')");
 };
 
@@ -95,19 +95,12 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
   await select("first-workstream");
   await capture("single-stopped-door");
   const before = await read<number[]>("Array.from(document.querySelectorAll('.timeline-block')).map(e => Number(e.dataset.end))");
-  await browser("click", ".timeline-header button");
+  // Header Close is superseded by u4315b_back_to_ask_clears_centre_navigation.
+  await browser("press", "Escape");
   await wait("!document.querySelector('.timeline-view')");
-  await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
+  expect(await read("document.activeElement?.textContent === 'Timeline'")).toBe(true);
+  await browser("find", "role", "tab", "click", "--name", "Timeline", "--exact");
   await wait("!!document.querySelector('.timeline-view')");
-
-  for (const key of ["Enter", "Space"]) {
-    await browser("focus", ".timeline-header button");
-    await browser("press", key);
-    await wait("!document.querySelector('.timeline-view')");
-    expect(await read("document.activeElement === Array.from(document.querySelectorAll('button')).find(e => e.textContent === 'Timeline')")).toBe(true);
-    await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
-    await wait("!!document.querySelector('.timeline-view')");
-  }
 
   const after = await read<number[]>("Array.from(document.querySelectorAll('.timeline-block')).map(e => Number(e.dataset.end))");
 

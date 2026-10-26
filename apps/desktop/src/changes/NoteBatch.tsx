@@ -77,7 +77,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
 
 /** Project-local access stays available when the original Agent or Worktree is gone. */
-export const NoteRecovery = (props: { notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
+export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { app } = useConnectedProject();
   const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison>>(new Map());
 
@@ -131,7 +131,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   return <Show when={any() || props.open}><Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open: next }) => { if (next) props.onOpenChange(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
     <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
     <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
-      <header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
+      <Show when={!props.compact}><header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header></Show>
       <ReservedLine message={props.notes.problem()} />
       <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" data-button="quiet" onClick={() => clear(key)}>{copy.dismissFailure}</button></ReservedLine>}</For>
       <div class="diff-actions"><CopyButton app={app} text={props.notes.copy()} identity={"all"} onSuccess={() => clear("all")} onFailure={error => setFailures(previous => new Map(previous).set("all", clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.notes.retry}>{copy.retry}</button></Show></div>
