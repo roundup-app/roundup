@@ -83,7 +83,7 @@
 
 .import-title {
   min-width: 0;
-  padding-inline-end: calc(var(--space-6) * 2);
+  max-width: calc(100% - var(--space-6) * 2);
   overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
