@@ -52,6 +52,7 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
     const seconds = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--duration-reduced")) / 1000;
 
     if (!mark || !outgoing || !current) return;
+
     if (!(seconds > 0)) return setLeaving(undefined);
     // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
     const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: "easeOut" }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: "easeIn" })];
