@@ -1,0 +1,142 @@
+{
+  "agents-10-base-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ],
+  "agents-10-head-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ],
+  "conflict-base-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ],
+  "conflict-head-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ],
+  "tree-40-base-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ],
+  "tree-40-head-calls.json": [
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    },
+    {
+      "method": "project.resources",
+      "params": null
+    }
+  ]
+}
