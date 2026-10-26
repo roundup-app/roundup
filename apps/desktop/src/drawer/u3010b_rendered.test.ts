@@ -442,6 +442,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
           await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
           await halfway(initial.left, initial.left - initial.width);
           const closed = await activate('.drawer');
+          if (closed.open !== 'false') throw new Error('Visible edge press did not dismiss Drawer');
           if (Math.abs(closed.left - (initial.left - initial.width)) < 1) throw new Error('Edge press arrived after opening settled');
           const returning = closed.left;
           await halfway(returning, initial.left);
