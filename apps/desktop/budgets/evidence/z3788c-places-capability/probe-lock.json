@@ -1,0 +1,116 @@
+{
+  "name": "z3788c-storage-probe",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "dependencies": {
+        "@solid-primitives/storage": "4.4.0",
+        "@tauri-apps/plugin-store": "2.5.0",
+        "solid-js": "1.9.17",
+        "valibot": "1.5.0"
+      }
+    },
+    "node_modules/@solid-primitives/storage": {
+      "version": "4.4.0",
+      "resolved": "https://registry.npmjs.org/@solid-primitives/storage/-/storage-4.4.0.tgz",
+      "integrity": "sha512-+u0dpTqrUG7h+IMfmGLCx7vx2Q0Eon6paBgzcWhEP/dauElpGU3ElpZZOZgw8YKR1+J4X4ENiAL0na3VH8RWMg==",
+      "license": "MIT",
+      "dependencies": {
+        "@solid-primitives/utils": "^6.4.1"
+      },
+      "peerDependencies": {
+        "@tauri-apps/plugin-store": "*",
+        "solid-js": "^1.6.12"
+      },
+      "peerDependenciesMeta": {
+        "@tauri-apps/plugin-store": {
+          "optional": true
+        },
+        "solid-start": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@solid-primitives/utils": {
+      "version": "6.4.1",
+      "resolved": "https://registry.npmjs.org/@solid-primitives/utils/-/utils-6.4.1.tgz",
+      "integrity": "sha512-ISSB5QX1qP2ynrheIpYwc4oKR5Ny4siNuUyf1qZniy+Il+p/PtDB0QK1Dnle8noiHpwRD3gpPdubOC3qI/Zamg==",
+      "license": "MIT",
+      "peerDependencies": {
+        "solid-js": "^1.6.12"
+      }
+    },
+    "node_modules/@tauri-apps/api": {
+      "version": "2.12.4",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.4.tgz",
+      "integrity": "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg==",
+      "license": "Apache-2.0 OR MIT",
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/tauri"
+      }
+    },
+    "node_modules/@tauri-apps/plugin-store": {
+      "version": "2.5.0",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/plugin-store/-/plugin-store-2.5.0.tgz",
+      "integrity": "sha512-+ykjiQwMJCSk/U2enHA8peKBWgDKgrP7JfZnGwQpqzwA0nVtKTc0LCyxWr2whOrcQoQqtUdr9NVdDZpfKpT1Xw==",
+      "license": "MIT OR Apache-2.0",
+      "dependencies": {
+        "@tauri-apps/api": "^2.12.0"
+      }
+    },
+    "node_modules/csstype": {
+      "version": "3.2.3",
+      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
+      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
+      "license": "MIT"
+    },
+    "node_modules/seroval": {
+      "version": "1.6.12",
+      "resolved": "https://registry.npmjs.org/seroval/-/seroval-1.6.12.tgz",
+      "integrity": "sha512-CqbIVfk/7GL3ITwZI55lcPbpQbjHZ2DD5cUj4iH7E9YsCfHNJV1mx7yNp86Z84w5IpmkZZS/2s5vPOWmVWSdQg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=10"
+      }
+    },
+    "node_modules/seroval-plugins": {
+      "version": "1.6.12",
+      "resolved": "https://registry.npmjs.org/seroval-plugins/-/seroval-plugins-1.6.12.tgz",
+      "integrity": "sha512-+reiwp/lYxiyctSrdvX7OQ1YLrcbWYgBiZrhSFL+V43b0/DGRLNVSDyZINbQe+tWplPOI2fw2dPrdv6hcc09kQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=10"
+      },
+      "peerDependencies": {
+        "seroval": "^1.0"
+      }
+    },
+    "node_modules/solid-js": {
+      "version": "1.9.17",
+      "resolved": "https://registry.npmjs.org/solid-js/-/solid-js-1.9.17.tgz",
+      "integrity": "sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow==",
+      "license": "MIT",
+      "dependencies": {
+        "csstype": "^3.1.0",
+        "seroval": "~1.6.8",
+        "seroval-plugins": "~1.6.8"
+      }
+    },
+    "node_modules/valibot": {
+      "version": "1.5.0",
+      "resolved": "https://registry.npmjs.org/valibot/-/valibot-1.5.0.tgz",
+      "integrity": "sha512-nil6AkP2TChWL43Z5uJ6GTxX01CUA+g8LWUM+N/rB9NBbkUMaUsi9PUNzlUPgoKASgmx9f7eGOYpJ04/fSa6FQ==",
+      "license": "MIT",
+      "peerDependencies": {
+        "typescript": ">=5"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    }
+  }
+}
