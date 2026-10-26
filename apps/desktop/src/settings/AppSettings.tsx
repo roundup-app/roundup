@@ -19,7 +19,7 @@ import { ShortcutSetting } from "./ShortcutSetting";
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
-  const [section, setSection] = createSignal("Agents");
+  const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
   const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();

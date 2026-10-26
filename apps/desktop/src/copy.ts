@@ -323,6 +323,7 @@ export const copy = {
   notesRetentionFailed: (project: string, operation: string, cause: string) => `${project.split("/").filter(Boolean).at(-1)}: Changes drafts ${operation === "restore" ? "could not be restored" : "will not survive reload"} — ${cause === "capacity" ? "10 MiB storage limit reached" : cause === "changed" ? "storage changed in another window" : cause === "invalid" ? "invalid stored data" : cause === "unreadable" ? "storage unreadable" : "storage refused a write"}. Copy, retry or discard.`,
   notesNoBaseline: "Acceptance is unknown: the original Message history could not be retained. Copy or discard this submission; a retry could duplicate an accepted send.",
   openNotesRecovery: "Review recovery options",
+  noNoteDrafts: "No drafts to recover",
   recoverNotes: "Recover Changes drafts",
   noteDraft: "draft",
   unavailableAgent: "Unavailable Agent",
