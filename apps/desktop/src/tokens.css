@@ -39,9 +39,9 @@
   --transparent: transparent;
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
-  --hover: var(--gray-3);
-  --selected: var(--gray-4);
-  --selected-hover: var(--gray-5);
+  --hover: rgba(0, 0, 0, 0.04);
+  --selected: rgba(0, 0, 0, 0.05);
+  --selected-hover: rgba(0, 0, 0, 0.08);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3295a: the one order of floating surfaces, lowest first. */
@@ -54,7 +54,8 @@
   --text: var(--gray-12);
   --grey: var(--gray-11);
   --cache-write: var(--gray-9);
-  --disabled: var(--gray-11);
+  /* Disabled neutral tones sit between Radix gray 10 and 11 and keep 4.5:1. */
+  --disabled: #707070;
   --press-opacity: 0.9;
   --accent: var(--blue-11);
   --amber: var(--amber-11);
@@ -111,7 +112,7 @@
   --radius-scrollbar: 3px;
   --radius-round: 50%;
   --radius-pill: 999px;
-  --surface: var(--gray-2);
+  --surface: #ffffff;
   --button-neutral: var(--gray-4);
   --button-accent-ink: var(--gray-1);
 
@@ -203,19 +204,19 @@
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-1);
-    --surface: var(--gray-2);
+    --ground: var(--gray-2);
+    --surface: var(--gray-3);
     --button-neutral: var(--gray-4);
     --button-accent-ink: var(--gray-1);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-2);
-    --hover: var(--gray-3);
-    --selected: var(--gray-4);
-    --selected-hover: var(--gray-5);
+    --sunken: var(--gray-1);
+    --hover: rgba(255, 255, 255, 0.06);
+    --selected: rgba(255, 255, 255, 0.08);
+    --selected-hover: rgba(255, 255, 255, 0.10);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
-    --disabled: var(--gray-11);
+    --disabled: #999999;
     --accent: var(--blue-11);
     --amber: var(--amber-11);
     --red: var(--red-11);
@@ -250,6 +251,7 @@ button, file-tree-container, diffs-container {
 
 /* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
 :root[data-mode="light"] {
+  --surface: #ffffff;
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
   --terminal-cursor: #4d4d4c;
@@ -276,14 +278,14 @@ button, file-tree-container, diffs-container {
   --ground: var(--gray-1);
   --key-chip-fill: var(--gray-3);
   --sunken: var(--gray-2);
-  --hover: var(--gray-3);
-  --selected: var(--gray-4);
-  --selected-hover: var(--gray-5);
+  --hover: rgba(0, 0, 0, 0.04);
+  --selected: rgba(0, 0, 0, 0.05);
+  --selected-hover: rgba(0, 0, 0, 0.08);
   --pressed: var(--gray-6);
   --text: var(--gray-12);
   --grey: var(--gray-11);
   --cache-write: var(--gray-9);
-  --disabled: var(--gray-11);
+  --disabled: #707070;
   --accent: var(--blue-11);
   --amber: var(--amber-11);
   --red: var(--red-11);
@@ -296,6 +298,7 @@ button, file-tree-container, diffs-container {
 }
 
 :root[data-mode="dark"] {
+    --surface: var(--gray-3);
     --terminal-background: #282c34;
     --terminal-foreground: #ffffff;
     --terminal-cursor: #ffffff;
@@ -318,17 +321,17 @@ button, file-tree-container, diffs-container {
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-1);
+    --ground: var(--gray-2);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-2);
-    --hover: var(--gray-3);
-    --selected: var(--gray-4);
-    --selected-hover: var(--gray-5);
+    --sunken: var(--gray-1);
+    --hover: rgba(255, 255, 255, 0.06);
+    --selected: rgba(255, 255, 255, 0.08);
+    --selected-hover: rgba(255, 255, 255, 0.10);
     --pressed: var(--gray-6);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
-    --disabled: var(--gray-11);
+    --disabled: #999999;
     --accent: var(--blue-11);
     --amber: var(--amber-11);
     --red: var(--red-11);
@@ -454,19 +457,18 @@ button, file-tree-container, diffs-container {
   :root { --duration-vendor: 0s; }
 }
 
-/* Native hue is toned toward the scheme's contrasting pole so arbitrary macOS
-   accents retain readable labels and glyphs, including foreground on fills. */
+/* Preference delivery supplies contrast-targeted channels for each scheme. */
 :root[data-system-accent] {
-  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 38%, black);
+  --accent: rgb(var(--system-accent-light-channels));
 }
 @media (prefers-color-scheme: dark) {
   :root[data-system-accent] {
-    --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 45%, white);
+    --accent: rgb(var(--system-accent-dark-channels));
   }
 }
 :root[data-system-accent][data-mode="light"] {
-  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 38%, black);
+  --accent: rgb(var(--system-accent-light-channels));
 }
 :root[data-system-accent][data-mode="dark"] {
-  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 45%, white);
+  --accent: rgb(var(--system-accent-dark-channels));
 }
