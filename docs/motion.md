@@ -238,7 +238,7 @@ mark alignment, opacity and browser animations. Its base/head traces under
 rotation from the new frozen phase. All layer/layout/completion adoption, remaining
 inventory, full capture and native scheduling obligations remain on #3821.
 
-The glyph slice's immutable production comparison is `U3010d/glyph-bundle.json`:
+The glyph slice's immutable production comparison is `docs/perf-motion-glyph.json`:
 base `3b6b9daaa52dd8cd25505d84b235e0c981779cf0`, source head
 `784719087648be9bb7845658c2d60c99c03c8143`, gzip-9 entry/eager JS
 433,360 → 433,586 bytes (+226). Both builds have 262 lazy JS chunks, all enumerated;
