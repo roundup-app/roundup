@@ -1,4 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
@@ -303,8 +305,6 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await browser("set", "viewport", "1512", "950");
     const name = `pointer-${mode}-${rate}-run${run}`;
 
-    await browser("record", "start", join(directory, `${name}.webm`));
-    // Recording starts a new context; restore the requested colour scheme there too.
     await browser("set", "media", "dark");
 
     await browser("wait", ".shelf-tabs");
@@ -363,6 +363,18 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     const stream = (await browser("stream", "enable")).match(/ws:\/\/[^\s]+/)?.[0];
 
     if (!stream) throw new Error("agent-browser input stream unavailable");
+
+    // Record the existing screencast once. Page.captureScreenshot's second 100 ms loop can hide an entire half-crossing.
+    const frames = mkdtempSync(join(tmpdir(), "drawer-frames-"));
+    const stamps: number[] = [];
+    const recording = new WebSocket(stream);
+    recording.addEventListener("message", event => {
+      const message = JSON.parse(String(event.data));
+
+      if (message.type !== "frame") return;
+      writeFileSync(join(frames, `${stamps.length}.jpg`), Buffer.from(message.data, "base64"));
+      stamps.push(performance.now());
+    });
 
     try {
       await evaluate(`(async () => {
@@ -463,8 +475,12 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     } finally {
       const trace = await evaluate("(() => { const o = window.__pointerDrawer; cancelAnimationFrame(o.frame); return { samples: o.samples, events: o.events }; })()");
       writeFileSync(join(directory, `${name}-frames.json`), JSON.stringify(trace));
-      await browser("record", "stop");
-      // Recording creates a separate context; close this run before the next fixture so hidden Apps cannot contend with its frames.
+      recording.close();
+      const list = stamps.map((stamp, index) => `file '${index}.jpg'\nduration ${((stamps[index + 1] ?? stamp + 16.667) - stamp) / 1000}`).join("\n");
+      writeFileSync(join(frames, "frames.txt"), list);
+      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", join(frames, "frames.txt"), "-fps_mode", "vfr", "-c:v", "libvpx-vp9", join(directory, `${name}.webm`)]);
+      rmSync(frames, { recursive: true });
+      // Close each run's fixture before starting the next recording.
       await browser("close");
     }
   }
