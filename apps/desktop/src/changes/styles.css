@@ -126,3 +126,6 @@
 .note-recovery .note-recovered-batch { display: flex; flex-direction: column; gap: var(--space-2); }
 .note-recovery pre { font: inherit; margin: 0; }
 .note-recovery .diff-actions { flex-wrap: wrap; }
+
+.note-recovery-positioner { pointer-events: none; }
+.note-recovery { pointer-events: auto; }
