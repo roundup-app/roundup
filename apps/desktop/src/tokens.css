@@ -457,7 +457,7 @@ button, file-tree-container, diffs-container {
 /* Native hue is toned toward the scheme's contrasting pole so arbitrary macOS
    accents retain readable labels and glyphs, including foreground on fills. */
 :root[data-system-accent] {
-  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 45%, black);
+  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 38%, black);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-system-accent] {
@@ -465,7 +465,7 @@ button, file-tree-container, diffs-container {
   }
 }
 :root[data-system-accent][data-mode="light"] {
-  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 45%, black);
+  --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 38%, black);
 }
 :root[data-system-accent][data-mode="dark"] {
   --accent: color-mix(in srgb, rgb(var(--system-accent-channels)) 45%, white);
