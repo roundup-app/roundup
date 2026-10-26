@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-26",
+  "base": "475476fedeadfd655ff4a3c9e1df6c54231e752f",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "sourceSHA256": {
+    "apps/desktop/src/bubbles/places.ts": "013805a6796877c347970a443c488fe463e9f06e9e7632994fc226423bbfa581",
+    "apps/desktop/src/bubbles/Bubbles.tsx": "ea22ad3bf42395890828267d396a61fa55492c5f3254b7daeaca40a211ecc356"
+  },
+  "probeExit": 1,
+  "scope": "placesStorage only; state/storage.ts has a separate merged capability decision"
+}

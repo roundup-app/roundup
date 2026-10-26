@@ -2,13 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, info, workstream } from "../testing/nodes";
-import { fakeEmulators } from "../terminal/paneHarness";
+import { mountNavigation as mount } from "../testing/navigationFixture";
+import { agent, info } from "../testing/nodes";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
-import type { ConnectedProject } from "../state/connectedProject";
-import { todoHandlers } from "../testing/stores";
-import { todo } from "../todos/testHarness";
-import { WORKTREE } from "../changes/harness";
 
 // Connected App seam: acknowledged calls, selection, focus and disposal. Appearance belongs to U26.
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -20,37 +16,7 @@ const key = (code: string, options: KeyboardEventInit = {}) => {
 
 const leader = (code: string) => { key("KeyK", { metaKey: true }); key(code); };
 
-const mount = async (empty = false) => {
-  const app = createFakeApp();
 
-  for (let n = 0; n < 7; n++) app.add(`/project${n}`);
-  app.add("/p");
-  const daemon = app.of("/p");
-  const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: 12 }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
-  daemon.handlers["rail.tree"] = () => nodes;
-  const shells: ReturnType<typeof info>[] = [];
-  daemon.handlers["terminal.list"] = () => [...shells, ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
-  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
-  daemon.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
-  const store = { todos: [todo(1, { title: "Selected work", home: null })] };
-  Object.assign(daemon.handlers, todoHandlers(store, () => {}));
-  let connected: ConnectedProject | undefined;
-  const emulators = fakeEmulators();
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { connected = open; }} />);
-  await screen.findByRole("textbox", { name: "Ask" });
-  await waitFor(() => expect(projectMenu.path).toBe("/p"));
-
-  return { app, daemon, connected: () => connected!, store, emulators, nodes, shells };
-};
-
-it("u2539b_landing_mounts_only_ask_and_attention", async () => {
-  const { daemon } = await mount();
-  expect(document.querySelector('[role="tree"], .todos-tab, .pads-tab, .terminal-tabs, .resource-value, .ask-rows, .reactions, .made-list')).toBeNull();
-  expect(document.querySelectorAll(".overview-entry")).toHaveLength(1);
-  expect(daemon.calls.filter(call => call.method === "agent.spawn" || call.method === "ask.send")).toHaveLength(0);
-  fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
-  await waitFor(() => expect(document.querySelector(".pane-screen [data-terminal]")).not.toBeNull());
-});
 
 it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () => {
   await mount();
@@ -88,12 +54,14 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   other.handlers["rail.tree"] = () => [agent("other", "needs-you", "ready")];
   other.handlers["terminal.list"] = () => [info("t-other", { owner: "other" })];
   other.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
-  const attention = await screen.findByRole("button", { name: /project0.*Needs you/ });
+  const tab = await screen.findByRole("tab", { name: /project0/ });
+  await waitFor(() => expect(tab.querySelector('.tab-mark[data-kind="needs-you"]')).not.toBeNull());
+  const attention = tab.querySelector(".tab-mark")!;
   fireEvent.click(attention);
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
 });
 
-it.each(["workstreams", "ask-history", "resources", "terminal-tabs", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
+it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
 
   if (view === "resources") {
@@ -239,13 +207,11 @@ it("u2539b_strip_items_follow_actionable_facts", async () => {
   await waitFor(() => expect(emulators.made.has("t-a1")).toBe(true));
   const terminal = emulators.made.get("t-a1");
   const portal = document.querySelector(".resource-agent");
-  expect(document.querySelector(".resource-strip .resource-value, .resource-strip .terminal-tabs, .hint-line")).toBeNull();
+  expect(document.querySelector(".resource-strip .resource-value, .hint-line")).toBeNull();
   openProjectPage("view:resources", "/p");
   await screen.findByRole("region", { name: "Resources" });
   openProjectPage("view:resources", "/p");
-  openProjectPage("view:terminal-tabs", "/p");
   await screen.findByRole("group", { name: "Terminals" });
-  openProjectPage("view:terminal-tabs", "/p");
   expect(document.querySelector(".resource-agent")).toBe(portal);
   expect(emulators.made.get("t-a1")).toBe(terminal);
   expect(terminal?.disposed).toBe(false);
@@ -326,7 +292,6 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 
   await waitFor(() => expect(connected().rail.nodes.find(node => node.id === target.id)?.status?.kind).toBe(kind));
   expect(places().length).toBeLessThanOrEqual(3);
-  openProjectPage("view:workstreams", "/p");
   await waitFor(() => expect(document.querySelector(".rail-tree")).not.toBeNull());
   expect(places().length).toBeLessThanOrEqual(3);
   connected().rail.toggleCollapsed("home");
@@ -357,4 +322,10 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   expect(projectMenu.items).toEqual([]);
   openProjectPage("action:chord:⌘N", "/p");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
+});
+
+it("u4274b_project_menu_omits_navigation_toggles", async () => {
+  await mount();
+  expect(projectMenu.items.some(item => ["view:workstreams", "view:terminal-tabs"].includes(item.id))).toBe(false);
+  expect(projectMenu.items.find(item => item.id === "action:chord:⌘T")?.enabled).toBe(true);
 });
