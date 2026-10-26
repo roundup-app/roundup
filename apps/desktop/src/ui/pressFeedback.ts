@@ -15,32 +15,36 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
   return createRoot(dispose => {
     const effects = new Map<Element, { animation: ReturnType<typeof animate>; restore: () => void }>();
     let pointerDown = false;
+    let seconds = 0;
+    let scale = 1;
+    let ease: [number, number, number, number] = [0, 0, 0, 0];
+    const resolveTokens = () => {
+      const tokens = getComputedStyle(doc.documentElement);
+      const duration = tokens.getPropertyValue("--duration-press").trim();
+      seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
+      scale = Number(tokens.getPropertyValue("--scale-press"));
+      const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
+      ease = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
+    };
+    resolveTokens();
     const stop = () => { effects.forEach((effect, el) => { effect.animation.cancel(); effect.restore(); releases.delete(el); }); effects.clear(); };
 
     const move = (el: Element, down: boolean) => {
+      // Full-width rows keep their tree inset, guides and hairline fixed; shared CSS supplies instant ink feedback.
+      if (reduced() || el.matches('[role=treeitem], .rail-row, .todo-row, .todo-row-button')) return;
       if (!(el instanceof HTMLElement) || !("animate" in el)) return;
       const visual = el.matches("input") ? el.closest<HTMLElement>(".app-checkbox, .app-radio, .app-segment") ?? el : el;
       const previous = effects.get(el);
       const computed = getComputedStyle(visual);
       const fromTransform = computed.transform === "none" ? new DOMMatrix().toString() : computed.transform;
-      const fromOpacity = computed.opacity;
       const transform = visual.style.transform;
       const opacity = visual.style.opacity;
       const restore = previous?.restore ?? (() => { visual.style.transform = transform; visual.style.opacity = opacity; });
       previous?.animation.cancel();
       restore();
-      const tokens = getComputedStyle(doc.documentElement);
-      const duration = tokens.getPropertyValue(reduced() ? "--duration-reduced" : "--duration-press").trim();
-      const seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
-      const scale = down ? tokens.getPropertyValue("--scale-press").trim() : "1";
       const base = getComputedStyle(visual).transform;
-      const target = new DOMMatrix(base === "none" ? undefined : base).scale(Number(scale)).toString();
-      const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
-      const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
-
-      const animation = reduced()
-        ? animate(visual, { opacity: [Number(fromOpacity), down ? Number(tokens.getPropertyValue("--press-opacity")) : 1] }, { duration: seconds })
-        : animate(visual, { transform: [fromTransform, target] }, { duration: seconds, ease });
+      const target = new DOMMatrix(base === "none" ? undefined : base).scale(down ? scale : 1).toString();
+      const animation = animate(visual, { transform: [fromTransform, target] }, { duration: seconds, ease });
 
       const effect = { animation, restore };
       effects.set(el, effect);
@@ -69,11 +73,9 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     };
 
     createEffect(() => {
-      if (reduced()) {
-        stop();
-
-        if (pressing && pointerDown) move(pressing, true);
-      }
+      reduced();
+      resolveTokens();
+      stop();
     });
 
     const control = (target: EventTarget | null) => {
@@ -101,7 +103,8 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     };
 
     const key = (event: KeyboardEvent) => {
-      pointerDown = false; stop();
+      if (pointerDown) return;
+      stop();
 
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       const el = control(event.composedPath()[0] ?? null);
@@ -134,12 +137,15 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
 
     view.addEventListener("dragstart", drag, true);
     view.addEventListener("blur", blur, true);
-    const endings = ["pointerup", "pointercancel", "lostpointercapture", "keyup"] as const;
+    const keyup = () => { if (!pointerDown) clear(); };
+    view.addEventListener("keyup", keyup, true);
+    const endings = ["pointerup", "pointercancel", "lostpointercapture"] as const;
 
     for (const name of endings) view.addEventListener(name, clear, true);
 
     return () => {
       pointerDown = false; clear(); stop(); dispose();
+      view.removeEventListener("keyup", keyup, true);
       view.removeEventListener("dragstart", drag, true);
       view.removeEventListener("blur", blur, true);
       doc.removeEventListener("pointerdown", pointer, true);

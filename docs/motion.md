@@ -144,8 +144,12 @@ The pre-Motion U3010b observer recorded continuous CSS retargeting for Drawer/re
 M8's shared clipboard acknowledgement merged in #4119. The next slice installs vanilla
 Motion 14.6.0 and integrates pointer press feedback in `ui/pressFeedback.ts`, reusing
 the App's reduced-motion accessor. Pointer down/release use the `--scale-press` and
-`--duration-press` Tokens; reduced motion selects `--duration-reduced` opacity.
-Keyboard input and drag handoff cancel the press projection immediately. The platform
+`--duration-press` Tokens for bounded controls. Full-width Rail and Todo rows keep
+indentation, guides and dividers fixed, using their shared instant ink/opacity feedback.
+Reduced motion also uses that instant feedback, with no transform or opacity fade.
+Tokens resolve at installation and refresh when the live preference changes.
+Keys during a held pointer leave its feedback owned by that pointer until release;
+keyboard-only activation remains instant. Drag handoff cancels projection before measurement. The platform
 and Ark still own activation; feedback dispatches no click and changes no background.
 D9 observes browser animation timings as well as CSS declarations and permits only
 opacity for its reduced-motion fade exception.
