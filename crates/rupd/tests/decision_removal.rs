@@ -20,15 +20,8 @@ fn legacy_decision_event(name: &str) -> String {
 #[tokio::test]
 async fn a3564d_existing_project_opens_without_custom_question_authority() {
     let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    rusqlite_migration::Migrations::new(
-        storage::PROJECT_V36
-            .into_iter()
-            .map(rusqlite_migration::M::up)
-            .collect(),
-    )
-    .to_latest(&mut db)
-    .unwrap();
+    // Version 36 is the shipped prefix before custom authority removal.
+    let db = storage::project(dir.path(), 36);
     db.execute_batch(
         r#"INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','kept',0);
          INSERT INTO events(event) VALUES('{"actor":{"kind":"user","id":"you","parent":null},"name":"rail.changed","data":null}');
