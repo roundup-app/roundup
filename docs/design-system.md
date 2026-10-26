@@ -31,16 +31,16 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--ground` | `var(--gray-1)` | `var(--gray-1)` | the pane and the Drawer |
-| `--sunken` | `var(--gray-2)` | `var(--gray-2)` | the Rail and the Shelf |
-| `--hover` | `var(--gray-3)` | `var(--gray-3)` | a row or button under the pointer |
-| `--selected` | `var(--gray-4)` | `var(--gray-4)` | the selected row |
-| `--selected-hover` | `var(--gray-5)` | `var(--gray-5)` | the selected row under the pointer |
+| `--ground` | `var(--gray-1)` | `var(--gray-2)` | the pane and the Drawer |
+| `--sunken` | `var(--gray-2)` | `var(--gray-1)` | the Rail and the Shelf |
+| `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
+| `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` | the selected row |
+| `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` | the selected row under the pointer |
 | `--scrim` | `rgba(0,0,0,.40)` | same | darkens the centre beneath an overlay Shelf |
 | `--text` | `var(--gray-12)` | `var(--gray-12)` | body text |
 | `--grey` | `var(--gray-11)` | `var(--gray-11)` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--cache-write` | `var(--gray-9)` | `var(--gray-9)` | Measurement cache-write segment and swatch |
-| `--disabled` | `var(--gray-11)` | `var(--gray-11)` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
+| `--disabled` | `#707070` | `#999999` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
 | `--accent` | `var(--blue-11)` | `var(--blue-11)` | Glyph tone of `working`, the primary action |
 | `--amber` | `var(--amber-11)` | `var(--amber-11)` | `needs-you` |
@@ -150,7 +150,7 @@ An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--sele
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
+The Rail and the Shelf sit on `--sunken`, darker than the pane in dark and shaded below it in light; floating surfaces use a distinct opaque `--surface`. Row washes are translucent so each retains the region beneath it. The disabled neutral tones lie between Radix gray 10 and 11, distinct from enabled grey labels while retaining D5. The pane and the Drawer sit on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
 
 Floating layers (U3295a): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number.
 
@@ -209,17 +209,17 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 
 | Surface | Token | Light | Dark |
 |---|---|---|---|
-| header backdrop and bare header controls | `--ground` | root `--sunken`: `#f5f5f7` | root `--ground`: `#1c1c1e` |
-| unselected tab base | `--sunken` | root `#f5f5f7` | root `#141416` |
-| tab selected base | `--selected` | `var(--gray-4)` | `var(--gray-4)` |
-| tab selected under pointer | `--selected-hover` | `var(--gray-5)` | `var(--gray-5)` |
-| header rule and tab borders | `--hairline` | opaque `#68686d` | opaque `#8e8e93` |
-| header and tabs | `--text` | root `#1d1d1f` | root `#f5f5f7` |
-| bare header controls | `--grey` / `--disabled` | root `#68686d` / `#6f6f74` | root `#a1a1a6` / `#8e8e93` |
-| unselected tabs | `--grey` | root `#68686d` | root `#a1a1a6` |
-| tab controls | `--disabled` | `var(--gray-11)` | `var(--gray-11)` |
+| header backdrop and bare header controls | `--ground` | root `--sunken` | root `--ground` |
+| unselected tab base | `--sunken` | root `--sunken` | root `--sunken` |
+| tab selected base | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` |
+| tab selected under pointer | `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` |
+| header rule and tab borders | `--hairline` | opaque `--gray-11` | opaque `--gray-10` |
+| header and tabs | `--text` | root `--text` | root `--text` |
+| bare header controls | `--grey` / `--disabled` | root `--grey` / `--disabled` | root `--grey` / `--disabled` |
+| unselected tabs | `--grey` | root `--grey` | root `--grey` |
+| tab controls | `--disabled` | `#707070` | `#999999` |
 | header and tab focus | no paint (U3528) | none | none |
-| header Ink and Tab marks, including overflow | `--red` / `--amber` | root `#c4262e` / `#975900` | root `#ff6b6b` / `#f0a030` |
+| header Ink and Tab marks, including overflow | `--red` / `--amber` | root `--red` / `--amber` | root `--red` / `--amber` |
 | bare header controls | `--hover` | root values | root values |
 | unselected tab and its × | `--hover` | root values | root values |
 | × inside selected hovered box | `--hover` | root `rgba(0,0,0,.04)` | root `rgba(255,255,255,.06)` |
@@ -266,7 +266,7 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--surface` | `var(--gray-2)` | `var(--gray-2)` | Opaque floating surface |
+| `--surface` | `#ffffff` | `var(--gray-3)` | Opaque floating surface |
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
 | `--button-accent-ink` | `var(--gray-1)` | `var(--gray-1)` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
@@ -312,4 +312,4 @@ The elevation recipe is implemented; the remaining requirements below are specif
 
 D10’s edge ring is not a control outline or focus ring. Native material is the sole new transparency exception for Rail/Shelf. No shader or WebGL background. Terminal ANSI remains U3517’s palette. Browser captures prove web rendering only; native material and launch cost require the implementation’s Mac observation. No new Token values, App seam names or native performance claims are established by this policy merge.
 
-U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. Native macOS accent delivery supplies normalized sRGB channels; tokens tone its hue toward black in light and white in dark for readable accent labels and fills. Unavailable native delivery removes the override and restores Radix blue 11. Explicit App appearance choices also select the corresponding Radix scale. Terminal ANSI and program-authored colours retain U3517.
+U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. Native macOS accent delivery supplies normalized sRGB channels; preference delivery uses Culori to find the closest sRGB mix toward black in light and white in dark that clears 4.7:1 against Radix neutral steps 1–5, covering labels and accent fills. It supplies plain RGB channel Tokens for both schemes, so the rendered Checks measure the same colour the App draws. Unavailable native delivery removes the override and restores Radix blue 11. Explicit App appearance choices also select the corresponding Radix scale. Terminal ANSI and program-authored colours retain U3517.

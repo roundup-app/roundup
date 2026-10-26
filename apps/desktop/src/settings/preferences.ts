@@ -1,5 +1,7 @@
 import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
+import { gray, grayDark } from "@radix-ui/colors";
+import { interpolate, wcagContrast } from "culori";
 import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
 import type { App, CapturePort, AppSeam } from "../app/seam";
@@ -142,6 +144,8 @@ export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
   const clear = () => {
     delete root.dataset.systemAccent;
     root.style.removeProperty("--system-accent-channels");
+    root.style.removeProperty("--system-accent-light-channels");
+    root.style.removeProperty("--system-accent-dark-channels");
   };
 
   void app.onSystemAccent(accent => {
@@ -153,6 +157,29 @@ export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
       return;
     }
 
+    const colour = { mode: "rgb" as const, r: accent[0], g: accent[1], b: accent[2] };
+
+    // Keep the closest native tone that clears every neutral state and the fill's label.
+    // A small margin also covers fractional-channel rounding in the webview.
+    for (const [scheme, scale, pole] of [["light", gray, 0], ["dark", grayDark, 1]] as const) {
+      const mix = interpolate([colour, { mode: "rgb", r: pole, g: pole, b: pole }], "rgb");
+      let low = 0;
+      let high = 1;
+      const readable = (amount: number) => [scale.gray1, scale.gray2, scale.gray3, scale.gray4, scale.gray5]
+        .every(ground => wcagContrast(mix(amount), ground) >= 4.7);
+
+      if (!readable(0)) {
+        for (let step = 0; step < 20; step++) {
+          const middle = (low + high) / 2;
+
+          if (readable(middle)) high = middle;
+          else low = middle;
+        }
+      } else high = 0;
+
+      const toned = mix(high);
+      root.style.setProperty(`--system-accent-${scheme}-channels`, [toned.r, toned.g, toned.b].map(channel => channel * 255).join(" "));
+    }
     root.style.setProperty("--system-accent-channels", accent.map(channel => channel * 255).join(" "));
     root.dataset.systemAccent = "true";
   }).then(stop => { if (active) release = stop; else stop(); }, () => { if (active) clear(); });

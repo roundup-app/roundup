@@ -156,9 +156,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
-    onSystemAccent: async listener => { listener(null);
-
- return () => {}; },
+    onSystemAccent: async listener => { listener(null); return () => {}; },
     writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },
     projects: () =>
       reach(async () => {
