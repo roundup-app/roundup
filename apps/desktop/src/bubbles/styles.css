@@ -67,8 +67,8 @@
 
 /* U3517c: the shell viewport shares the Terminal canvas ground. */
 .bubble-body,
-.bubble .xterm .xterm-viewport,
-.bubble .xterm .xterm-scrollable-element {
+.bubble .xterm-viewport.xterm-viewport,
+.bubble .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
 }
 
