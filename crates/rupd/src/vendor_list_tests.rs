@@ -29,7 +29,7 @@ fn git(project: &Path, args: &[&str]) {
     assert!(output.status.success(), "{output:?}");
 }
 
-fn real_node() -> String {
+pub(super) fn real_node() -> String {
     let output = std::process::Command::new("node")
         .args(["-p", "process.execPath"])
         .output()
@@ -39,7 +39,7 @@ fn real_node() -> String {
 
 /// The packaged folder: the repository's `list.mjs` (its `node_modules` resolve through the real
 /// path) and a `node` that journals each start's pid before it becomes the real runtime.
-fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
+pub(super) fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
     let dir = root.join("sidecar");
     std::fs::create_dir_all(&dir).unwrap();
     let journal = root.join("children");

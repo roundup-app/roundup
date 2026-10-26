@@ -909,3 +909,89 @@ async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
     assert!(outcome["workstream"].is_null());
     assert!(outcome["agent"].is_null());
 }
+
+#[tokio::test]
+async fn u3523e_live_resume_failure_keeps_import_recoverable() {
+    let (root, launcher, daemon, _original, seed) = import_fixture(0).await;
+    let seeded = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[seed]}),
+    )
+    .await;
+    let listing_agent = seeded["result"]["outcomes"][0]["agent"].as_str().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let at = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let original = import_source(&config, &project, 2, &at);
+    let mut record: Value = serde_json::from_slice(&std::fs::read(&original).unwrap()).unwrap();
+    record["uuid"] = json!("22222222-1111-4111-8111-111111111111");
+    record["isSidechain"] = json!(false);
+    record["message"] = json!({"role":"user", "content":"Continue this work"});
+    std::fs::write(&original, format!("{record}\n")).unwrap();
+    let bytes = std::fs::read(&original).unwrap();
+    let source = "00000002-1111-4111-8111-111111111111";
+    let cli = root.path().join("fake-claude");
+    std::fs::write(&cli, format!("#!/bin/sh\nif [ \"$1\" = agents ]; then printf '%s' '[{{\"sessionId\":\"{source}\",\"pid\":424242,\"cwd\":\"{}\"}}]'; exit 0; fi\nexit 1\n", project.display())).unwrap();
+    let (package, _) = crate::vendor_list_tests::package(
+        root.path(),
+        &format!("exec '{}' \"$@\"", crate::vendor_list_tests::real_node()),
+    );
+    drop(daemon);
+    let launcher = launcher.with_sidecar(package);
+    let daemon = import_daemon(&project, launcher.clone());
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: listing_agent.into(),
+        parent: None,
+    });
+    let listed = daemon.modules["import"]
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let pick = listed["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["source"] == source)
+        .unwrap();
+    let params =
+        json!({"agent":listing_agent,"selections":[{"source":source,"revision":pick["revision"]}]});
+    // Listing succeeds, but a missing executable makes normal resume fail before acknowledgement.
+    std::fs::remove_file(&cli).unwrap();
+    let reply = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+    let outcome = &reply["result"]["outcomes"][0];
+    assert!(outcome["error"].is_object(), "{reply}");
+    let id = outcome["agent"].as_str().unwrap();
+    assert!(outcome["workstream"].is_string());
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let node = tree["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == id)
+        .unwrap();
+    assert_eq!(node["can_resume"], true, "{tree}");
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+    drop(daemon);
+    let daemon = import_daemon(&project, launcher);
+    // Replay returns the published identities and never attempts another automatic launch.
+    let replay = import_rpc(&daemon, "project.importCommit", params).await;
+    assert_eq!(replay["result"]["outcomes"][0]["agent"], id);
+    assert!(
+        replay["result"]["outcomes"][0]["error"].is_null(),
+        "{replay}"
+    );
+    assert_eq!(
+        import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
+        json!([])
+    );
+    let retry = import_rpc(&daemon, "agent.resume", json!({"id":id})).await;
+    assert!(
+        retry["error"].is_object(),
+        "retry reaches the missing executable: {retry}"
+    );
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+}
