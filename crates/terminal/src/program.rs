@@ -14,6 +14,8 @@ impl Terminals {
     /// As with `program_ended`, a failure to observe the child is treated as ended.
     pub async fn wait_program_ended(&self, id: &str) {
         let ended = parse_terminal_number(id).ok().and_then(|number| {
+            let table = self.shared.table();
+            table.get(&number)?;
             self.shared
                 .program_ends
                 .lock()
