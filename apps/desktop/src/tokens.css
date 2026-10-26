@@ -113,6 +113,9 @@
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-copy: 1500ms;
+  --duration-press: 100ms;
+  --duration-reduced: 150ms;
+  --scale-press: 0.97;
   --duration-todo: 150ms;
   --ease-todo: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
