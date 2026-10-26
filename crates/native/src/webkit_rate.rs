@@ -136,7 +136,7 @@ fn apply(webview: &AnyObject, main: MainThreadMarker) {
         _main: main,
     };
     if let Err(missing) = preferences.turn_off() {
-        eprintln!("{missing}");
+        log::warn!(target: "roundup::shell", "configure WebKit frame rate: {missing}");
     }
 }
 
@@ -150,7 +150,7 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
                 // SAFETY: on macOS `inner` is the `WKWebView`, alive for this call on the main thread.
                 apply(unsafe { &*platform.inner().cast::<AnyObject>() }, main);
             }) {
-                eprintln!("desktop: could not configure WebKit frame rate: {error}");
+                crate::diagnostic("configure WebKit frame rate", &error);
             }
         })
         .build()
