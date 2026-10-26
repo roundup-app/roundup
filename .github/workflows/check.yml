@@ -190,6 +190,7 @@ jobs:
           node: 'false'
       - run: just clippy
       - name: Z4280a fresh desktop build
+        if: ${{ !cancelled() }}
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/z4280a-desktop
         run: |
