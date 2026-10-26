@@ -21,3 +21,20 @@ The M5 authority observer and all 40 MCP tests pass. Rust lint exits 0, includin
 A fresh `a3564a_attention_opens_the_requesting_terminal` run passes after completing the native binary build and releasing the interrupted run's empty build lock. The final production build repeats exactly: 436131 gzip bytes, checker exit 0.
 
 The final complete `just lint-web` run exits 0 after correcting declaration spacing and the evidence-note spelling match. Its cycle scanner also passes after the duplicate fixture-producing run ended. `pnpm install` completed before the push.
+
+
+## R19 and U3791c gate repair
+
+Source: `aa36ff3ea`, after a clean merge of main `ebbae60d3`.
+
+| Observer | Result |
+| --- | --- |
+| R19 lazy-view lifecycle | Before: hidden case sends Escape to a missing element. After: each view mounts before interval assertions and Escape. All nine activity tests pass; focused R19 cases take 194–214 ms each. No test removed. |
+| U3791c recovery | Before: the lazy dashboard owns Pane flex styles, leaving Retry beneath Ask. After: Pane owns those unchanged rules in its eager stylesheet. The unchanged rendered journey passes with real pointer actions and exact draft retention. |
+| Production startup | Build and checker exit 0: 403337 gzip bytes below unchanged 437814 ceiling. |
+| Required lints | Both complete lints pass, including ALL PROOFS CHECK; final Stylelint also passes after moving CSS. |
+| Dark 1512×950 tree-40 | Recorded U3791c journey passes. Enter and all four failure screens pass every emitted Check; error and Retry are visible. Recovered Pad editor has D1/D2/D10 failures identical, including values, to main ebbae60d3. D5/D6 pass throughout. |
+
+`just capture U3791c` was bounded at 60 seconds because it starts the entire web suite; no full-suite pass is claimed. The focused capture completed after installing the environment's missing ffmpeg. PNGs, Check readings and video remain uncommitted under `artifacts/ux/U3791c/`; U3791a failure images are also retained. A broad related run was stopped during cold Daemon compilation; the scenario-filtered related run passes all 10 selected tests in five files (190 files skipped). CI judges the complete pushed head.
+
+The failed Rust lane had passed all 494 selected tests before cancellation during contract regeneration. No assertion, contract generator or timeout was weakened.
