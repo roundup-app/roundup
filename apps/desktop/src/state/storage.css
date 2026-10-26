@@ -74,8 +74,9 @@
 }
 
 /* U3787a: persistent live feedback overlays the centre without moving its content. */
-.todo-undo[data-empty="true"] {
-  visibility: hidden;
+.todo-undo[data-overlay][data-empty="true"] {
+  background: var(--transparent);
+  pointer-events: none;
 }
 
 .todo-undo[data-overlay="true"] {

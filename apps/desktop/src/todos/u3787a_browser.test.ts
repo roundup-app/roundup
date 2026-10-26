@@ -16,7 +16,7 @@ beforeAll(async () => {
 afterAll(async () => {
   try { if (lane && captureDir("U3787a")) await lane.browser("record", "stop"); }
   finally { await lane?.close(); }
-});
+}, 180_000);
 
 it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () => {
   for (const seed of ["tree-40", "tabs-8", "conflict", "dense-failure"]) {

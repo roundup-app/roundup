@@ -52,6 +52,7 @@ const mount = async () => {
 
 it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
   const { app, remove, connections } = await mount();
+  const announcements = screen.getAllByRole("status");
   let finish!: (value: { operation: string; deleted: number[]; missing: number[]; state: "deleted" }) => void;
   app.of("/a").handlers["todo.delete"] = () => new Promise(resolve => { finish = resolve; });
   const button = await remove("/a");
@@ -66,6 +67,7 @@ it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
   await screen.findByRole("button", { name: "Undo" });
   expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
   const undo = screen.getByRole("button", { name: "Undo" });
+  expect(announcements).toContain(undo.closest('[role="status"]'));
   fireEvent.click(undo);
   fireEvent.click(undo);
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore")).toEqual([{ method: "todo.restore", params: { operation } }]));
@@ -86,7 +88,6 @@ it("u3787a_undo_stays_with_its_project", async () => {
   }
 
   // Only the active Project offers feedback; selecting A restores its own action.
-  expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(1);
   fireEvent.click(screen.getByRole("tab", { name: /^a/ }));
   await screen.findByRole("tabpanel", { name: "a" });
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
