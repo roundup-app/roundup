@@ -110,26 +110,21 @@ it("u4313a_rail_footer_offers_workstream_and_agent", async () => {
   expect(within(footer).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Workstream", "New Agent"]);
 });
 
-it.each(["home", "a1", null, "empty"])("u4313a_rail_agent_uses_the_new_agent_action: %s", async selection => {
-  const outcomes = [];
+it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
+  const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
+  if (selection !== "empty") connected().rail.select(selection);
+  const parent = selection === "home" ? "home" : null;
+  daemon.handlers["agent.spawn"] = () => {
+    const spawned = agent("fresh", "idle", "starting", { parent });
+    nodes.push(spawned);
+    queueMicrotask(() => daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" }));
 
-  for (const source of ["keyboard", "footer"]) {
-    const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
-    if (selection !== "empty") connected().rail.select(selection);
-    daemon.handlers["agent.spawn"] = () => {
-      const spawned = agent("fresh", "idle", "starting", { parent: selection === "empty" ? null : "home" });
-      nodes.push(spawned);
-      queueMicrotask(() => daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" }));
-
-      return spawned;
-    };
-    if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
-    else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
-    await waitFor(() => expect(daemon.calls.some(call => call.method === "agent.spawn")).toBe(true));
-    await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
-    outcomes.push(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "rail.createWorkstream"].includes(call.method)));
-    cleanup();
-    localStorage.clear(); sessionStorage.clear();
-  }
-  expect(outcomes[1]).toEqual(outcomes[0]);
+    return spawned;
+  };
+  if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
+  else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
+  await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
+  expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "rail.createWorkstream"].includes(call.method))).toEqual([
+    { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null } },
+  ]);
 });
