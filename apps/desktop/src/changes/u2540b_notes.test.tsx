@@ -35,12 +35,14 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
 });
 
 it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
+  const noteText = "retain me";
   await openDiff();
-  await saveNote("retain me");
-  expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
-  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("retain me");
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(noteText);
 });
 
 it("u2540b_edit_remove_and_batch_across_files", async () => {
@@ -61,8 +63,12 @@ it("u2540b_edit_remove_and_batch_across_files", async () => {
 });
 
 it("u2773a_changes_agent_switch_restores_form", async () => {
+  const secondText = "for b only";
+  const firstText = "for a only";
   const { app, connected } = await openDiff();
-  await saveNote("for a only");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: firstText } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -70,17 +76,19 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
   connected.rail.select("b");
-  fireEvent.click(screen.getByRole("button", { name: "roundup/b" }));
-  expect(screen.queryByRole("list", { name: "Notes" })).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  expect(screen.queryByRole("list")).toBeNull();
   await openFile();
-  await saveNote("for b only");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: secondText } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished b e\u0301\n  " } });
   connected.rail.select("a");
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   const batch = await screen.findByRole("list", { name: "Notes" });
-  expect(batch.textContent).toContain("for a only");
-  expect(batch.textContent).not.toContain("for b only");
+  expect(batch.textContent).toContain(firstText);
+  expect(batch.textContent).not.toContain(secondText);
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished a 🐝\n  ");
@@ -91,8 +99,8 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   connected.rail.select("b");
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/b" }));
-  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("for b only");
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(secondText);
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished b e\u0301\n  ");
@@ -194,7 +202,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
@@ -264,7 +272,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       const connected = await connectProject(app, { name: "Same project", path: real.dir }, () => true, () => 0);
       connected.rail.select(node.id);
       const view = render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-      fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       await saveNote(`  Project ${index} e\u0301\n🐝  `);
       originals.push(await app.rpc("agent.compareFile", { id: node.id, path: "same.ts" }));
@@ -294,7 +302,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       const connected = await connectProject(app, { name: "Same project", path: real.dir }, () => true, () => 0);
       connected.rail.select(target.id);
       const view = render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-      fireEvent.click(screen.getByRole("button", { name: target.branch }));
+      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(`  Project ${index} e\u0301\n🐝  `);
       await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
@@ -319,7 +327,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(1);
       // Lost acceptance is reconciled only by this user action, never by reload or an automatic retry.
       fireEvent.click(await screen.findByRole("button", { name: "Check Message history" }));
-      await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
       expect(await app.rpc("message.list", { to: target.id, status: null })).toHaveLength(1);
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(1);
       view.unmount();
@@ -333,40 +341,41 @@ it("u2773c_changes_external_change_keeps_original", async () => {
 
 
 it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
+  const noteText = "  original Worktree e\u0301\n🐝  ";
   const { app, connected } = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original Worktree e\u0301\n🐝  " } });
-  expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: null })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "a")?.worktree).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  expect(recovery.textContent).toContain("  original Worktree e\u0301\n🐝  ");
-  expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
+  expect(recovery.textContent).toContain(noteText);
+  expect(document.querySelector('[data-note-action="resume"]')).toBeNull();
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE })];
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  await waitFor(() => expect(document.querySelector(".note-recovery")).toBeNull());
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  original Worktree e\u0301\n🐝  ");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", noteText);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
 it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
+  const unavailableText = "  unavailable exact 🐝  ";
   const { app, connected } = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unavailable exact 🐝  " } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unavailableText } });
   app.handlers["rail.tree"] = () => [agent("replacement", "working", "building", { name: "a", worktree: WORKTREE })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "a")).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  expect(recovery.textContent).toContain("  unavailable exact 🐝  ");
+  expect(recovery.textContent).toContain(unavailableText);
+  expect(document.querySelector('[data-note-action="resume"]')).toBeNull();
   expect(within(recovery).getByRole("status")).toBeTruthy();
-  expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
   const copied = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
   vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[1]!);
@@ -414,7 +423,7 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
   fireEvent.click(within(recovery).getByRole("button", { name: "Resume note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer recovery editor work 🐝" } });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Recover Changes drafts" })) throw new Error("Previous dialog remains mounted"); });
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -453,7 +462,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
   const next = screen.getByRole("button", { name: "Remove note 1" });
   await waitFor(() => expect(document.activeElement).toBe(next));
   fireEvent.click(document.activeElement!);
-  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
 });
 
@@ -548,4 +557,27 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   expect(recovery.textContent).toContain("  exact form e\u0301\n🐝  ");
   expect(recovery.textContent).toContain("unrelated saved note");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
+});
+
+it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () => {
+  const { app, connected } = await openDiff();
+  const text = "  Keep this original note\ne\u0301 🐝  ";
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: text } });
+  const original = structuredClone(connected.drafts.list());
+  app.handlers["agent.changedFiles"] = () => ({ files: [] });
+  await connected.worktrees.refresh("a");
+  await waitFor(() => expect(document.querySelector(".worktree-control, .worktree-panel")).toBeNull());
+  expect(connected.drafts.list()).toEqual(original);
+  connected.showView("notes");
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  expect(recovery.textContent).toContain(text);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+  await connected.worktrees.refresh("a");
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openFile();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", text);
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

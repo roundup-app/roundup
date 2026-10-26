@@ -4,7 +4,7 @@ import { createKeystrokeRun, reportTerminal, terminalReady, startFlood, SETUP_BO
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { createComponent } from "solid-js";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { door, info, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";

@@ -127,6 +127,16 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  askHistory: "Ask history",
+  resources: "Resources",
+  terminalTabs: "Terminal tabs",
+  changesStale: "Changes are stale",
+  changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
+  projectMark: (name: string, mark: string) => `${name}: ${mark}`,
+  switchProject: "Switch Project",
+  reviewChanges: "Review changes",
+  backToAsk: "Back to Ask",
+  closeView: (name: string) => `Close ${name}`,
   ...railDraftCopy,
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   shortcutKeys: new Map([
@@ -393,6 +403,11 @@ export const copy = {
   projectName: "Project name",
   projectNoLongerOpen: "Project is no longer open",
   projectActions: "Project actions",
+  importPrompt: "Import instructions",
+  importStart: "Start import Agent",
+  importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
+  importAgentName: "Import",
+  importListing: (name: string) => `${name} is listing conversations. Refresh to see its candidates.`,
   importTitle: "Import Claude Code work",
   importPeriod: "Period",
   importPeriodName: (value1: "day" | "week" | "month") => `Last ${value1}`,

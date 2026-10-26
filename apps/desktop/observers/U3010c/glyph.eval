@@ -1,0 +1,30 @@
+// Evaluate in a fresh dark tree-40 headless harness. The returned samples are critic evidence, not a UI assertion test.
+(async () => {
+  const row = document.querySelector('[data-id="agent-4"]');
+  const glyph = row.querySelector('.glyph');
+  const samples = [];
+  const started = performance.now();
+  const record = label => {
+    const mark = glyph.querySelector(':scope > .kind-mark');
+    const leaving = glyph.querySelector('.kind-mark-leaving');
+    const arc = glyph.querySelector(':scope > .kind-mark .working-arc');
+    const box = element => { const r = element?.getBoundingClientRect(); return r ? [r.x, r.y, r.width, r.height] : null; };
+    samples.push({ label, time: performance.now() - started, drawing: glyph.dataset.drawing,
+      reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      arcs: glyph.querySelectorAll('.working-arc').length, marks: glyph.querySelectorAll('svg').length,
+      transform: arc ? getComputedStyle(arc).transform : null,
+      outgoingTransform: leaving?.querySelector('.working-arc') ? getComputedStyle(leaving.querySelector('.working-arc')).transform : null,
+      opacity: mark ? getComputedStyle(mark).opacity : null, outgoingOpacity: leaving ? getComputedStyle(leaving).opacity : null,
+      currentBox: box(mark), leavingBox: box(leaving?.querySelector('svg')),
+      animations: [...glyph.querySelectorAll('*')].flatMap(element => element.getAnimations().map(a => ({ target: element.classList.value, time: a.currentTime, timing: a.effect.getTiming(), frames: a.effect.getKeyframes() }))) });
+  };
+  window.__glyphTrace = { samples, record, glyph, row };
+  window.__fake.setStatus('agent-4', 'working');
+  // A bounded observation window measures one complete turn at rest and permits a live media change from the driver.
+  await new Promise(resolve => { const sample = () => { record('working'); performance.now() - started < 1200 ? requestAnimationFrame(sample) : resolve(); }; requestAnimationFrame(sample); });
+  record('before-change');
+  window.__fake.setStatus('agent-4', 'done');
+  record('after-change');
+  await new Promise(resolve => { const end = performance.now() + 250; const sample = () => { record('done'); performance.now() < end ? requestAnimationFrame(sample) : resolve(); }; requestAnimationFrame(sample); });
+  return samples;
+})()

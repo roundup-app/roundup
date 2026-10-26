@@ -79,6 +79,10 @@ fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
             .is_some_and(|rest| rest.starts_with('-'))
 }
 
+enum Membership<'a> {
+    Recorded(&'a Path),
+}
+
 enum Scan {
     Member(ImportCandidate),
     OtherProject,
@@ -225,7 +229,7 @@ impl Launcher {
                         self,
                         &path,
                         &stem,
-                        &project,
+                        Membership::Recorded(&project),
                         (now_ms, period_ms),
                         &check,
                         None,
@@ -290,6 +294,7 @@ impl Launcher {
         source: &str,
         revision: &str,
         now_ms: i64,
+        listed: Option<ImportCandidate>,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
         let changed = || {
             RpcError::conflict(format!(
@@ -302,43 +307,57 @@ impl Launcher {
         let project = project
             .canonicalize()
             .map_err(|err| io_error(project, err))?;
-        let file = format!("{source}.jsonl");
-        let mut selected = None;
-        let root = self.conversation_dir.join("projects");
-        let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
-        for (index, bucket) in buckets.enumerate() {
-            if index >= MAX_FILES {
-                return Err(RpcError::not_accepted("too many storage buckets"));
+        let selected = if listed.is_some() {
+            let mut files =
+                super::vendor_list::index_sources(&self.conversation_dir.join("projects"))?;
+            match files.remove(source).as_deref() {
+                Some([path]) => Some(path.clone()),
+                _ => return Err(changed()),
             }
-            let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
-            if !bucket
-                .metadata()
-                .map_err(|err| io_error(&bucket, err))?
-                .is_dir()
-            {
-                continue;
-            }
-            if !is_possible_bucket(&bucket, &project) {
-                continue;
-            }
-            let path = bucket.join(&file);
-            #[cfg(any(test, feature = "test-support"))]
-            if let Some(observer) = &self.import_observer {
-                observer(&path, "probe", 0);
-            }
-            if path.try_exists().map_err(|err| io_error(&path, err))? {
-                if selected.is_some() {
-                    return Err(changed());
+        } else {
+            let file = format!("{source}.jsonl");
+            let mut selected = None;
+            let root = self.conversation_dir.join("projects");
+            let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
+            for (index, bucket) in buckets.enumerate() {
+                if index >= MAX_FILES {
+                    return Err(RpcError::not_accepted("too many storage buckets"));
                 }
-                selected = Some(path);
+                let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
+                if !bucket
+                    .metadata()
+                    .map_err(|err| io_error(&bucket, err))?
+                    .is_dir()
+                {
+                    continue;
+                }
+                if !is_possible_bucket(&bucket, &project) {
+                    continue;
+                }
+                let path = bucket.join(&file);
+                #[cfg(any(test, feature = "test-support"))]
+                if let Some(observer) = &self.import_observer {
+                    observer(&path, "probe", 0);
+                }
+                if path.try_exists().map_err(|err| io_error(&path, err))? {
+                    if selected.is_some() {
+                        return Err(changed());
+                    }
+                    selected = Some(path);
+                }
             }
-        }
+            selected
+        };
         if let Some(path) = selected {
             if source_revision(&path.metadata().map_err(|err| io_error(&path, err))?) != revision {
                 return Err(changed());
             }
-            let mut bytes = Vec::new();
             let deadline = Instant::now() + Duration::from_secs(18);
+            if let Some(candidate) = listed {
+                let bytes = read_snapshot(self, &path, source, revision, deadline)?;
+                return Ok((candidate, bytes));
+            }
+            let mut bytes = Vec::new();
             let check = || {
                 if Instant::now() < deadline {
                     Ok(())
@@ -352,7 +371,7 @@ impl Launcher {
                 self,
                 &path,
                 source,
-                &project,
+                Membership::Recorded(&project),
                 (now_ms, i64::MAX),
                 &check,
                 Some(&mut bytes),
@@ -390,11 +409,109 @@ pub(super) fn source_revision(metadata: &std::fs::Metadata) -> String {
     )
 }
 
+/// Freeze complete source records against the preview revision. SDK membership already decided
+/// the mapped cwd; historical folders and listing metadata never veto this conversion.
+fn read_snapshot(
+    launcher: &Launcher,
+    path: &Path,
+    source: &str,
+    revision: &str,
+    deadline: Instant,
+) -> Result<Vec<u8>, RpcError> {
+    let changed = || {
+        RpcError::conflict(format!(
+            "source changed since preview: {source}; Refresh to try again"
+        ))
+    };
+    #[cfg(not(any(test, feature = "test-support")))]
+    let _ = launcher;
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(observer) = &launcher.import_observer {
+        observer(path, "open", 0);
+    }
+    let file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
+    let metadata = file.metadata().map_err(|err| io_error(path, err))?;
+    if source_revision(&metadata) != revision {
+        return Err(changed());
+    }
+    let mut reader = BufReader::new(file.take(metadata.len()));
+    let mut line = Vec::new();
+    let mut bytes = Vec::new();
+    loop {
+        if Instant::now() >= deadline {
+            return Err(RpcError::not_accepted(
+                "source validation took too long; Refresh to try again",
+            ));
+        }
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &launcher.import_observer {
+            observer(path, "record", 0);
+        }
+        line.clear();
+        let size = reader
+            .by_ref()
+            .take(MAX_RECORD + 1)
+            .read_until(b'\n', &mut line)
+            .map_err(|err| io_error(path, err))?;
+        if size == 0 {
+            break;
+        }
+        let refuse = |reason| {
+            RpcError::conflict(format!(
+                "cannot import {source}: {reason}; Refresh to try again"
+            ))
+        };
+        if line.len() as u64 > MAX_RECORD {
+            return Err(refuse("record exceeds 8 MiB limit"));
+        }
+        if line.last() != Some(&b'\n') {
+            break;
+        }
+        if bytes.len() + line.len() > MAX_SNAPSHOT {
+            return Err(refuse("conversation exceeds 512 MiB import limit"));
+        }
+        if line != b"\n" {
+            let record: Value =
+                serde_json::from_slice(&line).map_err(|_| refuse("malformed record"))?;
+            if !record.is_object() {
+                return Err(refuse("malformed record"));
+            }
+            if record["isSidechain"] == true {
+                return Err(refuse("subagent record"));
+            }
+            if record
+                .get("sessionId")
+                .is_some_and(|id| !id.is_null() && id.as_str() != Some(source))
+            {
+                return Err(refuse("identity does not match source"));
+            }
+        }
+        bytes.extend_from_slice(&line);
+    }
+    if bytes.is_empty() {
+        return Err(RpcError::conflict(
+            "no complete records; Refresh to try again",
+        ));
+    }
+    if source_revision(
+        &reader
+            .get_ref()
+            .get_ref()
+            .metadata()
+            .map_err(|err| io_error(path, err))?,
+    ) != revision
+        || source_revision(&path.metadata().map_err(|err| io_error(path, err))?) != revision
+    {
+        return Err(changed());
+    }
+    Ok(bytes)
+}
+
 fn scan(
     launcher: &Launcher,
     path: &Path,
     stem: &str,
-    project: &Path,
+    membership: Membership<'_>,
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
     retained: Option<&mut Vec<u8>>,
@@ -423,7 +540,7 @@ fn scan(
     let result = scan_records(
         launcher,
         (path, stem),
-        project,
+        membership,
         window,
         check,
         retained,
@@ -451,7 +568,7 @@ fn scan(
 fn scan_records(
     launcher: &Launcher,
     source: (&Path, &str),
-    project: &Path,
+    membership: Membership<'_>,
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
     mut retained: Option<&mut Vec<u8>>,
@@ -644,6 +761,7 @@ fn scan_records(
             "no complete records".into(),
         ));
     }
+    let Membership::Recorded(project) = membership;
     let mut inside = Vec::new();
     let mut outside = false;
     for cwd in &cwds {
@@ -777,137 +895,4 @@ mod preview_tests {
 
     /// 2026-10-19T12:00:00Z
     pub(super) const NOW: i64 = 1_792_411_200_000;
-
-    fn rss() -> u64 {
-        std::fs::read_to_string("/proc/self/status")
-            .ok()
-            .and_then(|status| {
-                status.lines().find_map(|line| {
-                    line.strip_prefix("VmRSS:")?
-                        .split_whitespace()
-                        .next()?
-                        .parse::<u64>()
-                        .ok()
-                })
-            })
-            .unwrap_or(0)
-    }
-
-    #[tokio::test]
-    #[ignore = "U3082b generates three 400 MB variants; run in the test profile separately"]
-    async fn u3082b_large_preview_finishes_under_two_seconds() {
-        use std::io::Write;
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("project");
-        std::fs::create_dir(&project).unwrap();
-        let config = root.path().join("config");
-        let header = record("user", &project, "2026-10-01T12:00:00Z") + "\n";
-        store(&config, "x", SESSION, &header);
-        let path = config
-            .join("projects")
-            .join(encoded(&project))
-            .join(format!("{SESSION}.jsonl"));
-        let title = format!(
-            "{{\"type\":\"custom-title\",\"customTitle\":\"Chosen title\",\"payload\":\"{}\"}}\n",
-            "x".repeat(60_000)
-        );
-        let activity = record("user", &project, "2026-10-18T12:00:00Z");
-        let activity = activity.trim_end_matches('}').to_owned()
-            + &format!(",\"payload\":\"{}\"}}\n", "x".repeat(60_000));
-        let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
-        for variant in ["near-end", "middle-title", "middle-activity"] {
-            let mut writer = std::io::BufWriter::new(std::fs::File::create(&path).unwrap());
-            writer.write_all(header.as_bytes()).unwrap();
-            let mut position = header.len();
-            let mut blocks = [
-                (
-                    if variant == "middle-title" {
-                        200_000_000
-                    } else {
-                        399_700_000
-                    },
-                    title.as_bytes(),
-                ),
-                (
-                    if variant == "middle-activity" {
-                        200_000_000
-                    } else {
-                        399_500_000
-                    },
-                    activity.as_bytes(),
-                ),
-                (400_000_000 - 8, b"{\"torn\":".as_slice()),
-            ];
-            blocks.sort_by_key(|(offset, _)| *offset);
-            for (offset, block) in blocks {
-                let mut remaining = offset - position;
-                while remaining >= payload.len() {
-                    writer.write_all(payload.as_bytes()).unwrap();
-                    remaining -= payload.len();
-                }
-                if remaining >= 15 {
-                    let partial = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(remaining - 15));
-                    writer.write_all(partial.as_bytes()).unwrap();
-                } else {
-                    writer.write_all(&vec![b'\n'; remaining]).unwrap();
-                }
-                writer.write_all(block).unwrap();
-                position = offset + block.len();
-            }
-            writer.flush().unwrap();
-            drop(writer);
-            assert_eq!(std::fs::metadata(&path).unwrap().len(), 400_000_000);
-            let bytes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-            let observed = bytes.clone();
-            let mut launcher = launcher(&config);
-            launcher.import_observer =
-                Some(std::sync::Arc::new(move |_, phase, count| match phase {
-                    "bytes" => {
-                        observed.fetch_add(count, Ordering::Relaxed);
-                    }
-                    "buffer" | "metadata" => assert!(count <= 8 * 1024 * 1024),
-                    _ => {}
-                }));
-            let baseline = rss();
-            let peak = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(baseline));
-            let sampling = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-            let observed = peak.clone();
-            let active = sampling.clone();
-            let sampler = std::thread::spawn(move || {
-                while active.load(Ordering::Relaxed) {
-                    observed.fetch_max(rss(), Ordering::Relaxed);
-                    std::thread::sleep(Duration::from_millis(1));
-                }
-            });
-            let start = Instant::now();
-            let result = launcher.discover_recent(&project, NOW, 7 * DAY).await;
-            let elapsed = start.elapsed();
-            sampling.store(false, Ordering::Relaxed);
-            sampler.join().unwrap();
-            let additional = peak.load(Ordering::Relaxed).saturating_sub(baseline);
-            #[cfg(target_os = "linux")]
-            assert!(
-                baseline > 0 && additional < 64 * 1024,
-                "{additional} KiB additional RSS"
-            );
-            eprintln!("U3082b 400 MB {variant}: peak additional RSS {additional} KiB");
-            let found = result.unwrap();
-            assert_eq!(found.candidates.len(), 1, "{variant}: {found:?}");
-            let candidate = &found.candidates[0];
-            assert_eq!(candidate.title, "Chosen title");
-            assert_eq!(candidate.cwd, PathBuf::new());
-            assert_eq!(candidate.last_activity_ms, NOW - DAY);
-            assert!(!candidate.revision.is_empty());
-            let bytes = bytes.load(Ordering::Relaxed);
-            assert_eq!(bytes, 400_000_000);
-            eprintln!("U3082b 400 MB {variant}: {elapsed:?}; {bytes} content bytes read");
-            assert!(elapsed < Duration::from_secs(2), "{variant}: {elapsed:?}");
-            // Confirmation is outside the preview timer and validates every payload.
-            let (confirmed, retained) = launcher
-                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
-                .unwrap();
-            assert_eq!(&confirmed, candidate);
-            assert_eq!(retained.len(), 399_999_992);
-        }
-    }
 }

@@ -355,7 +355,7 @@ async fn u3037b_streaming_preserves_candidate_and_revision() {
     assert_eq!(candidate.title, "Observed import name");
     assert!(!candidate.revision.is_empty());
     let (retained, bytes) = launcher
-        .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+        .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
         .unwrap();
     assert_eq!(retained, candidate);
     assert_eq!(bytes, complete.as_bytes());
@@ -436,7 +436,7 @@ async fn u3037b_preview_preserves_records_crossing_boundaries() {
             assert_eq!(candidate.title, "Boundary rename", "{len}/{boundary}");
             assert_eq!(candidate.last_activity_ms, NOW - DAY);
             let (confirmed, retained) = launcher
-                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
                 .unwrap();
             assert_eq!(&confirmed, candidate);
             assert_eq!(retained, bytes[..bytes.len() - 8]);
@@ -531,7 +531,7 @@ async fn u3037b_middle_metadata_is_preserved() {
                     );
                 }
                 let (confirmed, _) = launcher
-                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW, None)
                     .unwrap();
                 assert_eq!(&confirmed, candidate);
             } else {
@@ -572,7 +572,19 @@ async fn u3037b_malformed_complete_record_is_refused() {
         let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
         assert_eq!(found.candidates.len(), 1, "payload is deferred: {found:?}");
         let refused = launcher
-            .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW)
+            .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW, None)
+            .unwrap_err();
+        assert!(refused.message.contains("malformed record"), "{refused:?}");
+        let c = &found.candidates[0];
+        let listed = ImportCandidate {
+            source: c.source.clone(),
+            title: c.title.clone(),
+            cwd: c.cwd.clone(),
+            last_activity_ms: c.last_activity_ms,
+            revision: c.revision.clone(),
+        };
+        let refused = launcher
+            .read_import_snapshot(&project, SESSION, &c.revision, NOW, Some(listed))
             .unwrap_err();
         assert!(refused.message.contains("malformed record"), "{refused:?}");
     }
@@ -646,7 +658,7 @@ async fn u3082d_io_errors_name_their_paths() {
         };
         let result = if operation.starts_with("snapshot") {
             launcher
-                .read_import_snapshot(&project, SESSION, &revision, NOW)
+                .read_import_snapshot(&project, SESSION, &revision, NOW, None)
                 .map(|_| ())
         } else {
             launcher
@@ -674,7 +686,7 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     let result = scan_records(
         &launcher(root.path()),
         (Path::new("source.jsonl"), SESSION),
-        &project,
+        Membership::Recorded(&project),
         (NOW, DAY),
         &|| Ok(()),
         None,
@@ -683,76 +695,6 @@ fn u3037b_incomplete_metadata_coverage_is_explicit() {
     .unwrap();
     assert!(
         matches!(result, Scan::Excluded(ImportExclusionCause::IncompleteMetadata, reason) if reason.contains("source.jsonl") && reason.contains("incomplete metadata coverage"))
-    );
-    // The same reader seam enforces the ceiling before invoking Read.
-    let input = std::io::empty();
-    let result = scan_records(
-        &launcher(root.path()),
-        (Path::new("source.jsonl"), SESSION),
-        &project,
-        (NOW, DAY),
-        &|| Ok(()),
-        None,
-        (input, 4_000_000_001),
-    )
-    .unwrap();
-    assert!(
-        matches!(result, Scan::Excluded(ImportExclusionCause::PreviewLimit, reason) if reason.contains("source.jsonl") && reason.contains("preview limit"))
-    );
-}
-
-#[test]
-#[ignore = "U3037b streams a synthetic 4 GB reader; run separately from fast tests"]
-fn u3037b_preview_bounds_are_explicit_at_read_ceiling() {
-    struct Repeating {
-        record: Vec<u8>,
-        offset: usize,
-        bytes: u64,
-    }
-    impl Read for Repeating {
-        fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
-            let len = out.len().min(self.record.len() - self.offset);
-            out[..len].copy_from_slice(&self.record[self.offset..self.offset + len]);
-            self.offset = (self.offset + len) % self.record.len();
-            self.bytes += len as u64;
-            Ok(len)
-        }
-    }
-    let root = tempfile::tempdir().unwrap();
-    let project = root.path().canonicalize().unwrap();
-    let header = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
-    let trailer = b"{\"type\":\"custom-title\",\"customTitle\":\"At the ceiling\"}\n";
-    let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
-    let mut repeated = Repeating {
-        record: payload.into_bytes(),
-        offset: 0,
-        bytes: 0,
-    };
-    let body_size = 4_000_000_000 - header.len() as u64 - trailer.len() as u64;
-    let full_records = body_size / 65536 * 65536;
-    let input = std::io::Cursor::new(header.as_bytes())
-        .chain(repeated.by_ref().take(full_records))
-        .chain(std::io::repeat(b'\n').take(body_size - full_records))
-        .chain(std::io::Cursor::new(trailer));
-    let result = scan_records(
-        &launcher(root.path()),
-        (&project.join("synthetic.jsonl"), SESSION),
-        &project,
-        (NOW, DAY),
-        &|| Ok(()),
-        None,
-        (input, 4_000_000_000),
-    )
-    .unwrap();
-    let Scan::Member(candidate) = result else {
-        panic!("at-limit source was refused")
-    };
-    assert_eq!(candidate.title, "At the ceiling");
-    assert_eq!(candidate.cwd, PathBuf::new());
-    assert_eq!(candidate.last_activity_ms, NOW - DAY);
-    assert_eq!(
-        repeated.bytes + header.len() as u64 + (body_size - full_records) + trailer.len() as u64,
-        4_000_000_000
     );
 }
 

@@ -10,6 +10,7 @@
 }
 
 .window-bar .shelf-tabs {
+  padding-inline: var(--space-4);
   grid-column: 4 / 6;
   justify-self: end;
   padding-inline: var(--space-4);
@@ -274,8 +275,10 @@
   margin-inline-end: var(--space-2);
 }
 
-/* U3309: the row's failure uses its reserved line even when body prose wraps. */
-.todo-row-notice .ink {
+/* U3807: keep the failure on its fixed line despite the Shelf's wrapping prose. */
+.todo-row-notice p.ink[role="alert"] {
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

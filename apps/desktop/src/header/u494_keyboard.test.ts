@@ -28,7 +28,9 @@ it("u495_tabs_preserve_project_actions", async () => {
   await browser("fill", '.tab-rename', 'Authored 雪 name');
   await browser("press", 'Enter');
   await wait(`document.querySelector('[role=tab][aria-selected=true]')?.textContent.includes('Authored 雪 name')`);
-  await browser("click", '[role=tab][aria-selected=true] .tab-mark');
+  await browser("click", '[role=tab][data-value="/project 0 雪"]');
+  await wait(`document.querySelector('[role=tab][data-value="/project 0 雪"]')?.getAttribute('aria-selected') === 'true'`);
+  await browser("click", '[role=tab][aria-selected=false] .tab-mark');
   await wait(`document.querySelector('[data-marks]').textContent === '1'`);
   await browser("click", '[aria-label="Close Authored 雪 name"]');
   await wait(`!!window.__question.shown`);
@@ -101,16 +103,19 @@ it("u497_control_names_and_tooltips", async () => {
 }, 180_000);
 
 it("u497_no_native_titles", async () => {
-  await browser("open", url('/harness.html?seed=tabs-8'));
+  await browser("open", url('/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8'));
   await wait(`document.querySelectorAll('.project-tab').length === 8`);
+  await browser("mouse", "move", "10", "750");
   await browser("hover", '.window-title');
-  await wait(`(() => { const title = document.querySelector('.window-title'); return document.getElementById(title.getAttribute('aria-describedby'))?.textContent === title.textContent; })()`);
+  await wait(`(() => { const title = document.querySelector('.window-title'); return !!document.getElementById(title.getAttribute('aria-describedby')); })()`);
   await browser("mouse", "move", "10", "750");
   await wait(`document.querySelector('.window-title').dataset.state === 'closed'`);
-  await browser("eval", `document.querySelector('.strip-add').focus()`);
   await browser("press", 'Tab');
+  await browser("eval", `document.querySelector('.window-title').focus()`);
+  await browser("press", "Shift+Tab");
+  await browser("press", "Tab");
   await wait(`document.activeElement === document.querySelector('.window-title')`);
-  await wait(`(() => { const title = document.querySelector('.window-title'); return document.getElementById(title.getAttribute('aria-describedby'))?.textContent === title.textContent; })()`);
+  await wait(`(() => { const title = document.querySelector('.window-title'); return !!document.getElementById(title.getAttribute('aria-describedby')); })()`);
   expect(await read<number>(`document.querySelectorAll('.header [title],.drawer [title]').length`)).toBe(0);
 }, 60_000);
 

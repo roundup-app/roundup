@@ -16,7 +16,7 @@ it("u3787f_second_launch_reuses_the_app_opens_the_delivered_project", async () =
 
     return () => {}; };
 
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
   await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "project", path: "/invocation/second" });
   await screen.findByRole("tab", { name: "second" });
@@ -29,7 +29,7 @@ it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_
 
     return () => {}; };
 
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
   await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "link", url: "roundup://pad/notes?project=unavailable" });
   await screen.findByText(/Project.*not open/);
@@ -50,7 +50,7 @@ it("u3787f_deep_link_preserves_identity_and_authority_reveals_the_exact_terminal
   app.handlers["link.read"] = () => ({ kind: "terminal", id: "first", screen: { cols: 80, rows: 24, offset: 0, lines: ["chosen screen"], truncated: false } });
   const { factory } = fakeEmulators();
 
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => open.showView("workstreams")} />);
   await screen.findByRole("tab", { name: "project" });
   receive?.({ kind: "link", url: "roundup://terminal/first?project=project-0000000000000000" });
   await screen.findByRole("group", { name: "Chosen terminal" });
@@ -69,7 +69,7 @@ it.each(["agent", "workstream"] as const)("u3787f_deep_link_preserves_identity_a
 
     return () => {}; };
 
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
   await screen.findByRole("tab", { name: "project" });
   receive?.({ kind: "link", url: `roundup://${kind}/chosen?project=project-0000000000000000` });
   await waitFor(() => expect(document.querySelector('[data-id="chosen"]')?.getAttribute("aria-selected")).toBe("true"));

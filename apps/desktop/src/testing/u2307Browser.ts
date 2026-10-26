@@ -12,7 +12,7 @@ export const openBubblePage = async (): Promise<ChromePage> => {
 
 export const showBubble = async (page: ChromePage, scheme: "light" | "dark" = "light"): Promise<void> => {
   await page.scheme(scheme);
-  await page.load("/harness.html?seed=door-stopped", FULLSCREEN.width, FULLSCREEN.height);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-stopped", FULLSCREEN.width, FULLSCREEN.height);
   await page.until(`() => document.querySelector('.terminal-new')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) .xterm-screen')`);

@@ -39,6 +39,16 @@ default-filter = '''
 | (package(rupd) & binary(b6_cleanup_completion))
 '''
 
+# AppKit observers share one desktop: fullscreen changes its work area and can
+# refuse another process's transition. Include panel/focus observers in the same group.
+[test-groups.native-app]
+max-threads = 1
+
+[[profile.default.overrides]]
+platform = 'cfg(target_os = "macos")'
+filter = 'package(desktop) & binary(s2297a)'
+test-group = 'native-app'
+
 # L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the
 # per-test seconds of a `main` run through nextest's scheduling: four threads in list order, isolated tests alone first)
 # is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, the `rupd` binaries (`order_steering` to `order_base_changes`),
