@@ -170,6 +170,11 @@ impl Shared {
         {
             node.overview = self.rail_view.launcher.read_overview(Path::new(&cwd), &id);
         }
+        // R3696c: only Agents hold a channel, inbox, tool call or stray; a Workstream
+        // skips four lock acquisitions per node in the forty-Workstream reply.
+        if node.kind == NodeKind::Workstream {
+            return Ok(node);
+        }
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.inbox = self.events.inbox.fact(&node.id);
