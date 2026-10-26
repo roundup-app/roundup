@@ -8,6 +8,7 @@ impl Agents {
         source: &str,
         revision: &str,
         now_ms: i64,
+        resume: Option<&Ctx>,
     ) -> Result<(String, String), RpcError> {
         // Published work no longer depends on the external original. Concurrent first
         // imports still converge under prepare_closed's lifecycle lock after validation.
@@ -23,7 +24,7 @@ impl Agents {
         .await
         .map_err(RpcError::internal)??;
         let cwd = self.project_dir().join(&candidate.cwd);
-        self.prepare_closed(source, &candidate.title, &cwd, &bytes)
+        self.prepare_closed(source, &candidate.title, &cwd, &bytes, resume)
             .await
     }
 
@@ -33,6 +34,7 @@ impl Agents {
         title: &str,
         cwd: &Path,
         conversation: &[u8],
+        resume: Option<&Ctx>,
     ) -> Result<(String, String), RpcError> {
         let _lifecycle = self.shared.door_lifecycle.write().await;
         {
@@ -69,9 +71,11 @@ impl Agents {
                 .prepare_conversation(&effective, conversation)?;
             self.shared.rail().closed_copy(source, &ownership)?;
             self.launcher.write_conversation(&ownership)?;
-            self.shared
-                .rail()
-                .save_conversation(&ids.1, &id, &effective.to_string_lossy())?;
+            self.shared.rail().save_conversation(
+                &ids.1,
+                if resume.is_some() { source } else { &id },
+                &effective.to_string_lossy(),
+            )?;
             self.shared.rail().publish_closed(source)?;
             Ok::<_, RpcError>(())
         }
@@ -122,6 +126,12 @@ impl Agents {
                 "agents: {}: ownership release deferred: {}",
                 ids.1, error.message
             );
+        }
+        // Keep the publication lock through the automatic launch: a concurrent commit
+        // must observe the published source and return it, never launch it a second time.
+        if let Some(ctx) = resume {
+            self.resume_saved(ctx, &ids.1, RESUME_ACK_BOUND, None)
+                .await?;
         }
         Ok(ids)
     }
@@ -540,7 +550,7 @@ mod tests {
             line("2026-10-19T11:00:00Z") + &line("2026-10-19T11:30:00Z"),
         )
         .unwrap();
-        let refused = agents.import_conversation(ID, &revision, now).await;
+        let refused = agents.import_conversation(ID, &revision, now, None).await;
         assert!(
             refused
                 .unwrap_err()
@@ -556,12 +566,12 @@ mod tests {
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         let ids = agents
-            .import_conversation(ID, &revision, now)
+            .import_conversation(ID, &revision, now, None)
             .await
             .unwrap();
         assert_eq!(
             agents
-                .import_conversation(ID, &revision, now)
+                .import_conversation(ID, &revision, now, None)
                 .await
                 .unwrap(),
             ids
@@ -669,8 +679,8 @@ mod tests {
     async fn u2875c_concurrent_replay_preserves_names_homes_and_removed_sources() {
         let (dir, agents, _) = fixture();
         let (a, b) = tokio::join!(
-            agents.prepare_closed("same", "first", dir.path(), RETAINED),
-            agents.prepare_closed("same", "second", dir.path(), RETAINED)
+            agents.prepare_closed("same", "first", dir.path(), RETAINED, None),
+            agents.prepare_closed("same", "second", dir.path(), RETAINED, None)
         );
         let ids = a.unwrap();
         assert_eq!(b.unwrap(), ids);
@@ -693,7 +703,7 @@ mod tests {
         let agents = reopen(agents);
         assert_eq!(
             agents
-                .prepare_closed("same", "replacement", dir.path(), b"invalid")
+                .prepare_closed("same", "replacement", dir.path(), b"invalid", None)
                 .await
                 .unwrap(),
             ids
@@ -705,7 +715,7 @@ mod tests {
         agents.shared.rail().remove(&ids.1).unwrap();
         assert_eq!(
             agents
-                .prepare_closed("same", "replacement", dir.path(), b"invalid")
+                .prepare_closed("same", "replacement", dir.path(), b"invalid", None)
                 .await
                 .unwrap(),
             ids
@@ -719,11 +729,11 @@ mod tests {
         let (first, a, _) = fixture();
         let (second, b, _) = fixture();
         let (_, one) = a
-            .prepare_closed("same source", "one", first.path(), RETAINED)
+            .prepare_closed("same source", "one", first.path(), RETAINED, None)
             .await
             .unwrap();
         let (_, two) = b
-            .prepare_closed("same source", "two", second.path(), RETAINED)
+            .prepare_closed("same source", "two", second.path(), RETAINED, None)
             .await
             .unwrap();
         let one = a.shared.rail().conversation(&one).unwrap().unwrap();
@@ -780,7 +790,7 @@ mod tests {
     async fn u2875c_failed_source_cannot_undo_a_published_source() {
         let (dir, agents, _) = fixture();
         let published = agents
-            .prepare_closed("good", "good", dir.path(), RETAINED)
+            .prepare_closed("good", "good", dir.path(), RETAINED, None)
             .await
             .unwrap();
         let saved = agents
@@ -791,7 +801,7 @@ mod tests {
             .unwrap();
         assert!(
             agents
-                .prepare_closed("bad", "bad", dir.path(), b"broken\n")
+                .prepare_closed("bad", "bad", dir.path(), b"broken\n", None)
                 .await
                 .is_err()
         );
