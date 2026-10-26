@@ -292,6 +292,120 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   })()`)).toEqual({ counts: [0, 1, 2], ids: ["t-tokens", "t-tokens"], sliding: [false, false] });
 });
 
+// Hit testing belongs to this rendered observer, rather than the behavioral App tests.
+rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, timeout: 180_000 }, async () => {
+  const directory = join(art!, "head");
+  mkdirSync(directory, { recursive: true });
+
+  for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) for (const run of [1, 2, 3]) {
+    await openShelf("tree-40", 288, 320, 1512, "dark");
+    await browser("set", "viewport", "1512", "950");
+    const name = `pointer-${mode}-${rate}-run${run}`;
+
+    await browser("wait", ".shelf-tabs");
+
+    if (mode === "overlay") await evaluate("document.querySelector('.window').style.setProperty('--centre-min-width', '1000px')");
+    await browser("click", '.rail [data-id="tokens"] .name');
+    await browser("wait", ".xterm-screen");
+    await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await browser("click", '.shelf [data-todo="1"] .todo-row-button');
+    await settle();
+    await evaluate(`(() => {
+      const drawer = document.querySelector('.drawer');
+      const terminal = document.querySelector('.xterm-screen');
+      const selected = document.querySelector('.rail [aria-selected=true]');
+      const todo = document.querySelector('.shelf [data-todo="1"]');
+      const state = () => ({ left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
+        open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
+        focus: document.activeElement?.className, home: selected?.dataset.id, todo: todo.dataset.todo,
+        sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail [aria-selected=true]'),
+        mode: document.querySelector('.window').dataset.shelfMode });
+      const samples = [];
+      const events = [];
+      const sample = () => { samples.push({ t: performance.now(), ...state() }); window.__pointerDrawer.frame = requestAnimationFrame(sample); };
+      document.addEventListener('click', event => events.push({ t: performance.now(), trusted: event.isTrusted, target: event.target.outerHTML, x: event.clientX, y: event.clientY, ...state() }));
+      window.__pointerDrawer = { state, samples, events, terminal, selected, todo, rate: ${rate} };
+      window.__pointerDrawer.frame = requestAnimationFrame(sample);
+      return true;
+    })()`);
+    await browser("stream", "disable");
+    const stream = (await browser("stream", "enable")).match(/ws:\/\/[^\s]+/)?.[0];
+
+    if (!stream) throw new Error("agent-browser input stream unavailable");
+
+    try {
+      await evaluate(`(() => {
+        const run = async () => {
+        const o = window.__pointerDrawer;
+        // agent-browser's documented input stream emits native mouse input, without locator stability waits.
+        const input = new WebSocket(${JSON.stringify(stream)});
+        await new Promise((resolve, reject) => { input.onopen = resolve; input.onerror = reject; });
+        const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+        const activate = async selector => {
+          const target = document.querySelector(selector);
+          const r = target.getBoundingClientRect();
+          const x = r.left + r.width / 2, y = r.top + r.height / 2;
+          const hit = document.elementFromPoint(x, y);
+          o.events.push({ phase: 'hit-test', t: performance.now(), selector, x, y, hit: hit?.outerHTML, ...o.state() });
+          if (!target.contains(hit)) throw new Error('Unreachable pointer target: ' + selector);
+          const clicked = new Promise(resolve => target.addEventListener('click', event => resolve(event.isTrusted), { once: true }));
+          for (const eventType of ['mouseMoved', 'mousePressed', 'mouseReleased']) input.send(JSON.stringify({ type: 'input_mouse', eventType, x, y, button: 'left', clickCount: 1 }));
+          if (!await clicked) throw new Error('Untrusted activation');
+          await Promise.resolve();
+        };
+        const halfway = async (from, destination) => {
+          for (let i = 0; i < 600; i++) {
+            document.getAnimations().forEach(a => { a.playbackRate = o.rate; });
+            await frame();
+            const left = o.state().left;
+            if (Math.abs(left - from) >= Math.abs(destination - from) / 2) {
+              if (Math.abs(left - destination) < 1) throw new Error('missed half crossing');
+              return left;
+            }
+          }
+          throw new Error('no half crossing');
+        };
+        try {
+          const initial = o.state();
+          await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          const reverse = await halfway(initial.left, initial.left - initial.width);
+          await activate('.drawer .close');
+          const returning = o.state().left;
+          await halfway(returning, initial.left);
+          await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+        } finally { input.close(); }
+        return true;
+        };
+        run().then(() => { window.__pointerDrawer.done = true; }, error => { window.__pointerDrawer.failure = String(error); window.__pointerDrawer.done = true; });
+        return true;
+      })()`);
+
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const result = await evaluate<{ done?: boolean; failure?: string }>("({ done: window.__pointerDrawer.done, failure: window.__pointerDrawer.failure })");
+
+        if (result.failure) throw new Error(result.failure);
+
+        if (result.done) break;
+
+        if (attempt === 199) throw new Error("pointer sequence did not complete");
+      }
+
+      await browser("press", "Escape");
+      await settle();
+      const state = await evaluate("window.__pointerDrawer.state()");
+      expect(state).toMatchObject({ open: "false", mounted: "false", sameTerminal: true, sameHome: true, todo: "1", mode });
+      expect(await evaluate("window.__pointerDrawer.events.filter(event => !event.phase).every(event => event.trusted)")).toBe(true);
+      const checks = await evaluate<{ id: string; pass: boolean }[]>("window.__checks()");
+      writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks));
+      await browser("screenshot", join(directory, `${name}.png`));
+    } finally {
+      const trace = await evaluate("(() => { const o = window.__pointerDrawer; cancelAnimationFrame(o.frame); return { samples: o.samples, events: o.events }; })()");
+      writeFileSync(join(directory, `${name}-frames.json`), JSON.stringify(trace));
+
+    }
+  }
+});
+
 const trace = (rate: number) => `(async () => {
   const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const drawer = document.querySelector('.drawer');
