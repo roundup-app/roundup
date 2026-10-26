@@ -13,11 +13,12 @@
   padding-inline: var(--space-4);
   grid-column: 4 / 6;
   justify-self: end;
-  padding-inline: var(--space-4);
 }
 
 .shelf-tabs {
   display: flex;
+  align-items: center;
+  min-height: var(--space-6);
   min-width: 0;
   gap: var(--space-2);
 }
@@ -26,13 +27,20 @@
 .shelf-tab {
   display: inline-flex;
   gap: var(--space-1);
-  align-items: center;
-  --button-inline: 0;
+  align-items: baseline;
+  padding-block: var(--space-1);
 }
 
 .shelf-tab .section-head {
   color: inherit;
   text-transform: uppercase;
+  height: auto;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.shelf-tab .icon {
+  align-self: center;
 }
 
 .shelf-count {
@@ -152,7 +160,6 @@
 
 /* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
 .shelf-tabs.app-tabs-list { gap: var(--space-2); }
-.shelf-tab.app-tabs-trigger { --button-inline: 0; }
 .shelf-tab[data-selected] { --button-surface: var(--transparent); --button-hover: var(--transparent); }
 .shelf-panel.app-tabs-content { padding: 0; }
 .shelf-bulk-line[hidden] { display: none; }
@@ -199,12 +206,8 @@
 .shelf-bar:has(.shelf-triage) { max-width: calc(100% - var(--space-6) * 2 - var(--space-2)); }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 .window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf { width: calc(100% - var(--rail-width)); }
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { visibility: hidden; }
-/* U3724: the hint line stays in view; the Shelf ends above the strip that holds it. */
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .hint-line { visibility: visible; }
-.window[data-shelf-maximised="true"][data-shelf-mode="reserved"]:not(:has(.drawer[data-open="true"])) .shelf { bottom: calc(var(--hint-row-height) + var(--rail-actions-height)); }
-/* The strip under the Shelf shares its ground, so no seam shows beside the hidden Terminal bar. */
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { background-color: var(--sunken); }
+/* Hidden content must also suppress descendants that explicitly restore visibility. */
+.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { content-visibility: hidden; }
 
 /* U3752: the mode's keys sit after the rows, stuck to the bottom of the scroll area, so no row moves. */
 .triage-hints {
