@@ -14,6 +14,7 @@ const mount = (assign: (id: number, owner: Actor | null) => Promise<string | nul
       ids: () => [1],
       all: () => [todo(1)],
       call: reorder,
+      reload: async () => {},
       reducedMotion: () => true,
       owner: { target: () => null, assign },
     });
