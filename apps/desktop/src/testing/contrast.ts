@@ -1,6 +1,6 @@
 // Read App-owned declarations: compiled CSS prepends Radix roots and media blocks.
 // U478’s Chromium observer checks the processed palette and scheme inheritance.
-import tokenStyles from "../tokens.css?raw";
+import tokenStyles from "../tokens.css?inline";
 import appStyles from "../styles.css?inline";
 import railStyles from "../rail/styles.css?inline";
 
