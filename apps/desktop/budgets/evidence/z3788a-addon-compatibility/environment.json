@@ -1,0 +1,31 @@
+{
+  "base": "120b9d3f97083a761ffc02b4343658219990caf6",
+  "node": "v22.23.3",
+  "platform": "linux",
+  "arch": "x64",
+  "browser": "Dedicated headless agent-browser 0.27.0, fresh profile; Chromium with ANGLE SwiftShader",
+  "args": [
+    "--enable-webgl",
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader"
+  ],
+  "observedAt": "2026-10-26T22:17:44.859Z",
+  "sourceHashes": {
+    "patches/@xterm__xterm@6.0.0.patch": "45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf",
+    "patches/@xterm__addon-fit@0.11.0.patch": "8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272",
+    "apps/desktop/src/terminal/emulator.ts": "81539ccd003009a9a13f7b991d77e8013de712ef73641e47c56dff5de999e307",
+    "apps/desktop/src/terminal/screens.ts": "b0f06a377204e5fd356c97ecf6df351cc56244d62386570011c3d5d544cdc2bb"
+  },
+  "installedHashes": {
+    "@xterm/xterm/lib/xterm.mjs": "b336ec65a086c056d4804b3d4c2347da5663d3f23c3f25be866467bd8857ad59",
+    "@xterm/xterm/css/xterm.css": "9f9bb736e2652d19261a0884f93eb72e8fa5891af4f54cb214bce205e2d630b2",
+    "@xterm/addon-fit/lib/addon-fit.mjs": "b67065faffec32670b00507c1359ed24dbe9609fb7060f4d3b53ad80e71b0e73",
+    "@xterm/addon-search/lib/addon-search.mjs": "3ea90162233f867b938cd29b8ad98f589643436bbb5445bd11b825dc99ff0c04",
+    "@xterm/addon-serialize/lib/addon-serialize.mjs": "6c93dff90bef3b7aac8664fa4c1cb4026bf4b701f3014a1fb88edde943dab906",
+    "@xterm/addon-clipboard/lib/addon-clipboard.mjs": "94afa044240a9af03846383996ec439611239b7ebf38b2b6c9a5ebea7b3d6ccc",
+    "@xterm/addon-image/lib/addon-image.mjs": "16e9e5ffc20abf914d94b592890105776fbd1d3a46505343349498d80e08ee9c",
+    "@xterm/addon-webgl/lib/addon-webgl.mjs": "5ac2cbbb8a861ba99176eda0ee91f10c08de32d091e3488edf699ad111131ebb"
+  },
+  "probeHash": "c86875eccaa6978feccdd846bd7bd0a1fed033c9677b60b32649ff4c41733128"
+}
