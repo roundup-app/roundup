@@ -1,0 +1,59 @@
+{
+  "scenario": "Z3788c",
+  "scope": "TimelineView visibility listener only",
+  "base_revision": "6153b330ce65f647062045e40d1f716c3421c570",
+  "head_revision": "15b90e20fee3736f030a0e9a21a49317d62ea129",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "gzip": "level 9; recursive manifest static imports; each file counted once",
+  "base": {
+    "exit": 0,
+    "entry": "assets/index-DHLDS3gd.js",
+    "files": [
+      "assets/index-DHLDS3gd.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278390,
+    "gzip": 407483,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "head": {
+    "exit": 0,
+    "entry": "assets/index-bixwFIRy.js",
+    "files": [
+      "assets/index-bixwFIRy.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278302,
+    "gzip": 407475,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "merged_revision": "25f224c3f594b3ce88467368201bf845ddbea97f",
+  "merged": {
+    "exit": 0,
+    "entry": "assets/index-bixwFIRy.js",
+    "files": [
+      "assets/index-bixwFIRy.js",
+      "assets/copy-BbE6289-.js",
+      "assets/ReservedLine-CYUt-d8m.js",
+      "assets/floating-ui.dom-vtOd0C_f.js",
+      "assets/CopyButton-Ck1vEocv.js",
+      "assets/theme-BFtPavxC.js"
+    ],
+    "raw": 1278302,
+    "gzip": 407475,
+    "ceiling": 437814,
+    "diagnostic": ""
+  }
+}

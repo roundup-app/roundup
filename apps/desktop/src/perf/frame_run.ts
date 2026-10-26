@@ -5,7 +5,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { prepareFixture } from "./fixture";
 import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
-import type { FrameReport, LayerAction } from "./frames";
+import type { FrameReport, LayerAction, TodoAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
@@ -234,16 +234,6 @@ const workingGlyphs = () => [...document.querySelectorAll('.rail .glyph[data-dra
 
 const wallClock: Clock = { sleep };
 
-const attempted = async <T>(work: () => Promise<T>): Promise<boolean> => {
-  try {
-    await work();
-
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 /**
  * Creates a Todo in `home`. A created Todo has no home, and the Shelf of a selected Workstream lists only its own Todos: a homeless one
  * never reaches a row the driver can press, so the Layers cycle found no target on WKWebView and the run stayed invalid (U3010g).
@@ -263,28 +253,152 @@ const runWorkstream = async (app: AppSeam): Promise<string> => {
   return home;
 };
 
-const domTodos = (app: AppSeam, home: string): Todos => {
-  let made = 0;
+/** Fixture writes stay at the existing RPC seam; rendered controls retain fold, drag and focus ownership. */
+export const fixtureTodos = (app: Pick<AppSeam, "rpc">, fixture: Fixture, controls: Pick<Todos, "toggleFold" | "reorder">, journal: TodoAction[]): Todos => {
+  let inserted: number | null = null;
+  let repeat = 0;
+  let group = fixture.todos.slice(0, 4);
+
+  const record = async (action: TodoAction["action"], targets: number[], source: TodoAction["source"], work: () => Promise<boolean>) => {
+    const entry: TodoAction = { action, targets, source, completed: false };
+
+    journal.push(entry);
+    entry.completed = await work();
+
+    return entry.completed;
+  };
+
+  const restore = async () => {
+    // Never delete an unrecorded row, or silently adopt a changed owner/body/dependency.
+    const rows = await app.rpc("todo.list", null);
+
+    if (rows.length !== fixture.todos.length + (inserted === null ? 0 : 1) || !fixture.todos.every(target => rows.some(row => row.id === target.id && row.home === fixture.home && row.title === target.title && row.body === "body text" && JSON.stringify(row.owner) === JSON.stringify(target.owner) && JSON.stringify(row.blockers) === JSON.stringify(target.blockers)))) return false;
+
+    if (inserted !== null) {
+      await app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [inserted] });
+    }
+
+    for (const row of fixture.todos) {
+      if (rows.find(actual => actual.id === row.id)?.done) await app.rpc("todo.reopen", { id: row.id });
+    }
+
+    // Restoration is preparation, never a measured pointer action.
+    for (let index = fixture.todos.length - 1; index >= 0; index -= 1) {
+      await app.rpc("todo.reorder", { id: fixture.todos[index]!.id, before: fixture.todos[index + 1]?.id ?? null });
+    }
+
+    const restored = await app.rpc("todo.list", null);
+
+    if (restored.length !== 8 || restored.some((row, index) => row.id !== fixture.todos[index]?.id || row.done)) return false;
+    inserted = null;
+
+    return true;
+  };
 
   return {
-    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done && todo.home === home).map((todo) => todo.id),
-    create: () => attempted(() => createHomed(app, home, `motion ${(made += 1)}`)),
-    complete: (id) => attempted(() => app.rpc("todo.complete", { id })),
-    toggleFold: () =>
-      attempted(async () => {
-        const fold = await Promise.race([
-          appears(() => document.querySelector<HTMLElement>(".shelf-done-line button"), "the done fold"),
-          sleep(CYCLE_MS / 2).then(() => Promise.reject(new Error("no done fold"))),
-        ]);
+    open: async () => {
+      const rows = await app.rpc("todo.list", null);
+      const roots = group.filter(row => row.blockers.length === 0).map(row => row.id);
 
-        fold.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-      }),
-    reorder: (id, before) => attempted(() => app.rpc("todo.reorder", { id, before })),
+      return rows.filter(row => !row.done && (roots.includes(row.id) || row.id === inserted)).map(row => row.id);
+    },
+    create: async () => {
+      if (!(await restore())) return false;
+      group = fixture.todos.slice((repeat % 2) * 4, (repeat % 2) * 4 + 4);
+      repeat += 1;
+
+      return record("insert", [], "rpc", async () => {
+        const made = await app.rpc("todo.create", { title: "motion insertion", body: "body text", blockers: [], owner: group[0]!.owner });
+
+        inserted = made.id;
+        journal.at(-1)!.targets.push(made.id);
+        await app.rpc("todo.move", { id: made.id, home: fixture.home });
+        const actual = await app.rpc("todo.get", { id: made.id });
+
+        return !actual.done && actual.home === fixture.home && actual.title === "motion insertion" && JSON.stringify(actual.owner) === JSON.stringify(group[0]!.owner);
+      });
+    },
+    complete: async id => record("complete", [id], "rpc", async () => {
+      if (id !== inserted) return false;
+      await app.rpc("todo.complete", { id });
+
+      return (await app.rpc("todo.get", { id })).done;
+    }),
+    toggleFold: () => record("fold", inserted === null ? [] : [inserted], "synthetic-pointer", controls.toggleFold),
+    reorder: () => {
+      const id = group[3]!.id;
+      const before = group[0]!.id;
+
+      return record("reorder", [id, before], "trusted-pointer", async () => {
+        if (!(await controls.reorder(id, before))) return false;
+        const rows = await app.rpc("todo.list", null);
+        const ids = rows.filter(row => group.some(target => target.id === row.id)).map(row => row.id);
+
+        return ids[0] === id && ids[1] === before && group.every(target => rows.some(row => row.id === target.id && JSON.stringify(row.blockers) === JSON.stringify(target.blockers) && JSON.stringify(row.owner) === JSON.stringify(target.owner)));
+      });
+    },
   };
 };
 
+/** Observe native input without generating it. Both the actual source and the authoritative result must match. */
+export const pointerReorder = (id: number): Promise<boolean> => new Promise(resolve => {
+  const controller = new AbortController();
+  let pressed = false;
+
+  const finish = (completed: boolean) => {
+    clearTimeout(timer);
+    controller.abort();
+    resolve(completed);
+  };
+
+  const timer = setTimeout(() => finish(false), CYCLE_MS / 2);
+
+  window.addEventListener("pointerdown", event => {
+    pressed = event.isTrusted && event.button === 0 && event.target instanceof Element && event.target.closest("[data-todo]")?.getAttribute("data-todo") === String(id);
+  }, { capture: true, signal: controller.signal });
+  window.addEventListener("pointerup", event => {
+    if (!pressed || !event.isTrusted || !document.querySelector(".sortable-source,[data-dnd-dragging]")) return;
+    // The existing drag owner receives the release before its public RPC readback.
+    queueMicrotask(() => finish(true));
+  }, { capture: true, signal: controller.signal });
+  window.addEventListener("keydown", event => { if (event.key === "Escape") finish(false); }, { capture: true, signal: controller.signal });
+});
+
+export const domTodos = (app: AppSeam, fixture: Fixture, journal: TodoAction[]): Todos => fixtureTodos(app, fixture, {
+  toggleFold: async () => {
+    const fold = document.querySelector<HTMLElement>(".shelf-done-line button");
+
+    if (!fold) return false;
+    const before = document.querySelector<HTMLElement>(".todo-done-fold")?.dataset.open === "true";
+
+    fold.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+
+    return Promise.race([
+      appears(() => document.querySelector<HTMLElement>(".todo-done-fold")?.dataset.open === String(!before) ? true : null, "the changed done fold"),
+      sleep(SETTLE_MS).then(() => false),
+    ]);
+  },
+  reorder: async (id, before) => {
+    if (!document.querySelector(`.shelf [data-todo="${id}"]`) || !document.querySelector(`.shelf [data-todo="${before}"]`)) return false;
+
+    if (!(await pointerReorder(id))) return false;
+    // Drag mutations are asynchronous. Keep the existing settling bound and refuse an unapplied result.
+    const until = performance.now() + SETTLE_MS;
+
+    do {
+      const rows = await app.rpc("todo.list", null);
+      const at = rows.findIndex(row => row.id === id);
+
+      if (at >= 0 && rows[at + 1]?.id === before) return true;
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    } while (performance.now() < until);
+
+    return false;
+  },
+}, journal);
+
 /** The workload's setup, then the cycle its actions repeat; an unknown workload is an error, never an empty run. */
-const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], fixture?: Fixture): Promise<(index: number) => Promise<boolean>> => {
+const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], todoJournal: TodoAction[], fixture?: Fixture): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos" || workload === "drag") {
     // Rows to open, complete and reorder; one open Todo always stays.
     const home = fixture?.home ?? await runWorkstream(app);
@@ -314,7 +428,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], f
 
     if (workload === "layers") return layersCycle(domLayers(journal));
 
-    return todosCycle(domTodos(app, home));
+    return todosCycle(domTodos(app, fixture!, todoJournal));
   }
 
   if (workload === "glyphs") {
@@ -354,6 +468,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     }
 
     const layerActions: LayerAction[] = [];
+    const todoActions: TodoAction[] = [];
     const viewport = { width: innerWidth, height: innerHeight, device_pixel_ratio: devicePixelRatio };
     const shelfMode = document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelfMode ?? "missing";
     const nativeFixture = ["layers", "todos", "glyphs"].includes(workload);
@@ -369,7 +484,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
     }
 
-    const cycle = await bounded(prepare(app, workload, layerActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
+    const cycle = await bounded(prepare(app, workload, layerActions, todoActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
 
     if (fixture) {
       const bubble = input.closest<HTMLElement>(".bubble[data-bubble]");
@@ -418,8 +533,8 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
       const observer: NonNullable<FrameReport["observer"]> = {
-        viewport, shelf_mode: shelfMode, layer_actions: layerActions, variant: "unqualified",
-        native_qualification: "incomplete: trusted pointer actions, restored Todo repeats, both Shelf cases and live preference variants remain unqualified",
+        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, variant: "unqualified",
+        native_qualification: "incomplete: trusted layer actions, both Shelf cases and live preference variants remain unqualified",
       };
 
       if (fixture) observer.fixture = fixture;

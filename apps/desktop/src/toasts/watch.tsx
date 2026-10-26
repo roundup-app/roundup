@@ -5,11 +5,9 @@ import type { Kind } from "@contracts/Kind";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Unsubscribe } from "../app/seam";
-import { usePadList } from "../rail/pads/padList";
 import type { ConnectedProject } from "../state/connectedProject";
-import { useTodoList } from "../todos/todoList";
-import { TodoDrawer } from "../todos/TodoDrawer";
-import { PadDrawer } from "../pads/PadDrawer";
+import { TodoHost } from "../todos/TodoDrawer";
+import { PadHost } from "../pads/PadDrawer";
 import type { Candidate } from "./queue";
 
 const TITLE_CHARS = 60;
@@ -142,14 +140,4 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       );
     }
   });
-};
-
-/** The Todo's Drawer, with the shared list the Shelf reads (U15); it lives while the Drawer does. */
-const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
-
-/** The Pad's Drawer, as the Shelf's row opens it. */
-const PadHost = (props: { name: string }) => {
-  const list = usePadList();
-
-  return <PadDrawer name={props.name} pads={list.pads} onLateFailure={() => {}} />;
 };

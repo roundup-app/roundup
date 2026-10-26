@@ -820,5 +820,10 @@
     "cleanup": "The tempdir and the served task drop with the test; no child process starts.",
     "data": "Opens rupd::Daemon in process on a test-owned temporary directory.",
     "kind": "in-process"
+  },
+  "apps/desktop/src/app/u3787f_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
   }
 }
