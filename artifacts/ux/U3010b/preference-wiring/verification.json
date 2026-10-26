@@ -249,7 +249,15 @@
     },
     "web_after_fix": {
       "exit": 143,
-      "reason": "Every recipe stage reached completion without diagnostics; overall process was terminated, so not claimed as a pass. Fresh confirmation running."
+      "reason": "Overall process was terminated after reaching the final stage; not claimed as a pass."
+    },
+    "web_confirmation": {
+      "exit": 0
     }
+  },
+  "guards": {
+    "vocab": 0,
+    "merge_loss": 0,
+    "diff_check": 0
   }
 }
