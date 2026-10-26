@@ -365,7 +365,6 @@
 {"file":"apps/desktop/src/rail/u2227_task_field.test.tsx","test":"u2227 the task field > u2227_escape_closes_the_field_and_the_next_open_restores_the_text","identity":"8b280998b28c03136764881b0c843b2e41d4c4f98c6b4a0e8f280042d5b7ef95"}
 {"file":"apps/desktop/src/rail/u2227_task_field.test.tsx","test":"u2227 the task field > u2227_the_draft_ends_when_emptied_or_after_a_successful_spawn","identity":"cff7f090bd5e4b7f930e3bbf13808042731bf3720832ed194e2e24b7f8f30acc"}
 {"file":"apps/desktop/src/rail/u2556_worktree.test.tsx","test":"u2556c_updates_preserve_agent_interaction","identity":"caf19a1b6476d6dc7b13a922719a340623d8ec74c1a62064ff4600e3e5ad9dfc"}
-{"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773a_rail_pending_clear_hides_without_discard_or_retry","identity":"e8b09a2674f52eaf05f1de847d2b053bf3edfb4bc8260ff648aa70c226610b7b"}
 {"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry","identity":"f1be4e11eda21a38c3910bd83b770ea84bd4046a25165bad53ea8dc40f22c8d5"}
 {"file":"apps/desktop/src/rail/u2773_drafts.test.tsx","test":"u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry","identity":"fb7dd63f829339af0e2fa0450ff1ef07976c0b26ccdc82f195a91999db6e8cf1"}
 {"file":"apps/desktop/src/rail/u2875d_import.test.tsx","test":"u2875d the import panel is an ordinary Rail action > u3083d_stale_picks_drop_without_a_notice","identity":"8bb8b997dc450c3f301fe7c02f37990d136ddc76524533207531d73f8a212ded"}

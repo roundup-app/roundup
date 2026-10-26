@@ -5,6 +5,7 @@ import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 beforeEach(() => vi.stubGlobal("ResizeObserver", class {
   observe() {}
+  unobserve() {}
   disconnect() {}
 }));
 
