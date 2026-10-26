@@ -1,4 +1,4 @@
-import { agent } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -9,15 +9,16 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 it("u4315a_navigation_survives_centre_switches", async () => {
   const { connected, nodes } = await mountNavigation();
   nodes.push(agent("closed", "done", "", { terminal_id: null }));
+  nodes.push(door("running", "working", "Working"));
   await connected().rail.refresh();
   const row = screen.getByRole("navigation", { name: "Centre views" });
 
-  for (const id of ["a0", "home", "closed", null]) {
+  for (const id of ["a0", "running", "home", "closed", null]) {
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
     expect(screen.getByRole("navigation", { name: "Centre views" })).toBe(row);
 
-    if (id === "home") {
+    if (id === "home" || id === "running") {
       for (const name of ["Time", "Timeline"]) {
         fireEvent.click(await screen.findByRole("tab", { name }));
         await screen.findByRole("region", { name });
