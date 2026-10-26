@@ -12,7 +12,7 @@ def git(*args, env=None):
 def land(remote, branch, account):
     """Push `branch` to `remote`. When the remote head moved during the run (a non-fast-forward rejection), merge it
     into the run's head without a checkout (`git merge-tree`), as `account`, and push that merge once more: the history
-    keeps its merges, so a rebase would rewrite it. A conflict, or any other failed push, raises SystemExit naming it."""
+    keeps its merges, so a rebase would rewrite it. The merge carries an `Author-Agent` trailer, which `rules` requires. A conflict, or any other failed push, raises SystemExit naming it."""
     ref = f'refs/heads/{branch}'
 
     def said(done):  # the remote URL carries the App token
@@ -35,7 +35,8 @@ def land(remote, branch, account):
     env = {**os.environ, 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
            'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
     merged = git('commit-tree', tree.stdout.split()[0], '-p', ref, '-p', theirs, '-m',
-                 f'Merge the head of {branch} that moved during the run', env=env)
+                 f'Merge the head of {branch} that moved during the run', '-m',
+                 f"Author-Agent: builder-{os.environ.get('GITHUB_RUN_ID', '0')}", env=env)
     if merged.returncode:
         sys.exit(f'merging {branch} failed: {merged.stderr.strip()}')
     second = git('push', remote, f'{merged.stdout.strip()}:{ref}')
