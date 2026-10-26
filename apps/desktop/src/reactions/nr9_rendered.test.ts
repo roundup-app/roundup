@@ -15,8 +15,7 @@ import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
 
-it("nr9_cli_mcp_and_app_share_authority", async () => {
-  const real = await startRealDaemon({}, true);
+const reactionBrowser = async () => {
   const profile = await mkdtemp(join(tmpdir(), "nr9-browser-"));
   const config = join(profile, "config.json");
   await writeFile(config, "{}");
@@ -37,6 +36,16 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 
   const evaluate = async (source: string) => (await browser("eval", source)).result;
   const wait = (source: string) => browser("wait", "--fn", source);
+
+  return { browser, evaluate, wait, close: async () => {
+    await browser("close").catch(() => {});
+    await rm(profile, { recursive: true, force: true });
+  } };
+};
+
+it("nr9_cli_mcp_and_app_share_authority", async () => {
+  const real = await startRealDaemon({}, true);
+  const { browser, evaluate, wait, close } = await reactionBrowser();
   const app = createServedApp(real.base);
   const socketEnv = { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") };
   const cli = (...args: string[]) => execute(resolve("../../target/debug/rup"), ["--json", ...args], { env: socketEnv });
@@ -48,7 +57,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 
-    if (step === "failed-create" || step === "unknown-create") await evaluate("document.querySelector('.reaction-form > [role=alert]').scrollIntoView({ block: 'center' })");
+    if (step === "failed-create" || step === "unknown-create") await evaluate("document.querySelector('.reaction-form [role=alert]').scrollIntoView({ block: 'center' })");
 
     if (screenshot) await browser("screenshot", join(dir, `${step}.png`));
   };
@@ -239,9 +248,8 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("retired-project");
 
   } finally {
-    await browser("close").catch(() => {});
+    await close();
     await real.stop();
-    await rm(profile, { recursive: true, force: true });
   }
 }, 180_000);
 
@@ -347,3 +355,88 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
     await rm(profile, { recursive: true, force: true });
   }
 }, 90_000);
+
+it.each(["all", "any", "instant"])("u4276b_keyboard_creates_each_condition: %s", async kind => {
+  const real = await startRealDaemon({}, true);
+  const { browser, evaluate, wait, close } = await reactionBrowser();
+  const app = createServedApp(real.base);
+  const dir = captureDir("U4276b");
+
+  const tabTo = async (selector: string) => {
+    for (let step = 0; step < 80; step++) {
+      if (await evaluate(`document.activeElement?.matches(${JSON.stringify(selector)})`)) return;
+      await browser("press", "Tab");
+    }
+
+    throw new Error(`Keyboard could not reach ${selector}`);
+  };
+
+  const type = (text: string) => browser("keyboard", "type", text);
+  const field = async (selector: string, text: string) => { await tabTo(selector); await type(text); };
+
+  try {
+    const agents: RailNode[] = [];
+
+    for (let n = 0; n < 10; n++) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: n === 0 ? "Exact recipient" : `Watched Agent ${n}` }));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${real.base}/harness.html?view=reactions&daemon=1`);
+    await wait("!!document.querySelector('[data-reaction-opener=create]')");
+    await tabTo('[data-reaction-opener="create"]');
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.reaction-back')");
+    await field('.reaction-form [data-scope="field"][data-part="input"]', `Keyboard ${kind}`);
+    await tabTo('.reaction-form [data-scope="popover"][data-part="trigger"]');
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.app-combobox-input')");
+    await type("Exact recipient");
+    await wait("document.querySelectorAll('.choice-picker [role=option]').length === 1");
+    await browser("press", "ArrowDown");
+    await browser("press", "Enter");
+    await wait("!document.querySelector('.choice-picker')");
+    const instruction = "exact first line\n second line 🧭 ";
+    await field('.reaction-form textarea', instruction);
+
+    if (kind === "instant") {
+      await tabTo('.reaction-form .app-select-trigger[aria-label="Condition"]');
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('.app-select-list')");
+      await browser("press", "End");
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('.reaction-when[aria-label=At]')");
+      await field('.reaction-when[aria-label=At] input[data-part=input]', "2098-01-01");
+      await field('.reaction-when[aria-label=At] [data-scope=field] input', "09:00");
+    } else {
+      await tabTo(`.reaction-agents input[value="${agents[1]!.id}"]`);
+      await browser("press", "Space");
+      await tabTo(`.reaction-agents input[value="${agents[2]!.id}"]`);
+      await browser("press", "Space");
+
+      if (kind === "any") {
+        await tabTo('.app-radio input[value="all"]');
+        await browser("press", "ArrowRight");
+      }
+    }
+
+    await field('.reaction-when[aria-label=Expires] input[data-part=input]', "2099-01-01");
+    await field('.reaction-when[aria-label=Expires] [data-scope=field] input', "09:00");
+    await wait("!document.querySelector('.reaction-form button[type=submit]').disabled");
+    expect(await app.rpc("reaction.list", null)).toEqual([]);
+
+    if (dir) {
+      await mkdir(dir, { recursive: true });
+      await browser("screenshot", join(dir, `keyboard-${kind}.png`));
+      await writeFile(join(dir, `keyboard-${kind}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    }
+
+    await tabTo('.reaction-form button[type=submit]');
+    await browser("press", "Enter");
+    await wait("!!document.querySelector('.reaction-detail')");
+    const listed = await app.rpc("reaction.list", null);
+    expect(listed).toHaveLength(1);
+    const saved = await app.rpc("reaction.get", { id: listed[0]!.id });
+    expect(saved).toMatchObject({ target: agents[0]!.id, instruction, max_firings: 1, expires_at: "2099-01-01T09:00:00+00:00" });
+    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00+00:00", late: "once-before-expiry" } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
+    expect(saved.firings.every(firing => firing.matched)).toBe(true);
+  } finally { await close(); await real.stop(); }
+}, 60_000);

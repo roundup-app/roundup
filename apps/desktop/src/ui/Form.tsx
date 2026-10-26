@@ -24,10 +24,10 @@ const Number = (props: { label: string; value: string; onChange: (value: string)
   </NumberInput.Root>;
 
 /** Ark's date input commits an explicit civil date; the caller retains unfinished text. */
-const Date = (props: { label: string; value: string; onChange: (value: string) => void }) =>
+const Date = (props: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) =>
   <DatePicker.Root class="reaction-field" locale="en-CA" format={value => value.toString()} onValueChange={details => props.onChange(details.value[0]?.toString() ?? "")}>
     <DatePicker.Label class="reaction-label">{props.label}</DatePicker.Label>
-    <DatePicker.Control><DatePicker.Input value={props.value} placeholder="YYYY-MM-DD" onInput={event => props.onChange(event.currentTarget.value)} /></DatePicker.Control>
+    <DatePicker.Control><DatePicker.Input value={props.value} placeholder={props.placeholder} onInput={event => props.onChange(event.currentTarget.value)} /></DatePicker.Control>
   </DatePicker.Root>;
 
 /** Ark's CheckboxGroup owns the selected identities and labelled group. */

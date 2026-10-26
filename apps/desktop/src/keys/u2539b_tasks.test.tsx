@@ -351,6 +351,7 @@ it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
 it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
   const { connected, daemon } = await mount();
   const order = reverse ? ["terminal-tabs", "reactions"] : ["reactions", "terminal-tabs"];
+
   for (const view of order) openProjectPage(`view:${view}`, "/p");
   await screen.findByRole("button", { name: "Close Named reactions" });
   await screen.findByRole("button", { name: "Close Terminal tabs" });

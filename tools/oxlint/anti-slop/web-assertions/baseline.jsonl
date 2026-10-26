@@ -405,9 +405,6 @@
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_an_agent_folds_once_the_clock_passes_10_minutes_of_done","identity":"a9d3fee7641439c59bb4cfd6e9fe9cce36e0651e57d9b1aef24caaded4c78388"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_each_parent_folds_its_own_done_agents_at_its_own_depth","identity":"f38ff94f7d85df71663726b37d1baf4af226143e2355c8fd400cd33d44ce474b"}
 {"file":"apps/desktop/src/rail/u9_actions.test.tsx","test":"u9 actions > u9_promote_is_not_shown_on_a_door","identity":"24c5a83bd45a213deecd96e7ba2bb8a80bb917a136cbae5a843b7e5abcdf759f"}
-{"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"nr9_create_inspect_stop_run_and_focus","identity":"5e1d62062e7de21d12de7e82c65f679d3681dac2542289086adc7b0a50b60c30"}
-{"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_list_%s","identity":"b2af25f38e4fec6e8f80051f791dc470542cf6dedb3071e2d249a2111e3a85ff"}
-{"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_list_%s","identity":"593f1a5d5fdd43aa17cbc93a7a45cee66985ba3faa0aba407299044b58a59444"}
 {"file":"apps/desktop/src/resize/u389_resize.test.tsx","test":"u390 the Shelf's width is the user's > u390_closed_has_no_edge","identity":"4df631818835327746ed92ea0f55f2eb0596343903beb2b52622f8cc94f7b491"}
 {"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups","identity":"3c7df3dc15863d060878d22d1262900b0ee2bc3dbc47e97b2196a81a40a123fa"}
 {"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3800_close_returns_the_center_and_focus","identity":"244b23827313f5b04517e69ebb0f3489fafaaccd2416abfa57cc26411865c007"}
