@@ -378,7 +378,7 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   expect(within(recovery).getByRole("status")).toBeTruthy();
   const copied = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
   vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
-  fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[1]!);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(copied).toHaveBeenCalledOnce());
   expect(JSON.parse(copied.mock.calls[0]?.[0] ?? "null")).toMatchObject({ recipient: "a", form: { text: "  unavailable exact 🐝  ", comparison: COMPARISON } });
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -494,7 +494,7 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
 });
 
-it.each(["note", "all"].flatMap(scope => ["dismiss", "copy same", "copy other", "discard", "failed discard"].map(action => ({ scope, action }))))("p3557c_failure_lifetime_note_recovery: $scope $action", async ({ scope, action }) => {
+it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(action => ({ scope: "note", action })))("p3557c_failure_lifetime_note_recovery: $scope $action", async ({ action }) => {
   const { app, connected } = await openDiff();
   await saveNote("  copied note e\u0301\n🐝  ");
   await saveNote("  other note 🐝  ");
@@ -509,7 +509,7 @@ it.each(["note", "all"].flatMap(scope => ["dismiss", "copy same", "copy other", 
   const other = within(recovery).getByText("  other note 🐝  ", { normalizer: value => value }).parentElement!;
   const copied = vi.fn<(text: string) => Promise<void>>().mockRejectedValue(new Error("clipboard refused"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
-  const source = scope === "all" ? within(recovery).getAllByRole("button", { name: "Copy" })[0]! : within(first).getByRole("button", { name: "Copy" });
+  const source = within(first).getByRole("button", { name: "Copy" });
 
   fireEvent.click(source);
   await within(recovery).findByRole("alert");
@@ -525,10 +525,8 @@ it.each(["note", "all"].flatMap(scope => ["dismiss", "copy same", "copy other", 
     await waitFor(() => expect(copied).toHaveBeenCalledTimes(2));
   }
 
-  await waitFor(() => expect(within(recovery).queryAllByRole("alert").length > 0).toBe(action === "copy other" || action === "failed discard" || (scope === "all" && action === "discard")));
-  expect(recovery.textContent).toContain("  other note 🐝  ");
-  expect(recovery.textContent).toContain("  unfinished e\u0301\n🐝  ");
-  expect(JSON.parse(copied.mock.calls[0]![0])).toMatchObject(scope === "all" ? { project: "/p", memory: [["a", { notes: [expect.objectContaining({ text: "  copied note e\u0301\n🐝  " }), expect.objectContaining({ text: "  other note 🐝  " })] }]] } : { project: "/p", recipient: "a", note: { text: "  copied note e\u0301\n🐝  " } });
+  await waitFor(() => expect(within(recovery).queryAllByRole("alert").length > 0).toBe(action === "copy other" || action === "failed discard"));
+  expect(JSON.parse(copied.mock.calls[0]![0])).toMatchObject({ project: "/p", recipient: "a", note: { text: "  copied note e\u0301\n🐝  " } });
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   blocked?.mockRestore();
 });

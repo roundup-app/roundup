@@ -22,7 +22,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
-  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();
+  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim().split(",")[0]!.replaceAll('"', "");
   const drafts = draftStorage("app-settings");
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
@@ -93,7 +93,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   return <Show when={view.open()}>
     <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
-      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => setSection(focusedValue)} activationMode="automatic" orientation="vertical" class="settings-sections">
+      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <Tabs.List aria-label={copy.settings}>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
@@ -101,7 +101,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
         </Tabs.List>
       <div class="settings-content">
-      <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
+      <Tabs.Content value="Agents"><SettingsGroup hideHeading name={copy.settingsAgents}>
         <Select label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
@@ -116,7 +116,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Terminal"><SettingsGroup name={copy.settingsTerminal}>
+      <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
@@ -128,8 +128,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <ReservedLine message={sizeFailure()} />
         </Field.Root>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
+      <Tabs.Content value="Shortcuts"><SettingsGroup hideHeading name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Appearance"><SettingsGroup hideHeading name={copy.settingsAppearance}>
         <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
       </SettingsGroup></Tabs.Content>

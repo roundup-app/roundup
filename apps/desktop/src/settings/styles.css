@@ -83,7 +83,7 @@
 /* Keep each value and its disclosure in one readable field column. */
 .settings-group .app-select,
 .settings-group .settings-field {
-  width: min(100%, var(--shelf-width));
+  width: min(100%, var(--centre-min-width));
 }
 
 .settings-field label {
@@ -101,9 +101,6 @@
   opacity: 1;
 }
 
-.settings-group .settings-font {
-  width: min(100%, var(--centre-min-width));
-}
 
 .project-center-content {
   display: flex;
@@ -163,7 +160,7 @@
 
 .settings-content .settings-group {
   border: 0;
-  padding: 0;
+  padding: var(--space-1) 0 0;
   gap: var(--space-5);
 }
 
@@ -174,10 +171,6 @@
 
 .settings-field input {
   border-bottom: var(--hairline-width) solid var(--hairline);
-}
-
-.settings-field input:focus-visible {
-  border-color: var(--accent);
 }
 
 .settings-shortcut button[aria-pressed="true"] {
@@ -194,5 +187,13 @@
 }
 
 .settings-field input[data-invalid] {
+  color: var(--red);
+}
+
+.settings-content .app-select-trigger {
+  border-bottom: var(--hairline-width) solid var(--hairline);
+}
+
+.settings-recording-mark {
   color: var(--red);
 }
