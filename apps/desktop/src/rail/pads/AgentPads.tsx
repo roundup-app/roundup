@@ -44,6 +44,7 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
   const reorder = createSortedList({
     ids: () => ownedTodos().map((todo) => todo.id),
     all: todos.all,
+    reload: todos.reload,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
   });

@@ -238,6 +238,7 @@ export const Todos = (props: {
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
+    reload: todos.reload,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {

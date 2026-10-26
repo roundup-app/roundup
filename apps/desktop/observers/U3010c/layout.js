@@ -1,3 +1,5 @@
+export { default as observeUnchangedKey } from "./unchanged-key.js";
+
 import { createSignal, For, createComponent, batch } from "solid-js";
 import { render, insert } from "solid-js/web";
 import { animateLayout } from "motion";
