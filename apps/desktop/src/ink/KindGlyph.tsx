@@ -55,7 +55,7 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
     <span class={["glyph", hasInk(glyphOf(props.kind)) && "ink", props.class].filter(Boolean).join(" ")} data-state={props.decorative ? undefined : ""} data-tone={glyphOf(props.kind).tone} data-drawing={glyphOf(props.kind).drawing}
       role={props.decorative ? undefined : "img"} aria-label={props.decorative ? undefined : (props.label ?? LABELS[props.kind])} aria-hidden={props.decorative ? "true" : undefined}>
       <Mark kind={props.kind} ref={svg => { current = svg; }} />
-      <Show when={leaving()}>{kind => <Mark kind={kind()} class="kind-mark kind-mark-leaving" ref={fade} />}</Show>
+      <Show when={leaving()} keyed>{kind => <Mark kind={kind} class="kind-mark kind-mark-leaving" ref={fade} />}</Show>
     </span>
   );
 };

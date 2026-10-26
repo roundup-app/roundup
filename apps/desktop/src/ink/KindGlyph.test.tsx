@@ -83,4 +83,14 @@ describe("u3010c_m9", () => {
     cleanup();
     expect(container.querySelector("svg")).toBeNull();
   });
+
+  it("u3010c_a_second_change_mid_fade_leaves_one_mark_of_the_latest_kind", async () => {
+    const [kind, setKind] = createSignal<Kind>("idle");
+    const { container } = render(() => <KindGlyph kind={kind()} />);
+
+    setKind("working");
+    setKind("error");
+    await new Promise((done) => setTimeout(done, 300));
+    expect([container.querySelectorAll("svg").length, container.querySelector("span")?.dataset["drawing"]]).toEqual([1, "cross"]);
+  });
 });
