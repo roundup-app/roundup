@@ -74,12 +74,12 @@ import { createWidths } from "./resize/widths";
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
-const LinkedItem = (props: { content: LinkContent }) => {
+const LinkedItem = (props: { content: LinkContent; onLateFailure: (message: string) => void }) => {
   const pads = usePadList();
   const todos = useTodoList();
   const content = props.content;
 
-  if (content.kind === "pad") return <PadDrawer name={content.id} heading={content.section?.heading} pads={pads.pads} onLateFailure={() => {}} />;
+  if (content.kind === "pad") return <PadDrawer name={content.id} heading={content.section?.heading} pads={pads.pads} onLateFailure={props.onLateFailure} />;
 
   if (content.kind === "todo") return <TodoDrawer id={content.todo.id} todos={todos} />;
 
@@ -353,7 +353,7 @@ export const App = (props: {
       // The active Project mounts its existing Bubble listener after selection.
       queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
     } else if (content.kind === "pad" || content.kind === "todo") {
-      open.drawer.open(() => <LinkedItem content={content} />, "key");
+      open.drawer.open(() => <LinkedItem content={content} onLateFailure={setWindowFailure} />, "key");
     }
 
     setLinked(null);
