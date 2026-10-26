@@ -20,7 +20,7 @@ if (!root) throw new Error("index.html has no #root element");
 const tauri = createTauriApp();
 
 if (!new URLSearchParams(location.search).has("capture")) {
-  void followMaterial(document.documentElement).catch(error => console.error("Native material unavailable", error));
+  void followMaterial(document.documentElement).catch(error => console.error(error));
 }
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
