@@ -777,6 +777,8 @@ async fn u3523e_live_resume_failure_keeps_import_recoverable() {
     assert_eq!(node["can_resume"], true, "{tree}");
     assert_eq!(std::fs::read(&original).unwrap(), bytes);
     drop(daemon);
+    // Recovery must use the retained copy even when the external conversation disappears.
+    std::fs::remove_file(&original).unwrap();
     let daemon = import_daemon(&project, launcher);
     // Replay returns the published identities and never attempts another automatic launch.
     let replay = import_rpc(&daemon, "project.importCommit", params).await;
@@ -789,10 +791,19 @@ async fn u3523e_live_resume_failure_keeps_import_recoverable() {
         import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
         json!([])
     );
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let recovered = tree["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == id)
+        .unwrap();
+    assert!(recovered["overview"]["id"].is_string(), "{tree}");
+    assert_ne!(recovered["overview"]["id"], source);
     let retry = import_rpc(&daemon, "agent.resume", json!({"id":id})).await;
     assert!(
         retry["error"].is_object(),
         "retry reaches the missing executable: {retry}"
     );
-    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+    assert!(!original.exists());
 }
