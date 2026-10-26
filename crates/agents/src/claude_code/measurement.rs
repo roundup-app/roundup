@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 pub(crate) async fn listen(
     accept: impl Fn(String, Vec<Contribution>) -> Result<(), String> + Send + Sync + 'static,
     failed: impl Fn(String) + Send + Sync + 'static,
-    alive: impl Fn() -> bool + Send + 'static,
+    stopped: impl Future<Output = ()> + Send + 'static,
 ) -> Result<std::collections::BTreeMap<String, String>, rpc::RpcError> {
     use axum::{Json, Router, extract::rejection::JsonRejection, http::StatusCode, routing::post};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -55,14 +55,7 @@ pub(crate) async fn listen(
     );
     tokio::spawn(async move {
         axum::serve(listener, app)
-            .with_graceful_shutdown(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    if !alive() {
-                        break;
-                    }
-                }
-            })
+            .with_graceful_shutdown(stopped)
             .await
             .expect("Adapter interval receiver");
     });

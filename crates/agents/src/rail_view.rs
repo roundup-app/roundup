@@ -97,6 +97,7 @@ impl Shared {
                 parked: VecDeque::new(),
             },
         );
+        self.events.observed.notify_waiters();
     }
 
     /// Every node leaving the module carries its Attempt's Status. During resume the old
