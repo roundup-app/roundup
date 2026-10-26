@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -85,8 +86,7 @@ export const createReactions = () => {
 
   const refresh = () => { if (daemonExit() === null) void refetch(); };
 
-  window.addEventListener("focus", refresh);
-  onCleanup(() => window.removeEventListener("focus", refresh));
+  makeEventListener(window, "focus", refresh);
 
   return { read, refresh, refetch, dismiss: () => mutate(value => ({ ...value, failure: null })) };
 };
