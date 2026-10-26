@@ -650,9 +650,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: U3726's tick-only rows share a title column; rows with the extra Glyph
-// keep their own column. U3727 includes the entry field’s text edge.
-// U3708's tree indent shifts both; later lines align with their title.
+// D12: state glyphs stay fixed across nesting; names retain their tree indent.
+// U3727 includes the entry field’s text edge.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 

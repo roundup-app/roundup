@@ -461,7 +461,7 @@
 .todo-row .todo-row-notice:has([role="alert"]) { padding-block-start: var(--space-1); }
 .todo-row [data-group-toggle] { position: absolute; right: 100%; }
 .todo-group-content { position: relative; }
-.todo-group-content > [data-part="branch-indent-guide"] {
+.todo-group-content [data-part="branch-indent-guide"] {
   position: absolute;
   top: 0;
   bottom: var(--space-4);
@@ -487,7 +487,7 @@
   max-block-size: none;
 }
 .todo-row-notice .reserved-line[data-empty="true"] { display: none; }
-.todo-row-notice .reserved-content :is(.ink, .reserved-status) {
+.todo-row-notice :is(.ink, .reserved-status) {
   white-space: normal;
   overflow-wrap: anywhere;
 }

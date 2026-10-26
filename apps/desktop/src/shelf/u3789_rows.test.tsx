@@ -11,11 +11,13 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
 
-const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"]) => {
+const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false) => {
   const controls = seedApp(seed, 0);
 
-  if (rows) {
+  if (seed === "tree-40") {
     const tree = await controls.app.rpc("rail.tree", null);
+
+    if (withWorktree) for (const node of tree) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main"};
     controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
   }
 
@@ -468,8 +470,8 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
 });
 
 
-it.each(["payments", "tokens", "auth"])("u4275b_quick_actions_use_the_rows_directory_%s", async id => {
-  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
+it.each(["payments", "tokens", "auth"].flatMap(id => [false, true].map(withWorktree => ({id, withWorktree}))))("u4275b_quick_actions_use_the_rows_directory_$id/$withWorktree", async ({id, withWorktree}) => {
+  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"], withWorktree);
   const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
   const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
   const directory = node.worktree?.path ?? "/Users/you/harness";
