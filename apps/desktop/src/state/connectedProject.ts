@@ -61,6 +61,7 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
   const projects = new Map<string, ProjectDrafts>();
 
   const [paths, setPaths] = createSignal<string[]>([]);
+
   const forProject = (path: string): ProjectDrafts => {
     const existing = projects.get(path);
 
