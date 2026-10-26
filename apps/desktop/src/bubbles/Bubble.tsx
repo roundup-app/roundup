@@ -1,3 +1,5 @@
+import { makeEventListenerStack } from "@solid-primitives/event-listener";
+import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, For, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -77,15 +79,16 @@ export const Bubble = (props: {
     props.screens.resize(id, props.screens.show(id, host, false));
 
     if (typeof ResizeObserver !== "undefined") {
-      const watched = new ResizeObserver(refitNextFrame);
+      const watched = makeResizeObserver(refitNextFrame);
 
       watched.observe(host);
-      onCleanup(() => watched.disconnect());
     }
   };
 
   // A bubble that was folded is fitted again when it comes back.
   createEffect(on(() => place().min, (folded) => { if (!folded) refitNextFrame(); }, { defer: true }));
+
+  const [listen, clearListeners] = makeEventListenerStack(window);
 
   let restoreResize: (() => void) | undefined;
 
@@ -101,7 +104,6 @@ export const Bubble = (props: {
 
     const from = place();
     const target = start.currentTarget;
-    const listeners = new AbortController();
     let pointer = { x: start.clientX, y: start.clientY };
     let pending: number | null = null;
     let settled = false;
@@ -122,7 +124,7 @@ export const Bubble = (props: {
     const finish = (restore: boolean) => {
       if (settled) return;
       settled = true;
-      listeners.abort();
+      clearListeners();
       restoreResize = undefined;
 
       if (pending !== null) cancelAnimationFrame(pending);
@@ -141,13 +143,11 @@ export const Bubble = (props: {
 
     const focus = (event: FocusEvent) => { if (event.target !== target) cancel(); };
 
-    const options = { signal: listeners.signal };
-
-    window.addEventListener("pointermove", move, options);
-    window.addEventListener("pointerup", up, options);
-    window.addEventListener("pointercancel", cancelled, options);
-    window.addEventListener("blur", event => { if (event.target === event.currentTarget) cancel(); }, { ...options, capture: true });
-    window.addEventListener("focusin", focus, options);
+    listen("pointermove", move);
+    listen("pointerup", up);
+    listen("pointercancel", cancelled);
+    listen("blur", event => { if (event.target === event.currentTarget) cancel(); }, { capture: true });
+    listen("focusin", focus);
     restoreResize = cancel;
 
     try {
