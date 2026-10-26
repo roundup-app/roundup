@@ -68,6 +68,7 @@ sys.exit(7)
         while spawned.output.next().await.is_some() {}
         let event = spawned.events.recv().await.unwrap();
         assert!(matches!(event.as_ref(), contracts::EventData::TerminalExited(done) if done.code == Some(7)));
+        terminals.wait_program_ended("999").await;
     })
     .await;
     if observation.is_err() {
