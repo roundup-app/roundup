@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
@@ -528,4 +529,27 @@ it("u4275b_row_actions_keep_menu_semantics", async () => {
   expect(rpcCalls(app, "workstream.clear")).toEqual([]);
   fireEvent.click(screen.getByRole("button", { name: /^Keep$/ }));
   expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+});
+
+
+it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
+  const { app } = await open("tree-40", ["auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  fireEvent.click(row.querySelector('[aria-label="Stop"]')!);
+  await questionDialog();
+  expect(rpcCalls(app, "agent.stop")).toEqual([]);
+  await answerQuestion(false);
+  expect(rpcCalls(app, "agent.stop")).toEqual([]);
+  fireEvent.click(row.querySelector('[aria-label="Stop"]')!);
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(rpcCalls(app, "agent.stop")).toEqual([{id:"tokens"}]));
+});
+
+it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
+  const { app } = await open("door-stopped");
+  const row = document.querySelector('.rail-row')!;
+  const id = row.getAttribute("data-id")!;
+  fireEvent.click(row.querySelector('[aria-label="Start supervisor"]')!);
+  await waitFor(() => expect(rpcCalls(app, "rail.startDoor")).toEqual([{id}]));
 });
