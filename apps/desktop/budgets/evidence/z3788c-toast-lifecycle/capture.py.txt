@@ -1,0 +1,39 @@
+import json, os, pathlib, subprocess, tempfile, uuid
+root=pathlib.Path(os.environ["Z3788_REPO"])
+out=root/'artifacts/ux/Z3788c'
+out.mkdir(parents=True,exist_ok=True)
+session='z3788c-toast-'+uuid.uuid4().hex
+with tempfile.TemporaryDirectory(prefix='z3788c-toast-profile-') as profile:
+ config=pathlib.Path(profile)/'config.json'; config.write_text('{}')
+ env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+ def browser(*args):
+  cmd=[str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',profile,'--config',str(config),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args]
+  p=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=60)
+  if p.returncode: raise RuntimeError(p.stdout+p.stderr)
+  r=json.loads(p.stdout)
+  if not r.get('success'): raise RuntimeError(r)
+  return r['data']
+ def ev(s): return browser('eval',s)['result']
+ def shot(seed,step):
+  browser('screenshot',str(out/f'{seed}-{step}.png'))
+  (out/f'{seed}-{step}.checks.json').write_text(json.dumps(ev('window.__checks()'),indent=2))
+ try:
+  for phase,port in [('base',5215),('head',5216)]:
+   for seed in ['tree-40','agents-10','conflict']:
+    browser('open',f'http://localhost:{port}/harness.html?view=workstreams&items=1&tabs=1&seed={seed}')
+    browser('set','viewport','1512','950'); browser('set','media','dark')
+    browser('wait','--fn',"!!window.__fake && !!document.querySelector('.rail-row')")
+    ev('document.fonts.ready')
+    ev("Object.defineProperty(document, 'hasFocus', {configurable:true,value:()=>false}); window.__fake.setStatus('agent-3','error','failed')")
+    browser('wait','--fn',"!document.querySelector('.app-toast-action')")
+    ev("Object.defineProperty(document, 'hasFocus', {configurable:true,value:()=>true}); window.dispatchEvent(new Event('focus'))")
+    browser('wait','--fn',"!!document.querySelector('.app-toast-action')")
+    shot(seed,phase+'-return')
+    ev("document.querySelector('.app-toast-action').click()")
+    browser('wait','--fn',"!!document.querySelector('.pane')")
+    ev("window.__fake.app.exitDaemon({code:1})")
+    browser('wait','--fn',"!!document.querySelector('[role=alert]')")
+    shot(seed,phase+'-failure')
+    (out/f'{seed}-{phase}-calls.json').write_text(json.dumps(ev("window.__fake.app.calls.filter(c=>['terminal.open','terminal.write'].includes(c.method))"),indent=2))
+ finally:
+  browser('close')

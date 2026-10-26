@@ -230,9 +230,11 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
 
       return { front, sound, queue, dispose };
     });
+
     const previous = mount();
 
     previous.dispose();
+
     const current = mount();
 
     try {
