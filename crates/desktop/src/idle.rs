@@ -74,8 +74,8 @@ impl Collector {
         let mut journal = self.journal.lock().map_err(|e| e.to_string())?;
         let at_us = u64::try_from(self.started.elapsed().as_micros()).map_err(|e| e.to_string())?;
         let result = journal.append(at_us, source, body);
-        if let Err(error) = &result {
-            eprintln!("{error}");
+        if result.is_err() {
+            log::warn!(target: "roundup::shell", "append idle evidence: journal write failed");
         }
         result
     }
@@ -235,12 +235,12 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                 return;
             }
             if let Some(window) = view.app_handle().get_webview_window(view.label()) {
-                if let Err(error) = native(&window, "initial") {
-                    eprintln!("{error}");
+                if native(&window, "initial").is_err() {
+                    log::warn!(target: "roundup::shell", "observe initial idle window: native observation failed");
                 }
                 #[cfg(target_vendor = "apple")]
-                if let Err(error) = native::watch(window, application) {
-                    eprintln!("desktop: could not observe application visibility: {error}");
+                if native::watch(window, application).is_err() {
+                    log::warn!(target: "roundup::shell", "observe idle application visibility: native observer registration failed");
                 }
             }
         })
@@ -260,7 +260,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                         let result = app.state::<Collector>().append("window-event", observed).and_then(|()| {
                             app.get_webview_window(label).ok_or("R24 native window missing".into()).and_then(|window| native(&window, "window-event"))
                         });
-                        if let Err(error) = result { eprintln!("{error}"); }
+                        if result.is_err() { log::warn!(target: "roundup::shell", "observe idle window event: native observation or journal write failed"); }
                     }
                 }
                 tauri::RunEvent::ExitRequested { api, .. } => {
@@ -273,11 +273,10 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                         finish(app);
                     }
                 }
-                tauri::RunEvent::Exit => {
-                    if let Err(error) = app.state::<Collector>().append("end", json!("App exited"))
-                    {
-                        eprintln!("{error}");
-                    }
+                tauri::RunEvent::Exit
+                    if app.state::<Collector>().append("end", json!("App exited")).is_err() =>
+                {
+                    log::warn!(target: "roundup::shell", "finish idle evidence: journal write failed");
                 }
                 _ => {}
             }
@@ -323,11 +322,12 @@ fn finish<R: Runtime>(app: &tauri::AppHandle<R>) {
 #[cfg(target_vendor = "apple")]
 pub(super) fn application<R: Runtime>(window: &WebviewWindow<R>, cause: &str, hidden: bool) {
     let state = window.state::<Collector>();
-    if let Err(error) = state
+    if state
         .append("application", json!({"cause":cause,"hidden":hidden}))
         .and_then(|()| native(window, cause))
+        .is_err()
     {
-        eprintln!("{error}");
+        log::warn!(target: "roundup::shell", "observe idle application event: native observation or journal write failed");
     }
 }
 

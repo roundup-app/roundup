@@ -76,7 +76,7 @@ pub(crate) fn second_launch<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, c
             .and_then(|()| window.unminimize())
             .and_then(|()| window.set_focus())
     {
-        eprintln!("desktop: cannot show existing App: {error}");
+        crate::diagnostics::failure("show existing App", &error);
     }
 }
 
@@ -95,7 +95,7 @@ pub(crate) fn plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
                             deliver(&handle, NativeOpen::Link { url });
                         }
                     }
-                    Err(error) => eprintln!("desktop: invalid native link delivery: {error}"),
+                    Err(error) => log::warn!(target: "roundup::shell", "receive native link: JSON {:?} at {}:{}", error.classify(), error.line(), error.column()),
                 },
             );
             Ok(())
@@ -123,6 +123,11 @@ pub(crate) fn native_open<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn u3787f_logs_report_causes_without_private_content() {
+        crate::diagnostics::tests::u3787f_logs_report_causes_without_private_content();
+    }
+
     use super::*;
     use std::sync::Arc;
     use tauri::ipc::InvokeResponseBody;

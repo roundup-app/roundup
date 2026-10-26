@@ -50,6 +50,21 @@ pub enum Error {
     SerdeJson(#[from] serde_json::Error),
 }
 
+// Never format foreign messages: JSON errors can contain saved values.
+fn diagnostic(operation: &'static str, error: &Error) {
+    match error {
+        Error::Io(error) => {
+            log::warn!(target: "roundup::shell", "{operation}: IO {:?}", error.kind())
+        }
+        Error::SerdeJson(error) => {
+            log::warn!(target: "roundup::shell", "{operation}: JSON {:?} at {}:{}", error.classify(), error.line(), error.column())
+        }
+        Error::Tauri(_) => {
+            log::warn!(target: "roundup::shell", "{operation}: native window operation failed")
+        }
+    }
+}
+
 /// Alias for a [`Result`](std::result::Result) with the error type [`Error`].
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -269,10 +284,7 @@ impl<R: Runtime> WindowExt for Window<R> {
                     }
                 }
             } else {
-                eprintln!(
-                    "window-state: invalid normal bounds for {}; using startup bounds",
-                    self.label()
-                );
+                log::warn!(target: "roundup::shell", "restore window bounds: invalid normal bounds; using startup bounds");
             }
 
             if flags.contains(StateFlags::MAXIMIZED) && state.maximized {
@@ -475,7 +487,7 @@ impl Builder {
                         (HashMap::new(), false)
                     }
                     Err(error) => {
-                        eprintln!("window-state: restore failed; original file retained: {error}");
+                        diagnostic("restore window state; original file retained", &error);
                         (HashMap::new(), true)
                     }
                 };
@@ -518,9 +530,9 @@ impl Builder {
                     .insert(label.to_string());
                 if !self.skip_initial_state.contains(label) {
                     if let Err(error) = window.restore_state(state_flags) {
-                        eprintln!("window-state: restore {} failed: {error}", window.label());
+                        diagnostic("restore window state", &error.into());
                         if let Err(error) = window.show() {
-                            eprintln!("window-state: reveal {} failed: {error}", window.label());
+                            diagnostic("reveal window after failed restore", &error.into());
                         }
                     }
                 }
@@ -545,7 +557,7 @@ impl Builder {
                         let mut c = cache.lock().unwrap();
                         if let Some(state) = c.get_mut(&label) {
                             if let Err(error) = window_clone.update_state(state, state_flags) {
-                                eprintln!("window-state: retain normal bounds failed: {error}");
+                                diagnostic("retain normal window bounds", &error.into());
                             }
                         }
                     }
@@ -607,7 +619,7 @@ impl Builder {
             .on_event(move |app, event| {
                 if let RunEvent::Exit = event {
                     if let Err(error) = app.save_window_state(state_flags) {
-                        eprintln!("window-state: save failed: {error}");
+                        diagnostic("save window state", &error);
                     }
                 }
             })
