@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
 import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
-import type { Layers, Todos } from "./frame_run";
+import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
 import { createFakeApp } from "../testing/fakeApp";
@@ -24,7 +24,7 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
     return name !== missing;
   };
 
-  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), keyShelf: press("keyShelf"), halfway: async (_panel, action) => action() };
+  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), keyShelf: press("keyShelf"), halfway: async (_panel, action) => await action() };
 };
 
 const fixtureApp = (prefix: string) => {
@@ -146,7 +146,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     let release: (done: boolean) => void = () => {};
 
     const controls = layers(log);
-    controls.halfway = async (_panel, action) => action() && await new Promise<boolean>(resolve => { release = resolve; });
+    controls.halfway = async (_panel, action) => await action() && await new Promise<boolean>(resolve => { release = resolve; });
     const run = layersCycle(controls)(index);
 
     // Time alone cannot authorize a reversal: the geometry observer owns readiness.
@@ -163,7 +163,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(log).toHaveLength(3);
   });
 
-  it("u3010g_todo_repeats_restore_the_fixture_before_inserting_again", async () => {
+  it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
     const app = fixtureApp("repeat");
     const fixture = await prepareFixture(app, "/temporary", "shell");
     const initial = await app.rpc("todo.list", null);
@@ -178,10 +178,11 @@ describe("u3010g the frame recorder drives every workload", () => {
       },
     }, journal);
 
-    const cycle = todosCycle(controls);
+    const run = everyTwoSeconds(clock, todosCycle(controls));
 
-    for (let index = 0; index < 8; index += 1) expect(await cycle(index)).toBe(true);
-    expect(journal.map(row => row.action)).toEqual(["insert", "complete", "fold", "reorder", "insert", "complete", "fold", "reorder"]);
+    await vi.advanceTimersByTimeAsync(SAMPLE_MS);
+    expect(await run).toEqual({ performed: 30, completed: true });
+    expect(journal.map(row => row.action)).toEqual(Array.from({ length: 30 }, (_, index) => ["insert", "complete", "fold", "reorder"][index % 4]));
     expect(journal.every(row => row.completed)).toBe(true);
     // A repeat restores every original row's home, owner, body, nesting and open state.
     const actual = await app.rpc("todo.list", null);
@@ -189,7 +190,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(actual.filter(row => fixture.todos.some(target => target.id === row.id)).toSorted((a, b) => a.id - b.id)).toEqual(initial);
     expect(actual).toHaveLength(9);
     expect(actual.filter(row => row.done)).toHaveLength(1);
-    expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5]]);
+    expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5], [4, 1], [8, 5], [4, 1], [8, 5], [4, 1]]);
   });
 
   it("u3010g_synthetic_pointer_events_cannot_complete_the_native_reorder_phase", async () => {
@@ -202,7 +203,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(await run).toBe(false);
   });
 
-  it("u3010g_synthetic_layer_input_cannot_complete_an_observed_action", async () => {
+  it.each(["closeDrawer", "escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
     const drawer = document.createElement("div");
     const close = document.createElement("button");
 
@@ -210,18 +211,30 @@ describe("u3010g the frame recorder drives every workload", () => {
     drawer.dataset.open = "false";
     close.className = "close";
     drawer.append(close);
-    document.body.append(drawer);
+    const root = document.createElement("div");
+    const shelf = document.createElement("div");
+    const tab = document.createElement("button");
+
+    root.dataset.layoutRoot = "";
+    root.dataset.shelf = "open";
+    shelf.className = "shelf";
+    tab.className = "shelf-tab";
+    tab.dataset.selected = "";
+    root.append(drawer, shelf, tab);
+    document.body.append(root);
     const journal: import("./frames").LayerAction[] = [];
 
     try {
       const controls = domLayers(journal);
-      const outcome = controls.closeDrawer();
+      const outcome = controls[action]();
 
       close.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      close.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      tab.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: action === "keyShelf" ? 0 : 1 }));
       await vi.advanceTimersByTimeAsync(1000);
       expect(await outcome).toBe(false);
     } finally {
-      drawer.remove();
+      root.remove();
     }
   });
 
