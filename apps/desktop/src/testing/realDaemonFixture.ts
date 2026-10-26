@@ -78,6 +78,15 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
   // N5: the Daemon's data is this fixture's own folder, outside its Project; no caller environment redirects it.
   const dataDir = await mkdtemp(join(resolve(tmpdir()), "roundup-real-data-"));
   const socket = join(dir, "rupd.sock");
+  const sidecar = join(dataDir, "sidecar");
+  const bundled = spawnSync("bash", [join(REPO, "tools/sidecar/bundle.sh"), sidecar, "--local-node"], { stdio: "inherit" });
+
+  if (bundled.status !== 0) {
+    await rm(dataDir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
+    throw new Error("fixture sidecar is incomplete");
+  }
+
   let model: Model | undefined;
   let release: (() => Promise<void>) | undefined;
   let daemon: ChildProcess | undefined;
@@ -103,6 +112,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
         ...process.env,
         RUPD_SOCKET: socket,
         CLAUDE_CONFIG_DIR: join(dir, "claude-config"),
+        ROUNDUP_SIDECAR_DIR: sidecar,
         ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
         ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
         ...launch,

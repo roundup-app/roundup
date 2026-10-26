@@ -14,6 +14,17 @@ dest=${1:?usage: bundle.sh <dest-dir>}
 root=$(cd "$(dirname "$0")/../.." && pwd)
 src=$root/crates/agents/sidecar
 
+# Test Daemons use the installed runtime and SDK without a network download. Each
+# fixture owns its destination; symlinks keep parallel fixtures from copying the SDK.
+if [ "${2:-}" = --local-node ]; then
+    node=$(node -p 'process.execPath')
+    test -d "$src/node_modules/@anthropic-ai/claude-agent-sdk"
+    mkdir -p "$dest"
+    ln -sf "$node" "$dest/node"
+    ln -sf "$src/list.mjs" "$dest/list.mjs"
+    exit 0
+fi
+
 case "$(uname -s)-$(uname -m)" in
     Darwin-arm64) plat=darwin-arm64; ext=tar.gz; want=$SHA_darwin_arm64 ;;
     Darwin-x86_64) plat=darwin-x64; ext=tar.gz; want=$SHA_darwin_x64 ;;
