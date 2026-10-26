@@ -6,6 +6,7 @@ import { openLane } from "../todos/laneBrowser";
 
 it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", async () => {
   const lane = await openLane(1512, "dark", "builder-4277");
+  const only = (process.env.ROUNDUP_CAPTURE_SCREENS ?? "").split(",").filter(Boolean);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   await lane.evaluate(`localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"}))`);
   const origin = await lane.evaluate<string>("location.origin");
@@ -22,7 +23,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
     mkdirSync(videoDir, { recursive: true });
     await lane.browser("record", "start", join(videoDir, "screens.webm"));
 
-    for (const seed of ["tree-40", "tabs-8", "first-run"]) {
+    for (const seed of (only.length ? [] : ["tree-40", "tabs-8", "first-run"])) {
       await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
       await lane.until("!!window.__fake && !!document.querySelector('.window')");
 
@@ -45,6 +46,8 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
 
     for (const [state, seed] of [["empty", "empty-project"], ["filled", "tree-40"]]) {
       for (const command of ["ask-history", "resources", "made", "workstreams", "terminal-tabs", "import-work", "notes"]) {
+        if (only.length && !only.includes(command)) continue;
+
         const selectedSeed = command === "resources" ? (state === "empty" ? "agents-10" : "resources") : command === "import-work" && state === "filled" ? "import-candidates" : command === "notes" && state === "filled" ? "note-queue" : seed;
         await lane.browser("open", `${origin}/harness.html?items=1&seed=${selectedSeed}`);
         await lane.until("!!window.__fake && !!document.querySelector('.ask-input')");
@@ -74,6 +77,13 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
         if (command === "resources") await lane.until("!!document.querySelector('.resource-inspection')");
 
         if (command === "import-work") await lane.until("!!document.querySelector('.import-panel') && !document.querySelector('.import-panel [aria-busy=true]')");
+
+        if (command === "import-work") {
+          await lane.evaluate(`Array.from(document.querySelectorAll('.settings-view button')).find(button => button.textContent === 'Refresh').click()`);
+
+          if (state === "filled") await lane.until("!!document.querySelector('.import-check')");
+        }
+
         await capture(command === "notes" ? "U4277b" : "U4277c", `${command}-${state}`);
 
         if (command === "import-work" && state === "filled") {
@@ -89,4 +99,4 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
 
     expect(await lane.evaluate("!!document.querySelector('.window')")).toBe(true);
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
-}, 240_000);
+}, { timeout: 240_000, retry: 0 });
