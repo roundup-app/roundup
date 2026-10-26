@@ -504,8 +504,7 @@ async fn dv2_publish_failures() {
         let r = call(&c, "deliverable.resolve", identity(record)).await;
         let bytes = std::fs::read(r["path"].as_str().unwrap()).unwrap();
         assert_eq!(bytes.len(), 32 * 1024 * 1024);
-        // One memcmp: a per-byte scan runs unoptimised in the test profile.
-        assert!(bytes == vec![0u8; bytes.len()]);
+        assert!(bytes == vec![0u8; bytes.len()]); // one memcmp; a per-byte scan is slow unoptimised
         assert_eq!(record["target"]["sha256"], expected);
         assert_eq!(r["sha256"], record["target"]["sha256"]);
     }
