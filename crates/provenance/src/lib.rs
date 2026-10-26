@@ -4,7 +4,6 @@
 pub mod schema;
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::{Actor, ActorKind, Touch, Verb};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -76,13 +75,8 @@ impl Touches {
         item: &str,
         revision: Option<u32>,
     ) -> rusqlite::Result<()> {
-        let at = i64::try_from(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis(),
-        )
-        .unwrap_or(i64::MAX);
+        let at = i64::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
+            .unwrap_or(i64::MAX);
         self.db()?.execute(
             "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at, todo_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![kind_str(actor.kind), actor.id, actor.parent, verb_str(verb), item, at, revision],

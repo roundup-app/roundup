@@ -47,7 +47,7 @@
   align-items: center;
   border-style: none;
   border-radius: var(--flat-radius);
-  background-color: transparent;
+  background-color: var(--transparent);
   color: var(--grey);
 }
 
@@ -82,14 +82,14 @@
 /* The controls inside a tab take the tab's ink and paint no ground at rest, hover or press (the button hooks of buttons.css, U170); a press dims the ink (U510). */
 [data-flat-tab],
 [data-flat-add] {
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
   --button-radius: 0;
 }
 
 /* A library trigger inside a tab (the Project tab name) never paints its own selected or hover ground; only the tab ground marks selection. */
 [data-flat-tab] .app-tabs-trigger[data-selected],
 [data-flat-tab] .app-tabs-trigger[data-selected]:hover {
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
 }
 
 /* A tab under a dragged item takes the --text ink, as hover does; a tab never paints a hover ground (#2173). */

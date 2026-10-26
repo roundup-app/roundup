@@ -1,6 +1,6 @@
 # Motion
 
-Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissioned by #3790; implementation is #3821. This document specifies the migration; it does not claim installed Motion, changed visuals, measured bundle bytes or a performance pass. M1–M11 below replace the earlier CSS engine/adoption gate. `docs/quality-target.md` and a C10 scenario heading are absent on origin/main; #3790 supplies those requirements directly.
+Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissioned by #3790; implementation is #3821. This document specifies the migration; the Implementation slices heading records partial delivery, not a completed migration or performance pass. M1–M11 below replace the earlier CSS engine/adoption gate. `docs/quality-target.md` and a C10 scenario heading are absent on origin/main; #3790 supplies those requirements directly.
 
 ## Motion requirements
 
@@ -138,3 +138,61 @@ Rule 7 remains cold start <300 ms, keystroke-to-render <16 ms p95, ten idle Agen
 ## Historical observation
 
 The pre-Motion U3010b observer recorded continuous CSS retargeting for Drawer/reserved Shelf and immediate key/reduced-motion settlement. That evidence describes the earlier implementation only. It does not demonstrate M3 velocity retention, the new Bubble/menu motion, M5's 200 ms layout, or M10's fade and cannot close the dependent migration. Native WKWebView evidence remains governed by U3010d and the recorder scenarios.
+
+## Implementation slices
+
+M8's shared clipboard acknowledgement merged in #4119. The next slice installs vanilla
+Motion 14.6.0 and integrates pointer press feedback in `ui/pressFeedback.ts`, reusing
+the App's reduced-motion accessor. Pointer down/release use the `--scale-press` and
+`--duration-press` Tokens for bounded controls. Full-width Rail and Todo rows keep
+indentation, guides and dividers fixed, using their shared instant ink/opacity feedback.
+Reduced motion also uses that instant feedback, with no transform or opacity fade.
+Tokens resolve at installation and refresh when the live preference changes.
+Keys during a held pointer leave its feedback owned by that pointer until release;
+keyboard-only activation remains instant. Drag handoff cancels projection before measurement. The platform
+and Ark still own activation; feedback dispatches no click and changes no background.
+D9 observes browser animation timings as well as CSS declarations and permits only
+opacity for its reduced-motion fade exception.
+
+`apps/desktop/observers/U3010c/layout.eval` is the preliminary rendered Solid probe:
+evaluate it with `agent-browser eval --stdin` in a fresh headless Vite harness,
+after loading the App/choice fixture so Vite has optimized Motion. It renders a keyed
+Solid `For`, inserts/removes, reparents a row into/out of a nested `For`, then reverses
+a reorder after half its displacement. It uses scoped `animateLayout`, the existing
+200 ms Token and easing; it implements no measurements for animation or FLIP solver.
+`artifacts/ux/U3010c/head/solid-layout-frames.json` records actual boxes, opacity,
+transforms, focus and interruption timestamps.
+
+The probe exposed the expected ownership boundary: Solid remounts a reparented row;
+Motion projects its shared layout id but does not restore focus. Wrapping the existing
+focus permission around the synchronous DOM update retains the same focused row id
+through nesting and interruption. Insertion/removal also have distinct intermediate
+samples; the interrupted reorder starts from the displayed boxes. This establishes
+public vanilla API capability, not production row adoption, retained exits, draft
+continuity or complete U3010c acceptance. Production `createSortedList` must retain its
+existing focus/scroll/mutation owners when its custom FLIP is replaced.
+
+M1/M3–M7/M9–M11 and the full layer/row/copy capture and native scheduling protocols
+remain unfinished. Existing CSS/WAAPI effects remain until their respective slices
+migrate or delete them; this partial installation is not a completed one-engine claim.
+No native or performance acceptance is claimed by the press/layout probe.
+
+The press slice's production build accounting is
+`artifacts/ux/U3010d/press-bundle.json`: immutable base/head commits, gzip-9,
+entry/eager JS, entry CSS separately, and every lazy JS chunk. Base entry/eager JS is
+521,079 bytes; this slice is 544,236, a 23,157-byte migration increase (engine plus
+integration/observer code). Both exceed 400,000; budget acceptance remains unmet.
+Motion is eager in this slice, with no lazy Motion chunk. This report preserves the
+existing performance baselines and makes no native scheduling or presentation claim.
+
+The M11 deletions of the inventory are delivered: the Todo comment entrance
+(`todo-comment-in`, with its `data-fresh` marker) and the Order context-bar width and
+opacity transitions are removed, so both update instantly. A new comment is still
+announced politely once.
+
+M9's Kind crossfade is delivered in `ink/KindGlyph.tsx`: a Kind change on a mounted
+Glyph keeps the old mark as an inert, `aria-hidden` sibling and fades the two marks
+over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity only,
+so reduced motion needs no variant); the latest Kind cancels the running fade and
+disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
+transitions, the M10 single-source collapse and the remaining slices stay open.

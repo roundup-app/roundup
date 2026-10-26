@@ -1,3 +1,8 @@
 [files]
 # Tool output contains the exact rejected spellings; scanning it would duplicate each exception.
-extend-exclude = ["tools/lint/debt.json"]
+# Perf observations embed raw cargo build logs, with crate names typos flags.
+extend-exclude = ["tools/lint/debt.json", "docs/perf-*.json"]
+
+[default.extend-words]
+# C9d inventories the installed Highlights alias for Extensible Data Notation.
+edn = "edn"

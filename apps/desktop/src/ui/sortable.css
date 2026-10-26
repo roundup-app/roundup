@@ -1,8 +1,3 @@
-/* Keep the library's live region clipped without its off-scale negative margin. */
-[id^="dnd-kit-announcement-"] {
-  margin: 0 !important;
-}
-
 /* The real row keeps its layout and input state; an inset edge changes no geometry. */
 .sortable-source {
   position: relative;
@@ -25,7 +20,7 @@
   box-sizing: border-box;
   position: relative;
   flex-shrink: 0;
-  margin-inline-start: var(--sortable-indent, 0px);
+  margin-inline-start: var(--sortable-indent, 0);
   pointer-events: none;
 }
 
