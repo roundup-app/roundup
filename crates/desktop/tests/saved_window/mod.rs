@@ -98,23 +98,52 @@ fn observe(
     worker.join().unwrap().unwrap();
 }
 
+/// Saved 1320x700 at (40, 60), clamped as the restore clamps it to the display under test:
+/// the runner's work area may be smaller than the record, and then the window is moved to it.
+fn expected(main: &tauri::WebviewWindow) -> (f64, f64, f64, f64) {
+    let scale = main.scale_factor().unwrap();
+    let area = *main.current_monitor().unwrap().unwrap().work_area();
+    let (area_w, area_h) = (
+        f64::from(area.size.width) / scale,
+        f64::from(area.size.height) / scale,
+    );
+    let width = 1320.0_f64.min(area_w.max(1280.0));
+    let height = 700.0_f64.min(area_h - 32.0).max(100.0);
+    let origin = area.position.to_logical::<f64>(scale);
+    let fits = 40.0 * scale >= f64::from(area.position.x)
+        && 60.0 * scale >= f64::from(area.position.y)
+        && (40.0 + width) * scale <= f64::from(area.position.x) + f64::from(area.size.width)
+        && 60.0 * scale + 32.0 <= f64::from(area.position.y) + f64::from(area.size.height);
+    let (x, y) = if fits {
+        (40.0, 60.0)
+    } else {
+        (origin.x, origin.y)
+    };
+    (width, height, x, y)
+}
+
 pub fn u3787e_restore_uses_saved_normal_bounds() {
     observe(Some(serde_json::to_vec(&saved()).unwrap()), |app, path| {
         let main = app.get_webview_window("main").unwrap();
         assert!(!main.is_maximized().unwrap());
         assert!(!main.is_fullscreen().unwrap());
         let scale = main.scale_factor().unwrap();
+        let (want_w, want_h, want_x, want_y) = expected(&main);
+        wait(|| {
+            let size = main.outer_size().unwrap().to_logical::<f64>(scale);
+            (size.width - want_w).abs() <= 1.0
+        });
         let size = main.outer_size().unwrap().to_logical::<f64>(scale);
-        assert!((size.width - 1320.0).abs() <= 1.0, "{size:?}");
+        assert!((size.width - want_w).abs() <= 1.0, "{size:?}");
         let titlebar = main.inner_position().unwrap().y - main.outer_position().unwrap().y;
         assert!(
-            ((f64::from(main.outer_size().unwrap().height) - f64::from(titlebar)) / scale - 700.0)
+            ((f64::from(main.outer_size().unwrap().height) - f64::from(titlebar)) / scale - want_h)
                 .abs()
                 <= 1.0
         );
         let position = main.outer_position().unwrap().to_logical::<f64>(scale);
-        assert!((position.x - 40.0).abs() <= 1.0, "{position:?}");
-        assert!((position.y - 60.0).abs() <= 1.0, "{position:?}");
+        assert!((position.x - want_x).abs() <= 1.0, "{position:?}");
+        assert!((position.y - want_y).abs() <= 1.0, "{position:?}");
         let original = main.outer_size().unwrap();
         // Actual native transitions, with native state/geometry as the completion signal.
         for fullscreen in [false, true] {
@@ -143,7 +172,7 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
             assert_eq!(
                 stored["main"]["width"].as_f64().unwrap()
                     / stored["main"]["scale"].as_f64().unwrap(),
-                1320.0
+                want_w
             );
             if fullscreen {
                 main.set_fullscreen(false).unwrap();
@@ -216,6 +245,13 @@ pub fn u3787e_corrupt_state_is_reachable() {
 }
 fn reachable(app: tauri::AppHandle, _: std::path::PathBuf) {
     let main = app.get_webview_window("main").unwrap();
+    wait(|| {
+        main.inner_size()
+            .unwrap()
+            .to_logical::<f64>(main.scale_factor().unwrap())
+            .width
+            >= 1280.0
+    });
     let position = main.outer_position().unwrap();
     let monitor = main.current_monitor().unwrap().unwrap();
     let area = monitor.work_area();
@@ -245,6 +281,7 @@ fn state_reopens(fullscreen: bool) {
     }] = true.into();
     observe(Some(serde_json::to_vec(&record).unwrap()), move |app, _| {
         let main = app.get_webview_window("main").unwrap();
+        let (want_w, _, want_x, want_y) = expected(&main);
         wait(|| {
             if fullscreen {
                 main.is_fullscreen().unwrap()
@@ -265,7 +302,7 @@ fn state_reopens(fullscreen: bool) {
                     .unwrap()
                     .to_logical::<f64>(main.scale_factor().unwrap())
                     .width
-                    - 1320.0)
+                    - want_w)
                     .abs()
                     <= 1.0
         });
@@ -273,6 +310,6 @@ fn state_reopens(fullscreen: bool) {
             .outer_position()
             .unwrap()
             .to_logical::<f64>(main.scale_factor().unwrap());
-        assert!((position.x - 40.0).abs() <= 1.0 && (position.y - 60.0).abs() <= 1.0);
+        assert!((position.x - want_x).abs() <= 1.0 && (position.y - want_y).abs() <= 1.0);
     });
 }
