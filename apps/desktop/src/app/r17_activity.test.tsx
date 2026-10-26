@@ -193,7 +193,8 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
 
   for (const name of ["Timeline", "Time"]) {
     fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".measurement-action button")].find((button) => button.textContent === name)!);
-    await settle();
+    // View mounting bounds the interval probe and the next Escape input.
+    await vi.waitFor(() => expect(document.querySelector(name === "Timeline" ? ".timeline-view" : ".measurement-dashboard")).not.toBeNull());
     await assertSleeping(app);
 
     if (initial !== "transition" || name !== "Time") {

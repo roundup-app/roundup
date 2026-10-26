@@ -59,17 +59,47 @@ describe("u13 size", () => {
     ]);
   });
 
-  it("u13_a_burst_of_window_resizes_calls_resize_once_per_animation_frame", async () => {
-    const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
+  it.each(["window", "element"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", async (source) => {
+    const observers = new Set<() => void>();
 
-    connected.rail.select("a");
-    emulators.get("t-a")!.size = { cols: 120, rows: 40 };
-    window.dispatchEvent(new Event("resize"));
-    window.dispatchEvent(new Event("resize"));
-    window.dispatchEvent(new Event("resize"));
-    nextFrame();
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(private changed: () => void) {}
+      observe() { observers.add(this.changed); }
+      unobserve() { observers.delete(this.changed); }
+      disconnect() { observers.delete(this.changed); }
+    });
 
-    expect(callsTo(app, "terminal.resize")).toHaveLength(2);
+    try {
+      const first = await mountPane([node("a")], [info("t-a")]);
+
+      first.connected.rail.select("a");
+
+      const changed = () => {
+        if (source === "window") window.dispatchEvent(new Event("resize"));
+        else observers.forEach(notify => notify());
+      };
+
+      changed();
+      cleanup();
+
+      const current = await mountPane([node("b")], [info("t-b")]);
+
+      current.connected.rail.select("b");
+
+      const active = current.emulators.get("t-b")!;
+
+      // Repeated notifications share one fit, even across an owner remount.
+      for (let count = 0; count < 3; count += 1) {
+        changed();
+      }
+
+      nextFrame();
+
+      expect([first.emulators.get("t-a")!.fits, active.fits]).toEqual([0, 1]);
+    } finally {
+      cleanup();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("u13_opening_a_drawer_never_resizes_the_terminal", async () => {
