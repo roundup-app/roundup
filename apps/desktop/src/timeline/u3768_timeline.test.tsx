@@ -224,14 +224,10 @@ it("u3768f_only_the_slide_moves_and_reduced_motion_redraws", async () => {
 it("u3768a_the_pane_opens_the_timeline_and_escape_returns_focus", async () => {
   const { connected } = await mountRailAndPane(family());
   connected.rail.select("home");
-  const open = await screen.findByRole("button", { name: "Timeline" });
+  const open = await screen.findByRole("tab", { name: "Timeline" });
   open.focus();
   fireEvent.click(open);
-  const view = await screen.findByRole("region", { name: "Timeline" });
-  fireEvent.click(within(view).getByRole("button", { name: "Close" }));
-  await vi.advanceTimersByTimeAsync(0);
-  expect(document.activeElement).toBe(open);
-  fireEvent.click(open);
+  // Header Close is replaced by u4315b_back_to_ask_clears_centre_navigation.
   fireEvent.keyDown(await screen.findByRole("region", { name: "Timeline" }), { key: "Escape" });
   await vi.advanceTimersByTimeAsync(0);
   expect(document.activeElement).toBe(open);

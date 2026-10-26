@@ -9,15 +9,10 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("u3016f_dashboard_navigation_preserves_work_and_focus", async () => {
   const { connected, app } = await mountRailAndPane([workstream("home")]);
   connected.rail.select("home");
-  const open = await screen.findByRole("button", { name: copy.measurementTime });
+  const open = await screen.findByRole("tab", { name: copy.measurementTime });
   open.focus();
   fireEvent.click(open);
-  const dashboard = await screen.findByRole("region", { name: copy.measurementTime });
-  const exit = within(dashboard).getByRole("button", { name: "Close" });
-  expect(exit.textContent).toBe("");
-  fireEvent.click(exit);
-  await waitFor(() => expect(document.activeElement).toBe(open));
-  fireEvent.click(open);
+  // Header Close is replaced by u4315b_back_to_ask_clears_centre_navigation.
   fireEvent.keyDown(await screen.findByRole("region", { name: copy.measurementTime }), { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(open));
   expect(app.calls.filter((call) => /spawn|startDoor|prompt/.test(call.method))).toEqual([]);
@@ -91,7 +86,7 @@ it("u3016d_stale_reads_keep_original_identity_and_retry", async () => {
   await screen.findByText(/Read unavailable/, {}, { timeout: 3000 });
   answer!(summary("home", "99"));
   await waitFor(() => expect(screen.queryByText(/revision 99/)).toBeNull());
-  expect(screen.getByRole("heading", { name: "other" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: copy.measurementTime }).getAttribute("data-home")).toBe("other");
   app.handlers["project.measurementSummary"] = (params) => summary(params.home, "3");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(document.querySelector(".measurement-dashboard")?.getAttribute("data-revision")).toBe("3"));
@@ -150,13 +145,13 @@ it("u3016f_exact_draft_and_recipient_survive_dashboard_and_project_navigation", 
   fireEvent.input(field, { target: { value: text } });
   expect(field.value).toBe(text);
   fireEvent.keyDown(field,{key:"Escape"});
-  const open = await screen.findByRole("button", { name: copy.measurementTime });
+  const open = await screen.findByRole("tab", { name: copy.measurementTime });
   fireEvent.click(open);
   await screen.findByRole("button", { name: "Load more" });
   fireEvent.click(tab("second"));
   await screen.findByText("elsewhere", { selector: ".name" });
   fireEvent.click(tab("first"));
-  await screen.findByRole("button", { name: copy.measurementTime });
+  await screen.findByRole("tab", { name: copy.measurementTime });
   fireEvent.keyDown(window,{key:"/",code:"Slash",metaKey:true});
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copy.askBarLabel })).value).toBe(text);
   expect(first.calls.filter((call) => /spawn|startDoor|prompt|ask.send/.test(call.method))).toEqual([]);
@@ -207,7 +202,7 @@ it("u3016g_dashboard_reads_in_the_ordered_layout", async () => {
   const key = root.querySelector<HTMLElement>(".measurement-key")!;
   const sequence = [root.querySelector("header")!, root.querySelector(".measurement-line")!, key, root.querySelector(".measurement-rows")!];
   sequence.forEach((node, i) => { if (i > 0) expect(sequence[i - 1]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); });
-  expect(within(root).getByRole("heading", { name: "home" })).toBeTruthy();
+  // The shared navigation now holds identity (U4315a).
   expect(root.querySelector(".measurement-line")?.textContent).toContain("9h 49m elapsed");
   expect(root.querySelector(".measurement-line")?.textContent).toContain("15m Agent time");
   expect(within(key).getAllByRole("listitem")).toHaveLength(2);
