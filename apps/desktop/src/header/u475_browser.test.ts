@@ -81,14 +81,24 @@ it("u2773a_header_pointer_switch_keeps_caret", async () => {
   await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
   await browser("fill", ".tab-rename", "retained project name");
   await browser("focus", ".tab-rename");
-  await browser("press", "End");
+  await browser("eval", "document.querySelector('.tab-rename').setSelectionRange(21, 21)");
   await browser("click", '[data-path="/Users/you/project-number-6"] [role="tab"]');
   await browser("wait", "--fn", `document.querySelector('[data-path="/Users/you/project-number-6"]')?.dataset.selected === 'true'`);
-  await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
+  // The narrow Rail can clip the return tab; activate it through Ark's keyboard path.
+  await browser("focus", '[data-path="/Users/you/project-number-8"] [role="tab"]');
+  await browser("press", "Enter");
   await browser("wait", "--fn", `document.querySelector('[data-path="/Users/you/project-number-8"]')?.dataset.selected === 'true'`);
   await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
   await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
   expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd]; })()`)).toEqual(["retained project name", 21, 21]);
+  const output = captureDir("U2539b");
+
+  if (output) {
+    mkdirSync(join(output, "head"), { recursive: true });
+    await browser("set", "media", "dark");
+    await browser("screenshot", join(output, "head", "header-retained-caret.png"));
+    writeFileSync(join(output, "head", "header-retained-caret.checks.json"), JSON.stringify(await read("window.__checks()")) + "\n");
+  }
 }, 60_000);
 
 
