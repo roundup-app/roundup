@@ -924,12 +924,12 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
         let (removed, length, _) = records.remove(chosen);
         let id = identity(&removed);
         call(&c, "deliverable.remove", id.clone()).await;
-        for step in 0..3 {
+        for step in 0..4 {
             if step == 2 {
                 p.restart(&[]);
             }
             let c = p.client().await;
-            if step > 0 {
+            if step == 1 || step == 3 {
                 call(&c, "deliverable.remove", id.clone()).await;
             }
             refused(&c, "deliverable.get", id.clone()).await;
