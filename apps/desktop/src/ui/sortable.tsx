@@ -1,4 +1,5 @@
 import { createContext, createEffect, createSignal, getOwner, mergeProps, onCleanup, onMount, runWithOwner, splitProps, useContext, type Accessor, type JSX } from "solid-js";
+import "./sortable.css";
 import type { UseSortableInput } from "@dnd-kit/solid/sortable";
 import type { ExternalTarget, ItemBinding, RootProps } from "./sortableTypes";
 
@@ -8,9 +9,13 @@ type Drag = { attach: (item: ItemBinding) => void };
 
 type Gesture = { events: Event[]; stop: () => void };
 
-type RootContext = { drag: Accessor<Drag | undefined>; items: Set<ItemBinding> };
+type RootContext = { drag: Accessor<Drag | undefined>; items: Set<ItemBinding>; instructions: string | undefined };
 
 const Context = createContext<RootContext>();
+
+// The library's own screen reader text (Accessibility plugin defaults), rendered at mount so rows read as draggable before its chunk loads.
+const INSTRUCTIONS = "To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item in a given direction. Press space again to drop the item in its new position, or press escape to cancel.";
+let instructionsCount = 0;
 
 // R3800: @dnd-kit stays out of the entry until the first pointer or keyboard drag intent loads it.
 let loading: Promise<typeof import("./sortableDnd")> | undefined;
@@ -81,7 +86,7 @@ const startsDrag = (items: ReadonlySet<ItemBinding>, event: Event): HTMLElement 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
   const [drag, setDrag] = createSignal<Drag>();
-  const context: RootContext = { drag, items: new Set() };
+  const context: RootContext = { drag, items: new Set(), instructions: local.plain ? undefined : `dnd-kit-description-entry-${instructionsCount++}` };
   const owner = getOwner();
   let list: HTMLDivElement | undefined;
   let intended = false;
@@ -121,7 +126,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     });
   });
 
-  return <Context.Provider value={context}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div></Context.Provider>;
+  return <Context.Provider value={context}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{context.instructions ? <div id={context.instructions} style={{ display: "none" }}>{INSTRUCTIONS}</div> : null}{local.children}</div></Context.Provider>;
 };
 
 /** What a row gets to render with. */
@@ -151,6 +156,15 @@ const Item = (props: ItemProps) => {
   onCleanup(() => context.items.delete(binding));
 
   createEffect(() => context.drag()?.attach(binding));
+
+  // The attributes the library's Accessibility plugin would add; it leaves a present attribute alone.
+  createEffect(() => {
+    const grip = handle() ?? element();
+
+    if (!grip || !context.instructions) return;
+    grip.setAttribute("aria-roledescription", "draggable");
+    grip.setAttribute("aria-describedby", context.instructions);
+  });
 
   return props.children({ ref: setElement, handleRef: setHandle, isDragging: dragging });
 };

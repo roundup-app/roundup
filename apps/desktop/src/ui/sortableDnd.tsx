@@ -1,6 +1,5 @@
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
-import "./sortable.css";
 import { Accessibility, Cursor, DragDropManager, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { RestrictToElement } from "@dnd-kit/dom/modifiers";
 import { ProxiedElements } from "@dnd-kit/dom/utilities";
