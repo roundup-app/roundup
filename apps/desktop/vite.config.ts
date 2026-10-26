@@ -127,7 +127,7 @@ export default defineConfig({
         {
           postcssPlugin: "radix-colors-prefers-color-scheme",
           Once(root, { AtRule }) {
-            for (const node of root.nodes) {
+            for (const node of [...root.nodes]) {
               if ((node.type !== "rule" && node.type !== "atrule") || !node.source?.input.file?.includes("/@radix-ui/colors/")) continue;
 
               const rules: { selector: string }[] = [];
@@ -139,6 +139,12 @@ export default defineConfig({
 
 
               for (const rule of rules) rule.selector = ":root";
+
+              const explicit = node.clone();
+
+              if (explicit.type === "rule") explicit.selector = `:root[data-mode="${dark ? "dark" : "light"}"]`;
+              else explicit.walkRules(rule => { rule.selector = `:root[data-mode="${dark ? "dark" : "light"}"]`; });
+              node.after(explicit);
 
               if (!dark) continue;
               const scoped = new AtRule({ name: "media", params: "(prefers-color-scheme: dark)" });
