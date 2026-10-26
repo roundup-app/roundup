@@ -1,17 +1,24 @@
-# U134/U135 native material Builder evidence
+# U134/U135 Builder observations
 
-Implementation source: `63b100b84` on branch `build/design-system-native-material`, main reference `2b45d05dbd982ea9f8d9ed529bd7e4d9a9838dae`. Linux Chromium, dark, 1512×950, isolated profile `native-40301653424`.
+Linux x86_64; dark Chromium; 1512×950; isolated session `material-40306587184`. Production source is `57ab7c11dd4880b20d85b70e2ae750bd917df35b`, including main `75bdfb892`. Subsequent commits retain observations only.
 
-Five paired screens (`first-run`, `agents-10`, `tree-40`, `daemon-exits`, `conflict`) pass D1–D14 and D16. The harness only imports the changed Token stylesheet; its baseline used that stylesheet from the main reference, with the same renderer/profile/seed. Head also has expanded/selected Shelf captures and an interaction video. Drawer, menu and Terminal captures still need completion. Images/videos remain uncommitted. U134's five paired readings equal main's existing readings; U135 retains this run's readings. Full-directory U134 delta exits 2 because main has an unmatched `capture-panel-disabled-purple` head reading; the five named pairs and U135 delta have no regression.
+| Observer | Result |
+|---|---|
+| Paired `first-run`, `agents-10`, `tree-40`, `daemon-exits`, `conflict` | D1–D14 and D16 pass on base and head |
+| Paired open Todo #5 Drawer, Homes menu, selected Shelf, Terminal tabs | Every Check passes; directory delta exits 0 |
+| Material delivery, window preferences, rendered Checks and real-Daemon attention | 65 tests pass |
+| Reduced transparency, reduced motion and system accent | 3 tests pass |
+| Desktop native/webview configuration and permission boundaries | 3 tests pass |
+| `just lint-rust` | Pass; ALL PROOFS CHECK |
+| `just lint-web` | Code/style/type/cycle checks pass; report spelling corrected, `pnpm lint:boundaries` then exits 0 |
+| `vocab`, `merge-loss` | Pass |
 
-13 preference/window tests pass (`material.test.ts`, `u135_schemes.test.tsx`, `u450_window.test.ts`), including native-state delivery, unsupported fallback, reduced transparency and system accent changes. All 54 `u137_checks.test.tsx` tests pass. Rust lint passes, including ALL PROOFS CHECK. The initial web lint found material payload parsing and selector-count violations; both were repaired and focused source/style lints pass. The remaining web lint phases passed.
+Paired captures use the same renderer, seed and compiled Radix imports. Base removes only the native-material Token block, the sole harness stylesheet difference from main. The initial raw-CSS substitution dropped those imports and made D3/D10 unmeasurable; these invalid readings were replaced. No failing reading is counted as a pass. The earlier U134 directory has an unmatched main capture; the complete U135 paired directory is the delta observer.
 
-No native rendering or App launch timing result is claimed. Per #4072's current acceptance, the owner observes the merged App once on the Mac; that observation does not gate this Linux implementation.
+The Drawer opens with Enter; triage's `w` opens the Homes menu. `head/surfaces-complete.webm` records these interactions. Images and video remain uncommitted. Recording initially lacked ffmpeg; installing it repaired recording. Browser/server processes belong to this run only.
 
-Pending at evidence recording: desktop window/capability Rust tests pass (3 tests); unchanged `just perf` is building its same-host main reference. The broad related-test run hit `a3564a_attention_opens_the_requesting_terminal`'s 240 s setup timeout during concurrent compilation; it needs an isolated rerun after the build. `just capture U134,U135` was started and interrupted before the full suite finished to free this Builder for the required Rust/perf checks. No full-suite or perf pass is claimed. Issue #4072 stays open until these remaining observations succeed.
+`just capture U130,U131,U132,U133,U134,U135,U136,U137` was invoked; its broad repository suite was stopped after unrelated browser suites to finish the focused observers above. No full-suite pass is claimed; CI judges the push. The prior run's attention-test compilation timeout is resolved by the passing focused real-Daemon test.
 
-## Fix run builder-40306587184
+No native rendering or native App launch-cost result is claimed. Per #4072 and U134, the loop owner observes the merged App once on the Mac; this does not gate Linux acceptance. Unsupported-host opaque fallback is what these captures show.
 
-Head `57ab7c11dd4880b20d85b70e2ae750bd917df35b` includes a clean merge of main `75bdfb892`; `merge-loss` passes. The isolated headless session `material-40306587184` repeats the five dark 1512×950 pairs with main's Token material block absent for base, preserving Vite's compiled Radix imports. Every pair passes D1–D14 and D16. Open Todo #5 Drawer, the Homes menu and Terminal tabs also pass every Check in both phases. The menu is driven through the triage row's `w` key; the Drawer through Enter. No native rendering claim is made.
-
-An initial observer replaced compiled styles with raw imports and produced unmeasurable D3/D10; those invalid readings were replaced after preserving the compiled imports. Web lint's retained-report spelling finding was corrected. Runtime and performance results follow below when complete.
+Performance: unchanged `just perf` is completing the same-host immutable base/head pair. Dependency build caches are copied to each separate checkout before its locked release build; source and observer are unchanged. The final report is recorded separately below.
