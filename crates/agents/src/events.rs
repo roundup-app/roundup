@@ -14,6 +14,8 @@ impl Observation {
 }
 
 pub(super) struct State {
+    /// Wake lifecycle observers even when an acknowledgement leaves Status unchanged.
+    pub(super) observed: tokio::sync::Notify,
     /// H19: a test's observer of each gate decision; absent in production.
     pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
@@ -246,6 +248,7 @@ impl Shared {
                         && let Some(rail) = rail.as_deref_mut()
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
+                        self.events.observed.notify_waiters();
                         if let Some(status) =
                             run.adapter.fail(format!("cannot save conversation: {err}"))
                         {
@@ -322,6 +325,8 @@ impl Shared {
         observation: Observation,
         first_prompt: Option<Option<String>>,
     ) -> Result<Applied, RpcError> {
+        // The caller holds `runs`: a woken observer reads the completed fold after unlock.
+        self.events.observed.notify_waiters();
         let exited = matches!(observation, Observation::Exit { .. });
         if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             self.timing
