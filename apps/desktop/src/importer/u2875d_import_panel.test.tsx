@@ -273,7 +273,7 @@ it("u3083c_failed_import_preserves_failed_row", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   const alert = await screen.findByText(/The saved conversation changed/);
 
-  expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
+  expect(alert.closest("li")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("li"));
 });
 
 
