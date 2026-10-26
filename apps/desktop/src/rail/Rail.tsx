@@ -12,7 +12,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { CHORDS } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
+import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { Popover } from "../ui/Popover";
@@ -41,7 +41,7 @@ import "./styles.css";
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-export const Rail = (props: { requested?: boolean }) => {
+export const Rail = () => {
   const connected = useConnectedProject();
   const { app, project, rail, now, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
@@ -516,7 +516,7 @@ export const Rail = (props: { requested?: boolean }) => {
   });
 
   return (
-    <Show when={props.requested !== false || composing()}>
+    <>
     <button
       type="button"
       data-button="quiet"
@@ -534,7 +534,7 @@ export const Rail = (props: { requested?: boolean }) => {
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>
-      <Show when={attention() > 0 && rail.selected() !== null}>
+      <Show when={attention() > 0 && rail.selected() !== null && connected.drawer.content() === null}>
         <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
           <KindGlyph kind="needs-you" decorative /> {attention()}
         </span>
@@ -754,6 +754,7 @@ export const Rail = (props: { requested?: boolean }) => {
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
+        <button class="rail-terminal-new" type="button" data-button="quiet" disabled={daemonExit() !== null} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘T")?.run()}>{copy.newTerminal}</button>
         <button data-button="add"
           aria-label={copy.addWorkstream}
           class="word"
@@ -764,6 +765,6 @@ export const Rail = (props: { requested?: boolean }) => {
         >
           <Icon name="plus" />{copy.addWorkstreamWord}</button>
       </div>
-    </Show>
+    </>
   );
 };

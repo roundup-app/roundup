@@ -476,29 +476,3 @@ button, file-tree-container, diffs-container {
 :root[data-system-accent][data-mode="dark"] {
   --accent: rgb(var(--system-accent-dark-channels));
 }
-
-/* Native material is revealed through one neutral tint; every other region keeps its opaque ground. */
-:root {
-  --material-tint: color-mix(in srgb, var(--sunken) 85%, transparent);
-}
-
-:root[data-native-material]:has(.rail) {
-  background: var(--transparent);
-}
-
-:root[data-native-material] .rail,
-:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
-  background-color: var(--material-tint);
-}
-
-/* A floating Shelf covers the opaque centre and stays opaque itself. */
-@media (prefers-reduced-transparency: reduce) {
-  :root[data-native-material] {
-    background: var(--ground);
-  }
-
-  :root[data-native-material] .rail,
-:root[data-native-material]:has(.window[data-shelf-mode="reserved"]) .shelf {
-    background-color: var(--sunken);
-  }
-}

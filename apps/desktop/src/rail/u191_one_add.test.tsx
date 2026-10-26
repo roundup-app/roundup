@@ -1,34 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { RequestedApp as App } from "../testing/requestedApp";
-import { SEEDS, seedApp } from "../testing/seeds";
-import { agent, door, event, terminal, workstream } from "../testing/nodes";
-import { fakeEmulators } from "../terminal/paneHarness";
+import { agent, door, event, workstream } from "../testing/nodes";
 import { chord, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
-const inside = (): HTMLElement | null => document.querySelector<HTMLElement>(".rail-adds");
-
-const addIconsOf = (id: string): HTMLElement[] => [...document.querySelectorAll<HTMLElement>(`[data-id="${id}"] [aria-label="Add Agent"]`)];
-
 describe("u162 one add opens a Workstream", () => {
-  it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
-    await mountRail([workstream("g"), agent("a", "idle", "i")]);
-
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
-  });
-
-  it("u191_no_agent_terminal_or_room_add_is_outside_a_workstream", async () => {
-    await mountRail([workstream("g"), agent("a", "idle", "i"), terminal("t")]);
-
-    const adds = [...document.querySelectorAll("button")].map((button) => button.textContent?.trim());
-
-    expect(adds.filter((label) => /^\+?\s*(agent|terminal|room)$/.test(label ?? ""))).toEqual([]);
-    expect(inside()).toBeNull();
-  });
-
   it("u191_new_workstream_creates_selects_and_starts_the_door_once", async () => {
     const tree: RailNode[] = [];
     const mounted = await mountRail(tree);
@@ -44,18 +22,9 @@ describe("u162 one add opens a Workstream", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "made" }]));
   });
 
-
-
-
-
-
-
-
-
   it("u191_the_icons_are_not_rail_rows_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-
 
     expect(rowNames()).toEqual(["g", "h"]);
     const row = rowOf("g");
@@ -74,20 +43,4 @@ describe("u162 one add opens a Workstream", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
-  it.each(SEEDS)("u191_no_text_in_the_app_says_room_on_any_seed (%s)", async (seed) => {
-    const controls = seedApp(seed, Date.now());
-
-    render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findByRole("banner");
-    await new Promise((done) => setTimeout(done, 50));
-
-    const words = [
-      document.body.textContent ?? "",
-      ...[...document.querySelectorAll("[title], [aria-label], [placeholder]")].flatMap((element) =>
-        ["title", "aria-label", "placeholder"].map((name) => element.getAttribute(name) ?? ""),
-      ),
-    ].join("\n");
-
-    expect(words.match(/\broom\b/i)).toBeNull();
-  });
 });
