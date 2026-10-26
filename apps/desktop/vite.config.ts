@@ -151,8 +151,6 @@ export default defineConfig({
       ],
     },
   },
-  // R3800: the drag library loads on the first drag, so dev would find it mid-gesture and reload the page; prebundle it up front.
-  optimizeDeps: { include: ["@dnd-kit/dom", "@dnd-kit/dom/modifiers", "@dnd-kit/dom/sortable", "@dnd-kit/dom/utilities", "@dnd-kit/solid", "@dnd-kit/state"] },
   // tauri.conf.json's devUrl names this port; moving off it must fail, not open a blank window.
   server: { port: 5173, strictPort: true },
   test: {
