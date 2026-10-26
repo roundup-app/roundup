@@ -375,6 +375,7 @@ mod tests {
             let before = received.lock().unwrap().len();
             let items = project.items().unwrap();
             assert_eq!(items.len(), if path.is_some() { 2 } else { 0 });
+            assert_eq!(project.is_enabled().unwrap(), path.is_some());
             for item in items.into_iter().map(plain) {
                 assert!(item.is_enabled().unwrap());
                 app_chosen(
@@ -455,10 +456,9 @@ mod tests {
             ids,
             [
                 "action:chord:⌘N",
+                "action:chord:⇧⌘N",
                 "action:chord:⌘T",
                 "action:chord:⇧⌘T",
-                "action:chord:⇧⌘N",
-                "action:leader:T",
                 "separator",
                 "action:leader:P",
                 "action:leader:J",
