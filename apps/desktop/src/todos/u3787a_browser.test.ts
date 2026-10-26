@@ -21,6 +21,9 @@ afterAll(async () => {
 it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () => {
   for (const seed of ["tree-40", "tabs-8", "conflict", "dense-failure"]) {
     await lane.seedTodos(["same", "same", "Long é 🧭 ".repeat(12), "surviving dependent", "fifth"], true, seed === "dense-failure" ? "tree-40" : seed);
+    // Recording replaces the page; reapply its media emulation after each seed navigation.
+    await lane.browser("set", "media", "dark");
+    await lane.until("matchMedia('(prefers-color-scheme: dark)').matches");
     const [id] = await lane.order();
     await lane.browser("focus", `.shelf [data-todo="${id}"] .todo-row-button`);
     await lane.browser("press", "Enter");
