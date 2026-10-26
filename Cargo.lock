@@ -1016,6 +1016,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-store",
  "tempfile",
+ "time",
  "tokio",
 ]
 
@@ -3888,6 +3889,7 @@ dependencies = [
  "rpc",
  "rupd",
  "rusqlite",
+ "rusqlite_migration",
  "schemars 1.2.2",
  "serde_json",
  "tempfile",
