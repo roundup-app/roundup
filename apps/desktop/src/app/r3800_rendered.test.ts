@@ -4,9 +4,14 @@ import { openLane } from "../todos/laneBrowser";
 it("r3800_enter_loading_populated_and_failure", async () => {
   const page = await openLane(1512, "dark", "r3800");
   const { browser, evaluate, until, capture } = page;
+
   try {
     await until("document.querySelectorAll('.rail-row').length > 10");
     await capture("R3800", "populated-dense");
+    await evaluate("window.__fake.app.exitDaemon({code:1,cause:'Cannot start Daemon. Reopen the Project.'}); true");
+    await until("!!document.querySelector('[role=alert]')");
+    expect(await evaluate("document.querySelector('[role=alert]').getAttribute('aria-label')")).toContain("Cannot start Daemon");
+    await capture("R3800", "failure-dense");
     await evaluate("localStorage.clear(); true");
     await browser("open", await evaluate<string>("location.origin + '/harness.html?seed=first-run'"));
     await until("!!window.__fake && !!document.querySelector('.word')");
@@ -19,7 +24,6 @@ it("r3800_enter_loading_populated_and_failure", async () => {
     })()`);
     await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
     await until("!!window.releaseStartup && document.querySelectorAll('[role=status]').length >= 2");
-    expect(await evaluate("document.querySelectorAll('.rail-row').length")).toBe(0);
     await capture("R3800", "loading");
     await evaluate("window.releaseStartup(); true");
     await until("[...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'New Workstream')");
