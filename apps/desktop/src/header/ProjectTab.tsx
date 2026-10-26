@@ -30,9 +30,11 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     if (finished) return;
     finished = true;
 
-    if (field && refocus) props.onEdit(field);
+    if (field) props.onEdit(field);
     props.onDone(saved, refocus);
   };
+
+  onCleanup(() => { if (!finished && field) props.onEdit(field); });
 
   registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
@@ -48,13 +50,23 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
-    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false)} />;
+    onBlur={event => {
+      // Keep the tab geometry until Ark receives the destination tab's click; selection closes this editor.
+      if (event.relatedTarget instanceof Element && event.relatedTarget.closest('[role="tab"]')) {
+        finished = true;
+
+        return;
+      }
+
+      finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false);
+    }} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
+  suppressed?: boolean;
   closeFocus?: boolean;
   /** Opens only this Project's retained revision with its captured base; absent/foreign,
    * pending and legacy records stay copy/discard-only. Opening never sends or reads.
@@ -71,7 +83,7 @@ export const ProjectTab = (props: {
   const [editing, setEditing] = createSignal<{ width: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
-  const mark = () => markOf(props.tab);
+  const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
   const authority = useContext(ProjectDraftsContext);
   const drafts = authority?.(props.tab.path);

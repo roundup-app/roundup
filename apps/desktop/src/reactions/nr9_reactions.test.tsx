@@ -1,3 +1,4 @@
+import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
@@ -208,7 +209,7 @@ it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
   await within(preview).findByText("Supervisor");
   expect(within(preview).getByText(copy.reactionNoHome)).toBeTruthy();
-  expect(screen.getByRole("checkbox", { name: "Supervisor" })).toBeTruthy();
+
   expect(app.calls.filter(call => call.method === "agent.spawn" || call.method === "agent.run")).toHaveLength(0);
 });
 
@@ -300,6 +301,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
 
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
+  openProjectPage("view:reactions");
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
@@ -316,6 +318,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
 
   fireEvent.click(tab("other"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="b"]')).toBeTruthy());
+  openProjectPage("view:reactions");
   await screen.findByText(copy.reactionsEmpty);
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());

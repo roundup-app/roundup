@@ -36,7 +36,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
 }, 90_000);
 
 afterAll(async () => {
@@ -117,7 +117,7 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
 }, 60_000);
 
 it("u2773a_capture_restores_exact_text_and_caret_after_webview_reload", async () => {
-  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("press", "Meta+k");
   await wait(`!!document.querySelector('.leader')`);

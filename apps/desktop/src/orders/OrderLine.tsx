@@ -28,6 +28,8 @@ export const OrderLine = (props: { node: RailNode }) => {
           type="button"
           class="word order-line"
           aria-label={copy.orderOf(props.node.name)}
+          onMouseEnter={() => OrderDrawer.preload()}
+          onFocus={() => OrderDrawer.preload()}
           onClick={(event) => {
             const id = props.node.id;
             opened = () => <OrderDrawer id={id} />;

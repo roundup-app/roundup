@@ -8,7 +8,7 @@ afterEach(cleanup);
 const open = async () => {
   const mounted = await mountControl();
 
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await waitFor(() => expect(row("src/a.ts")).not.toBeNull());
 
   return mounted;

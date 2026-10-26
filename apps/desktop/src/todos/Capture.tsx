@@ -9,7 +9,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
-import { CHORDS, chordsOf, leaderChord } from "../keys/chords";
+import { CHORDS, leaderChord } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -274,7 +274,10 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   }
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
-  createEffect(() => registerKeys({ kind: "app" }, [{ chords: chordsOf(CHORDS.find(row => row.what === copy.captureATodo)), run: show }]));
+  createEffect(() => registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
+  }]));
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (

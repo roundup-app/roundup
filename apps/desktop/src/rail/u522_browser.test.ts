@@ -4,7 +4,7 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 const load = async () => {
   await browser("set", "viewport", "1280", "800");
   await browser("set", "media", "light");
-  await browser("open", url("/harness.html?seed=tree-40"));
+  await browser("open", url("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40"));
   await wait(`document.querySelector('[data-id="tokens"]') && window.__fake`);
 };
 
