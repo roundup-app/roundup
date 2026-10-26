@@ -76,6 +76,16 @@ runs:
       with:
         shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
+    # CI3781: sccache stores compiled units in the Actions cache beside rust-cache, so a lane whose rust-cache entry misses
+    # still reuses units another lane or run compiled. macOS and self-hosted runners keep plain rustc.
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && (inputs.rust == 'true' || inputs.rust == 'build')
+      uses: mozilla-actions/sccache-action@v0.0.9
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && (inputs.rust == 'true' || inputs.rust == 'build')
+      name: Route rustc through sccache
+      shell: bash
+      run: |
+        echo "RUSTC_WRAPPER=sccache" >>"$GITHUB_ENV"
+        echo "SCCACHE_GHA_ENABLED=true" >>"$GITHUB_ENV"
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
