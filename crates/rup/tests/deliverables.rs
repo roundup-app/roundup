@@ -794,12 +794,22 @@ async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
             byte,
         ));
     }
+    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*),sum(length(bytes)) FROM deliverable_bytes",
+            [],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))
+        )
+        .unwrap(),
+        (2, 18)
+    );
     records
 }
 
-fn allocation_bytes(p: &daemon::Project) -> u64 {
+fn allocation_bytes(p: &daemon::Project) -> i64 {
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    let blobs: u64 = db
+    let blobs: i64 = db
         .query_row(
             "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
             [],
@@ -810,7 +820,7 @@ fn allocation_bytes(p: &daemon::Project) -> u64 {
         .prepare("SELECT id,length FROM deliverable_files")
         .unwrap();
     let files = files
-        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, u64>(1)?)))
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
         .unwrap();
     blobs
         + files
@@ -819,10 +829,10 @@ fn allocation_bytes(p: &daemon::Project) -> u64 {
                 let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
                     .unwrap()
                     .len();
-                assert_eq!(actual, charged);
-                actual
+                assert_eq!(actual, u64::try_from(charged).unwrap());
+                charged
             })
-            .sum::<u64>()
+            .sum::<i64>()
 }
 
 async fn exact_publications(c: &rpc::Client, records: &[(Value, usize, u8)]) {
@@ -884,9 +894,12 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             }
             refused(&c, "deliverable.get", id.clone()).await;
             refused(&c, "deliverable.resolve", id.clone()).await;
-            assert_eq!(allocation_bytes(&p), 1_073_741_824 - length as u64);
+            assert_eq!(
+                allocation_bytes(&p),
+                1_073_741_824 - i64::try_from(length).unwrap()
+            );
             let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, u64>(0)).unwrap(), 0);
+            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
             assert!(
                 !p.data_dir()
                     .join("publication-files")
