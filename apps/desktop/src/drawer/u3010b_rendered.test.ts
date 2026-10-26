@@ -299,18 +299,21 @@ for (const mode of ["reserved", "overlay"]) {
     mkdirSync(directory, { recursive: true });
     await openShelf("tree-40", mode === "overlay" ? 480 : 288, mode === "overlay" ? 560 : 320, 1512, "dark");
     await browser("set", "viewport", "1512", "950");
+
     if (mode === "overlay") {
       await evaluate("document.documentElement.style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 42) + 'px')");
       await browser("set", "viewport", "1512", "949");
       await browser("set", "viewport", "1512", "950");
       await settle();
     }
+
     expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe(mode);
     await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '.shelf [data-todo="5"] .todo-row-button');
     await browser("click", '.shelf [data-todo="5"] button[aria-label="Open"]');
     await browser("wait", ".todo-detail");
     await settle();
+
     const before = await evaluate<{ x: number; y: number; content: string }>(`(() => {
       const panel = document.querySelector('.drawer');
       window.__paddingContent = panel.querySelector('.todo-detail');
@@ -318,17 +321,21 @@ for (const mode of ["reserved", "overlay"]) {
       panel.addEventListener('pointerdown', event => window.__paddingPresses.push({ trusted: event.isTrusted, x: event.clientX, y: event.clientY }));
       return { x: panel.getBoundingClientRect().left + 8, y: 130, content: window.__paddingContent.textContent };
     })()`);
+
     await browser("mouse", "move", String(before.x), String(before.y));
     await browser("mouse", "down", "left");
     await browser("mouse", "up", "left");
+
     const after = await evaluate(`(() => ({
       open: document.querySelector('.drawer').dataset.open,
       sameContent: document.querySelector('.todo-detail') === window.__paddingContent,
       content: document.querySelector('.todo-detail')?.textContent,
       presses: window.__paddingPresses
     }))()`);
+
     expect(after).toMatchObject({ open: "true", sameContent: true, content: before.content, presses: [{ trusted: true, x: before.x, y: before.y }] });
     const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
     for (const id of ["D2", "D5", "D6"]) expect(checks[id]?.status).toBe("pass");
     writeFileSync(join(directory, `${mode}-todo-5.checks.json`), JSON.stringify(checks));
     writeFileSync(join(directory, `${mode}-todo-5-press.json`), JSON.stringify({ before, after }));
@@ -343,6 +350,7 @@ for (const mode of ["reserved", "overlay"]) {
     await browser("wait", "--fn", "document.querySelector('.drawer').textContent.includes('Comment refused.')");
     await browser("screenshot", join(directory, `${mode}-todo-5-refused.png`));
     const failureChecks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
     for (const id of ["D2", "D5", "D6"]) expect(failureChecks[id]?.status).toBe("pass");
     writeFileSync(join(directory, `${mode}-todo-5-refused.checks.json`), JSON.stringify(failureChecks));
     await browser("click", ".drawer .close");
