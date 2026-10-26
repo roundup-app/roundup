@@ -31,6 +31,7 @@ const run = async mode => {
   const images = new ImageAddon({ storageLimit: 1, pixelLimit: 262144, sixelSizeLimit: 1048576, iipSizeLimit: 1048576, enableSizeReports: false });
   const copies = [], failures = [], input = [];
   let readRequests = 0, nativeReads = 0, refuse = false;
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { readText: async () => { nativeReads++; return 'native-secret-never-disclosed'; } } });
   const nativeWrite = async text => { if (refuse) throw Error('copy refused'); copies.push(text); };
   const clipboard = new ClipboardAddon(undefined, {
     // No native clipboard read capability is passed. An empty OSC reply reveals no clipboard bytes.
