@@ -120,6 +120,7 @@ impl Agents {
         let attempt = node.attempt.clone().unwrap_or_default();
         let started = async {
             loop {
+                let observed = self.shared.events.observed.notified();
                 let seen = matches!(
                     self.shared.runs().get(id),
                     Some(Slot::Running(run)) if run.attempt == attempt && run.session_started
@@ -127,7 +128,7 @@ impl Agents {
                 if seen {
                     return;
                 }
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                observed.await;
             }
         };
         if tokio::time::timeout(bound, started).await.is_err() {
@@ -223,6 +224,7 @@ impl Agents {
             }
             rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(id)?;
+            self.shared.events.observed.notify_waiters();
             runs.insert(
                 id.to_owned(),
                 Slot::Starting {

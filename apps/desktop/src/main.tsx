@@ -1,3 +1,4 @@
+import { followMaterial } from "./app/material";
 import { StorageRecovery } from "./app/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
@@ -17,6 +18,10 @@ const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");
 
 const tauri = createTauriApp();
+
+if (!new URLSearchParams(location.search).has("capture")) {
+  void followMaterial(document.documentElement).catch(error => console.error(error));
+}
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 
