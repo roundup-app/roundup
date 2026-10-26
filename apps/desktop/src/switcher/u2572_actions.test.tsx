@@ -253,7 +253,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
     await chooseRailAction(app, "ops", "Add Agent");
   }
 
-  await waitFor(() => expect(actionNames()).not.toContain(label));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain(stale.dataset.value));
   const afterChange = app.calls.length;
   fireEvent.pointerDown(stale, { button: 0 });
   fireEvent.click(stale);
