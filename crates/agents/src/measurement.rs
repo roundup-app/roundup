@@ -632,6 +632,52 @@ mod time_tests {
         }
     }
 
+    #[tokio::test]
+    async fn z3799b_interval_receiver_closes_with_its_attempt_or_project() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        for close_project in [false, true] {
+            let (dir, _, shared) = crate::tests::shared_over_temp_dir(Arc::new(|| 1000));
+            let agents = crate::tests::owner_agents(shared, dir.path());
+            agents.shared.mark_starting("receiver", "1".into());
+            let env = agents.listen_measurements("receiver", "1").await.unwrap();
+            let endpoint = url::Url::parse(&env["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"]).unwrap();
+            let mut connection = tokio::net::TcpStream::connect((
+                endpoint.host_str().unwrap(),
+                endpoint.port().unwrap(),
+            ))
+            .await
+            .unwrap();
+            connection
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .await
+                .unwrap();
+            let mut response = Vec::new();
+            while !response.ends_with(b"\r\n\r\n") {
+                response.push(connection.read_u8().await.unwrap());
+            }
+            assert!(response.starts_with(b"HTTP/1.1 404"));
+            // The response proves Axum is serving this Attempt before its lifetime ends.
+            let mut retained = Some(agents);
+            if close_project {
+                retained.take();
+            } else {
+                retained
+                    .as_ref()
+                    .unwrap()
+                    .shared
+                    .release_closing("receiver", false);
+            }
+            assert_eq!(
+                tokio::time::timeout(Duration::from_secs(2), connection.read_u8())
+                    .await
+                    .unwrap()
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof,
+            );
+        }
+    }
+
     mod summary_tests;
 
     mod evidence_tests;
