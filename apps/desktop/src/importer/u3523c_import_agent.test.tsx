@@ -45,6 +45,7 @@ it("u3523d_listed_candidates_require_user_confirm", async () => {
 it("u3523c_import_draft_keeps_project_and_revisions", async () => {
   const { app, connected } = await connectFakeProject([]);
   app.handlers["agent.spawn"] = () => { throw new Error("Launch unavailable. Retry."); };
+
   const mount = () => render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
   const first = mount();
   fireEvent.input(screen.getByRole("textbox", { name: "Import instructions" }), { target: { value: "  exact\nunfinished 🪁  " } });
@@ -54,12 +55,15 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
   first.unmount();
   const reopened = await connectProject(app, connected.project, () => false, () => 0, () => null);
   render(() => <ConnectedProjectContext.Provider value={reopened}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  expect((screen.getByRole("textbox", { name: "Import instructions" }) as HTMLTextAreaElement).value).toBe("  exact\nunfinished 🪁  ");
+  const restored = screen.getByRole("textbox", { name: "Import instructions" });
+
+  expect(restored instanceof HTMLTextAreaElement && restored.value).toBe("  exact\nunfinished 🪁  ");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
 });
 
 it.skipIf(!captureDir("U3523c"))("u3523c_rendered_import_prompt", async () => {
   const lane = await openLane(1512, "dark", "builder-3666");
+
   try {
     await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
     await lane.until("!!document.querySelector('textarea[aria-label=\"Import instructions\"]')");

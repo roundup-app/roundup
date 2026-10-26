@@ -5,6 +5,8 @@ import * as v from "valibot";
 import type { ImportFailure } from "@contracts/project/ImportFailure";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
+import type { ImportCommitParams } from "@contracts/project/ImportCommitParams";
+import type { ImportDiscoverParams } from "@contracts/project/ImportDiscoverParams";
 import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storageSchema, storedValue, type draftStorage } from "../state/storage";
@@ -80,7 +82,15 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   }).sort((a, b) => Number(Boolean(b.external)) - Number(Boolean(a.external)));
 
   const hasConflict = () => choices().length > 1 && (choices().some(entry => entry.external) || choices().filter(entry => entry.status === "draft").length > 1);
-  const value = () => ({ prompt: prompt(), agent: listingAgent(), external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
+
+  const value = () => {
+    const next: v.InferOutput<typeof form> = { prompt: prompt(), external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) };
+    const agent = listingAgent();
+
+    if (agent !== undefined) next.agent = agent;
+
+    return next;
+  };
 
   // The Import record is a second writer's input, not a cache we may replace blindly.
   // Retain it in the existing Project revision holder before advancing our baseline.
@@ -111,7 +121,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         if (problem?.cause === "changed") await drafts?.retry();
       }
 
-      const external = { prompt: saved.prompt, agent: saved.agent, period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
+      const external: v.InferOutput<typeof form> = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
+
+      if (saved.prompt !== undefined) external.prompt = saved.prompt;
+
+      if (saved.agent !== undefined) external.agent = saved.agent;
+
       const known = choices().some(entry => JSON.stringify({ prompt: entry.prompt, agent: entry.agent, period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
 
       if (!known && drafts) await drafts.edit(destination, { ...external, external: true }, null, "ordinary", null).retained;
@@ -189,7 +204,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     setFailure(null);
 
     try {
-      const found = await app.rpc("project.importDiscover", { period: period(), ...(listingAgent() ? { agent: listingAgent() } : {}) });
+      const params: ImportDiscoverParams = { period: period() };
+      const agent = listingAgent();
+
+      if (agent !== undefined) params.agent = agent;
+
+      const found = await app.rpc("project.importDiscover", params);
 
       if (mine !== latest) return;
 
@@ -219,19 +239,28 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
   return {
     prompt, listingAgent, starting,
-    setPrompt: (text: string) => { setPromptSignal(text); return persist(); },
+    setPrompt: (text: string) => { setPromptSignal(text);
+
+      return persist(); },
     start: async () => {
       if (starting() || pending()) return;
       setStarting(true); setFailure(null); invalidate(); setLoading(false);
       const text = prompt();
       const submittedRevision = draftRevision;
+
       if (submittedRevision) await drafts?.submit(submittedRevision);
+
       try {
         const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: "Import" });
+
         if (submittedRevision) drafts?.settle(submittedRevision, "acknowledged");
+
         if (draftRevision === submittedRevision) draftRevision = undefined;
+
         setListingAgent(node.id); setDiscovery(null); setVerified(false);
+
         if (prompt() === text) setPromptSignal(DEFAULT_PROMPT);
+
         await persist();
       } catch (error) {
         if (submittedRevision) drafts?.settle(submittedRevision, outcomeOf(error));
@@ -320,7 +349,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       const selections: ImportSelection[] = [...submitted].map(([source, entry]) => ({ source, revision: entry.revision }));
 
       try {
-        const { outcomes } = await app.rpc("project.importCommit", { selections, ...(listingAgent() ? { agent: listingAgent() } : {}) });
+        const params: ImportCommitParams = { selections };
+        const agent = listingAgent();
+
+        if (agent !== undefined) params.agent = agent;
+
+        const { outcomes } = await app.rpc("project.importCommit", params);
         const refused = new Map<string, ImportFailure>();
         const created: { workstream: string; agent: string | null }[] = [];
 

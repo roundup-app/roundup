@@ -93,6 +93,7 @@ impl Agents {
                 title: None,
                 last_activity_ms: e.modified_ms,
             }));
+        drop(rail);
         if ctx.actor.kind == ActorKind::Agent {
             let node = self.shared.rail().node(&ctx.actor.id)?;
             let directory = self.dir.join("import-lists");
