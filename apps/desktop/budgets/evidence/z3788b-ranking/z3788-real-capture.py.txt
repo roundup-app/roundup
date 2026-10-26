@@ -1,0 +1,49 @@
+import json, os, pathlib, subprocess, tempfile, uuid
+root=pathlib.Path(os.environ["Z3788_REPO"])
+out=root/'artifacts/ux/Z3788b'
+out.mkdir(parents=True,exist_ok=True)
+session='z3788b-'+uuid.uuid4().hex
+with tempfile.TemporaryDirectory(prefix='z3788b-profile-') as profile:
+ config=pathlib.Path(profile)/'config.json'; config.write_text('{}')
+ env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+ def browser(*args):
+  cmd=[str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',profile,'--config',str(config),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args]
+  p=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=60)
+  if p.returncode: raise RuntimeError(p.stdout+p.stderr)
+  r=json.loads(p.stdout)
+  if not r.get('success'): raise RuntimeError(r)
+  return r['data']
+ def ev(s): return browser('eval',s)['result']
+ def shot(seed,step):
+  browser('screenshot',str(out/f'{seed}-{step}.png'))
+  (out/f'{seed}-{step}.checks.json').write_text(json.dumps(ev('window.__checks()'),indent=2))
+ try:
+  for seed in ['real-daemon']:
+   browser('open',os.environ['Z3788_REAL_ORIGIN']+'/harness.html?daemon=1')
+   browser('set','viewport','1512','950'); browser('set','media','dark')
+   browser('wait','--fn',"!!document.querySelector('.rail-row')")
+   ev('document.fonts.ready')
+   browser('record','start',str(out/f'{seed}-ranking.webm'))
+   browser('set','viewport','1512','950'); browser('set','media','dark')
+   browser('wait','--fn',"!!document.querySelector('.rail-row')")
+   ev('document.fonts.ready')
+   ev("(() => { window.__observedCalls=[]; const original=window.fetch.bind(window); window.fetch=async(url,options)=>{ if(String(url).endsWith('/__daemon/rpc')) window.__observedCalls.push(JSON.parse(options.body)); return original(url,options); }; })()")
+   (out/f'{seed}-debug.json').write_text(json.dumps(ev("({url:location.href,text:document.body.innerText})")))
+   browser('screenshot',str(out/f'{seed}-debug.png'))
+   browser('press','Meta+k'); browser('wait','--fn',"document.querySelector('.leader')?.style.visibility==='visible'"); browser('press','k')
+   browser('wait','--fn',"!!document.querySelector('.switcher input')")
+   shot(seed,'blank')
+   browser('fill','.switcher input','ntr')
+   browser('wait','--fn',"document.querySelector('.switcher input').value==='ntr'")
+   shot(seed,'ranked')
+   result=ev("({query:document.querySelector('.switcher input').value,options:[...document.querySelectorAll('.switcher [role=option]')].map(e=>({id:e.dataset.value,label:e.textContent})),writes:window.__observedCalls.filter(c=>c.method==='terminal.write')})")
+   (out/f'{seed}-ranking.json').write_text(json.dumps(result,indent=2))
+   browser('fill','.switcher input','New Terminal')
+   browser('wait','--fn',"[...document.querySelectorAll('.switcher [role=option]')].some(e=>e.textContent.includes('New Terminal'))")
+   browser('press','Enter')
+   browser('wait','--fn',"!document.querySelector('.switcher input') && !!document.querySelector('.bubble .xterm')")
+   shot(seed,'opened-terminal')
+   (out/f'{seed}-action.json').write_text(json.dumps(ev("({calls:window.__observedCalls,focus:document.activeElement?.className})"),indent=2))
+   browser('record','stop')
+ finally:
+  browser('close')
