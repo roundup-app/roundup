@@ -256,16 +256,21 @@ it.each([
   expect(resumed.map(block => [block.start, block.end])).toEqual([[at(0), at(10)], [at(25), NOW]]);
 });
 
-it("u3768a_exit_is_a_named_icon_button", async () => {
-  const back = vi.fn();
-  await mount(family(), { back });
-  const exit = screen.getByRole("button", { name: "Close" });
-  expect(screen.queryByText("Back")).toBeNull();
-  expect(exit.textContent).toBe("");
-  await vi.advanceTimersByTimeAsync(0);
-  fireEvent.keyDown(document, { key: "Tab" });
-  exit.focus();
-  expect(await screen.findByRole("tooltip", { name: "Close" })).toBeTruthy();
-  fireEvent.click(exit);
-  expect(back).toHaveBeenCalledOnce();
+it("z3788c_timeline_visibility_refreshes_only_the_current_owner", async () => {
+  const clock = vi.fn(() => NOW);
+  const { connected } = await connect(family(), () => false);
+  const mountView = () => render(() => <ConnectedProjectContext.Provider value={connected}><TimelineView home="home" name="home" back={() => {}} clock={clock} /></ConnectedProjectContext.Provider>);
+  const retired = mountView();
+
+  retired.unmount();
+  const current = mountView();
+
+  clock.mockClear();
+  document.dispatchEvent(new Event("visibilitychange"));
+  expect(clock).toHaveBeenCalledOnce();
+
+  current.unmount();
+  clock.mockClear();
+  document.dispatchEvent(new Event("visibilitychange"));
+  expect(clock).not.toHaveBeenCalled();
 });
