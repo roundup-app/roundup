@@ -18,6 +18,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     let seconds = 0;
     let scale = 1;
     let ease: [number, number, number, number] = [0, 0, 0, 0];
+
     const resolveTokens = () => {
       const tokens = getComputedStyle(doc.documentElement);
       const duration = tokens.getPropertyValue("--duration-press").trim();
@@ -26,11 +27,13 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
       const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
       ease = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
     };
+
     const stop = () => { effects.forEach((effect, el) => { effect.animation.cancel(); effect.restore(); releases.delete(el); }); effects.clear(); };
 
     const move = (el: Element, down: boolean) => {
       // Full-width rows keep their tree inset, guides and hairline fixed; shared CSS supplies instant ink feedback.
       if (reduced() || el.matches('[role=treeitem], .rail-row, .todo-row, .todo-row-button')) return;
+
       if (!(el instanceof HTMLElement) || !("animate" in el)) return;
       const visual = el.matches("input") ? el.closest<HTMLElement>(".app-checkbox, .app-radio, .app-segment") ?? el : el;
       const previous = effects.get(el);
@@ -136,6 +139,7 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     view.addEventListener("dragstart", drag, true);
     view.addEventListener("blur", blur, true);
     const keyup = () => { if (!pointerDown) clear(); };
+
     view.addEventListener("keyup", keyup, true);
     const endings = ["pointerup", "pointercancel", "lostpointercapture"] as const;
 
