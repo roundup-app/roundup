@@ -45,7 +45,7 @@ it("u371_reduced_motion_and_restore_are_instant", async () => {
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
   await toggle();
   await browser("set", "media", "light");
-  await browser("open", `${rig.server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+  await browser("open", `${rig.server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   await browser("wait", ".shelf-tabs");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').dataset.animated")).toBe("false");

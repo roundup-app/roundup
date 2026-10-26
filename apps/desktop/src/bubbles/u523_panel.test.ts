@@ -15,7 +15,7 @@ afterAll(async () => { await page?.close(); });
 
 const open = async (width: number, scheme: "light" | "dark") => {
   await page.scheme(scheme);
-  await page.load("/harness.html?seed=door-stopped", width, FULLSCREEN.height);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-stopped", width, FULLSCREEN.height);
   await page.until(`() => document.querySelector('.terminal-new')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) .xterm-screen')`);

@@ -40,7 +40,7 @@ import "./styles.css";
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-export const Rail = () => {
+export const Rail = (props: { requested?: boolean }) => {
   const connected = useConnectedProject();
   const { app, project, rail, now, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
@@ -268,8 +268,10 @@ export const Rail = () => {
       (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
   };
 
-  onMount(() => {
+  createEffect(() => {
     const tree = container();
+
+    if (!tree) return;
 
     if (tree) {
       // --rail-step is a calc(), so a probe resolves it to pixels once.
@@ -309,11 +311,11 @@ export const Rail = () => {
 
     window.addEventListener("pointerdown", press, { capture: true });
     window.addEventListener("pointermove", follow, { capture: true });
-    container()?.addEventListener("keydown", lift, { capture: true });
+    tree.addEventListener("keydown", lift, { capture: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
-      container()?.removeEventListener("keydown", lift, { capture: true });
+      tree.removeEventListener("keydown", lift, { capture: true });
     });
   });
 
@@ -513,13 +515,13 @@ export const Rail = () => {
   });
 
   return (
-    <>
+    <Show when={props.requested !== false || composing()}>
     <button
       type="button"
       data-button="quiet"
       data-todo-root
       aria-pressed={rail.selected() === null}
-      aria-label={copy.overviewLabel(attention())}
+      aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => rail.select(null)}
@@ -531,7 +533,7 @@ export const Rail = () => {
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>
-      <Show when={attention() > 0}>
+      <Show when={attention() > 0 && rail.selected() !== null}>
         <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
           <KindGlyph kind="needs-you" decorative /> {attention()}
         </span>
@@ -759,6 +761,6 @@ export const Rail = () => {
         >
           <Icon name="plus" />{copy.addWorkstreamWord}</button>
       </div>
-    </>
+    </Show>
   );
 };

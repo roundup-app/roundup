@@ -1,9 +1,10 @@
 import { StorageRecovery } from "../app/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createRoot } from "solid-js";
+import { createEffect, createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
+import { captureActions } from "../keys/registry";
 import { App } from "../App";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
@@ -88,8 +89,25 @@ const mount = (app: AppSeam) => {
     : createXtermEmulators();
 
   window.__terminals = new Map();
+  const requested = new Set<string>();
 
-  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={(id) => {
+  const inspection = (open: import("../state/connectedProject").ConnectedProject) => {
+    createEffect(() => {
+      if (query.get("tabs") === "1") open.showView("terminal-tabs");
+    });
+  };
+
+  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+    if (requested.has(open.project.path)) return;
+    requested.add(open.project.path);
+    inspection(open);
+
+    for (const view of query.getAll("view")) open.showView(view);
+
+    if (query.get("items") === "1") queueMicrotask(() => {
+      if (document.querySelector('.window[data-shelf="closed"]')) captureActions(document.activeElement).find(action => action.value === "action:leader:S")?.run();
+    });
+  }} createEmulator={(id) => {
     const emulator = createEmulator(id);
     window.__terminals.set(id, emulator);
 
@@ -156,4 +174,3 @@ if (query.get("daemon") === "1") {
 
   if (query.get("todos") === "worst") mountTodoWorstCase(controls);
 }
-
