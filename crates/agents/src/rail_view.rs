@@ -170,6 +170,11 @@ impl Shared {
         {
             node.overview = self.rail_view.launcher.read_overview(Path::new(&cwd), &id);
         }
+        // R3696c: a Workstream holds a channel, inbox, tool call or stray only while a
+        // Door runs under its id; an idle one skips four lock acquisitions per node.
+        if node.kind == NodeKind::Workstream && runs.get(&node.id).is_none() {
+            return Ok(node);
+        }
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.inbox = self.events.inbox.fact(&node.id);

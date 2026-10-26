@@ -43,7 +43,8 @@
       "@zag-js/radio-group@1.45.0": "patches/@zag-js__radio-group@1.45.0.patch",
       "@zag-js/focus-trap@1.45.0": "patches/@zag-js__focus-trap@1.45.0.patch",
       "@zag-js/dialog@1.45.0": "patches/@zag-js__dialog@1.45.0.patch",
-      "@pierre/diffs@1.6.1": "patches/@pierre__diffs@1.6.1.patch"
+      "@pierre/diffs@1.6.1": "patches/@pierre__diffs@1.6.1.patch",
+      "@xterm/xterm@6.0.0": "patches/@xterm__xterm@6.0.0.patch"
     }
   }
 }

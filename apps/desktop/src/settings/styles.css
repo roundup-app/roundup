@@ -51,8 +51,8 @@
   min-width: 0;
 }
 
-.settings-field > span,
-.settings-field > label > span {
+.settings-field span,
+.settings-field span {
   font-size: var(--text-caption);
   color: var(--grey);
 }
@@ -63,7 +63,7 @@
   min-height: var(--space-5);
   border: 0;
   padding: var(--space-1) 0;
-  background: transparent;
+  background: var(--transparent);
   color: var(--text);
   font: inherit;
 }
@@ -81,18 +81,18 @@
 }
 
 /* Keep each value and its disclosure in one readable field column. */
-.settings-group > .app-select,
-.settings-group > .settings-field {
+.settings-group .app-select,
+.settings-group .settings-field {
   width: min(100%, var(--shelf-width));
 }
 
-.settings-field > label {
+.settings-field label {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.settings-shortcut > button {
+.settings-shortcut button {
   color: var(--text);
 }
 
@@ -101,7 +101,7 @@
   opacity: 1;
 }
 
-.settings-group > .settings-font {
+.settings-group .settings-font {
   width: min(100%, var(--centre-min-width));
 }
 
@@ -112,7 +112,7 @@
   min-height: 0;
 }
 
-.project-center-content > .pane {
+.project-center-content .pane {
   flex: 1;
   height: auto;
   min-height: 0;

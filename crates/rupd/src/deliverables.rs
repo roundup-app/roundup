@@ -164,7 +164,9 @@ impl Publications {
         if !file.metadata()?.is_file() {
             return Err(std::io::Error::other("payload is not a regular file"));
         }
-        let mut bytes = Vec::new();
+        let mut bytes = Vec::with_capacity(
+            usize::try_from(file.metadata()?.len().min(MAX_BYTES as u64)).unwrap_or(0) + 1,
+        );
         file.by_ref()
             .take(MAX_BYTES as u64 + 1)
             .read_to_end(&mut bytes)?;
@@ -771,7 +773,8 @@ fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSour
             "source is not a readable regular file within 32 MiB",
         ));
     }
-    let mut bytes = Vec::new();
+    // One allocation: read_to_end from an empty Vec regrows by copying up to 32 MiB.
+    let mut bytes = Vec::with_capacity(before.len() as usize + 1);
     file.by_ref()
         .take(MAX_BYTES as u64 + 1)
         .read_to_end(&mut bytes)

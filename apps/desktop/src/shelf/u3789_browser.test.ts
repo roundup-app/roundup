@@ -228,8 +228,9 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
   await browser("press", "F2");
   await wait("document.activeElement?.getAttribute('aria-label') === 'Name'");
   await browser("fill", '.rail-row[data-id="tokens"] input', "  exact 日本語 🌱  ");
-  await browser("eval", "window.__fake.failNext(-32003, 'name already taken')");
-  await browser("press", "Enter");
+  // Background resource reads must not consume the rename refusal.
+  await browser("eval", "(async () => { const { RpcError } = await import('/src/app/seam.ts'); window.__fake.app.handlers['rail.rename'] = () => { throw new RpcError(-32003, 'name already taken'); }; })()");
+  await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}))");
   await wait("document.querySelector('[role=alert]')?.textContent.includes('name already taken')");
   await browser("click", '.rail-row[data-id="agent-4"]');
   await wait("document.activeElement?.closest('[data-id]')?.dataset.id === 'agent-4'");
