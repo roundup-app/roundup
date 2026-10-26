@@ -1,0 +1,16 @@
+{
+  "head": "a6e5051c9e57cfa4c9d97366f87f6239012f0e8c",
+  "observer": "u4276b_keyboard_creates_each_condition",
+  "cases": [
+    "all",
+    "any",
+    "pr-checks",
+    "instant"
+  ],
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "known_check": "D2 flags the Ark hidden live-region margin, as on be051858d; D5 and D6 pass."
+}
