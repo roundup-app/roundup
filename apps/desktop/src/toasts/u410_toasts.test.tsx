@@ -1,3 +1,5 @@
+import { createRoot } from "solid-js";
+import { createToastQueue } from "./queue";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
@@ -217,25 +219,32 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     expect(toasts()).toHaveLength(0);
   });
 
-  it.each(["focus", "visibilitychange"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", async (event) => {
-    const previous = await mountToasts(tree(), { front: false });
+  it.each(["focus", "visibilitychange"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", (event) => {
+    const mount = () => createRoot(dispose => {
+      const front = vi.fn(() => false);
+      const sound = vi.fn();
+      const queue = createToastQueue(front, sound);
 
-    previous.app.emit(status("a", "needs-you"));
-    await settle();
-    previous.view.unmount();
-    previous.setFront(true);
+      queue.push({ key: "b", item: "agent:b", kind: "error", name: "mason", line: "Failed", selected: false, open: () => null });
+      front.mockReturnValue(true).mockClear();
 
-    const current = await mountToasts(tree(), { front: false });
+      return { front, sound, queue, dispose };
+    });
+    const previous = mount();
 
-    current.app.emit(status("b", "error"));
-    await settle();
-    current.setFront(true);
-    fireEvent(event === "focus" ? window : document, new Event(event));
-    await settle();
+    previous.dispose();
+    const current = mount();
 
-    expect(previous.queue.shown()).toBe(0);
-    expect(names(current.toasts())).toEqual(["mason Failed"]);
-    expect(current.sounds).toHaveLength(1);
+    try {
+      fireEvent(event === "focus" ? window : document, new Event(event));
+
+      expect(previous.front).not.toHaveBeenCalled();
+      expect(current.queue.shown()).toBe(1);
+      expect(current.sound).toHaveBeenCalledTimes(1);
+      current.front.mockClear();
+      fireEvent(event === "focus" ? window : document, new Event(event));
+      expect(current.front).not.toHaveBeenCalled();
+    } finally { current.dispose(); }
   });
 
   it("u468_a_visible_child_prompt_has_no_duplicate_toast", async () => {
