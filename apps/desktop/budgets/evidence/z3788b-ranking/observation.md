@@ -1,4 +1,4 @@
-Z3788b ranking slice, 2026-10-26. The observer uses a dedicated headless agent-browser 0.27.0 session and fresh profile, Chrome from `/opt/google/chrome/chrome`, dark mode, 1512×950. No personal browser connection. Four videos and eight PNGs remain uncommitted under `artifacts/ux/Z3788b/`.
+Z3788b ranking slice, 2026-10-26. The observer uses a dedicated headless agent-browser 0.27.0 session and fresh profile, Chrome from `/opt/google/chrome/chrome`, dark mode, 1512×950. No personal browser connection. Four videos and eight screenshots remain uncommitted under `artifacts/ux/Z3788b/`.
 
 `just capture Z3788b` passed with the desktop test script temporarily selecting the observation below (restored afterwards). The fake harness at port 5211 supplied tree-40, agents-10 and conflict. `z3788-capture.py.txt` records blank/ranked queries and a rejected New Terminal action. Recording creates a fresh context, so viewport and dark media are reapplied afterwards. ffmpeg was supplied in the observation process's PATH from the @ffmpeg-installer/linux-x64 4.1.0 tarball; no runtime dependency was added.
 
