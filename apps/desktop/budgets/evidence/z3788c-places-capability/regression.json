@@ -10,695 +10,197 @@
     {
       "file": "p3557c_failure_lifetime.test.tsx",
       "status": "passed",
-      "tests": [
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close other-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close open",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close dismiss",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close other-save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close cancel-edit",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close failed-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close cancel-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close replace",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close successful-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: close navigate",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename other-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename open",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename dismiss",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename other-save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename cancel-edit",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename failed-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename cancel-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename replace",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename successful-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: rename navigate",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context other-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context open",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context dismiss",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context other-save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context cancel-edit",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context failed-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context cancel-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context replace",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context successful-delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles: context navigate",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_open: delete",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_open: save",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_open: dismiss",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_open: recover",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: dismiss",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: discard",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: copy",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: other-copy",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: other-discard",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_recovery: retention",
-          "status": "passed"
-        },
-        {
-          "name": "p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry",
-          "status": "passed"
-        }
+      "passed": [
+        "p3557c_failure_lifetime_bubbles: close delete",
+        "p3557c_failure_lifetime_bubbles: close other-delete",
+        "p3557c_failure_lifetime_bubbles: close open",
+        "p3557c_failure_lifetime_bubbles: close dismiss",
+        "p3557c_failure_lifetime_bubbles: close save",
+        "p3557c_failure_lifetime_bubbles: close other-save",
+        "p3557c_failure_lifetime_bubbles: close cancel-edit",
+        "p3557c_failure_lifetime_bubbles: close failed-delete",
+        "p3557c_failure_lifetime_bubbles: close cancel-delete",
+        "p3557c_failure_lifetime_bubbles: close replace",
+        "p3557c_failure_lifetime_bubbles: close successful-delete",
+        "p3557c_failure_lifetime_bubbles: close navigate",
+        "p3557c_failure_lifetime_bubbles: rename delete",
+        "p3557c_failure_lifetime_bubbles: rename other-delete",
+        "p3557c_failure_lifetime_bubbles: rename open",
+        "p3557c_failure_lifetime_bubbles: rename dismiss",
+        "p3557c_failure_lifetime_bubbles: rename save",
+        "p3557c_failure_lifetime_bubbles: rename other-save",
+        "p3557c_failure_lifetime_bubbles: rename cancel-edit",
+        "p3557c_failure_lifetime_bubbles: rename failed-delete",
+        "p3557c_failure_lifetime_bubbles: rename cancel-delete",
+        "p3557c_failure_lifetime_bubbles: rename replace",
+        "p3557c_failure_lifetime_bubbles: rename successful-delete",
+        "p3557c_failure_lifetime_bubbles: rename navigate",
+        "p3557c_failure_lifetime_bubbles: context delete",
+        "p3557c_failure_lifetime_bubbles: context other-delete",
+        "p3557c_failure_lifetime_bubbles: context open",
+        "p3557c_failure_lifetime_bubbles: context dismiss",
+        "p3557c_failure_lifetime_bubbles: context save",
+        "p3557c_failure_lifetime_bubbles: context other-save",
+        "p3557c_failure_lifetime_bubbles: context cancel-edit",
+        "p3557c_failure_lifetime_bubbles: context failed-delete",
+        "p3557c_failure_lifetime_bubbles: context cancel-delete",
+        "p3557c_failure_lifetime_bubbles: context replace",
+        "p3557c_failure_lifetime_bubbles: context successful-delete",
+        "p3557c_failure_lifetime_bubbles: context navigate",
+        "p3557c_failure_lifetime_bubbles_open: delete",
+        "p3557c_failure_lifetime_bubbles_open: save",
+        "p3557c_failure_lifetime_bubbles_open: dismiss",
+        "p3557c_failure_lifetime_bubbles_open: recover",
+        "p3557c_failure_lifetime_bubbles_recovery: dismiss",
+        "p3557c_failure_lifetime_bubbles_recovery: discard",
+        "p3557c_failure_lifetime_bubbles_recovery: copy",
+        "p3557c_failure_lifetime_bubbles_recovery: other-copy",
+        "p3557c_failure_lifetime_bubbles_recovery: other-discard",
+        "p3557c_failure_lifetime_bubbles_recovery: retention",
+        "p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry"
       ]
     },
     {
       "file": "u2236_resize.test.tsx",
       "status": "passed",
-      "tests": [
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_each_edge_and_corner_resizes_about_the_centre",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_escape_restores_the_place_it_began_with",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_a_drag_writes_style_once_per_frame",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_a_drag_stops_at_the_minimum_and_the_pane",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_the_zones_are_hidden_from_the_keyboard_and_assistive_tech",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_a_resize_calls_terminal_resize_once_per_size_change",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_the_size_survives_a_reload_per_project",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_daemon_exited_forgets_the_size",
-          "status": "passed"
-        },
-        {
-          "name": "u2236 any edge or corner resizes the bubble u2236_a_resize_is_not_a_move_a_write_or_a_selection_change",
-          "status": "passed"
-        },
-        {
-          "name": "u2237 double-clicking the header fills the pane and restores u2237_a_second_double_click_restores_the_last_size",
-          "status": "passed"
-        },
-        {
-          "name": "u2237 double-clicking the header fills the pane and restores u2237_a_resize_of_a_filled_bubble_keeps_the_restore_size",
-          "status": "passed"
-        },
-        {
-          "name": "u2237 double-clicking the header fills the pane and restores u2237_a_filled_bubble_survives_a_reload",
-          "status": "passed"
-        },
-        {
-          "name": "u2237 double-clicking the header fills the pane and restores u2237_a_single_click_a_drag_and_the_rename_are_unchanged",
-          "status": "passed"
-        }
+      "passed": [
+        "u2236 any edge or corner resizes the bubble u2236_each_edge_and_corner_resizes_about_the_centre",
+        "u2236 any edge or corner resizes the bubble u2236_escape_restores_the_place_it_began_with",
+        "u2236 any edge or corner resizes the bubble u2236_a_drag_writes_style_once_per_frame",
+        "u2236 any edge or corner resizes the bubble u2236_a_drag_stops_at_the_minimum_and_the_pane",
+        "u2236 any edge or corner resizes the bubble u2236_the_zones_are_hidden_from_the_keyboard_and_assistive_tech",
+        "u2236 any edge or corner resizes the bubble u2236_a_resize_calls_terminal_resize_once_per_size_change",
+        "u2236 any edge or corner resizes the bubble u2236_the_size_survives_a_reload_per_project",
+        "u2236 any edge or corner resizes the bubble u2236_daemon_exited_forgets_the_size",
+        "u2236 any edge or corner resizes the bubble u2236_a_resize_is_not_a_move_a_write_or_a_selection_change",
+        "u2237 double-clicking the header fills the pane and restores u2237_a_second_double_click_restores_the_last_size",
+        "u2237 double-clicking the header fills the pane and restores u2237_a_resize_of_a_filled_bubble_keeps_the_restore_size",
+        "u2237 double-clicking the header fills the pane and restores u2237_a_filled_bubble_survives_a_reload",
+        "u2237 double-clicking the header fills the pane and restores u2237_a_single_click_a_drag_and_the_rename_are_unchanged"
       ]
     },
     {
       "file": "u469_tabs.test.tsx",
       "status": "passed",
-      "tests": [
-        {
-          "name": "u469_tabs_show_one_bubble_and_toggle_the_shown_one_off",
-          "status": "passed"
-        },
-        {
-          "name": "u469_tabs_include_shown_and_minimised_terminals_in_start_order",
-          "status": "passed"
-        },
-        {
-          "name": "u469_selection_swaps_workstream_tabs_and_only_the_selected_agents_runs",
-          "status": "passed"
-        },
-        {
-          "name": "u469_tab_close_calls_once_without_toggling_or_restoring",
-          "status": "passed"
-        },
-        {
-          "name": "u469_failed_close_keeps_the_tab_bubble_and_visible_failure",
-          "status": "passed"
-        },
-        {
-          "name": "u469_close_returns_focus_to_a_remaining_control",
-          "status": "passed"
-        },
-        {
-          "name": "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_plus",
-          "status": "passed"
-        },
-        {
-          "name": "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_chord",
-          "status": "passed"
-        },
-        {
-          "name": "u524_an_empty_project_opens_and_focuses_a_project_terminal_plus",
-          "status": "passed"
-        },
-        {
-          "name": "u524_a_project_terminal_is_available_after_reload",
-          "status": "passed"
-        },
-        {
-          "name": "u524_a_failed_empty_project_open_can_be_retried",
-          "status": "passed"
-        },
-        {
-          "name": "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_plus",
-          "status": "passed"
-        },
-        {
-          "name": "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_chord",
-          "status": "passed"
-        },
-        {
-          "name": "u469_selection_and_reload_restore_at_most_one_bubble",
-          "status": "passed"
-        },
-        {
-          "name": "u469_minimise_keeps_the_terminal_running_and_its_saved_geometry",
-          "status": "passed"
-        },
-        {
-          "name": "u469_leader_keys_work_from_tabs_without_reaching_the_terminal",
-          "status": "passed"
-        },
-        {
-          "name": "u469_duplicate_names_close_only_the_matching_terminal",
-          "status": "passed"
-        },
-        {
-          "name": "u469_exit_updates_the_tab_and_keeps_the_last_screen",
-          "status": "passed"
-        },
-        {
-          "name": "u469_a_new_run_keeps_selection_focus_and_the_existing_shown_bubble",
-          "status": "passed"
-        },
-        {
-          "name": "u469_open_guards_and_failures_preserve_the_existing_bubble",
-          "status": "passed"
-        },
-        {
-          "name": "u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs",
-          "status": "passed"
-        },
-        {
-          "name": "u469_close_returns_focus_to_a_remaining_control_previous",
-          "status": "passed"
-        },
-        {
-          "name": "u469_close_returns_focus_to_a_remaining_control_plus",
-          "status": "passed"
-        },
-        {
-          "name": "u469_close_returns_focus_to_a_remaining_control_from_the_bubble",
-          "status": "passed"
-        },
-        {
-          "name": "u469_close_returns_focus_to_a_run_added_while_close_is_pending",
-          "status": "passed"
-        },
-        {
-          "name": "u469_a_late_open_keeps_the_new_workstreams_shown_bubble",
-          "status": "passed"
-        },
-        {
-          "name": "u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places",
-          "status": "passed"
-        },
-        {
-          "name": "u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it",
-          "status": "passed"
-        },
-        {
-          "name": "u3512a_terminal_alert_failure_keeps_the_terminal_for_retry",
-          "status": "passed"
-        }
+      "passed": [
+        "u469_tabs_show_one_bubble_and_toggle_the_shown_one_off",
+        "u469_tabs_include_shown_and_minimised_terminals_in_start_order",
+        "u469_selection_swaps_workstream_tabs_and_only_the_selected_agents_runs",
+        "u469_tab_close_calls_once_without_toggling_or_restoring",
+        "u469_failed_close_keeps_the_tab_bubble_and_visible_failure",
+        "u469_close_returns_focus_to_a_remaining_control",
+        "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_plus",
+        "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_chord",
+        "u524_an_empty_project_opens_and_focuses_a_project_terminal_plus",
+        "u524_a_project_terminal_is_available_after_reload",
+        "u524_a_failed_empty_project_open_can_be_retried",
+        "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_plus",
+        "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_chord",
+        "u469_selection_and_reload_restore_at_most_one_bubble",
+        "u469_minimise_keeps_the_terminal_running_and_its_saved_geometry",
+        "u469_leader_keys_work_from_tabs_without_reaching_the_terminal",
+        "u469_duplicate_names_close_only_the_matching_terminal",
+        "u469_exit_updates_the_tab_and_keeps_the_last_screen",
+        "u469_a_new_run_keeps_selection_focus_and_the_existing_shown_bubble",
+        "u469_open_guards_and_failures_preserve_the_existing_bubble",
+        "u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs",
+        "u469_close_returns_focus_to_a_remaining_control_previous",
+        "u469_close_returns_focus_to_a_remaining_control_plus",
+        "u469_close_returns_focus_to_a_remaining_control_from_the_bubble",
+        "u469_close_returns_focus_to_a_run_added_while_close_is_pending",
+        "u469_a_late_open_keeps_the_new_workstreams_shown_bubble",
+        "u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places",
+        "u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it",
+        "u3512a_terminal_alert_failure_keeps_the_terminal_for_retry"
       ]
     },
     {
       "file": "u511a_rename.test.tsx",
       "status": "passed",
-      "tests": [
-        {
-          "name": "u511a_double_click_selects_the_current_name",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_every_name_surface_updates",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_enter_commits_once",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_completion_preserves_expected_focus",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_escape_then_blur_keeps_the_previous_name",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_empty_restores_the_default",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_unchanged_closes_without_writing",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_click_away_commits_before_the_target_action",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_edit_entry_preserves_terminal_visibility",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_name_survives_selection_and_webview_reload",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_context_rename_uses_the_same_editor",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_editing_keys_do_not_reach_the_terminal",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_composition_enter_keeps_editing",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_duplicate_names_are_independent",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_custom_name_survives_title_updates",
-          "status": "passed"
-        },
-        {
-          "name": "u511a_closed_or_restarted_terminals_do_not_inherit_names",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_bubbles_restores_exact_work",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_bubbles_settlement_preserves_other_revisions",
-          "status": "passed"
-        },
-        {
-          "name": "u2773c_bubbles_external_change_keeps_original",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_recovery_actions_keep_surface_draft_bubbles",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_open_restores_exact_revision_without_rpc_bubbles_failed",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_open_restores_exact_revision_without_rpc_bubbles_unknown",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_editing_selected_revision_keeps_current_work_failed",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_editing_selected_revision_keeps_current_work_unknown",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_confirmation_settles_only_submitted_edit_acknowledged",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_confirmation_settles_only_submitted_edit_failed",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_unknown_acceptance_is_never_retried_unchanged",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_project",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_object",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_recipient",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_surface",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_pending",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_missing-base",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_missing-revision",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_unavailable_original_stopped",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_unavailable_original_removed",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_unavailable_original_replaced",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_refuses_unavailable_original_daemon-exited",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_closes_recovered_editor_when_original_ends_stopped",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_closes_recovered_editor_when_original_ends_removed",
-          "status": "passed"
-        },
-        {
-          "name": "u3021c_bubbles_closes_recovered_editor_when_original_ends_replaced",
-          "status": "passed"
-        }
+      "passed": [
+        "u511a_double_click_selects_the_current_name",
+        "u511a_every_name_surface_updates",
+        "u511a_enter_commits_once",
+        "u511a_completion_preserves_expected_focus",
+        "u511a_escape_then_blur_keeps_the_previous_name",
+        "u511a_empty_restores_the_default",
+        "u511a_unchanged_closes_without_writing",
+        "u511a_click_away_commits_before_the_target_action",
+        "u511a_edit_entry_preserves_terminal_visibility",
+        "u511a_name_survives_selection_and_webview_reload",
+        "u511a_context_rename_uses_the_same_editor",
+        "u511a_editing_keys_do_not_reach_the_terminal",
+        "u511a_composition_enter_keeps_editing",
+        "u511a_duplicate_names_are_independent",
+        "u511a_custom_name_survives_title_updates",
+        "u511a_closed_or_restarted_terminals_do_not_inherit_names",
+        "u2773a_bubbles_restores_exact_work",
+        "u2773b_bubbles_settlement_preserves_other_revisions",
+        "u2773c_bubbles_external_change_keeps_original",
+        "u2773e_recovery_actions_keep_surface_draft_bubbles",
+        "u3021c_open_restores_exact_revision_without_rpc_bubbles_failed",
+        "u3021c_open_restores_exact_revision_without_rpc_bubbles_unknown",
+        "u3021c_bubbles_editing_selected_revision_keeps_current_work_failed",
+        "u3021c_bubbles_editing_selected_revision_keeps_current_work_unknown",
+        "u3021c_bubbles_confirmation_settles_only_submitted_edit_acknowledged",
+        "u3021c_bubbles_confirmation_settles_only_submitted_edit_failed",
+        "u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal",
+        "u3021c_bubbles_unknown_acceptance_is_never_retried_unchanged",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_project",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_object",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_recipient",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_surface",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_pending",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_missing-base",
+        "u3021c_bubbles_refuses_selected_revision_with_wrong_authority_missing-revision",
+        "u3021c_bubbles_refuses_unavailable_original_stopped",
+        "u3021c_bubbles_refuses_unavailable_original_removed",
+        "u3021c_bubbles_refuses_unavailable_original_replaced",
+        "u3021c_bubbles_refuses_unavailable_original_daemon-exited",
+        "u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen",
+        "u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision",
+        "u3021c_bubbles_closes_recovered_editor_when_original_ends_stopped",
+        "u3021c_bubbles_closes_recovered_editor_when_original_ends_removed",
+        "u3021c_bubbles_closes_recovered_editor_when_original_ends_replaced"
       ]
     },
     {
       "file": "u2773_storage.test.ts",
       "status": "passed",
-      "tests": [
-        {
-          "name": "u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid",
-          "status": "passed"
-        },
-        {
-          "name": "u3791a_local_write_recovers_once",
-          "status": "passed"
-        },
-        {
-          "name": "u3791a_read_recovers_once",
-          "status": "passed"
-        },
-        {
-          "name": "u3791a_local_remove_recovers_once",
-          "status": "passed"
-        },
-        {
-          "name": "u3791a_storage_second_failure_is_actionable",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_storage_restores_exact_work",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_settlement_preserves_other_revisions_acknowledged",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_settlement_preserves_other_revisions_failed",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_settlement_preserves_other_revisions_unknown",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_discard_consumes_only_selected_revision",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_pending_reopens_as_unknown_without_resubmission",
-          "status": "passed"
-        },
-        {
-          "name": "u3791a_retention_failure_keeps_revisions",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_memory_for_incompatible_surface",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_before_registration",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_after_registration",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_invalid_records_{broken",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_invalid_records_{\"version\":2,\"drafts\":[]}",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_invalid_records_{\"version\":1,\"drafts\":[{}]}",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_memory_on_unreadable_restore",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_failure_keeps_memory_at_utf8_bound",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_credentials_keep_existing_policy",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_storage_identity_separates_surface_object_recipient",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_retry_merges_external_records_without_reviving_discard",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_failed_retry_requires_explicit_submit",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_storage_restoration_writes_nothing",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_bound_counts_pending_revisions_across_surfaces",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_storage_bound_counts_failed_revisions_across_surfaces",
-          "status": "passed"
-        },
-        {
-          "name": "u2773b_storage_late_out_of_order_replies_keep_original_project",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_pending",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_failed",
-          "status": "passed"
-        },
-        {
-          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_unknown",
-          "status": "passed"
-        },
-        {
-          "name": "u2773h_shared_consumers_observe_capacity",
-          "status": "passed"
-        },
-        {
-          "name": "u2773e_shared_project_credentials_stay_memory_only_across_replacement",
-          "status": "passed"
-        }
+      "passed": [
+        "u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid",
+        "u3791a_local_write_recovers_once",
+        "u3791a_read_recovers_once",
+        "u3791a_local_remove_recovers_once",
+        "u3791a_storage_second_failure_is_actionable",
+        "u2773a_storage_restores_exact_work",
+        "u2773b_storage_settlement_preserves_other_revisions_acknowledged",
+        "u2773b_storage_settlement_preserves_other_revisions_failed",
+        "u2773b_storage_settlement_preserves_other_revisions_unknown",
+        "u2773b_storage_discard_consumes_only_selected_revision",
+        "u2773b_storage_pending_reopens_as_unknown_without_resubmission",
+        "u3791a_retention_failure_keeps_revisions",
+        "u2773e_storage_failure_keeps_memory_for_incompatible_surface",
+        "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_before_registration",
+        "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_after_registration",
+        "u2773e_storage_failure_keeps_invalid_records_{broken",
+        "u2773e_storage_failure_keeps_invalid_records_{\"version\":2,\"drafts\":[]}",
+        "u2773e_storage_failure_keeps_invalid_records_{\"version\":1,\"drafts\":[{}]}",
+        "u2773e_storage_failure_keeps_memory_on_unreadable_restore",
+        "u2773e_storage_failure_keeps_memory_at_utf8_bound",
+        "u2773e_credentials_keep_existing_policy",
+        "u2773a_storage_identity_separates_surface_object_recipient",
+        "u2773e_storage_retry_merges_external_records_without_reviving_discard",
+        "u2773b_storage_failed_retry_requires_explicit_submit",
+        "u2773a_storage_restoration_writes_nothing",
+        "u2773e_storage_bound_counts_pending_revisions_across_surfaces",
+        "u2773e_storage_bound_counts_failed_revisions_across_surfaces",
+        "u2773b_storage_late_out_of_order_replies_keep_original_project",
+        "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_pending",
+        "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_failed",
+        "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_unknown",
+        "u2773h_shared_consumers_observe_capacity",
+        "u2773e_shared_project_credentials_stay_memory_only_across_replacement"
       ]
     }
   ]
