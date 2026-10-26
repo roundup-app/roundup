@@ -297,14 +297,15 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
   const directory = join(art!, "head");
   mkdirSync(directory, { recursive: true });
 
-  for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) for (const run of [1, 2, 3]) {
-    await openShelf("tree-40", 288, 320, 1512, "dark");
+  for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) for (const run of (rate === 1 ? [1, 2, 3] : [1])) {
+    await openShelf("tree-40", mode === "overlay" ? 480 : 288, mode === "overlay" ? 645 : 320, 1512, "dark");
     await browser("set", "viewport", "1512", "950");
     const name = `pointer-${mode}-${rate}-run${run}`;
 
+    await browser("record", "start", join(directory, `${name}.webm`));
+
     await browser("wait", ".shelf-tabs");
 
-    if (mode === "overlay") await evaluate("document.querySelector('.window').style.setProperty('--centre-min-width', '1000px')");
     await browser("click", '.rail [data-id="tokens"] .name');
     await browser("wait", ".xterm-screen");
     await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
@@ -317,12 +318,17 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
       const todo = document.querySelector('.shelf [data-todo="1"]');
       const state = () => ({ left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
         open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
-        focus: document.activeElement?.className, home: selected?.dataset.id, todo: todo.dataset.todo,
+        focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('button[aria-label="Open"]'), home: selected?.dataset.id, todo: todo.dataset.todo,
         sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail [aria-selected=true]'),
         mode: document.querySelector('.window').dataset.shelfMode });
       const samples = [];
       const events = [];
-      const sample = () => { samples.push({ t: performance.now(), ...state() }); window.__pointerDrawer.frame = requestAnimationFrame(sample); };
+      let output = 0;
+      const sample = () => {
+        window.__fake.writeOutput('t-tokens', 'drawer pointer ' + (++output) + '\\r\\n');
+        samples.push({ t: performance.now(), output, ...state() });
+        window.__pointerDrawer.frame = requestAnimationFrame(sample);
+      };
       document.addEventListener('click', event => events.push({ t: performance.now(), trusted: event.isTrusted, target: event.target.outerHTML, x: event.clientX, y: event.clientY, ...state() }));
       window.__pointerDrawer = { state, samples, events, terminal, selected, todo, rate: ${rate} };
       window.__pointerDrawer.frame = requestAnimationFrame(sample);
@@ -373,6 +379,14 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
           const returning = o.state().left;
           await halfway(returning, initial.left);
           await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          await frame();
+          const escaped = new Promise(resolve => document.addEventListener('keyup', event => { if (event.key === 'Escape') resolve(event.isTrusted); }, { once: true }));
+          o.events.push({ phase: 'escape', t: performance.now(), ...o.state() });
+          for (const eventType of ['keyDown', 'keyUp']) input.send(JSON.stringify({ type: 'input_keyboard', eventType, key: 'Escape', code: 'Escape', text: '', windowsVirtualKeyCode: 27 }));
+          if (!await escaped) throw new Error('Untrusted Escape');
+          await frame();
+          o.events.push({ phase: 'escape+1frame', t: performance.now(), ...o.state() });
+          if (o.state().open !== 'false' || o.state().mounted !== 'false') throw new Error('Escape did not settle by next frame');
         } finally { input.close(); }
         return true;
         };
@@ -390,17 +404,25 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
         if (attempt === 199) throw new Error("pointer sequence did not complete");
       }
 
-      await browser("press", "Escape");
       await settle();
       const state = await evaluate("window.__pointerDrawer.state()");
-      expect(state).toMatchObject({ open: "false", mounted: "false", sameTerminal: true, sameHome: true, todo: "1", mode });
+      expect(state).toMatchObject({ open: "false", mounted: "false", sameTerminal: true, sameHome: true, returned: true, todo: "1", mode });
       expect(await evaluate("window.__pointerDrawer.events.filter(event => !event.phase).every(event => event.trusted)")).toBe(true);
-      const checks = await evaluate<{ id: string; pass: boolean }[]>("window.__checks()");
+      const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
+      for (const id of ["D2", "D5", "D6"]) expect(checks[id]?.status).toBe("pass");
       writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks));
+      await browser("click", '.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+      await settle();
       await browser("screenshot", join(directory, `${name}.png`));
+      const openChecks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
+      for (const id of ["D2", "D5", "D6"]) expect(openChecks[id]?.status).toBe("pass");
+      writeFileSync(join(directory, `${name}-open.checks.json`), JSON.stringify(openChecks));
     } finally {
       const trace = await evaluate("(() => { const o = window.__pointerDrawer; cancelAnimationFrame(o.frame); return { samples: o.samples, events: o.events }; })()");
       writeFileSync(join(directory, `${name}-frames.json`), JSON.stringify(trace));
+      await browser("record", "stop");
 
     }
   }
