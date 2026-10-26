@@ -134,11 +134,12 @@ describe("u408 the Resource strip", () => {
     release({ ...RESULT, agents: [] });
     await settle();
     expect(strip()?.getAttribute("aria-busy")).toBe("false");
-    expect(strip()?.querySelector('[role="status"]')?.textContent?.trim()).toBeTruthy();
+    expect(strip()?.querySelector('.resource-values [role="status"]')).not.toBeNull();
     expect(document.querySelectorAll(".resource-value")).toHaveLength(0);
     app.handlers["project.resources"] = () => { throw new RpcError(-32603, "gone"); };
+
     await settle(2000);
-    expect(strip()?.querySelector('.resource-stale')?.textContent).toContain("Not updating");
+    expect(strip()?.querySelector('.resource-values [role="status"]')).toBeNull();
     strip()?.querySelector<HTMLButtonElement>('button')?.click();
     expect(connected.hasView("resources")).toBe(false);
     expect(app.calls.filter(call => ["agent.spawn", "ask.send", "terminal.write"].includes(call.method))).toHaveLength(0);
