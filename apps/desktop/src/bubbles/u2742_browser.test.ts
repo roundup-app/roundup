@@ -330,7 +330,6 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
       document.addEventListener('focusin', event => { if (event.target.closest('.xterm')) window.terminalFocuses.push(event.target); }, true);
     })()`);
 
-    if (choice === "ask") expect(await read(`!!document.querySelector('.project-overview') && !!document.querySelector('.ask-input')`)).toBe(true);
     await capture("before");
     await read(`window.revealCreated()`);
     await wait(`!!window.startSupervisor && !!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`);

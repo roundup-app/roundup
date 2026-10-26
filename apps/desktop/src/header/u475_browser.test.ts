@@ -80,8 +80,11 @@ it("u2773a_header_pointer_switch_keeps_caret", async () => {
   await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
   await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
   await browser("fill", ".tab-rename", "retained project name");
+  await browser("press", "End");
   await browser("click", '[data-path="/Users/you/project-number-6"] [role="tab"]');
+  await browser("wait", "--fn", `document.querySelector('.window-title')?.textContent === 'project-number-6'`);
   await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
+  await browser("wait", "--fn", `document.querySelector('.window-title')?.textContent === 'project-number-8'`);
   await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
   await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
   expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd]; })()`)).toEqual(["retained project name", 21, 21]);
