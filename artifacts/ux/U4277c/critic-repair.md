@@ -12,4 +12,4 @@ Behavior: 17 primary-navigation tests and 20 Import tests pass; three Import ren
 
 The broad related run was started separately; only its completed result can count as a pass. CI judges the push.
 
-All six final rendered observers pass. Thirteen paired screens pass D1–D14 (and D16 where present), with no passing Check regressed against the rejected head or recorded main baseline. `just ready` passed with exit 0. PNGs and videos remain uncommitted.
+All six final rendered observers pass. Thirteen paired screens pass D1–D14 (and D16 where present), with no passing Check regressed against the rejected head or recorded main baseline. `just ready` passed with exit 0. Images and videos remain uncommitted.
