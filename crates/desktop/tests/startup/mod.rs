@@ -118,3 +118,27 @@ fn s1_stderr_that_is_not_utf8_does_not_stop_the_tail() {
             .contains("after the bad line")
     );
 }
+
+#[test]
+fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
+    let fx = Fixture::new(
+        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nread go < '{dir}/go'\nexit 0",
+    );
+    fx.serve_real_daemon();
+    let (app, webview) = app(fx.config.clone(), None);
+    let exited = daemon_exited(&app);
+    open(&webview, &fx.project);
+    fx.release();
+    exited.recv_timeout(WAIT).unwrap();
+
+    invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
+        format!("{}\n--attached\n", fx.project.display())
+    );
+    let reopened_socket = std::fs::read_to_string(fx.dir.path().join("socket")).unwrap();
+    assert_ne!(reopened_socket, fx.config.socket.display().to_string());
+
+    fx.release();
+}
