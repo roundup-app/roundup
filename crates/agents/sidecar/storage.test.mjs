@@ -8,23 +8,29 @@ import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 
 const id = '11111111-1111-4111-8111-111111111111';
+
 const head = `${JSON.stringify({ type: 'user', sessionId: id, uuid: '22222222-2222-4222-8222-222222222222', cwd: '/moved', message: { role: 'user', content: 'selected work' } })}\n`;
 
 async function storage(run, entry = new URL('./list.mjs', import.meta.url).pathname) {
   const root = await mkdtemp(join(tmpdir(), 'u4251-storage-'));
+
   const child = spawn(process.execPath, [entry], {
     env: { ...process.env, CLAUDE_CONFIG_DIR: root }, stdio: ['pipe', 'pipe', 'pipe'],
   });
+
   const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
   let stderr = '';
   child.stderr.on('data', (part) => { stderr += part; });
   const ended = new Promise((resolve) => child.once('exit', resolve));
+
   const ask = async (op, args = {}) => {
     child.stdin.write(`${JSON.stringify({ op, ...args })}\n`);
     const answer = await lines.next();
     assert.equal(answer.done, false, stderr);
+
     return JSON.parse(answer.value);
   };
+
   try { await run(root, ask); }
   finally {
     child.stdin.end();
@@ -38,6 +44,7 @@ async function source(root, bucket, bytes) {
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${id}.jsonl`);
   await writeFile(path, bytes);
+
   return path;
 }
 
@@ -92,6 +99,7 @@ test('u4251c_storage_destination_is_sdk_readable_in_long_location_independent_of
     const original = await source(root, 'old-location', head);
     // Real existing directory long enough to require the SDK truncated/hash encoder.
     let cwd = root;
+
     for (let n = 0; n < 5; n++) cwd = join(cwd, 'long-project-location-'.repeat(4));
     await mkdir(cwd, { recursive: true });
     const retainedId = '33333333-3333-4333-8333-333333333333';
@@ -122,6 +130,7 @@ test('u4251b_raw_storage_reports_unresolved_identity_with_recovery', { timeout: 
 // A partial bundle can retain the public SDK API but lose the version-pinned extension.
 test('u4251c_missing_storage_extension_reports_reinstall_without_fallback', { timeout: 5000 }, async () => {
   const runtime = await mkdtemp(join(tmpdir(), 'u4251-runtime-'));
+
   try {
     await copyFile(new URL('./list.mjs', import.meta.url), join(runtime, 'list.mjs'));
     await copyFile(new URL('./package.json', import.meta.url), join(runtime, 'package.json'));
