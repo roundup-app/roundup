@@ -11,6 +11,7 @@ checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
 getrandom = "0.3"
 memchr = "2"
+notify = "8"
 messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
