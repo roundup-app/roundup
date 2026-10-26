@@ -3512,6 +3512,7 @@ dependencies = [
  "rusqlite",
  "rusqlite_migration",
  "tempfile",
+ "time",
 ]
 
 [[package]]
