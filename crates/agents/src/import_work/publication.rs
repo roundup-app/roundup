@@ -8,14 +8,14 @@ impl Agents {
         revision: &str,
         now_ms: i64,
         resume: Option<&Ctx>,
-        vendor: bool,
+        _vendor: bool,
     ) -> Result<(String, String), RpcError> {
         // Published work no longer depends on the external original. Concurrent first
         // imports still converge under prepare_closed's lifecycle lock after validation.
         if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
             return Ok((workstream, agent));
         }
-        let listed = if vendor {
+        let listed = {
             let worktrees = self
                 .shared
                 .git
@@ -42,8 +42,6 @@ impl Agents {
                 last_activity_ms: candidate.last_activity_ms,
                 revision: candidate.revision,
             })
-        } else {
-            None
         };
         let project = self.project_dir().to_owned();
         let launcher = self.launcher.clone();

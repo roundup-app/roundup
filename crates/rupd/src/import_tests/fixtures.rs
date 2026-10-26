@@ -18,7 +18,7 @@ pub(crate) fn import_source(config: &Path, cwd: &Path, number: usize, timestamp:
     std::fs::create_dir_all(&dir).unwrap();
     let id = format!("{number:08}-1111-4111-8111-111111111111");
     let file = dir.join(format!("{id}.jsonl"));
-    let record = json!({"type":"user", "cwd":cwd, "sessionId":id, "timestamp":timestamp});
+    let record = json!({"type":"user", "cwd":cwd, "sessionId":id, "timestamp":timestamp, "uuid":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "message":{"role":"user","content":"Imported work"}});
     std::fs::write(&file, format!("{record}\n")).unwrap();
     file
 }
@@ -142,32 +142,15 @@ pub(super) fn journey_sources(
     let deleted = session(config, &removed, 3, &[&removed, project], false);
     std::fs::remove_dir_all(&removed).unwrap();
     let live = session(config, &long, 4, &[&long], false);
-    let unshortened: String = long
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let hash = long
-        .to_string_lossy()
-        .chars()
-        .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
-        .unsigned_abs();
-    let mut digits = Vec::new();
-    let mut value = hash;
-    while value > 0 {
-        digits.push(char::from_digit(value % 36, 36).unwrap());
-        value /= 36;
-    }
-    let bucket = format!(
-        "{}-{}",
-        &unshortened[..200],
-        digits.into_iter().rev().collect::<String>()
-    );
-    std::fs::rename(
-        config.join("projects").join(&unshortened),
-        config.join("projects").join(bucket),
-    )
-    .unwrap();
+    let historical = config
+        .join("projects")
+        .join(long.file_name().unwrap())
+        .join(format!("{live}.jsonl"));
+    let bytes = std::fs::read(&historical).unwrap();
+    std::fs::remove_file(historical).unwrap();
+    agents::claude_code::Launcher::new("unused", config.join(".claude.json"), "rup".into(), None)
+        .save_for_test(&long, &live, &bytes)
+        .unwrap();
     let originals = std::fs::read_dir(config.join("projects"))
         .unwrap()
         .flat_map(|bucket| std::fs::read_dir(bucket.unwrap().path()).unwrap())
@@ -178,4 +161,128 @@ pub(super) fn journey_sources(
         })
         .collect();
     (long, [moved, deleted, live], originals)
+}
+
+#[tokio::test]
+async fn u4251b_sdk_membership_survives_snapshot_validation() {
+    use crate::vendor_list_tests::{executable, git, package, real_node, session};
+    let (root, _, daemon, _, seed) = import_fixture(0).await;
+    let seeded = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[seed]}),
+    )
+    .await;
+    assert!(
+        seeded["result"]["outcomes"][0]["error"].is_null(),
+        "{seeded}"
+    );
+    drop(daemon);
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let (_, [moved, deleted, _], mut originals) = journey_sources(root.path(), &project, &config);
+    // The third source is a real registered external Worktree, mapped back into the Project.
+    let linked = root.path().join("linked");
+    git(
+        &project,
+        &["worktree", "add", "--detach", linked.to_str().unwrap()],
+    );
+    let linked_id = session(&config, &linked, 5, &[&linked], false);
+    let linked_source = config
+        .join("projects/linked")
+        .join(format!("{linked_id}.jsonl"));
+    originals.push((
+        linked_source.clone(),
+        std::fs::read(&linked_source).unwrap(),
+    ));
+    let cli = root.path().join("quiet-claude");
+    executable(&cli, "#!/bin/sh\nprintf '[]'\n");
+    let (sidecar, _) = package(
+        &root.path().join("membership"),
+        &format!("exec '{}' \"$@\"", real_node()),
+    );
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    )
+    .with_sidecar(sidecar);
+    let data = project.join(".roundup");
+    let daemon = Daemon::open_stores(&project, &data, |_| {
+        let bus = Bus::new();
+        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
+        agents::Agents::open_in(
+            &project,
+            &data,
+            bus,
+            terminals,
+            launcher.clone(),
+            agents::worktree::Git::from_env(),
+        )
+        .unwrap()
+        .with_clock(|| 1_793_036_800_000)
+    })
+    .unwrap();
+    let listed = import_rpc(&daemon, "project.importDiscover", json!({"period":"month"})).await;
+    let picks = listed["result"]["candidates"].as_array().unwrap();
+    let sources = [moved, deleted, linked_id];
+    let selections: Vec<_> = sources
+        .iter()
+        .map(|id| {
+            let rows: Vec<_> = picks.iter().filter(|p| p["source"] == *id).collect();
+            assert_eq!(rows.len(), 1, "{listed}");
+            assert_eq!(rows[0]["cwd"], "");
+            json!({"source":id,"revision":rows[0]["revision"]})
+        })
+        .collect();
+    let params = json!({"selections":selections});
+    let committed = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    for outcome in committed["result"]["outcomes"].as_array().unwrap() {
+        assert!(outcome["error"].is_null(), "{committed}");
+        let node = tree["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == outcome["agent"])
+            .unwrap();
+        assert!(node["attempt"].is_null());
+        assert!(node["terminal_id"].is_null());
+        let saved = node["overview"]["id"].as_str().unwrap();
+        let retained = launcher.record_conversation(&project, saved).unwrap();
+        let records: Vec<Value> = retained
+            .split(|b| *b == b'\n')
+            .filter(|l| !l.is_empty())
+            .map(|line| serde_json::from_slice(line).unwrap())
+            .collect();
+        assert!(records.iter().all(|record| record["sessionId"] == saved));
+        let source = outcome["source"].as_str().unwrap();
+        let original = &originals
+            .iter()
+            .find(|(path, _)| path.file_stem().unwrap() == source)
+            .unwrap()
+            .1;
+        let expected: Vec<Value> = original
+            .split(|b| *b == b'\n')
+            .filter(|l| !l.is_empty())
+            .map(|line| {
+                let mut record: Value = serde_json::from_slice(line).unwrap();
+                record["sessionId"] = json!(saved);
+                record
+            })
+            .collect();
+        assert_eq!(records, expected);
+    }
+    for (path, bytes) in originals {
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+    }
+    assert_eq!(
+        import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
+        json!([])
+    );
+    assert_eq!(
+        import_rpc(&daemon, "project.importCommit", params).await["result"],
+        committed["result"]
+    );
 }
