@@ -2,7 +2,9 @@
 //! TypeScript SDK sidecar and a fake CLI.
 
 use super::*;
+use crate::import_tests::{import_daemon, import_fixture, import_rpc, import_source};
 use crate::tests::ask;
+use std::time::Duration;
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -29,7 +31,7 @@ fn git(project: &Path, args: &[&str]) {
     assert!(output.status.success(), "{output:?}");
 }
 
-pub(super) fn real_node() -> String {
+fn real_node() -> String {
     let output = std::process::Command::new("node")
         .args(["-p", "process.execPath"])
         .output()
@@ -39,7 +41,7 @@ pub(super) fn real_node() -> String {
 
 /// The packaged folder: the repository's `list.mjs` (its `node_modules` resolve through the real
 /// path) and a `node` that journals each start's pid before it becomes the real runtime.
-pub(super) fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
+fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
     let dir = root.join("sidecar");
     std::fs::create_dir_all(&dir).unwrap();
     let journal = root.join("children");
@@ -711,4 +713,142 @@ async fn u3523d_agent_listing_binds_user_confirmation() {
         result["result"]["outcomes"][0]["agent"].is_string(),
         "{result}"
     );
+}
+
+#[tokio::test]
+async fn u3523e_live_resume_failure_keeps_import_recoverable() {
+    let (root, launcher, daemon, _original, seed) = import_fixture(0).await;
+    let seeded = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[seed]}),
+    )
+    .await;
+    let listing_agent = seeded["result"]["outcomes"][0]["agent"].as_str().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let at = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let original = import_source(&config, &project, 2, &at);
+    let mut record: Value = serde_json::from_slice(&std::fs::read(&original).unwrap()).unwrap();
+    record["uuid"] = json!("22222222-1111-4111-8111-111111111111");
+    record["isSidechain"] = json!(false);
+    record["message"] = json!({"role":"user", "content":"Continue this work"});
+    std::fs::write(&original, format!("{record}\n")).unwrap();
+    let bytes = std::fs::read(&original).unwrap();
+    let source = "00000002-1111-4111-8111-111111111111";
+    let cli = root.path().join("fake-claude");
+    std::fs::write(&cli, format!("#!/bin/sh\nif [ \"$1\" = agents ]; then printf '%s' '[{{\"sessionId\":\"{source}\",\"pid\":424242,\"cwd\":\"{}\"}}]'; exit 0; fi\nexit 1\n", project.display())).unwrap();
+    let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    drop(daemon);
+    let launcher = launcher.with_sidecar(package);
+    let daemon = import_daemon(&project, launcher.clone());
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: listing_agent.into(),
+        parent: None,
+    });
+    let listed = daemon.modules["import"]
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let pick = listed["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["source"] == source)
+        .unwrap();
+    let params =
+        json!({"agent":listing_agent,"selections":[{"source":source,"revision":pick["revision"]}]});
+    // Listing succeeds, but a missing executable makes normal resume fail before acknowledgement.
+    std::fs::remove_file(&cli).unwrap();
+    let reply = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+    let outcome = &reply["result"]["outcomes"][0];
+    assert!(outcome["error"].is_object(), "{reply}");
+    let id = outcome["agent"].as_str().unwrap();
+    assert!(outcome["workstream"].is_string());
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let node = tree["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == id)
+        .unwrap();
+    assert_eq!(node["can_resume"], true, "{tree}");
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+    drop(daemon);
+    let daemon = import_daemon(&project, launcher);
+    // Replay returns the published identities and never attempts another automatic launch.
+    let replay = import_rpc(&daemon, "project.importCommit", params).await;
+    assert_eq!(replay["result"]["outcomes"][0]["agent"], id);
+    assert!(
+        replay["result"]["outcomes"][0]["error"].is_null(),
+        "{replay}"
+    );
+    assert_eq!(
+        import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
+        json!([])
+    );
+    let retry = import_rpc(&daemon, "agent.resume", json!({"id":id})).await;
+    assert!(
+        retry["error"].is_object(),
+        "retry reaches the missing executable: {retry}"
+    );
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+    // Restoring the configured program lets the same entry resume through SessionStart.
+    use std::os::unix::fs::PermissionsExt;
+    let argv = root.path().join("resumed-argv");
+    std::fs::write(&cli, format!("#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > '{}'\nwhile read line; do :; done\n", argv.display())).unwrap();
+    std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let before_retry = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let prior_attempt = before_retry["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == id)
+        .unwrap()["attempt"]
+        .clone();
+    let mut events = daemon.bus.subscribe();
+    let acknowledged = async {
+        loop {
+            events.recv().await.unwrap();
+            let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+            let node = tree["result"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|node| node["id"] == id)
+                .unwrap();
+            if let Some(attempt) = node["attempt"].as_str()
+                && node["attempt"] != prior_attempt
+            {
+                let ack = import_rpc(&daemon, "agent.signal", json!({"id":id,"attempt":attempt,
+                    "payload":{"hook_event_name":"SessionStart","source":"resume","session_id":source}})).await;
+                assert!(ack.get("error").is_none(), "{ack}");
+                break;
+            }
+        }
+    };
+    let (resumed, ()) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(
+            import_rpc(&daemon, "agent.resume", json!({"id":id})),
+            acknowledged
+        )
+    })
+    .await
+    .unwrap();
+    assert!(resumed.get("error").is_none(), "{resumed}");
+    let args = std::fs::read_to_string(argv).unwrap();
+    assert!(args.contains(&format!("--resume\n{source}\n")), "{args}");
+    let prompted = import_rpc(
+        &daemon,
+        "agent.prompt",
+        json!({"id":id,"text":"Continue the imported work"}),
+    )
+    .await;
+    assert!(prompted.get("error").is_none(), "{prompted}");
+    let stopped = import_rpc(&daemon, "agent.stop", json!({"id":id})).await;
+    assert!(stopped.get("error").is_none(), "{stopped}");
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
 }
