@@ -286,3 +286,13 @@ Motion remains eager; its version/imports are unchanged. This is the keyboard
 integration delta; the original engine increment remains in `press-bundle.json`.
 Both totals exceed 400,000 bytes. CSS is reported separately. Existing rule 7
 baselines and native scheduling obligations remain unchanged and unmeasured here.
+
+M1 keyboard nesting also cancels the list owner's running sibling projections before
+Tab or Shift+Tab dispatches `todo.setBlockers`. The same cancellation is shared with
+Alt ordering; it changes no blocker, drag, focus or refusal ownership. Nesting itself
+starts no projection, so this path arms no suppression for a later pointer reorder.
+`observers/U3010c/keyboard-nest.eval` records a lower-row incoming reorder interrupted
+by nesting a different upper row, including the synchronous post-key state. Existing
+U3709/U3711 tests retain the mutation/focus/refusal proof; geometry remains a rendered
+observation. This does not complete keyboard completion, Motion layout, layer springs,
+retirement, the preference/inventory migration or the full capture/performance protocol.
