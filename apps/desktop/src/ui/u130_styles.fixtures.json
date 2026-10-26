@@ -1,0 +1,140 @@
+[
+  {
+    "code": "@container rail (width < 220px) { .a { margin: 0; } }",
+    "path": "spec-fixture.css",
+    "rule": "roundup/container-token-threshold",
+    "column": 1
+  },
+  {
+    "code": "@container rail (width < env(--query-rail-compact)) { .a { margin: 0; } }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { opacity: var(--press-opacity) !important; }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-no-important",
+    "column": 36
+  },
+  {
+    "code": ".a { width: 1px; }",
+    "path": "spec-fixture.css",
+    "rule": "unit-disallowed-list",
+    "column": 14
+  },
+  {
+    "code": ".a { transition-duration: 1ms; }",
+    "path": "spec-fixture.css",
+    "rule": "unit-disallowed-list",
+    "column": 28
+  },
+  {
+    "code": ".a { transition-duration: .1s; }",
+    "path": "spec-fixture.css",
+    "rule": "unit-disallowed-list",
+    "column": 29
+  },
+  {
+    "code": ".a { width: var(--missing, 1px); }",
+    "path": "spec-fixture.css",
+    "rule": "unit-disallowed-list",
+    "column": 29
+  },
+  {
+    "code": "@media (min-width: 1px) { .a { margin: 0; } }",
+    "path": "spec-fixture.css",
+    "rule": "unit-disallowed-list",
+    "column": 21
+  },
+  {
+    "code": ".a { opacity: 1 !important; }",
+    "path": "tokens.css",
+    "rule": "declaration-no-important",
+    "column": 17
+  },
+  {
+    "code": ":root { --example: 1px; --example-time: 1ms; }",
+    "path": "tokens.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { width: var(--space-1); margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { color: #fff; }",
+    "path": "spec-fixture.css",
+    "rule": "color-no-hex",
+    "column": 13
+  },
+  {
+    "code": ".a { color: red; }",
+    "path": "spec-fixture.css",
+    "rule": "color-named",
+    "column": 13
+  },
+  {
+    "code": ".a { color: rgb(1 2 3); }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
+  },
+  {
+    "code": ".a .b .c { margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": "selector-max-compound-selectors",
+    "column": 1
+  },
+  {
+    "code": ".a > .b { margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": "selector-combinator-disallowed-list",
+    "column": 4
+  },
+  {
+    "code": ".a > .b { margin: 0; }",
+    "path": "tokens.css",
+    "rule": "selector-combinator-disallowed-list",
+    "column": 4
+  },
+  {
+    "code": ".a .b { color: var(--text); width: var(--space-1); margin: 0; }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { color: transparent; }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
+  },
+  {
+    "code": ".a { color: currentColor; }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { color: rgb(var(--rgb)); }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  },
+  {
+    "code": ".a { --ink: rgb(1 2 3); }",
+    "path": "spec-fixture.css",
+    "rule": "declaration-property-value-disallowed-list",
+    "column": 13
+  },
+  {
+    "code": ".a { color: var(--transparent); }",
+    "path": "spec-fixture.css",
+    "rule": null,
+    "column": null
+  }
+]

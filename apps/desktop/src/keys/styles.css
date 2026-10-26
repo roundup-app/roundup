@@ -13,7 +13,7 @@
   white-space: nowrap;
 }
 .key-hint-label { min-width: 0; }
-.help-line, .help-shelf > p {
+.help-line, .help-shelf p {
   padding-bottom: var(--space-1);
 }
 .help .key-hint {
