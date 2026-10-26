@@ -518,7 +518,7 @@ export const App = (props: {
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            <Strip
+            <Show when={projects.tabs().length > 0}><Strip
               tabs={stripTabs()}
               active={projects.active()}
               onSelect={projects.select}
@@ -527,7 +527,7 @@ export const App = (props: {
               onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
-            />
+            /></Show>
           </WindowBar>
         }
         rail={

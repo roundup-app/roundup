@@ -457,7 +457,6 @@
 {"file":"apps/desktop/src/terminal/p3557c_failure_lifetime_note_queue.test.tsx","test":"p3557c_failure_lifetime_note_queue_%s","identity":"f014972be45e678cfe1ed419b0e4750f7234f16e6c0aae8822892b92abb147fa"}
 {"file":"apps/desktop/src/terminal/p3557c_failure_lifetime_screens.test.tsx","test":"p3557c_failure_lifetime_screens_%s","identity":"7d7f837cf538ad5a9568afef10e23a351b688f6a101a7200876d94a55fb259e9"}
 {"file":"apps/desktop/src/terminal/u12_typing.test.tsx","test":"u12 typing > u12_a_failed_write_shows_its_message","identity":"4b33efa986dfa5805e6a43b8bde9ae8405ae59d46d8a0adbd33616acc8aeaf1b"}
-{"file":"apps/desktop/src/terminal/u143_door_states.test.tsx","test":"u143 empty Project > u143_only_new_workstream_is_offered_on_an_empty_project","identity":"07a9a0315e5a8779a2a98f3c3750124284a4dbd038bf3f1c61b2e71770a34d8a"}
 {"file":"apps/desktop/src/terminal/u162_file_drop.test.tsx","test":"u162 drop files on a pane > u162_a_failed_write_shows_its_message","identity":"b82d3922e0cf2d1b5e4b6511b22a271d3a12081e74a23609e4403ca02262ac35"}
 {"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016d_stale_reads_keep_original_identity_and_retry","identity":"cfdfc968d53215b4fcfb406701a15de27b2ab743d026016e982c6f3ad27ff247"}
 {"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016d_stale_reads_keep_original_identity_and_retry","identity":"c4125487304f8150d8f0ab7e1610e4aa5bb3e8269ac12ed8305d3cf3c2b62e0a"}
