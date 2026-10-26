@@ -16,11 +16,5 @@ fn u452_window_width_is_at_least_1280() {
     assert!(window["width"].as_f64().unwrap() >= 1280.0);
 }
 
-#[test]
-fn u452_window_opens_maximized() {
-    let window = app_window();
-    assert_eq!(window["maximized"].as_bool(), Some(true));
-    for field in ["height", "minHeight", "maxHeight"] {
-        assert!(window.get(field).is_none(), "{field} must stay absent");
-    }
-}
+// Unconditional maximization and absent-height assertions are superseded by
+// s2297a::u3787e_restore_uses_saved_normal_bounds and the native fallback observer.

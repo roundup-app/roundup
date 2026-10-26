@@ -7,7 +7,7 @@
   },
   {
     "telltale": "system-time",
-    "file": "crates/checkpoints/src/lib.rs",
+    "file": "crates/checkpoints/src/store.rs",
     "symbol": "Checkpoints::write",
     "reason": "Existing checkpoint wall-clock milliseconds; Z3799c / #3830 owns migration preserving the pre-epoch default and signed overflow refusal."
   },
