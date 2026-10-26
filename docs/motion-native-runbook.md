@@ -12,7 +12,7 @@ The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`.
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
 - No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the all three motion workloads prepare the same `tree-40-native-v1` fixture using the stand-in Agents (`fake_claude.py`, no model call). The fixture derives the nested tree, names, Todo body/long title and Pad contents from `testing/seeds.ts`: its 38-node tree gains two Agent leaves, all eight Todos start open, and each of two owners has a three-level branch plus a reorder sibling. Ten Agents work. The selected streaming shell remains visible. Setup refuses existing Todos/Pads or any Rail beyond the measurement Workstream; it neither adopts nor deletes user data. It requires dark 1512×950 and identifies the actual reserved/overlay Shelf mode. A fixture not prepared within the existing ten-second setup bound is incomplete; never increase the bound.
-- The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
+- The command schedules one workload cycle every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or observed native pointer reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Layers and Glyphs currently use page-driven preparation. For Todos, the page performs insertion, completion and done-fold; pointer reorder is observed, never generated (see implementation status). A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
 
@@ -83,8 +83,28 @@ Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
 separately and need not match. Preserve this entire observer overlay unchanged on
 both immutable sources. This is a preparation implementation, not native evidence.
 
-Before #4244 can close, demonstrate this setup on the rendered observer, restore the nested owner-grouped Todos between repeats, observe trusted
-pointer reorder, identify both Shelf cases and complete the measured live reduced
+The Todo driver restores the original eight open rows in canonical order before each
+four-action repeat. It deletes only its recorded temporary insertion, preserves
+original owners, bodies, homes and blockers, and refuses changed fixture content.
+Each repeat inserts a temporary root in alternating owner groups, completes it,
+toggles the done fold, then observes a pointer reorder of that group's original
+root sibling before its first root. The report's `todo_actions` names actual ids,
+input sources and completion, including refused/unapplied actions. Restoration
+RPC reorders are preparation and never counted as pointer gestures.
+
+For the eventual qualified Mac procedure, Todo cycles 3, 7, 11, … are observed
+input phases: move the original sibling (`todo 4`, then `todo 8`, alternating)
+before that owner's first root (`todo 1`, then `todo 5`) using the native pointer.
+The phase begins 6 seconds after sampling starts and repeats every 8 seconds;
+release within its one-second input bound. The existing drag owner performs the
+mutation and focus work. Missing trusted down/release, missing rows, cancellation
+or an order not acknowledged within the existing 400 ms settling bound leaves
+the action incomplete. Synthetic events and RPC-only order changes cannot pass
+this phase. Do not perform these steps yet: this partial observer still needs the
+remaining qualification below, and no new owner sequence is requested.
+
+Before #4244 can close, demonstrate this setup and trusted pointer reorder on the
+rendered observer, identify both Shelf cases and complete the measured live reduced
 motion variants through the existing preference owner. The report marks its variant `unqualified` and explicitly marks native
 qualification incomplete. A scheduling pass alone does not complete that work.
 
