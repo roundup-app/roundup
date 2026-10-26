@@ -1,7 +1,7 @@
 {
   "node": "v22.23.3",
   "conditions": "browser, production",
-  "excerptSHA256": "d0b64672c312d072e12c04c99c1ad291b2562793722c450ad5c9ca0f13eea53b",
+  "excerptSHA256": "24a41e329933579ad391e73a1555aab299226ac9b0ff9a697256312b18448c23",
   "rows": [
     {
       "name": "valid",
@@ -185,6 +185,32 @@
     },
     {
       "name": "daemon-exit-removal",
+      "current": {
+        "retainedScreen": {
+          "2": {
+            "x": 10,
+            "y": 20,
+            "w": 400,
+            "h": 300,
+            "min": false,
+            "name": " exact\n雪 😀 ",
+            "restore": {
+              "x": 1,
+              "y": 2,
+              "w": 200,
+              "h": 100
+            }
+          }
+        },
+        "keyPresent": false
+      },
+      "candidate": {
+        "retainedScreen": null,
+        "keyPresent": false
+      }
+    },
+    {
+      "name": "set-null-removal",
       "current": {
         "retainedScreen": {
           "2": {

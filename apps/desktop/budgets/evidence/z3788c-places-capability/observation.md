@@ -6,7 +6,7 @@ This is the separate places case left open by #4273. Together with that merged s
 
 ## Reproduce
 
-The probe runs the current `placesStorage` excerpt alongside the pinned candidate, with synchronous Storage-capability fixtures. It exercises the library's real setter and deserializer, not a replacement persistence implementation. `places-excerpt.ts.txt` is copied verbatim from `places.ts`, starting at `const placesSchema` and ending before `The Terminals`, with its Valibot import added. `environment.json` records the base and full source hashes; `result.json` records the excerpt hash. The only copied caller operation is `Bubbles.rename`'s success-before-commit conditional.
+The probe runs the current `placesStorage` excerpt alongside the pinned candidate, with synchronous Storage-capability fixtures. It exercises the library's real setter and deserializer, not a replacement persistence implementation. `places-excerpt.ts.txt` is copied verbatim from `places.ts`, starting at `const placesSchema` and ending before `The Terminals`, with its Valibot import added and trailing blank lines removed. `environment.json` records the base and full source hashes; `result.json` records the excerpt hash. The only copied caller operation is `Bubbles.rename`'s success-before-commit conditional.
 
 From the repository root:
 
@@ -50,7 +50,7 @@ Use Node 22.23.3 as recorded. The last command exits **1**, with complete stdout
 
 The failed-write ordering is the adoption blocker. Keeping another committed signal and reconstructing successful-write coordination, removal-only behavior and reread fallback around `makePersisted` would preserve the persistence machinery this row asks to replace. Resetting the persisted setter on failure would itself attempt another write. The removal and refresh rows record additional integration differences, not missing browser-platform capabilities: direct `sessionStorage.removeItem` can retain memory, and a custom deserializer could return the fallback. Neither alone proves an unsupported library. Likewise, readable errors are synchronous here; the earlier shared-storage async acknowledgment and Tauri IPC findings are not used to reject this case.
 
-No nullable `Place` is accepted by the schema; clearing one name removes only its `name` property in a non-null map. `undefined` here is explicitly the candidate's removal operation, not a claimed nullable-caller regression. Existing invalid/unreadable places reads intentionally return an empty map; this report does not claim they expose shared-storage recovery errors.
+No nullable `Place` is accepted by the schema; clearing one name removes only its `name` property in a non-null map. `null` and `undefined` both remove the candidate key and clear its signal, as explicitly probed. They are explicitly the candidate's removal operations, not a claimed nullable-caller regression. Existing invalid/unreadable places reads intentionally return an empty map; this report does not claim they expose shared-storage recovery errors.
 
 `storageSync` is documented for localStorage and has no owner-disposal hook in the pinned source. The probe supplies its subscriber directly to inspect deserialization behavior without installing a global listener. No production listener is added or replaced in this slice.
 
@@ -64,6 +64,12 @@ No custom implementation is deleted: the scenario explicitly permits retention o
 
 ## Regression and gates
 
-Validation results are recorded after the commands finish. The selected unchanged behavioral suites exercise Bubble reload, selection, name commit/failure, resize persistence, last readable screen lifetime, failed-draft ownership and shared-storage recovery. No test file is edited or redundant test added.
+All **166 tests pass** across the five selected unchanged files (Vitest reports seven suites). `regression.json` preserves each test identity and result. They exercise Bubble reload, selection, name commit/failure, resize persistence, last readable screen lifetime, failed-draft ownership and shared-storage recovery. No test file is edited or redundant test added.
+
+```sh
+pnpm --filter desktop exec vitest run src/bubbles/u469_tabs.test.tsx src/bubbles/u511a_rename.test.tsx src/bubbles/p3557c_failure_lifetime.test.tsx src/bubbles/u2236_resize.test.tsx src/state/u2773_storage.test.ts
+```
+
+In particular, `u3021c_bubbles_confirmation_settles_only_submitted_edit_failed` checks the old acknowledged name, retained drafts and exactly one attempted write after refusal. `u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places` checks removal while keeping the last visible screen. These existing behavioral proofs justify the capability requirements without adding duplicate tests. `merge-loss`, vocabulary and whitespace checks pass.
 
 P11 applies to the retained name/draft owner. Input, focus, action identity, clipboard ownership, keys, schemas and lifetimes are unchanged. This evidence-only diff changes no rendered path, Token or motion; no moved visual Check or new capture is claimed. It claims no Terminal-addon bytes/memory or native timing pass. The user reports what they meet on the Mac; no user-only observation or product question is pending.

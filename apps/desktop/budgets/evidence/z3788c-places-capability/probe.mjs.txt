@@ -57,7 +57,7 @@ for (const refusal of [undefined, 'write']) {
   });
   rows.push({ name: refusal ? 'failed-write' : 'successful-write', currentCommitted, failure, candidate, thrown, persisted: JSON.parse(candidateStorage.data.get(key)), operations: candidateStorage.operations });
 }
-{
+for (const removal of [undefined, null]) {
   const storage = fixture(JSON.stringify(place));
   globalThis.window = { sessionStorage: storage };
   const currentStore = placesStorage('/p');
@@ -68,11 +68,11 @@ for (const refusal of [undefined, 'write']) {
   let candidate;
   createRoot(dispose => {
     const [get, set] = makePersisted(createSignal({}), { name: key, storage: candidateStorage });
-    set(undefined);
+    set(removal);
     candidate = { retainedScreen: get() ?? null, keyPresent: candidateStorage.data.has(key) };
     dispose();
   });
-  rows.push({ name: 'daemon-exit-removal', current, candidate });
+  rows.push({ name: removal === null ? 'set-null-removal' : 'daemon-exit-removal', current, candidate });
 }
 {
   const storage = fixture(JSON.stringify(place));
