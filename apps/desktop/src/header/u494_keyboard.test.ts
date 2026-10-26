@@ -105,6 +105,7 @@ it("u497_control_names_and_tooltips", async () => {
 it("u497_no_native_titles", async () => {
   await browser("open", url('/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8'));
   await wait(`document.querySelectorAll('.project-tab').length === 8`);
+  await browser("mouse", "move", "10", "750");
   await browser("hover", '.window-title');
   await wait(`(() => { const title = document.querySelector('.window-title'); return !!document.getElementById(title.getAttribute('aria-describedby')); })()`);
   await browser("mouse", "move", "10", "750");

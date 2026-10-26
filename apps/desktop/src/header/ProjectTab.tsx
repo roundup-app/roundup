@@ -34,6 +34,8 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     props.onDone(saved, refocus);
   };
 
+  onCleanup(() => { if (!finished && field) props.onEdit(field); });
+
   registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
     { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
