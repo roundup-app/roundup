@@ -341,7 +341,7 @@ export const TodoDrawer = (props: {
               if (removed) { setRemovedByMe(true);
 
  if (drawer.content() === opening) drawer.close("key"); }
-              else setFailure(drafts.todoUndo.failure());
+              else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
               setDeleting(false);
             });
           }}>
