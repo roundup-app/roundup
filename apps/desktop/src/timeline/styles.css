@@ -42,14 +42,14 @@
   margin-bottom: var(--space-2);
 }
 
-.timeline-axis-ticks > span {
+.timeline-axis-ticks span {
   position: absolute;
   white-space: nowrap;
   transform: translateX(-50%);
 }
 
-.timeline-axis-ticks > span:first-child { transform: none; }
-.timeline-axis-ticks > span:last-child { transform: translateX(-100%); }
+.timeline-axis-ticks span:first-child { transform: none; }
+.timeline-axis-ticks span:last-child { transform: translateX(-100%); }
 
 .timeline-lanes {
   position: relative;

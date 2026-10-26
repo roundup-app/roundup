@@ -1,0 +1,86 @@
+{
+  "command": [
+    "pnpm --filter desktop build",
+    "pnpm --filter desktop check:startup"
+  ],
+  "host": {
+    "system": "Linux",
+    "node": "runnervmtai0g",
+    "release": "6.17.0-1022-azure",
+    "version": "#22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "node": "v22.23.3",
+  "base": {
+    "source": "593429cca5aaa7a05fe3500c9cb9306e4409b5c1",
+    "buildExit": 0,
+    "checkerExit": 1,
+    "result": {
+      "exit": 1,
+      "entry": "assets/index-lddziPML.js",
+      "files": [
+        "assets/index-lddziPML.js"
+      ],
+      "raw": 1332010,
+      "gzip": 416949,
+      "ceiling": 400000,
+      "diagnostic": "assets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+state@0.5.1/node_modules/@dnd-kit/state/dist/index.mjs\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+geometry@0.5.1/node_modules/@dnd-kit/geometry/dist/index.mjs\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/index.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/utilities.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+collision@0.5.1/node_modules/@dnd-kit/collision/dist/index.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/index.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/modifiers.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/modifiers.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/sortable.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/index.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/hooks.js\nassets/index-lddziPML.js: eager runtime module /tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/sortable.js\n416949 gzip bytes is at or above 400000"
+    },
+    "entrySha256": "5b995a64308fef7a1576fa88f9ccc7f936bfc53b17c81c449a27751a85124596",
+    "manifestSha256": "ebc2e41734427711b6fe0d1a3e6c7c7b56767a8745470d113c32ecec23a6f4a2",
+    "metadataSha256": "d0a732bedc98e191c861669e17b6c92b43d7a13e325d525b97794fdc157d0b81",
+    "runtimeModules": {
+      "assets/index-lddziPML.js": [
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+state@0.5.1/node_modules/@dnd-kit/state/dist/index.mjs",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+geometry@0.5.1/node_modules/@dnd-kit/geometry/dist/index.mjs",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/index.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/utilities.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+collision@0.5.1/node_modules/@dnd-kit/collision/dist/index.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/index.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/modifiers.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/modifiers.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/sortable.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/index.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/hooks.js",
+        "/tmp/.tmpPAhF5Q/base/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/sortable.js"
+      ]
+    }
+  },
+  "head": {
+    "source": "30381b63f0c206d3f875d94b235ffc258676afa5",
+    "buildExit": 0,
+    "checkerExit": 0,
+    "result": {
+      "exit": 0,
+      "entry": "assets/index-CVmRybAL.js",
+      "files": [
+        "assets/index-CVmRybAL.js"
+      ],
+      "raw": 1332399,
+      "gzip": 417112,
+      "ceiling": 437814,
+      "diagnostic": ""
+    },
+    "entrySha256": "5c174f1e7656c3ceecb37f75524d8468835c10fbe2042814b3c30defd5fb5e0e",
+    "manifestSha256": "0f70d32c41ab3199296de2f63e750d098eb9e2ed5ad91a8383c2e94c4c760679",
+    "metadataSha256": "451b4b6a8ecdde4602d90ae30c6c417c953b3959dac42f62dee97f21b4e48670",
+    "runtimeModules": {
+      "assets/index-CVmRybAL.js": [
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+state@0.5.1/node_modules/@dnd-kit/state/dist/index.mjs",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+geometry@0.5.1/node_modules/@dnd-kit/geometry/dist/index.mjs",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/index.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/utilities.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+collision@0.5.1/node_modules/@dnd-kit/collision/dist/index.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/index.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+abstract@0.5.1/node_modules/@dnd-kit/abstract/modifiers.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/modifiers.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+dom@0.5.1_patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5/node_modules/@dnd-kit/dom/sortable.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/index.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/hooks.js",
+        "/tmp/roundup-4192/node_modules/.pnpm/@dnd-kit+solid@0.5.0_solid-js@1.9.17/node_modules/@dnd-kit/solid/sortable.js"
+      ]
+    }
+  },
+  "note": "Head differs from measured 8f0210e perf reference only in web loading presentation, observer corrections and the measured budget; no Rust/observer/baseline change. The old checker rejects eager drag; the work order now requires it. The head checker permits drag and still excludes xterm."
+}

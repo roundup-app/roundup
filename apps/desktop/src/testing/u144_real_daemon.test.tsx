@@ -220,7 +220,11 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
   const git = (...args: string[]) => execute("git", ["-C", real.dir, ...args], { timeout: 30_000 });
 
-  const mount = () => render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
+  const mount = () => render(() => {
+    connected.worktrees.watch(() => true);
+
+    return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+  });
 
   beforeAll(async () => {
     logs = await mkdtemp(join(tmpdir(), "u2540-claude-"));

@@ -32,6 +32,14 @@ export type Project = v.InferOutput<typeof projectSchema>;
 
 export type DaemonExit = v.InferOutput<typeof daemonExitSchema>;
 
+export const systemAccentSchema = v.nullable(v.tuple([
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+]));
+
+export type SystemAccent = v.InferOutput<typeof systemAccentSchema>;
+
 export type Unsubscribe = () => void;
 
 /** One step of a File drop: `x` and `y` in CSS pixels of the webview; `paths` absolute, empty unless `phase` is `drop`. */
@@ -73,6 +81,7 @@ export type ProjectCalls = {
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
   "plugin:capture-panel|control",
+  "system_accent",
   "projects",
   "record_idle_evidence",
   "select_project_menu",
@@ -91,6 +100,7 @@ export const SEAM_COMMANDS = [
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
+  "plugin:window-bar|native_material",
 ] as const;
 
 /** U3787f: the panel displays the main window's Capture owner; it stores no drafts. */
@@ -131,6 +141,8 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
+  onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
   capture?: CapturePort | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;

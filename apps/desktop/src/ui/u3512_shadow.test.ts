@@ -13,7 +13,7 @@ it("u3512e_shadow_lint_rejects_outside_tokens", () => {
     ["ui/probe.css", ".panel { box-shadow: none }", 2],
     ["ui/probe.css", ".panel { @media (width > 0px) { & > div { box-shadow: none } } }", 2],
     ["tokens.css", ".panel { box-shadow: none }", 0],
-    ["ui/probe.css", ".panel { --shadow: 0 2px 8px #0003; color: red; /* box-shadow: none */ }", 0],
+    ["ui/probe.css", ".panel { --shadow: var(--space-2) var(--space-3) var(--text); color: var(--text); /* box-shadow: none */ }", 0],
   ] as const) {
     const result = spawnSync(process.execPath, [cli, "--stdin", "--stdin-filename", `/tmp/apps/desktop/src/${file}`, "--config", "../../stylelint.config.mjs"], { input: code, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(exit);

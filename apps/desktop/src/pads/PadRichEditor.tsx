@@ -20,8 +20,7 @@ import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { visualKinds } from "./visualKinds";
-import "@milkdown/crepe/theme/common/style.css";
-import "@milkdown/crepe/theme/classic.css";
+import "./editor.css";
 
 export type PadEditorHandle = {
   /** null pauses saving because the edited blocks cannot be mapped to authored source. */
@@ -405,7 +404,7 @@ export default function PadRichEditor(props: {
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
         <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
-        <div ref={(element) => (host = element)} />
+        <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>
     </>
   );

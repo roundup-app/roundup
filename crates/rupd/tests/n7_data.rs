@@ -48,6 +48,26 @@ fn n7_launch_sites_clean_on_success_and_failure() {
     assert_exited(pid);
     assert!(!data.exists());
 
+    // An observer that fails after a successful launch unwinds through the Daemon owner.
+    let mut launched = None;
+    let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let daemon = rupd_harness::start(
+            Path::new(env!("CARGO_BIN_EXE_rupd")),
+            project.path(),
+            false,
+            |_| {},
+        );
+        launched = Some((
+            daemon.data.as_ref().unwrap().path().to_owned(),
+            daemon.child.id(),
+        ));
+        panic!("observer failed after launch");
+    }));
+    assert!(failure.is_err());
+    let (data, pid) = launched.unwrap();
+    assert_exited(pid);
+    assert!(!data.exists());
+
     // An exec wrapper records the real Daemon's inherited data and PID before startup fails.
     use std::os::unix::fs::PermissionsExt;
     let wrapper = project.path().join("launch");

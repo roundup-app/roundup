@@ -1,5 +1,7 @@
 import { KindGlyph } from "./ink/KindGlyph";
 import { MARKS, markOf } from "./header/tab";
+import Hourglass from "lucide-solid/icons/hourglass";
+import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./copy/storage";
@@ -8,7 +10,7 @@ import { storageProblems, retainedStorage } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { appSettings, applyAppAppearance } from "./settings/preferences";
+import { appSettings, applySystemAccent, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER } from "./keys/chords";
@@ -47,7 +49,7 @@ import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
-import { createXtermEmulators } from "./terminal/emulator";
+import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
@@ -169,9 +171,9 @@ const Connection = (props: {
   return null;
 };
 
-/** The regions of the open Project, inside its connection; nothing while it connects, and `failed` when connecting failed. */
-const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
-  <Show when={props.open} keyed>
+/** Project regions show loading until their connection is ready, and failure if setup fails. */
+const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
+  <Show when={props.open} keyed fallback={props.pending}>
     {(open) =>
       open instanceof Error ? (
         props.failed?.(open)
@@ -213,7 +215,7 @@ export const App = (props: {
   };
 
   onMount(() => {
-    onCleanup(pressFeedback(document));
+    onCleanup(pressFeedback(document, props.reducedMotion));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
@@ -223,6 +225,7 @@ export const App = (props: {
   });
 
   applyAppAppearance();
+  applySystemAccent(props.app);
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
@@ -476,10 +479,11 @@ export const App = (props: {
   registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { setProjectQuery(""); setProjectPicker(true); } }) }]);
   registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: () => setProjectPicker(false) }]);
 
-  const emulators = () => props.createEmulator ?? createXtermEmulators();
+  const emulators = () => props.createEmulator ?? lazyXtermEmulators();
+
 
   return (
-    <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
@@ -494,6 +498,7 @@ export const App = (props: {
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
         railOpen={navigationRequested()}
+        busy={projects.tabs().length > 0 && activeConnection() === undefined}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
@@ -555,7 +560,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failed={failureLine}>
+            <InProject open={activeConnection()} failed={failureLine} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
@@ -621,6 +626,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider>
+    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider></ReducedMotionContext.Provider>
   );
 };

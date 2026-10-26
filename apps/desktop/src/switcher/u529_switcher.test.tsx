@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
@@ -248,7 +248,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
 
     if (action !== "failed discard" && action !== "failed retry") refuse.mockRestore();
 
-    if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    if (action === "dismiss") fireEvent.click(within(screen.getByRole("dialog", { name: "Switch to" })).getByRole("button", { name: "Close" }));
 
     if (action === "copy") {
       writeText.mockResolvedValue(undefined);

@@ -50,7 +50,7 @@ No Builder prompt lists these.
 |---|---|
 | R1 | the Live line shows only for blocked, needs-you, error, hover or selection |
 | R2 | the provenance letter shows only on hover or selection |
-| R3 | each duration is within 25% of `docs/motion.md`; a Status Glyph change is instant; nothing snaps (covers its whole displacement between two `requestAnimationFrame` samples, so a clause of 120 ms or more needs two frames between); reduced motion leaves only the instant ones; drag unscored |
+| R3 | each duration is within 25% of `docs/motion.md`; a Status Glyph change is the 150 ms M9 crossfade; nothing snaps (covers its whole displacement between two `requestAnimationFrame` samples, so a clause of 120 ms or more needs two frames between); reduced motion leaves only the instant ones; drag unscored |
 | R4 | no string the app itself writes holds an _Avoid_ word, and each domain noun is its `GLOSSARY.md` term; `scenarios/ui.md`'s strings are exempt |
 
 ## Captures

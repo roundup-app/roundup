@@ -14,6 +14,7 @@ import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
+import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
@@ -74,6 +75,9 @@ export const Rail = (props: { requested?: boolean }) => {
 
     return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
   });
+
+  // Keep the anchor mounted while Ark restores focus after the visible target closes.
+  const clearAnchor = createMemo((previous: RailNode | null) => menu.clearTarget() ?? previous, null);
 
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
@@ -189,37 +193,6 @@ export const Rail = (props: { requested?: boolean }) => {
 
   /** The focusable element of the row `id`: its item, or the control of its branch. */
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.closest<HTMLElement>(ROW) ?? container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"] [data-part="branch-control"]`) ?? undefined;
-
-  let clearElement: HTMLDivElement | undefined;
-
-  /** U350: the prompt stays within the Rail, so its ground never runs into the centre pane's ground and reads as cut off. */
-  const placeClear = () => {
-    const node = clearPrompt();
-    const row = node ? rowElement(node.id)?.getBoundingClientRect() : undefined;
-    const rail = container()?.getBoundingClientRect();
-
-    if (!row || !rail || !clearElement) return;
-
-    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
-
-    // The box is content-box: its width leaves out its own padding, which equals the inset kept on each side.
-    clearElement.style.maxWidth = `${Math.max(0, rail.width - 4 * inset)}px`;
-
-    const box = clearElement.getBoundingClientRect();
-    const top = row.bottom + box.height <= window.innerHeight - inset ? row.bottom : row.top - box.height;
-
-    clearElement.style.left = `${Math.max(rail.left + inset, Math.min(row.left, rail.right - box.width - inset))}px`;
-    clearElement.style.top = `${Math.max(inset, Math.min(top, window.innerHeight - box.height - inset))}px`;
-  };
-
-  onMount(() => {
-    window.addEventListener("resize", placeClear);
-    document.addEventListener("scroll", placeClear, true);
-    onCleanup(() => {
-      window.removeEventListener("resize", placeClear);
-      document.removeEventListener("scroll", placeClear, true);
-    });
-  });
 
   const openRow = (id: string) => {
     const node = rail.nodes.find(each => each.id === id);
@@ -657,6 +630,7 @@ export const Rail = (props: { requested?: boolean }) => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -729,7 +703,7 @@ export const Rail = (props: { requested?: boolean }) => {
               };
 
               return (
-                <details>
+                <details class="rail-recovery-detail">
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
@@ -754,26 +728,19 @@ export const Rail = (props: { requested?: boolean }) => {
         </details>
       </Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <Show when={clearPrompt() !== null}>
-        <Portal>
-          <Show when={clearPrompt()}>
-            {(node) => (
-              <div
-                ref={(element) => {
-                  clearElement = element;
-                  const observer = new ResizeObserver(placeClear);
+      <Show when={clearAnchor()} keyed>
+        {(node) => {
+          const clearing = clearingOf(app, connected.events, node.id, connected.drafts);
 
-                  observer.observe(element);
-                  queueMicrotask(placeClear);
-                  onCleanup(() => { observer.disconnect(); clearElement = undefined; });
-                }}
-                class="rail-menu rail-clear" role="dialog" aria-label={copy.clearName(node().name)}
-              >
-                <ClearPrompt node={node()} onHide={menu.hideClear} />
-              </div>
-            )}
-          </Show>
-        </Portal>
+          return <Popover.Root open={clearPrompt()?.id === node.id}
+            onOpenChange={({ open }) => { if (!open) { clearing.keep(); menu.hideClear(); } }}
+            finalFocusEl={() => rowElement(node.id) ?? null}
+            positioning={{ placement: "bottom-start", strategy: "fixed", boundary: () => container() ?? [], getAnchorElement: () => rowElement(node.id) ?? null, fitViewport: true }}>
+            <Show when={clearPrompt()?.id === node.id}><Portal><Popover.Positioner><Popover.Content class="rail-clear" aria-label={copy.clearName(node.name)}>
+              <ClearPrompt node={node} onHide={menu.hideClear} />
+            </Popover.Content></Popover.Positioner></Portal></Show>
+          </Popover.Root>;
+        }}
       </Show>
       <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>

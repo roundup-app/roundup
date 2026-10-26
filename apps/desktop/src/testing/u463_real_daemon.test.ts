@@ -289,7 +289,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await writeFile(join(current.worktree!.path, "result.txt"), "changed result\n");
     expect(await app.rpc("agent.changedFiles", { id: door.id })).toEqual({ files: [{ path: "result.txt", status: "modified", line: 1 }] });
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -314,7 +314,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await browser("open", "about:blank");
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -445,9 +445,11 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await browser("eval", `window.__importMenu.answer('${action}')`);
     };
 
+    // Imported rows already report idle. Wait for the new Attempt and Terminal so
+    // that status cannot acknowledge a resume/start which has not completed yet.
     const idle = async (id: string) => wait(`(async () => {
       const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
-      return (await response.json()).result?.some(node => node.id === '${id}' && node.status?.kind === 'idle');
+      return (await response.json()).result?.some(node => node.id === '${id}' && node.attempt === '1' && node.terminal_id !== null && node.status?.kind === 'idle');
     })()`);
 
     await rightClick(parent.id);

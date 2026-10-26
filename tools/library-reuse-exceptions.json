@@ -7,7 +7,7 @@
   },
   {
     "telltale": "system-time",
-    "file": "crates/checkpoints/src/lib.rs",
+    "file": "crates/checkpoints/src/store.rs",
     "symbol": "Checkpoints::write",
     "reason": "Existing checkpoint wall-clock milliseconds; Z3799c / #3830 owns migration preserving the pre-epoch default and signed overflow refusal."
   },
@@ -49,7 +49,7 @@
   },
   {
     "telltale": "system-time",
-    "file": "crates/provenance/src/lib.rs",
+    "file": "crates/provenance/src/store.rs",
     "symbol": "Touches::record_revision",
     "reason": "Existing provenance milliseconds with saturating overflow; Z3799c / #3830 owns the migration preserving recorded ordering."
   },

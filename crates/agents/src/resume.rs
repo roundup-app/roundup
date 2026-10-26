@@ -152,6 +152,7 @@ impl Agents {
                 )));
             };
             let attempt = rail.allocate_attempt(id)?;
+            self.shared.events.observed.notify_waiters();
             let old = match runs.remove(id) {
                 Some(Slot::Running(run)) => Some(Box::new(run)),
                 _ => None,
