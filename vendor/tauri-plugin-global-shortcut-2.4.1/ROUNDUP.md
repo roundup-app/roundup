@@ -1,4 +1,6 @@
-Upstream tauri-plugin-global-shortcut 2.4.1 from crates.io, with unchanged runtime source.
+Upstream tauri-plugin-global-shortcut 2.4.1 from crates.io, with unchanged runtime behavior.
+Two documentation misspellings and JavaScript blank-line spacing are corrected
+for the repository lint checks.
 
 The only dependency patch is global-hotkey 0.8 → 0.9, whose upstream
 keyboard-types 0.8 dependency removes the need to vendor global-hotkey.
