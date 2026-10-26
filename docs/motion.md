@@ -184,3 +184,8 @@ entry/eager JS, entry CSS separately, and every lazy JS chunk. Base entry/eager 
 integration/observer code). Both exceed 400,000; budget acceptance remains unmet.
 Motion is eager in this slice, with no lazy Motion chunk. This report preserves the
 existing performance baselines and makes no native scheduling or presentation claim.
+
+The M11 deletions of the inventory are delivered: the Todo comment entrance
+(`todo-comment-in`, with its `data-fresh` marker) and the Order context-bar width and
+opacity transitions are removed, so both update instantly. A new comment is still
+announced politely once.
