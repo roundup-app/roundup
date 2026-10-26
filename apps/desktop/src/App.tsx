@@ -60,6 +60,7 @@ import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
+import { REVEAL_BUBBLE } from "./bubbles/places";
 import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
@@ -348,7 +349,9 @@ export const App = (props: {
       const owner = open.rail.nodes.find(node => node.terminal_id === content.id)?.id
         ?? open.rail.terminals().find(terminal => terminal.id === content.id)?.owner;
 
-      if (owner) open.rail.select(owner);
+      open.rail.select(owner === target.path ? null : owner ?? null);
+      // The active Project mounts its existing Bubble listener after selection.
+      queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
     } else if (content.kind === "pad" || content.kind === "todo") {
       open.drawer.open(() => <LinkedItem content={content} />, "key");
     }
