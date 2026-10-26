@@ -68,9 +68,7 @@ pub fn build<R: Runtime>(
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
                 Ok(dir) => state.use_data_dir(dir),
-                Err(err) => eprintln!(
-                    "desktop: no data folder, so names and open Projects are not kept: {err}"
-                ),
+                Err(err) => diagnostics::failure("locate data folder; names and open Projects are not retained", &err),
             }
             tauri::async_runtime::block_on(state.restore(app.handle()));
             if let Some(ref project_dir) = project_dir
@@ -78,10 +76,7 @@ pub fn build<R: Runtime>(
                     tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
             {
                 // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
-                eprintln!(
-                    "{}",
-                    serde_json::to_string(&err).expect("RpcError is plain data")
-                );
+                log::warn!(target: "roundup::shell", "open startup Project: RPC failure code {}", err.code);
                 exit(app.handle(), 1);
             }
             if let Some(path) = project_dir {
@@ -160,9 +155,16 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let builder = tauri::Builder::default();
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(launch::second_launch));
-    build(builder, config, project_dir, |app, code| app.exit(code))
-        .build(context)?
-        .run(|app, event| handle_run_event(app, &event));
+    diagnostics::startup(
+        build(
+            builder.plugin(diagnostics::plugin()),
+            config,
+            project_dir,
+            |app, code| app.exit(code),
+        )
+        .build(context),
+    )?
+    .run(|app, event| handle_run_event(app, &event));
     Ok(())
 }
 
