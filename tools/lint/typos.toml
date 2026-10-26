@@ -1,3 +1,4 @@
 [files]
 # Tool output contains the exact rejected spellings; scanning it would duplicate each exception.
-extend-exclude = ["tools/lint/debt.json"]
+# A retained perf observation holds raw cargo build logs.
+extend-exclude = ["tools/lint/debt.json", "docs/perf-3696-linux-*.json"]
