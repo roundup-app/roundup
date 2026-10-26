@@ -293,16 +293,19 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
 });
 
 // Hit testing belongs to this rendered observer, rather than the behavioral App tests.
-rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, timeout: 180_000 }, async () => {
+for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) {
+rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate}`, { retry: 0, timeout: 180_000 }, async () => {
   const directory = join(art!, "head");
   mkdirSync(directory, { recursive: true });
 
-  for (const mode of ["reserved", "overlay"]) for (const rate of [1, 0.25]) for (const run of (rate === 1 ? [1, 2, 3] : [1])) {
+  for (const run of (rate === 1 ? [1, 2, 3] : [1])) {
     await openShelf("tree-40", mode === "overlay" ? 480 : 288, mode === "overlay" ? 560 : 320, 1512, "dark");
     await browser("set", "viewport", "1512", "950");
     const name = `pointer-${mode}-${rate}-run${run}`;
 
     await browser("record", "start", join(directory, `${name}.webm`));
+    // Recording starts a new context; restore the requested colour scheme there too.
+    await browser("set", "media", "dark");
 
     await browser("wait", ".shelf-tabs");
 
@@ -320,6 +323,12 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
     await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '.shelf [data-todo="1"] .todo-row-button');
     await settle();
+    expect(await evaluate("matchMedia('(prefers-color-scheme: dark)').matches")).toBe(true);
+    // Load the Todo's lazy content before measuring a reversal; capture still records the complete measured cycle below.
+    await browser("click", '.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+    await settle();
+    await browser("click", ".drawer .close");
+    await settle();
     await evaluate(`(() => {
       const drawer = document.querySelector('.drawer');
       const terminal = document.querySelector('.xterm-screen');
@@ -333,13 +342,18 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
       const samples = [];
       const events = [];
       let output = 0;
+      let written = 0;
       const sample = () => {
-        window.__fake.writeOutput('t-tokens', 'drawer pointer ' + (++output) + '\\r\\n');
+        drawer.getAnimations().forEach(animation => { if (animation.playbackRate !== ${rate}) animation.playbackRate = ${rate}; });
+        if (!samples.length || performance.now() - written >= 100) {
+          written = performance.now();
+          window.__fake.writeOutput('t-tokens', 'drawer pointer ' + (++output) + '\\r\\n');
+        }
         samples.push({ t: performance.now(), output, ...state() });
         window.__pointerDrawer.frame = requestAnimationFrame(sample);
       };
       document.addEventListener('click', event => events.push({ t: performance.now(), trusted: event.isTrusted, target: event.target.outerHTML, x: event.clientX, y: event.clientY, ...state() }));
-      window.__pointerDrawer = { state, samples, events, terminal, selected, todo, rate: ${rate} };
+      window.__pointerDrawer = { state, samples, events, panel: drawer, terminal, selected, todo, rate: ${rate} };
       window.__pointerDrawer.frame = requestAnimationFrame(sample);
       return true;
     })()`);
@@ -349,8 +363,7 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
     if (!stream) throw new Error("agent-browser input stream unavailable");
 
     try {
-      await evaluate(`(() => {
-        const run = async () => {
+      await evaluate(`(async () => {
         const o = window.__pointerDrawer;
         // agent-browser's documented input stream emits native mouse input, without locator stability waits.
         const input = new WebSocket(${JSON.stringify(stream)});
@@ -363,18 +376,27 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
           const hit = document.elementFromPoint(x, y);
           o.events.push({ phase: 'hit-test', t: performance.now(), selector, x, y, hit: hit?.outerHTML, ...o.state() });
           if (!target.contains(hit)) throw new Error('Unreachable pointer target: ' + selector);
-          const clicked = new Promise(resolve => target.addEventListener('click', event => resolve(event.isTrusted), { once: true }));
-          for (const eventType of ['mouseMoved', 'mousePressed', 'mouseReleased']) input.send(JSON.stringify({ type: 'input_mouse', eventType, x, y, button: 'left', clickCount: 1 }));
-          if (!await clicked) throw new Error('Untrusted activation');
-          await Promise.resolve();
+          const clicked = new Promise(resolve => {
+            const observed = event => {
+              if (!target.contains(event.target)) return;
+              window.removeEventListener('click', observed);
+              resolve({ trusted: event.isTrusted, ...o.state() });
+            };
+            window.addEventListener('click', observed);
+          });
+          for (const eventType of ['mousePressed', 'mouseReleased']) input.send(JSON.stringify({ type: 'input_mouse', eventType, x, y, button: 'left', clickCount: 1 }));
+          const activated = await clicked;
+          if (!activated.trusted) throw new Error('Untrusted activation');
+          return activated;
         };
         const halfway = async (from, destination) => {
-          for (let i = 0; i < 600; i++) {
-            document.getAnimations().forEach(a => { a.playbackRate = o.rate; });
+          while (o.panel.getAnimations().some(animation => animation.playState === 'running')) {
+            o.panel.getAnimations().forEach(a => { if (a.playbackRate !== o.rate) a.playbackRate = o.rate; });
             await frame();
             const left = o.state().left;
             if (Math.abs(left - from) >= Math.abs(destination - from) / 2) {
               if (Math.abs(left - destination) < 1) throw new Error('missed half crossing');
+              o.events.push({ phase: 'half-crossing', t: performance.now(), from, destination, ...o.state() });
               return left;
             }
           }
@@ -383,11 +405,13 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
         try {
           const initial = o.state();
           await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
-          const reverse = await halfway(initial.left, initial.left - initial.width);
-          await activate('.drawer .close');
-          const returning = o.state().left;
+          await halfway(initial.left, initial.left - initial.width);
+          const closed = await activate('.drawer .close');
+          if (Math.abs(closed.left - (initial.left - initial.width)) < 1) throw new Error('Close arrived after opening settled');
+          const returning = closed.left;
           await halfway(returning, initial.left);
-          await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          const reopened = await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          if (Math.abs(reopened.left - initial.left) < 1) throw new Error('Reopen arrived after return settled');
           await frame();
           const escaped = new Promise(resolve => document.addEventListener('keyup', event => { if (event.key === 'Escape') resolve(event.isTrusted); }, { once: true }));
           o.events.push({ phase: 'escape', t: performance.now(), ...o.state() });
@@ -398,20 +422,7 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
           if (o.state().open !== 'false' || o.state().mounted !== 'false') throw new Error('Escape did not settle by next frame');
         } finally { input.close(); }
         return true;
-        };
-        run().then(() => { window.__pointerDrawer.done = true; }, error => { window.__pointerDrawer.failure = String(error); window.__pointerDrawer.done = true; });
-        return true;
       })()`);
-
-      for (let attempt = 0; attempt < 200; attempt++) {
-        const result = await evaluate<{ done?: boolean; failure?: string }>("({ done: window.__pointerDrawer.done, failure: window.__pointerDrawer.failure })");
-
-        if (result.failure) throw new Error(result.failure);
-
-        if (result.done) break;
-
-        if (attempt === 199) throw new Error("pointer sequence did not complete");
-      }
 
       await settle();
       const state = await evaluate("window.__pointerDrawer.state()");
@@ -428,14 +439,31 @@ rendered("u3010b_pointer_targets_remain_reachable_during_reversal", { retry: 0, 
 
       for (const id of ["D2", "D5", "D6"]) expect(openChecks[id]?.status).toBe("pass");
       writeFileSync(join(directory, `${name}-open.checks.json`), JSON.stringify(openChecks));
+      if (run === 1 && rate === 1) {
+        await evaluate(`(async () => {
+          const { RpcError } = await import('/src/app/seam.ts');
+          window.__fake.app.handlers['todo.comment'] = () => { throw new RpcError(-32003, 'Comment refused. Retry when the connection is restored.'); };
+          return true;
+        })()`);
+        await browser("fill", ".drawer .todo-comment-field", "Preserve this exact unsubmitted comment.");
+        await browser("press", "Enter");
+        await browser("wait", "--fn", "document.querySelector('.drawer').textContent.includes('Comment refused.')");
+        await browser("screenshot", join(directory, `${name}-refused.png`));
+        const failureChecks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
+        for (const id of ["D2", "D5", "D6"]) expect(failureChecks[id]?.status).toBe("pass");
+        writeFileSync(join(directory, `${name}-refused.checks.json`), JSON.stringify(failureChecks));
+      }
     } finally {
       const trace = await evaluate("(() => { const o = window.__pointerDrawer; cancelAnimationFrame(o.frame); return { samples: o.samples, events: o.events }; })()");
       writeFileSync(join(directory, `${name}-frames.json`), JSON.stringify(trace));
       await browser("record", "stop");
-
+      // Recording creates a separate context; close this run before the next fixture so hidden Apps cannot contend with its frames.
+      await browser("close");
     }
   }
 });
+}
 
 const trace = (rate: number) => `(async () => {
   const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
