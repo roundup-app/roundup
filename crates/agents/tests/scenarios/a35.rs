@@ -308,10 +308,27 @@ async fn signal(f: &Fixture, id: &str, payload: serde_json::Value) {
 }
 
 fn copies(f: &Fixture, cwd: &str) -> Vec<PathBuf> {
-    fs::read_dir(conversation(f, cwd, ORIGINAL).parent().unwrap())
+    // Ask the SDK for this cwd's destination directory, independent of any saved identity.
+    let launcher = agents::claude_code::Launcher::new(
+        "unused",
+        f.dir.path().join(".roundup/claude.json"),
+        "rup".into(),
+        None,
+    );
+    let probe = launcher
+        .save_for_test(Path::new(cwd), "00000000-0000-4000-8000-000000000000", b"")
+        .unwrap();
+    fs::remove_file(&probe).unwrap();
+    fs::read_dir(probe.parent().unwrap())
         .unwrap()
         .map(|e| e.unwrap().path())
-        .filter(|p| p.file_stem().unwrap() != ORIGINAL)
+        .filter(|p| p.extension().is_some_and(|ext| ext == "jsonl"))
+        .filter(|p| {
+            let id = p.file_stem().unwrap().to_string_lossy();
+            id != ORIGINAL
+                && id != "23456789-1234-4234-8234-123456789abc"
+                && !id.starts_with("87654321-")
+        })
         .collect()
 }
 
