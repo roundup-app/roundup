@@ -1,3 +1,4 @@
+import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
@@ -13,11 +14,15 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { onClose: () => void }) => {
-  const { app, importing: state, drafts, project, daemonExit, now } = useConnectedProject();
+  const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
+  onCleanup(events.subscribe(event => {
+    if (state.listingAgent() && event.name === "rail.changed" && event.actor.id === state.listingAgent()) void state.refresh();
+  }));
+  const listing = () => rail.nodes.find(node => node.id === state.listingAgent());
   const period = state.period;
   const wanted = state.selected;
   const found = state.discovery;
@@ -32,6 +37,14 @@ export const ImportPanel = (props: { onClose: () => void }) => {
 
   return (
     <SettingsShell heading={copy.importTitle} onClose={dismiss}>
+      <div class="import-content">
+      <SettingsGroup name={copy.importPrompt}>
+        <div class="import-instructions">
+          <textarea rows={1} class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
+          <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
+        </div>
+        <ReservedLine message={state.startFailure()} />
+      </SettingsGroup>
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
             <For each={PERIODS}>{(each) => (
@@ -42,6 +55,8 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           </div>
       </SettingsGroup>
       <SettingsGroup name={copy.importResults}><div class="import-panel">
+          <ReservedLine status={state.listingAgent() && !found()?.candidates.length ? copy.importListing(listing()?.name ?? copy.importAgentName) : null}
+            content={<span class="import-listing"><KindGlyph kind={listing()?.status?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
           <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null)}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
             <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
@@ -50,7 +65,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             <section class="import-recovery" aria-label={copy.importChoices}>
               <For each={state.choices()}>{(choice, at) => (
                 <section aria-label={copy.importChoice(at() + 1)}>
-                  <p>{copy.importPeriodName(choice.period)}</p>
+                  <p>{copy.importPeriodName(choice.period)}</p><p>{choice.prompt}</p>
                   <ul><For each={choice.sources}>{(_source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
                   <div class="import-actions">
                     <CopyButton app={app} text={JSON.stringify(choice, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
@@ -93,16 +108,17 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             </>}
           </Show>
           <ReservedLine message={copyFailure()} />
+      </div></SettingsGroup>
+      </div>
           <p class="import-words">
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
               <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
-              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
+              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}
               </button>
             </span>
           </p>
-      </div></SettingsGroup>
     </SettingsShell>
   );
 };
