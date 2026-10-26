@@ -40,6 +40,13 @@ export const systemAccentSchema = v.nullable(v.tuple([
 
 export type SystemAccent = v.InferOutput<typeof systemAccentSchema>;
 
+/** Native requests are delivered once after the main consumer is ready; links remain opaque. */
+export const nativeOpenSchema = v.variant("kind", [
+  v.object({ kind: v.literal("project"), path: v.string() }),
+  v.object({ kind: v.literal("link"), url: v.string() }),
+]);
+export type NativeOpen = v.InferOutput<typeof nativeOpenSchema>;
+
 export type Unsubscribe = () => void;
 
 /** One step of a File drop: `x` and `y` in CSS pixels of the webview; `paths` absolute, empty unless `phase` is `drop`. */
@@ -82,6 +89,7 @@ export type ProjectCalls = {
 export const SEAM_COMMANDS = [
   "plugin:capture-panel|control",
   "system_accent",
+  "native_open",
   "projects",
   "record_idle_evidence",
   "select_project_menu",
@@ -143,6 +151,7 @@ export type App = {
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
   onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
   capture?: CapturePort | undefined;
+  onNativeOpen?: ((listener: (request: NativeOpen) => void) => Promise<Unsubscribe>) | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
