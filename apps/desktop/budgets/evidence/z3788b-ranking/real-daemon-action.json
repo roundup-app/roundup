@@ -1,0 +1,45 @@
+{
+  "calls": [
+    {
+      "method": "terminal.open",
+      "params": {
+        "workstream": "1"
+      }
+    },
+    {
+      "method": "terminal.list",
+      "params": null
+    },
+    {
+      "method": "rail.tree",
+      "params": null
+    },
+    {
+      "method": "terminal.list",
+      "params": null
+    },
+    {
+      "method": "terminal.snapshot",
+      "params": {
+        "id": "1"
+      }
+    },
+    {
+      "method": "terminal.resize",
+      "params": {
+        "cols": 88,
+        "id": "1",
+        "rows": 32
+      }
+    },
+    {
+      "method": "terminal.resize",
+      "params": {
+        "cols": 83,
+        "id": "1",
+        "rows": 32
+      }
+    }
+  ],
+  "focus": "xterm-helper-textarea"
+}
