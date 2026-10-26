@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { createHomed, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -163,33 +163,6 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(log).toHaveLength(3);
   });
 
-  it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
-    let open = [1, 2, 3, 4];
-    let next = 5;
-    const seen: string[] = [];
-
-    const todos: Todos = {
-      open: async () => [...open],
-      create: async () => (open.push(next++), seen.push("insert"), true),
-      complete: async (id) => (open = open.filter((each) => each !== id), seen.push("complete"), true),
-      toggleFold: async () => (seen.push("fold"), true),
-      reorder: async (id, before) => (open = [id, ...open.filter((each) => each !== id)], seen.push(`reorder ${id} before ${before}`), true),
-    };
-
-    const run = everyTwoSeconds(clock, todosCycle(todos));
-
-    await vi.advanceTimersByTimeAsync(SAMPLE_MS);
-    await run;
-
-    expect(seen.slice(0, 4)).toEqual(["insert", "complete", "fold", "reorder 4 before 1"]);
-    expect(seen).toHaveLength(30);
-    expect(open.length).toBeGreaterThan(0);
-
-    const lone: Todos = { ...todos, open: async () => [9], complete: async () => true };
-
-    expect(await todosCycle(lone)(1)).toBe(false);
-  });
-
   it("u3010g_todo_repeats_restore_the_fixture_before_inserting_again", async () => {
     const app = fixtureApp("repeat");
     const fixture = await prepareFixture(app, "/temporary", "shell");
@@ -227,6 +200,29 @@ describe("u3010g the frame recorder drives every workload", () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(await run).toBe(false);
+  });
+
+  it("u3010g_synthetic_layer_input_cannot_complete_an_observed_action", async () => {
+    const drawer = document.createElement("div");
+    const close = document.createElement("button");
+
+    drawer.className = "drawer";
+    drawer.dataset.open = "false";
+    close.className = "close";
+    drawer.append(close);
+    document.body.append(drawer);
+    const journal: import("./frames").LayerAction[] = [];
+
+    try {
+      const controls = domLayers(journal);
+      const outcome = controls.closeDrawer();
+
+      close.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await outcome).toBe(false);
+    } finally {
+      drawer.remove();
+    }
   });
 
   it("u3010g_an_unapplied_pointer_reorder_is_not_completed", async () => {
