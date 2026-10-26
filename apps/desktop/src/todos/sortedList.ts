@@ -170,14 +170,18 @@ export const createSortedList = (source: {
     }
   };
 
+  const stop = () => {
+    animations.forEach(animation => animation.cancel());
+    animations.clear();
+  };
+
   const step = (id: number, by: -1 | 1, ids = source.ids()) => {
     const to = ids.indexOf(id) + by;
 
     if (to < 0 || to >= ids.length) return;
 
     // M1: a key interrupts the displayed projection now; its acknowledged order never starts another slide.
-    animations.forEach(animation => animation.cancel());
-    animations.clear();
+    stop();
     instantOrder = true;
     measure();
     requestedFocus = captureFocus();
@@ -186,6 +190,7 @@ export const createSortedList = (source: {
   };
 
   return {
+    stop,
     step,
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
