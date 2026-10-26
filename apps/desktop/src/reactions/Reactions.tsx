@@ -1,4 +1,3 @@
-import { makeEventListener } from "@solid-primitives/event-listener";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -18,7 +17,10 @@ import { Combobox } from "../ui/Combobox";
 import { RadioGroup } from "../ui/RadioGroup";
 import { Select } from "../ui/Select";
 import { reactionCopy } from "../copy/reactions";
+import type { createReactions } from "./state";
 import "./styles.css";
+
+export { createReactions } from "./state";
 
 const destination = { surface: "reactions", object: "create", recipient: null };
 
@@ -68,32 +70,6 @@ const conditionText = (condition: Condition, nameOf: (id: string) => string): st
   condition.kind === "agents" ? copy.reactionAgents(condition.ids.map(nameOf), condition.any === true)
     : condition.kind === "pr-checks" ? copy.reactionPrChecks(condition.repository, condition.number)
       : copy.reactionInstant(condition.at, condition.late);
-
-/** NR9: saved reactions remain readable when their Agents no longer exist. */
-export const createReactions = () => {
-  const { app, drafts, daemonExit } = useConnectedProject();
-
-  // Project-owned submissions outlive the overview; settlement refreshes its current mount.
-  const submissions = createMemo(() => daemonExit() === null ? JSON.stringify(drafts.list()
-    .filter(draft => draft.destination.surface === "reactions" && (draft.status === "pending" || draft.status === "unknown"))
-    .map(draft => draft.revision)) : false);
-
-  const [read, { refetch, mutate }] = createResource(submissions, async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
-    try {
-      return { list: await app.rpc("reaction.list", null), failure: null };
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      return { list: value?.list ?? [], failure: error.message };
-    }
-  }, { initialValue: { list: [], failure: null } });
-
-  const refresh = () => { if (daemonExit() === null) void refetch(); };
-
-  makeEventListener(window, "focus", refresh);
-
-  return { read, refresh, refetch, dismiss: () => mutate(value => ({ ...value, failure: null })) };
-};
 
 /** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
 export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
