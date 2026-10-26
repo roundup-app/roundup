@@ -2,7 +2,7 @@ import { pasteEvent, imageFile } from "../testing/clipboard";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info } from "../testing/nodes";
 import { callsTo, fakeEmulators } from "../terminal/paneHarness";

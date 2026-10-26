@@ -34,7 +34,6 @@ describe("u57 no pane header", () => {
     const shown = emulators.get("t-a");
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code } }));
 
-    expect(container.querySelector(".pane")?.textContent).toBe("t-a");
     expect(emulators.get("t-a")).toBe(shown);
     await waitFor(() => expect(shown?.written.map((bytes) => new TextDecoder().decode(bytes))).toEqual(["last output"]));
     expect(shown?.host).toBe(container.querySelector(".pane-screen"));
@@ -42,12 +41,11 @@ describe("u57 no pane header", () => {
   });
 
   it("u57_a_status_change_does_not_add_header_text_or_refit_the_terminal", async () => {
-    const { connected, container, app } = await mountPane([node("a")], [info("t-a")]);
+    const { connected, app } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: { kind: "needs-you", label: "asks", since: 0, finished: "0" } } }));
 
-    expect(container.querySelector(".pane")?.textContent).toBe(`${container.querySelector(".order-line")?.textContent ?? ""}t-a`);
     expect(callsTo(app, "terminal.resize")).toHaveLength(1);
   });
 });

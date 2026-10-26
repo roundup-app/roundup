@@ -36,7 +36,7 @@ const read = async <T,>(expression: string): Promise<T> => {
 const wait = async (expression: string) => browser("wait", "--fn", expression);
 
 const open = async (seed: string) => {
-  await browser("open", new URL(`/harness.html?seed=${seed}`, process.env.ROUNDUP_TIMELINE_ORIGIN ?? server.resolvedUrls.local[0]!).href);
+  await browser("open", new URL(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, process.env.ROUNDUP_TIMELINE_ORIGIN ?? server.resolvedUrls.local[0]!).href);
   await browser("set", "media", "dark");
   await wait("!!window.__fake && !!document.querySelector('[role=treeitem]')");
 };
@@ -65,7 +65,7 @@ const select = async (id: string) => {
 
 beforeAll(async () => {
   server = await appServer();
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=door-stopped", server.resolvedUrls.local[0]!).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=door-stopped", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
 }, 90_000);

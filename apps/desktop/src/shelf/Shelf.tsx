@@ -1,7 +1,7 @@
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { useTabs } from "@ark-ui/solid/tabs";
 import { Tabs } from "../ui/Tabs";
@@ -12,13 +12,14 @@ import { SectionHead } from "../ink/SectionHead";
 import { Pads } from "../pads/Pads";
 import { shownPads } from "../pads/shownPads";
 import { useConnectedProject } from "../state/connectedProject";
-import { Todos } from "../todos/Todos";
 import { shownTodos } from "../todos/shownTodos";
 import { useTodoList } from "../todos/todoList";
 import { usePadList } from "../rail/pads/padList";
 import { SHELF_TABS } from "./frame";
 import type { ShelfTab, ShelfFrame } from "./frame";
 import "./styles.css";
+
+const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
 
 /** U373: one Ark state connects the window bar's triggers to the Shelf's panels. */
 export const createShelfTabs = (frame: ShelfFrame) => useTabs(() => ({

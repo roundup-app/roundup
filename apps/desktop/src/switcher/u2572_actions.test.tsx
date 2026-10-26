@@ -337,6 +337,9 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
 it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", async () => {
   await openTabs({ web: [agent("w", "idle", "idle")] });
   const window = document.querySelector<HTMLElement>(".window")!;
+  press("k", { metaKey: true, code: "KeyK" });
+  press("s", { code: "KeyS" });
+  await waitFor(() => expect(window.dataset.shelf).toBe("open"));
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");

@@ -91,7 +91,7 @@ it("u3720_real_daemon_owner_assign", async () => {
     const keyed = await app.rpc("todo.create", { title: "keyboard assignment", body: null, blockers: null, owner: me });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("wait", "#shelf-tab-todos");
     await browser("click", "[data-todo-root]");
     await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
@@ -229,7 +229,7 @@ it("u3311_real_daemon_delegate_board", async () => {
       made.push(todo);
     }
 
-    await lane.browser("open", `${real.base}/harness.html?daemon=1`);
+    await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await lane.until("!!document.querySelector('#shelf-tab-todos')");
     await lane.browser("click", `.rail-row[data-id="${home.id}"] .name`);
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");

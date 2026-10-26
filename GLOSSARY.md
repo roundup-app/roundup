@@ -223,7 +223,7 @@ Permission prompts off for one Attempt. The Rail reports the last acknowledged A
 Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens, model limit and, only where the program itself wrote one, the split of used (`ContextPart`, `ContextPartKind`: system, tools, files, conversation, other). The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
-The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
+The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. An import Agent lists candidates with `import.list`; only the user confirms them on Import. `ImportDiscoverParams.agent` reads that Agent’s last retained list in this Project; `ImportCommitParams.agent` binds every selected identity and revision to it before the existing source-revision guard. Agents never commit imports. Files come from the Project's current Base, never a recovered historical filesystem.
 
 **Vendor listing sidecar** (`import.list`, `ImportList`, `ImportListed`, `ImportLive`):
 The read-only listing of the Project's saved and live top-level Claude Code sessions, each once with the `revision` an approval binds to. The Adapter runs a bundled Node program with the pinned TypeScript Agent SDK only while a listing runs and reaps it after; opening a Project starts none. A missing or incompatible runtime or CLI is an error naming its cause and recovery, never an empty list.
@@ -897,7 +897,7 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 An expandable App region with a named trigger; closing it retains its content.
 
 **Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
-The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+The native actions for the selected Project: import, settings, requested views and the shortcut registry's actions. Each activation keeps that Project's identity; an unavailable action cannot run. Opening a view changes no Daemon data and starts no Agent.
 
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status

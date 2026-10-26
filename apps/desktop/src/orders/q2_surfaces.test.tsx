@@ -1,7 +1,7 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { OrderDrawer } from "./OrderDrawer";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import type { Order } from "@contracts/agent/Order";
@@ -300,7 +300,7 @@ describe("U2773 Order forms on real Projects", () => {
     await questionDialog();
     await answerQuestion(true);
     await waitFor(() => { if (screen.queryByRole("tab", { name: "first" })) throw new Error("Closed Project remains open"); });
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Choose folder…" }));
     await screen.findByRole("tab", { name: "first" });
     const restored = await open(original.id);
     expect(restored.value).toBe("  memory through closed Project é 🧭\n");

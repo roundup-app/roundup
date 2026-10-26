@@ -1,6 +1,7 @@
+import { settled } from "../rail/railFixture";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot, createSignal } from "solid-js";
 import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
@@ -16,6 +17,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
 
 const edit = async (name = "api") => {
+  await settled();
   const target = await screen.findByRole("tab", { name: new RegExp(`^${name}`) });
   fireEvent.dblClick(target.querySelector(".tab-name")!);
 
@@ -670,6 +672,7 @@ it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_m
   const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
   fireEvent.click(tab("api"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
+  await settled();
   fireEvent.contextMenu(tab("api"));
   await app.pickMenu("Copy");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -683,7 +686,8 @@ it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_m
     fireEvent.click(within(reopened).getByRole("button", { name: "Close · Copy name" }));
     expect(within(reopened).queryByRole("alert")).toBeNull();
   } else {
-    fireEvent.contextMenu(tab("api"));
+    await settled();
+  fireEvent.contextMenu(tab("api"));
     await app.pickMenu("Close");
     await waitFor(() => expect(projectTabs()).toHaveLength(1));
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · web" }));
