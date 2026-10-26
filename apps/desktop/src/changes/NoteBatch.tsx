@@ -129,6 +129,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   createEffect(() => { if (!props.open) setEditing(undefined); });
 
   return <Dialog.Root instant open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
+    <Show when={retained() && !props.open}><Dialog.Trigger data-button="quiet">{copy.recoverNotes}</Dialog.Trigger></Show>
     <Dialog.Backdrop />
     <Dialog.Positioner><Dialog.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
