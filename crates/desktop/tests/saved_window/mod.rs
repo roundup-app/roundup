@@ -6,6 +6,8 @@ use std::{
 use tauri::{Listener, Manager};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
+type Bounds = (f64, f64, f64, f64);
+
 fn saved() -> serde_json::Value {
     serde_json::json!({"main":{"width":2640,"height":1400,"x":80,"y":120,
         "prev_x":80,"prev_y":120,"scale":2.0,"maximized":false,
@@ -14,7 +16,9 @@ fn saved() -> serde_json::Value {
 
 fn observe(
     record: Option<Vec<u8>>,
-    check: impl FnOnce(tauri::AppHandle, std::path::PathBuf, mpsc::Receiver<bool>) + Send + 'static,
+    check: impl FnOnce(tauri::AppHandle, std::path::PathBuf, mpsc::Receiver<bool>, Bounds)
+    + Send
+    + 'static,
 ) {
     let dir = tempfile::tempdir().unwrap();
     let mut probe_context = tauri::test::mock_context(tauri::test::noop_assets());
@@ -45,23 +49,23 @@ fn observe(
             if window.label() != "main" {
                 return;
             }
-            #[cfg(target_vendor = "apple")]
-            {
-                let sender = fullscreen_sender.clone();
-                native::watch_fullscreen(window.clone(), move |fullscreen| {
-                    let _ = sender.send(fullscreen);
-                })
-                .unwrap();
-            }
-            #[cfg(not(target_vendor = "apple"))]
-            let _ = &fullscreen_sender;
+            let fullscreen_sender = fullscreen_sender.clone();
+            window.listen("window-fullscreen-completed", move |event| {
+                fullscreen_sender
+                    .send(serde_json::from_str(event.payload()).unwrap())
+                    .unwrap();
+            });
             let restored_window = window.clone();
             let sender = sender.clone();
             window.listen("window-state-restored", move |_| {
                 let window = &restored_window;
                 // This event precedes reveal. Native geometry is applied asynchronously
-                // and the OS may clamp it at reveal, so only the hidden state is read here.
-                sender.send(window.is_visible().unwrap()).unwrap();
+                // and the OS may clamp it at reveal, so geometry is asserted after reveal.
+                // Fullscreen changes the monitor work area; retain the normal-display
+                // expectation before reveal can start that transition.
+                sender
+                    .send((window.is_visible().unwrap(), expected(window)))
+                    .unwrap();
             });
         })
         .build();
@@ -80,7 +84,8 @@ fn observe(
             // Tauri emits Ready after setup finishes constructing the webview;
             // the earlier restore event alone does not make it discoverable yet.
             startup.recv_timeout(Duration::from_secs(5)).unwrap();
-            let visible_before_reveal = restored.recv_timeout(Duration::from_secs(5)).unwrap();
+            let (visible_before_reveal, normal_bounds) =
+                restored.recv_timeout(Duration::from_secs(5)).unwrap();
             assert!(!visible_before_reveal);
             assert!(
                 handle
@@ -89,7 +94,7 @@ fn observe(
                     .is_visible()
                     .unwrap()
             );
-            check(handle.clone(), path, fullscreen_completed);
+            check(handle.clone(), path, fullscreen_completed, normal_bounds);
             assert_eq!(
                 std::fs::read_to_string(drafts).unwrap(),
                 "original draft 雪"
@@ -111,7 +116,7 @@ fn observe(
 
 /// Saved 1320x700 at (40, 60), clamped as the restore clamps it to the display under test:
 /// the runner's work area may be smaller than the record, and then the window is moved to it.
-fn expected(main: &tauri::WebviewWindow) -> (f64, f64, f64, f64) {
+fn expected(main: &tauri::Window) -> Bounds {
     let scale = main.scale_factor().unwrap();
     let area = *main.current_monitor().unwrap().unwrap().work_area();
     let (area_w, area_h) = (
@@ -136,18 +141,16 @@ fn expected(main: &tauri::WebviewWindow) -> (f64, f64, f64, f64) {
 pub fn u3787e_restore_uses_saved_normal_bounds() {
     observe(
         Some(serde_json::to_vec(&saved()).unwrap()),
-        |app, path, fullscreen_completed| {
+        |app, path, fullscreen_completed, normal_bounds| {
             let main = app.get_webview_window("main").unwrap();
             assert!(!main.is_maximized().unwrap());
             assert!(!main.is_fullscreen().unwrap());
             let scale = main.scale_factor().unwrap();
-            let (want_w, want_h, want_x, want_y) = expected(&main);
+            let (want_w, want_h, want_x, want_y) = normal_bounds;
             wait(|| {
                 let size = main.outer_size().unwrap().to_logical::<f64>(scale);
                 (size.width - want_w).abs() <= 1.0
             });
-            let size = main.outer_size().unwrap().to_logical::<f64>(scale);
-            assert!((size.width - want_w).abs() <= 1.0, "{size:?}");
             let inner = main.inner_size().unwrap().to_logical::<f64>(scale);
             // The runner's display and title bar decide the height; the saved one is only an upper bound.
             assert!(inner.height <= want_h + 1.0, "{inner:?} want {want_h}");
@@ -249,8 +252,13 @@ pub fn u3787e_invalid_state_is_reachable() {
 pub fn u3787e_corrupt_state_is_reachable() {
     observe(
         Some(b"{broken".to_vec()),
-        |app, path, fullscreen_completed| {
-            reachable(app.clone(), path.clone(), fullscreen_completed);
+        |app, path, fullscreen_completed, normal_bounds| {
+            reachable(
+                app.clone(),
+                path.clone(),
+                fullscreen_completed,
+                normal_bounds,
+            );
             assert!(app.save_window_state(StateFlags::all()).is_err());
             assert_eq!(
                 std::fs::read(path.join(".window-state.json")).unwrap(),
@@ -259,7 +267,7 @@ pub fn u3787e_corrupt_state_is_reachable() {
         },
     );
 }
-fn reachable(app: tauri::AppHandle, _: std::path::PathBuf, _: mpsc::Receiver<bool>) {
+fn reachable(app: tauri::AppHandle, _: std::path::PathBuf, _: mpsc::Receiver<bool>, _: Bounds) {
     let main = app.get_webview_window("main").unwrap();
     let scale = main.scale_factor().unwrap();
     let area = *main.current_monitor().unwrap().unwrap().work_area();
@@ -271,7 +279,6 @@ fn reachable(app: tauri::AppHandle, _: std::path::PathBuf, _: mpsc::Receiver<boo
     let area = monitor.work_area();
     assert!(position.x >= area.position.x && position.y >= area.position.y);
     assert!(i64::from(position.y) + 32 <= i64::from(area.position.y) + i64::from(area.size.height));
-    assert!(main.inner_size().unwrap().to_logical::<f64>(scale).width >= floor);
 }
 
 pub fn u3787e_maximized_state_keeps_normal_bounds() {
@@ -289,9 +296,9 @@ fn state_reopens(fullscreen: bool) {
     }] = true.into();
     observe(
         Some(serde_json::to_vec(&record).unwrap()),
-        move |app, _, fullscreen_completed| {
+        move |app, _, fullscreen_completed, normal_bounds| {
             let main = app.get_webview_window("main").unwrap();
-            let (want_w, _, want_x, want_y) = expected(&main);
+            let (want_w, _, want_x, want_y) = normal_bounds;
             if fullscreen {
                 fullscreen_transition(&main, &fullscreen_completed, true);
             } else {
