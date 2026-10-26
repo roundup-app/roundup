@@ -20,7 +20,7 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
     return name !== missing;
   };
 
-  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf") };
+  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), halfway: async (_panel, action) => action() };
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
@@ -52,6 +52,20 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     expect(starts.slice(0, 3).map(([time, action]) => [time - start, action])).toEqual([[0, "openDrawer"], [2000, "toggleShelf"], [4000, "openDrawer"]]);
     expect(log.slice(0, 4).map(([, action]) => action)).toEqual(["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]);
+  });
+
+  it("u3010g_layers_wait_for_observed_displacement_before_reversing", async () => {
+    const log: [number, string][] = [];
+    let release: (done: boolean) => void = () => {};
+    const controls = layers(log);
+    controls.halfway = async (_panel, action) => action() && await new Promise<boolean>(resolve => { release = resolve; });
+    const run = layersCycle(controls, clock)(0);
+
+    await vi.advanceTimersByTimeAsync(399);
+    expect(log.map(([, name]) => name)).toEqual(["openDrawer"]);
+    release(false);
+    expect(await run).toBe(false);
+    expect(log.map(([, name]) => name)).toEqual(["openDrawer"]);
   });
 
   it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
