@@ -39,7 +39,7 @@ export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFa
     <div class="settings-field">
       <span id={caption}>{copy.quickAddTodo}</span>
       <div class="settings-shortcut">
-      <button ref={button} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
+      <button ref={button} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
         <span id={value}>{recording() ? copy.recordShortcut : shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}</span>
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>

@@ -581,3 +581,15 @@ it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () 
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", text);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
+
+it("u4277b_empty_recovery_has_no_copy_action", async () => {
+  const { openTabs } = await import("../header/stripFixture");
+  const { openProjectPage } = await import("../testing/menuProbe");
+  const { app } = await openTabs({ api: [] });
+  openProjectPage("view:notes");
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  expect(within(recovery).getAllByRole("button")).toHaveLength(1);
+  expect(app.calls.filter(call => /spawn|send|importCommit/.test(call.method))).toHaveLength(0);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(recovery.isConnected).toBe(false));
+});

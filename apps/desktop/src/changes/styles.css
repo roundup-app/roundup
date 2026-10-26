@@ -118,7 +118,7 @@
 .note-form .diff-actions { margin-inline-start: auto; }
 
 .note-batch button { margin-block-start: var(--space-2); }
-.note-recovery { width: min(80vw, calc(var(--space-6) * 36)); overflow-wrap: anywhere; }
+.note-recovery { width: min(var(--measure), calc(100vw - var(--space-6) * 2)); overflow-wrap: anywhere; }
 .note-recovery .diff-header { align-items: baseline; }
 .note-recovery .note-batch { display: flex; flex-direction: column; gap: var(--space-3); }
 .note-batch h3 { margin: 0; font-size: inherit; font-weight: 600; }

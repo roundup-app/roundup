@@ -125,3 +125,74 @@
   flex: 1;
   min-height: 0;
 }
+
+.settings-sections {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.settings-sections .app-tabs-list {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.settings-sections .app-tabs-trigger {
+  text-align: start;
+  justify-content: start;
+  color: var(--grey);
+}
+
+.settings-sections .app-tabs-trigger[data-selected] {
+  --button-surface: var(--transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-content {
+  width: 100%;
+  max-width: var(--measure);
+  min-width: 0;
+}
+
+.settings-content .app-tabs-content {
+  padding: 0;
+}
+
+.settings-content .settings-group {
+  border: 0;
+  padding: 0;
+  gap: var(--space-5);
+}
+
+.settings-field [data-part="label"] {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.settings-field input {
+  border-bottom: var(--hairline-width) solid var(--hairline);
+}
+
+.settings-field input:focus-visible {
+  border-color: var(--accent);
+}
+
+.settings-shortcut button[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.settings-shortcut button[aria-invalid="true"] {
+  color: var(--red);
+}
+
+.settings-shortcut button span {
+  color: inherit;
+  font: inherit;
+}
+
+.settings-field input[data-invalid] {
+  border-color: var(--red);
+}
