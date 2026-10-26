@@ -886,7 +886,7 @@ export const Bubbles = (props: {
         <Show when={connected.hasView("terminal-tabs")}><div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <Show when={shownIds().length === 0}><span role="status">No Terminals open</span></Show>
+          <Show when={shownIds().length === 0}><ReservedLine status={copy.terminalsEmpty} /></Show>
           <For each={shownIds()}>{id => <Tab id={id} />}</For>
           <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
