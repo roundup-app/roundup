@@ -189,6 +189,19 @@ jobs:
         with:
           node: 'false'
       - run: just clippy
+      - name: Z4280a fresh desktop build
+        run: |
+          fresh_target=$(mktemp -d "$RUNNER_TEMP/z4280a.XXXXXX")
+          CARGO_TARGET_DIR="$fresh_target" cargo build --locked -p desktop 2>&1 | tee "$RUNNER_TEMP/z4280a-build.log"
+          ! grep -F 'Modifiers::SUPER' "$RUNNER_TEMP/z4280a-build.log"
+      - name: Z4280a build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: z4280a-macos-build-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/z4280a-build.log
+          if-no-files-found: error
+          retention-days: 30
 
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
