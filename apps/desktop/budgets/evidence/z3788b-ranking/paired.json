@@ -1,0 +1,95 @@
+{
+  "reference": "2b45d05dbd982ea9f8d9ed529bd7e4d9a9838dae",
+  "head": "01f71c8969a3080faee1a4c4a2dab442b80d5138",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "gzip": "level 9, each recursively static-reachable file counted once by existing startup.mjs; dynamic imports excluded",
+  "command": "pnpm --filter desktop build; node apps/desktop/budgets/startup.mjs apps/desktop/dist apps/desktop/budgets/startup.json",
+  "referenceBuild": {
+    "report": {
+      "exit": 0,
+      "entry": "assets/index-BxLK5uRN.js",
+      "files": [
+        "assets/index-BxLK5uRN.js"
+      ],
+      "raw": 1378591,
+      "gzip": 433360,
+      "ceiling": 437814,
+      "diagnostic": ""
+    },
+    "files": {
+      "assets/index-BxLK5uRN.js": "e8f3dcd3827965fe51b11915b9dc856c3d84d819d8373ed4e1f89d3c8b034d88"
+    },
+    "manifest": {
+      "index.html": {
+        "file": "assets/index-BxLK5uRN.js",
+        "name": "index",
+        "src": "index.html",
+        "isEntry": true,
+        "dynamicImports": [
+          "src/pads/PadRichEditor.tsx",
+          "src/terminal/emulator.ts",
+          "../../node_modules/.pnpm/@pierre+diffs@1.6.1_patch_hash=08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03ac_ffdf5fd6becca4f08f43811c251b57b2/node_modules/@pierre/diffs/dist/index.js",
+          "_libesm-DquXwqT-.js",
+          "../../node_modules/.pnpm/@pierre+trees@1.0.0-beta.6_@pierre+theme@2.0.0_@shikijs+themes@4.5.0_react-dom@19.3.0_r_5b2d078d94b962948a5bb27622faef44/node_modules/@pierre/trees/dist/index.js"
+        ],
+        "css": [
+          "assets/index-qHbjVZ-p.css"
+        ]
+      }
+    },
+    "manifestSha256": "57c4838f3c59186b7b91e77ae3b3b5477b4184c7b69653441fe2baef93062cef",
+    "metadataSha256": "15f16df40eb04801e3804dac9a8eb815ba0972d7ee47fa69550605dd236ffaa9",
+    "wasm": []
+  },
+  "headBuild": {
+    "report": {
+      "exit": 0,
+      "entry": "assets/index-CxqoHbI1.js",
+      "files": [
+        "assets/index-CxqoHbI1.js"
+      ],
+      "raw": 1387263,
+      "gzip": 437371,
+      "ceiling": 437814,
+      "diagnostic": ""
+    },
+    "files": {
+      "assets/index-CxqoHbI1.js": "2d81a7fb8ffa2b0f25713e029cb9827a4016933c8589042c618546f65a482491"
+    },
+    "manifest": {
+      "index.html": {
+        "file": "assets/index-CxqoHbI1.js",
+        "name": "index",
+        "src": "index.html",
+        "isEntry": true,
+        "dynamicImports": [
+          "src/pads/PadRichEditor.tsx",
+          "src/terminal/emulator.ts",
+          "../../node_modules/.pnpm/@pierre+diffs@1.6.1_patch_hash=08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03ac_ffdf5fd6becca4f08f43811c251b57b2/node_modules/@pierre/diffs/dist/index.js",
+          "_libesm-DquXwqT-.js",
+          "../../node_modules/.pnpm/@pierre+trees@1.0.0-beta.6_@pierre+theme@2.0.0_@shikijs+themes@4.5.0_react-dom@19.3.0_r_5b2d078d94b962948a5bb27622faef44/node_modules/@pierre/trees/dist/index.js"
+        ],
+        "css": [
+          "assets/index-qHbjVZ-p.css"
+        ]
+      }
+    },
+    "manifestSha256": "6a96ad2eeabbd8352d2fe75f17c8e748ee36da1a11fdcb1c2efe9859d62e2bd1",
+    "metadataSha256": "c2664a98c3a7b90cef34b268178dc8e12c17b05d2042c623fb102dab8d678ac0",
+    "wasm": []
+  },
+  "libraries": {
+    "fuzzysort": {
+      "version": "4.0.2",
+      "published": "2026-08-13T07:17:32.878Z"
+    },
+    "fuse.js": {
+      "version": "7.5.0",
+      "published": "2026-07-13T17:23:36.705Z"
+    }
+  },
+  "scope": "Z3788b ranking only; no Z3788a no-growth/409600-byte pass claimed"
+}
