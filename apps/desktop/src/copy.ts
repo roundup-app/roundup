@@ -300,6 +300,7 @@ export const copy = {
   resumeUnknown: "Resume may have reached the Daemon. It checks before it tries again.",
   comparisonRenderFailed: "Unable to render the file comparison",
   diff: "Diff",
+  loadingProject: "Loading Project…",
   loadingDiff: "Loading diff…",
   noDifference: "No remaining difference",
   diffNotLoaded: "Diff not loaded",

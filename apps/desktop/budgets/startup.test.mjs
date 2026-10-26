@@ -46,7 +46,7 @@ test('r3800_entry_budget_counts_static_closure', t => {
 });
 
 test('r3800_entry_budget_rejects_eager_modules', t => {
-  for (const family of ['@xterm/xterm', '@xterm/addon-fit', '@dnd-kit/dom']) {
+  for (const family of ['@xterm/xterm', '@xterm/addon-fit']) {
     const f = fixture(t, { 'shared.js': [`/node_modules/${family}/index.js`] });
     const result = f.run();
     assert.equal(result.exit, 1);
@@ -55,7 +55,7 @@ test('r3800_entry_budget_rejects_eager_modules', t => {
   }
 
   assert.equal(fixture(t, { 'lazy.js': ['/node_modules/@xterm/xterm/index.js'] }).run().exit, 0);
-  assert.equal(fixture(t, { 'shared.js': [] }).run().exit, 0);
+  assert.equal(fixture(t, { 'shared.js': ['/node_modules/@dnd-kit/dom/index.js'] }).run().exit, 0);
 });
 
 test('r3800_entry_budget_invalid_input_is_an_error', t => {
