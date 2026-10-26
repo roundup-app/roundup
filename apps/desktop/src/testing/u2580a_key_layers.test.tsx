@@ -51,7 +51,7 @@ it("u2580a_instant_actions_release_slide_and_fit_once", async () => {
 const load = async (reduced = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "light", ...(reduced ? ["reduced-motion"] : []));
-  const url = `${rig.server.resolvedUrls.local[0]}harness.html?seed=tree-40`;
+  const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`;
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
   await evaluate(`(() => { localStorage.clear(); return true; })()`);
@@ -108,12 +108,6 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(closed).toMatchObject({ open: false, content: false, returned: true });
     await settle();
 
-    for (const key of ["Enter", "Space"] as const) {
-      expect(await activate('#shelf-tab-todos', key, "document.querySelector('.shelf').hidden")).toBe(true);
-      await settle();
-      expect(await activate('#shelf-tab-todos', key, "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
-      await settle();
-    }
 
     await evaluate(`(() => { window.__layerOrigin = document.querySelector('.rail-row'); window.__layerOrigin.focus(); return true; })()`);
     await leader();

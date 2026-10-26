@@ -1,11 +1,16 @@
-import { fireEvent, screen } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import type { MenuItem } from "../app/seam";
-import { menuProbe } from "./menuProbe";
+import { menuProbe, openProjectPage, projectMenu } from "./menuProbe";
 
 const PREFIX = "Recover unfinished work";
 
 /** U3289c: right-clicks the Overview row; the recovery item's label, or null while nothing qualifies. The menu is left open. */
 const askOverview = async (): Promise<MenuItem | null> => {
+  if (!document.querySelector("[data-todo-root]")) {
+    await waitFor(() => { if (projectMenu.path === null) throw new Error("Project menu is connecting"); });
+    openProjectPage("view:workstreams", projectMenu.path);
+  }
+
   const before = menuProbe.count;
 
   fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });

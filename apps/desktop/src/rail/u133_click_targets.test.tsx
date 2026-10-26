@@ -1,7 +1,7 @@
 import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import { chromePath, openPage } from "../testing/chromePage";
 import tokenCss from "../tokens.css?raw";
@@ -54,7 +54,7 @@ describe("u133 click targets", () => {
 
     try {
       await page.scheme("dark");
-      await page.load("/harness.html?seed=tree-40");
+      await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
       await page.until('() => !!document.querySelector(".rail-row[data-id=tokens] [data-pads-control]")');
       await page.call('() => document.querySelector(".rail-row[data-id=tokens] [data-pads-control]").focus()');
       await page.call("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { deferred } from "../pads/padsFixture";

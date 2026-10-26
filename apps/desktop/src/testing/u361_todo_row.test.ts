@@ -38,9 +38,10 @@ run("u361 the rendered Todo row", () => {
 
   it("u361_a_failed_tick_box_call_unchecks_it_and_keeps_visible_keyboard_focus", async () => {
     await page.scheme("light");
-    await page.load("/harness.html?seed=tree-40", width, height);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, height);
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(window.__fake)`);
     await page.call(FIXTURE);
+    await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
     await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
     // The real keyboard generates the native change event; visit the row controls until its tick box.

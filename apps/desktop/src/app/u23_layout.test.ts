@@ -70,7 +70,7 @@ afterAll(async () => {
 
 const openApp = async (bound = true) => {
   await browser("set", "viewport", "1280", "800");
-  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40${bound ? "&bound=1" : ""}`);
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams&items=1${bound ? "&bound=1" : ""}`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
   await settle();
   expect(await evaluate(`document.querySelector('[data-layout-root]').dataset.scope === 'splitter'`)).toBe(bound);
@@ -85,7 +85,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   await settle();
-  const read = () => evaluate(`document.querySelector('.rail [aria-selected=true]').dataset.id`);
+  const read = () => evaluate(`document.querySelector('.rail .rail-row[data-selected=true]').dataset.id`);
   expect(await read()).toBe("payments");
   await browser("mouse", "move", "288", "400");
   await browser("mouse", "down", "left");
@@ -106,7 +106,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "up", "left");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
-  expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
+  expect(await evaluate("document.querySelector('.rail .rail-row[data-selected=true]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   expect(await read()).toBe("payments");
