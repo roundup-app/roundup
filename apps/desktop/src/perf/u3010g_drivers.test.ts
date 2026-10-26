@@ -3,6 +3,9 @@ import { buildReport } from "./frames";
 import { createHomed, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
+import { prepareFixture } from "./fixture";
+import { createFakeApp } from "../testing/fakeApp";
+import { workstream } from "../testing/nodes";
 import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
@@ -24,6 +27,15 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
+  it("u3010g_an_incompatible_project_is_refused_before_fixture_writes", async () => {
+    const app = createFakeApp();
+
+    app.handlers["rail.tree"] = () => [workstream("ours"), workstream("other")];
+
+    await expect(prepareFixture(app, "/temporary", "shell")).rejects.toThrow("isolated");
+    expect(app.calls.every(call => ["rail.tree", "todo.list", "pad.list"].includes(call.method))).toBe(true);
+  });
+
   it("u3010g_a_large_report_reaches_the_terminal_whole_and_in_order", async () => {
     const bytes = Uint8Array.from({ length: 20_000 }, (_, at) => at % 251);
     const seen: Uint8Array[] = [];
