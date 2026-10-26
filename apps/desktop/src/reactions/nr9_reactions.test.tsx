@@ -21,6 +21,7 @@ const saved = (patch: Partial<Reaction> = {}): Reaction => ({
 const mount = async (list: () => Reaction[]) => {
   const mounted = await mountAskBar([], null, [agent("a", "idle", "ready")]);
 
+  mounted.connected.hideView("made");
   mounted.app.handlers["reaction.list"] = list;
   mounted.app.handlers["reaction.get"] = ({ id }) => list().find(reaction => reaction.id === id)!;
   window.dispatchEvent(new Event("focus"));
