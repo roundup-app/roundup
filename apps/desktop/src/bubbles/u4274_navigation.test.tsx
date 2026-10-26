@@ -106,8 +106,8 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
 
 it("u4313a_rail_footer_offers_workstream_and_agent", async () => {
   await mountNavigation(true);
-  const footer = document.querySelector(".rail-actions")!;
-  expect(within(footer as HTMLElement).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Workstream", "New Agent"]);
+  const footer = document.querySelector<HTMLElement>(".rail-actions")!;
+  expect(within(footer).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Workstream", "New Agent"]);
 });
 
 it.each(["home", "a1", null, "empty"])("u4313a_rail_agent_uses_the_new_agent_action: %s", async selection => {
