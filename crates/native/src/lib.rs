@@ -29,3 +29,16 @@ pub use accent::{system_accent, watch_accent};
 mod transparency;
 #[cfg(target_vendor = "apple")]
 pub use transparency::watch_transparency;
+
+/// External error messages may carry window titles, paths or user text.
+#[cfg(target_vendor = "apple")]
+fn diagnostic(operation: &'static str, error: &tauri::Error) {
+    let cause = match error {
+        tauri::Error::Json(_) => "event serialization failed",
+        tauri::Error::Runtime(_) => "native runtime failed",
+        tauri::Error::WindowNotFound => "window not found",
+        tauri::Error::WebviewNotFound => "webview not found",
+        _ => "native dispatch failed",
+    };
+    log::warn!(target: "roundup::shell", "{operation}: {cause}");
+}

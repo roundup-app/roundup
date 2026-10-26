@@ -133,9 +133,7 @@ pub fn watch_fullscreen<R: Runtime>(
                             if let Some(position) = position
                                 && let Err(error) = window.set_position(position)
                             {
-                                eprintln!(
-                                    "window-state: restore fullscreen position failed: {error}"
-                                );
+                                crate::diagnostic("restore fullscreen position", &error);
                             }
                             observed(false);
                         });
