@@ -20,9 +20,9 @@
     "value": "no Thread"
   },
   "D12": {
-    "selector": "div.shelf-row",
+    "selector": "",
     "status": "pass",
-    "value": 0
+    "value": "no Shelf row"
   },
   "D13": {
     "selector": "",
@@ -32,9 +32,7 @@
   "D14": {
     "selector": "",
     "status": "pass",
-    "value": {
-      "rows": 1
-    }
+    "value": "no Shelf row"
   },
   "D16": {
     "selector": "",
@@ -56,11 +54,11 @@
     "status": "pass",
     "value": {
       "extension": {
-        "controls": 115,
+        "controls": 65,
         "feedback": "instant Token recipe; frame readings in paired observer"
       },
       "original": {
-        "rows": 39
+        "rows": 9
       }
     }
   },
@@ -73,7 +71,7 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 115
+      "targets": 65
     }
   },
   "D7": {
@@ -82,10 +80,10 @@
     "value": {
       "extension": {
         "cue": "one selected wash; Kind ink retained",
-        "rows": 40
+        "rows": 9
       },
       "original": {
-        "targets": 109
+        "targets": 64
       }
     }
   },
@@ -117,126 +115,6 @@
             "row": "div.rail-row"
           },
           {
-            "baseline": 0.5625,
-            "inset": 56,
-            "row": "div.rail-fold"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
             "baseline": 0.359375,
             "inset": 56,
             "row": "div.rail-row"
@@ -265,11 +143,6 @@
             "baseline": 0.5625,
             "inset": 56,
             "row": "div.rail-fold"
-          },
-          {
-            "baseline": -0.25,
-            "inset": 56,
-            "row": "div.shelf-row"
           }
         ]
       },

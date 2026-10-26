@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 it("u3523c_explicit_prompt_starts_one_import_agent", async () => {
   const { app, connected } = await connectFakeProject([]);
   let finish!: () => void;
-  app.handlers["agent.spawn"] = () => new Promise(resolve => { finish = () => resolve(agent("importer")); });
+  app.handlers["agent.spawn"] = () => new Promise(resolve => { finish = () => resolve(agent("importer", "working", "starting")); });
   render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
   const field = screen.getByRole("textbox", { name: "Import instructions" });
   fireEvent.input(field, { target: { value: "  List yesterday’s work\nwithout importing.  " } });
@@ -27,7 +27,7 @@ it("u3523c_explicit_prompt_starts_one_import_agent", async () => {
 
 it("u3523d_listed_candidates_require_user_confirm", async () => {
   const { app, connected } = await connectFakeProject([]);
-  app.handlers["agent.spawn"] = () => agent("importer");
+  app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
   app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "candidate", title: "Listed work", cwd: "", revision: "preview", last_activity_ms: 1n }], excluded: [] });
   app.handlers["project.importCommit"] = () => ({ outcomes: [] });
   render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
