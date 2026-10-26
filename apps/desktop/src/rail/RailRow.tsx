@@ -185,10 +185,12 @@ export const RailRowView = (props: {
         <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
       </span></Show>
-      <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
-      <span class="row-controls">
-        <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
-        <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
+      <span class="row-tail">
+        <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
+        <span class="row-controls">
+          <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
+          <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
+        </span>
       </span>
     </p>
     <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>

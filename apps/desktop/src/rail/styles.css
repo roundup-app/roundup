@@ -455,6 +455,7 @@
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
+  position: relative;
   display: flex;
   align-items: center;
   flex: none;
@@ -847,9 +848,19 @@
   align-items: center;
   flex: none;
   position: absolute;
-  inset-inline-end: calc(var(--space-4) + var(--space-6) * 2 + var(--space-1));
+  inset-inline-end: calc(100% + var(--rail-gap));
   background: var(--sunken);
   opacity: 0;
+  pointer-events: none;
+}
+.rail-row .row-icons::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 100%;
+  width: var(--space-4);
+  background: inherit;
+  mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
 .rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-icons {
