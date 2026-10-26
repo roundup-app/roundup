@@ -189,3 +189,10 @@ The M11 deletions of the inventory are delivered: the Todo comment entrance
 (`todo-comment-in`, with its `data-fresh` marker) and the Order context-bar width and
 opacity transitions are removed, so both update instantly. A new comment is still
 announced politely once.
+
+M9's Kind crossfade is delivered in `ink/KindGlyph.tsx`: a Kind change on a mounted
+Glyph keeps the old mark as an inert, `aria-hidden` sibling and fades the two marks
+over the 150 ms `--duration-reduced` preset through Motion `animate` (opacity only,
+so reduced motion needs no variant); the latest Kind cancels the running fade and
+disposal cancels it. The working arc's CSS turn is unchanged here. Rendered Kind
+transitions, the M10 single-source collapse and the remaining slices stay open.
