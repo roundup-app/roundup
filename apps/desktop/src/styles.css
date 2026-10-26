@@ -339,14 +339,6 @@ p {
   top: var(--space-2);
   right: var(--space-4);
   z-index: 1;
-  /* Counter-translate a wrapper: press feedback owns the button transform. */
-  translate: 0;
-  transition: inherit;
-  transition-property: translate;
-}
-
-.drawer[data-open="false"] .drawer-close {
-  translate: calc(-1 * var(--drawer-span));
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {
