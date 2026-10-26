@@ -680,7 +680,9 @@ impl Agents {
     }
 
     /// Resume selected Marks without Rail publication, returning only after matching
-    /// SessionStart and reserved first-prompt acknowledgements. Call `stop_marks` first; the
+    /// SessionStart and reserved first-prompt acknowledgements. Acknowledgement waits observe
+    /// Attempt state after notification, under the original total bound; notifications never
+    /// authorize another launch or prompt. Call `stop_marks` first; the
     /// coordinator may restore files between these calls. Keep the same Resume for retries.
     pub async fn resume_marks(&self, ctx: &rpc::Ctx, resume: &mut Resume) -> Result<(), RpcError> {
         if resume.retirement_order.is_none()
