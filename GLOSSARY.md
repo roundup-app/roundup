@@ -976,6 +976,5 @@ The macOS accent preference as normalized sRGB channels, or null when unavailabl
 **Native material** (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`):
 The main window's AppKit Sidebar effect, revealed only through the Rail and reserved Shelf. AppKit Reduce Transparency disables it and restores opaque grounds. Unsupported hosts report unavailable; floating surfaces and Terminal pixels remain opaque. The window-bar command reads the applied state and the native-material event reports changes.
 
-
 **Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
 One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.
