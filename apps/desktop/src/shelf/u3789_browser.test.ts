@@ -316,6 +316,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         {
           await browser("eval", "(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.openFailure = new RpcError(-32008, 'Folder unavailable; try again.'); })()");
+
           if (base) {
             await browser("focus", '.rail-row[data-id="agent-4"]');
             await browser("press", "Shift+F10");
@@ -325,6 +326,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
             await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
             await browser("press", "Enter");
           }
+
           await wait("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Folder unavailable')");
 
           for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "dense-action-failure");
