@@ -1,0 +1,92 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
+import { openLane } from "../todos/laneBrowser";
+
+it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", async () => {
+  const lane = await openLane(1512, "dark", "builder-4277");
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  await lane.evaluate(`localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"}))`);
+  const origin = await lane.evaluate<string>("location.origin");
+
+  const capture = async (id: string, name: string) => {
+    const dir = join(captureDir(id)!, phase);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", join(dir, `${name}.png`));
+  };
+
+  try {
+    const videoDir = join(captureDir("U4277a")!, phase);
+    mkdirSync(videoDir, { recursive: true });
+    await lane.browser("record", "start", join(videoDir, "screens.webm"));
+
+    for (const seed of ["tree-40", "tabs-8", "first-run"]) {
+      await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
+      await lane.until("!!window.__fake && !!document.querySelector('.window')");
+
+      if (seed !== "first-run") await lane.until("!!document.querySelector('.ask-input')");
+      await lane.browser("set", "media", "dark");
+      await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
+      await lane.until("!!document.querySelector('.settings-view')");
+
+      for (const section of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+        await lane.evaluate(`document.querySelector('[role=tab][data-value="${section}"]')?.click()`);
+        await capture("U4277a", `${seed}-${section}`);
+
+        if (section === "Terminal" && seed === "tree-40") {
+          await lane.evaluate(`(() => { const field = document.querySelector('input[aria-label="Font size"]'); field.value = '300'; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',bubbles:true})); return true; })()`);
+          await lane.until("document.querySelector('.settings-view').textContent.includes('Choose a font size')");
+          await capture("U4277a", "tree-40-size-refusal");
+        }
+      }
+    }
+
+    for (const [state, seed] of [["empty", "empty-project"], ["filled", "tree-40"]]) {
+      for (const command of ["ask-history", "resources", "made", "workstreams", "terminal-tabs", "import-work", "notes"]) {
+        const selectedSeed = command === "resources" ? (state === "empty" ? "agents-10" : "resources") : command === "import-work" && state === "filled" ? "import-candidates" : command === "notes" && state === "filled" ? "note-queue" : seed;
+        await lane.browser("open", `${origin}/harness.html?items=1&seed=${selectedSeed}`);
+        await lane.until("!!window.__fake && !!document.querySelector('.ask-input')");
+
+        if (state === "filled" && command === "notes") {
+          await lane.evaluate(`(async () => { const {notesFor} = await import('/src/changes/notes.ts'); const comparison = {base:'base', oldPath:'src/retained.ts',newPath:'src/retained.ts',status:'modified',old:{kind:'text',revision:'old',text:'before\\n'},new:{kind:'text',revision:'new',text:'after\\n'}}; await notesFor(window.__fake.app,'/Users/you/harness').save('agent-4', {comparison, side:'new',start:1,end:1,source:'after',text:'Keep exact retained work 🐝 ' + 'Long note '.repeat(30)}); return true; })()`);
+          await lane.browser("reload");
+          await lane.until("!!document.querySelector('.ask-input')");
+        }
+
+        if (state === "filled" && command === "made") await lane.evaluate(`(() => { window.__fake.app.handlers['deliverable.list'] = () => [{ project:'/Users/you/harness', id:'published-result', maker:{kind:'user',id:'you',parent:null}, maker_name:'You', home:null, title:'Published result ' + '成果📖'.repeat(40), published_at:Date.now(), target:{kind:'external',url:'https://example.com/result',availability:'not-checked'} }]; return true; })()`);
+
+        if (state === "filled" && command === "ask-history") await lane.evaluate(`(() => { window.__fake.app.handlers['ask.list'] = () => [{id:'asked-work', text:'Please inspect ' + 'long authored task '.repeat(30),at:BigInt(Date.now()),parts:[{text:'Please inspect ' + 'long authored task '.repeat(30),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}]; return true; })()`);
+
+        if (state === "filled" && command === "ask-history") await lane.evaluate(`(() => { window.__fake.emit({actor:{kind:'user',id:'you',parent:null}, name:'ask.changed',data:{ask:window.__fake.app.handlers['ask.list']()[0]}}); return true; })()`);
+
+        if (command === "resources") {
+          await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness', command:'view:workstreams'}}))");
+          await lane.until("!!document.querySelector('.rail-row')");
+          await lane.evaluate("document.querySelector('.rail-row[data-id=worktree-agent], .rail-row[data-id=agent-1]')?.click()");
+        }
+
+        await lane.evaluate(`window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command === "import-work" ? command : "view:" + command}'}}))`);
+
+        if (command === "notes" && phase === "head") await lane.until("!!document.querySelector('.note-recovery')");
+
+        if (command === "resources") await lane.until("!!document.querySelector('.resource-inspection')");
+
+        if (command === "import-work") await lane.until("!!document.querySelector('.import-panel') && !document.querySelector('.import-panel [aria-busy=true]')");
+        await capture(command === "notes" ? "U4277b" : "U4277c", `${command}-${state}`);
+
+        if (command === "import-work" && state === "filled") {
+          await lane.until("!!document.querySelector('.import-check')");
+          await lane.browser("click", ".import-check");
+          await lane.evaluate(`(() => { window.__fake.app.handlers['project.importCommit'] = ({selections}) => ({outcomes:selections.map(item=>({source:item.source,workstream:null,agent:null,error:{code:-32003,message:'Storage unavailable. Free disk space and retry Import.',outcome:'failed'}}))}); return true; })()`);
+          await lane.browser("click", ".import-confirm");
+          await lane.until("document.querySelector('.import-panel').textContent.includes('Storage unavailable')");
+          await capture("U4277c", "import-partial-failure");
+        }
+      }
+    }
+
+    expect(await lane.evaluate("!!document.querySelector('.window')")).toBe(true);
+  } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
+}, 240_000);

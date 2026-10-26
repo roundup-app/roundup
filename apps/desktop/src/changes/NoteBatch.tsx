@@ -6,7 +6,7 @@ import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { ReservedLine } from "../ink/ReservedLine";
-import { Popover } from "../ui/Popover";
+import { Dialog } from "../ui/Dialog";
 import { useConnectedProject } from "../state/connectedProject";
 import { reply } from "./notes";
 import { NoteForm } from "./NoteForm";
@@ -123,20 +123,21 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   });
   const close = () => { props.onOpenChange(false); setEditing(undefined); };
 
-  const any = () => props.notes.entries().some(([id, value]) => (!props.available(id) && (value.notes.length || value.forms.length || value.submissions.length)) || value.submissions.some(submission => submission.status !== "pending") || value.recovered.length) || props.notes.problem();
+  const entries = () => props.notes.entries().filter(([, value]) => value.forms.length || value.notes.length || value.submissions.length || value.recovered.length);
+  const retained = () => entries().length > 0 || props.notes.invalid().length > 0 || !!props.notes.problem();
 
   createEffect(() => { if (!props.open) setEditing(undefined); });
-  createEffect(() => { if (!props.notes.entries().length && !props.notes.problem()) props.onOpenChange(false); });
 
-  return <Show when={any() || props.open}><Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open: next }) => { if (next) props.onOpenChange(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
-    <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
-    <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
-      <header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
+  return <Dialog.Root instant open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
+    <Dialog.Backdrop />
+    <Dialog.Positioner><Dialog.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
+      <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
+      <Show when={!retained()}><p>No drafts to recover</p></Show>
       <ReservedLine message={props.notes.problem()} />
       <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" data-button="quiet" onClick={() => clear(key)}>{copy.dismissFailure}</button></ReservedLine>}</For>
-      <div class="diff-actions"><CopyButton app={app} text={props.notes.copy()} identity={"all"} onSuccess={() => clear("all")} onFailure={error => setFailures(previous => new Map(previous).set("all", clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.notes.retry}>{copy.retry}</button></Show></div>
+      <Show when={retained()}><div class="diff-actions"><CopyButton app={app} text={props.notes.copy()} identity={"all"} onSuccess={() => clear("all")} onFailure={error => setFailures(previous => new Map(previous).set("all", clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.notes.retry}>{copy.retry}</button></Show></div></Show>
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
-      <For each={props.notes.entries()}>{([id, value]) => <section class="note-batch">
+      <For each={entries()}>{([id, value]) => <section class="note-batch">
         <h3>{copy.noteDraftStatus(props.name(id), value.submissions[0]?.status ?? copy.noteDraft)}</h3>
         <ReservedLine status={!props.available(id) ? copy.originalRecipientUnavailable : null} />
         <For each={value.forms}>{form => <div class="note-recovered-batch">
@@ -154,8 +155,8 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
         </div>}</For>
       </section>}</For>
       <For each={props.notes.invalid()}>{draft => <div><RecordPreview rows={draft.preview} /><div class="diff-actions"><CopyButton app={app} text={JSON.stringify(draft)} identity={draft.revision} onSuccess={() => clear(draft.revision)} onFailure={error => setFailures(previous => new Map(previous).set(draft.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><button type="button" data-button="quiet" onClick={() => props.notes.discardInvalid(draft.revision)}>{copy.discardDraft}</button></div></div>}</For>
-    </Popover.Content></Popover.Positioner>
-  </Popover.Root></Show>;
+    </Dialog.Content></Dialog.Positioner>
+  </Dialog.Root>;
 };
 
 /** Recovery uses the same path, range and text presentation as live notes. */

@@ -4,6 +4,9 @@ import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
+import { Tabs } from "../ui/Tabs";
+import { Field } from "../ui/Field";
+import { NumberInput } from "../ui/NumberInput";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
@@ -16,6 +19,7 @@ import { ShortcutSetting } from "./ShortcutSetting";
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
+  const [section, setSection] = createSignal("Agents");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
   const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();
@@ -89,7 +93,15 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   return <Show when={view.open()}>
     <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
-      <SettingsGroup name={copy.settingsAgents}>
+      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => setSection(focusedValue)} activationMode="automatic" orientation="vertical" class="settings-sections">
+        <Tabs.List aria-label={copy.settings}>
+          <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
+          <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
+          <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
+          <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
+        </Tabs.List>
+      <div class="settings-content">
+      <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
         <Select label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
@@ -103,22 +115,25 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>
         </Show>
         <ReservedLine message={offered()?.failure} />
-      </SettingsGroup>
-      <SettingsGroup name={copy.settingsTerminal}>
-        <label class="settings-field settings-font"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
+      </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Terminal"><SettingsGroup name={copy.settingsTerminal}>
+        <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></label>
-        <div class="settings-field"><label><span>{copy.fontSize}</span><input type="text" aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
+          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
+        <Field.Root class="settings-field" invalid={!!sizeFailure()}><Field.Label>{copy.fontSize}</Field.Label><NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+          if (Number.isFinite(valueAsNumber) && valueAsNumber >= MIN_FONT_SIZE && valueAsNumber <= MAX_FONT_SIZE) drafts.edit(destination("fontSize"), { text: value }, null, "ordinary");
+        }}><NumberInput.Input aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
           onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></label>
+          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></NumberInput.Root>
           <ReservedLine message={sizeFailure()} />
-        </div>
-      </SettingsGroup>
-      <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup>
-      <SettingsGroup name={copy.settingsAppearance}>
+        </Field.Root>
+      </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
-      </SettingsGroup>
+      </SettingsGroup></Tabs.Content>
+      </div></Tabs.Root>
       <ReservedLine message={failure()} />
       <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
     </SettingsShell>
