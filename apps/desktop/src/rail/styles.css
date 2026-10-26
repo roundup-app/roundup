@@ -439,15 +439,16 @@
 }
 
 .rail-clear {
+  box-sizing: border-box;
   padding: var(--space-3);
   border: 0;
   width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
-  max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-width: min(var(--shelf-width), var(--available-width));
 }
 
-/* OverlayScrollbars makes its viewport relative; the placed prompt must stay fixed. */
+/* Keep long reasons and failures reachable inside Ark’s available viewport. */
 .rail-clear .clear-prompt {
-  max-height: calc(100vh - 2 * var(--space-4) - 2 * var(--space-3));
+  max-height: calc(var(--available-height) - 2 * var(--space-3));
   overflow: auto;
   overscroll-behavior: contain;
 }
