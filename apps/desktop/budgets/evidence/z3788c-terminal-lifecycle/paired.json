@@ -30,5 +30,20 @@
     "diagnostic": ""
   },
   "mutation": "Removing observer disconnect, window listener removal and pending-frame cancellation makes both owner cleanup cases fail: retired fits=1 rather than 0. Restored before production implementation.",
-  "claims": "No Z3788a entry no-growth/409600 pass, no image memory or native timing claim."
+  "claims": "No Z3788a entry no-growth/409600 pass, no image memory or native timing claim.",
+  "merge_verification": {
+    "revision": "f2e5bd02ae3303cda1a82f447b615febf5af87c4",
+    "main": "e912a89447d29931fabbdd43b3f2d81d7b013cef",
+    "result": {
+      "exit": 0,
+      "entry": "assets/index-BEg5J6kB.js",
+      "files": [
+        "assets/index-BEg5J6kB.js"
+      ],
+      "raw": 1388238,
+      "gzip": 437698,
+      "ceiling": 437814,
+      "diagnostic": ""
+    }
+  }
 }
