@@ -1,3 +1,5 @@
+// Reuse: marked 16.4.2 (pinned; latest 18.1.1, modified 2026-10-12) renders GFM to HTML through the renderer overrides below.
+// Milkdown's remark-parse/remark-gfm stop at mdast: HTML needs mdast-util-to-hast plus a sanitizer, neither a direct dependency.
 import { Marked, type Tokens } from "marked";
 
 const safeTarget = /^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i;

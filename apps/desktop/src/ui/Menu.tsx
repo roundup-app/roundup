@@ -8,6 +8,7 @@ import { useEnvironmentContext } from "@ark-ui/solid/environment";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { createComputed, createContext, createMemo, createSignal, createUniqueId, on, onCleanup, splitProps, useContext } from "solid-js";
 import { floatingControl } from "./Dialog";
+import { trackSurface } from "./openSurfaces";
 import "./Menu.css";
 
 const Owner = createContext<{ setElement: (element: HTMLElement) => void; setContent: (element: HTMLElement) => void; request: () => void; returning: () => void }>();
@@ -27,6 +28,7 @@ export const Menu = {
     const [local, render, options] = splitProps(props, ["children", "initialFocus"], ["present", "onExitComplete", "onEnterComplete", "immediate", "lazyMount", "unmountOnExit"]);
     const [element, setElement] = createSignal<HTMLElement>();
     const control = floatingControl(props, element);
+    trackSurface(control.open);
     const [content, setContent] = createSignal<HTMLElement>();
     let initialFocus = captureFocus();
     let returnFocus = captureFocus();
