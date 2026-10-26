@@ -24,7 +24,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
     mkdirSync(videoDir, { recursive: true });
     await lane.browser("record", "start", join(videoDir, `screens${only.length ? "-" + only.join("-") : ""}.webm`));
 
-    for (const seed of (only.length ? [] : ["tree-40", "tabs-8", "first-run", "agents-10", "conflict"])) {
+    for (const seed of (only.length && !only.includes("settings") ? [] : ["tree-40", "tabs-8", "first-run", "agents-10", "conflict"])) {
       await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
       await lane.until("!!window.__fake && !!document.querySelector('.window')");
 
