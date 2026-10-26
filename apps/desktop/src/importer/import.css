@@ -169,3 +169,15 @@
 .import-candidate:focus-within button {
   opacity: 1;
 }
+
+.import-prompt {
+  width: 100%;
+  min-height: calc(var(--space-6) * 2);
+  box-sizing: border-box;
+  resize: vertical;
+  border: 0;
+  padding: var(--space-2);
+  background: var(--ground);
+  color: var(--text);
+  font: inherit;
+}
