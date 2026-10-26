@@ -1,0 +1,677 @@
+{
+  "numTotalTestSuites": 5,
+  "numPassedTestSuites": 5,
+  "numFailedTestSuites": 0,
+  "numTotalTests": 159,
+  "numPassedTests": 159,
+  "numFailedTests": 0,
+  "success": true,
+  "suites": [
+    {
+      "file": "apps/desktop/src/bubbles/p3557c_failure_lifetime.test.tsx",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close other-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close open",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close dismiss",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close other-save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close cancel-edit",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close failed-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close cancel-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close replace",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close successful-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: close navigate",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename other-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename open",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename dismiss",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename other-save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename cancel-edit",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename failed-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename cancel-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename replace",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename successful-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: rename navigate",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context other-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context open",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context dismiss",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context other-save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context cancel-edit",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context failed-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context cancel-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context replace",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context successful-delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles: context navigate",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_open: delete",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_open: save",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_open: dismiss",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_open: recover",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: dismiss",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: discard",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: copy",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: other-copy",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: other-discard",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_recovery: retention",
+          "status": "passed"
+        },
+        {
+          "name": "p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "apps/desktop/src/bubbles/u469_tabs.test.tsx",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "u469_tabs_show_one_bubble_and_toggle_the_shown_one_off",
+          "status": "passed"
+        },
+        {
+          "name": "u469_tabs_include_shown_and_minimised_terminals_in_start_order",
+          "status": "passed"
+        },
+        {
+          "name": "u469_selection_swaps_workstream_tabs_and_only_the_selected_agents_runs",
+          "status": "passed"
+        },
+        {
+          "name": "u469_tab_close_calls_once_without_toggling_or_restoring",
+          "status": "passed"
+        },
+        {
+          "name": "u469_failed_close_keeps_the_tab_bubble_and_visible_failure",
+          "status": "passed"
+        },
+        {
+          "name": "u469_close_returns_focus_to_a_remaining_control",
+          "status": "passed"
+        },
+        {
+          "name": "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_plus",
+          "status": "passed"
+        },
+        {
+          "name": "u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_chord",
+          "status": "passed"
+        },
+        {
+          "name": "u524_an_empty_project_opens_and_focuses_a_project_terminal_plus",
+          "status": "passed"
+        },
+        {
+          "name": "u524_a_project_terminal_is_available_after_reload",
+          "status": "passed"
+        },
+        {
+          "name": "u524_a_failed_empty_project_open_can_be_retried",
+          "status": "passed"
+        },
+        {
+          "name": "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_plus",
+          "status": "passed"
+        },
+        {
+          "name": "u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_chord",
+          "status": "passed"
+        },
+        {
+          "name": "u469_selection_and_reload_restore_at_most_one_bubble",
+          "status": "passed"
+        },
+        {
+          "name": "u469_minimise_keeps_the_terminal_running_and_its_saved_geometry",
+          "status": "passed"
+        },
+        {
+          "name": "u469_leader_keys_work_from_tabs_without_reaching_the_terminal",
+          "status": "passed"
+        },
+        {
+          "name": "u469_duplicate_names_close_only_the_matching_terminal",
+          "status": "passed"
+        },
+        {
+          "name": "u469_exit_updates_the_tab_and_keeps_the_last_screen",
+          "status": "passed"
+        },
+        {
+          "name": "u469_a_new_run_keeps_selection_focus_and_the_existing_shown_bubble",
+          "status": "passed"
+        },
+        {
+          "name": "u469_open_guards_and_failures_preserve_the_existing_bubble",
+          "status": "passed"
+        },
+        {
+          "name": "u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs",
+          "status": "passed"
+        },
+        {
+          "name": "u469_close_returns_focus_to_a_remaining_control_previous",
+          "status": "passed"
+        },
+        {
+          "name": "u469_close_returns_focus_to_a_remaining_control_plus",
+          "status": "passed"
+        },
+        {
+          "name": "u469_close_returns_focus_to_a_remaining_control_from_the_bubble",
+          "status": "passed"
+        },
+        {
+          "name": "u469_close_returns_focus_to_a_run_added_while_close_is_pending",
+          "status": "passed"
+        },
+        {
+          "name": "u469_a_late_open_keeps_the_new_workstreams_shown_bubble",
+          "status": "passed"
+        },
+        {
+          "name": "u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places",
+          "status": "passed"
+        },
+        {
+          "name": "u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it",
+          "status": "passed"
+        },
+        {
+          "name": "u3512a_terminal_alert_failure_keeps_the_terminal_for_retry",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "apps/desktop/src/state/u2773_storage.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid",
+          "status": "passed"
+        },
+        {
+          "name": "u3791a_local_write_recovers_once",
+          "status": "passed"
+        },
+        {
+          "name": "u3791a_read_recovers_once",
+          "status": "passed"
+        },
+        {
+          "name": "u3791a_local_remove_recovers_once",
+          "status": "passed"
+        },
+        {
+          "name": "u3791a_storage_second_failure_is_actionable",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_storage_restores_exact_work",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_settlement_preserves_other_revisions_acknowledged",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_settlement_preserves_other_revisions_failed",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_settlement_preserves_other_revisions_unknown",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_discard_consumes_only_selected_revision",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_pending_reopens_as_unknown_without_resubmission",
+          "status": "passed"
+        },
+        {
+          "name": "u3791a_retention_failure_keeps_revisions",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_memory_for_incompatible_surface",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_before_registration",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_after_registration",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_invalid_records_{broken",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_invalid_records_{\"version\":2,\"drafts\":[]}",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_invalid_records_{\"version\":1,\"drafts\":[{}]}",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_memory_on_unreadable_restore",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_failure_keeps_memory_at_utf8_bound",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_credentials_keep_existing_policy",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_storage_identity_separates_surface_object_recipient",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_retry_merges_external_records_without_reviving_discard",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_failed_retry_requires_explicit_submit",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_storage_restoration_writes_nothing",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_bound_counts_pending_revisions_across_surfaces",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_storage_bound_counts_failed_revisions_across_surfaces",
+          "status": "passed"
+        },
+        {
+          "name": "u2773b_storage_late_out_of_order_replies_keep_original_project",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_pending",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_failed",
+          "status": "passed"
+        },
+        {
+          "name": "u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_unknown",
+          "status": "passed"
+        },
+        {
+          "name": "u2773h_shared_consumers_observe_capacity",
+          "status": "passed"
+        },
+        {
+          "name": "u2773e_shared_project_credentials_stay_memory_only_across_replacement",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "apps/desktop/src/state/u3787f_storage.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "u3787f_store_migrates_all_key_families",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_interrupted_migration_preserves_both_stores",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_failed_migration_keeps_recovery",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_failed_migration_keeps_recovery_invalid_{broken",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_failed_migration_keeps_recovery_invalid_42",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_store_acknowledgement_waits_for_commit_and_retry_keeps_newer_memory",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_failed_migration_keeps_recovery_retry_never_rebases_an_older_write",
+          "status": "passed"
+        },
+        {
+          "name": "u3787f_failed_migration_keeps_recovery_unreadable_legacy",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "apps/desktop/src/state/u4086_storage_recovery.test.tsx",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:open-tab {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:open-tab {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:unseen:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:unseen:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:drafts:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:drafts:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:import:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:import:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:rail:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:rail:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:app-settings {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:app-settings null",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:widths:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:widths:/p null",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:shelf:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:shelf:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:terminal-font:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086a_invalid_legacy_record_has_retry_and_continue roundup:terminal-font:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:open-tab {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:open-tab {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:unseen:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:unseen:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:drafts:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:drafts:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:import:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:import:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:rail:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:rail:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:app-settings {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:app-settings null",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:widths:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:widths:/p null",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:shelf:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:shelf:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:terminal-font:/p {\"open\":",
+          "status": "passed"
+        },
+        {
+          "name": "u4086b_continue_quarantines_one_record_and_reopens roundup:terminal-font:/p {\"open\":\"yes\"}",
+          "status": "passed"
+        },
+        {
+          "name": "u4086c_quarantine_failure_and_interruption_preserve_recovery save",
+          "status": "passed"
+        },
+        {
+          "name": "u4086c_quarantine_failure_and_interruption_preserve_recovery read",
+          "status": "passed"
+        },
+        {
+          "name": "u4086c_quarantine_failure_and_interruption_preserve_recovery mismatch",
+          "status": "passed"
+        },
+        {
+          "name": "u4086c_quarantine_failure_and_interruption_preserve_recovery restart-read",
+          "status": "passed"
+        },
+        {
+          "name": "u4086c_quarantine_failure_and_interruption_preserve_recovery cleanup",
+          "status": "passed"
+        },
+        {
+          "name": "u4086d_recovery_is_per_record_and_never_clears_other_work",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}
