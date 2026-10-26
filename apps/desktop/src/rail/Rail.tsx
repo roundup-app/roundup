@@ -751,7 +751,6 @@ export const Rail = () => {
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
-        <button class="rail-terminal-new" type="button" data-button="quiet" disabled={daemonExit() !== null} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘T")?.run()}>{copy.newTerminal}</button>
         <button data-button="add"
           aria-label={copy.addWorkstream}
           class="word"
@@ -761,6 +760,7 @@ export const Rail = () => {
           }}
         >
           <Icon name="plus" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="plus" />{copy.addAgentWord}</button>
       </div>
     </>
   );
