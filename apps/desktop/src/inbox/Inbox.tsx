@@ -8,15 +8,11 @@ import { leaderChord } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
-import { TodoDrawer } from "../todos/TodoDrawer";
-import { useTodoList } from "../todos/todoList";
+import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
 import type { AgentRow, RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
 import "./inbox.styles.css";
-
-/** The Todo's Drawer, with the shared list the Shelf reads (U15); it lives while the Drawer does. */
-const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
 
 const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "todo.deleted"]);
 

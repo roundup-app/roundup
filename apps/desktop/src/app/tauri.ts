@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
+import { nativeOpenSchema, systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -92,6 +92,13 @@ export const createTauriApp = (): App => {
   const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
 
   const app: App = {
+    onNativeOpen: listener => guarded(async () => {
+      let active = true;
+      const channel = new Channel<unknown>(message => { if (active) listener(v.parse(nativeOpenSchema, message)); });
+      await command<void>("native_open", { channel });
+
+      return () => { active = false; };
+    }),
     onSystemAccent: listener => guarded(async () => {
       if (!/mac/i.test(navigator.platform)) {
         listener(null);

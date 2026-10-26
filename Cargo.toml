@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-exclude = ["vendor/global-hotkey-0.8.0", "crates/desktop/vendor/tauri-plugin-store-2.5.0", "crates/desktop/vendor/tauri-plugin-window-state-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
+exclude = ["crates/desktop/vendor/tauri-plugin-single-instance-2.5.4", "crates/desktop/vendor/tauri-plugin-deep-link-2.6.2", "vendor/global-hotkey-0.8.0", "crates/desktop/vendor/tauri-plugin-store-2.5.0", "crates/desktop/vendor/tauri-plugin-window-state-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
 
 [workspace.package]
 edition = "2024"
@@ -68,3 +68,9 @@ opt-level = 3
 # consumed 27.8% of sampled user CPU. Keep the real quota commits within 5 s.
 [profile.dev.package.libsqlite3-sys]
 opt-level = 3
+
+[patch.crates-io.tauri-plugin-single-instance]
+path = "crates/desktop/vendor/tauri-plugin-single-instance-2.5.4"
+
+[patch.crates-io.tauri-plugin-deep-link]
+path = "crates/desktop/vendor/tauri-plugin-deep-link-2.6.2"
