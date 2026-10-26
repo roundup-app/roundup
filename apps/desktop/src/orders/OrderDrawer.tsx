@@ -15,7 +15,10 @@ import { useConnectedProject } from "../state/connectedProject";
 import { WorkProgress } from "./WorkProgress";
 
 // R3800: eager Markdown made the production entry exceed its 437814-byte gzip budget.
-const Markdown = lazy(() => import("../plain/Markdown").then(module => ({ default: module.Markdown })));
+const LoadedMarkdown = lazy(() => import("../plain/Markdown").then(module => ({ default: module.Markdown })));
+
+const Markdown = (props: Parameters<typeof import("../plain/Markdown").Markdown>[0]) =>
+  <Suspense fallback={<div class={`markdown ${props.class ?? ""}`.trim()} ref={props.ref}>{props.body}</div>}><LoadedMarkdown {...props} /></Suspense>;
 
 type SpawnRead = { id: string; prompt: string | null; error: string | null };
 
@@ -47,7 +50,7 @@ const SessionId = (props: { id: string }) => {
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
 export const OrderDrawer = (props: OrderInput) =>
-  <Suspense><Show when={props.id} keyed>{(id) => <OrderContent {...props} id={id} />}</Show></Suspense>;
+  <Show when={props.id} keyed>{(id) => <OrderContent {...props} id={id} />}</Show>;
 
 const OrderContent = (props: OrderInput) => {
   const { rail, app, drafts, project } = useConnectedProject();
