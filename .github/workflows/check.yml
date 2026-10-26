@@ -190,6 +190,7 @@ jobs:
           node: 'false'
       - run: just clippy
       - name: Z4280a fresh desktop build
+        if: ${{ !cancelled() }}
         run: |
           fresh_target=$(mktemp -d "$RUNNER_TEMP/z4280a.XXXXXX")
           CARGO_TARGET_DIR="$fresh_target" cargo build --locked -p desktop 2>&1 | tee "$RUNNER_TEMP/z4280a-build.log"
