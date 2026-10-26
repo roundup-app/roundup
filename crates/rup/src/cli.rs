@@ -17,7 +17,7 @@ use crate::mcp::{self, CALL_TIMEOUT, Offered};
 mod help;
 
 pub use help::help_text;
-use help::{help, usage_error};
+use help::{example, first_sentence, help, usage_error};
 
 /// What a field of a tool's input schema holds.
 #[derive(Clone, Debug, PartialEq)]
@@ -245,11 +245,6 @@ fn terminal_write_fields(mut fields: Vec<Field>) -> Vec<Field> {
     fields
 }
 
-fn first_sentence(description: &str) -> &str {
-    let end = description.find(". ").unwrap_or(description.len());
-    description[..end].trim_end_matches('.')
-}
-
 fn specs(door: bool) -> Vec<Spec> {
     mcp::commands(door)
         .into_iter()
@@ -308,66 +303,6 @@ fn specs(door: bool) -> Vec<Spec> {
             }
         })
         .collect()
-}
-
-fn placeholder(field: &Field) -> String {
-    match &field.kind {
-        Kind::Text(choices) => choices
-            .first()
-            .cloned()
-            .unwrap_or_else(|| field.name.clone()),
-        _ => field.name.clone(),
-    }
-}
-
-/// What the user types before the arguments: `rup pad read`, or `rup events` for a stream.
-fn invocation(spec: &Spec) -> String {
-    if spec.stream {
-        format!("rup {}", spec.noun)
-    } else {
-        format!("rup {} {}", spec.noun, spec.verb)
-    }
-}
-
-/// The usage line: `rup pad read <name>`.
-fn usage(spec: &Spec) -> String {
-    let mut line = invocation(spec);
-    for field in &spec.fields {
-        let flag = field.flag();
-        let part = match (field.positional, field.required, &field.kind) {
-            (true, true, Kind::Array(_)) => format!(" <{}>...", flag.trim_end_matches('s')),
-            (true, true, _) => format!(" <{flag}>"),
-            (true, false, _) => format!(" [<{flag}>]"),
-            (false, true, Kind::Bool) => format!(" --{flag}"),
-            (false, false, Kind::Bool) => format!(" [--{flag}]"),
-            (false, true, Kind::Array(_)) => format!(" --{flag} <{flag}>..."),
-            (false, false, Kind::Array(_)) => format!(" [--{flag} <{flag}>]..."),
-            (false, true, _) => format!(" --{flag} <{}>", placeholder(field)),
-            (false, false, _) => format!(" [--{flag} <{}>]", placeholder(field)),
-        };
-        line.push_str(&part);
-    }
-    line
-}
-
-fn example(spec: &Spec) -> String {
-    if spec.stream {
-        return format!("{} --after 12 --follow --json", invocation(spec));
-    }
-    let mut line = invocation(spec);
-    for field in spec.fields.iter().filter(|f| f.positional) {
-        let sample = match (&field.kind, field.name.as_str()) {
-            (Kind::Array(_), "ids") => "3 4 --any".to_owned(),
-            (Kind::Int | Kind::Number, _) => "1".to_owned(),
-            (_, "id") => "3".to_owned(),
-            (_, "name") => "notes".to_owned(),
-            (Kind::Text(choices), _) if !choices.is_empty() => choices[0].clone(),
-            _ => "\"...\"".to_owned(),
-        };
-        line.push(' ');
-        line.push_str(&sample);
-    }
-    line
 }
 
 fn type_name(kind: &Kind) -> &'static str {
@@ -438,6 +373,31 @@ fn verb_command(spec: &Spec) -> Command {
     }
     command
 }
+
+/// CL4: what `rup help` prints.
+const WHO_MAY_RUN: &str = "\
+rup drives rupd, the roundup Daemon, from a shell or an MCP client.
+
+usage: rup [--as ext:<name>] [--json] <command>
+
+commands, and who may run each (User: a shell outside every Agent; Ext: --as ext:<name>):
+  ping        show which Daemon answered
+              User: yes   Ext: yes
+  mcp         serve the roundup tools over MCP on stdio (rup mcp <agent-id> for an Agent)
+              User: yes   Ext: yes
+  signal      an Agent's hook (rup signal <agent-id>)
+              User: no    Ext: no
+  context     an Agent's hook (rup context <agent-id>)
+              User: no    Ext: no
+  help        print this text
+
+options, before the command:
+  --as ext:<name>  act as the Ext Actor ext:<name> (1 to 64 of a-z 0-9 - _), so calls are Touches under that name
+  --json           with ping, print {actor, socket, result}, who rup acted as included
+
+RUPD_SOCKET names the Daemon's socket; unset, rup uses ~/.roundup/rupd.sock.
+`rup ping` shows which Daemon answered.
+";
 
 const NAMES_HELP: &str = "Human-readable command output names Agents by Rail name. IDs remain command arguments and machine fields in --json.";
 
