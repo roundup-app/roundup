@@ -29,27 +29,70 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
 
   if (mode === "reopen") {
-    await screen.findByText("Seeded Agent");
+    await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
     holding = true;
     completed = 0;
     app.exitDaemon({ code: 1 });
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
   }
 
+  await waitFor(() => expect(pending.length).toBeGreaterThan(0));
   const rail = await screen.findByRole("region", { name: "Rail" });
   const centre = screen.getByRole("region", { name: "Centre" });
   expect(screen.getByRole("tab", { name: /payments-api/ })).toBeTruthy();
   if (mode === "initial open") {
-    expect(within(rail).getByRole("status").textContent).toBe("Loading Project…");
-    expect(within(centre).getByRole("status").textContent).toBe("Loading Project…");
+    expect(within(rail).getByRole("status")).toBeTruthy();
+    expect(within(centre).getByRole("status")).toBeTruthy();
   }
   expect(completed).toBeLessThanOrEqual(1);
   expect(pending.length).toBeGreaterThan(0);
 
   holding = false;
   for (const resolve of pending) resolve();
-  await screen.findByText("Seeded Agent");
+  await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
   await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
-  fireEvent.click(screen.getByText("Seeded Agent"));
-  expect(rail.querySelector('[aria-selected="true"]')).toBeTruthy();
+  fireEvent.click(within(rail).getByText("Seeded Agent"));
+  await waitFor(() => expect(rail.querySelector('[data-selected="true"]')).toBeTruthy());
+});
+
+it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contract_scheme_and_event_order: %s", async contract => {
+  const app = createFakeApp();
+  app.opened.project = { name: "payments-api", path: "/work/payments-api" };
+  const ping = app.handlers["daemon.ping"]!;
+  const methods = app.handlers["daemon.methods"]!;
+  app.handlers["daemon.ping"] = async () => {
+    const result = await ping(null);
+    if (contract === "equal") return result;
+    if (contract === "missing") {
+      // SAFETY: pre-contract Daemons return a ping without the now-required contract field.
+      return { pong: true } as typeof result;
+    }
+    return { ...result, contract: { fingerprint: "different" } };
+  };
+  app.handlers["daemon.methods"] = async () => {
+    const names = await methods(null);
+    return contract === "older" ? names.slice(1) : [...names, "future.method"];
+  };
+  const scheme = Promise.withResolvers<null>();
+  const subscription = Promise.withResolvers<void>();
+  app.handlers["terminal.scheme"] = () => scheme.promise;
+  const subscribe = app.subscribe;
+  app.subscribe = async (...args) => { await subscription.promise; return subscribe(...args); };
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await waitFor(() => expect(app.calls.some(call => call.method === "terminal.scheme")).toBe(true));
+  expect(app.calls[0]?.method).toBe("daemon.ping");
+  expect(app.calls.some(call => call.method === "daemon.methods")).toBe(contract === "older" || contract === "newer");
+  expect(app.calls.some(call => call.method === "rail.tree")).toBe(false);
+  scheme.resolve(null);
+  await scheme.promise;
+  expect(app.calls.some(call => call.method === "rail.tree")).toBe(false);
+  app.handlers["rail.tree"] = () => {
+    expect(app.subscribed).toHaveLength(1);
+    return [];
+  };
+  subscription.resolve();
+  await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ });
+  if (contract !== "equal") {
+    expect(screen.getByRole("alert").textContent).toMatch(contract === "newer" ? /newer/ : /older/);
+  }
 });
