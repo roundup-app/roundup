@@ -803,7 +803,8 @@ async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
 
 #[tokio::test]
 async fn u3523b_moved_deleted_and_hashed_sessions_import_and_resume() {
-    use crate::vendor_list_tests::{executable, git, package, real_node, session};
+    use crate::vendor_list_tests::{executable, package, real_node};
+    use notify::Watcher;
     let (root, _launcher, daemon, _, seed) = import_fixture(0).await;
     let seeded = import_rpc(
         &daemon,
@@ -817,46 +818,17 @@ async fn u3523b_moved_deleted_and_hashed_sessions_import_and_resume() {
         .to_owned();
     let project = root.path().join("project");
     let config = root.path().join("config");
-    let sub = project.join("sub");
-    let long = project.join("long".repeat(55));
-    std::fs::create_dir(&sub).unwrap();
-    std::fs::create_dir(&long).unwrap();
-    let removed = root.path().join("removed-worktree");
-    git(
-        &project,
-        &["worktree", "add", "--detach", removed.to_str().unwrap()],
-    );
-    let moved = session(&config, &project, 2, &[&project, &sub], false);
-    let deleted = session(&config, &removed, 3, &[&removed, &project], false);
-    std::fs::remove_dir_all(&removed).unwrap();
-    let live = session(&config, &long, 4, &[&long], false);
-    let unshortened: String = long
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let hash = long
-        .to_string_lossy()
-        .chars()
-        .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
-        .unsigned_abs();
-    let mut digits = Vec::new();
-    let mut value = hash;
-    while value > 0 {
-        digits.push(char::from_digit(value % 36, 36).unwrap());
-        value /= 36;
-    }
-    let bucket = format!(
-        "{}-{}",
-        &unshortened[..200],
-        digits.into_iter().rev().collect::<String>()
-    );
-    std::fs::rename(
-        config.join("projects").join(&unshortened),
-        config.join("projects").join(bucket),
-    )
-    .unwrap();
+    let (long, [moved, deleted, live], originals) =
+        fixtures::journey_sources(root.path(), &project, &config);
     let journal = root.path().join("continued");
+    let (events, mut changes) = tokio::sync::mpsc::unbounded_channel();
+    let mut watcher = notify::recommended_watcher(move |event| {
+        let _ = events.send(event);
+    })
+    .unwrap();
+    watcher
+        .watch(root.path(), notify::RecursiveMode::NonRecursive)
+        .unwrap();
     let cli = root.path().join("fake-claude");
     executable(
         &cli,
@@ -913,7 +885,7 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
                 .as_array()
                 .unwrap()
                 .iter()
-                .find(|n| n["terminal_id"].is_string())
+                .find(|n| n["attempt"].is_string() && journal.exists())
             {
                 let reply = import_rpc(&daemon,"agent.signal",json!({"id":node["id"],"attempt":node["attempt"],"payload":{"hook_event_name":"SessionStart","source":"resume","session_id":live}})).await;
                 assert!(
@@ -928,7 +900,7 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
                     (&mut commit).await
                 );
             }
-            tokio::time::sleep(Duration::from_millis(5)).await;
+            changes.recv().await.unwrap().unwrap();
         }
     };
     tokio::time::timeout(Duration::from_secs(5), ack)
@@ -939,6 +911,19 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
     assert_eq!(outcomes.len(), 3, "{reply}");
     for outcome in outcomes {
         assert!(outcome["error"].is_null(), "{reply}");
+    }
+    for field in ["agent", "workstream"] {
+        assert_eq!(
+            outcomes
+                .iter()
+                .map(|o| o[field].as_str().unwrap())
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            3
+        );
+    }
+    for (path, bytes) in &originals {
+        assert_eq!(&std::fs::read(path).unwrap(), bytes);
     }
     let imported = outcomes.iter().find(|p| p["source"] == live).unwrap()["agent"]
         .as_str()
@@ -955,26 +940,35 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
         assert!(node["attempt"].is_null());
         assert!(node["overview"]["id"].is_string());
     }
-    let prompt = import_rpc(
-        &daemon,
-        "agent.prompt",
-        json!({"id":imported,"text":"continue the imported work"}),
-    )
-    .await;
-    assert!(prompt["error"].is_null(), "{prompt}");
+    let prompt = {
+        let daemon = daemon.clone();
+        let id = imported.to_owned();
+        tokio::spawn(async move {
+            import_rpc(
+                &daemon,
+                "agent.prompt",
+                json!({"id":id,"text":"continue the imported work"}),
+            )
+            .await
+        })
+    };
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if std::fs::read_to_string(&journal)
                 .unwrap_or_default()
-                .contains("prompt continue the imported work")
+                .contains("continue the imported work")
             {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(5)).await;
+            changes.recv().await.unwrap().unwrap();
         }
     })
     .await
     .unwrap();
+    let submitted = import_rpc(&daemon,"agent.signal",json!({"id":imported,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt":"continue the imported work"}})).await;
+    assert!(submitted["error"].is_null(), "{submitted}");
+    let prompt = prompt.await.unwrap();
+    assert!(prompt["error"].is_null(), "{prompt}");
     let launches = std::fs::read_to_string(&journal).unwrap();
     assert!(launches.contains(&format!("--resume {live}")), "{launches}");
     assert!(

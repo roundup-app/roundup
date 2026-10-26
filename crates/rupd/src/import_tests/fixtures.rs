@@ -113,3 +113,63 @@ pub(crate) async fn import_fixture(
     let selection = json!({"source":candidates[0]["source"], "revision":candidates[0]["revision"]});
     (root, launcher, daemon, original, selection)
 }
+
+type Originals = Vec<(PathBuf, Vec<u8>)>;
+
+// Construct the SDK's observed layout only; this is never production path encoding.
+pub(super) fn journey_sources(
+    root: &Path,
+    project: &Path,
+    config: &Path,
+) -> (PathBuf, [String; 3], Originals) {
+    use crate::vendor_list_tests::{git, session};
+    let sub = project.join("sub");
+    let long = project.join("long".repeat(55));
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::create_dir(&long).unwrap();
+    let removed = root.join("removed-worktree");
+    git(
+        project,
+        &["worktree", "add", "--detach", removed.to_str().unwrap()],
+    );
+    let moved = session(config, project, 2, &[project, &sub], false);
+    let deleted = session(config, &removed, 3, &[&removed, project], false);
+    std::fs::remove_dir_all(&removed).unwrap();
+    let live = session(config, &long, 4, &[&long], false);
+    let unshortened: String = long
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let hash = long
+        .to_string_lossy()
+        .chars()
+        .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
+        .unsigned_abs();
+    let mut digits = Vec::new();
+    let mut value = hash;
+    while value > 0 {
+        digits.push(char::from_digit(value % 36, 36).unwrap());
+        value /= 36;
+    }
+    let bucket = format!(
+        "{}-{}",
+        &unshortened[..200],
+        digits.into_iter().rev().collect::<String>()
+    );
+    std::fs::rename(
+        config.join("projects").join(&unshortened),
+        config.join("projects").join(bucket),
+    )
+    .unwrap();
+    let originals = std::fs::read_dir(config.join("projects"))
+        .unwrap()
+        .flat_map(|bucket| std::fs::read_dir(bucket.unwrap().path()).unwrap())
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            let bytes = std::fs::read(&path).unwrap();
+            (path, bytes)
+        })
+        .collect();
+    (long, [moved, deleted, live], originals)
+}
