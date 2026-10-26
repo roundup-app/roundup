@@ -3911,6 +3911,7 @@ dependencies = [
  "getrandom 0.3.4",
  "memchr",
  "messages",
+ "notify",
  "pads",
  "percent-encoding",
  "provenance",
