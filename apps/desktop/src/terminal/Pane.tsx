@@ -2,7 +2,6 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
-import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
@@ -30,7 +29,8 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-// The production entry exceeded its 437814-byte gzip budget; load measurements when opened.
+// The production entry exceeded its 437814-byte gzip budget; load optional views when opened.
+const TimelineView = lazy(() => import("../timeline/TimelineView").then(module => ({ default: module.TimelineView })));
 const MeasurementDashboard = lazy(() => import("./MeasurementDashboard").then(module => ({ default: module.MeasurementDashboard })));
 
 export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
