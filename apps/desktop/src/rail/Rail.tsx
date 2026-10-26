@@ -11,7 +11,7 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { CHORDS } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
+import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { Popover } from "../ui/Popover";
@@ -751,6 +751,7 @@ export const Rail = (props: { requested?: boolean }) => {
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
+        <button type="button" data-button="add" class="rail-terminal-new" onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘T")?.run()} aria-label={copy.newTerminal}><Icon name="plus" />{copy.newTerminal}</button>
         <button data-button="add"
           aria-label={copy.addWorkstream}
           class="word"

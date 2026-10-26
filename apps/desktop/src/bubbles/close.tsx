@@ -40,7 +40,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       if (controlHadFocus) queueMicrotask(() => focus(() => {
         const remaining = shown();
         const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
-        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
+        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new, .rail-terminal-new') ?? document.querySelector<HTMLElement>('.pane-screen textarea, .pane-screen [tabindex], .pane-navigation button') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
         control?.focus();
       }));
     } catch (thrown) {

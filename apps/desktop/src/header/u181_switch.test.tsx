@@ -21,19 +21,6 @@ describe("u181 clicking a tab", () => {
     expect(tab("api").getAttribute("aria-selected")).toBe("true");
   });
 
-  it("u181_each_project_keeps_its_own_selection", async () => {
-    await openTabs({ api: [agent("a1", "idle", "x"), agent("a2", "idle", "x")], web: [agent("w1", "idle", "x")] });
-
-    fireEvent.click(tab("api"));
-    await waitFor(() => expect(names()).toContain("a1"));
-    fireEvent.click(document.querySelector('[data-id="a2"]')!);
-    fireEvent.click(tab("web"));
-    await waitFor(() => expect(names()).toContain("w1"));
-    fireEvent.click(tab("api"));
-
-    await waitFor(() => expect(rowSelected("a2")).toBe("true"));
-  });
-
   it("u181_a_click_on_the_open_tab_changes_nothing", async () => {
     const { app } = await openTabs({ api: [], web: [agent("w1", "idle", "x")] });
     const before = app.of(path("web")).calls.length;
@@ -109,8 +96,22 @@ describe("u181 clicking a tab", () => {
 
 it("u4274a_project_tabs_mount_in_window_bar", async () => {
   await openTabs({ empty: [] });
-  const tabs = screen.getByRole("tablist", { name: "Projects" });
+  const tabs = document.querySelector<HTMLElement>('[role="tablist"][aria-label="Projects"]')!;
   expect(tabs.closest(".window-bar")).not.toBeNull();
   expect(tabs.querySelectorAll('[role="tab"]')).toHaveLength(1);
   expect(document.querySelectorAll('[role="tablist"][aria-label="Projects"]')).toHaveLength(1);
+});
+
+it("u4274a_window_bar_tabs_switch_projects", async () => {
+  await openTabs(Object.fromEntries(Array.from({ length: 8 }, (_, n) => [`p${n}`, [agent(`a${n}`, "idle", "ready")]])));
+
+  for (let n = 0; n < 8; n++) {
+    fireEvent.click(tab(`p${n}`));
+    await waitFor(() => expect(names()).toContain(`a${n}`));
+    fireEvent.click(document.querySelector(`[data-id="a${n}"]`)!);
+  }
+
+  fireEvent.click(tab("p0"));
+  await waitFor(() => expect(rowSelected("a0")).toBe("true"));
+  expect(document.querySelector('.window-bar [role="tablist"][aria-label="Projects"]')).not.toBeNull();
 });
