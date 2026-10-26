@@ -29,6 +29,7 @@ const setup = async () => {
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('[data-todo-root]').click();
   }`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
   await page.call(`() => {
     document.querySelector('[data-todo-root]').click();
     document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();

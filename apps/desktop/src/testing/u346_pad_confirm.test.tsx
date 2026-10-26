@@ -41,7 +41,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     const { showEverythingInApp } = await import("./showEverything");
 
     await showEverythingInApp(/review/);
-    fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Pads/ }));
     const field = await openPad("notes");
 
     await served.rpc("pad.append", { name: "notes", text: " remote" });

@@ -34,7 +34,7 @@ it("u465_heads_keep_tab_roles_and_panel_links", async () => {
 
     expect(tabs[selected]!.getAttribute("aria-controls")).toBe(panel.id);
     expect(tabs.map(tab => tab.tabIndex)).toEqual(selected === 0 ? [0, -1] : [-1, 0]);
-    expect(panel.querySelector(`section[aria-label="${selected === 0 ? "Todos" : "Pads"}"]`)).not.toBeNull();
+    await waitFor(() => expect(panel.querySelector(`section[aria-label="${selected === 0 ? "Todos" : "Pads"}"]`)).not.toBeNull());
     expect(tabs[selected]!.querySelectorAll("button, [tabindex]")).toHaveLength(0);
   }
 });
