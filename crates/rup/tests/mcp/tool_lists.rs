@@ -199,10 +199,8 @@ pub const NO_TOOL: [&str; 73] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
-    // App appearance state has no Agent tool (U134).
-    "system_accent",
-    "plugin:window-bar|native_material",
     // U3787f: only the user opens and controls the native Capture presentation.
+    "system_accent", // App appearance preference, no Agent tool.
     "plugin:capture-panel|control",
     // U3560a: only the user writes the native pasteboard.
     "plugin:clipboard-manager|write_text",
