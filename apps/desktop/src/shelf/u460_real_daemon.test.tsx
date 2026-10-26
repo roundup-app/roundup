@@ -6,7 +6,7 @@ import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon } from "../testing/realDaemonFixture";

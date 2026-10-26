@@ -72,7 +72,7 @@ const capture = async (step: string) => {
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
 
 it("u511a_click_away_commits_without_swallowing_the_click", async () => {
-  await browser("open", new URL('/harness.html?seed=bubbles', origin).href);
+  await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
   await until(`!!window.__fake`);
   await browser("click", '[data-id="runner"]');
   await until(`!!document.querySelector('.terminal-tab-name')`);
@@ -103,7 +103,7 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
 
     expect(original.id).toBe(replacement.id);
     expect(original.incarnation).not.toBe(replacement.incarnation);
-    await browser("open", `${first.base}/harness.html?daemon=1`);
+    await browser("open", `${first.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await until(`!!document.querySelector('.terminal-tab-name')`);
     const before = await read<unknown[]>(`window.__checks()`);
 
@@ -119,27 +119,28 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     await capture("restored-terminal-name");
     expect(await read<string>(`document.activeElement.value`)).toBe('  exact é 🫧  ');
     expect(await read<unknown[]>(`[document.activeElement.selectionStart,document.activeElement.selectionEnd,document.activeElement.selectionDirection]`)).toEqual([2,5,"backward"]);
+    const retainedName = await read<string>(`document.activeElement.value`);
     await key("Escape");
     await until(`!document.querySelector('.terminal-tab-editor input')`);
-    await browser("open", `${second.base}/harness.html?daemon=1`);
+    await browser("open", `${second.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await until(`!!document.querySelector('.terminal-tab-name')`);
     await edit();
     expect(await read<string>(`document.activeElement.value`)).not.toBe('  exact é 🫧  ');
     await key("Escape");
-    await browser("open", `${first.base}/harness.html?daemon=1`);
+    await browser("open", `${first.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await until(`!!document.querySelector('.terminal-tab-name')`);
     await app.rpc("terminal.close", { id: original.id });
     await until(`!document.querySelector('.terminal-tab-name')`);
     await browser("click", '[aria-label="Recover unfinished work · Terminal name"]');
     await until(`document.querySelector('[role="dialog"]')?.textContent.includes('Original object unavailable')`);
-    expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe('  exact é 🫧  ');
+    expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe(retainedName);
     const after = await read<unknown[]>(`window.__checks()`);
 
     expect(await app.rpc("terminal.list", null)).not.toContainEqual(expect.objectContaining({ running: true }));
     await capture("unavailable-original");
     // Retain rendered readings for the run log, never assert layout in behavioral tests.
     process.stdout.write(`${JSON.stringify({ before, after })}\n`);
-    await browser("open", new URL('/harness.html?seed=tree-40', origin).href);
+    await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40', origin).href);
     await until(`document.querySelectorAll('.rail-row').length > 2`);
     const denseBefore = await read<unknown[]>(`window.__checks()`);
 

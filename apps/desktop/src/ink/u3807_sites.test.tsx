@@ -196,12 +196,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async 
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", async () => {
-  const { app, connected } = await mountControl(() => ({ files: [] }));
-  fireEvent.click(within(document.body).getByRole("button", { name: "roundup/a" }));
+  const { app, connected } = await mountControl();
+  fireEvent.click(within(document.body).getByRole("button", { name: /\d+ changed files?/ }));
   const surface = await within(document.body).findByRole("dialog", { name: "Worktree" });
-  await within(surface).findByText("No changes");
+  await waitFor(() => { if (!surface.querySelector("file-tree-container")) throw new Error("Changed files pending"); });
   const original = app.handlers["agent.worktreeState"]!;
-  await cycle(surface,
+  await cycle(document.body,
     async () => { app.handlers["agent.worktreeState"] = () => { throw new RpcError(-32003, FAILURE); };
 
  await connected.worktrees.refresh("a"); },

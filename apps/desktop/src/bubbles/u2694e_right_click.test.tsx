@@ -1,6 +1,6 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import { node, workstream, info } from "../testing/nodes";

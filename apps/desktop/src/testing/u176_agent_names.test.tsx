@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
@@ -104,7 +104,7 @@ describe("u2773 Rail task destinations", () => {
   };
 
   const switchTo = async (name: string) => {
-    fireEvent.click(screen.getByRole("tab", { name }));
+    fireEvent.click(await screen.findByRole("tab", { name }));
     await waitFor(() => expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true"));
     await screen.findByRole("region", { name: "Rail" });
   };
@@ -260,7 +260,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
 
       const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
       const text = ` exact ${index}\ne\u0301 😀 `;
-      const url = `${real.base}/harness.html?daemon=1`;
+      const url = `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`;
       const field = 'document.querySelector("textarea[aria-label=Task]")';
       const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
       await lane.browser("open", url);

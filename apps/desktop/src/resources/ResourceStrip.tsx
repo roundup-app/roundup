@@ -8,7 +8,6 @@ import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { HintLine } from "../keys/HintLine";
 import "./styles.css";
 
 /** U408: how often `project.resources` is called while the strip is shown. */
@@ -40,8 +39,8 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
 );
 
 /** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
-export const ResourceStrip = () => {
-  const { app, rail, daemonExit } = useConnectedProject();
+export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined }) => {
+  const { app, rail, daemonExit, hasView, hideView } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
   const [failed, setFailed] = createSignal(false);
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
@@ -49,10 +48,10 @@ export const ResourceStrip = () => {
   const own = createMemo(() => {
     const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-    return node?.id ?? null;
+    return node?.kind === "agent" || node?.kind === "workstream" && node.attempt !== null ? node.id : null;
   });
 
-  const live = () => visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
+  const live = () => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
 
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
 
@@ -113,17 +112,15 @@ export const ResourceStrip = () => {
     return id === null ? undefined : result()?.agents.find((entry) => entry.id === id);
   };
 
-  return (
-    <div class="resource-strip" data-flat-bar="" aria-live="off" aria-hidden="false">
-      <HintLine />
-      {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
-      <span class="resource-agent">
-        <WorktreeControl />
-        <Show when={own() !== null}>
-          <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
-        </Show>
-      </span>
+  return (<>
+    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources}>
+      <div class="resource-values"><Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} /></div>
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
+      <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
+    </section></Show>
+    <div class="resource-strip" aria-live="off">
+      <WorktreeControl returnFocus={props.returnFocus} />
     </div>
-  );
+    <span class="resource-agent" />
+  </>);
 };

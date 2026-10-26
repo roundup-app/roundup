@@ -36,7 +36,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   let returnTo: HTMLElement | null = null;
   const tablist = () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined;
   const selectedTab = () => tablist()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-  const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf button:not([disabled]), .shelf [tabindex="0"], .shelf input:not([disabled])');
+  const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf-controls button:not([disabled]), .shelf [role=tabpanel] [tabindex="0"], .shelf [role=tabpanel] input:not([disabled])');
 
   const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();

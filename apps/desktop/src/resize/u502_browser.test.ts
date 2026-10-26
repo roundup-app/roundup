@@ -35,7 +35,7 @@ const EDGES = { rail: { label: "Resize Rail", panel: ".rail", min: 252, max: 480
 type Edge = (typeof EDGES)[keyof typeof EDGES];
 
 const load = async (width: number) => {
-  await page.load("/harness.html?seed=tree-40", width, 800);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, 800);
   await page.until(`() => Boolean(document.querySelector('.rail-actions button')) && Boolean(document.querySelector('[aria-label="Resize work items"]'))`);
   // Count each committed write of the saved widths, the one place a commit leaves a trace.
   await page.call(`() => { window.__commits = 0; const set = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (String(key).startsWith('roundup:widths:')) window.__commits += 1; return set.call(this, key, value); }; }`);
@@ -109,7 +109,7 @@ run("u502 resize edges use Ark Splitter", () => {
     await settled(EDGES.rail, 288);
     await page.press("ArrowRight", "ArrowRight");
     await settled(EDGES.rail, 304);
-    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('[aria-label="Resize Rail"]'))`);
     await settled(EDGES.rail, 304);
   });

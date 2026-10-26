@@ -11,10 +11,10 @@ export const EmptyRail = () => (
 );
 
 export const ChooseProject = (props: { failure: string | null; onChoose: () => void; onRetry?: (() => void) | undefined }) => (
-  <>
+  <div class="choose-project">
     <ReservedLine message={props.failure} status={copy.openAFolderToStart}><Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show></ReservedLine>
     <button data-button="quiet" type="button" class="word" onClick={() => props.onChoose()}>{copy.chooseFolder}</button>
-  </>
+  </div>
 );
 
 export const EmptyShelf = () => (

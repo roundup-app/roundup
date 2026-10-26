@@ -10,7 +10,8 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 
 | Webview calls (Tauri command) | Arguments | Result |
 |---|---|---|
-| `select_project_menu` | `{path: string or null}` | `null`; the webview synchronizes its selected Project whenever tabs change; native Project commands stay present and disabled for null (U3813). Starts no Daemon and sends no prompt. |
+| `select_project_menu` | `{path: string or null, items?: MenuItem[]}` | `null`; items project the shortcut registry labels, chords and availability plus requested surfaces; native activation emits the selected path and command id. The webview rechecks the captured action against the active Project. The webview synchronizes its selected Project whenever tabs change; native Project commands stay present and disabled for null (U3813). Starts no Daemon and sends no prompt. |
+| `plugin:window-bar\|native_material` | none | `boolean`; whether native material is currently applied (U134); the `native-material` event reports later changes (U135) |
 | `projects` | none | `[{name, path, running}]`, the open Projects in tab order (S8) |
 | `open_project` | `{path}` (absolute) | `{name, path}`; the Project joins the end of `projects` (S8) |
 | `close_project` | `{path}` | `null`; the Project's Daemon ends (S8) |

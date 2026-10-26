@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
