@@ -1,0 +1,3 @@
+import { mergeConfig } from "vite";
+import base from "./vite.config";
+export default mergeConfig(base, { build: { outDir: process.env.Z3788D_BUILD_DIR, emptyOutDir: true, rollupOptions: { input: "z3788d-observer.html" } } });

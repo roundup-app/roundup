@@ -4,7 +4,7 @@ archive=out;out.mkdir(exist_ok=True)
 reports=[];failure=[];selection_failures=[]
 for length in [40,400,4000]:
  try:
-  raw=gzip.decompress(b''.join(p.read_bytes() for p in sorted(archive.glob(f'{length}-trace.json.gz.part-*'))))
+  raw=gzip.decompress(b''.join(gzip.decompress(p.read_bytes()) for p in sorted(archive.glob(f'{length}-trace.json.gz.part-*.gz'))))
   rows=json.loads((archive/f'{length}-samples.json').read_text());es=json.loads(raw)['traceEvents']
   if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
   starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']

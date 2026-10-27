@@ -54,12 +54,17 @@ const Root = (props: {
 
   let list: HTMLDivElement | undefined;
   const destinations = createMemo(() => props.items.filter(item => !props.group?.(item)));
+
   // Z3788d baseline 40507415273: 4,000 destinations spend 21.520 ms p95 in layout alone.
   const virtual = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     get count() { return props.virtualized ? destinations().length : 0; },
     getScrollElement: () => list ?? null,
     estimateSize: () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24,
-    getItemKey: index => destinations()[index]!.value,
+    get getItemKey() {
+      const items = destinations();
+
+      return (index: number) => items[index]!.value;
+    },
     overscan: 8,
     rangeExtractor: range => {
       const indexes = defaultRangeExtractor(range);
@@ -68,6 +73,7 @@ const Root = (props: {
       return active < 0 || indexes.includes(active) ? indexes : [...indexes, active].sort((a, b) => a - b);
     },
   });
+
   const reveal = (value: string) => {
     if (!props.virtualized) return;
     const index = destinations().findIndex(item => item.value === value);

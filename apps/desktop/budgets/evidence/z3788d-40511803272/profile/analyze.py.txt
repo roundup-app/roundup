@@ -1,0 +1,24 @@
+import json,collections,pathlib,hashlib,gzip
+root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-40511803272/profile'
+p=root/'artifacts/ux/Z3788d/profile/4000-trace.json';raw=p.read_bytes();events=json.loads(raw)['traceEvents'];nodes={};samples=collections.Counter()
+for e in events:
+ data=e.get('args',{}).get('data',{})
+ if 'cpuProfile' in data:
+  for n in data['cpuProfile'].get('nodes',[]):nodes[n['id']]=n
+  samples.update(data['cpuProfile'].get('samples',[]))
+inclusive=collections.Counter()
+for i,num in samples.items():
+ seen=set()
+ while i in nodes and i not in seen:
+  seen.add(i);inclusive[i]+=num;i=nodes[i].get('parent')
+report={}
+for counter,title in [(samples,'self'),(inclusive,'inclusive')]:
+ report[title]=[dict(samples=num,**nodes.get(i,{}).get('callFrame',{})) for i,num in counter.most_common()]
+report['note']='Separate 30-edit diagnostic, overlapped just ready and the broad related suite. Inclusive counts overlap. No latency or budget claim.'
+report['fullTraceSha256']=hashlib.sha256(raw).hexdigest()
+(out/'cpu.json').write_text(json.dumps(report,indent=2))
+compressed=gzip.compress(raw,mtime=0)
+for i,start in enumerate(range(0,len(compressed),700000)):
+ (out/f'4000-trace.json.gz.part-{i:03d}.gz').write_bytes(gzip.compress(compressed[start:start+700000],mtime=0))
+(out/'analyze.py.txt').write_bytes(pathlib.Path(__file__).read_bytes());(out/'observe.py.txt').write_bytes(pathlib.Path('/tmp/4421-profile.py').read_bytes())
+print(json.dumps({k:v[:12] if isinstance(v,list) else v for k,v in report.items()},indent=2))

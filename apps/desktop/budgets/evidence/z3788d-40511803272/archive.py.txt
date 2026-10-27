@@ -1,0 +1,7 @@
+import pathlib,gzip,hashlib,json,sys
+phase=sys.argv[1];root=pathlib.Path.cwd();out=root/f'apps/desktop/budgets/evidence/z3788d-40511803272/{phase}';out.mkdir(exist_ok=True,parents=True)
+for p in pathlib.Path(f'/tmp/4421-traces/{phase}').glob('*-trace.json'):
+ raw=p.read_bytes();packed=gzip.compress(raw,mtime=0)
+ for i,start in enumerate(range(0,len(packed),700000)):
+  (out/f'{p.name}.gz.part-{i:03d}.gz').write_bytes(gzip.compress(packed[start:start+700000],mtime=0))
+ print(p.name,len(raw),hashlib.sha256(raw).hexdigest())

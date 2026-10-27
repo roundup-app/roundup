@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
+import * as v from "valibot";
 import { Combobox } from "../ui/Combobox";
 import { agent, info, workstream } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
@@ -18,16 +19,21 @@ const type = (text: string) => fireEvent.input(field()!, { target: { value: text
 
 it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   // jsdom has no scroll viewport; supply the browser's scroll metrics and event.
-  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
   vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(504);
   vi.spyOn(Element.prototype, "scrollTo").mockImplementation(function (this: Element, options: ScrollToOptions | number) {
-    if (typeof options !== "object") return;
-    this.scrollTop = options.top ?? 0;
+    const parsed = v.safeParse(v.object({ top: v.optional(v.number()) }), options);
+
+    if (!parsed.success) return;
+    this.scrollTop = parsed.output.top ?? 0;
     this.dispatchEvent(new Event("scroll"));
   });
+
   const { app, connected } = await mountSwitcher(null, [workstream("ops"), ...Array.from({ length: 20 }, (_, index) => agent(`row-${index}`, "idle", "idle", { parent: "ops",
     name: `Destination ${String(index).padStart(3, "0")}`, order: index,
   }))], []);
+
+  const select = vi.spyOn(connected.rail, "select");
+
   openSwitcher();
   await waitFor(() => expect(document.activeElement).toBe(field()));
   const option = (value: string) => document.querySelector<HTMLElement>(`.switcher [role=option][data-value="${value}"]`);
@@ -52,6 +58,7 @@ it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   list.scrollTo({ top: 264 });
   await waitFor(() => expect(option("row-19")).not.toBeNull());
   expect(connected.rail.selected()).toBe("row-19");
+  expect(select).toHaveBeenCalledExactlyOnceWith("row-19");
   expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
@@ -179,11 +186,14 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
 it("u2773a_queries_restores_exact_work", async () => {
   const { app, connected } = await mountSwitcher("ann");
   const exact = "  e\u0301 🧭 東京  ";
+  const initialOrigin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
+  initialOrigin.focus();
   openSwitcher();
   await waitFor(() => expect(document.activeElement).toBe(field()));
   type(exact);
   field()!.setSelectionRange(2, 9, "backward");
   press("Escape", {}, field()!);
+  await waitFor(() => expect(document.activeElement).toBe(initialOrigin));
   const calls = app.calls.length;
   openSwitcher();
   await waitFor(() => expect(document.activeElement).toBe(field()));
