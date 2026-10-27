@@ -4,7 +4,7 @@ reports=[];failure=[];selection_failures=[]
 for length in [40,400,4000]:
  try:
   trace=media/f'{length}-trace.json'
-  raw=trace.read_bytes() if trace.exists() else gzip.open(out/f'{length}-full-trace.json.gz','rb').read()
+  raw=trace.read_bytes() if trace.exists() else gzip.decompress(b''.join(p.read_bytes() for p in sorted(out.glob(f'{length}-full-trace.json.gz.part-*'))))
   rows=json.loads((out/f'{length}-samples.json').read_text());es=json.loads(raw)['traceEvents']
   if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
   starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']
@@ -47,7 +47,10 @@ for length in [40,400,4000]:
   (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
   names={'PipelineReporter','EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
   retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
-  (out/f'{length}-full-trace.json.gz').write_bytes(gzip.compress(raw,mtime=0))
+  packed=gzip.compress(raw,mtime=0)
+  for stale in out.glob(f'{length}-full-trace.json.gz.part-*'): stale.unlink()
+  for i,offset in enumerate(range(0,len(packed),900000)):
+   (out/f'{length}-full-trace.json.gz.part-{i:03d}').write_bytes(packed[offset:offset+900000])
   (out/f'{length}-trace.json.gz').write_bytes(gzip.compress(json.dumps({'traceEvents':retained},ensure_ascii=False,separators=(',',':')).encode(),mtime=0))
   report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
   trace.unlink(missing_ok=True)
