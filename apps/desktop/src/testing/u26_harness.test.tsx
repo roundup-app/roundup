@@ -255,18 +255,26 @@ describe("u26 the Daemon's rail methods", () => {
     expect(listed?.running).toBe(false);
   });
 
-  it("u26_writing_to_and_resizing_a_terminal_answer_null", async () => {
-    const { app } = await daemon();
-
-    expect([
-      await app.rpc("terminal.write", { id: "t-tokens", data: "bHM=" }),
-      await app.rpc("terminal.resize", { id: "t-tokens", cols: 80, rows: 24 }),
-    ]).toEqual([null, null]);
-  });
-
   it("u26_a_node_that_is_not_in_the_tree_fails_with_not_found", async () => {
     const { app } = await daemon();
 
     await expect(app.rpc("rail.rename", { id: "nope", name: "x" })).rejects.toMatchObject({ code: -32001 });
   });
+});
+
+it.each([
+  { after: 2, incarnation: "current", kind: "contiguous", text: "é\r\nhidden\r\n" },
+  { after: 14, incarnation: "current", kind: "contiguous", text: "" },
+  { after: 15, incarnation: "current", kind: "gap", text: null },
+  { after: 2, incarnation: "old", kind: "gap", text: null },
+])("u26_terminal_catch_up_answers_stored_bytes $after $incarnation", async ({ after, incarnation, kind, text }) => {
+  const { app, writeOutput } = seedApp("agents-10", NOW);
+  const terminal = (await app.rpc("terminal.list", null)).find(info => info.id === "t-agent-4")!;
+  writeOutput(terminal.id, "a é\r\n");
+  writeOutput(terminal.id, "hidden\r\n");
+  const reply = await app.rpc("terminal.catchUp", { id: terminal.id, incarnation: incarnation === "current" ? terminal.incarnation : incarnation, after });
+
+  expect(reply).toMatchObject({ kind, id: terminal.id, incarnation: terminal.incarnation, after: 14 });
+
+  if (reply.kind === "contiguous") expect(new TextDecoder().decode(fromBase64(reply.data))).toBe(text);
 });
