@@ -239,7 +239,8 @@ spawn/signal handlers only. It unfolded all eight original rows, then drove two
 `domTodos` repeats with trusted pointer reorders `4 → 1` and `8 → 5`, restoring
 the fixture between repeats. Both groups' insertion, completion, fold and reorder
 journals completed; original owners and blockers remained intact. D2/D5/D6 passed.
-D14 failed during the moving reorder and passed on the settled screen; retain both.
+D14 passed setup and the first group’s settled reading; the second group’s
+after-action reading failed. Retain that failure; this is not full Check qualification.
 Raw setup, action journals, boxes, Checks, scripts and PNGs remain under
 `artifacts/ux/U3010d/nested-fixture/`. The broad `just capture U3010d,U3010e,U3010g`
 invocation ended at its 60-second outer bound, so no whole-suite capture pass is
