@@ -1,0 +1,14 @@
+{
+  "exit": 2,
+  "sample": 3,
+  "warmup": true,
+  "condition": "No compositor presentation matches the EventTiming endpoint within the required 2 microseconds; no criterion changed.",
+  "inputTraceUs": 514995866,
+  "readyTraceUs": 515005820,
+  "drawTraceUs": 515008612,
+  "frameSequence": 291,
+  "layerTreeId": 4,
+  "pipelineEndTraceUs": 515007324,
+  "eventTimingEndTraceUs": 515015292,
+  "fullTraceSha256": "4da7d4ddab5479629dd3f5ae2ac1fa1ebcd844da0c608dc3a4657c7e4eafba6c"
+}
