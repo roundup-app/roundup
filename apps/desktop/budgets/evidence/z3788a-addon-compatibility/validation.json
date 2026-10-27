@@ -1,0 +1,28 @@
+{
+  "just ready": 0,
+  "pnpm lint:boundaries after report corrections": 0,
+  "loop/rules.sh merge-loss": 0,
+  "loop/rules.sh ci-trailers local": 0,
+  "loop/rules.sh frozen local": 0,
+  "loop/rules.sh vocab": 0,
+  "git diff --check": 0,
+  "terminalRegression": {
+    "tests": 29,
+    "passed": 29,
+    "failed": 0
+  },
+  "probeRuns": [
+    {
+      "exit": 0,
+      "checks": 40
+    },
+    {
+      "exit": 0,
+      "checks": 40
+    }
+  ],
+  "cleanup": {
+    "dedicatedBrowserSessionsClosed": true,
+    "probeServersStopped": true
+  }
+}

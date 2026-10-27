@@ -64,7 +64,8 @@ including their missing viewport and possibly disturbed Glyphs tail. They are
 historical scheduling evidence, with presentation unmeasured.
 
 The Layers driver samples displayed bounding boxes to reverse at the first
-observed crossing of half the remaining displacement to the requested destination.
+observed crossing of half the displacement from the displayed box captured at
+trusted activation to the requested destination.
 It refuses missing targets, absent displacement, a jump directly to the endpoint,
 and movement not observed within the existing 400 ms settling bound. Drawer
 open/close/reopen segments each wait for that observation, then Escape interrupts
@@ -75,8 +76,12 @@ and completion), with trusted pointer/key sources named explicitly. The observer
 never generates those inputs or changes focus. Each activation has the existing
 one-second input bound; geometry retains the 400 ms settling bound. A reversal
 or key interruption arriving after the preceding segment reaches its endpoint
-is refused. The action's start box is read at activation, rather than when the
-input phase began waiting. Missing activation is retained as an incomplete action. The Drawer reversal
+is refused. The action's start box and timestamp are read in the capture listener before
+the existing layer owner receives the activation, rather than when the input
+phase began waiting or in the task after propagation. Its first journal sample
+retains that box; post-propagation samples cannot move the displacement origin.
+A trusted pointer activation completes only when the existing owner acknowledges
+the requested Drawer or Shelf state. Missing activation is retained as an incomplete action. The Drawer reversal
 observes a trusted primary `pointerdown` on its existing leading hairline,
 not the corner Close button while that button is outside the viewport. The
 observed press must be on the panel itself within its computed border width,
@@ -152,3 +157,17 @@ owner. This journal alone does not qualify a live reduced-motion variant: a
 switch still needs measured halfway and completed-action evidence for that
 workload. Reports retain `variant: "unqualified"` until that exists. Do not ask
 for a Mac sequence to fill this implementation gap.
+
+### Chromium activation preparation (2026-10-27)
+
+On the isolated U26 App in dark 1512×950, the derived fixture read back forty
+Rail nodes, eight Todos and four Pads, with SHA-256
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The fake App's existing spawn handler was adapted to retain the requested Agent
+name and its signal handler to emit Status changes; this proves no native spawn.
+A headless agent-browser pointer opened original Todo 1 through its existing
+Open control. `domLayers` retained the activation box at left 1512, destination
+952 and first observed halfway crossing at 1174.516845703125, with completion
+true. The activation box precedes the post-propagation samples. This observation
+qualifies that origin/crossing path only: no full interruption sequence, pointer
+reorder, live halfway preference switch or native timing was qualified.

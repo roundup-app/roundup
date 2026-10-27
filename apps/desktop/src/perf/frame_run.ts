@@ -147,8 +147,10 @@ const clickAt = (selector: string): boolean => {
   return true;
 };
 
-/** Reads displayed boxes, as the U3010b rendered observer does; animation progress/time is not displacement. */
-const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[]): Promise<boolean> => {
+type LayerStart = { at_ms: number; left: number; width: number; edge: number; opening: boolean };
+
+/** Reads displayed boxes; animation progress/time is not displacement. */
+const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[], activation: () => LayerStart | null): Promise<boolean> => {
   const element = document.querySelector<HTMLElement>(`.${panel}`);
   const root = document.querySelector("[data-layout-root]");
 
@@ -162,16 +164,20 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
 
   journal.push(entry);
 
-  if (initial.width <= 0 || !(await action())) return false;
-  // Read the displayed start at activation, not when the input phase began waiting.
-  const before = element.getBoundingClientRect();
-  const open = element.dataset.open === "true";
-  const destination = open ? edge - before.width : edge;
+  if (initial.width <= 0) return false;
+  const applied = await action();
+  const before = activation();
+
+  if (!before || before.width <= 0) return false;
+  const destination = before.opening ? before.edge - before.width : before.edge;
   const distance = destination - before.left;
 
-  entry.at_ms = performance.now();
+  entry.at_ms = before.at_ms;
   entry.from = before.left;
   entry.destination = destination;
+  entry.samples.push({ at_ms: before.at_ms, left: before.left });
+
+  if (!applied) return false;
 
   // Read the requested style before the lifetime owner's next-frame animation observation.
   // Otherwise its animation list can still be empty when a first Shelf close starts.
@@ -251,12 +257,32 @@ const observeActivation = (selector: string, source: "pointer" | "hairline" | "k
 
 export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true })): Layers => {
   let pending: LayerAction | null = null;
+  let activation: LayerStart | null = null;
 
   const interruptible = () => {
     if (!pending) return true;
     const element = document.querySelector<HTMLElement>(`.${pending.panel}`);
 
     return element !== null && element.isConnected && !element.hidden && Math.abs(element.getBoundingClientRect().left - pending.destination) >= 1;
+  };
+
+  const pointerAction = (panel: "drawer" | "shelf", selector: string, source: "pointer" | "hairline") => {
+    const element = document.querySelector<HTMLElement>(`.${panel}`);
+    const root = document.querySelector<HTMLElement>("[data-layout-root]");
+
+    if (!element || !root) return Promise.resolve(false);
+    let opening = false;
+
+    return observeActivation(selector, source, () => {
+      if (!interruptible()) return false;
+      const box = element.getBoundingClientRect();
+
+      opening = panel === "drawer" ? element.dataset.open !== "true" : root.dataset.shelf !== "open";
+      // Capture before propagation: a post-activation task can already see movement.
+      activation = { at_ms: performance.now(), left: box.left, width: box.width, edge: root.getBoundingClientRect().right, opening };
+
+      return true;
+    }, listen, () => panel === "drawer" ? element.dataset.open === String(opening) : root.dataset.shelf === (opening ? "open" : "closed"));
   };
 
   const keyInterruption = async (panel: "drawer" | "shelf", target: string, source: "key" | "escape", open: boolean) => {
@@ -280,13 +306,14 @@ export const domLayers = (journal: LayerAction[], listen: Listen = (type, listen
   };
 
   return {
-    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible, listen),
-    closeDrawer: () => observeActivation(".drawer", "hairline", interruptible, listen, () => document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false"),
+    openDrawer: () => pointerAction("drawer", SHELF_ROW, "pointer"),
+    closeDrawer: () => pointerAction("drawer", ".drawer", "hairline"),
     escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
-    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible, listen),
+    toggleShelf: () => pointerAction("shelf", ".shelf-tab[data-selected]", "pointer"),
     keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
     halfway: async (panel, action) => {
-      const completed = await halfDisplacement(panel, action, journal);
+      activation = null;
+      const completed = await halfDisplacement(panel, action, journal, () => activation);
 
       if (completed) pending = journal.at(-1) ?? null;
 

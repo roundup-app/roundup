@@ -1,0 +1,9 @@
+{
+  "freshNpmCi": true,
+  "freshBrowserProfile": true,
+  "sameViewport": true,
+  "completeResultEqual": false,
+  "exit": 0,
+  "checks": 40,
+  "resultSha256": "fb124c159bb491a41957676fcf51d15d179ec46d8ace2c21f87ca156c496f65d"
+}
