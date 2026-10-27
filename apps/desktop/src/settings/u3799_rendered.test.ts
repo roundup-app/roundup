@@ -20,7 +20,7 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
 
 it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
   ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => ({ seed, view })),
-))("u4277c_requested_$seed_$view_empty_and_filled", async ({ seed, view }) => {
+))("u4277c_requested_$seed $view empty_and_filled", async ({ seed, view }) => {
   const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -51,7 +51,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.evaluate("localStorage.clear()");
         await lane.browser("open");
         await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
-        await lane.until("!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
         if (seed === "tabs-8") {
@@ -73,7 +73,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         }
         if (seed === "tabs-8" && filled && view === "workstreams") {
           await lane.evaluate("window.__fake.app.rpc('rail.createWorkstream', {name:'Distinct long Workstream 長い名前 '.repeat(12),parent:null})");
-          await lane.until("!!document.querySelector('.rail-row[data-kind=workstream]')");
+          await lane.until("[...document.querySelectorAll('.rail-row')].some(row => row.textContent.includes('Distinct long Workstream'))");
         }
         await lane.evaluate(`(() => {
           const app = window.__fake.app;
