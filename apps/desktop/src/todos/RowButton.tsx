@@ -9,7 +9,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
 
   // One layer holds both bindings: only the first eligible layer of a press is consulted.
   if (props.onKeyDown || props.nest) registerKeys({ kind: "layer", element: () => button, active: () => document.activeElement === button && !modalOpen(), modal: false }, [{
-    chords: ["Meta+Enter", "ArrowUp", "ArrowDown", "Shift+ArrowUp", "Shift+ArrowDown", "Alt+ArrowUp", "Alt+ArrowDown", "Backspace", "Escape"],
+    chords: ["Meta+a", "Home", "End", "Shift+Home", "Shift+End", "Meta+Enter", "ArrowUp", "ArrowDown", "Shift+ArrowUp", "Shift+ArrowDown", "Alt+ArrowUp", "Alt+ArrowDown", "Backspace", "Escape"],
     when: (event) => !props.keysSuspended && props.onKeyDown !== undefined && event.target === button
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
       && ((event.key !== "Escape" && event.key !== "Backspace") || props.selectionActive === true),
@@ -28,6 +28,9 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
     <button type="button" class="todo-row-button"
       onDblClick={() => props.onRename?.()}
       onKeyDown={(event) => {
+        if (!event.defaultPrevented && !props.keysSuspended && props.pressed !== undefined
+          && event.key.length === 1 && event.key !== " " && !event.metaKey && !event.ctrlKey && !event.altKey) props.onKeyDown?.(event);
+
         if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 
         if (event.key === "Enter" && props.onOpen) { event.preventDefault();

@@ -1,11 +1,14 @@
-import { createEffect, createSignal, on, onCleanup, useContext } from "solid-js";
+import { createEffect, on, onCleanup, untrack, useContext } from "solid-js";
+import { createRowCollection } from "../ui/RowCollection";
 import { ShelfActions } from "./BulkDelete";
 import type { Accessor } from "solid-js";
 
 /** U458: identities, rather than positions, survive a list refetch. */
 export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>, find?: (id: Id) => HTMLButtonElement | null | undefined) => {
   const host = useContext(ShelfActions);
-  const [selected, setSelected] = createSignal<readonly Id[]>([]);
+  const library = createRowCollection();
+  const selected = () => library.selection.selectedValues().flatMap(value => ids().filter(id => String(id) === value));
+  const setSelected = (values: readonly Id[]) => library.selection.setSelectedValues(values.map(String));
   let anchor: Id | undefined;
   const rows = new Map<Id, HTMLButtonElement>();
   const rowOf = find ?? ((id: Id) => rows.get(id));
@@ -18,7 +21,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   createEffect(on(() => `${context()}:${host?.open()}`, clear, { defer: true }));
   createEffect(() => {
     const visible = ids();
-    setSelected((kept) => kept.filter((id) => visible.includes(id)));
+    untrack(() => setSelected(selected().filter((id) => visible.includes(id))));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
 
@@ -27,24 +30,27 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   onCleanup(clear);
 
   const toggle = (id: Id) => {
-    setSelected((kept) => kept.includes(id) ? kept.filter((other) => other !== id) : [...kept, id]);
+    refresh();
+    library.selection.toggle(String(id));
     anchor = id;
   };
 
   const visibleOrder = () => ids().filter(id => {
     const row = rowOf(id);
 
-    return row && !row.closest("[hidden]");
+    return row && !row.disabled && row.getAttribute("aria-disabled") !== "true" && !row.closest("[hidden], [inert], [aria-hidden=true]");
   }).sort((a, b) => rowOf(a)!.compareDocumentPosition(rowOf(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 
+  const refresh = () => library.refresh(visibleOrder().map(id => ({ value: String(id), label: rowOf(id)?.querySelector(".shelf-title")?.textContent ?? rowOf(id)?.textContent ?? "" })));
+
   const range = (id: Id) => {
-    const order = visibleOrder();
-    const start = anchor === undefined ? -1 : order.indexOf(anchor);
-    const end = order.indexOf(id);
-    setSelected(start < 0 ? [id] : [...new Set(order.slice(Math.min(start, end), Math.max(start, end) + 1))]);
+    refresh();
+    library.selection.setSelectedValues(library.collection().getValueRange(anchor !== undefined && visibleOrder().includes(anchor) ? String(anchor) : String(id), String(id)));
   };
 
   const click = (id: Id, event: MouseEvent) => {
+    if (!visibleOrder().includes(id)) return;
+
     if (event.shiftKey) range(id);
     else if (event.metaKey) toggle(id);
     else {
@@ -55,7 +61,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   };
 
   const key = (id: Id, event: KeyboardEvent) => {
-    if (event.ctrlKey || event.altKey) return;
+    if (event.ctrlKey || event.altKey || event.isComposing || event.target !== rowOf(id)) return;
 
     if (event.key === "Enter" && event.metaKey && !event.shiftKey) {
       event.preventDefault();
@@ -65,19 +71,38 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       return;
     }
 
-    if (event.metaKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-    event.preventDefault();
-    const order = visibleOrder();
-    const next = order[order.indexOf(id) + (event.key === "ArrowUp" ? -1 : 1)];
+    refresh();
+    const collection = library.collection();
 
-    if (next === undefined) return;
-
-    if (event.shiftKey) {
-      anchor ??= id;
-      range(next);
+    if (event.metaKey && !event.shiftKey && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      library.selection.setSelectedValues(collection.getValues());
+      return;
     }
 
-    rowOf(next)?.focus();
+    if (event.metaKey) return;
+    const current = String(id);
+    const next = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(current)
+      : event.key === "ArrowDown" ? collection.getNextValue(current)
+      : event.key.length === 1 && event.key !== " " ? library.search(event.key, current) : null;
+
+    if (next === null) return;
+    event.preventDefault();
+    const target = ids().find(id => String(id) === next);
+
+    if (target === undefined) return;
+
+    if (event.shiftKey && event.key.length !== 1) {
+      anchor ??= id;
+      range(target);
+    } else if (event.key.length === 1) {
+      library.selection.replace(next);
+      anchor = target;
+    }
+
+    rowOf(target)?.focus();
   };
 
   // Capture identities before a confirmation moves focus; resolve their current buttons after refetch.

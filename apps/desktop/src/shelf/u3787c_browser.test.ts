@@ -10,10 +10,10 @@ afterAll(async () => { await lane?.close(); }, 180_000);
 
 it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
   for (const seed of ["tree-40", "tabs-8", "conflict"]) {
-    await lane.seedTodos(["same", "same", "長い名前 é 🧭 ".repeat(12), "dependent", "fifth", "sixth"], true, seed);
     const dir = captureDir("U3787c");
     if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, `${seed}.webm`)); }
     try {
+    await lane.seedTodos(["same", "same", "長い名前 é 🧭 ".repeat(12), "dependent", "fifth", "sixth"], true, seed);
       await lane.browser("set", "media", "dark");
       for (const kind of ["todos", "pads"]) {
         if (kind === "pads") {
@@ -33,6 +33,7 @@ it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
         await lane.browser("focus", selector);
         await lane.capture("U3787c", `${seed}-${kind}-before`);
         await lane.browser("press", "End");
+        await lane.until(`document.activeElement === [...document.querySelectorAll('${selector}')].at(-1)`);
         expect(await lane.evaluate<boolean>(`document.activeElement === [...document.querySelectorAll('${selector}')].at(-1)`)).toBe(true);
         await lane.browser("press", "Meta+a");
         await lane.until(`document.querySelectorAll('${selector}[aria-pressed=true]').length === 6`);
