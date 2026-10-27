@@ -57,6 +57,8 @@ export type PreferenceAction = {
   at_ms: number;
   reduced: boolean;
   phase: "warmup" | "sample" | "after-actions";
+  /** Visible fixture arcs with a running transform loop, sampled at the live source change. Degrees are displayed rotation, not timeline progress. */
+  glyphs?: { target: string; transform: string; degrees: number }[];
   /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
   movement?: { panel: "drawer" | "shelf"; target: string; action_at_ms: number; from: number; destination: number; observed: number; progress: number };
 };
