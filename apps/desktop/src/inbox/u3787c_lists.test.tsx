@@ -12,7 +12,7 @@ const inventory = [{ opening: "⌘K then I", open: () => leaderKey("KeyI") }];
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.inbox [data-collection-value="${id}"]`)!;
 
-const selected = () => [...document.querySelectorAll('.inbox [aria-pressed="true"]')].map(el => el.getAttribute("data-collection-value"));
+const selected = () => [...document.querySelectorAll('.inbox [data-selected="true"]')].map(el => el.getAttribute("data-collection-value"));
 
 const ids = ["a:a", "c:11", "c:12", "a:r", "a:b"];
 
@@ -68,9 +68,20 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(selected()).toEqual(["c:12", "a:r", "a:b"]);
   fireEvent.keyDown(row("a:b"), { key: "a", metaKey: true });
   expect(selected()).toEqual(ids);
+  expect(app.calls.slice(before)).toEqual([]);
+  app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "working", "editing", { name: "running again" }), agent("b", "done", "finished", { name: "終 é 😀" })];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(row("a:r").textContent).toContain("running again"));
+  const afterRefresh = app.calls.length;
+  row("c:13").hidden = false;
+  fireEvent.click(row("c:13"), { metaKey: true });
+  expect(selected()).toEqual(["a:a", "c:11", "c:12", "c:13", "a:r", "a:b"]);
+  row("c:11").hidden = true;
+  fireEvent.keyDown(row("a:b"), { key: "a", metaKey: true });
+  expect(selected()).toEqual(["a:a", "c:12", "c:13", "a:r", "a:b"]);
   expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
   expect(document.querySelector('.rail-row[data-selected=true]')).toBeNull();
-  expect(app.calls.slice(before)).toEqual([]);
+  expect(app.calls.slice(afterRefresh)).toEqual([]);
   expect([...document.querySelectorAll('.inbox .inbox-actions button, .inbox .reserved-actions button')].every(el => !el.hasAttribute("data-collection-value"))).toBe(true);
 });
 
@@ -82,6 +93,7 @@ it.each(["Enter", " ", "click"])("u3787c_agent_activation_and_Escape_preserve_th
   if (activation === "click") fireEvent.click(target);
   else fireEvent.keyDown(target, { key: activation });
   await waitFor(() => expect(target.getAttribute("aria-expanded")).toBe("true"));
+  expect(target.hasAttribute("aria-pressed")).toBe(false);
   fireEvent.keyDown(target, { key: "Escape" });
   await waitFor(() => expect(target.getAttribute("aria-expanded")).toBe("false"));
   expect(document.activeElement).toBe(target);
@@ -96,6 +108,9 @@ it("u3787c_reopening_resets_Inbox_selection", async () => {
   fireEvent.click(row("a:a"), { metaKey: true });
   expect(selected()).toEqual(["a:a"]);
   fireEvent.keyDown(row("a:a"), { key: "Escape" });
+  expect(selected()).toEqual([]);
+  expect(document.querySelector(".inbox")).toBeTruthy();
+  fireEvent.keyDown(row("a:a"), { key: "Escape" });
   await waitFor(() => expect(document.querySelector(".inbox")).toBeNull());
   inventory[0]!.open();
   await waitFor(() => expect(row("a:a")).toBeTruthy());
@@ -108,6 +123,7 @@ it.each(["Enter", " "])("u3787c_comment_activation_opens_only_its_Todo_%s", asyn
   const before = app.calls.length;
 
   row("c:11").focus();
+  expect(row("c:11").hasAttribute("aria-pressed")).toBe(false);
   fireEvent.keyDown(row("c:11"), { key });
   await waitFor(() => expect(document.querySelector(".inbox")).toBeNull());
   await waitFor(() => expect(app.calls.slice(before).filter(call => call.method === "todo.markCommentsRead").map(call => call.params)).toEqual([{ id: 111 }]));
