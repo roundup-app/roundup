@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
+import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { createHomed, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -73,6 +75,38 @@ const fixtureApp = (prefix: string) => {
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
+  it("u3010d_the_recorder_observes_the_app_preference_without_owning_it", () => {
+    const listeners = new Set<(change: { matches: boolean }) => void>();
+    const journal: import("./frames").PreferenceAction[] = [];
+    let phase = "setup";
+    let at = 12;
+
+    createRoot(dispose => {
+      const reduced = createReducedMotion(() => ({
+        matches: false,
+        addEventListener: (_type, listener) => { listeners.add(listener); },
+        removeEventListener: (_type, listener) => { listeners.delete(listener); },
+      }));
+      const stop = observePreference(reduced, () => at, () => phase, journal);
+
+      expect(listeners.size).toBe(1);
+      phase = "sample";
+      at = 23;
+      for (const listener of listeners) listener({ matches: true });
+      expect(journal).toEqual([
+        { at_ms: 12, reduced: false, phase: "setup" },
+        { at_ms: 23, reduced: true, phase: "sample" },
+      ]);
+      stop();
+      for (const listener of listeners) listener({ matches: false });
+      expect(reduced()).toBe(false);
+      expect(journal).toHaveLength(2);
+      expect(listeners.size).toBe(1);
+      dispose();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
   it("u3010g_an_incompatible_project_is_refused_before_fixture_writes", async () => {
     const app = createFakeApp();
 
