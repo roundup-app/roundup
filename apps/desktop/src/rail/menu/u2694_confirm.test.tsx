@@ -197,6 +197,7 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
     { ...padOf("finished notes", { kind: "agent", id: "finished", parent: null }), home: "chosen" },
     { ...padOf("running notes", { kind: "agent", id: "running", parent: null }), home: "chosen" },
   ];
+
   const result = await judgeRemoval(app, [
     workstream("chosen"),
     workstream("group", { parent: "chosen", status: null }),
@@ -216,6 +217,7 @@ it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_
     workstream("group", { parent: "chosen", status: null }),
     door("supervisor", "done", "finished", { parent: "group", terminal_id: null }),
   ], [info("live-shell", { owner })]);
+
   app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
 
   open("chosen");

@@ -35,6 +35,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
       removal.removedIds.push(node.id);
       continue;
     }
+
     const reason = !FINISHED.has(node.status?.kind ?? "")
       ? copy.running
       : node.worktree === null
