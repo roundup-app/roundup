@@ -1,0 +1,63 @@
+{
+  "exit": 1,
+  "reports": [
+    {
+      "length": 40,
+      "fullTraceSha256": "4da7d4ddab5479629dd3f5ae2ac1fa1ebcd844da0c608dc3a4657c7e4eafba6c",
+      "measured": 200,
+      "p95LatencyMs": 18.8,
+      "styleLayoutP50Ms": 1.032,
+      "styleLayoutP95Ms": 1.16,
+      "styleLayoutMinMs": 0.604,
+      "renderOnlyOverBudgetSamples": 0,
+      "styledElementsRange": [
+        121,
+        241
+      ],
+      "dirtyLayoutObjectsRange": [
+        149,
+        289
+      ]
+    },
+    {
+      "length": 400,
+      "fullTraceSha256": "d066fdad4d6659fb7ca4135c83869760d0377b299d0250fc4f28325c1ba006e4",
+      "measured": 200,
+      "p95LatencyMs": 82.259,
+      "styleLayoutP50Ms": 8.547,
+      "styleLayoutP95Ms": 9.458,
+      "styleLayoutMinMs": 4.351,
+      "renderOnlyOverBudgetSamples": 0,
+      "styledElementsRange": [
+        1201,
+        2401
+      ],
+      "dirtyLayoutObjectsRange": [
+        1409,
+        2809
+      ]
+    },
+    {
+      "length": 4000,
+      "fullTraceSha256": "1f6ce2fa749439e0d031178bb7780f005fedd3c45e0785278bbdda2608336ccd",
+      "measured": 200,
+      "p95LatencyMs": 732.659,
+      "styleLayoutP50Ms": 58.458,
+      "styleLayoutP95Ms": 105.566,
+      "styleLayoutMinMs": 45.825,
+      "renderOnlyOverBudgetSamples": 200,
+      "styledElementsRange": [
+        12001,
+        24001
+      ],
+      "dirtyLayoutObjectsRange": [
+        14009,
+        28009
+      ]
+    }
+  ],
+  "failures": [],
+  "nativeClaim": false,
+  "collectionRevision": "1494ab15241e8811f0f1f7c8b96dc441ff5f7f2f",
+  "scope": "style/layout lower bound; inclusive callback time is not causal JS attribution"
+}

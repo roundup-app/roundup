@@ -1,0 +1,106 @@
+"""Read-only cause attribution for the validated Z3788d archived collection."""
+import collections
+import gzip
+import hashlib
+import json
+import pathlib
+import runpy
+import sys
+
+archive = pathlib.Path(__file__).resolve().parent
+output = archive / "attribution"
+output.mkdir(exist_ok=True)
+reports = []
+failures = []
+try:
+    # Re-derive trusted input, exact identities and presentation before attributing cost.
+    try:
+        runpy.run_path(str(archive / "replay.py.txt"), run_name="__main__")
+    except SystemExit as result:
+        if result.code not in (0, 1):
+            raise ValueError("Presentation replay failed") from result
+    replay = json.loads((archive / "replay/result.json").read_text())
+    environment = json.loads((archive / "environment.json").read_text())
+    for length in (40, 400, 4000):
+        raw = gzip.decompress(b"".join(part.read_bytes() for part in sorted(
+            archive.glob(f"{length}-full-trace.json.gz.part-*"))))
+        digest = hashlib.sha256(raw).hexdigest()
+        reference = next(row for row in replay["reports"] if row["length"] == length)
+        if reference["fullTraceSha256"] != digest:
+            raise ValueError(f"{length}: wrong trace pairing")
+        events = json.loads(raw)["traceEvents"]
+        marks = {event["name"]: event for event in events
+                 if event["name"].startswith("z3788d-ready-")}
+        indexed = collections.defaultdict(list)
+        for event in events:
+            if event.get("ph") == "X" and event["name"] in (
+                    "EventDispatch", "FunctionCall", "UpdateLayoutTree", "Layout"):
+                indexed[event["name"]].append(event)
+        samples = json.loads((archive / f"replay/{length}-timings.json").read_text())
+        attributed = []
+        for sample in samples:
+            ready = marks[f"z3788d-ready-{sample['id']}"]
+            start, end = sample["inputTraceUs"], sample["presentationTraceUs"]
+            thread = (ready["pid"], ready["tid"])
+            frame = sample["eventTiming"]["frame"]
+            spans = {}
+            for name, candidates in indexed.items():
+                spans[name] = [event for event in candidates
+                    if (event["pid"], event["tid"]) == thread
+                    and start <= event["ts"] and event["ts"] + event.get("dur", 0) <= end]
+            styles = [event for event in spans["UpdateLayoutTree"]
+                      if event["args"]["beginData"]["frame"] == frame]
+            layouts = [event for event in spans["Layout"]
+                       if event["args"]["beginData"]["frame"] == frame]
+            callbacks = [event for event in spans["FunctionCall"]
+                         if event["args"].get("data", {}).get("url", "").endswith("/src/switcher/Switcher.tsx")]
+            if not styles or not layouts or not callbacks:
+                raise ValueError(f"{length}/{sample['id']}: missing rendering evidence")
+            # Union contained intervals: style/layout can nest inside input callbacks.
+            # Never add inclusive EventDispatch or FunctionCall to rendering totals.
+            intervals = sorted((event["ts"], event["ts"] + event["dur"])
+                               for event in styles + layouts)
+            merged = []
+            for left, right in intervals:
+                if merged and left <= merged[-1][1]:
+                    merged[-1][1] = max(merged[-1][1], right)
+                else:
+                    merged.append([left, right])
+            row = {"id": sample["id"], "warmup": sample["warmup"],
+                   "query": sample["query"], "displayedDestinations": sample["count"],
+                   "inputTraceUs": start, "presentationTraceUs": end,
+                   "latencyMs": sample["latencyMs"],
+                   "styleLayoutMs": sum(right-left for left, right in merged)/1000,
+                   "styledElements": sum(event["args"]["elementCount"] for event in styles),
+                   "maxDirtyLayoutObjects": max(event["args"]["beginData"]["dirtyObjects"] for event in layouts),
+                   "maxTotalLayoutObjects": max(event["args"]["beginData"]["totalObjects"] for event in layouts),
+                   "renderSpans": [{"name": event["name"], "ts": event["ts"],
+                                    "dur": event["dur"], "args": event["args"]}
+                                   for event in styles + layouts],
+                   "switcherCallbacks": [{"ts": event["ts"], "dur": event["dur"],
+                                          "source": event["args"]["data"]} for event in callbacks]}
+            attributed.append(row)
+        measured = [row for row in attributed if not row["warmup"]]
+        if len(attributed) != 220 or len(measured) != 200:
+            raise ValueError(f"{length}: missing samples")
+        values = sorted(row["styleLayoutMs"] for row in measured)
+        report = {"length": length, "fullTraceSha256": digest,
+                  "measured": len(measured), "p95LatencyMs": reference["p95Ms"],
+                  "styleLayoutP50Ms": values[99], "styleLayoutP95Ms": values[189],
+                  "styleLayoutMinMs": values[0],
+                  "renderOnlyOverBudgetSamples": sum(value >= 16 for value in values),
+                  "styledElementsRange": [min(row["styledElements"] for row in measured),
+                                          max(row["styledElements"] for row in measured)],
+                  "dirtyLayoutObjectsRange": [min(row["maxDirtyLayoutObjects"] for row in measured),
+                                              max(row["maxDirtyLayoutObjects"] for row in measured)]}
+        reports.append(report)
+        (output / f"{length}-samples.json").write_text(json.dumps(attributed, separators=(",", ":")))
+except Exception as error:
+    failures.append({"condition": str(error), "exit": 2})
+result = {"exit": 2 if failures else replay["exit"], "reports": reports,
+          "failures": failures, "nativeClaim": False,
+          "collectionRevision": environment["revision"] if reports else None,
+          "scope": "style/layout lower bound; inclusive callback time is not causal JS attribution"}
+(output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+print(json.dumps(result, indent=2))
+sys.exit(result["exit"])
