@@ -6,6 +6,7 @@ import { createSignal, For, onCleanup, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "../copy";
 import { useConnectedProject } from "../state/connectedProject";
+import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { Checkbox } from "../ui/Checkbox";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { Disclosure } from "../ui/Disclosure";
@@ -33,6 +34,36 @@ export const ImportPanel = (props: { compact?: boolean | undefined; onClose: () 
   const discover = state.refresh;
   const choose = state.setPeriod;
   const confirm = state.confirm;
+  const heads = new Map<string, HTMLInputElement>();
+
+  const toggle = (source: string) => {
+    const candidate = found()?.candidates.find(candidate => candidate.source === source);
+
+    if (candidate) void state.choose(source, candidate.title, candidate.revision, !wanted().has(source));
+  };
+
+  const content = createRowCollection(() => (found()?.candidates ?? []).filter(candidate => {
+    const head = heads.get(candidate.source);
+
+    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
+  }).map(candidate => ({ value: candidate.source, label: candidate.title || copy.importUnnamed })), {
+    onActivate: toggle,
+  }, {
+    selectedValues: () => [...wanted().keys()],
+    isSelected: value => value !== null && wanted().has(value),
+    isEmpty: () => wanted().size === 0,
+    clear: () => { void state.selectSources([]); },
+    setSelectedValues: values => { void state.selectSources(values); },
+    replace: value => { void state.selectSources(value === null ? [] : [value]); },
+    toggle,
+  });
+
+  const head = (source: string, element: HTMLInputElement) => {
+    heads.set(source, element);
+    content.register(element, source);
+    onCleanup(() => heads.delete(source));
+  };
+
   const dismiss = () => { if (!pending()) props.onClose(); };
 
   return (
@@ -81,7 +112,12 @@ export const ImportPanel = (props: { compact?: boolean | undefined; onClose: () 
               <ul class="import-list" aria-label={copy.importResults}>
                 <For each={result().candidates}>{(candidate) => (
                   <li class="import-candidate">
-                    <Checkbox class="import-check" checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
+                    <Checkbox class="import-check" inputRef={element => head(candidate.source, element)} onKeyDown={rowKey} onClickCapture={event => {
+                      if (event.ctrlKey || !event.metaKey && !event.shiftKey) return;
+                      event.preventDefault(); event.stopPropagation();
+                      // Let native canceled-checkbox activation roll back before Ark syncs the retained choice.
+                      queueMicrotask(() => content.click(event));
+                    }} checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
                       <span class="import-title">{candidate.title || copy.importUnnamed}</span>
                       <span class="import-meta">
                         <span class="import-cwd"><bdi>{copy.importLocation(candidate.cwd, project.name)}</bdi></span>
