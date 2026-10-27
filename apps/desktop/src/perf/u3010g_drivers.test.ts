@@ -275,7 +275,10 @@ describe("u3010g the frame recorder drives every workload", () => {
     }
   });
 
-  it.each(["openDrawer", "toggleShelf"] as const)("u3010g_a_pointer_activation_requires_its_layer_owner (%s)", async action => {
+  it.each([
+    { action: "openDrawer", applied: false }, { action: "openDrawer", applied: true },
+    { action: "toggleShelf", applied: false }, { action: "toggleShelf", applied: true },
+  ] as const)("u3010g_a_pointer_activation_requires_its_layer_owner (%j)", async ({ action, applied }) => {
     vi.useRealTimers();
     const root = document.createElement("div");
 
@@ -298,8 +301,13 @@ describe("u3010g the frame recorder drives every workload", () => {
       });
 
       activate(event);
-      // A trusted press is insufficient when the existing layer owner does not apply it.
-      expect(await run).toBe(false);
+
+      if (applied) {
+        if (action === "openDrawer") root.querySelector<HTMLElement>(".drawer")!.dataset.open = "true";
+        else root.dataset.shelf = "closed";
+      }
+
+      expect(await run).toBe(applied);
     } finally {
       root.remove();
     }
@@ -318,6 +326,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     drawer.className = "drawer";
     drawer.dataset.open = "true";
+    root.dataset.layoutRoot = "";
     root.append(drawer);
     document.body.append(root);
     const callbacks: ((event: Event) => void)[] = [];
