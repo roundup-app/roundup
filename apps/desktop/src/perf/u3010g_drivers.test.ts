@@ -82,7 +82,11 @@ describe("u3010g the frame recorder drives every workload", () => {
     const journal: import("./frames").PreferenceAction[] = [];
     let phase: import("./frames").PreferenceAction["phase"] = "warmup";
     let at = 12;
-    const movement = vi.fn(() => ({ panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }));
+
+    const movement = vi.fn(() => ({
+      movement: { panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 },
+      glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }],
+    }));
 
     createRoot(dispose => {
       const reduced = createReducedMotion(() => ({
@@ -101,14 +105,19 @@ describe("u3010g the frame recorder drives every workload", () => {
       for (const listener of listeners) listener({ matches: true });
       expect(journal).toEqual([
         { at_ms: 12, reduced: false, phase: "warmup" },
-        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 } },
+        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }] },
       ]);
       expect(movement).toHaveBeenCalledTimes(1);
-      stop();
+      phase = "after-actions";
 
       for (const listener of listeners) listener({ matches: false });
-      expect(reduced()).toBe(false);
-      expect(journal).toHaveLength(2);
+      expect(movement).toHaveBeenCalledTimes(1);
+      expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
+      stop();
+
+      for (const listener of listeners) listener({ matches: true });
+      expect(reduced()).toBe(true);
+      expect(journal).toHaveLength(3);
       expect(listeners.size).toBe(1);
       dispose();
       expect(listeners.size).toBe(0);

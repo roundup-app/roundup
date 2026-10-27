@@ -246,3 +246,28 @@ Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
 invocation ended at its 60-second outer bound, so no whole-suite capture pass is
 claimed. This direct action-seam observation qualifies no 60-second sample,
 stream byte accounting, halfway preference variant or WKWebView timing.
+
+### Working-arc displacement at a live source change
+
+For the Glyphs workload, each sample-phase preference change now retains
+`glyphs`: the visible fixture Agent ids, raw computed transform matrices and
+displayed rotation in degrees (0–360). The existing shared accessor recorder
+reads this before the App's effects cancel the loops. Only a connected, visible
+current arc with a running transform animation is included; outgoing frozen
+marks, opacity-only fades, stopped loops and non-fixture Agents cannot supply
+this evidence. An empty array establishes no moving arc. Initial preference,
+warmup and after-actions entries carry no Glyph displacement claim.
+
+The half-turn is 180 degrees of displayed rotation. The raw matrix is retained
+so a rendered observer can check that reading; animation time/progress is never
+used as rotation. A snapshot does not establish a crossing or a completed live
+reduced-motion variant. Keep `variant: "unqualified"` until the complete required
+fixture, actions and measured halfway source switch are demonstrated. No new
+Mac sequence is requested.
+
+Isolated dark Chromium preparation at 1512×950 read all ten derived fixture
+arcs while moving; after emulating reduced motion it read no running transform
+arcs. D2/D5/D6 passed in both readings. Raw matrices, fixture bytes/hash and
+Checks remain under `artifacts/ux/U3010d/glyph-displacement/`, with uncommitted
+screenshots. This checks the geometry read path, not a halfway switch, full scheduling
+run, native stream or WKWebView timing.
