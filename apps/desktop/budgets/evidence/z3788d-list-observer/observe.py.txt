@@ -1,0 +1,58 @@
+import os,json,pathlib,subprocess,tempfile,uuid,time,platform,hashlib
+root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-list-observer';out.mkdir(parents=True,exist_ok=True)
+media=root/'artifacts/ux/Z3788d';media.mkdir(parents=True,exist_ok=True)
+session='z3788d-'+uuid.uuid4().hex
+scratch=tempfile.TemporaryDirectory(prefix='z3788d-');temp=pathlib.Path(scratch.name);(temp/'config.json').write_text('{}')
+env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+def browser(*args):
+ p=subprocess.run([str(root/'apps/desktop/node_modules/.bin/agent-browser'),'--session',session,'--profile',str(temp/'profile'),'--config',str(temp/'config.json'),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args],env=env,capture_output=True,text=True,timeout=45)
+ if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+ r=json.loads(p.stdout)
+ if not r.get('success'):raise RuntimeError(r)
+ return r['data']
+def ev(s):return browser('eval',s)['result']
+try:
+ browser('open','http://127.0.0.1:5257/harness.html?seed=empty-project&view=workstreams')
+ browser('set','viewport','1512','950');browser('set','media','dark')
+ browser('wait','--fn',"!!window.__fake && !!document.querySelector('.window')")
+ (out/'environment.json').write_text(json.dumps(dict(revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(), host=platform.node(),platform=platform.platform(), browser=ev('({ua:navigator.userAgent,cpu:navigator.hardwareConcurrency})'),viewport=[1512,950],mode='Vite development, no source changes',warmups=20,measured=200,seed='alternating alpha/beta suffix, zero-padded sequential row ids',interval='trusted input EventTiming start to presentation of committed filtered results',observer='Chrome trace EventTiming paired with input/ready marks, exact destination identities and Paint'),ensure_ascii=False,indent=2))
+ for length in [40,400,4000]:
+  browser('open','http://127.0.0.1:5257/harness.html?seed=empty-project&view=workstreams')
+  browser('wait','--fn','!!window.__fake')
+  ev(f'''window.__list=Array.from({{length:{length}}},(_,i)=>({{id:'row-'+String(i).padStart(4,'0'),name:'row-'+String(i).padStart(4,'0')+(i%2?'-beta':'-alpha'),kind:'workstream',parent:null,order:i,status:{{kind:'done',label:'finished',since:0,finished:'0'}},attempt:null,status_revision:null,terminal_id:null,worktree:null,can_resume:false,yolo:false,channel:null,stray:[],model:null,effort:null,work:{{kind:'clarification',question:'What next?'}}}}));window.__fake.app.handlers['rail.tree']=()=>window.__list;window.__fake.emit({{actor:{{kind:'user',id:'you',parent:null}},name:'rail.changed'}})''')
+  browser('wait','--fn',f"document.querySelectorAll('.rail [data-id^=row-]').length>={length}")
+  browser('press','Meta+k');browser('press','k')
+  browser('wait','--fn',"!!document.querySelector('.switcher input') && document.activeElement===document.querySelector('.switcher input')")
+  browser('fill','.switcher input','a')
+  browser('wait','--fn',f"document.querySelectorAll('.switcher [role=option][data-value^=row-]').length==={length}")
+  print('ready',length,flush=True)
+  ev("""window.__samples=[];document.querySelector('.switcher input').addEventListener('input',e=>{
+ const id=window.__samples.length;const row={id,query:e.target.value,start:performance.now(),trusted:e.isTrusted};window.__samples.push(row);performance.mark('z3788d-input-'+id);
+ requestAnimationFrame(()=>{const nodes=[...document.querySelectorAll('.switcher [role=option][data-value^=row-]')];row.ids=nodes.map(n=>n.getAttribute('data-value'));row.ready=performance.now();performance.mark('z3788d-ready-'+id);requestAnimationFrame(()=>{row.after=performance.now();window.__finished=id;performance.mark('z3788d-after-'+id)})});
+ },true)""")
+  browser('profiler','start','--categories','devtools.timeline,blink.user_timing,disabled-by-default-devtools.timeline.frame,cc,viz,benchmark')
+  for index in range(220):
+   browser('press','l' if index%2==0 else 'Backspace')
+   browser('wait','--fn',f'window.__finished==={index}')
+  browser('profiler','stop',str(media/f'{length}-trace.json'))
+  rows=ev('window.__samples')
+  for row in rows:
+   expected=[f'row-{i:04d}' for i in range(0,length,2)]+([f'row-{i:04d}' for i in range(1,length,2)] if row['query']=='a' else [])
+   row['identitiesMatch']=row['ids']==expected;row['count']=len(row['ids']);row['identitiesSha256']=hashlib.sha256(json.dumps(row.pop('ids'),separators=(',',':')).encode()).hexdigest()
+  (out/f'{length}-samples.json').write_text(json.dumps(rows,ensure_ascii=False,separators=(',',':')))
+  print('completed',length,flush=True)
+  browser('screenshot',str(media/f'{length}-results.png'))
+  before=ev('window.__fake.app.calls.length')
+  selected=ev("document.querySelector('.switcher input').getAttribute('aria-activedescendant')")
+  browser('press','Enter')
+  browser('wait','--fn',"!document.querySelector('.switcher') && document.querySelector('[data-id=\"row-0000\"][aria-selected=\"true\"]')!==null")
+  (out/f'{length}-selection.json').write_text(json.dumps(dict(highlight=selected,calls=ev(f'window.__fake.app.calls.slice({before})'),selected=ev("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id')"))))
+except BaseException as error:
+ (out/'collection-failure.json').write_text(json.dumps(dict(exit=2,condition='Setup failure or incomplete actions',error=str(error)),ensure_ascii=False,indent=2))
+ raise SystemExit(2)
+finally:
+ try:browser('close');scratch.cleanup()
+ except Exception as error:
+  (out/'cleanup-failure.json').write_text(json.dumps(dict(exit=2,condition='Cleanup failure',error=str(error))))
+  raise SystemExit(2)
+raise SystemExit(subprocess.run(['python3',str(out/'analyze.py.txt')],check=False).returncode)

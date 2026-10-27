@@ -1,0 +1,55 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 36.377,
+      "p95Ms": 40.712,
+      "minMs": 30.705,
+      "maxMs": 51.763,
+      "budgetMs": 16,
+      "selectionComplete": true,
+      "exit": 1,
+      "EventDispatchP95Ms": 30.531,
+      "UpdateLayoutTreeP95Ms": 20.413,
+      "LayoutP95Ms": 0.743,
+      "PrePaintP95Ms": 0.482,
+      "PaintP95Ms": 1.676,
+      "fullTraceSha256": "c3e82b245df347138f9de4d6762a34d57cf418cf7c9fc157e1ab22797f905cb3"
+    },
+    {
+      "length": 400,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 250.826,
+      "p95Ms": 278.281,
+      "minMs": 206.6,
+      "maxMs": 302.395,
+      "budgetMs": 16,
+      "selectionComplete": false,
+      "exit": 2,
+      "EventDispatchP95Ms": 237.454,
+      "UpdateLayoutTreeP95Ms": 176.301,
+      "LayoutP95Ms": 5.551,
+      "PrePaintP95Ms": 3.393,
+      "PaintP95Ms": 5.007,
+      "fullTraceSha256": "5629875a04880d8946495c500012d4e662440ad447da4321752ea1399570e1e1"
+    }
+  ],
+  "failures": [
+    {
+      "length": 400,
+      "condition": "Incomplete actions: selection readback missing",
+      "exit": 2
+    },
+    {
+      "length": 4000,
+      "condition": "Missing samples: 4000-row collection was not reached",
+      "exit": 2
+    }
+  ],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}

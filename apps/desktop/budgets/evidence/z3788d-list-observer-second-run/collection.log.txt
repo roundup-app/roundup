@@ -1,0 +1,14 @@
+ready 40
+completed 40
+ready 400
+completed 400
+Traceback (most recent call last):
+  File "/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt", line 22, in <module>
+    ev(f'''window.__list=Array.from({{length:{length}}},(_,i)=>({{id:'row-'+String(i).padStart(4,'0'),name:'row-'+String(i).padStart(4,'0')+(i%2?'-beta':'-alpha'),kind:'workstream',parent:null,order:i,status:{{kind:'done',label:'finished',since:0,finished:'0'}},attempt:null,status_revision:null,terminal_id:null,worktree:null,can_resume:false,yolo:false,channel:null,stray:[],model:null,effort:null,work:{{kind:'clarification',question:'What next?'}}}}));window.__fake.app.handlers['rail.tree']=()=>window.__list;window.__fake.emit({{actor:{{kind:'user',id:'you',parent:null}},name:'rail.changed'}})''')
+  File "/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt", line 13, in ev
+    def ev(s):return browser('eval',s)['result']
+                     ^^^^^^^^^^^^^^^^^
+  File "/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt", line 9, in browser
+    if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: {"success":false,"data":null,"error":"CDP command timed out: Runtime.evaluate"}
