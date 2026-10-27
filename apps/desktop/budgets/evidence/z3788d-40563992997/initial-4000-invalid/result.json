@@ -1,0 +1,49 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 10.743,
+      "p95Ms": 18.125,
+      "minMs": 7.303,
+      "maxMs": 20.671,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 5.626,
+      "UpdateLayoutTreeP95Ms": 0.449,
+      "LayoutP95Ms": 0.255,
+      "PrePaintP95Ms": 0.228,
+      "PaintP95Ms": 0.467,
+      "fullTraceSha256": "f2a2f0e973701ed2fc8e78a62383356fcee288ad84486636a66700edadad33b9"
+    },
+    {
+      "length": 400,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 43.798,
+      "p95Ms": 51.616,
+      "minMs": 39.028,
+      "maxMs": 82.481,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 39.423,
+      "UpdateLayoutTreeP95Ms": 2.947,
+      "LayoutP95Ms": 1.706,
+      "PrePaintP95Ms": 1.191,
+      "PaintP95Ms": 2.698,
+      "fullTraceSha256": "c78d6e9993037f0c9d7a3646538388a3619b17cfb49aea6daa319b7021286bb5"
+    }
+  ],
+  "failures": [
+    {
+      "length": 4000,
+      "condition": "71: no matching paint/draw before presentation",
+      "exit": 2
+    }
+  ],
+  "selectionFailures": [],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}

@@ -1,0 +1,12 @@
+{
+  "run": "40563992997",
+  "host": "runnervmtai0g",
+  "kernel": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "bootId": "f4498376-9393-4719-8ae9-42d43f8873ef",
+  "cpu": "model name\t: AMD EPYC 9V74 80-Core Processor",
+  "browserExecutable": "/opt/google/chrome/chrome",
+  "browserSha256": "9bfb381296dffe75f3419d07b6cc64525105ed117d1453a4ef3b291cb97d2b58",
+  "sourceRevision": "b1ba3be42",
+  "baselineRevision": "c9c69c69f6ff685dc81cd579b806abb45306a64e",
+  "pauseCondition": "Owned validation processes stopped during repeated 4000 baseline and final candidate; resumed after collection; no validation CPU work overlapped those samples."
+}

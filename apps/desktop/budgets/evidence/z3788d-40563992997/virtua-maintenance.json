@@ -1,0 +1,10 @@
+{
+  "source": "https://registry.npmjs.org/virtua",
+  "version": "0.54.0",
+  "published": "2026-10-27T09:43:53.575Z",
+  "license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/inokawa/virtua.git",
+    "type": "git"
+  }
+}
