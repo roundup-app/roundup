@@ -135,3 +135,20 @@ stream/idle repair: qualify the exact batches and received bytes and stop the lo
 before settled idle. This App change neither qualifies nor changes that producer.
 Keep the existing warmup/sample/idle windows, stream rate, scheduling thresholds,
 pairing, baselines and native permission unchanged.
+
+### Live preference evidence
+
+`observer.preference` records the initial App reduced-motion value and every live
+change, using the same accessor already supplied to all App motion consumers.
+Each entry retains the page's `performance.now()` timestamp and the driver phase
+(`warmup`, `sample`, or `after-actions`). Compare these timestamps with the layer
+samples before attributing a switch to a halfway crossing. `after-actions` means
+the action driver returned; it does not assert that the stream stopped or that
+settled idle was qualified. Recorder cleanup removes only its observation and
+never the App's preference listener.
+
+The page neither changes the OS preference nor supplies a second preference
+owner. This journal alone does not qualify a live reduced-motion variant: a
+switch still needs measured halfway and completed-action evidence for that
+workload. Reports retain `variant: "unqualified"` until that exists. Do not ask
+for a Mac sequence to fill this implementation gap.
