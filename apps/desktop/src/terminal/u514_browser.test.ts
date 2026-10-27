@@ -49,6 +49,13 @@ const app = async (base = false) => {
   await wait("!!document.querySelector('.shelf-tabs')");
 };
 
+const selectRow = async (id: string) => {
+  await browser("focus", `.rail-row[data-id="${id}"]`);
+  await wait(`document.activeElement?.matches('.rail-row[data-id="${id}"]')`);
+  await browser("press", "Enter");
+  await wait(`document.querySelector('.rail-row[data-id="${id}"]')?.dataset.selected === 'true'`);
+};
+
 const point = (selector: string, end = false) => read<{ x: number; y: number }>(`(() => {
   const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
   return { x: Math.round(${end ? 'box.right - 2' : 'box.left + 2'}), y: Math.round(box.top + box.height / 2) };
@@ -110,8 +117,8 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
 const placement = async (where: "agent" | "door" | "bubble") => {
   await app();
 
-  if (where === "bubble") await browser("click", ".terminal-new");
-  else await browser("click", `[data-id="${where === "agent" ? "migrate" : "payments"}"] .name`);
+  if (where === "bubble") await browser("click", ".rail-terminal-new");
+  else await selectRow(where === "agent" ? "migrate" : "payments");
 
   const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
@@ -198,7 +205,7 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
   if (kind === "overview") {
     await browser("open", url("/harness.html?seed=earlier-run&renderer=dom"));
     await wait("!!document.querySelector('[data-id=earlier-agent]')");
-    await browser("click", '[data-id="earlier-agent"] .name');
+    await selectRow("earlier-agent");
     await wait("!!document.querySelector('.overview-card p')");
     selector = ".overview-card p";
   } else if (kind === "diff") {
@@ -214,9 +221,9 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     const source = kind === "pad-source" ? "```mermaid\ngraph LR\nA-->B\n```" : "alpha [bravo](https://example.com) charlie delta echo foxtrot";
 
     await browser("eval", `window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(source)} })`);
-    await browser("focus", '.rail-row[data-id="payments"]');
-    await browser("press", "Enter");
+    await selectRow("payments");
     await browser("click", "#shelf-tab-pads");
+    await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
     await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
     await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
@@ -308,8 +315,9 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
 
 it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
-  await browser("click", '[data-id="agent-1"] .name');
+  await selectRow("agent-1");
   await browser("click", "#shelf-tab-pads");
+  await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
   await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
@@ -420,8 +428,8 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
-    if (seed === "bubbles") await browser("click", ".terminal-new");
-    else await browser("click", seed === "tree-40" ? '[data-id="migrate"] .name' : '[data-id=agent-4] .name');
+    if (seed === "bubbles") await browser("click", ".rail-terminal-new");
+    else await selectRow(seed === "tree-40" ? "migrate" : "agent-4");
     await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
     const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";
 

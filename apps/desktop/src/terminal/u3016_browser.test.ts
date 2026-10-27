@@ -58,7 +58,9 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&renderer=dom`);
     await until(`!!document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')`);
     await browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
     await browser("press", "Enter");
+    await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await until("!!document.querySelector('.measurement-action button')");
     await capture("before");
     await browser("focus", ".measurement-action button");
@@ -140,7 +142,9 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&renderer=dom`);
     await until(`!!document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')`);
     await browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
     await browser("press", "Enter");
+    await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await until("!!document.querySelector('.measurement-action button')");
     await browser("click", ".measurement-action button");
     await until("!!document.querySelector('.measurement-dashboard .measurement-rows')");
@@ -164,8 +168,8 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
 
     dense.cause = "Fixture collection unavailable; last good measurements remain visible.";
     await evaluate(`window.__fake.app.handlers['project.measurementSummary'] = (params) => ({ ...${JSON.stringify(dense)}, home: params.home }); true`);
-    await browser("focus", '.rail-row[data-id="backend"]');
-    await browser("press", "Enter");
+    await browser("click", '.rail-row[data-id="backend"] .name');
+    await until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'");
     await until("!!document.querySelector('.measurement-action button')");
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
