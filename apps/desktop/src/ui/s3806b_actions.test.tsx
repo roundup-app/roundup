@@ -22,7 +22,7 @@ const pending = <T,>(entered: () => void, value: T) => {
     return reply.promise;
   };
 
-  return { handler, held: { resolve: () => reply.resolve(value), reject: reply.reject } satisfies Pending };
+  return { handler, gate: { resolve: () => reply.resolve(value), reject: reply.reject } satisfies Pending };
 };
 
 type Row = {
@@ -44,38 +44,38 @@ const ROWS: Row[] = [
   { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "ops",
     params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
     hold: (app, entered) => {
-      const { handler, held } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
+      const { handler, gate } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
       app.handlers["agent.spawn"] = handler;
 
-      return held;
+      return gate;
     } },
   { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", confirms: false, removes: "ops",
     params: { workstream: "ops" },
     hold: (app, entered) => {
-      const { handler, held } = pending(entered, { terminal_id: "8" });
+      const { handler, gate } = pending(entered, { terminal_id: "8" });
 
       app.handlers["terminal.open"] = handler;
 
-      return held;
+      return gate;
     } },
   { owner: "Rail", label: "Remove", selected: "ann", origin: '[data-id="ann"][role="treeitem"]', method: "rail.remove", confirms: true, removes: "bob",
     params: { id: "ann" },
     hold: (app, entered) => {
-      const { handler, held } = pending(entered, null);
+      const { handler, gate } = pending(entered, null);
 
       app.handlers["rail.remove"] = handler;
 
-      return held;
+      return gate;
     } },
   { owner: "Bubble", label: "Close the Bubble", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.close", confirms: true, removes: "ops",
     params: { id: "7" },
     hold: (app, entered) => {
-      const { handler, held } = pending(entered, null);
+      const { handler, gate } = pending(entered, null);
 
       app.handlers["terminal.close"] = handler;
 
-      return held;
+      return gate;
     } },
 ];
 
