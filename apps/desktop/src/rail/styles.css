@@ -843,31 +843,19 @@
 .rail-row .line::before { content: ""; width: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--rail-gap)); flex: none; }
 .rail-row .row-state { position: absolute; left: var(--space-6); margin-inline-start: 0; }
 .rail-row .rail-chevron { left: var(--space-1); transform: none; }
+/* U4275b: reserve action width at rest so hover never covers the row name. */
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
   flex: none;
-  position: absolute;
-  inset-inline-end: calc(100% + var(--rail-gap));
-  background: var(--sunken);
+  margin-inline-end: var(--rail-gap);
   opacity: 0;
-  pointer-events: none;
-}
-.rail-row .row-icons::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 100%;
-  width: var(--space-4);
-  background: inherit;
-  mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
 .rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-icons {
   opacity: 1;
   pointer-events: auto;
 }
-.rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline: 0; }

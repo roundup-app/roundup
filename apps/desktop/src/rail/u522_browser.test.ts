@@ -10,7 +10,7 @@ const load = async () => {
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); const name = document.querySelector('.rail-row[data-id="${id}"] .name').getBoundingClientRect(); return { x: name.left + 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
