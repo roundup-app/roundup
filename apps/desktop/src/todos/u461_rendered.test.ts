@@ -264,7 +264,7 @@ it("u3789a_real_daemon_rows", async () => {
     await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${child.id}'`);
     expect(await evaluate("window.__rowCalls.filter(call => ['agent.spawn','agent.resume','rail.startDoor'].includes(call.method))")).toEqual([]);
     expect(await evaluate("!!document.querySelector('.bubble:not([hidden])')")).toBe(false);
-    await browser("press", "Enter");
+    await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))");
     await until("document.activeElement?.closest('.pane-screen')");
     await browser("click", `.rail-row[data-id="${home.id}"] .name`);
     await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${home.id}'`);
