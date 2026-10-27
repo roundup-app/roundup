@@ -32,7 +32,7 @@ pub fn project_menu_hints<R: Runtime>(
             let font: Retained<AnyObject> = msg_send![font_class, menuFontOfSize: 0.0f64];
             let dictionary = AnyClass::get(c"NSDictionary").expect("Foundation is loaded");
             let font_key = NSString::from_str("NSFont");
-            let fonts: Retained<AnyObject> = msg_send![dictionary, dictionaryWithObject: &*font forKey: &*font_key];
+            let fonts: Retained<AnyObject> = msg_send![dictionary, dictionaryWithObject: &*font, forKey: &*font_key];
             let mut title_width = 0.0f64;
             let mut hint_width = 0.0f64;
             for index in 0..count {
@@ -50,14 +50,14 @@ pub fn project_menu_hints<R: Runtime>(
             let tab: Allocated<AnyObject> = msg_send![tabs, alloc];
             let options: Retained<AnyObject> = msg_send![dictionary, dictionary];
             // NSTextAlignmentRight = 1. Measure with the system menu font, including long titles.
-            let tab: Retained<AnyObject> = msg_send![tab, initWithTextAlignment: 1isize location: title_width + hint_width + em * 2.0 options: &*options];
+            let tab: Retained<AnyObject> = msg_send![tab, initWithTextAlignment: 1isize, location: title_width + hint_width + em * 2.0, options: &*options];
             let array = AnyClass::get(c"NSArray").expect("Foundation is loaded");
             let stops: Retained<AnyObject> = msg_send![array, arrayWithObject: &*tab];
             let styles = AnyClass::get(c"NSMutableParagraphStyle").expect("AppKit is loaded");
             let style: Retained<AnyObject> = msg_send![styles, new];
             let _: () = msg_send![&*style, setTabStops: &*stops];
             let style_key = NSString::from_str("NSParagraphStyle");
-            let attributes: Retained<AnyObject> = msg_send![dictionary, dictionaryWithObject: &*style forKey: &*style_key];
+            let attributes: Retained<AnyObject> = msg_send![dictionary, dictionaryWithObject: &*style, forKey: &*style_key];
             let strings = AnyClass::get(c"NSAttributedString").expect("Foundation is loaded");
             for (index, hint) in hints {
                 let Ok(index) = isize::try_from(index) else { continue };
@@ -66,7 +66,7 @@ pub fn project_menu_hints<R: Runtime>(
                 let title: Retained<NSString> = msg_send![&*item, title];
                 let display = NSString::from_str(&format!("{title}\t{hint}"));
                 let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
-                let attributed: Retained<AnyObject> = msg_send![attributed, initWithString: &*display attributes: &*attributes];
+                let attributed: Retained<AnyObject> = msg_send![attributed, initWithString: &*display, attributes: &*attributes];
                 let _: () = msg_send![&*item, setAttributedTitle: &*attributed];
                 // AppKit also assigns the attributed string to title; retain the action’s plain label.
                 let _: () = msg_send![&*item, setTitle: &*title];
