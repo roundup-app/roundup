@@ -3,7 +3,7 @@ import { Fieldset } from "@ark-ui/solid/fieldset";
 import { DatePicker } from "@ark-ui/solid/date-picker";
 import { NumberInput } from "@ark-ui/solid/number-input";
 import { Checkbox as ArkCheckbox } from "@ark-ui/solid/checkbox";
-import { For, Show, type JSX } from "solid-js";
+import { createUniqueId, For, Show, type JSX } from "solid-js";
 
 /** Ark owns each field's accessible label and control relationship. */
 const Text = (props: { label: string; value: string; onInput: (value: string) => void; area?: boolean; placeholder?: string }) =>
@@ -32,11 +32,16 @@ const CivilDate = (props: { label: string; value: string; placeholder: string; o
 
 /** Ark's CheckboxGroup owns the selected identities and labelled group. */
 const Checks = (props: { label: string; values: string[]; items: { value: string; label: string }[]; onChange: (values: string[]) => void }) =>
-  <ArkCheckbox.Group class="reaction-agents" aria-label={props.label} value={() => props.values} onValueChange={props.onChange}>
+{
+  const label = createUniqueId();
+
+  return <div class="reaction-field"><span id={label} class="reaction-label">{props.label}</span>
+  <ArkCheckbox.Group class="reaction-agents" aria-labelledby={label} value={() => props.values} onValueChange={props.onChange}>
     <For each={props.items}>{item => <ArkCheckbox.Root class="app-checkbox" value={item.value}>
       <ArkCheckbox.Control class="app-checkbox-box" /><ArkCheckbox.Label class="app-checkbox-label">{item.label}</ArkCheckbox.Label>
       <ArkCheckbox.HiddenInput asChild={(input) => <input {...input()} style="" />} />
     </ArkCheckbox.Root>}</For>
-  </ArkCheckbox.Group>;
+  </ArkCheckbox.Group></div>;
+};
 
 export const Form = { Text, Group, Number: Numeric, Date: CivilDate, Checks };
