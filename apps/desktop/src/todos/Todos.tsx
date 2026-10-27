@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -369,7 +370,7 @@ export const Todos = (props: {
   });
 
   createOwnerPicker({ todos,
-    when: event => !triage.on() || triageTarget(event)?.done === false,
+    when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
     pick: (id, anchor) => { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); },
   });
 
@@ -713,7 +714,7 @@ export const Todos = (props: {
     },
     {
       chords: chordsFor("T"),
-      when: event => !triage.on() && canTriage(event),
+      when: event => !triage.on() && canTriage(event) && !rowTypeahead(event),
       run: enterTriage,
     },
     {

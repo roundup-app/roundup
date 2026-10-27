@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
 import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
@@ -97,7 +98,7 @@ export const createOwnerKeys = (source: {
     return todo?.done === false ? todo : undefined;
   };
 
-  const can = (event: KeyboardEvent) => source.active() && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
+  const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
   registerKeys(shelfKeyScope, [{

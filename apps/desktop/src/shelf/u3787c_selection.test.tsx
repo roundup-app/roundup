@@ -19,11 +19,11 @@ const names = ["Alpha", "長い名前 é 🧭 ".repeat(10), "same", "same", "É
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-const mount = async (entry: typeof inventory[number]) => {
+const mount = async (entry: typeof inventory[number], titles = names) => {
   const app = createFakeApp();
   app.add("/selection");
-  Object.assign(app.handlers, todoHandlers({ todos: names.map((title, i) => todo(i + 1, { title })) }, () => {}),
-    padHandlers({ pads: names.map((name, i) => ({ ...padOf(name, USER), incarnation: `pad-${i}` })), history: [] }, () => {}));
+  Object.assign(app.handlers, todoHandlers({ todos: titles.map((title, i) => todo(i + 1, { title })) }, () => {}),
+    padHandlers({ pads: titles.map((name, i) => ({ ...padOf(name, USER), incarnation: `pad-${i}` })), history: [] }, () => {}));
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("tab", { name: "selection" });
   await screen.findByRole("textbox", { name: "Ask" });
@@ -92,4 +92,19 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $tab", async entr
   expect(selected()).toEqual(eligible);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
+});
+
+// These letters also own Shelf commands; a matching name owns the press first.
+it.each(inventory.flatMap(entry => ["d", "e", "m", "o", "t", "1"].map(prefix => ({ ...entry, prefix }))))("u3787c_name_prefix_precedes_commands $tab $prefix", async entry => {
+  const { prefix } = entry;
+  const { rows, app, before } = await mount(entry, ["Alpha", `${prefix}estination`, "same", "same", "Éclair", "Zulu", "hidden", "disabled"]);
+  rows[0]!.focus();
+  fireEvent.keyDown(rows[0]!, { key: prefix, code: /^\d$/.test(prefix) ? `Digit${prefix}` : `Key${prefix.toUpperCase()}` });
+  const match = rows.find(row => row.textContent?.includes(`${prefix}estination`))!;
+  expect(document.activeElement).toBe(match);
+  expect(match.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.keyDown(match, { key: "e", code: "KeyE" });
+  expect(document.activeElement).toBe(match);
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(app.chooser.suggestedNames).toEqual([]);
 });

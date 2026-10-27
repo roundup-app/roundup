@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
@@ -271,6 +272,7 @@ export const Pads = (props: {
 
   registerKeys(shelfKeyScope, [{
     action: CHORDS.find(row => row.keys === "O")!,
+    when: event => !rowTypeahead(event),
     capture: (focus) => {
       const row = focus instanceof HTMLElement && focus.closest(".pad-name") ? focus.closest<HTMLElement>("[data-pad]") : null;
       const name = row?.dataset.pad;
