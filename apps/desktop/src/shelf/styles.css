@@ -149,15 +149,6 @@
   z-index: 1;
 }
 
-/* U371: a rejected call keeps its complete explanation visible at the Shelf width. */
-.shelf p[role="alert"]:not(.reserved-content) {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-
 /* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
 .shelf-tabs.app-tabs-list { gap: var(--space-2); }
 .shelf-tab[data-selected] { --button-surface: var(--transparent); --button-hover: var(--transparent); }

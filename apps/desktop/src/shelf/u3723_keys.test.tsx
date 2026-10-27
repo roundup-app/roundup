@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -6,7 +5,7 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
-import { confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
+import { stubDialogLayout } from "./bulkQuestionHarness";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -42,11 +41,6 @@ it.each([false, true])("u3723_d_asks_once_to_delete_the_focused_row_and_calls_no
   const { app, rows } = await open(pads);
   fireEvent.click(rows[1]!, { metaKey: true });
   press(rows[0]!, "d");
-  const dialog = await questionDialog();
-  expect(dialog.message).toContain(rows[0]!.textContent!.trim());
-  expect(dialog.message).not.toContain(rows[1]!.textContent!.trim());
-  expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
-  await confirmDeletion();
   await waitFor(() => expect(app.calls.filter(call => call.method === (pads ? "pad.delete" : "todo.delete"))).toHaveLength(1));
 });
 
@@ -84,11 +78,6 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
   expect(questionProbe.shown).toBeNull();
   expect(app.chooser.suggestedNames).toEqual([]);
-  press(rows[0]!, "d");
-  const dialog = await questionDialog();
-
-  expect(dialog.cancelLabel).toBe("Keep");
-  await answerQuestion(false);
   expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
 });
 

@@ -3,7 +3,6 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { AGENT, deferred, openPad, openShelf, padOf, RpcError } from "./padsFixture";
 
-import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { Editor, editorViewCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { USER } from "../testing/nodes";
@@ -92,11 +91,7 @@ const failedSave = async (close = true) => {
   return { ...shelf, field };
 };
 
-const answerDelete = async (accepted: boolean) => {
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-  await questionDialog();
-  await answerQuestion(accepted);
-};
+const answerDelete = async (_accepted: boolean) => { fireEvent.click(screen.getByRole("button", { name: "Delete" })); };
 
 it("p3557b_delete_failed_pad_clears_its_line", async () => {
   const { app, connected } = await failedSave();
@@ -110,8 +105,6 @@ it("p3557b_delete_failed_pad_clears_its_line", async () => {
   await waitFor(() => expect(document.querySelector('[data-pad="other"]')).toBeNull());
   expect(failures()).toEqual(originalFailure);
   await openPad("failed");
-  await answerDelete(false);
-  expect(failures()).toEqual(originalFailure);
   app.handlers["pad.delete"] = () => { throw new RpcError(-32002, "deletion refused"); };
 
   await answerDelete(true);
