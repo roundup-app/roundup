@@ -287,15 +287,18 @@ describe("u3010g the frame recorder drives every workload", () => {
     root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><div class="row-controls"><button aria-label="Open"></button></div></div></section><button class="shelf-tab" data-selected></button>';
     document.body.append(root);
     let activate: (event: Event) => void = () => {};
+
     const controls = domLayers([], (_type, listener) => {
       activate = listener;
 
       return () => {};
     });
+
     const target = root.querySelector(action === "openDrawer" ? '[aria-label="Open"]' : '.shelf-tab')!;
 
     try {
       const run = controls[action]();
+
       const event: MouseEvent = Object.create(MouseEvent.prototype, {
         isTrusted: { value: true }, target: { value: target }, detail: { value: 1 },
       });
