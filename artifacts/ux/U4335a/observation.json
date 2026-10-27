@@ -1,0 +1,27 @@
+{
+  "head": "c3e65dad91eb9e7520c818a34dba8f1d3e405644",
+  "base": "6faebb45eabebc8d8681f26214c6a20269bf5aea",
+  "sharedStep": {
+    "token": "--space-5",
+    "cssPixels": 24
+  },
+  "status": "incomplete",
+  "observed": "Captured parent-child glyph deltas are 24 CSS px in Rail and Shelf Todos. Initial captured stems overlapped glyph rectangles by 0.25 CSS px; final code starts stems one hairline later. Nested Workstream margins were also restricted to root branches after those captures.",
+  "remaining": [
+    "Recapture the final head after stem and nested margin corrections, including three-level Rail-owned Todos.",
+    "Observe current-main Checks alongside final head; preserve every passing Check.",
+    "Repair video finalization: agent-browser record stop exceeded the isolated command timeout.",
+    "Finish just ready and all reached tests; inspect row/nesting failures without weakening assertions.",
+    "Independent design critic acceptance remains required."
+  ],
+  "validation": {
+    "typecheck": "passed",
+    "scopedLint": "passed with one pre-existing unassigned section warning",
+    "stylelint": "passed",
+    "u360_checks": "5 tests passed",
+    "initialJustReady": "web lint spacing findings repaired; Rust clippy passed; subsequent gates still running",
+    "relatedTests": "broad run observed real-Daemon timeout and Shelf restart/browser failures under concurrent compilation",
+    "focusedRows": "nesting suite observed u3811_final_child_keeps_its_finish_and_repairs_only_hidden_focus failure; must be re-derived and resolved"
+  },
+  "captures": "Base/head PNGs and partial interaction video remain untracked. JSON readings describe their captured code, not the final post-observation corrections."
+}
