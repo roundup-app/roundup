@@ -154,13 +154,13 @@ describe("u54 keyboard help", () => {
 
   });
 
-  it("u54_question_mark_in_a_terminal_a_text_field_or_nowhere_opens_nothing", async () => {
+  it("u54_question_mark_in_a_terminal_or_text_field_opens_nothing", async () => {
     await open();
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
 
     expect(question(document.querySelector(".pane-screen textarea")!)).toBe(false);
-    expect(question(document.body)).toBe(false);
+    // U4324b now proves body/first-run Help; U4324a supersedes the old nowhere exclusion.
     expect(help()).toBeNull();
   });
 
