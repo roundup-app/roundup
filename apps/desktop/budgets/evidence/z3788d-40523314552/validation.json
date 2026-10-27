@@ -1,0 +1,25 @@
+{
+  "pnpmInstall": 0,
+  "mergeLoss": 0,
+  "fullProductionBuild": 0,
+  "startup": 0,
+  "staticOutput": 0,
+  "pairedObserver": {
+    "baseline": 1,
+    "after": 1,
+    "invalidSamples": 0
+  },
+  "explicitRenderedCaptures": {
+    "screens": 6,
+    "allChecks": "pass"
+  },
+  "justCapture": "terminated at 240 seconds; no complete pass",
+  "relatedSuite": "interrupted after real-Daemon tests passed; no complete pass",
+  "justReady": "web checks passed; Rust compilation still running; no complete pass",
+  "focusedSwitcher": "71 passed, 1 failed: browser assumed initially mounted endpoint was logical endpoint; test corrected, rerun pending",
+  "nativeCI": {
+    "run": 40520992110,
+    "mac": "success",
+    "mac-clippy": "success"
+  }
+}

@@ -79,6 +79,8 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       const before = await read<number>("window.__fake.app.calls.length");
       const ids = await read<string[]>("[...document.querySelectorAll('.switcher [data-collection-value]')].map(e=>e.dataset.value)");
       expect(ids.length).toBeGreaterThanOrEqual(5);
+      // tree-40 extends beyond the mounted viewport; its final destination is agent-30.
+      const last = seed === "tree-40" ? "agent-30" : ids.at(-1);
 
       if (seed !== "agents-10") await capture(`${seed}-before`);
 
@@ -86,13 +88,19 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       await browser("press", "Tab");
       await browser("wait", "--fn", "!!document.activeElement?.dataset.collectionValue");
       await browser("press", "End");
-      expect(await read("document.activeElement.dataset.value")).toBe(ids.at(-1));
+      expect(await read("document.activeElement.dataset.value")).toBe(last);
       await browser("press", "ArrowDown");
-      expect(await read("document.activeElement.dataset.value")).toBe(ids.at(-1));
+      expect(await read("document.activeElement.dataset.value")).toBe(last);
       await browser("press", "Home");
       expect(await read("document.activeElement.dataset.value")).toBe(ids[0]);
       await browser("press", "Meta+a");
-      expect(await read("[...document.querySelectorAll('.switcher [aria-selected=true]')].map(e=>e.dataset.value)")).toEqual(ids);
+      expect(await read("[...document.querySelectorAll('.switcher [aria-selected=true]')].map(e=>e.dataset.value)")).toEqual(await read("[...document.querySelectorAll('.switcher [data-collection-value]')].map(e=>e.dataset.value)"));
+      // Select-all also covers the viewport after navigation to the other endpoint.
+      await browser("press", "End");
+      expect(await read("document.activeElement.dataset.value")).toBe(last);
+      await browser("press", "Meta+a");
+      expect(await read("[...document.querySelectorAll('.switcher [aria-selected=true]')].map(e=>e.dataset.value)")).toEqual(await read("[...document.querySelectorAll('.switcher [data-collection-value]')].map(e=>e.dataset.value)"));
+      await browser("press", "Home");
       expect(await read("window.__fake.app.calls.length")).toBe(before);
       await browser("press", "ArrowDown");
       await capture(`${seed}-selected`);

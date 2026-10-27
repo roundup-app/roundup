@@ -1,0 +1,23 @@
+{
+  "revision": "f3babff7abaf09fdb85f769dd1a0e4b6bd88b6b3",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "browser": {
+    "cpu": 4,
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "Vite production; isolated Switcher with real connected Project, draft storage, Combobox and styles",
+  "warmups": 20,
+  "measured": 200,
+  "seed": "alternating alpha/beta suffix, zero-padded sequential row ids",
+  "interval": "trusted input EventTiming start to presentation of committed filtered results",
+  "sources": {
+    "/home/runner/work/roundup/roundup/apps/desktop/budgets/evidence/z3788d-40523314552/profile/Combobox.tsx.txt": "916cf09f5d5a33dcd7c89b43e6cf40bd6af9e273d1af99fe6005b278cd480407",
+    "/home/runner/work/roundup/roundup/apps/desktop/budgets/evidence/z3788d-40523314552/profile/Switcher.tsx.txt": "d306a267c937d8e2de267ca2b62a93bd8a21d910436f016795d07d1bf6a8e2f3",
+    "/home/runner/work/roundup/roundup/apps/desktop/budgets/evidence/z3788d-40523314552/profile/z3788d-observer.tsx.txt": "a43b6956e678bc855eece6c40f13d9cd529f17f2bcc2cf404620e3314a606c64"
+  }
+}

@@ -50,3 +50,14 @@ remain as `*-raw-samples.json[.gz]`; decode gzip before inspecting them.
 The next engineering step is synchronous input-path profiling on an idle host,
 then a measured repair and another complete paired run. No product decision or
 user observation is needed to choose that work.
+
+Fresh captures: all six screens pass every rendered Check, including D2/D5/D6.
+Production build passes: startup 433619 / 437814 gzip bytes; static output
+17962526 / 18000000 bytes. Main CI 40520992110 passed mac and mac-clippy.
+The user reports what they meet on the Mac. Validation outcomes are in validation.json.
+
+The focused suite passed 71 tests and failed its browser assertion that End reaches
+the last initially mounted row (agent-20). Native End reaches the logical final
+agent-30. The corrected test names that fixture endpoint and checks select-all in
+both endpoint viewports; its rerun is recorded separately. No test was cut: this
+is the sole mounted-App observer for native query editing and content navigation.
