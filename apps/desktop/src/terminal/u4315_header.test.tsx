@@ -205,8 +205,9 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
         await page.browser("mouse", "up");
         if (side === "head") expect(await page.evaluate("!!document.querySelector('.import-panel')")).toBe(true);
         await capture("attempted-back");
+        const discoveries = (await page.calls("project.importDiscover")).length;
         await page.evaluate("(() => {window.__settleImport(); delete window.__settleImport; return true;})()");
-        await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : side === "base" ? "window.__fake.app.calls.filter(call => call.method === 'project.importDiscover').length >= 3" : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
+        await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : side === "base" ? `window.__fake.app.calls.filter(call => call.method === 'project.importDiscover').length > ${discoveries}` : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
         await capture("settled");
       }
       await page.browser("record", "stop");
