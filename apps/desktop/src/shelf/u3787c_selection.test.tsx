@@ -15,6 +15,7 @@ const inventory = [
   { tab: "Todos", selector: ".todo-row-button" },
   { tab: "Pads", selector: ".pad-name" },
 ] as const;
+
 const names = ["Alpha", "長い名前 é 🧭 ".repeat(10), "same", "same", "Éclair", "Zulu", "hidden", "disabled"];
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -29,25 +30,36 @@ const mount = async (entry: typeof inventory[number], titles = names) => {
   await screen.findByRole("textbox", { name: "Ask" });
   await showEverythingInApp();
   showShelfTab(entry.tab);
+
   const group = await waitFor(() => {
     const row = document.querySelector<HTMLElement>('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]');
     expect(row).not.toBeNull();
+
     return row!;
   });
+
   if (group.closest('[data-state="closed"]')) fireEvent.click(group);
+
   const rows = await waitFor(() => {
     const rows = [...document.querySelectorAll<HTMLButtonElement>(`.shelf ${entry.selector}`)];
     expect(rows).toHaveLength(8);
+
     return rows;
   });
+
   rows[6]!.hidden = true;
   rows[7]!.disabled = true;
   const before = app.calls.length;
-  return { rows, app, before };
+
+  const rowFor = (index: number) => rows.find(row => entry.tab === "Todos"
+    ? row.closest("[data-todo]")?.getAttribute("data-todo") === String(index + 1)
+    : row.closest("[data-incarnation]")?.getAttribute("data-incarnation") === `pad-${index}`)!;
+
+  return { rows, app, before, rowFor };
 };
 
 it.each(inventory)("u3787c_each_list_navigates_visible_rows $tab", async entry => {
-  const { rows, app, before } = await mount(entry);
+  const { rows, app, before, rowFor } = await mount(entry);
   // DOM order, rather than fixture insertion order, is the visible list order.
   const eligible = rows.filter(row => !row.hidden && !row.disabled);
   const first = eligible[0]!;
@@ -65,7 +77,7 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $tab", async entry =
   expect(document.activeElement).toBe(eligible[1]);
   fireEvent.keyDown(eligible[1]!, { key: "ArrowUp" });
   expect(document.activeElement).toBe(first);
-  const match = eligible.find(row => row.textContent?.includes("Éclair"))!;
+  const match = rowFor(4);
   fireEvent.keyDown(first, { key: "É" });
   expect(document.activeElement).toBe(match);
   expect(match.getAttribute("aria-pressed")).toBe("true");
@@ -97,10 +109,10 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $tab", async entr
 // These letters also own Shelf commands; a matching name owns the press first.
 it.each(inventory.flatMap(entry => ["d", "e", "m", "o", "t", "1"].map(prefix => ({ ...entry, prefix }))))("u3787c_name_prefix_precedes_commands $tab $prefix", async entry => {
   const { prefix } = entry;
-  const { rows, app, before } = await mount(entry, ["Alpha", `${prefix}estination`, "same", "same", "Éclair", "Zulu", "hidden", "disabled"]);
+  const { rows, app, before, rowFor } = await mount(entry, ["Alpha", `${prefix}example`, "same", "same", "Éclair", "Zulu", "hidden", "disabled"]);
   rows[0]!.focus();
   fireEvent.keyDown(rows[0]!, { key: prefix, code: /^\d$/.test(prefix) ? `Digit${prefix}` : `Key${prefix.toUpperCase()}` });
-  const match = rows.find(row => row.textContent?.includes(`${prefix}estination`))!;
+  const match = rowFor(1);
   expect(document.activeElement).toBe(match);
   expect(match.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(match, { key: "e", code: "KeyE" });
