@@ -25,7 +25,8 @@ const field = async (kind: string, initial = "alpha bravo charlie") => {
 
   if (kind === "pad") {
     await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
-    await read('document.querySelector(".rail-row[data-id=payments] .name").click()');
+    await browser("focus", '.rail-row[data-id="payments"]');
+    await browser("press", "Enter");
     await wait("document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'payments'");
     await read("(() => {const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
     await wait("document.querySelector('.pads-tab')?.checkVisibility()");
