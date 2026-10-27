@@ -132,6 +132,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       const tasks: (() => void)[] = [];
       let at = 10;
       let result: "moving" | "settled" = "moving";
+
       const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({}), {
         afterUpdate: callback => { tasks.push(callback); },
         read: () => result,
@@ -153,6 +154,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       const [reduced, change] = createSignal(false);
       const journal: import("./frames").PreferenceAction[] = [];
       const tasks: (() => void)[] = [];
+
       const stop = observePreference(reduced, () => 10, () => "sample", journal, () => ({}), {
         afterUpdate: callback => { tasks.push(callback); },
         read: () => "settled",
