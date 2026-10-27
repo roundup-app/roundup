@@ -82,6 +82,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     const journal: import("./frames").PreferenceAction[] = [];
     let phase: import("./frames").PreferenceAction["phase"] = "warmup";
     let at = 12;
+
     const movement = vi.fn(() => ({
       movement: { panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 },
       glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }],
@@ -108,6 +109,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       ]);
       expect(movement).toHaveBeenCalledTimes(1);
       phase = "after-actions";
+
       for (const listener of listeners) listener({ matches: false });
       expect(movement).toHaveBeenCalledTimes(1);
       expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
