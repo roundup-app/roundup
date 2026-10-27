@@ -5,6 +5,7 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { journal } from "./mouseJournalHarness";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
+import { createServedApp } from "../testing/realSeam";
 
 /** U59's observer: ten Agents on the real `rupd` and a real Chromium; the selected Terminal passes D1, D6, D7 and D10. */
 
@@ -49,22 +50,20 @@ run("u59 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
   it("u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean", async () => {
-    await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-
-    await page.until(`() => document.querySelectorAll('.rail-row').length === 1 && document.querySelector('.rail-row[data-selected="true"]') !== null`);
-
-    await page.call(`async () => { window.__u59Menu = (await import('/src/testing/menuProbe.ts')).menuProbe; }`);
+    const app = createServedApp(real.base);
+    const home = await app.rpc("rail.createWorkstream", { name: "Ten Agents", parent: null });
+    let selected = home.id;
 
     for (let count = 1; count <= 10; count += 1) {
-      await page.until(`() => document.querySelector('.rail-actions [aria-label="Add Workstream"]')?.getAttribute('aria-disabled') !== 'true'`);
-      await page.call(`() => { window.__u59Menu.shown = null; document.querySelector('.rail-row').focus(); }`);
-      await page.press("F10", "F10", 8);
-      await page.until(`() => window.__u59Menu.shown?.some(item => item.id === 'add' && item.enabled)`);
-      await page.call(`() => window.__u59Menu.answer('add')`);
-      // Rail selects the returned Agent only after agent.spawn acknowledges it.
-      await page.until(`() => document.querySelectorAll('.rail-row').length === ${count + 1} && document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-part') === 'item'`);
+      selected = (await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name: `Agent ${count}` })).id;
     }
+
+    await openHarness();
+    await page.until(`() => Boolean(document.querySelector('.rail-row[data-id="${selected}"]'))`);
+    await page.call(`id => document.querySelector('.rail-row[data-id="' + id + '"]').focus()`, selected);
+    await page.until(`() => document.activeElement?.matches('.rail-row[data-id="${selected}"]')`);
+    await page.press("Enter", "Enter");
+    await page.until(`() => document.querySelector('.rail-row[data-id="${selected}"]')?.dataset.selected === 'true'`);
 
     await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
 

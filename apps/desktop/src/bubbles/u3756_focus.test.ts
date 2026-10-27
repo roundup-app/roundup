@@ -102,6 +102,11 @@ const newer = async (choice: string) => {
     await browser("press", "Meta+/");
     await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
   } else if (choice === "drawer") {
+    if (await read(`!!document.querySelector('.rail-row[data-id=backend]')`)) {
+      await browser("click", ".rail-row[data-id=backend] .row-state");
+      await wait(`document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'`);
+    }
+
     await read(`(async () => {
       const app = window.__fake.app;
       const made = await app.rpc('todo.create', {title:'Newer Drawer',body:null,blockers:null});
@@ -110,6 +115,7 @@ const newer = async (choice: string) => {
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
       const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
+    await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
     await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
     await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
     await wait(`!!document.querySelector('.drawer[data-open=true]')`);
@@ -139,15 +145,13 @@ for (const choice of ["drawer", "ask", "rail"]) {
 }
 
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id=backend]')`);
-  await read('document.querySelector(".rail-row[data-id=backend] .name").click()');
+  await fresh("door-stopped");
   await wait(`!!document.querySelector('.pane-action')`);
   await read(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    window.originFocus = document.querySelector('.rail-row[data-id=backend]');
+    window.originFocus = document.querySelector('.rail-row[data-id=first-workstream]');
     window.originFocus.focus();
     document.querySelector('.pane-action').click();
   })()`);
@@ -381,6 +385,7 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
     const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   })()`);
+  await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
   await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
   await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
   await wait(`!!document.querySelector('.drawer .todo-add-notes')`);

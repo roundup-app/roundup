@@ -38,6 +38,9 @@ patchedDependencies:
   '@zag-js/focus-trap@1.45.0':
     hash: acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd
     path: patches/@zag-js__focus-trap@1.45.0.patch
+  '@zag-js/live-region@1.45.0':
+    hash: 420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f
+    path: patches/@zag-js__live-region@1.45.0.patch
   '@zag-js/radio-group@1.45.0':
     hash: 53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91
     path: patches/@zag-js__radio-group@1.45.0.patch
@@ -7865,7 +7868,7 @@ snapshots:
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
       '@zag-js/focus-visible': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/popper': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -7882,7 +7885,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/date-utils': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
@@ -7894,7 +7897,7 @@ snapshots:
       '@zag-js/date-utils': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/popper': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -8022,7 +8025,7 @@ snapshots:
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
-  '@zag-js/live-region@1.45.0': {}
+  '@zag-js/live-region@1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)': {}
 
   '@zag-js/marquee@1.45.0':
     dependencies:
@@ -8246,7 +8249,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/dom-query': 1.45.0
       '@zag-js/interact-outside': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 

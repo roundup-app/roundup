@@ -27,7 +27,7 @@ const dragBelow = async (id: string, to: string, shift = 0) => {
   await mouse("move", from.x, from.y);
   await mouse("down");
   await mouse("move", from.x + 6, from.y + 6);
-  await wait(`document.querySelector('[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
+  await wait(`document.querySelector('.rail-row[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
   await mouse("move", Math.max(1, from.x + 6 + shift), target.bottom + 2);
   await mouse("move", Math.max(1, from.x + shift), target.bottom + 2);
 };
