@@ -41,17 +41,11 @@
   gap: var(--space-2);
 }
 
-/* Every text field in a dialog is a one-line textarea (D6 skips a text field): the text's own look, no UA box, a 24 px hit area, and a hover that changes the text colour alone. */
+/* Dialog composition owns sizing; Field.css owns the shared form frame. */
 .app-dialog-form textarea {
   box-sizing: border-box;
   min-height: var(--space-5);
   margin: 0;
-  padding: var(--space-1);
-  border: 0;
-  border-bottom: var(--hairline-width) solid var(--hairline);
-  background: var(--transparent);
-  color: var(--text);
-  font: inherit;
   resize: none;
   overflow: hidden;
   white-space: pre;
@@ -62,7 +56,7 @@
 }
 
 .app-dialog-field textarea {
-  width: var(--space-6);
+  width: calc(var(--space-6) * 3);
   text-align: center;
 }
 

@@ -64,13 +64,6 @@
 }
 
 /* A square tick box, not the shared radio-like circle. */
-.import-check .app-checkbox-box::before {
-  content: "☐";
-}
-
-.import-check .app-checkbox-box[data-state="checked"]::before {
-  content: "☑";
-}
 
 .import-text {
   display: flex;

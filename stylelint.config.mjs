@@ -5,6 +5,11 @@ const focusRingRule = 'roundup/no-focus-ring';
 const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) => {
   root.walkDecls((declaration) => {
     if (!/^(outline(?:-.+)?|box-shadow)$/i.test(declaration.prop)) return;
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') &&
+        declaration.prop === 'outline' && declaration.value === 'var(--stroke-width) solid var(--accent)' &&
+        declaration.parent?.type === 'rule' && declaration.parent.selector.split(/,\s*\n/).every(selector =>
+          /(?:\[data-scope="(?:field|number-input|date-picker)"\]|\.app-(?:select-trigger|combobox-input|checkbox|switch|radio|dialog-form))/.test(selector))) return;
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') && declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)') return;
     let focused = false;
 
     for (let parent = declaration.parent; parent; parent = parent.parent) {

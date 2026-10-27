@@ -1,3 +1,61 @@
 .app-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: var(--space-5);
+  position: relative;
+  cursor: pointer;
+}
+.app-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.app-switch-track {
+  display: flex;
+  align-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--space-5) + var(--space-4));
+  height: var(--space-5);
+  padding: var(--hairline-width);
+  border: var(--hairline-width) solid var(--form-border);
+  border-radius: var(--radius-pill);
+  background: var(--form-off);
+}
+.app-switch-thumb {
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--form-thumb);
+}
+.app-switch-track[data-state="checked"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  justify-content: flex-end;
+}
+.app-switch[data-disabled] {
+  color: var(--disabled);
+}
+.app-switch-track[data-disabled] {
+  background: var(--sunken);
+  border-color: var(--disabled);
+}
+.app-switch-thumb[data-disabled] {
+  background: var(--disabled);
+}
+.app-switch-track[data-invalid] {
+  border-color: var(--red);
+}
+.app-switch input:hover:not(:disabled),
+.app-switch:has(input:hover:not(:disabled)) .app-switch-label {
+  color: var(--text);
+}
+.app-switch:has(input[data-pressed="true"]:not(:disabled)) {
+  opacity: var(--press-opacity);
 }
