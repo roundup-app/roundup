@@ -108,10 +108,12 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
       target = document.querySelector<HTMLElement>('[data-terminal="existing"]')!;
     } else if (place === "shelf" || place === "triage" || place === "drawer") {
       press("KeyK", { metaKey: true }); press("KeyS");
-      fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
+      await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
+      fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
 
       if (place === "triage") fireEvent.click(await screen.findByRole("button", { name: "Triage" }));
-      target = await screen.findByRole("button", { name: /Selected work/ });
+      await waitFor(() => expect(document.querySelector(".todo-row-button")).not.toBeNull());
+      target = document.querySelector<HTMLElement>(".todo-row-button")!;
 
       if (place === "drawer") {
         fireEvent.keyDown(target, { key: "Enter", code: "Enter" });
@@ -128,7 +130,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
       target = document.createElement(place === "editable" ? "div" : place);
 
       if (place === "editable") {
-        target.contentEditable = "true";
+        target.setAttribute("contenteditable", "true");
         const child = target.appendChild(document.createElement("span"));
         child.tabIndex = 0;
         document.querySelector(".centre")!.appendChild(target);
@@ -142,6 +144,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   target.focus();
   expect(document.activeElement).toBe(target);
   const selected = fixture?.connected().rail.selected();
+  const shelfBefore = document.querySelector(".window")?.getAttribute("data-shelf");
   const original = fixture?.connected().drafts.list().find(record => record.destination.surface === "ask" && record.value.text === draft);
   const received = vi.fn();
   target.addEventListener("keydown", received);
@@ -179,8 +182,14 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(leaderArmed()).toBe(false);
 
     if (!choose || native) expect(screen.queryByRole("dialog")).toBeNull();
-  } else if (chord === "agent") await waitFor(() => expect(calls("agent.spawn")).toHaveLength(1));
-  else if (chord === "terminal") await waitFor(() => expect(calls("terminal.open")).toHaveLength(1));
+  } else if (chord === "agent") {
+    await waitFor(() => expect(calls("agent.spawn")).toHaveLength(1));
+    expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: place === "ask" ? null : "home" });
+  } else if (chord === "terminal") {
+    await waitFor(() => expect(calls("terminal.open")).toHaveLength(1));
+    expect(calls("terminal.open")[0]?.params).toEqual({ workstream: place === "ask" ? null : "home" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
+  }
   else if (chord === "capture" && native) {
     await waitFor(() => expect(nativeShow).toHaveBeenCalledTimes(1));
     press("KeyT", { metaKey: true, shiftKey: true, repeat: true });
@@ -202,6 +211,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(document.activeElement).toBe(target);
     press("KeyS");
     expect(leaderArmed()).toBe(false);
+    expect(document.querySelector(".window")?.getAttribute("data-shelf")).not.toBe(shelfBefore);
   } else await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
 
   if (!first && !excludedHelp) expect(event.defaultPrevented).toBe(true);

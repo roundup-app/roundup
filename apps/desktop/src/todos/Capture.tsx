@@ -4,7 +4,7 @@ import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, createUniqueId, For, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -274,7 +274,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   }
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
-  props.onReady?.(port ? nativeShow : show);
+  onMount(() => props.onReady?.(port ? nativeShow : show));
   onCleanup(() => props.onReady?.(undefined));
   createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
     action: CHORDS.find(row => row.what === copy.captureATodo)!,
