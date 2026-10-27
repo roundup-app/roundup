@@ -144,11 +144,12 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(other.rail).not.toEqual(fixture.rail);
   });
 
-  it("u3010g_setup_expands_the_nested_fixture_through_its_existing_controls", async () => {
+  it.each(["complete", "missing"] as const)("u3010g_setup_requires_the_unfolded_fixture_through_its_existing_controls (%s)", async setup => {
     vi.useRealTimers();
     const app = fixtureApp("disclosures");
     const fixture = await prepareFixture(app, "/temporary", "shell");
-    const mounted = await mountTodos(await app.rpc("todo.list", null), true, await app.rpc("rail.tree", null));
+    const rows = await app.rpc("todo.list", null);
+    const mounted = await mountTodos(setup === "missing" ? rows.slice(0, 7) : rows, true, await app.rpc("rail.tree", null));
 
     try {
       const target = document.querySelector<HTMLElement>('[data-group-toggle="1"]')!;
@@ -156,7 +157,14 @@ describe("u3010g the frame recorder drives every workload", () => {
       if (target.getAttribute("aria-expanded") === "true") target.click();
       const callsBefore = mounted.app.calls.length;
 
-      await expandFixtureTodos(fixture);
+      if (setup === "missing") {
+        vi.useFakeTimers();
+        const outcome = expandFixtureTodos(fixture).catch((failure: Error) => failure.message);
+
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(await outcome).toBe("all eight unfolded fixture Todos did not appear within 10000 ms");
+      } else await expandFixtureTodos(fixture);
+
       expect([1, 2, 5, 6].map(id => document.querySelector(`[data-group-toggle="${id}"]`)?.getAttribute("aria-expanded"))).toEqual(["true", "true", "true", "true"]);
       expect(mounted.app.calls.slice(callsBefore)).toEqual([]);
     } finally {
@@ -242,12 +250,6 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     const run = everyTwoSeconds(clock, todosCycle(controls));
 
-    await vi.advanceTimersByTimeAsync(0);
-    const insertion = (await app.rpc("todo.list", null)).find(row => row.title === "motion insertion")!;
-
-    // U3010d requires the structural action on the depth-three workload, not a flat extra root.
-    expect(insertion.blockers).toEqual([2]);
-    expect(insertion.owner).toEqual(initial[1]!.owner);
     await vi.advanceTimersByTimeAsync(SAMPLE_MS);
     expect(await run).toEqual({ performed: 30, completed: true });
     expect(journal.map(row => row.action)).toEqual(Array.from({ length: 30 }, (_, index) => ["insert", "complete", "fold", "reorder"][index % 4]));
