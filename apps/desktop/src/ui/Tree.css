@@ -67,7 +67,7 @@
   background-image: var(--dash);
 }
 
-.tree-stem { top: calc(var(--tree-mid) + var(--space-4) / 2); }
+.tree-stem { top: calc(var(--tree-mid) + var(--space-4) / 2 + var(--hairline-width)); }
 
 .tree-branch {
   width: calc(var(--tree-step) - var(--space-4) / 2);
