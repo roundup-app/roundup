@@ -1,8 +1,8 @@
 {
   "scenario": "U4355",
-  "base": "6ae07b24fec8de4a3ec710e51e7fe7c967338e24",
-  "head": "73d4c1ec2ee2d81c6ffa47c13eab7aa656489473",
-  "observer": "Linux headless Chromium; dedicated agent-browser session and fresh test profile; fake App RPC seam",
+  "base": "adb280307aea422224cd4a06a8521e599d16568c",
+  "head": "ab560e14813f66546857f074ce8682caefa3277a",
+  "observer": "Linux headless Chromium; isolated agent-browser session and fresh test profile; fake App RPC seam",
   "viewport": {
     "width": 1512,
     "height": 950,
@@ -230,12 +230,110 @@
       }
     }
   },
-  "delta_exit": 0,
-  "baseline_observation": "Back hides Import during pending commit. Refusal does not reopen it.",
-  "head_observation": "Back is disabled during pending commit. Pointer activation keeps Import mounted. Success closes Import; refusal keeps selections and recovery available, with Back enabled.",
-  "existing_feedback": "The storage-retention warning appears on both revisions; current choices remain in memory. No native storage or macOS rendering claim.",
-  "principles": {
-    "P3": "No new attention state or prompt; routine import progress is unchanged.",
-    "P11": "Connected-App tests assert original Project, Rail selection, period, source revisions, one commit, settlement and recoverable reopening."
-  }
+  "back": {
+    "base": {
+      "success": {
+        "resting": {
+          "ariaDisabled": null,
+          "cjkFont": true,
+          "color": "rgb(180, 180, 180)",
+          "cursor": "pointer",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": ""
+        },
+        "hovered": null
+      },
+      "refused": {
+        "resting": {
+          "ariaDisabled": null,
+          "cjkFont": true,
+          "color": "rgb(180, 180, 180)",
+          "cursor": "pointer",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": ""
+        },
+        "hovered": null
+      }
+    },
+    "head": {
+      "success": {
+        "resting": {
+          "ariaDisabled": "true",
+          "cjkFont": true,
+          "color": "rgb(153, 153, 153)",
+          "cursor": "default",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": "Import is in progress. Wait for it to finish before returning to Ask."
+        },
+        "hovered": {
+          "ariaDisabled": "true",
+          "cjkFont": true,
+          "color": "rgb(153, 153, 153)",
+          "cursor": "default",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": "Import is in progress. Wait for it to finish before returning to Ask."
+        }
+      },
+      "refused": {
+        "resting": {
+          "ariaDisabled": "true",
+          "cjkFont": true,
+          "color": "rgb(153, 153, 153)",
+          "cursor": "default",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": "Import is in progress. Wait for it to finish before returning to Ask."
+        },
+        "hovered": {
+          "ariaDisabled": "true",
+          "cjkFont": true,
+          "color": "rgb(153, 153, 153)",
+          "cursor": "default",
+          "nativeDisabled": false,
+          "tabIndex": 0,
+          "title": "Import is in progress. Wait for it to finish before returning to Ask."
+        }
+      }
+    }
+  },
+  "notes": [
+    "D2, D5 and D6 pass on every paired screen; no passing Check regressed.",
+    "Back remains in keyboard order with aria-disabled=true, no native disabled attribute, tabIndex=0 and a title naming the pending import.",
+    "Noto CJK fonts installed on this Linux runner; CJK conversation titles render legibly on both revisions.",
+    "The retryable refusal cause and recovery text remain fully visible.",
+    "No native Mac claim; the user reports what they meet on the Mac."
+  ],
+  "validation": [
+    {
+      "command": "Connected-App/importer verification",
+      "exit": 0,
+      "result": "39 passed, 4 opt-in captures skipped"
+    },
+    {
+      "command": "Focused U4355 regression --retry 0",
+      "exit": 0,
+      "result": "2 passed"
+    },
+    {
+      "command": "Focused U4355 rendered capture, ROUNDUP_CAPTURES=U4355 and ROUNDUP_BASELINE_ROOT",
+      "exit": 0,
+      "result": "1 passed; paired PNGs and videos"
+    },
+    {
+      "command": "loop/rules.sh delta artifacts/ux/U4355/base artifacts/ux/U4355/head",
+      "exit": 0,
+      "result": "D1-D14 still-passing on every pair"
+    }
+  ],
+  "observer_repairs": [
+    {
+      "exit": 1,
+      "failure": "New hovered-control reading ran after baseline Back had removed the control.",
+      "repair": "Record null for the absent baseline control; rerun passed."
+    }
+  ]
 }
