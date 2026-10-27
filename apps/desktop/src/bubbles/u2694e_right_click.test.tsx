@@ -4,6 +4,7 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import { agent, node, workstream, info } from "../testing/nodes";
+import { message } from "../testing/centreFixture";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -79,6 +80,32 @@ it.each(["Terminal tab", "Terminal Bubble"])("u4409a_each_surface_projects_order
   await app.closeMenu();
   expect(app.calls.slice(before).filter(call => !["terminal.resize", "terminal.snapshot"].includes(call.method))).toEqual([]);
   expect(app.clipboardWrites).toEqual([]);
+});
+
+it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its_terminal_once: %s", async (choice) => {
+  const { app } = await mountBubbles("w", [info("other", { owner: "w", title: "Other" }), info("shell", { owner: "w", title: "Shell" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+  app.handlers["message.send"] = params => message(99, { to: params.to, body: params.body });
+  const header = await waitFor(() => document.querySelector('.bubble[data-bubble="shell"]:not([hidden]) .bubble-header') ?? Promise.reject(new Error("No Bubble bar")));
+
+  fireEvent.contextMenu(header);
+  await app.pickMenu(choice === "Send" ? "a" : choice);
+
+  if (choice === "Send") {
+    expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([{ to: "a", kind: "note", body: "roundup://terminal/shell?project=project-0000000000000000\nrup link read roundup://terminal/shell?project=project-0000000000000000", replyTo: null }]);
+  } else if (choice === "Copy link") {
+    expect(app.clipboardWrites).toEqual(["roundup://terminal/shell?project=project-0000000000000000"]);
+  } else if (choice === "Rename") {
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Terminal name" });
+    expect(input.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("shell");
+    expect(input.value).toBe("Shell");
+    fireEvent.keyDown(input, { key: "Escape" });
+  } else {
+    await questionDialog();
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
+    await answerQuestion(true);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]));
+    expect(document.querySelector('.terminal-tab-pair[data-bubble="other"]')).not.toBeNull();
+  }
 });
 
 const mountApp = async (seed: SeedName = "tree-40", rail = false) => {

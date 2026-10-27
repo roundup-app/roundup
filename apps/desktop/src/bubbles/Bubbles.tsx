@@ -804,7 +804,7 @@ export const Bubbles = (props: {
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
-    /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
+    /** U2694b: the tab and Bubble share actions and the same rename editor. */
     const copied = createCopyFeedback();
     createEffect(on(() => terminal().incarnation, copied.reset));
 
@@ -819,8 +819,11 @@ export const Bubbles = (props: {
       ], x, y);
     };
 
+    const menu = (event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y));
+
     return <>
-      <FlatTab class="terminal-tab-pair" onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y))} selected={!placeOf(id).min} data-bubble={id}>
+      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised} />
+      <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing()?.id === id ? editing() : null} keyed fallback={
           <Tip content={name()} cut={nameCut}>
             {(trigger) => (
@@ -892,7 +895,6 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shownIds()}>{(id) => <Bubble id={id} screens={props.screens} name={nameFor(shown().find(terminal => terminal.id === id)!)} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} toggleMinimised={toggleMinimised} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
         <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
