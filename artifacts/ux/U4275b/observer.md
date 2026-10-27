@@ -1,17 +1,19 @@
-# Z4280a / U4275b continuation
+# U4275b rendered observation
 
-Base: `41b114d27790cba19db8c44cc4cc2810e264ae1c`.
-UI source: `2d62a832e`.
-Dedicated headless Chromium, fresh profiles, 1512×950, dark.
+Baseline: `6ae07b24fec8de4a3ec710e51e7fe7c967338e24` (`origin/main`). Implementation: `b747e5dca`. Dedicated headless Chromium sessions, fresh temporary profiles, 1512×950, dark.
 
-The paired `tree-40` screenshots cover rest, hover, focus, selection, nested Todos and a refused folder action with visible failure text. Matching Check readings and row bounds are alongside them. Names retain their natural width before trailing actions scroll: `auth-refactor` has 105.34375 CSS px rather than the rejected head's 31 px. Hidden actions have no pointer activation; Tab reaches and scrolls the rightmost button without changing name width.
+Ten paired readings cover `tree-40` and `agents-10` at rest, hover, focus and selection, plus nested Todos and the dense action failure. No Check passing on the baseline regresses; D2, D5 and D6 pass. PNGs remain untracked in `base/` and `head/`. The four final `agents-10` head captures were completed directly after recording aborted the capture test.
 
-The capture-producing observer reached all `tree-40` states, then failed while finalizing video (`agent-browser record stop`, exit 1). No finalized interaction video was produced. The separate rendered comparison passed both U4275b tests without recording, including every Check passing on the paired main baseline; this is a Chromium observation, with no native Mac appearance claim.
+Long Workstream probe: all four quick actions fit at x=131–239; Open occupies x=247–271, within the 287 px Rail. Hover/selected name and trailing-group rectangles are in `head/workstream-*.geometry.json`. Actions remain at the trailing edge; names truncate and reserve the same action space before reveal.
 
-A fresh `CARGO_TARGET_DIR=/tmp/roundup-4280-fresh cargo build --locked -p desktop` exited 0 in 9m00s; its captured stdout/stderr contains zero `Modifiers::SUPER` occurrences. `cargo tree --locked -p desktop -i global-hotkey` resolves registry 0.9.0. Native macOS build and OS shortcut registration remain required CI observers.
+| Validation | Exit | Result |
+|---|---:|---|
+| `just ready` | 0 | Web/Rust lints, type checks, proofs, trailers, frozen checks, workflow tests and N7 pass. |
+| Connected row, quick-action, Rail ordering and Todo ordering files | 0 | 103 tests pass. |
+| `src/ui/u474_browser.test.ts` | 0 | 13 tests pass, including App icon focus and cleanup. |
+| `src/bubbles/u511a_browser.test.ts --retry=0` | 0 | Both click-away and real-Daemon recovery tests pass after prerequisites are built. |
+| Main/head retained-rename observer, `--retry=0` | 0 | Current selection-only behavior and exact retained input pass. |
+| Paired capture file, `--retry=0` | 1 | All emitted Check comparisons pass after the spacing repair. The old baseline selection wait was corrected and passes separately; `record stop` fails before agents-10 head capture. No finalized video is claimed. |
+| `timeout --signal=INT --kill-after=20s 180s just capture U4275b` | 124 | Full-suite capture exceeds the local budget; focused paired readings and PNGs are retained. |
 
-The unchanged capture/preferences files pass all 27 tests. All nine Rail ordering tests and all 71 connected row tests pass. The first Rust test run lacked the daemon executable (120/126 passed); the daemon prerequisite was built and the final rerun passed all 126 tests. The earlier Todo pointer failures exposed a Rail title assigned to the zero-width indentation column; the row now occupies the content column. All 16 ordering probes pass without retries, retaining every assertion at the supported viewport.
-
-The unchanged native dependency implementation also passed #4311’s [fresh macOS build](https://github.com/roundup-app/roundup/actions/runs/40431115650/job/121949027587) (the Z4280a build and diagnostics steps both report success) and [native shortcut lane](https://github.com/roundup-app/roundup/actions/runs/40431115650/job/121949027638). The new head must pass its own required CI before merge.
-
-`just ready` exited 0 on the final source. The two available tests in `terminal/u59_real_daemon.test.ts` pass with daemon binaries built; its native-zsh observer is skipped on this host. Broader browser repairs remain subject to this head’s CI; the run recorded cold-build contention and repeated the affected probes without raising timeouts or adding retries.
+The initial cold Daemon build exceeded its test budget; the final two-test run above passes without retries. A redundant run waiting behind Clippy was cancelled. CI judges the complete push. The previous head already passed the fresh macOS build and shortcut lanes; no new native behavior is introduced here.
