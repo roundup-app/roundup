@@ -1,7 +1,7 @@
 import { fireEvent, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp } from "../testing/appFixture";
-import { agent, info } from "../testing/nodes";
+import { agent, info, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { leaderKey } from "../keys/leaderFixture";
@@ -18,7 +18,7 @@ const ids = ["a:a", "c:11", "c:12", "a:r", "a:b"];
 
 const mount = async (open: () => boolean) => {
   const result = await mountApp(app => {
-    Object.assign(app.handlers, todoHandlers({ todos: [todo(111, { title: "Ship 11" })] }, event => app.emit(event)));
+    Object.assign(app.handlers, todoHandlers({ todos: [todo(111, { title: "Ship 11" })], comments: new Map([[111, [{ id: 11, author: { kind: "agent", id: "a", parent: null }, body: "Reply 11", created_at: 11, read: false }]]]) }, data => app.emit(event(data))));
     app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "working", "editing", { name: "running" }), agent("b", "done", "finished", { name: "終 é 😀" })];
     app.handlers["terminal.list"] = () => [info("requesting-terminal", { owner: "a" })];
     app.handlers["todo.unread"] = () => [11, 12, 13, 14, 15].map(id => ({ todo: id + 100, title: `Ship ${id}`, comment: { id, author: { kind: "agent", id: "a", parent: null }, body: `Reply ${id}`, created_at: id, read: false } }));
@@ -111,6 +111,6 @@ it.each(["Enter", " "])("u3787c_comment_activation_opens_only_its_Todo_%s", asyn
   fireEvent.keyDown(row("c:11"), { key });
   await waitFor(() => expect(document.querySelector(".inbox")).toBeNull());
   await waitFor(() => expect(app.calls.slice(before).filter(call => call.method === "todo.markCommentsRead").map(call => call.params)).toEqual([{ id: 111 }]));
-  expect(app.calls.slice(before).filter(call => call.method === "todo.get").map(call => call.params)).toEqual([{ id: 111 }]);
+  expect(app.calls.slice(before).filter(call => call.method === "todo.comments").map(call => call.params)).toEqual([{ id: 111 }]);
   expect(app.calls.slice(before).some(call => call.method.startsWith("agent.") || call.method === "terminal.write")).toBe(false);
 });
