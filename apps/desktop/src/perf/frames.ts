@@ -50,13 +50,20 @@ const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: 
 export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer" | "trusted-key"; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
 
 /** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
-export type TodoAction = { action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
+export type TodoAction = { at_ms: number; completed_at_ms: number | null; action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
 
 /** Changes observed through the same live accessor the App consumes; no second preference source. */
 export type PreferenceAction = {
   at_ms: number;
   reduced: boolean;
   phase: "warmup" | "sample" | "after-actions";
+  /** Row translations read at the source change, correlated to the latest structural action. Empty rows claim no displacement. */
+  todos?: {
+    action_at_ms: number;
+    action: TodoAction["action"];
+    targets: number[];
+    rows: { target: number; transform: string; from: string; to: string; x: number; y: number; progress: number }[];
+  };
   /** Visible fixture arcs with a running transform loop, sampled at the live source change. Degrees are displayed rotation, not timeline progress. */
   glyphs?: { target: string; transform: string; degrees: number }[];
   /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
