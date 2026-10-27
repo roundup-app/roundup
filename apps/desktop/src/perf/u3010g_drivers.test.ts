@@ -275,6 +275,36 @@ describe("u3010g the frame recorder drives every workload", () => {
     }
   });
 
+  it.each(["openDrawer", "toggleShelf"] as const)("u3010g_a_pointer_activation_requires_its_layer_owner (%s)", async action => {
+    vi.useRealTimers();
+    const root = document.createElement("div");
+
+    root.dataset.layoutRoot = "";
+    root.dataset.shelf = "open";
+    root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><div class="row-controls"><button aria-label="Open"></button></div></div></section><button class="shelf-tab" data-selected></button>';
+    document.body.append(root);
+    let activate: (event: Event) => void = () => {};
+    const controls = domLayers([], (_type, listener) => {
+      activate = listener;
+
+      return () => {};
+    });
+    const target = root.querySelector(action === "openDrawer" ? '[aria-label="Open"]' : '.shelf-tab')!;
+
+    try {
+      const run = controls[action]();
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: true }, target: { value: target }, detail: { value: 1 },
+      });
+
+      activate(event);
+      // A trusted press is insufficient when the existing layer owner does not apply it.
+      expect(await run).toBe(false);
+    } finally {
+      root.remove();
+    }
+  });
+
   it.each([
     { applied: false, trusted: true, button: 0, x: 0.5, completed: false },
     { applied: true, trusted: true, button: 0, x: 0.5, completed: true },
