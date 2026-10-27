@@ -311,6 +311,22 @@ it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
   expect(daemon.calls.filter(call => ["agent.changedFiles", "todo.assign", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
 
+it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
+  const { connected, daemon } = await mount();
+  const order = reverse ? ["ask-history", "reactions"] : ["reactions", "ask-history"];
+
+  for (const view of order) openProjectPage(`view:${view}`, "/p");
+  await screen.findByRole("button", { name: "Close Named reactions" });
+  await screen.findByRole("button", { name: "Close Ask history" });
+  const selection = connected().rail.selected();
+  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Named reactions" : "Close Ask history" }));
+  expect(connected().hasView(closeReactions ? "ask-history" : "reactions")).toBe(true);
+  expect(connected().hasView(closeReactions ? "reactions" : "ask-history")).toBe(false);
+  expect(connected().rail.selected()).toBe(selection);
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".ask-input")));
+  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
+});
+
 it("u4274b_project_menu_omits_navigation_toggles", async () => {
   await mount();
   expect(projectMenu.items.some(item => ["view:workstreams", "view:terminal-tabs"].includes(item.id))).toBe(false);
