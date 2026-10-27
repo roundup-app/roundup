@@ -10,7 +10,7 @@ const load = async () => {
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.getBoundingClientRect(); const label = row.querySelector(".name").getBoundingClientRect(); return { x: label.left + 1, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
@@ -24,7 +24,7 @@ const dragBelow = async (id: string, to: string, shift = 0) => {
   await mouse("move", from.x, from.y);
   await mouse("down");
   await mouse("move", from.x + 6, from.y + 6);
-  await wait(`document.querySelector('[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
+  await wait(`document.querySelector('.rail-row[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
   await mouse("move", from.x + 6 + shift, target.bottom + 2);
   await mouse("move", from.x + shift, target.bottom + 2);
 };
