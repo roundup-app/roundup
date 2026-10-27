@@ -33,7 +33,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_shelf_selection_is_instant_on
         }
 
         const selector = `.shelf ${kind === "todos" ? ".todo-row-button" : ".pad-name"}`;
-        await lane.until(`document.querySelectorAll('${selector}').length === 6`);
+        await lane.until(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return document.querySelectorAll('${selector}').length === 6; })()`);
         await lane.resetCalls();
         await lane.browser("focus", selector);
         await lane.capture("U3787c", `${seed}-${kind}-before`);
