@@ -42,3 +42,8 @@ fn diagnostic(operation: &'static str, error: &tauri::Error) {
     };
     log::warn!(target: "roundup::shell", "{operation}: {cause}");
 }
+
+#[cfg(target_vendor = "apple")]
+mod menu;
+#[cfg(target_vendor = "apple")]
+pub use menu::project_menu_hints;
