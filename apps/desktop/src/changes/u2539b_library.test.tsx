@@ -41,7 +41,7 @@ async function mountTree(options: Partial<import("@pierre/trees").FileTreeOption
   const { FileTree } = await import("@pierre/trees");
 
   const tree = new FileTree({
-    paths: ["folded/echo-hidden.ts", "alpha.ts", "bravo.ts", "delta.ts", "echo.ts"],
+    paths: ["folded/echo-hidden.ts", "alpha.ts", "bravo.ts", "charlie.ts", "delta.ts", "echo.ts"],
     initialExpansion: "closed",
     flattenEmptyDirectories: false,
     ...options,
@@ -73,7 +73,7 @@ it.each([
   const view = await mountTree({
     typeahead: "name-prefix", search: true,
     initialVisibleRowCount: 2, overscan: 0,
-    paths: [`folded/${path}`, "alpha.ts", "bravo.ts", "delta.ts", path],
+    paths: [`folded/${path}`, "alpha.ts", "bravo.ts", "charlie.ts", "delta.ts", path],
   });
 
   try {
@@ -82,7 +82,7 @@ it.each([
     for (const key of prefix) fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key });
     await waitFor(() => expect(view.tree.getFocusedPath()).toBe(path), { timeout: 1000 });
     expect(view.tree.getSelectedPaths()).toEqual([path]);
-    expect(view.tree.getVisibleCount()).toBe(5);
+    expect(view.tree.getVisibleCount()).toBe(6);
     expect(view.tree.isSearchOpen()).toBe(false);
     await waitFor(() => expect(view.root.activeElement).toBe(view.row(path)), { timeout: 1000 });
   } finally { view.close(); }
@@ -95,7 +95,7 @@ it.each([false, true])("u3787c_vanilla_shift_range_replaces_disjoint_selection_m
     fireEvent.click(view.row("alpha.ts"));
     fireEvent.click(view.row("bravo.ts"), { metaKey: true });
     fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey });
-    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "delta.ts", "echo.ts"]);
+    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "charlie.ts", "delta.ts", "echo.ts"]);
   } finally { view.close(); }
 });
 
@@ -112,13 +112,12 @@ it("u3787c_vanilla_meta_toggle_establishes_anchor_even_when_deselecting", async 
   const view = await mountTree({ rangeSelection: "replace" });
 
   try {
-    fireEvent.click(view.row("alpha.ts"));
-    fireEvent.click(view.row("bravo.ts"), { metaKey: true });
-    expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts", "bravo.ts"]);
+    fireEvent.click(view.row("bravo.ts"));
+    fireEvent.click(view.row("alpha.ts"), { metaKey: true });
     fireEvent.click(view.row("bravo.ts"), { metaKey: true });
     expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts"]);
     fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey: true });
-    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "delta.ts", "echo.ts"]);
+    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "charlie.ts", "delta.ts", "echo.ts"]);
   } finally { view.close(); }
 });
 
