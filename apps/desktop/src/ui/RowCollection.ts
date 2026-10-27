@@ -40,30 +40,28 @@ export const createRowCollection = (items: () => { value: string; label: string 
   const rows = new Map<string, HTMLElement>();
 
   let anchor: string | undefined;
-  let pending: { value: string } | undefined;
+  let pending: { value: string } | null = null;
 
   createComputed(() => {
     const visible = collection();
 
-    if (pending && !visible.has(pending.value)) pending = undefined;
+    if (pending && !visible.has(pending.value)) pending = null;
   });
 
-  const complete = (request: typeof pending) => {
-    if (!request || pending !== request || !collection().has(request.value)) return;
+  const complete = (request: { value: string }) => {
     const row = rows.get(request.value);
 
-    if (!row?.isConnected) return;
-    pending = undefined;
+    if (pending !== request || !row?.isConnected || !collection().has(request.value)) return;
+    pending = null;
     row.focus({ preventScroll: true });
     row.scrollIntoView?.({ block: "nearest" });
   };
 
   const focusRow = (value: string | null | undefined) => {
-    pending = value == null ? undefined : { value };
-    const request = pending;
+    const request = pending = value == null ? null : { value };
 
     if (!request) return;
-    interaction?.onFocus(request.value);
+    interaction?.onFocus(value!);
     complete(request);
   };
 
@@ -133,7 +131,7 @@ export const createRowCollection = (items: () => { value: string; label: string 
 
   const reset = () => { window.clearTimeout(state.timer); state.keysSoFar = ""; };
 
-  onCleanup(() => { pending = undefined; reset(); });
+  onCleanup(() => { pending = null; reset(); });
 
   return {
     collection, selection, search, reset, click,
