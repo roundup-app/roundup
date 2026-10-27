@@ -418,7 +418,7 @@ export const fixtureTodos = (app: Pick<AppSeam, "rpc">, fixture: Fixture, contro
       repeat += 1;
 
       return record("insert", [], "rpc", async () => {
-        const made = await app.rpc("todo.create", { title: "motion insertion", body: "body text", blockers: [], owner: group[0]!.owner });
+        const made = await app.rpc("todo.create", { title: "motion insertion", body: "body text", blockers: [group[1]!.id], owner: group[0]!.owner });
 
         inserted = made.id;
         journal.at(-1)!.targets.push(made.id);
