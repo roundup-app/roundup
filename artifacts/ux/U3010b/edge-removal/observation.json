@@ -34,5 +34,65 @@
     "D6": "pass",
     "D8": "pass"
   },
-  "limitation": "The original half-opening pointer reversal is unresolved; no edge dismissal target remains. Issue 4268 stays open. Earlier border reversal reports describe the removed affordance."
+  "limitation": "The original half-opening pointer reversal is unresolved; no edge dismissal target remains. Issue 4268 stays open. Earlier border reversal reports describe the removed affordance.",
+  "validation": [
+    {
+      "command": "vitest run src/drawer/u3010b_rendered.test.ts -t panel_edge_press (rejected production code)",
+      "exit": 1,
+      "result": "Trusted press dismissed the panel and removed its content."
+    },
+    {
+      "command": "ROUNDUP_CAPTURES=U3010b vitest related --run src/drawer/u3010b_rendered.test.ts -t panel_edge_press",
+      "exit": 0,
+      "result": "Retained Todo 5; captured open and refused-comment screens."
+    },
+    {
+      "command": "vitest related --run src/drawer/u3010b_rendered.test.ts --reporter=dot",
+      "exit": 0,
+      "result": "10 passed; 3 opt-in Shelf capture variants skipped."
+    },
+    {
+      "command": "timeout --signal=INT --kill-after=10s 60s just capture U3010b",
+      "exit": 124,
+      "result": "Reporting/budget tests completed; whole-suite Vitest started before the bound expired."
+    },
+    {
+      "command": "vitest related --run src/drawer/DrawerHost.tsx src/drawer/u3010b_rendered.test.ts src/styles.css",
+      "exit": 130,
+      "result": "Stopped the broad run; native fixture was compiling."
+    },
+    {
+      "command": "vitest run (seven focused Drawer/keyboard files)",
+      "exit": 130,
+      "result": "Stopped duplicate run before completion."
+    },
+    {
+      "command": "ROUNDUP_CAPTURES=U3010b vitest run src/drawer/u3010b_rendered.test.ts",
+      "exit": 130,
+      "result": "Stopped full opt-in capture attempt after it waited for Shelf readiness."
+    },
+    {
+      "command": "vitest related --run src/drawer/u3010b_rendered.test.ts (first noncapture attempt)",
+      "exit": 143,
+      "result": "Interrupted; serial final invocation passed."
+    },
+    {
+      "command": "just ready (first invocation)",
+      "exit": 143,
+      "result": "Interrupted; serial final invocation follows."
+    },
+    {
+      "command": "just ready (serial final invocation)",
+      "exit": 0,
+      "result": "Web/Rust lints, proofs, frozen files, trailers, 36 workflow tests and N7 launch-sites test passed."
+    },
+    {
+      "command": "loop/rules.sh vocab",
+      "exit": 0
+    },
+    {
+      "command": "loop/rules.sh merge-loss",
+      "exit": 0
+    }
+  ]
 }
