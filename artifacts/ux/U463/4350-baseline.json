@@ -1,0 +1,234 @@
+{
+  "issue": 4350,
+  "date": "2026-10-27",
+  "result": "The reported first-run failure does not reproduce on unchanged main or the reported PR head. No cause or code repair is claimed. Existing acceptance, timeouts and retries are unchanged.",
+  "observer": "Existing public App and real Daemon seams, fresh temporary Project and browser profile, dedicated headless agent-browser session; pinned Claude Code 2.1.300 against the existing aimock fixture.",
+  "ci": {
+    "url": "https://github.com/roundup-app/roundup/actions/runs/40433878395/job/121958141843",
+    "revision": "77e4ff3770c89b0b8b237355d00f33aff2b89dda",
+    "result": "All six U463 file cases passed; the overall web lane failed elsewhere.",
+    "log": [
+      "web 6\ttest-web\t2026-10-27T01:46:09.9111528Z apps/desktop test:  ^[[32m\u2713^[[39m src/testing/u463_real_daemon.test.ts ^[[2m(^[[22m^[[2m6 tests^[[22m^[[2m)^[[22m^[[33m 145427^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9144856Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard^[[33m 43733^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9146056Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project 1280 keyboard^[[33m 11638^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9147060Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u463_the_first_run_observer_is_opt_in_and_confined_to_its_project 1280 keyboard^[[33m 11474^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9147893Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u2773g_journey_retains_unfinished_work^[[33m 41528^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9148739Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u2773a_changes_real_project_reopen_and_reload_restore_exact_form^[[33m 20967^[[2mms^[[22m^[[39m",
+      "web 6\ttest-web\t2026-10-27T01:46:09.9149541Z apps/desktop test:    ^[[33m^[[2m\u2713^[[22m^[[39m u2875d_real_import_reopen_and_resume^[[33m 16084^[[2mms^[[22m^[[39m"
+    ]
+  },
+  "runs": [
+    {
+      "revision": "bae255acbcafbc039d33f2c7c70ab478f7107bb6",
+      "command": "pnpm --filter desktop exec vitest run src/testing/u463_real_daemon.test.ts -t u463_first_run",
+      "exitCode": 0,
+      "report": {
+        "numTotalTestSuites": 1,
+        "numPassedTestSuites": 1,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numTotalTests": 6,
+        "numPassedTests": 1,
+        "numFailedTests": 0,
+        "numPendingTests": 5,
+        "numTodoTests": 0,
+        "snapshot": {
+          "added": 0,
+          "failure": false,
+          "filesAdded": 0,
+          "filesRemoved": 0,
+          "filesRemovedList": [],
+          "filesUnmatched": 0,
+          "filesUpdated": 0,
+          "matched": 0,
+          "total": 0,
+          "unchecked": 0,
+          "uncheckedKeysByFile": [],
+          "unmatched": 0,
+          "updated": 0,
+          "didUpdate": false
+        },
+        "startTime": 1793066299825,
+        "success": true,
+        "testResults": [
+          {
+            "assertionResults": [
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard",
+                "status": "passed",
+                "title": "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard",
+                "duration": 64520.305088999994,
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project 1280 keyboard",
+                "status": "skipped",
+                "title": "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project 1280 keyboard",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_the_first_run_observer_is_opt_in_and_confined_to_its_project 1280 keyboard",
+                "status": "skipped",
+                "title": "u463_the_first_run_observer_is_opt_in_and_confined_to_its_project 1280 keyboard",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2773g_journey_retains_unfinished_work",
+                "status": "skipped",
+                "title": "u2773g_journey_retains_unfinished_work",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2773a_changes_real_project_reopen_and_reload_restore_exact_form",
+                "status": "skipped",
+                "title": "u2773a_changes_real_project_reopen_and_reload_restore_exact_form",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2875d_real_import_reopen_and_resume",
+                "status": "skipped",
+                "title": "u2875d_real_import_reopen_and_resume",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              }
+            ],
+            "startTime": 1793066315013,
+            "endTime": 1793066379533.3052,
+            "status": "passed",
+            "message": "",
+            "name": "/tmp/roundup-4350/apps/desktop/src/testing/u463_real_daemon.test.ts"
+          }
+        ]
+      }
+    },
+    {
+      "revision": "77e4ff3770c89b0b8b237355d00f33aff2b89dda",
+      "command": "pnpm --filter desktop exec vitest run src/testing/u463_real_daemon.test.ts -t u463_first_run",
+      "exitCode": 0,
+      "report": {
+        "numTotalTestSuites": 1,
+        "numPassedTestSuites": 1,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numTotalTests": 6,
+        "numPassedTests": 1,
+        "numFailedTests": 0,
+        "numPendingTests": 5,
+        "numTodoTests": 0,
+        "snapshot": {
+          "added": 0,
+          "failure": false,
+          "filesAdded": 0,
+          "filesRemoved": 0,
+          "filesRemovedList": [],
+          "filesUnmatched": 0,
+          "filesUpdated": 0,
+          "matched": 0,
+          "total": 0,
+          "unchecked": 0,
+          "uncheckedKeysByFile": [],
+          "unmatched": 0,
+          "updated": 0,
+          "didUpdate": false
+        },
+        "startTime": 1793066336491,
+        "success": true,
+        "testResults": [
+          {
+            "assertionResults": [
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard",
+                "status": "passed",
+                "title": "u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal 1280 keyboard",
+                "duration": 48508.112915,
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project 1280 keyboard",
+                "status": "skipped",
+                "title": "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project 1280 keyboard",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u463_the_first_run_observer_is_opt_in_and_confined_to_its_project 1280 keyboard",
+                "status": "skipped",
+                "title": "u463_the_first_run_observer_is_opt_in_and_confined_to_its_project 1280 keyboard",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2773g_journey_retains_unfinished_work",
+                "status": "skipped",
+                "title": "u2773g_journey_retains_unfinished_work",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2773a_changes_real_project_reopen_and_reload_restore_exact_form",
+                "status": "skipped",
+                "title": "u2773a_changes_real_project_reopen_and_reload_restore_exact_form",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              },
+              {
+                "ancestorTitles": [],
+                "fullName": "u2875d_real_import_reopen_and_resume",
+                "status": "skipped",
+                "title": "u2875d_real_import_reopen_and_resume",
+                "failureMessages": [],
+                "meta": {},
+                "tags": [],
+                "benchmarks": []
+              }
+            ],
+            "startTime": 1793066360598,
+            "endTime": 1793066409106.1128,
+            "status": "passed",
+            "message": "",
+            "name": "/tmp/roundup-4350-reported/apps/desktop/src/testing/u463_real_daemon.test.ts"
+          }
+        ]
+      }
+    }
+  ]
+}
