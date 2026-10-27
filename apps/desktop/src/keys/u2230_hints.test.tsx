@@ -235,3 +235,22 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   expect(event.defaultPrevented).toBe(false);
   expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
 });
+
+
+it("u4323a_leader_hints_use_the_existing_hint_line", async () => {
+  await open();
+  await toRail();
+  const retained = document.querySelector(".hint-line")!;
+  const context = line();
+
+  fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
+  const armed = document.querySelector(".leader")!;
+
+  expect(retained.contains(armed)).toBe(true);
+  expect(armed.querySelectorAll(".hint").length).toBeGreaterThan(0);
+  expect(line()).not.toEqual(context);
+  fireEvent.keyDown(rowOf("b"), { key: "Escape", code: "Escape" });
+  expect(document.querySelector(".hint-line")).toBe(retained);
+  expect(document.querySelector(".leader")).toBeNull();
+  expect(line()).toEqual(context);
+});
