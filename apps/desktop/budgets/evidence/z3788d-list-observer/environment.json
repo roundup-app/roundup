@@ -1,0 +1,19 @@
+{
+  "revision": "01026366c56b0069bbe7613a8951481faeeecd25",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "browser": {
+    "cpu": 4,
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "Vite development, no source changes",
+  "warmups": 20,
+  "measured": 200,
+  "seed": "alternating alpha/beta suffix, zero-padded sequential row ids",
+  "interval": "trusted input EventTiming start to presentation of committed filtered results",
+  "observer": "Chrome trace EventTiming paired with input/ready marks, exact destination identities and Paint"
+}
