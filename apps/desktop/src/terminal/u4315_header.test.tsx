@@ -47,7 +47,9 @@ it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "
 });
 
 it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_share_navigation: %s", async command => {
-  const { connected } = await mountNavigation();
+  const { connected, daemon } = await mountNavigation();
+
+  if (command === "import-work") daemon.handlers["project.importDiscover"] = () => new Promise(() => {});
   const row = screen.getByRole("navigation", { name: "Centre" });
   connected().rail.select("a0");
 
@@ -57,6 +59,8 @@ it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_s
   const view = await screen.findByRole("region", { name });
   expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
   expect(view.querySelector(".settings-head")).toBeNull();
+
+  if (command === "import-work") expect(connected().importing.loading()).toBe(true);
   fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
   expect(connected().rail.selected()).toBeNull();
@@ -83,7 +87,7 @@ it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves
 
 
 it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", async outcome => {
-  const { connected, daemon, nodes } = await mountNavigation();
+  const { connected, daemon, nodes } = await mountNavigation(false, 0);
   const candidates = [
     { source: "source-first", revision: "revision-first", title: "First work", cwd: "", last_activity_ms: 2n },
     { source: "source-second", revision: "revision-second", title: "Second work", cwd: "sub", last_activity_ms: 1n },
@@ -94,15 +98,16 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
   const commits = () => daemon.calls.filter(call => call.method === "project.importCommit");
   connected().rail.select("a0");
   openProjectPage("import-work", "/p");
-  await screen.findByRole("checkbox", { name: /First work/ });
-  fireEvent.click(screen.getByRole("button", { name: "Last month" }));
+  const region = await screen.findByRole("region", { name: "Import Claude Code work" });
+  const panel = within(region);
+  await panel.findByRole("checkbox", { name: /First work/ });
+  fireEvent.click(panel.getByRole("button", { name: "Last month" }));
   await waitFor(() => expect(connected().importing.loading()).toBe(false));
-  fireEvent.click(screen.getByText("First work"));
-  await screen.findByRole("button", { name: "Import 1" });
-  fireEvent.click(screen.getByText("Second work"));
-  const region = screen.getByRole("region", { name: "Import Claude Code work" });
+  fireEvent.click(panel.getByText("First work"));
+  await panel.findByRole("button", { name: "Import 1" });
+  fireEvent.click(panel.getByText("Second work"));
   const back = within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" });
-  fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
+  fireEvent.click(await panel.findByRole("button", { name: "Import 2" }));
   await waitFor(() => expect(commits()).toHaveLength(1));
   expect(back).toHaveProperty("disabled", true);
   fireEvent.click(back);
@@ -134,17 +139,18 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
   } else {
     expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
     expect(connected().rail.selected()).toBe("a0");
-    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
+    expect(panel.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(panel.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
     expect(back).toHaveProperty("disabled", false);
     fireEvent.click(back);
     await screen.findByRole("textbox", { name: "Ask" });
     expect(connected().rail.selected()).toBeNull();
     openProjectPage("import-work", "/p");
     await waitFor(() => expect(connected().importing.loading()).toBe(false));
-    expect(screen.getByRole("checkbox", { name: /First work/ })).toHaveProperty("checked", true);
-    expect(screen.getByRole("checkbox", { name: /Second work/ })).toHaveProperty("checked", true);
-    expect(screen.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
+    const reopened = within(screen.getByRole("region", { name: "Import Claude Code work" }));
+    expect(reopened.getByRole("checkbox", { name: /First work/ })).toHaveProperty("checked", true);
+    expect(reopened.getByRole("checkbox", { name: /Second work/ })).toHaveProperty("checked", true);
+    expect(reopened.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
     expect(connected().project.path).toBe("/p");
   }
   expect(commits()).toHaveLength(1);
@@ -190,15 +196,17 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
           writeFileSync(join(output, `${outcome}-${step}.checks.json`), JSON.stringify(await page.evaluate("window.__checks()")) + "\n");
           await page.browser("screenshot", join(output, `${outcome}-${step}.png`));
         };
+        expect(await page.evaluate("document.querySelector('.pane-navigation button').disabled")).toBe(side === "head");
         await capture("pending");
         // A real coordinate press can target the disabled control without waiting for it to enable.
         const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.pane-navigation button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
-        await page.browser("mouse", "move", String(box.x), String(box.y));
+        await page.browser("mouse", "move", String(Math.round(box.x)), String(Math.round(box.y)));
         await page.browser("mouse", "down");
         await page.browser("mouse", "up");
+        if (side === "head") expect(await page.evaluate("!!document.querySelector('.import-panel')")).toBe(true);
         await capture("attempted-back");
         await page.evaluate("(() => {window.__settleImport(); delete window.__settleImport; return true;})()");
-        await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
+        await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : side === "base" ? "window.__fake.app.calls.filter(call => call.method === 'project.importDiscover').length >= 3" : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
         await capture("settled");
       }
       await page.browser("record", "stop");
