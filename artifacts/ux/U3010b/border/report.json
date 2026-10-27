@@ -285,6 +285,9 @@
       "exit": 124,
       "result": "stopped at 90-second outer bound; focused pointer capture passed separately"
     },
-    "rendered_lifetime_regressions": 9
+    "rendered_lifetime_regressions": 9,
+    "just_ready": 0,
+    "merge_loss": 0,
+    "vocab": 0
   }
 }
