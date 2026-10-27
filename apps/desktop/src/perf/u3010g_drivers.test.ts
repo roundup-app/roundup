@@ -128,16 +128,21 @@ describe("u3010g the frame recorder drives every workload", () => {
     createRoot(dispose => {
       const [reduced, change] = createSignal(false);
       const journal: import("./frames").PreferenceAction[] = [];
+      let at = 0;
       const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
-      const stop = observePreference(reduced, () => 10, () => "sample", journal, () => ({
+      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({
         glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
       }), { afterUpdate: () => {}, read: () => "settled", previousFrame: () => previous });
 
+      at = 10;
       change(true);
       expect(journal.at(-1)).toMatchObject({ previous_frame: previous, glyphs: [{ degrees: 186 }] });
       // No frame has observed the enabled source; the old disabled frame cannot
       // stand for the immediately preceding movement when disabling again.
       change(false);
+      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+      at = 11;
+      change(true);
       expect(journal.at(-1)).not.toHaveProperty("previous_frame");
       stop();
       dispose();
