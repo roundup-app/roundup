@@ -263,6 +263,7 @@ const observeLayerMovement = async (panel: "drawer" | "shelf", action: () => boo
       }
 
       if (criterion === "reduced-settlement") return finish(false);
+
       // A jump to final geometry did not expose an interruptible half-displacement.
       if (progress >= 0.5) return finish(progress < 1 - 1 / Math.abs(distance));
       frame = requestAnimationFrame(sample);
