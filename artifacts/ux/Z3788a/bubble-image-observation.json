@@ -5,5 +5,100 @@
     "result": "fail",
     "failure": "SIXEL appears but following text is clipped below viewport. Bubble descendant sizing overrides xterm decoration container."
   },
-  "scope": "Z3788a shell image output rendering; no native or timing claim"
+  "scope": "Z3788a shell image output rendering; no native or timing claim",
+  "head": {
+    "revision": "54f5d27a1ff341d57c9f77c0a166c6cdef4f32e0",
+    "observer": "isolated headless Chromium, dark 1512x950; tree-40 DOM, agents-10 WebGL, conflict DOM; SIXEL and IIP PNG followed by text, open another shell and return",
+    "result": "images and following text visible on return",
+    "checks": {
+      "1512x950-dark-conflict-dom-shell-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "1512x950-dark-agents-10-webgl-shell-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "1512x950-dark-tree-40-dom-shell-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "1512x950-dark-agents-10-webgl-shell-before.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "1512x950-dark-conflict-dom-shell-before.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "1512x950-dark-tree-40-dom-shell-before.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    "video": "shell-return.webm"
+  },
+  "production": {
+    "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "build": "pnpm --filter desktop build; Vite 8.3.5; same host; each static JS file counted once; gzip level 9, mtime 0",
+    "baseRevision": "ecedb0ec5fd5d09492dda47988bf075b9ab39073",
+    "headRevision": "54f5d27a1ff341d57c9f77c0a166c6cdef4f32e0",
+    "buildExit": [
+      0,
+      0
+    ],
+    "runs": {
+      "base": {
+        "staticFiles": {
+          "assets/APQX6POG-DDltQACc.js": 2289,
+          "assets/Checkbox-DRflPoQQ.js": 17434,
+          "assets/CopyButton-Cqzfdgvc.js": 20798,
+          "assets/ReservedLine-3yGmWLdY.js": 48259,
+          "assets/copy-DTMql6dd.js": 42580,
+          "assets/dist-BNvtSeKL.js": 2898,
+          "assets/floating-ui.dom-vtOd0C_f.js": 7184,
+          "assets/index-D_R2u1N4.js": 276918,
+          "assets/layout-CSoaMawy.js": 3056,
+          "assets/theme-ChVRhwRI.js": 443
+        },
+        "entryGzipBytes": 421859,
+        "lazyEmulator": [
+          {
+            "file": "assets/emulator-BJIKN-Mw.js",
+            "gzipBytes": 153089
+          }
+        ],
+        "externalWasm": []
+      },
+      "head": {
+        "staticFiles": {
+          "assets/APQX6POG-DDltQACc.js": 2289,
+          "assets/Checkbox-DRflPoQQ.js": 17434,
+          "assets/CopyButton-Cqzfdgvc.js": 20798,
+          "assets/ReservedLine-3yGmWLdY.js": 48259,
+          "assets/copy-DTMql6dd.js": 42580,
+          "assets/dist-BNvtSeKL.js": 2898,
+          "assets/floating-ui.dom-vtOd0C_f.js": 7184,
+          "assets/index-O7A8SzvC.js": 276914,
+          "assets/layout-CSoaMawy.js": 3056,
+          "assets/theme-ChVRhwRI.js": 443
+        },
+        "entryGzipBytes": 421855,
+        "lazyEmulator": [
+          {
+            "file": "assets/emulator-l-gy1tby.js",
+            "gzipBytes": 153090
+          }
+        ],
+        "externalWasm": []
+      }
+    },
+    "strictCeiling": "Both entries exceed 409600; no strict addon budget or memory pass claimed."
+  }
 }
