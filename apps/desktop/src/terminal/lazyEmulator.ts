@@ -37,6 +37,7 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
       reset: () => run(emulator => emulator.reset()),
       onInput: (listener) => run(emulator => emulator.onInput(listener)),
       onLink: (listener) => run(emulator => emulator.onLink(listener)),
+      serialize: () => real?.serialize?.() ?? { ...size, data: "" },
       selection: () => real?.selection() ?? "",
       turns: () => real?.turns() ?? [],
       selectTurn: (index, extend) => run(emulator => emulator.selectTurn(index, extend)),
