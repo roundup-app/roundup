@@ -141,7 +141,7 @@ for (const choice of ["drawer", "ask", "rail"]) {
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id=backend]')`);
-  await browser("click", ".rail-row[data-id=backend]");
+  await browser("click", ".rail-row[data-id=backend] .name");
   await wait(`!!document.querySelector('.pane-action')`);
   await read(`(() => {
     const app = window.__fake.app;

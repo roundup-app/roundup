@@ -39,7 +39,7 @@ const nested: List = {
   name: "an Agent's Todos in the Rail",
   rows: "[data-pads] .todo-row-button",
   setup: async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
     await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-pads-control').click()`);
     await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
@@ -51,7 +51,7 @@ const shelf: List = {
   name: "the Shelf's Todos",
   rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
@@ -69,7 +69,8 @@ const shelf: List = {
 
 const centre = (rows: string, n: number) => page.call<Point>(`(rows, n) => {
   const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
-  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  const title = el.querySelector('.shelf-title')?.getBoundingClientRect();
+  return {x: title ? title.left + 2 : b.left + b.width / 2, y: b.top + b.height / 2};
 }`, rows, n);
 
 const state = (rows: string) => page.call<State>(`rows => ({
