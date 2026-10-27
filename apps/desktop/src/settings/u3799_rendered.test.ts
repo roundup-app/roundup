@@ -52,6 +52,11 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.browser("open");
         await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
         await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
+        // agent-browser recording creates a fresh page; install fixtures only after it loads.
+        await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`));
+        recording = true;
+
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
 
@@ -88,9 +93,6 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           app.handlers['project.importDiscover'] = () => ({candidates:${filled ? "Array.from({length:3},(_,i)=>({source:'s'+i,revision:'r'+i,title:('Distinct conversation '+i+' 長い名前 ').repeat(12),cwd:'src',last_activity_ms:1n}))" : "[]"},excluded:[]});
           return true;
         })()`);
-
-        await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`));
-        recording = true;
 
         if (view === "resources") {
           await command("view:workstreams");
