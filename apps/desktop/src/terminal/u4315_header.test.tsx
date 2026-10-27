@@ -112,6 +112,7 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
   fireEvent.click(await panel.findByRole("button", { name: "Import 2" }));
   await waitFor(() => expect(commits()).toHaveLength(1));
   expect(back.getAttribute("aria-disabled")).toBe("true");
+  expect(back).toHaveProperty("disabled", false);
   fireEvent.click(back);
   fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
   fireEvent.keyDown(back, { key: " ", code: "Space" });
@@ -203,7 +204,7 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
         expect(await page.evaluate("document.querySelector('.pane-navigation button').getAttribute('aria-disabled') === 'true'")).toBe(side === "head");
         await page.evaluate("document.fonts.ready.then(() => true)");
         await capture("pending");
-        const readBack = () => page.evaluate("(() => {const b=document.querySelector('.pane-navigation button'); const s=getComputedStyle(b);return {ariaDisabled:b.getAttribute('aria-disabled'),nativeDisabled:b.disabled,title:b.title,tabIndex:b.tabIndex,color:s.color,cursor:s.cursor,cjkFont:document.fonts.check('13px \"Noto Sans CJK JP\"')};})()");
+        const readBack = () => page.evaluate("(() => {const b=document.querySelector('.pane-navigation button'); if(!b)return null; const s=getComputedStyle(b);return {ariaDisabled:b.getAttribute('aria-disabled'),nativeDisabled:b.disabled,title:b.title,tabIndex:b.tabIndex,color:s.color,cursor:s.cursor,cjkFont:document.fonts.check('13px \"Noto Sans CJK JP\"')};})()");
         const restingBack = await readBack();
         // A real coordinate press can target the disabled control without waiting for it to enable.
         const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.pane-navigation button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
