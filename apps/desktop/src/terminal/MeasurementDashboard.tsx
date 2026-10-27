@@ -1,5 +1,4 @@
 import { captureFocus } from "../keys/focus";
-import { ExitButton } from "../ui/IconButton";
 import { createStore, reconcile } from "solid-js/store";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
@@ -66,7 +65,7 @@ const Row = (props: { row: MeasurementContributor; longest: bigint; open: (row: 
 };
 
 /** The current Workstream owns one reader, revision and subscription. Unmount drops late replies. */
-export const MeasurementDashboard = (props: { home: string; name: string; back: () => void }) => {
+export const MeasurementDashboard = (props: { focusOnMount?: boolean; home: string; name: string; back: () => void }) => {
   const connected = useConnectedProject();
   const [data, setData] = createStore<{ snapshot: MeasurementSummary | null }>({ snapshot: null });
   const [pending, setPending] = createSignal(false);
@@ -177,7 +176,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     onCleanup(() => clearInterval(timer));
   });
   const initialFocus = captureFocus();
-  onMount(() => initialFocus(() => region?.focus()));
+  onMount(() => { if (props.focusOnMount !== false) initialFocus(() => region?.focus()); });
   onCleanup(() => { closed = true; ++generation; clearTimeout(retryTimer); stop(); document.removeEventListener("visibilitychange", changedVisibility); });
 
   const rows = () => snapshot()?.rows ?? [];
@@ -206,7 +205,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
   const note = () => [copy.measurementPartialTime, ...(snapshot()?.time.coverage ?? [])].join(" ");
 
   return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.measurementTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
-    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<ExitButton onClick={props.back} /></div></header>
+    <header class="measurement-header">{header()}<div class="measurement-actions">{retry()}</div></header>
     <p class="measurement-line">{copy.measurementElapsed(duration(snapshot()?.time.elapsed_ns ?? null))}<Show when={snapshot() && snapshot()!.time.elapsed_ns === null}><Partial note={note()} /></Show>
       <Show when={snapshot()}>{(value) => <>{copy.measurementSeparator}{copy.measurementAgentTime(duration(value().time.summed_ns))}<Show when={value().time.coverage.length > 0}><Partial note={note()} /></Show></>}</Show></p>
     <section class="measurement-chart" aria-label={copy.measurementTimeSpent}>
