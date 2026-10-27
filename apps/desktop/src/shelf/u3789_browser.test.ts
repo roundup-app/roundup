@@ -23,7 +23,7 @@ const shot = async (id: string, stage: string, step: string) => {
         const id = row.dataset.id ?? row.dataset.todo ?? row.querySelector('[data-todo]')?.dataset.todo;
         const todo = todos.find(todo => String(todo.id) === id);
         return {id, surface: row.matches('.rail-leaf, .rail-row') ? 'rail' : 'shelf', depth: row.dataset.id ? Number(style.getPropertyValue('--tree-depth')) : Number(row.getAttribute('aria-level') ?? row.dataset.level) - 1, parent: todo ? todo.blockers[0] ?? (row.matches('.rail-leaf') ? todo.creator.id : null) : nodes.find(node => node.id === id)?.parent ?? null,
-          row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .line .glyph, .todo-tick')), label: rect(row.querySelector('.name, .shelf-title')),
+          row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .line .glyph') ?? row.querySelector('.todo-tick')), label: rect(row.querySelector('.name, .shelf-title')),
           step: style.getPropertyValue('--tree-step'), origin: style.getPropertyValue('--tree-origin'),
           trunks: Array.from(row.querySelectorAll('.tree-pass, .tree-stem, .tree-branch, .rail-pass, .rail-stem, .rail-branch')).map(line => ({kind: line.className, level: line.style.getPropertyValue('--level'), last: line.dataset.last, rect: rect(line), backgroundSize: getComputedStyle(line).backgroundSize, backgroundPosition: getComputedStyle(line).backgroundPosition}))};
       }); })()`);
