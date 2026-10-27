@@ -10,6 +10,7 @@ export type Stay = { name: string; reason: string };
 
 /** A34's judgement of a Workstream, from the same facts: what goes, and what stays at the Project root. */
 export type Removal = {
+  removedIds?: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
 };
@@ -25,7 +26,7 @@ const unlanded = (state: WorktreeState): string | null =>
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
   const [todos, pads] = await Promise.all([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
-  const removal: Removal = { goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
+  const removal: Removal = { removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
   const staying = new Set<string>();
 
   for (const node of below(nodes, id).filter((each) => each.kind === "agent")) {
@@ -37,6 +38,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
     if (reason === null) {
       removal.goes.agents.push(node.name);
+      removal.removedIds!.push(node.id);
     } else {
       removal.stays.agents.push({ name: node.name, reason });
       staying.add(node.id);

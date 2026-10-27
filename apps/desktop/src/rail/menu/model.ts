@@ -21,7 +21,8 @@ type MenuState = {
   action: "stop" | "remove";
   removed?: (() => void) | undefined;
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
-  removal?: Removal | null;
+  removal?: Removal | null | undefined;
+  losses?: string[];
 };
 
 const NOT_FOUND = -32001;
@@ -137,20 +138,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (!current) return;
 
-    if (current.node.kind === "workstream") {
-      if (!current.confirming) void confirmWorkstream(current);
-      else if (current.removal) return remove(current);
-
-      return;
-    }
-
-    if (!current.confirming) {
-      setState({ ...current, confirming: true });
-
-      return;
-    }
-
-    return remove(current);
+    if (current.confirming) return remove(current);
+    void judge(current);
   };
 
   const remove = (current: MenuState) =>
@@ -159,14 +148,33 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       current.removed?.();
     }, current.node.id);
 
-  /** U367: a Workstream always asks, after reading the facts A34 judges. */
-  const confirmWorkstream = async (current: MenuState) => {
+  const judge = async (current: MenuState) => {
     setState({ ...current, confirming: true, removal: null });
 
     try {
-      const removal = await judgeRemoval(app, rail.nodes, current.node.id);
+      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
+      const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds?.includes(node.id))];
 
-      if (state()?.node.id === current.node.id) setState({ ...current, confirming: true, removal });
+      const losses = chosen.flatMap(node => [
+        ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
+        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+      ]);
+
+      if (state()?.node.id !== current.node.id) return;
+
+      if (losses.length) {
+        setState({ ...current, confirming: true, removal, losses });
+
+        return;
+      }
+
+      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name);
+      close();
+
+      if (removed) {
+        current.removed?.();
+        acknowledge(current.node.id);
+      } else if (storage.todoUndo.failure()) onFailure(storage.todoUndo.failure()!, current.node.id);
     } catch (error) {
       close();
 
@@ -175,10 +183,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
-  const requestRemove = (node: RailNode, exit: ExitState | null, removed: () => void) => {
-    if (state()?.confirming) return;
-    setState({ node, exit, confirming: false, action: "remove", removed });
+  /** Menu and key capture the same row before consequence judgement. */
+  const requestRemove = (node: RailNode, exit: ExitState | null, removed?: () => void) => {
+    if (state()?.confirming || storage.todoUndo.pending() || storage.todoUndo.uncertain()) return;
+    setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
     chooseRemove();
   };
 
@@ -199,11 +207,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
-    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => {
-      if (state()?.confirming) return;
-    setState({ node, exit, confirming: false, action: "remove", removed });
-      chooseRemove();
-    } };
+    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
 
     const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
 
