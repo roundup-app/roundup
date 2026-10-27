@@ -152,6 +152,9 @@ export const connectFakeProject = async (
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
 
+  // This fixture retains no raw log; tests needing contiguous replay supply their own cut.
+  app.handlers["terminal.catchUp"] = ({ id, incarnation }) => ({ kind: "gap", id, incarnation, from: app.outputPositions.get(id) ?? 0, after: app.outputPositions.get(id) ?? 0 });
+
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => now, daemonExit);
 
   return { app, connected };
