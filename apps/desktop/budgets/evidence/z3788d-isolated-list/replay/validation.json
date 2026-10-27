@@ -1,0 +1,76 @@
+{
+  "replaySha256": "930cae2390e42cebc7a173b0a76d13af3ee74679b4444a38962f31982ed38c36",
+  "checks": [
+    {
+      "case": "all archived samples",
+      "exit": 1,
+      "validated": 660,
+      "budgetPass": false
+    },
+    {
+      "case": "missing-sample",
+      "exit": 2,
+      "failures": [
+        {
+          "length": 40,
+          "condition": "219 samples, expected 220",
+          "exit": 2
+        }
+      ]
+    },
+    {
+      "case": "wrong-identities",
+      "exit": 2,
+      "failures": [
+        {
+          "length": 40,
+          "condition": "3: wrong displayed identities",
+          "exit": 2
+        }
+      ]
+    },
+    {
+      "case": "missing-presentation",
+      "exit": 2,
+      "failures": [
+        {
+          "length": 40,
+          "condition": "0: displayed frame not paired to presentation",
+          "exit": 2
+        },
+        {
+          "length": 400,
+          "condition": "0: displayed frame not paired to presentation",
+          "exit": 2
+        },
+        {
+          "length": 4000,
+          "condition": "0: displayed frame not paired to presentation",
+          "exit": 2
+        }
+      ]
+    },
+    {
+      "case": "wrong-trace-pair",
+      "exit": 2,
+      "failures": [
+        {
+          "length": 40,
+          "condition": "Wrong archived trace/revision pairing",
+          "exit": 2
+        },
+        {
+          "length": 400,
+          "condition": "Wrong archived trace/revision pairing",
+          "exit": 2
+        },
+        {
+          "length": 4000,
+          "condition": "Wrong archived trace/revision pairing",
+          "exit": 2
+        }
+      ]
+    }
+  ],
+  "originalArchivesUnchanged": true
+}
