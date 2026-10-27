@@ -95,6 +95,7 @@
     Method { name: "terminal.scheme", params: "terminal_SchemeParams", result: "null" },
     Method { name: "terminal.show", params: "terminal_TerminalId", result: "null" },
     Method { name: "terminal.list", params: "null", result: "terminal_TerminalInfo[]" },
+    Method { name: "terminal.catchUp", params: "terminal_CatchUpParams", result: "terminal_CatchUp" },
     Method { name: "terminal.snapshot", params: "terminal_TerminalId", result: "terminal_Snapshot" },
     Method { name: "terminal.screen", params: "terminal_TerminalId", result: "terminal_Screen" },
     Method { name: "terminal.read", params: "terminal_ReadParams", result: "terminal_Read" },
