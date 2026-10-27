@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { saveAppSettings } from "../settings/preferences";
@@ -44,7 +44,7 @@ it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
   const { connected, nodes } = await mount();
   fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain(nodes.find(node => node.id === "a0")!.name);
+  expect(within(screen.getByRole("navigation", { name: "Centre" })).getByText(nodes.find(node => node.id === "a0")!.name)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
 });

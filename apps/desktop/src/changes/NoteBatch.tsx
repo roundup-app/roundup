@@ -78,7 +78,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
 
 /** Project-local access stays available when the original Agent or Worktree is gone. */
-export const NoteRecovery = (props: { notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
+export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { app } = useConnectedProject();
   const [element, setElement] = createSignal<HTMLElement>();
   const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison>>(new Map());
