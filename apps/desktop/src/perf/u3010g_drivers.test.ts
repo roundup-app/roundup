@@ -333,12 +333,23 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(log).toHaveLength(1);
     reduced = true;
     release(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log).toHaveLength(4);
     expect(await run).toBe(true);
     expect(halfway).toHaveBeenCalledTimes(1);
     expect(settled).toHaveBeenCalledTimes(2);
     expect(log.map(([, action]) => action)).toEqual(index === 0
       ? ["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]
       : ["toggleShelf", "toggleShelf", "toggleShelf", "keyShelf"]);
+  });
+
+  it.each([0, 1])("u3010d_a_missing_reduced_settlement_stops_the_layer_sequence (%s)", async index => {
+    const log: [number, string][] = [];
+    const controls = layers(log);
+
+    controls.settled = async (_panel, action) => { await action(); return false; };
+    expect(await layersCycle(controls, () => true)(index)).toBe(false);
+    expect(log.map(([, action]) => action)).toEqual([index === 0 ? "openDrawer" : "toggleShelf"]);
   });
 
   it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
