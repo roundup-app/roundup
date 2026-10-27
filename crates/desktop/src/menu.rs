@@ -189,26 +189,32 @@ fn text(item: &Item) -> String {
 
 fn append<R: Runtime>(app: &AppHandle<R>, into: &Menu<R>, items: &[Item]) -> tauri::Result<()> {
     for item in items {
-        into.append(&kind(app, item)?)?;
+        into.append(&kind(app, item, |app, id, label, enabled, accelerator| {
+            MenuItem::with_id(app, id, label, enabled, accelerator)
+        })?)?;
     }
     Ok(())
 }
 
-fn kind<R: Runtime>(app: &AppHandle<R>, item: &Item) -> tauri::Result<MenuItemKind<R>> {
+fn kind<R: Runtime>(
+    app: &AppHandle<R>,
+    item: &Item,
+    build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
+) -> tauri::Result<MenuItemKind<R>> {
     match &item.children {
         Some(children) => {
             let sub = Submenu::new(app, &item.label, item.enabled)?;
             for child in children {
-                sub.append(&kind(app, child)?)?;
+                sub.append(&kind(app, child, build)?)?;
             }
             Ok(MenuItemKind::Submenu(sub))
         }
-        None => Ok(MenuItemKind::MenuItem(MenuItem::with_id(
+        None => Ok(MenuItemKind::MenuItem(build(
             app,
-            item.id.clone(),
-            text(item),
+            &item.id,
+            &text(item),
             item.enabled,
-            None::<&str>,
+            None,
         )?)),
     }
 }
@@ -317,16 +323,21 @@ mod tests {
         }
     }
 
-    /// U2694a: the host builds each item with no accelerator; a chord is label text only, so no `NSMenu` key equivalent fires from the menu bar.
     #[test]
-    fn u2694a_no_item_carries_an_accelerator() {
+    fn u4322b_items_carry_native_accelerators() {
         let app = mock_app();
-        let rename =
-            plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
-        let copy = plain(kind(app.handle(), &item("copy", "Copy Link", None, None)).unwrap());
-
-        assert_eq!(rename.text().unwrap(), "Rename\tF2");
-        assert_eq!(copy.text().unwrap(), "Copy Link");
+        for (chord, accelerator) in [("F2", "F2"), ("⌘⌫", "Super+Backspace")] {
+            let built = kind(
+                app.handle(),
+                &item("action", "Rename", Some(chord), None),
+                |app, id, label, enabled, supplied| {
+                    assert_eq!(supplied, Some(accelerator));
+                    MenuItem::with_id(app, id, label, enabled, supplied)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), "Rename");
+        }
     }
 
     /// U2694a: a `children` list is a submenu, each child an item with its own id and enabled state.
@@ -343,6 +354,9 @@ mod tests {
                 None,
                 Some(vec![item("send:a", "a", None, None), gone]),
             ),
+            |app, id, label, enabled, accelerator| {
+                MenuItem::with_id(app, id, label, enabled, accelerator)
+            },
         )
         .unwrap();
         let MenuItemKind::Submenu(sub) = built else {
