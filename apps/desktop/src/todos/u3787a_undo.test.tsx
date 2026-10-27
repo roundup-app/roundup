@@ -1,6 +1,12 @@
+import { padHandlers } from "../testing/stores";
+import { padOf, AGENT, openPad } from "../pads/padsFixture";
+import { USER } from "../testing/nodes";
+import { showShelfTab } from "../testing/shelfTabs";
+import { RpcError } from "../app/seam";
 import type { DeleteParams } from "@contracts/todo/DeleteParams";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { showEverythingInApp } from "../testing/showEverything";
 import { App } from "../App";
 import { createFakeApp, type FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -15,7 +21,7 @@ stubDialogLayout();
 
 afterEach(cleanup);
 
-const mount = async () => {
+const mount = async (done = false) => {
   localStorage.clear();
   useBrowserStorage(localStorage);
   const app = createFakeApp();
@@ -24,7 +30,8 @@ const mount = async () => {
   for (const path of ["/a", "/b"]) {
     app.add(path);
     const daemon = app.of(path);
-    daemon.handlers["todo.list"] = () => [todo(5), todo(7)];
+    Object.assign(daemon.handlers, padHandlers({ pads: [padOf("first", AGENT, "original"), padOf("second", USER, "other")], history: [] }, data => daemon.emit({ actor: USER, ...data })));
+    daemon.handlers["todo.list"] = () => [todo(5, { done, title: "same" }), todo(7, { done, title: "same" })];
     daemon.handlers["todo.getHistory"] = () => ({ changes: [], unread: null });
     daemon.handlers["todo.comments"] = () => [];
     daemon.handlers["todo.refs"] = () => [];
@@ -193,6 +200,224 @@ it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
   ]);
 });
 
+for (const entry of ["selection", "single", "clear-done"] as const) {
+  it(`u3787a_delete_has_no_question_and_freezes_targets_${entry}`, async () => {
+    const { app } = await mount(entry === "clear-done");
+    const daemon = app.of("/a");
+    daemon.handlers["todo.list"] = () => [todo(5, { done: entry === "clear-done" }), todo(7, { done: entry === "clear-done" })];
+    await showEverythingInApp();
+
+    if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+    else {
+      const first = await screen.findByRole("button", { name: /#5 / });
+
+      if (entry === "selection") {
+        fireEvent.click(first, { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
+    }
+
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([
+      { operation: expect.any(String), ids: entry === "single" ? [5] : [5, 7] },
+    ]));
+    expect([questionProbe.shown]).toEqual([null]);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
+  });
+}
+
+const showPads = async () => {
+  showShelfTab("Pads");
+  await waitFor(() => {
+    const groups = document.querySelectorAll('.pads-tab [data-shelf-group]');
+
+    if (!groups.length) throw new Error("Pad groups are loading");
+
+    for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+  });
+};
+
+for (const entry of ["selection", "single", "drawer"] as const) {
+  it(`u3787a_success_and_partial_failure_offer_only_acknowledged_undo_pads_${entry}`, async () => {
+    const { app } = await mount();
+    const daemon = app.of("/a");
+    await showEverythingInApp();
+    await showPads();
+    const first = await screen.findByRole("button", { name: "first" });
+
+    if (entry === "selection") {
+      const remove = daemon.handlers["pad.delete"]!;
+      daemon.handlers["pad.delete"] = p => { if (p.name === "second") throw new RpcError(-32002, "permission refused");
+
+ return remove(p)!; };
+
+      fireEvent.click(first, { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      await screen.findByText("Could not delete second: permission refused");
+      expect(screen.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
+    } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
+    else {
+      fireEvent.keyDown(first, { key: "Enter" });
+      fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
+    }
+
+    const button = await screen.findByRole("button", { name: "Undo" });
+    expect([questionProbe.shown]).toEqual([null]);
+    expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
+    fireEvent.click(button);
+    await screen.findByRole("button", { name: "first" });
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "pad.restore").length).toBe(1));
+    expect((await daemon.rpc("pad.read", { name: "first" }))).toEqual(padOf("first", AGENT, "original"));
+    expect(daemon.calls.filter(c => ["agent.spawn", "terminal.spawn", "pad.create"].includes(c.method))).toEqual([]);
+  });
+}
+
+it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", async () => {
+  const { app } = await mount();
+  const daemon = app.of("/a");
+  await showEverythingInApp();
+  await showPads();
+  fireEvent.click(await screen.findByRole("button", { name: "first" }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  const button = await screen.findByRole("button", { name: "Undo" });
+  const restore = daemon.handlers["pad.restore"]!;
+  let refuse = true;
+  let calls = 0;
+  daemon.handlers["pad.restore"] = p => { calls++;
+
+ if (calls === 2 && refuse) throw new RpcError(-32003, "name conflict");
+
+ return restore(p)!; };
+
+  fireEvent.click(button);
+  await screen.findByText("second: name conflict");
+  await daemon.rpc("pad.setOwner", { name: "first", owner: USER });
+  await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
+  refuse = false;
+  fireEvent.click(button);
+  await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
+  expect(calls).toBe(3);
+  expect((await daemon.rpc("pad.read", { name: "first" })).text).toBe("edited after restore");
+});
+
+it("u3787a_unknown_delete_reconciles_before_retry_pads", async () => {
+  const { app } = await mount();
+  const daemon = app.of("/a");
+  const remove = daemon.handlers["pad.delete"]!;
+  const read = daemon.handlers["pad.getDeletion"]!;
+  daemon.handlers["pad.delete"] = async p => { await remove(p); throw new Error("reply lost"); };
+
+  daemon.handlers["pad.getDeletion"] = () => { throw new Error("offline"); };
+
+  await showEverythingInApp();
+  await showPads();
+  const row = await screen.findByRole("button", { name: "first" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  const check = await screen.findByRole("button", { name: "Check deletion" });
+  expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+  daemon.handlers["pad.getDeletion"] = read;
+  fireEvent.click(check);
+  fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await screen.findByRole("button", { name: "first" });
+  expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
+    { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
+  ]);
+});
+
+it("u3787a_delete_has_no_question_and_freezes_targets_pads_pending", async () => {
+  const { app } = await mount();
+  const daemon = app.of("/a");
+  const remove = daemon.handlers["pad.delete"]!;
+  let release!: () => void;
+  daemon.handlers["pad.delete"] = async p => { await new Promise<void>(resolve => { release = resolve; });
+
+ return remove(p)!; };
+
+  await showEverythingInApp();
+  await showPads();
+  const row = await screen.findByRole("button", { name: "first" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  await daemon.rpc("pad.create", { name: "arrival", text: "new" });
+  await screen.findByRole("button", { name: "arrival" });
+  release();
+  await screen.findByRole("button", { name: "Undo" });
+  expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
+    { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
+  ]);
+  expect((await daemon.rpc("pad.read", { name: "arrival" })).text).toBe("new");
+});
+
+for (const entry of ["selection", "clear-done"] as const) {
+  it(`u3787a_success_and_partial_failure_offer_only_acknowledged_undo_todos_${entry}`, async () => {
+    const { app } = await mount(entry === "clear-done");
+    const daemon = app.of("/a");
+    daemon.handlers["todo.delete"] = p => ({ operation: p.operation, deleted: [5], missing: [7], state: "deleted" });
+    await showEverythingInApp();
+
+    if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+    else {
+      fireEvent.click(await screen.findByRole("button", { name: /#5 / }), { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+    }
+
+    await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
+    expect(screen.getByRole("button", { name: /#7 / }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
+    expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([{ ids: [5, 7], operation: expect.any(String) }]);
+  });
+}
+
+it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async () => {
+  const { connections } = await mount();
+  await showEverythingInApp();
+  await showPads();
+  const field = await openPad("second");
+  const text = "  unfinished é 🧭\n\nlast  ";
+  fireEvent.input(field, { target: { value: text } });
+  const connected = connections.get("/a")!;
+  const retained = connected.drafts.list();
+  expect(retained.map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
+  fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
+  const undo = await screen.findByRole("button", { name: "Undo" });
+  expect(connected.drafts.list()).toEqual(retained);
+  fireEvent.click(undo);
+  await screen.findByRole("button", { name: "second" });
+  expect(connected.drafts.list()).toEqual(retained);
+});
+
+for (const kind of ["todo", "pad"] as const) {
+  it(`u3787a_refused_shelf_delete_announces_only_the_chosen_item_${kind}`, async () => {
+    const { app } = await mount();
+    const daemon = app.of("/a");
+    const refusal = "The original Home changed. Restore the Home and retry deletion.";
+
+    if (kind === "todo") {
+      daemon.handlers["todo.delete"] = () => { throw new RpcError(-32003, refusal); };
+    } else {
+      daemon.handlers["pad.delete"] = () => { throw new RpcError(-32003, refusal); };
+    }
+
+    await showEverythingInApp();
+
+    if (kind === "pad") await showPads();
+
+    const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
+    fireEvent.click(row);
+    fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
+    await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(row.getAttribute("aria-pressed")).toBe("true");
+  });
+}
+
 const deletions = (daemon: FakeApp): DeleteParams[] => daemon.calls.filter(call => call.method === "todo.delete").map(call => {
   // SAFETY: journal entries filtered to todo.delete have the generated DeleteParams.
   return call.params as DeleteParams;
@@ -249,6 +474,30 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
     { method: "todo.delete", params: { operation: expect.any(String), ids: [5] } },
   ]);
   expect(app.of("/b").calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
+});
+
+it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
+  const { app, connections } = await mount();
+  const daemon = app.of("/a");
+  const remove = daemon.handlers["pad.delete"]!;
+  daemon.handlers["pad.delete"] = async params => { await remove(params); throw new Error("reply lost"); };
+
+  daemon.handlers["pad.getDeletion"] = () => { throw new Error("offline"); };
+
+  await showEverythingInApp();
+  await showPads();
+  const row = await screen.findByRole("button", { name: "first" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  await screen.findByRole("button", { name: "Check deletion" });
+  const { drawer, button, field, connected, opening } = await openSeventh(connections);
+  fireEvent.click(button);
+  await within(drawer).findByRole("alert", { name: "An earlier deletion is unconfirmed. Check deletion first." });
+  expect(connected.drawer.content()).toBe(opening);
+  expect(field.value).toBe(draftBytes);
+  expect(document.activeElement).toBe(button);
+  expect(within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" }).disabled).toBe(false);
+  expect(daemon.calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
 });
 
 it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async () => {
