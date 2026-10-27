@@ -465,16 +465,20 @@ it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
   const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
   const terminals: Terminal[] = [];
   const emulators: Emulator[] = [];
+
   const factory: EmulatorFactory = id => {
     const spy = vi.spyOn(xtermModule, "Terminal");
     const emulator = createXtermEmulators()(id);
     const terminal = spy.mock.instances[0];
     spy.mockRestore();
+
     if (!terminal) throw new Error("xterm was not created");
     terminals.push(terminal);
     emulators.push(emulator);
+
     return { ...emulator, show: () => ({ cols: 80, rows: 24 }) };
   };
+
   const parsed = () => new Promise<void>(resolve => emulators.at(-1)!.write(new Uint8Array(), resolve));
   let screens = createScreens(connected, factory);
   const host = document.createElement("div");
@@ -518,8 +522,10 @@ it.each(["gap", "refused"])("z3788a_saved_scrollback_%s_uses_the_authoritative_s
   app.handlers["terminal.snapshot"] = () => snapshotOf("current authoritative output", 10);
   app.handlers["terminal.catchUp"] = () => {
     if (result === "refused") throw new Error("original Terminal unavailable");
+
     return { kind: "gap", id: "t-a", incarnation: "fixture-t-a", from: 10, after: 10 };
   };
+
   screens.show("t-a", document.createElement("div"));
   await vi.waitFor(() => expect(made.get("t-a")?.log).toContain("current authoritative output"));
   expect(made.get("t-a")?.log).not.toContain("old history");
