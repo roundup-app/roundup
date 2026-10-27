@@ -60,6 +60,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(selected()).toEqual(["terminal:1", "terminal:2"]);
   fireEvent.keyDown(document.activeElement!, { key: "a", metaKey: true });
   expect(selected()).toEqual(ids);
+  expect(document.querySelector('.switcher [role="listbox"]')?.getAttribute("aria-multiselectable")).toBe("true");
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(document.querySelector(".rail-row[data-selected=true]")).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
