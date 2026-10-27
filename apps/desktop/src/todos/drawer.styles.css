@@ -125,10 +125,17 @@
 
 .todo-draft-actions button { font-size: inherit; }
 
-/* Refusal names its cause and recovery in full, including on the dense Drawer. */
+/* Reserve both lines before refusal, keeping the retained form stationary. */
 .reserved-line.todo-delete-feedback {
-  block-size: auto;
-  max-block-size: none;
+  block-size: calc(var(--line) * 2);
+  max-block-size: calc(var(--line) * 2);
+  align-items: flex-start;
 }
-.todo-delete-feedback .reserved-content { flex-wrap: wrap; }
-.todo-delete-feedback .ink[data-tone] { white-space: normal; overflow: visible; }
+.todo-delete-feedback .reserved-content { align-items: baseline; }
+.todo-delete-feedback .ink[data-tone] {
+  display: flex;
+  align-items: baseline;
+  white-space: normal;
+  overflow: visible;
+}
+.todo-delete-feedback .reserved-status { white-space: normal; }
