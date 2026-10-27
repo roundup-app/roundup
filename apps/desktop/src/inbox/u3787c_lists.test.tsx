@@ -114,3 +114,15 @@ it.each(["Enter", " "])("u3787c_comment_activation_opens_only_its_Todo_%s", asyn
   expect(app.calls.slice(before).filter(call => call.method === "todo.comments").map(call => call.params)).toEqual([{ id: 111 }]);
   expect(app.calls.slice(before).some(call => call.method.startsWith("agent.") || call.method === "terminal.write")).toBe(false);
 });
+
+it("u3787c_selection_can_be_copied_without_opening_or_mutating", async () => {
+  const { app } = await mount(inventory[0]!.open);
+  const before = app.calls.length;
+  fireEvent.click(row("a:a"), { metaKey: true });
+  fireEvent.click(row("c:11"), { metaKey: true });
+  fireEvent.click(document.querySelector(".inbox .inbox-copy")!);
+  await waitFor(() => expect(app.clipboardWrites).toEqual(["alpha\nasks\n\nalpha commented on Ship 11\nReply 11"]));
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
+  expect(document.querySelector(".todo-drawer")).toBeNull();
+});
