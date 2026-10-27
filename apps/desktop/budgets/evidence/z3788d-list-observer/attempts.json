@@ -14,6 +14,11 @@
       "exit": 2,
       "condition": "Incomplete actions",
       "details": "First 220-event collection interrupted during size 40 because concurrent lints competed for CPU. No budget claim. Lint process group paused before fresh complete collection."
+    },
+    {
+      "exit": 2,
+      "condition": "Incomplete actions",
+      "details": "First unloaded collection interrupted to add explicit keyboard selection and its identity readback after each size. No complete timing claim from this attempt."
     }
   ],
   "trialSamples": [
