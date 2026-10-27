@@ -117,7 +117,7 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
 const placement = async (where: "agent" | "door" | "bubble") => {
   await app();
 
-  if (where === "bubble") await browser("click", ".rail-terminal-new");
+  if (where === "bubble") await browser("press", "Meta+t");
   else await selectRow(where === "agent" ? "migrate" : "payments");
 
   const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
@@ -426,7 +426,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
-    if (seed === "bubbles") await browser("click", ".rail-terminal-new");
+    if (seed === "bubbles") await browser("press", "Meta+t");
     else await selectRow(seed === "tree-40" ? "migrate" : "agent-4");
     await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
     const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";
