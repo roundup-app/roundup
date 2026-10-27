@@ -18,16 +18,33 @@ const open = async () => {
 };
 
 const shadow = () => document.querySelector("file-tree-container")?.shadowRoot;
-const row = (path: string) => shadow()!.querySelector<HTMLElement>(`[data-item-path="${path}"]`)!;
-const selected = () => [...shadow()!.querySelectorAll('[aria-selected="true"]')].map(element => (element as HTMLElement).dataset.itemPath);
-const focused = () => (shadow()!.activeElement as HTMLElement | null)?.dataset.itemPath;
+
+const row = (path: string) => {
+  const found = shadow()?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+
+  if (!found) throw new Error(`no row ${path}`);
+
+  return found;
+};
+
+const selected = () => [...(shadow()?.querySelectorAll<HTMLElement>('[aria-selected="true"]') ?? [])].map(element => element.dataset.itemPath);
+
+const active = () => {
+  const element = shadow()?.activeElement;
+
+  if (!element) throw new Error("no focused row");
+
+  return element;
+};
+
+const focused = () => shadow()?.activeElement?.getAttribute("data-item-path") ?? undefined;
 
 it("u3787c_each_list_navigates_visible_rows changed files", async () => {
   const { app } = await open();
   row("bravo.ts").focus();
 
   for (const [key, path] of [["Home", "alpha.ts"], ["ArrowUp", "alpha.ts"], ["End", "echo.ts"], ["ArrowDown", "echo.ts"], ["ArrowUp", "delta.ts"], ["c", "charlie.ts"]]) {
-    fireEvent.keyDown(shadow()!.activeElement!, { key });
+    fireEvent.keyDown(active(), { key });
     await waitFor(() => expect(focused()).toBe(path));
   }
 
@@ -43,7 +60,7 @@ it("u3787c_each_list_selects_only_visible_rows changed files", async () => {
   await waitFor(() => expect(selected()).toEqual(["alpha.ts", "echo.ts"]));
   fireEvent.click(row("charlie.ts"), { shiftKey: true, metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["alpha.ts", "bravo.ts", "charlie.ts"]));
-  fireEvent.keyDown(shadow()!.activeElement!, { key: "a", metaKey: true });
+  fireEvent.keyDown(active(), { key: "a", metaKey: true });
   await waitFor(() => expect(selected()).toEqual(FILES.map(file => file.path)));
   expect(document.querySelector(".diff-reader")).toBeNull();
   expect(app.editorCalls).toEqual([]);
