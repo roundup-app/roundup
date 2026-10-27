@@ -811,7 +811,17 @@
   scroll-padding-bottom: var(--line);
 }
 
-.rail-row .name { flex: 1; }
+/* Names keep their authored width before the trailing actions share the remaining room. */
+.rail-row .name {
+  flex: 0 1 auto;
+  max-width: calc(100% - var(--space-6) - var(--space-5));
+}
+.rail-row .row-tail {
+  flex: 1 1 0;
+  min-width: var(--space-5);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
@@ -843,7 +853,7 @@
 .rail-row .line::before { content: ""; width: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--rail-gap)); flex: none; }
 .rail-row .row-state { position: absolute; left: var(--space-6); margin-inline-start: 0; }
 .rail-row .rail-chevron { left: var(--space-1); transform: none; }
-/* U4275b: reserve action width at rest so hover never covers the row name. */
+/* U4275b: actions scroll within trailing space rather than covering or squeezing names. */
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
