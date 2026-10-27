@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "../copy";
 import { event } from "../testing/nodes";
-import { confirmDeletion, answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { answerQuestion, questionClosed, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
@@ -16,7 +16,12 @@ const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[d
 
 const close = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"] > button:last-child`)!;
 
-const closeAccepted = async (id: string) => { fireEvent.click(close(id)); await confirmDeletion(); };
+const closeAccepted = async (id: string) => {
+  fireEvent.click(close(id));
+  await questionDialog();
+  await answerQuestion(true);
+  await questionClosed();
+};
 
 const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input")!;
 

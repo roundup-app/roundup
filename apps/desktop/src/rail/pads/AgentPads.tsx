@@ -1,5 +1,4 @@
 import { createCopyLabels, type createCopyFeedback } from "../../ui/CopyButton";
-import { deleteTodos } from "../../todos/deleteTodos";
 import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
@@ -125,7 +124,15 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
-    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: async (names) => {
+      const pads = props.pads.owned().filter(pad => names.includes(pad.name));
+      const failures = await connected.drafts.todoUndo.removePads(pads);
+
+      return failures.flatMap(failure => { const pad = pads.find(pad => pad.incarnation === failure.id);
+
+ return pad ? [{ id: pad.name, message: failure.message }] : []; });
+    },
     reload: async () => {
       await list.reload();
 
@@ -144,7 +151,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
-    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: connected.drafts.todoUndo.removeTodos,
     reload: async () => {
       await props.pads.todos.reload();
 
