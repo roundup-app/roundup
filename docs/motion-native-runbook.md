@@ -190,3 +190,31 @@ the reduced-motion variant. This evidence alone never changes `variant` from
 switches still require their rendered observer qualification. The page observes
 the existing preference; it generates no OS preference change or input. No Mac
 sequence is requested by this slice.
+
+### Fixture checks at action boundaries
+
+For Layers, Todos and Glyphs, setup and each two-second action boundary now
+require the original ten working Glyph identities to remain visible, the original
+streaming Terminal to remain selected and on screen, and the viewport (including
+device pixel ratio) and Shelf mode to match setup. The driver checks before it
+starts an action and after the action's two-second window, including the last
+window. Loss at either boundary stops subsequent actions and makes scheduling
+invalid (exit 2); `observer.fixture_failures` retains timestamped causes. Earlier
+completed actions remain in their journals. These checks do not observe transient
+changes between boundaries or establish native stream liveness/byte accounting.
+
+The reduced-motion source and report variant remain unchanged: stopping an arc
+through the shared reduced-motion preference keeps its working identity; changing
+an Agent's Kind away from working cannot count toward the fixture's ten Glyphs.
+
+Isolated dark Chromium preparation (2026-10-27) retained the derived fixture and
+all passing Checks at 1512×950. The real `createFrameRun` Glyphs driver then
+observed original `agent-9` become idle during sampling while the measurement
+Door remained working. The additional Door cannot replace a missing fixture
+Glyph. The report retains the fixture-loss cause at 23711 ms and exits 2 with
+incomplete actions. It also retains a frame-clock stall during concurrent local
+validation; this is invalid preparation, not a scheduling or WKWebView timing
+result. The fake App supplied readiness and status only, with no qualified
+64 KiB/s native stream. Raw setup, rendered boxes, Checks and the report remain
+under `artifacts/ux/U3010d/fixture-boundaries/`. The bounded whole-suite capture
+was incomplete; its focused observer completed.
