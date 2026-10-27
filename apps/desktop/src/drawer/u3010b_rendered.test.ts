@@ -414,15 +414,16 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
           if (!target.contains(hit)) throw new Error('Unreachable pointer target: ' + selector);
           const clicked = new Promise(resolve => {
             const observed = event => {
-              if (!target.contains(event.target)) return;
+              if (!edge && !target.contains(event.target)) return;
               window.removeEventListener(edge ? 'pointerdown' : 'click', observed);
-              resolve({ trusted: event.isTrusted, ...o.state() });
+              resolve({ trusted: event.isTrusted, hit: target.contains(event.target), ...o.state() });
             };
             window.addEventListener(edge ? 'pointerdown' : 'click', observed);
           });
           for (const eventType of ['mousePressed', 'mouseReleased']) input.send(JSON.stringify({ type: 'input_mouse', eventType, x, y, button: 'left', clickCount: 1 }));
           const activated = await clicked;
           if (!activated.trusted) throw new Error('Untrusted activation');
+          if (!activated.hit) throw new Error('Pointer missed moving target: ' + selector);
           return activated;
         };
         const halfway = async (from, destination) => {
@@ -504,6 +505,58 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
   }
 });
 }
+
+// A missed press beside Todo content must not become a dismissal command.
+it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+  await browser("click", '.shelf [data-todo="5"] .todo-row-button');
+  await settle();
+  await browser("click", '.shelf [data-todo="5"] .row-controls button[aria-label="Open"]');
+  await settle();
+  await evaluate(`(() => {
+    const panel = document.querySelector('.drawer');
+    window.__edgeContent = panel.lastElementChild;
+    document.addEventListener('pointerdown', event => {
+      window.__edgePress = { trusted: event.isTrusted, panel: event.target === panel };
+    }, { once: true });
+    return true;
+  })()`);
+  await browser("mouse", "move", "957", "400");
+  await browser("mouse", "down");
+  await browser("mouse", "up");
+  await settle();
+  expect(await evaluate(`(() => {
+    const panel = document.querySelector('.drawer');
+    return { ...window.__edgePress, open: panel.dataset.open, sameContent: panel.lastElementChild === window.__edgeContent };
+  })()`)).toEqual({ trusted: true, panel: true, open: "true", sameContent: true });
+
+  if (art) {
+    const directory = join(art, "hairline/padding");
+    mkdirSync(directory, { recursive: true });
+    await browser("screenshot", join(directory, "todo-5-edge-press.png"));
+    writeFileSync(join(directory, "todo-5-edge-press.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+    writeFileSync(join(directory, "todo-5-edge.json"), JSON.stringify(await evaluate(`(() => {
+      const panel = document.querySelector('.drawer');
+      const border = getComputedStyle(panel);
+      const pseudo = getComputedStyle(panel, '::before');
+      return { press: window.__edgePress, open: panel.dataset.open, left: panel.getBoundingClientRect().left,
+        borderWidth: border.borderLeftWidth, borderColor: border.borderLeftColor,
+        pseudoContent: pseudo.content, pseudoBorderWidth: pseudo.borderLeftWidth };
+    })()`)));
+    await evaluate(`(async () => {
+      const { RpcError } = await import('/src/app/seam.ts');
+      window.__fake.app.handlers['todo.comment'] = () => { throw new RpcError(-32003, 'Comment refused. Retry when the connection is restored.'); };
+      return true;
+    })()`);
+    await browser("fill", ".drawer .todo-comment-field", "Preserve this exact unsubmitted comment.");
+    await browser("press", "Enter");
+    await browser("wait", "--fn", "document.querySelector('.drawer').textContent.includes('Comment refused.')");
+    await browser("screenshot", join(directory, "todo-5-refused.png"));
+    writeFileSync(join(directory, "todo-5-refused.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+  }
+});
 
 // The Shelf's reserved mode: pointer close, reversal at 50% of its width, then the same close left to run; reduced motion settles it.
 const shelfTrace = (rate: number) => `(async () => {
