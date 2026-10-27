@@ -380,6 +380,39 @@ export const App = (props: {
   const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
   const captureOwner = () => captureConnection() ?? activeConnection();
 
+  const [captureShow, setCaptureShow] = createSignal<() => void>();
+  const [capturePending, setCapturePending] = createSignal(false);
+  const [captureChoosing, setCaptureChoosing] = createSignal(false);
+
+  const openCapture = async () => {
+    if (captureChoosing()) return;
+
+    if (projects.active() === null) {
+      setCaptureChoosing(true);
+      await projects.choose();
+      setCaptureChoosing(false);
+
+      if (projects.active() === null) return;
+    }
+
+    setCapturePending(true);
+  };
+
+  createEffect(() => {
+    const show = captureShow();
+
+    if (!capturePending() || !show) return;
+    setCapturePending(false);
+    show();
+  });
+  createEffect(() => registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    capture: () => ({
+      available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
+      invoke: () => void openCapture(),
+    }),
+  }]));
+
   const storageFailures = createMemo(() => {
     const open = activeConnection();
     const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
@@ -488,6 +521,8 @@ export const App = (props: {
   const [projectPicker, setProjectPicker] = createSignal(false);
   const [projectQuery, setProjectQuery] = createSignal("");
   const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
+  const [navigationHost, setNavigationHost] = createSignal<HTMLDivElement>();
+  let closeAppSettings: (() => void) | undefined;
   let projectPanel: HTMLElement | undefined;
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
@@ -584,6 +619,8 @@ export const App = (props: {
               </button>;
             }}</For>
           </div></Show>
+          <div class="centre-frame">
+          <div class="centre-navigation-host" ref={setNavigationHost} />
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
@@ -596,14 +633,14 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane viewLabel={id => views.find(([view]) => view === id)?.[1]} navigationHost={navigationHost()} requested={settingsOpen() ? copy.settings : open.settingsView.open() ? (open.settingsView.page() === "import-work" ? copy.importTitle : copy.projectSettings) : null} backRequested={() => { closeAppSettings?.(); open.importing.cancel(); open.settingsView.close(false); }} observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
-                    <ProjectSettingsView />
+                    <ProjectSettingsView compact />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+                    <ResourceStrip compact returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
 
                       if (id) screens()?.emulatorFor(id).focus();
                       else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
@@ -613,7 +650,8 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings closeRef={close => { closeAppSettings = close; }} app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
           </div>
           </div>
         }
@@ -637,7 +675,6 @@ export const App = (props: {
               {(open) => (
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                  <Help />
                   <Leader />
                   <InboxKey />
                   
@@ -647,7 +684,8 @@ export const App = (props: {
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
-            <InProject open={captureOwner()}>{(open) => <Capture onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
         }
