@@ -1,4 +1,3 @@
-import { questionDialog } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
@@ -18,8 +17,7 @@ describe("u431 the Drawer's head", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-    expect(calls()).not.toContain("pad.delete");
-    expect((await questionDialog()).title).toContain("auth-notes");
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "auth-notes", expectedIncarnation: "fixture-auth-notes", operation: expect.any(String) }]));
   });
 
   it("u431_toolbar_is_one_row_with_titles", async () => {

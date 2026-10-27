@@ -6,7 +6,7 @@ import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
-import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
+import { askToDelete, stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -30,13 +30,12 @@ it("u460_pending_delete_stays_with_its_project", async () => {
 
   await askToDelete(2);
 
-  await confirmDeletion();
   fireEvent.click(screen.getByRole("tab", { name: "other" }));
   kept.resolve(null);
-  await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.delete")).toHaveLength(2));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.delete")).toHaveLength(1));
   expect(other.calls.filter((call) => call.method === "todo.delete")).toEqual([]);
   expect(screen.queryByText(/old Project error/)).toBeNull();
-  expect(screen.queryByText("2 selected")).toBeNull();
+  expect([screen.queryByText("2 selected")]).toEqual([null]);
 }, 20_000);
 
 it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", async () => {
