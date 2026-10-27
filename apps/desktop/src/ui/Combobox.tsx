@@ -163,12 +163,14 @@ const Root = (props: {
   const tabStop = createMemo(() => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
     ?? props.items.find(item => props.contentRow?.(item))?.value);
 
-  const itemRow = (item: () => ComboboxItem) => <ArkCombobox.Item item={item()} asChild={() => {
+  const itemRow = (item: () => ComboboxItem, position?: number) => <ArkCombobox.Item item={item()} asChild={() => {
     // Z3788d input dispatch p95 is 4.938–7.931 ms: Ark's lazy merge repeats getItemProps for each attribute.
     // Its asChild slot accepts the same Zag props, resolved once per reactive update.
     const attributes = createMemo(() => api().getItemProps({ item: item() }));
 
     return <div {...attributes()} class="app-combobox-item"
+    aria-setsize={position === undefined ? undefined : destinations().length}
+    aria-posinset={position === undefined ? undefined : position + 1}
     ref={element => {
       createEffect(() => {
         const entry = item();
@@ -222,7 +224,7 @@ const Root = (props: {
                 data-index={index} ref={element => { createEffect(() => {
                   if (item()) queueMicrotask(() => { if (element.isConnected) virtual.measureElement(element); });
                 }); }}>
-                {itemRow(item)}
+                {itemRow(item, index)}
               </div>;
             }}</For>
           </div> : <For each={items()}>{(item) => itemRow(() => item)}</For>;

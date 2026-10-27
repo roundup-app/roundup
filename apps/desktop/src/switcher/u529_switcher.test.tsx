@@ -48,6 +48,8 @@ it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   field()!.focus();
   type("Destination 019");
   await waitFor(() => expect(option("row-19")?.getAttribute("aria-selected")).toBe("true"));
+  expect(option("row-19")?.getAttribute("aria-setsize")).toBe("1");
+  expect(option("row-19")?.getAttribute("aria-posinset")).toBe("1");
   expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-19")!.id);
   press("Enter", {}, field()!);
   await waitFor(() => expect(connected.rail.selected()).toBe("row-19"));
