@@ -823,7 +823,7 @@
   mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
-.rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-icons {
+.rail-row:is(:hover, :focus-within, [data-selected="true"]:not([data-multiple="true"])) .row-icons {
   opacity: 1;
   pointer-events: auto;
 }

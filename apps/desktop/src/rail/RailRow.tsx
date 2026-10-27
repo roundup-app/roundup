@@ -106,7 +106,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
-  row: NodeRow; rootDivider?: boolean; selected: boolean; tabbable: boolean; branch: boolean;
+  row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
@@ -153,6 +153,7 @@ export const RailRowView = (props: {
     class: "rail-row", classList: { "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
     "data-selected": props.selected ? "true" : undefined,
+    "data-multiple": props.multiple ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
     "data-editing": props.editing, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
