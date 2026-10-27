@@ -203,7 +203,8 @@ it("u3800a_one_drag_fixture", async () => {
   // The same session exercises native path routing through the real App and fake event seam.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=tokens]')");
-  await browser("click", ".rail-row[data-id=tokens] .name");
+  await browser("focus", ".rail-row[data-id=tokens]");
+  await browser("press", "Enter");
   await browser("wait", "--fn", "document.querySelector('.pane-body .xterm') !== null");
 
   const feed = (phase: string, paths: string[] = []) => read(`(() => {
@@ -223,7 +224,8 @@ it("u3800a_one_drag_fixture", async () => {
 
   // Rail hover can open its target after U348's hold; leave it and choose the starting pane explicitly.
   await feed("leave");
-  await browser("click", ".rail-row[data-id=tokens] .name");
+  await browser("focus", ".rail-row[data-id=tokens]");
+  await browser("press", "Enter");
   await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'tokens'");
   await feed("over");
   await browser("wait", "--fn", "!!document.querySelector('.pane-body.drop-over')");
@@ -232,7 +234,8 @@ it("u3800a_one_drag_fixture", async () => {
   await feed("leave");
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
   await feed("over");
-  await browser("click", ".rail-row[data-id=migrate] .name");
+  await browser("focus", ".rail-row[data-id=migrate]");
+  await browser("press", "Enter");
   await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'migrate'");
   expect(await read<number>("document.querySelectorAll('.drop-over').length")).toBe(0);
   await feed("over");

@@ -214,8 +214,10 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     const source = kind === "pad-source" ? "```mermaid\ngraph LR\nA-->B\n```" : "alpha [bravo](https://example.com) charlie delta echo foxtrot";
 
     await browser("eval", `window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(source)} })`);
-    await browser("click", '[data-id="payments"] .name');
+    await browser("focus", '.rail-row[data-id="payments"]');
+    await browser("press", "Enter");
     await browser("click", "#shelf-tab-pads");
+    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
     await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
@@ -308,6 +310,7 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
   await browser("click", '[data-id="agent-1"] .name');
   await browser("click", "#shelf-tab-pads");
+  await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
