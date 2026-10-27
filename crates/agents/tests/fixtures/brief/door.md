@@ -104,17 +104,13 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
 
-## Output style
-
-Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. Keep prose to a few short lines and put rows in a table. Where the Project's `CLAUDE.md` asks for something else, follow it.
-
 ## Asking
 
 Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
 ## Reduce and show
 
-Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
+Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Write each limit of a Work order as a rule that reads on its own, such as "Change no file in the repo". Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
