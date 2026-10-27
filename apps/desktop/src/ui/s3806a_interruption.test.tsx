@@ -1,6 +1,10 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { bubbleCalls, mountBubbles, TERMINALS } from "../bubbles/bubblesFixture";
+import { Splitter } from "./Splitter";
+import { Sortable } from "./sortable";
+import { For } from "solid-js";
+import { openOnRelease } from "./contextMenu";
 import { info } from "../testing/nodes";
 import { placesStorage, ZONES } from "../bubbles/places";
 
@@ -10,12 +14,12 @@ beforeEach(() => {
   placesStorage("/p").write({ "2": { x: 200, y: 100, w: 300, h: 300, min: false } });
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
 
 const pointer = (type: string, target: EventTarget = window, button = 0, x = 440, y = 340) => {
-  const event = new PointerEvent(type, { pointerId: 1, pointerType: "mouse", button, buttons: button === 2 ? 2 : 1,
+  const event = new PointerEvent(type, { isPrimary: true, pointerId: 1, pointerType: "mouse", button, buttons: button === 2 ? 2 : 1,
     clientX: x, clientY: y, bubbles: true, cancelable: true });
 
   target.dispatchEvent(event);
@@ -34,6 +38,109 @@ const rows = owners.flatMap(owner => ["window-blur", "element-blur", "focus-tran
   (trigger === "capture-blur" ? (owner === "pull" ? [] : ["before"]) : (owner === "move" ? ["before", "moved"] : ["before", "queued", "moved"])).map(phase => ({ owner, trigger, phase }))));
 
 rows.push(...["window-blur", "element-blur", "focus-transfer", "pointercancel", "selection", "replacement", "unmount", "rejection", "release", "pressed"].map(trigger => ({ owner: "pull-open", trigger, phase: "pending" })));
+
+rows.push(...["menu", "split-rail", "split-shelf", "sort-flat", "sort-tree", "sort-external"].flatMap(owner =>
+  ["window-blur", "pointercancel", "element-blur", "focus-transfer"].flatMap(trigger => ["before", "moved"].map(phase => ({ owner, trigger, phase })))));
+
+const shared = async (owner: string, trigger: string, phase: string) => {
+  if (owner === "menu") {
+    const open = vi.fn();
+    const view = render(() => <button onContextMenu={event => openOnRelease(event, open)}>Menu</button>);
+    const target = view.getByRole("button");
+    fireEvent.contextMenu(target, { button: 2, buttons: 2, clientX: 400, clientY: 300 });
+    if (trigger === "window-blur") window.dispatchEvent(new Event("blur"));
+    else if (trigger === "pointercancel") pointer("pointercancel", document, 2);
+    else target.dispatchEvent(new FocusEvent("blur"));
+    pointer("pointerup", target, 2, 402, 300);
+    expect(open).toHaveBeenCalledTimes(trigger === "window-blur" || trigger === "pointercancel" ? 0 : 1);
+    open.mockClear();
+    fireEvent.contextMenu(target, { button: 2, buttons: 2, clientX: 400, clientY: 300 });
+    pointer("pointerup", target, 2, 402, 300);
+    expect(open).toHaveBeenCalledExactlyOnceWith(402, 300);
+    fireEvent.contextMenu(target, { button: 2, buttons: 2, clientX: 400, clientY: 300 });
+    pointer("pointerup", target, 2, 420, 300);
+    expect(open).toHaveBeenCalledTimes(1);
+    return;
+  }
+  vi.useFakeTimers();
+  // Zag sends and resize notifications use microtasks; dnd-kit renders in tasks/frames.
+  const settle = () => vi.advanceTimersByTimeAsync(100);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+    const y = this.getAttribute("data-id") === "B" ? 50 : 0;
+    return { x: 0, y, left: 0, top: y, right: 1280, bottom: y + 50, width: 1280, height: 50, toJSON() {} };
+  });
+  const commits = vi.fn();
+  const preview = vi.fn();
+  const dragging = vi.fn();
+  const continuing = trigger === "element-blur" || trigger === "focus-transfer";
+  if (owner.startsWith("split")) {
+    const direction = owner === "split-rail" ? 1 : -1;
+    const view = render(() => <div data-layout-root=""><section data-layout-panel="rail" hidden={direction === -1} /><section data-layout-panel="centre" /><section data-layout-panel="shelf" hidden={direction === 1} />
+      <Splitter onDragging={dragging} side={{ label: "Width", direction, min: 240, fallback: 288, now: () => 288, room: () => 560, preview, commit: commits }} /><button class="s3806-focus">Other</button></div>);
+    const target = view.getByRole("separator");
+    let captured = false;
+    target.setPointerCapture = () => { captured = true; };
+    target.hasPointerCapture = () => captured;
+    target.releasePointerCapture = () => { captured = false; };
+    target.focus();
+    await settle();
+    pointer("pointerdown", target, 0, 400, 100);
+    if (phase === "moved") { await settle(); pointer("pointermove", document, 0, 400 + direction * 64, 100); await settle(); expect(preview).toHaveBeenLastCalledWith(352); }
+    interrupt(trigger, target);
+    await settle();
+    if (!continuing) {
+      expect(captured).toBe(false);
+      expect(target.hasAttribute("data-dragging")).toBe(false);
+      expect(dragging).toHaveBeenLastCalledWith(false);
+      if (phase === "moved") expect(preview).toHaveBeenLastCalledWith(288);
+    }
+    const count = preview.mock.calls.length;
+    pointer("pointermove", document, 0, 400 + direction * 96, 100);
+    pointer("pointerup", target, 0, 400 + direction * 96, 100);
+    await settle();
+    expect(commits).toHaveBeenCalledTimes(continuing ? 1 : 0);
+    if (!continuing) expect(preview).toHaveBeenCalledTimes(count);
+    commits.mockClear();
+    pointer("pointerdown", target, 0, 400, 100); await settle();
+    pointer("pointermove", document, 0, 400 + direction * 64, 100); await settle();
+    pointer("pointerup", target); await settle();
+    expect(commits).toHaveBeenCalledTimes(1);
+    expect(dragging).toHaveBeenLastCalledWith(false);
+    return;
+  }
+  const outside = document.createElement("div");
+  document.body.append(outside);
+  const view = render(() => <><Sortable.Root ids={["A", "B"]} onOrderChange={commits} onDrag={dragging}
+    tree={owner === "sort-tree" ? { rows: [{ id: "A", parent: null }, { id: "B", parent: null }], indent: 24, nests: () => true, onMove: commits, onPreview: preview } : undefined}
+    external={owner === "sort-external" ? { target: () => ({ element: outside }), onDropOutside: commits } : undefined}>
+    <For each={["A", "B"]}>{(id, index) => <Sortable.Item id={id} index={index()}>{parts => <div ref={parts.ref} data-id={id}><button ref={parts.handleRef}>{id}</button></div>}</Sortable.Item>}</For>
+    </Sortable.Root><button class="s3806-focus">Other</button></>);
+  const target = view.getByRole("button", { name: "A" });
+  target.focus(); await settle();
+  pointer("pointerdown", target, 0, 10, 10);
+  if (phase === "moved") {
+    pointer("pointermove", document, 0, 40, 70); await settle();
+    expect(dragging).toHaveBeenLastCalledWith(true);
+  }
+  // dnd-kit owns document pointer cancellation, while Bubble owns window cancellation.
+  if (trigger === "pointercancel") pointer("pointercancel", document);
+  else interrupt(trigger, target);
+  await settle();
+  if (!continuing && phase === "moved") expect(dragging).toHaveBeenLastCalledWith(false);
+  pointer("pointermove", document, 0, 50, 80); await settle();
+  pointer("pointerup", target, 0, 50, 80); await settle();
+  if (!continuing) expect(commits).not.toHaveBeenCalled();
+  expect(outside.hasAttribute("data-drop")).toBe(false);
+  if (owner === "sort-tree") expect(preview).toHaveBeenLastCalledWith(null);
+  commits.mockClear();
+  pointer("pointerdown", target, 0, 10, 10);
+  pointer("pointermove", document, 0, 40, 70); await settle();
+  expect(dragging).toHaveBeenLastCalledWith(true);
+  pointer("pointerup", target, 0, 40, 70); await settle();
+  expect(dragging).toHaveBeenLastCalledWith(false);
+  if (owner === "sort-external") expect(commits).toHaveBeenCalledExactlyOnceWith("A", { element: outside });
+  outside.remove();
+};
 
 const pendingPull = async (trigger: string) => {
   const mounted = await mountBubbles("other");
@@ -93,6 +200,7 @@ const pendingPull = async (trigger: string) => {
 };
 
 it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", async ({ owner, trigger, phase }) => {
+  if (owner === "menu" || owner.startsWith("split-") || owner.startsWith("sort-")) return shared(owner, trigger, phase);
   if (owner === "pull-open") return pendingPull(trigger);
   const mounted = await mountBubbles("w");
   await waitFor(() => expect(document.querySelector('.bubble[data-bubble="2"]')).not.toBeNull());
