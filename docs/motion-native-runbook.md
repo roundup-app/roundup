@@ -322,9 +322,12 @@ settled idle. Keep the variant unqualified until those separate obligations hold
 
 Isolated dark Chromium at 1512×950 observed all ten fixture arcs moving, then
 emulated the live reduced-motion source shared by a freshly mounted App and the
-recorder. The change retained ten raw matrices at 27.675 degrees; its post-update
+recorder. The corrected preparation retained ten raw matrices at 201.9375 degrees; its post-update
 readback recorded settlement and no running arcs. D2/D5/D6 passed before and after.
-This switch was **not halfway**. It qualifies the shared-source snapshot/readback
+All rendered Checks passed. The initial CSS-link setup reported D1/D10 failures;
+those readings and its earlier 27.675-degree switch remain in `initial-*.json`.
+Importing the existing styles through Vite repaired that observer setup. Neither
+switch retained a measured half-turn crossing: this is **not halfway evidence**. It qualifies the shared-source snapshot/readback
 path only. The fake App supplied no qualified native stream, scheduling sample or
 settled idle. Raw readings and screenshots remain under
 `artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.
