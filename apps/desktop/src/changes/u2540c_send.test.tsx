@@ -104,8 +104,8 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   if (outcome === "acknowledged") {
     expect(notesFor(reopened.app, "/p").entries()[0]?.[1].submissions).toEqual([]);
   } else {
-    fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-    const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+    fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+    const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
 
     expect(notesFor(reopened.app, "/p").entries()[0]?.[1].submissions[0]?.notes.map(note => note.text)).toEqual(["  revision A 🐝\n e\u0301  "]);
     fireEvent.click(screen.getByRole("button", { name: "Discard this submission" }));
@@ -226,8 +226,14 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
 });
 
 it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
+  const older = "older connection revision A";
+  const newer = "new connection revision B 🐝";
   const first = await openDiff();
-  await saveNote("older connection revision A");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: older } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   let refuse!: (error: Error) => void;
   first.app.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
@@ -235,19 +241,19 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   first.view.unmount();
   const next = await openDiff("/p", first.connected.drafts);
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "new connection revision B 🐝" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   refuse(new RpcError(-32003, "original connection refused"));
   await screen.findByText("original connection refused");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  expect(recovery.textContent).toContain("older connection revision A");
-  expect(recovery.textContent).toContain("new connection revision B 🐝");
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
+  expect(recovery.textContent).toContain(older);
+  expect(recovery.textContent).toContain(newer);
   next.view.unmount();
   await openDiff("/p", first.connected.drafts);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
 });
 
 it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit"])("p3557c_failure_lifetime_note_batch: %s", async action => {
@@ -345,8 +351,8 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
   await screen.findByText("current refusal; retry");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Discard this submission" })[selected === "same" ? 1 : 0]!);
   await waitFor(() => expect(notesFor(app, "/p").entries().find(([id]) => id === "a")?.[1].submissions).toHaveLength(1));
 

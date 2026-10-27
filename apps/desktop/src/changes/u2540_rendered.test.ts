@@ -191,7 +191,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     const retained = await browser("eval", "document.querySelector('.note-form textarea').value");
     await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
-    await press("Recover Changes drafts");
+    await press("Recover notes");
     await wait("!!document.querySelector('.note-recovery')");
     expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain(retained);
     await capture("real-recovery-actions", "U2773e");
