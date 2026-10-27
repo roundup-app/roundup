@@ -128,7 +128,10 @@ const Root = (props: {
     get dir() { return locale().dir; }, get getRootNode() { return environment().getRootNode; },
     get collection() { return collection(); }, get multiple() { return props.items.some(item => props.contentRow?.(item)); }, open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
     scrollToIndexFn: props.virtualized ? ({ index, getElement }) => {
-      if (index < destinations().length) virtual.scrollToIndex(index, { align: "auto" });
+      // Z3788d profile: _elementMaxScrollOffset takes 95 input samples; query edits always reset to index zero.
+      // The browser can reset that offset without TanStack reading scrollHeight/clientHeight during rendering.
+      if (index === 0 && list) list.scrollTop = 0;
+      else if (index < destinations().length) virtual.scrollToIndex(index, { align: "auto" });
       else getElement()?.scrollIntoView({ block: "nearest" });
     } : undefined,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
