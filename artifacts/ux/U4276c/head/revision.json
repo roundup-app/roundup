@@ -1,1 +1,28 @@
-{"head": "561761979513ded395d4f899046c6e6760f5982b", "observer": "nr9_cli_mcp_and_app_share_authority", "viewport": [1512, 950], "scheme": "dark"}
+{
+  "revision": "5d42d9b6fff27bebd990a5e6215d81430affda13",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "nr9_cli_mcp_and_app_share_authority",
+  "captures": [
+    "created",
+    "dropped",
+    "empty",
+    "failed-create",
+    "firing-detail",
+    "form-bottom",
+    "form",
+    "list",
+    "message",
+    "reconciled-form",
+    "reconciled-list",
+    "retired-project",
+    "target-options",
+    "target-pressed",
+    "unavailable",
+    "unknown-create"
+  ],
+  "retained_historical_pair": "long-title has its own revision metadata"
+}

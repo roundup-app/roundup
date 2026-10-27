@@ -1,5 +1,5 @@
 {
-  "head": "a6e5051c9e57cfa4c9d97366f87f6239012f0e8c",
+  "head": "5d42d9b6fff27bebd990a5e6215d81430affda13",
   "observer": "u4276b_keyboard_creates_each_condition",
   "cases": [
     "all",
@@ -12,5 +12,74 @@
     950
   ],
   "scheme": "dark",
-  "known_check": "D2 flags the Ark hidden live-region margin, as on be051858d; D5 and D6 pass."
+  "checks": {
+    "keyboard-instant.checks": {
+      "D1": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass"
+    },
+    "keyboard-all.checks": {
+      "D1": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass"
+    },
+    "keyboard-pr-checks.checks": {
+      "D1": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass"
+    },
+    "keyboard-any.checks": {
+      "D1": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass"
+    }
+  }
 }

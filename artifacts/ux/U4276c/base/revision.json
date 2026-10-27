@@ -1,1 +1,29 @@
-{"base": "2620d409643a5df37ee13269c9cc0635e1e310e0", "observer": "nr9_cli_mcp_and_app_share_authority; failed during error scrolling after these captures"}
+{
+  "revision": "adb280307aea422224cd4a06a8521e599d16568c",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "nr9_cli_mcp_and_app_share_authority",
+  "captures": [
+    "created",
+    "dropped",
+    "empty",
+    "failed-create",
+    "firing-detail",
+    "form-bottom",
+    "form",
+    "list",
+    "message",
+    "reconciled-form",
+    "reconciled-list",
+    "retired-project",
+    "target-options",
+    "target-pressed",
+    "unavailable",
+    "unknown-create"
+  ],
+  "retained_historical_pair": "long-title has its own revision metadata",
+  "observer_adjustment": "Only the capture selector changes from .reaction-form > [role=alert] to .reaction-form [role=alert]; production is exactly origin/main."
+}
