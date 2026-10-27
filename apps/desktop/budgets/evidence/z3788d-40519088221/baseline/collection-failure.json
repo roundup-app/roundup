@@ -1,0 +1,4 @@
+{
+  "exit": 2,
+  "condition": "{\"success\":false,\"data\":null,\"error\":\"No profiling in progress\"}\n"
+}

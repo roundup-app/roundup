@@ -1,0 +1,13 @@
+[vitest-pool]: Timeout terminating forks worker for test files /tmp/roundup-4421/apps/desktop/src/testing/u194_real_daemon.test.tsx.
+[1m[92m    Blocking[0m waiting for file lock on build directory
+ ❯ src/testing/u166_door_permission.test.tsx (1 test | 1 failed) 352975ms
+     × u166_a_door_needing_you_leaves_the_other_workstream_and_its_message_delivered 352974ms (retry x1)
+[vitest-pool]: Timeout terminating forks worker for test files /tmp/roundup-4421/apps/desktop/src/testing/u166_door_permission.test.tsx.
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+ ❯ src/testing/u177_restarted_door.test.tsx (1 test | 1 failed) 240128ms
+     × u177_start_door_after_a_daemon_restart_shows_the_door_idle_with_both_messages_delivered 240125ms (retry x1)
+[vitest-pool]: Timeout terminating forks worker for test files /tmp/roundup-4421/apps/desktop/src/testing/u177_restarted_door.test.tsx.

@@ -1,0 +1,12 @@
+ready 40
+completed 40
+ready 400
+completed 400
+Traceback (most recent call last):
+  File "/tmp/roundup-4421/apps/desktop/budgets/evidence/z3788d-40519088221/baseline/observe.py.txt", line 23, in <module>
+    browser('open',f'http://127.0.0.1:5258/z3788d-observer.html?length={length}')
+  File "/tmp/roundup-4421/apps/desktop/budgets/evidence/z3788d-40519088221/baseline/observe.py.txt", line 9, in browser
+    if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: {"success":false,"data":null,"error":"Operation timed out. The page may still be loading or the element may not exist."}
+

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/tmp/roundup-4421/apps/desktop/budgets/evidence/z3788d-40519088221/capture.py.txt", line 19, in <module>
+    browser('open',f'http://127.0.0.1:5257/harness.html?seed={seed}')
+  File "/tmp/roundup-4421/apps/desktop/budgets/evidence/z3788d-40519088221/capture.py.txt", line 9, in browser
+    if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: {"success":false,"data":null,"error":"Navigation failed: net::ERR_CONNECTION_REFUSED"}
+

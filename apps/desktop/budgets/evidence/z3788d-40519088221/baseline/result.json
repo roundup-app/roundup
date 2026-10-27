@@ -1,0 +1,37 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 52.194,
+      "p95Ms": 94.385,
+      "minMs": 19.263,
+      "maxMs": 140.085,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 61.662,
+      "UpdateLayoutTreeP95Ms": 3.424,
+      "LayoutP95Ms": 6.761,
+      "PrePaintP95Ms": 5.697,
+      "PaintP95Ms": 8.942,
+      "fullTraceSha256": "93d6e27ef03b42870d1f80aa7423b39ec5e66acca21ca742f43411345e6277bb"
+    }
+  ],
+  "failures": [
+    {
+      "length": 400,
+      "condition": "6: no matching paint/draw before presentation",
+      "exit": 2
+    },
+    {
+      "length": 4000,
+      "condition": "0: no matching paint/draw before presentation",
+      "exit": 2
+    }
+  ],
+  "selectionFailures": [],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}
