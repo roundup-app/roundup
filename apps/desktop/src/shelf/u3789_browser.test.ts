@@ -232,7 +232,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
   await browser("eval", "(async () => { const { RpcError } = await import('/src/app/seam.ts'); window.__fake.app.handlers['rail.rename'] = () => { throw new RpcError(-32003, 'name already taken'); }; })()");
   await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}))");
   await wait("document.querySelector('[role=alert]')?.textContent.includes('name already taken')");
-  await browser("click", '.rail-row[data-id="agent-4"]');
+  await browser("click", '.rail-row[data-id="agent-4"] .name');
   await wait("document.activeElement?.closest('[data-id]')?.dataset.id === 'agent-4'");
   await shot("U3789d", "head", "rail-rename-failure-after-selection");
   await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
@@ -298,7 +298,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
 
-        if (step === "selected") await browser("click", '.rail-row[data-id="agent-4"]');
+        if (step === "selected") await browser("click", '.rail-row[data-id="agent-4"] .name');
 
         for (const id of ["U4275a", "U4275b", "U4275c"]) {
           const checks = await shot(id, stage, `${seed}-${step}`);
