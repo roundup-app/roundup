@@ -1,0 +1,9 @@
+<!doctype html><html><meta charset="utf-8"><style>body{background:#181818;color:white}.switcher{width:480px;height:400px}.app-combobox-list{height:240px;overflow:auto}[role=option]{height:24px}</style><section class="switcher"><input autofocus aria-activedescendant="selected"><div class="app-combobox-list"></div></section><textarea aria-label="Selection focus target"></textarea><script>
+const input=document.querySelector('input'),list=document.querySelector('.app-combobox-list');
+for(let i=0;i<12;i++){const row=document.createElement('div');row.setAttribute('role','option');if(i===0)row.id='selected';list.append(row)}
+function edit(){[...list.children].forEach((row,i)=>{const value='row-'+String(i*2+(input.value==='l'?0:1)).padStart(4,'0');row.dataset.value=value;row.textContent=value})}
+input.value='b';edit();input.addEventListener('input',edit);
+input.addEventListener('keydown',e=>{if(e.key==='Enter'){document.querySelector('.switcher').remove();document.querySelector('textarea').focus()}});
+window.__logical=()=>Array.from({length:20},(_,i)=>'row-'+String(i*2+(input.value==='l'?0:1)).padStart(4,'0'));
+window.__observer={connected:{rail:{selected:()=> 'row-0001'}},app:{calls:[]}};window.__ready=true;
+</script></html>

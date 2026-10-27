@@ -1,0 +1,407 @@
+{
+  "inputSamples": 2014,
+  "self": [
+    {
+      "name": "(program)",
+      "line": null,
+      "samples": 644
+    },
+    {
+      "name": "",
+      "line": 12850,
+      "samples": 105
+    },
+    {
+      "name": "Virtualizer._elementMaxScrollOffset",
+      "line": 31690,
+      "samples": 95
+    },
+    {
+      "name": "",
+      "line": 32260,
+      "samples": 79
+    },
+    {
+      "name": "tabStop",
+      "line": 32260,
+      "samples": 70
+    },
+    {
+      "name": "assign",
+      "line": 1506,
+      "samples": 58
+    },
+    {
+      "name": "",
+      "line": 32250,
+      "samples": 51
+    },
+    {
+      "name": "single",
+      "line": 15254,
+      "samples": 40
+    },
+    {
+      "name": "get highlightedValue",
+      "line": 32779,
+      "samples": 39
+    },
+    {
+      "name": "mark",
+      "line": null,
+      "samples": 37
+    },
+    {
+      "name": "",
+      "line": 14507,
+      "samples": 31
+    },
+    {
+      "name": "readSignal",
+      "line": 390,
+      "samples": 28
+    },
+    {
+      "name": "remove",
+      "line": null,
+      "samples": 26
+    },
+    {
+      "name": "getPrepared",
+      "line": 15630,
+      "samples": 25
+    },
+    {
+      "name": "algorithm",
+      "line": 15368,
+      "samples": 24
+    },
+    {
+      "name": "cleanNode",
+      "line": 711,
+      "samples": 20
+    },
+    {
+      "name": "send.type",
+      "line": 28360,
+      "samples": 20
+    },
+    {
+      "name": "matching",
+      "line": 15838,
+      "samples": 17
+    },
+    {
+      "name": "assignProp",
+      "line": 1538,
+      "samples": 17
+    },
+    {
+      "name": "insertBefore",
+      "line": null,
+      "samples": 15
+    },
+    {
+      "name": "runTop",
+      "line": 556,
+      "samples": 14
+    },
+    {
+      "name": "cloneNode",
+      "line": null,
+      "samples": 14
+    },
+    {
+      "name": "toSolidProp",
+      "line": 14504,
+      "samples": 12
+    },
+    {
+      "name": "",
+      "line": 32134,
+      "samples": 11
+    },
+    {
+      "name": "mergeProps$2",
+      "line": 938,
+      "samples": 11
+    },
+    {
+      "name": "runComputation",
+      "line": 470,
+      "samples": 11
+    },
+    {
+      "name": "get",
+      "line": 904,
+      "samples": 11
+    },
+    {
+      "name": "mergeProps$1",
+      "line": 13101,
+      "samples": 11
+    },
+    {
+      "name": "isEqual$1",
+      "line": 12307,
+      "samples": 11
+    },
+    {
+      "name": "",
+      "line": 15841,
+      "samples": 10
+    },
+    {
+      "name": "__publicField$2",
+      "line": 12290,
+      "samples": 10
+    },
+    {
+      "name": "setAttribute",
+      "line": null,
+      "samples": 10
+    },
+    {
+      "name": "contentRow",
+      "line": 32777,
+      "samples": 10
+    },
+    {
+      "name": "unwrap",
+      "line": 10483,
+      "samples": 10
+    },
+    {
+      "name": "",
+      "line": 17096,
+      "samples": 10
+    },
+    {
+      "name": "getInputProps",
+      "line": 27822,
+      "samples": 9
+    },
+    {
+      "name": "",
+      "line": 12651,
+      "samples": 9
+    },
+    {
+      "name": "keys",
+      "line": 956,
+      "samples": 9
+    },
+    {
+      "name": "resolveSources",
+      "line": 932,
+      "samples": 8
+    },
+    {
+      "name": "get",
+      "line": 14460,
+      "samples": 8
+    }
+  ],
+  "inclusive": [
+    {
+      "name": "(root)",
+      "line": null,
+      "samples": 2014
+    },
+    {
+      "name": "completeUpdates",
+      "line": 598,
+      "samples": 1499
+    },
+    {
+      "name": "updateComputation",
+      "line": 456,
+      "samples": 1437
+    },
+    {
+      "name": "runComputation",
+      "line": 470,
+      "samples": 1415
+    },
+    {
+      "name": "runTop",
+      "line": 556,
+      "samples": 1330
+    },
+    {
+      "name": "",
+      "line": 32753,
+      "samples": 1167
+    },
+    {
+      "name": "batch",
+      "line": 277,
+      "samples": 1154
+    },
+    {
+      "name": "runUpdates",
+      "line": 581,
+      "samples": 1085
+    },
+    {
+      "name": "(program)",
+      "line": null,
+      "samples": 644
+    },
+    {
+      "name": "runQueue",
+      "line": 642,
+      "samples": 614
+    },
+    {
+      "name": "",
+      "line": 639,
+      "samples": 557
+    },
+    {
+      "name": "runUserEffects",
+      "line": 662,
+      "samples": 556
+    },
+    {
+      "name": "lookUpstream",
+      "line": 684,
+      "samples": 469
+    },
+    {
+      "name": "",
+      "line": 1495,
+      "samples": 424
+    },
+    {
+      "name": "assign",
+      "line": 1506,
+      "samples": 420
+    },
+    {
+      "name": "readSignal",
+      "line": 390,
+      "samples": 214
+    },
+    {
+      "name": "get",
+      "line": 904,
+      "samples": 211
+    },
+    {
+      "name": "tabStop",
+      "line": 32260,
+      "samples": 192
+    },
+    {
+      "name": "get tabIndex",
+      "line": 32282,
+      "samples": 192
+    },
+    {
+      "name": "untrack",
+      "line": 280,
+      "samples": 181
+    },
+    {
+      "name": "",
+      "line": 14221,
+      "samples": 179
+    },
+    {
+      "name": "compact",
+      "line": 12364,
+      "samples": 177
+    },
+    {
+      "name": "",
+      "line": 14191,
+      "samples": 172
+    },
+    {
+      "name": "resolveSources",
+      "line": 932,
+      "samples": 169
+    },
+    {
+      "name": "get collection",
+      "line": 32211,
+      "samples": 162
+    },
+    {
+      "name": "access$1",
+      "line": 14184,
+      "samples": 146
+    },
+    {
+      "name": "send.type",
+      "line": 28360,
+      "samples": 145
+    },
+    {
+      "name": "",
+      "line": 397,
+      "samples": 143
+    },
+    {
+      "name": "matching",
+      "line": 15838,
+      "samples": 139
+    },
+    {
+      "name": "",
+      "line": 32615,
+      "samples": 139
+    },
+    {
+      "name": "createComponent",
+      "line": 888,
+      "samples": 132
+    },
+    {
+      "name": "",
+      "line": 898,
+      "samples": 130
+    },
+    {
+      "name": "",
+      "line": 1504,
+      "samples": 127
+    },
+    {
+      "name": "",
+      "line": 12850,
+      "samples": 126
+    },
+    {
+      "name": "",
+      "line": 32260,
+      "samples": 122
+    },
+    {
+      "name": "",
+      "line": 15841,
+      "samples": 116
+    },
+    {
+      "name": "",
+      "line": 13867,
+      "samples": 108
+    },
+    {
+      "name": "exec",
+      "line": 28820,
+      "samples": 107
+    },
+    {
+      "name": "callback",
+      "line": 28850,
+      "samples": 107
+    },
+    {
+      "name": "Root.useMachine.scrollToIndexFn",
+      "line": 32222,
+      "samples": 106
+    }
+  ]
+}

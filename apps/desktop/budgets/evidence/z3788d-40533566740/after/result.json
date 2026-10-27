@@ -1,0 +1,60 @@
+{
+  "exit": 1,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 10.159,
+      "p95Ms": 17.663,
+      "minMs": 5.133,
+      "maxMs": 18.235,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 3.657,
+      "UpdateLayoutTreeP95Ms": 0.377,
+      "LayoutP95Ms": 0.236,
+      "PrePaintP95Ms": 0.187,
+      "PaintP95Ms": 0.333,
+      "fullTraceSha256": "74160ad517f070f4a03cd9fd3fdeaba37d6615f3f6bc3e65441c78f286f68488"
+    },
+    {
+      "length": 400,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 10.183,
+      "p95Ms": 17.784,
+      "minMs": 5.199,
+      "maxMs": 18.284,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 3.201,
+      "UpdateLayoutTreeP95Ms": 0.352,
+      "LayoutP95Ms": 0.211,
+      "PrePaintP95Ms": 0.184,
+      "PaintP95Ms": 0.312,
+      "fullTraceSha256": "ad3feb5d6379958501944adb299a2b35c8cff9c299976f7f66d8d2bf009a922a"
+    },
+    {
+      "length": 4000,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 9.774,
+      "p95Ms": 17.819,
+      "minMs": 6.817,
+      "maxMs": 19.424,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 4.552,
+      "UpdateLayoutTreeP95Ms": 0.321,
+      "LayoutP95Ms": 0.198,
+      "PrePaintP95Ms": 0.179,
+      "PaintP95Ms": 0.323,
+      "fullTraceSha256": "bd20ebf55c8754cbfbb70d34e60a1e3e262dc6f166691123fecb3d37eba32ea2"
+    }
+  ],
+  "failures": [],
+  "selectionFailures": [],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}
