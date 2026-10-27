@@ -203,7 +203,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(await run).toBe(false);
   });
 
-  it.each(["closeDrawer", "escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
+  it.each(["escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
     const drawer = document.createElement("div");
     const close = document.createElement("button");
 
@@ -233,6 +233,50 @@ describe("u3010g the frame recorder drives every workload", () => {
       tab.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: action === "keyShelf" ? 0 : 1 }));
       await vi.advanceTimersByTimeAsync(1000);
       expect(await outcome).toBe(false);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it.each([
+    { applied: false, trusted: true, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 0.5, completed: true },
+    { applied: true, trusted: false, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 2, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 2, completed: false },
+  ])("u3010g_the_drawer_hairline_phase_requires_the_existing_close_owner (%j)", async ({ applied, trusted, button, x, completed }) => {
+    vi.useRealTimers();
+    const root = document.createElement("div");
+    const drawer = document.createElement("aside");
+
+    drawer.className = "drawer";
+    drawer.dataset.open = "true";
+    root.append(drawer);
+    document.body.append(root);
+    const callbacks: ((event: Event) => void)[] = [];
+
+    const run = domLayers([], (_type, handler) => {
+      callbacks.push(handler);
+
+      return () => {};
+    }).closeDrawer();
+
+    try {
+      expect(callbacks).toHaveLength(1);
+
+      // Deliver the native input at the event seam; the existing owner's
+      // subsequent state change determines whether this phase completed.
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: trusted }, target: { value: drawer },
+        button: { value: button }, clientX: { value: x },
+      });
+
+      drawer.style.borderLeft = "1px solid black";
+      callbacks[0]!(event);
+
+      if (applied) drawer.dataset.open = "false";
+
+      expect(await run).toBe(completed);
     } finally {
       root.remove();
     }
