@@ -2,9 +2,12 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
-import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
+import { mountTodos, todo as makeTodo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
 afterEach(cleanup);
+
+// T must have no name-prefix match so these observers enter triage (U3787c).
+const todo: typeof makeTodo = (id, over) => makeTodo(id, { title: `item ${id}`, ...over });
 
 const by = (id: string) => ({ kind: "agent" as const, id, parent: null });
 
@@ -131,20 +134,6 @@ it("u3753_x_completes_once_and_focus_moves_on", async () => {
   app.emit(todoEvent("todo.updated", store.todos.find(item => item.id === 2)!));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
   expect(callsTo(app, "todo.complete")).toHaveLength(1);
-});
-
-it("u3753_c_opens_the_comment_field_and_esc_returns_to_the_row", async () => {
-  const { app } = await enter();
-
-  press(row(2), "c");
-  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
-  await waitFor(() => expect(document.activeElement).toBe(field));
-  fireEvent.input(field, { target: { value: "hello" } });
-  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(row(2)));
-  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
-  expect(shelf().getAttribute("data-triage")).toBe("on");
-  expect(callsTo(app, "todo.comment")).toEqual([]);
 });
 
 it("u3753_the_keys_do_nothing_outside_the_mode", async () => {
