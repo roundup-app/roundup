@@ -128,7 +128,7 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 
 export const copy = {
   askHistory: "Ask history",
-  resources: "Resources",
+  resources: "Resources", resourcesLoading: "Loading resources…", resourcesEmpty: "No resource measurements for this Agent",
   terminalTabs: "Terminal tabs",
   changesStale: "Changes are stale",
   changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
@@ -213,7 +213,7 @@ export const copy = {
   measurementEmpty: "No work measured yet",
   measurementRemoved: (name: string) => `${name} was removed. Its recorded measurements remain here.`,
   measurementLoadMore: "Load more",
-  deliverables: "Made",
+  deliverables: "Made", deliverablesLoading: "Loading Made…", deliverablesEmpty: "Nothing published yet",
   deliverableCurrent: "Link · current",
   deliverableNotChecked: "Availability not checked",
   deliverableRetained: "File · published copy",
@@ -361,6 +361,7 @@ export const copy = {
   notesAccepted: (status: string) => `Notes accepted — ${status}`,
   notesUnknown: (reason: string) => `Acceptance unknown. ${reason}`,
 
+  todoUndo: "Undo", todoDeletedFeedback: "Deleted", todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.", todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.", todoDeleteRetry: "Check deletion",
   todoDeleted: (id: number) => `#${id} was deleted`,
   couldNotDelete: "Could not delete",
   rowActionsFor: (id: number) => `Actions for todo ${id}`,
@@ -799,7 +800,7 @@ export const copy = {
   askBarLabel: "Ask",
   askBarPlaceholder: "Ask anything. @ names a Workstream",
   askBarShortcut: "Focus the Ask bar",
-  askRows: "Asks",
+  askRows: "Asks", askHistoryLoading: "Loading Ask history…", askHistoryEmpty: "No Asks yet",
   askMentions: "Workstreams",
   askPlacing: "Placing",
   askWaiting: "Needs your pick",
