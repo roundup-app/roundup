@@ -202,7 +202,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
     await overview();
     await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
-    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.todo-row-button')");
+    await wait("document.activeElement?.matches('.todo-row-button')");
     await shot("U3789d", stage, "tree-40-shelf-select");
     await browser("eval", "document.querySelector('.drawer[data-open=true] .close')?.click()");
     await wait("!document.querySelector('.drawer[data-open=true]')");
@@ -211,7 +211,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
     await shot("U3789d", stage, "tree-40-pads-rest");
     await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await browser("click", '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name');
-    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.pad-name')");
+    await wait("document.activeElement?.matches('.pad-name')");
     await shot("U3789d", stage, "tree-40-pads-select");
     await load("conflict", base);
     await browser("click", "#shelf-tab-pads");
