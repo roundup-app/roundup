@@ -54,6 +54,9 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       await browser("set", "media", "dark");
 
       if (seed === "tabs-8") {
+        // The tab seed's secondary Daemons replace the fake's primary binding; extend the
+        // first Project explicitly so its owned content, including duplicate Unicode names, is dense.
+        await read("(() => { const app=window.__fake.app.of('/Users/you/harness'); const base=window.__fake.app.handlers['rail.tree']()[0]; app.handlers['rail.tree']=()=>Array.from({length:8},(_,i)=>({...base,id:'switcher-'+i,name:i<2?'調査 é 🧭':'調査 é 🧭 '+i+' '+ 'Long name '.repeat(4),parent:null,order:i,terminal_id:null})); app.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'}); })()");
         await browser("click", '.project-tab[data-path="/Users/you/harness"] .tab-name-button');
         await browser("wait", "--fn", "document.querySelectorAll('.rail-row').length >= 5");
       }
