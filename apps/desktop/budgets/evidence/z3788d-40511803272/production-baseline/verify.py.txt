@@ -37,11 +37,17 @@ for length in [40,400,4000]:
    if row['count']!=len(expected) or row['identitiesSha256']!=digest:raise ValueError(f'{n}: wrong displayed identities')
    if row['query']!=('al' if n%2==0 else 'a'): raise ValueError(f'{n}: unexpected query')
    start=marks[f'z3788d-input-{n}'];ready=marks[f'z3788d-ready-{n}']
-   matches=[e for e in starts if abs(e['args']['data']['timeStamp']-row['eventTimestamp'])<0.1]
+   dispatches=[e for e in by_name['EventDispatch'] if e.get('ph')=='X' and e['pid']==start['pid'] and e['tid']==start['tid'] and e.get('args',{}).get('data',{}).get('type')=='input' and e['ts']<=start['ts']<=e['ts']+e['dur']]
+   if len(dispatches)!=1:raise ValueError(f'{n}: ambiguous enclosing input dispatch ({len(dispatches)})')
+   dispatch=dispatches[0]
+   # Bind the mark to its enclosing native dispatch, then to EventTiming's processing start.
+   # Trace timestamps retain microseconds; DOM e.timeStamp/performance.now may be quantized.
+   matches=[e for e in starts if e['pid']==start['pid'] and e['tid']==start['tid'] and e['ts']+(e['args']['data']['processingStart']-e['args']['data']['timeStamp'])*1000<=start['ts']<=e['ts']+(e['args']['data']['processingEnd']-e['args']['data']['timeStamp'])*1000]
    if len(matches)!=1:raise ValueError(f'{n}: ambiguous input event ({len(matches)})')
    event=matches[0];data=event['args']['data'];end=event['ts']+data['duration']*1000
    if not row['identitiesMatch'] or not row['trusted']:raise ValueError(f'{n}: identities or trusted input failed')
-   if not (data['processingEnd']<=row['ready']<=data['commitFinishTime']<=data['timeStamp']+data['duration']):raise ValueError(f'{n}: filtered identities do not precede presented commit: {row} {data}')
+   commit=event['ts']+(data['commitFinishTime']-data['timeStamp'])*1000
+   if not (dispatch['ts']+dispatch['dur']<=ready['ts']<=commit<=end):raise ValueError(f'{n}: filtered identities do not precede presented commit')
    paints=[e for e in by_name['Paint'] if e['pid']==ready['pid'] and e.get('args',{}).get('data',{}).get('frame')==data['frame'] and 'switcher' in e.get('args',{}).get('data',{}).get('nodeName','') and ready['ts']<=e['ts']<=end]
    draws=[e for e in by_name['DrawFrame'] if e['pid']==ready['pid'] and ready['ts']<=e['ts']<=end]
    if not paints or not draws:raise ValueError(f'{n}: no matching paint/draw before presentation')

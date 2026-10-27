@@ -1,23 +1,59 @@
 {
-  "exit": 2,
-  "reports": [],
-  "failures": [
+  "exit": 1,
+  "reports": [
     {
       "length": 40,
-      "condition": "1: ambiguous input event (0)",
-      "exit": 2
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 8.155,
+      "p95Ms": 19.855,
+      "minMs": 7.373,
+      "maxMs": 20.489,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 3.267,
+      "UpdateLayoutTreeP95Ms": 0.176,
+      "LayoutP95Ms": 0.258,
+      "PrePaintP95Ms": 0.147,
+      "PaintP95Ms": 0.183,
+      "fullTraceSha256": "b1b77ea32115a5065cc5de2b37f15c3f6d835e8a130fdd3cc1f219ba39e25125"
     },
     {
       "length": 400,
-      "condition": "17: ambiguous input event (0)",
-      "exit": 2
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 4.836,
+      "p95Ms": 16.237,
+      "minMs": 4.357,
+      "maxMs": 17.469,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 2.278,
+      "UpdateLayoutTreeP95Ms": 0.111,
+      "LayoutP95Ms": 0.121,
+      "PrePaintP95Ms": 0.153,
+      "PaintP95Ms": 0.171,
+      "fullTraceSha256": "502c23641069cda4a52427757988292e9e1157a2c573fd42aec9d77eaeddc90b"
     },
     {
       "length": 4000,
-      "condition": "4: ambiguous input event (0)",
-      "exit": 2
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 8.691,
+      "p95Ms": 17.351,
+      "minMs": 6.487,
+      "maxMs": 18.076,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 5.234,
+      "UpdateLayoutTreeP95Ms": 0.12,
+      "LayoutP95Ms": 0.155,
+      "PrePaintP95Ms": 0.152,
+      "PaintP95Ms": 0.18,
+      "fullTraceSha256": "0caedd0be4de929939d8e7119b0893fcbe31a7e30ff525485751a1608305b94f"
     }
   ],
+  "failures": [],
   "selectionFailures": [],
   "nativeClaim": false,
   "virtualizationAuthorized": false
