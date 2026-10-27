@@ -1,5 +1,5 @@
 import { leaderKey } from "../keys/leaderFixture";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { openTabs, path, renderTabs, rowSelected, tab } from "./stripFixture";
@@ -85,8 +85,8 @@ describe("u181 clicking a tab", () => {
 it("u4274a_project_tabs_mount_in_window_bar", async () => {
   await openTabs({ empty: [] });
   const tabs = screen.getByRole("tablist", { name: "Projects" });
-  expect(tabs.closest(".window-bar")).not.toBeNull();
-  expect(tabs.querySelectorAll('[role="tab"]')).toHaveLength(1);
+  expect(document.querySelector(".window-bar")?.contains(tabs)).toBe(true);
+  expect(within(tabs).getAllByRole("tab")).toHaveLength(1);
   expect(document.querySelectorAll('[role="tablist"][aria-label="Projects"]')).toHaveLength(1);
 });
 
@@ -100,5 +100,5 @@ it("u4274a_window_bar_tabs_switch_projects", async () => {
   fireEvent.click(document.querySelector('[data-id="a1"]')!);
   fireEvent.click(tab("p0"));
   await waitFor(() => expect(rowSelected("a0")).toBe("true"));
-  expect(screen.getByRole("tablist", { name: "Projects" }).closest(".window-bar")).not.toBeNull();
+  expect(document.querySelector(".window-bar")?.contains(screen.getByRole("tablist", { name: "Projects" }))).toBe(true);
 });
