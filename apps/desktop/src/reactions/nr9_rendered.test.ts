@@ -149,9 +149,9 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("target-pressed");
     await browser("mouse", "up", "left");
     await wait("!!document.querySelector('.choice-picker [role=option]')");
-    await browser("hover", '.choice-picker [role="option"]:nth-child(2)');
+    await browser("hover", '.choice-picker [role="option"]:first-child');
     await capture("target-options");
-    await activate('.choice-picker [role="option"]:nth-child(2)');
+    await activate('.choice-picker [role="option"]:first-child');
     await wait("!document.querySelector('.choice-picker [role=option]')");
     await evaluate(`(() => {
       const field = (label, value) => {

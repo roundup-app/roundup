@@ -8,7 +8,7 @@ export const reactionCopy = {
   all: "All selected Agents finish",
   any: "Any selected Agent finishes",
   zones: [
-    { value: "Z", label: "UTC (UTC+00:00)" },
+    { value: "Z", label: "UTC+00:00" },
     { value: "-08:00", label: "UTC−08:00" }, { value: "-07:00", label: "UTC−07:00" },
     { value: "-05:00", label: "UTC−05:00" }, { value: "-04:00", label: "UTC−04:00" },
     { value: "+01:00", label: "UTC+01:00" }, { value: "+02:00", label: "UTC+02:00" },

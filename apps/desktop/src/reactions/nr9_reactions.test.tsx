@@ -18,8 +18,8 @@ const saved = (patch: Partial<Reaction> = {}): Reaction => ({
   observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
 });
 
-const mount = async (list: () => Reaction[]) => {
-  const mounted = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+const mount = async (list: () => Reaction[], homes: ReturnType<typeof workstream>[] = []) => {
+  const mounted = await mountAskBar([], null, [...homes, agent("a", "idle", "ready")]);
 
   mounted.connected.hideView("made");
   mounted.app.handlers["reaction.list"] = list;
@@ -652,12 +652,12 @@ it("u4276c_empty_list_offers_first_creation", async () => {
 });
 
 it("u4276c_list_opens_exact_reaction", async () => {
-  const { app } = await mount(() => [saved(), saved({ id: "r2", name: "Ship it too", instruction: "second" })]);
-  fireEvent.click(await screen.findByRole("button", { name: /Ship it too/ }));
+  const { app } = await mount(() => [saved({ home: "alpha" }), saved({ id: "r2", home: "beta", instruction: "second" })], [workstream("alpha"), workstream("beta")]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it.*beta/ }));
   await screen.findByText("second");
   expect(app.calls.filter(call => call.method === "reaction.get").map(call => call.params)).toEqual([{ id: "r2" }]);
-  fireEvent.click(screen.getByRole("button", { name: "Close Ship it too" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it too/ })));
+  fireEvent.click(screen.getByRole("button", { name: "Close Ship it" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it.*beta/ })));
 });
 
 it("u4276b_form_groups_and_keyboard_controls", async () => {

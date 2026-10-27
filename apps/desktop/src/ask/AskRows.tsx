@@ -65,7 +65,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   };
 
   return (
-    <section aria-label={copy.askHistory}>
+    <section class="ask-history" aria-label={copy.askHistory}>
     <div class="made-heading"><h2 class="overview-heading">{copy.askHistory}</h2><button type="button" data-button="quiet" onClick={() => { hideView("ask-history"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.askHistory)}</button></div>
     <Show when={parts().length === 0 && asks.loadState() !== "failed"}><ReservedLine class="ask-history-status" status={asks.loadState() === "loading" ? copy.askHistoryLoading : copy.askHistoryEmpty} /></Show>
     <ul class="ask-rows" aria-label={copy.askRows} aria-busy={asks.loadState() === "loading"}>

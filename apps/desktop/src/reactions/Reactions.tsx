@@ -88,6 +88,11 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
   });
 
   const { read, refetch } = props.state;
+  const nameOf = useNames();
+
+  const listName = (reaction: Reaction) => read().list.some(other => other.id !== reaction.id && other.name === reaction.name && other.home !== reaction.home)
+    ? copy.draftIdentity(reaction.name, reaction.home ? nameOf(reaction.home) : copy.reactionNoHome)
+    : reaction.name;
 
   const back = () => {
     setView({ kind: "list" });
@@ -158,8 +163,8 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
-          <div class="reaction-head"><h3 class="reaction-title">{reaction().name}</h3><button type="button" data-button="quiet" class="reaction-back" aria-label={copy.closeView(reaction().name)} onClick={back}>{copy.close}</button></div>
-          <ReservedLine message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
+          <div class="reaction-head"><h3 class="reaction-title">{reaction().name}</h3><button type="button" data-button="quiet" class="reaction-back" aria-label={copy.closeView(reaction().name)} onClick={back}>{copy.closeView(reaction().name)}</button></div>
+          <ReservedLine overlay message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
             <button type="button" data-button="quiet" onClick={() => {
               if (inspection()?.id === selected() && inspection()?.failure) inspectValue(value => value ? { ...value, failure: null } : value);
               else setActionFailure(value => ({ ...value, [reaction().id]: null }));
@@ -190,7 +195,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
             return <li>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
-              <span class="reaction-name">{reaction().name}</span>
+              <span class="reaction-name">{listName(reaction())}</span>
               <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span>
             </button>
           </li>;
@@ -422,7 +427,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
       {text(copy.reactionTime, time, { placeholder: copy.reactionTimePlaceholder })}
       <Select label={reactionCopy.zone} value={form()[offset]} choices={zones.some(zone => zone.value === form()[offset]) ? zones : [...zones, { value: form()[offset], label: reactionCopy.offset(form()[offset]) }]} onValueChange={value => set({ [offset]: value })} />
     </div>
-    <ReservedLine message={read()?.error} status={read()?.preview ? copy.reactionResolved(read()!.preview!) : null} />
+    <ReservedLine overlay message={read()?.error} status={read()?.preview ? copy.reactionResolved(read()!.preview!) : null} />
   </div>;
 
   const nameField = text(copy.reactionName, "name");
@@ -436,9 +441,10 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
   return <form class="reaction-form" aria-label={copy.reactionCreate} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
     <div class="reaction-head"><h3 class="reaction-title">{copy.reactionCreate}</h3><button type="button" data-button="quiet" class="reaction-back" onClick={props.onCancel}>{copy.closeView(copy.reactionCreate)}</button></div>
     <Fields.Group label={reactionCopy.instructionGroup}>{nameField}
-    <Combobox.Picker label={copy.reactionTarget} value={form().target}
-      items={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
-      onSelect={(target) => set({ target })} />
+    <div class="reaction-field reaction-target"><span class="reaction-label">{copy.reactionTarget}</span>
+    <Combobox.Picker label={copy.reactionTarget} value={form().target} savedLabel={copy.reactionPickTarget}
+      items={[...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
+      onSelect={(target) => set({ target })} /></div>
     {instructionField}</Fields.Group>
     <Fields.Group label={reactionCopy.conditionGroup}>
     <Select label={copy.reactionCondition} value={form().kind}
@@ -455,7 +461,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     <Show when={form().kind === "agents"}>{maxField}
     <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox></Show></Fields.Group>
     <section class="reaction-preview" aria-label={copy.reactionPreview}>
-      <span class="reaction-label">{copy.reactionPreview}</span>
+      <h4 class="reaction-legend">{copy.reactionPreview}</h4>
       <dl class="reaction-facts">
         <dt>{copy.reactionAuthority}</dt><dd>{copy.reactionPreviewActor}</dd>
         <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>
