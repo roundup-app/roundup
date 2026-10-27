@@ -199,7 +199,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
-  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true, localKeys: event => event.target instanceof Element && event.target.closest(".switcher [data-collection-value]") !== null }, [
+  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
 
