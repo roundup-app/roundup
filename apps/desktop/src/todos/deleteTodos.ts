@@ -63,7 +63,7 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 export function createTodoUndo() {
   const [stack, setStack] = createSignal<({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] })[]>([]);
   const [pending, setPending] = createSignal(false);
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore"; message: string } | null>(null);
   const [visible, setVisible] = createSignal(false);
   let connection: AppSeam | undefined;
   let forwarding: AppSeam | undefined;
@@ -94,7 +94,7 @@ export function createTodoUndo() {
       }
 
       if (receipt.missing.length) {
-        setFailure(copy.todoDeleteMissing);
+        setFailure({ kind: "delete", message: copy.todoDeleteMissing });
         setVisible(true);
       }
 
@@ -104,7 +104,7 @@ export function createTodoUndo() {
       const identity = JSON.stringify([...new Set(chosen)].toSorted((a, b) => a - b));
 
       if (!calls.get(forwarding)?.has(identity)) setUncertain(undefined);
-      setFailure(error.message);
+      setFailure({ kind: "delete", message: error.message });
       setVisible(true);
 
       return false;
@@ -112,7 +112,7 @@ export function createTodoUndo() {
   };
 
   const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[]) => {
-    if (pending() || !connection || uncertain()) return pads.map(pad => ({ id: pad.incarnation, message: failure() ?? copy.deletePending }));
+    if (pending() || !connection || uncertain()) return pads.map(pad => ({ id: pad.incarnation, message: failure()?.message ?? copy.deletePending }));
 
     if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) return pads.map(pad => ({ id: pad.incarnation, message: copy.deleteUnconfirmed }));
     const app = connection;
@@ -160,7 +160,7 @@ export function createTodoUndo() {
       padReceipts = [];
     }
 
-    setFailure(failed.map(item => item.message).join("; ") || null);
+    setFailure(failed.length ? { kind: "delete", message: failed.map(item => item.message).join("; ") } : null);
     setVisible(true);
     setPending(false);
 
@@ -204,7 +204,7 @@ export function createTodoUndo() {
         }
 
         setStack(all => all.flatMap(item => item !== operation ? [item] : failed.length ? [{ kind: "pads" as const, receipts: failed }] : []));
-        setFailure(causes.join("; ") || null);
+        setFailure(causes.length ? { kind: "restore", message: causes.join("; ") } : null);
         setVisible(failed.length > 0 || stack().length > 0);
 
         return;
@@ -229,7 +229,7 @@ export function createTodoUndo() {
       setVisible(stack().length > 0);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      setFailure(error.message);
+      setFailure({ kind: "restore", message: error.message });
     } finally { setPending(false); }
   };
 
@@ -242,9 +242,20 @@ export function createTodoUndo() {
     removeTodos: async (ids: readonly number[]) => {
       await remove([...ids]);
 
-      return ids.flatMap(id => deleted.includes(id) ? [] : [{ id, message: failure() ?? copy.todoDeleteMissing }]);
+      return ids.flatMap(id => deleted.includes(id) ? [] : [{ id, message: failure()?.message ?? copy.todoDeleteMissing }]);
     },
-    undo, pending, failure, visible,
+    undo, pending, visible,
+    failure: () => failure()?.message ?? null,
+    feedback: () => {
+      const operation = stack().at(-1);
+
+      return operation ? copy.todoDeletedFeedback(operation.kind === "todos" ? operation.receipt.deleted.length : operation.receipts.length, operation.kind === "todos" ? "Todo" : "Pad") : null;
+    },
+    feedbackFailure: () => {
+      const problem = failure();
+
+      return problem && (problem.kind === "restore" || uncertain() || padPending().length) ? problem.message : null;
+    },
     available: () => stack().length > 0 && !uncertain() && !padPending().length,
     retryDelete: () => padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => !!uncertain() || padPending().length > 0,

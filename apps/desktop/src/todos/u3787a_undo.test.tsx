@@ -410,3 +410,28 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   await screen.findByRole("button", { name: "second" });
   expect(connected.drafts.list()).toEqual(retained);
 });
+
+for (const kind of ["todo", "pad"] as const) {
+  it(`u3787a_refused_shelf_delete_announces_only_the_chosen_item_${kind}`, async () => {
+    const { app } = await mount();
+    const daemon = app.of("/a");
+    const refusal = "The original Home changed. Restore the Home and retry deletion.";
+
+    if (kind === "todo") {
+      daemon.handlers["todo.delete"] = () => { throw new RpcError(-32003, refusal); };
+    } else {
+      daemon.handlers["pad.delete"] = () => { throw new RpcError(-32003, refusal); };
+    }
+
+    await showEverythingInApp();
+
+    if (kind === "pad") await showPads();
+
+    const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
+    fireEvent.click(row);
+    fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
+    await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(row.getAttribute("aria-pressed")).toBe("true");
+  });
+}
