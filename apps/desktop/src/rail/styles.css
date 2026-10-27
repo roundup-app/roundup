@@ -828,6 +828,7 @@
   pointer-events: auto;
 }
 .rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
+.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }
