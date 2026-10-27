@@ -116,6 +116,17 @@ Fix-run `just ready` exits 0, including lints, types, proofs, frozen/trailer che
 
 Commit `c695f8acb` integrates ClipboardAddon 0.2.0 inside the lazy emulator. Screens supplies the existing native clipboard write and failure owner. Copy output reaches that owner once; a rejected write leaves parsing usable and the next successful copy clears only that Terminal's clipboard failure. A read query returns an empty OSC reply without reading clipboard contents. All 35 focused emulator, snapshot, renderer-recovery and copy/paste tests pass; the two new cases failed before implementation. The fresh isolated compatibility probe also passes all 40 checks.
 
-This continuation remains a draft. The production entry closure grows 35 gzip bytes (418326 to 418361); it meets neither the no-growth condition nor the strict 409600-byte ceiling. The original baseline already exceeded the latter. No budget is weakened. Native clipboard execution, ten-Agent RSS and the real-Daemon rendered action are not claimed. The broad related run was interrupted; CI remains authoritative. Existing source and tests outside Terminal are unchanged. The cancelled repair Issues are not dependencies of this slice.
+## Completed OSC 52 slice
 
-Finish the entry no-growth gate and the rendered observer before making the PR ready. Keep #3853 open for the remaining Find, serialization, image, memory and virtualization acceptance.
+The copy owner is supplied when each emulator is created, through Pane and the lazy loader. This removes the extra registration method. The lazy constructors' unused probe/renderer arguments and probe forwarding are deleted; every performance observer still uses the real emulator directly. Existing selection copy still ignores an empty selection, while an explicit empty OSC payload can clear the clipboard.
+
+| Observer | Result |
+| --- | --- |
+| Focused regression | 41 tests pass across emulator, snapshot, renderer recovery, copy/paste, clipboard failure and lazy replay suites. The final focused rerun passes 22 copy/failure/lazy tests. No test is cut or duplicated. |
+| Rendered | `just capture Z3788a` exits 0. Seven dark 1512×950 PNGs cover tree-40, agents-10, conflict and a real Daemon; D2/D5/D6 pass throughout. Failure text is visible on the densest seed. The real-Daemon action also has a video. |
+| Real process | A bash process emits OSC 52 through rupd and its output subscription into the real emulator. The browser harness reports its explicit native-clipboard refusal, then displays subsequent process output. Its journal records zero unexpected Terminal input writes. This proves the failure path, not a native clipboard write. |
+| Production bytes | Same-host recursive static closure, Node gzip level 9: entry 419885 → 419867 bytes; incremental lazy Terminal closure 132276 → 134249. No WASM asset is emitted. `runtime-bytes.json` retains file lists and environment. The unchanged startup gate passes; the stricter 409600-byte target is exceeded on both baseline and head and remains unfinished on #3853. |
+
+The initial continuation measured 35 bytes of entry growth. The final copy injection and deletion of unused lazy probe forwarding meet no-growth without changing a budget. Two recording setup attempts failed: starting recording reset the selected page, then ffmpeg was missing. Starting recording before navigation and installing ffmpeg repairs the observer; the final capture command succeeds. Its archived source is `capture.py.txt`, run from the repository root. The test script was temporarily selected for `just capture` and restored. Images and video remain uncommitted under `artifacts/ux/Z3788a/`.
+
+Keep #3853 open for Find, serialization, images, ten-Agent RSS, the strict entry ceiling and virtualization measurements. No native timing, memory or native clipboard success is claimed. The user reports what they meet on the Mac; no user-only decision is pending.
