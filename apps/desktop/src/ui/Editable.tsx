@@ -101,7 +101,7 @@ export const NameField = (props: {
       else field.select();
     })} onInput={event => { setText(event.currentTarget.value); retain(event.currentTarget); }}
     onSelect={event => { if (event.currentTarget.isConnected && revision !== null) drafts.setSelection(revision, { start: event.currentTarget.selectionStart ?? 0, end: event.currentTarget.selectionEnd ?? 0, direction: event.currentTarget.selectionDirection ?? "none" }); }}
-    onKeyDown={event => {
+    on:keydown={event => {
       event.stopPropagation();
 
       if (event.key === "Enter") { event.preventDefault();

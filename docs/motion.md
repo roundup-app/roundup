@@ -39,7 +39,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Toast time bar / visible timer | Time left / drain | Existing 5 s notice, 10 s failure, linear; transform | Pause with timer; reduced motion settles bar/fades instead of draining | U3790/U3791 amended by U3010d M10 |
 | Permission Card / answer | Result / fade to line | Existing 150 ms fold Token; opacity | Existing identity/focus/acknowledgement; key immediate | U3795; U3010a/d |
 | App rows (including Todo) / pointer or incoming add/remove, done fold, nest, committed reorder | Structural continuity / layout | Motion `animateLayout`, 200 ms; transform/opacity | Authoritative layout committed once; retarget displayed projection; removed content inert | U3010c M5; U53/U156 amended |
-| Shelf Todo/Pad rows / navigation, name-prefix and range or all selection | Immediate access / none | 0 | Ark collection updates focus/selection synchronously; no mutation or Drawer activation | U3787c App and dense rendered observers |
+| Rail content rows and Shelf Todo/Pad rows / navigation, name-prefix and range or all selection | Immediate access / none | 0 | Ark collection updates focus/selection synchronously; no mutation or Drawer activation | U3787c App and dense rendered observers |
 | Todo/Pad Drawer, Shelf single/selection and Clear done / Delete, acknowledged Undo feedback, restore or retry | Immediate access / none | 0 | Dispatch before feedback; persistent Project-scoped live overlay; no focus move; retain receipt through dismissal and Project reopen | U3787a App lifetime and rendered observers |
 | Todo / keyboard mutation or list move | Immediate access / none | 0 | Final order/focus identity next frame; no retirement hold | U3010b/c M1 |
 | Todo / acknowledged non-key completion | Feedback / tick then retirement | Tick revealed with transform/opacity during 300 ms hold; M5 fold follows | No animation before acknowledgement; refusal keeps row/cause; no replay on mount/switch | U3010c M7; U3770/U3771 amended |
@@ -303,3 +303,5 @@ U3787a Rail removal dispatch and Project Undo feedback are instant for pointer a
 keyboard. Consequence reads do not animate or delay a reversible removal for
 confirmation. Native consent remains for process termination and Worktree disposal;
 restoration uses retained data and starts no program. No motion is introduced.
+
+U3787c Rail rename cancellation immediately restores the saved label and row focus, with no motion or rename RPC; the exact edited revision remains in the existing draft recovery holder.
