@@ -667,8 +667,9 @@ it("u4276b_form_groups_and_keyboard_controls", async () => {
   const conditions = within(form).getByRole("group", { name: "When to send" });
   fireEvent.click(within(conditions).getByRole("checkbox", { name: "a" }));
   expect(within(conditions).getByRole("checkbox", { name: "a" })).toHaveProperty("checked", true);
-  const limits = within(form).getByRole("group", { name: "Limits" });
-  expect(within(limits).getByRole("spinbutton", { name: copy.reactionMax })).toHaveProperty("value", "1");
+  const sendWhen = within(conditions).getByRole("radiogroup", { name: "Send when" });
+  fireEvent.click(within(sendWhen).getByRole("radio", { name: "Any selected Agent finishes" }));
+  expect(within(sendWhen).getByRole("radio", { name: "Any selected Agent finishes" })).toHaveProperty("checked", true);
 });
 
 it.each(["Z", "-05:00", "+05:30"])("u4276b_time_choice_uses_exact_preview: %s", async offset => {

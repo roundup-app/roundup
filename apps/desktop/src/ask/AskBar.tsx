@@ -338,10 +338,9 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <For each={["workstreams", "resources", "terminal-tabs", "made", "ask-history"].filter(connected.hasView)}>{view => <button type="button" data-button="quiet" onClick={() => { connected.hideView(view); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(props.viewLabel?.(view) ?? view)}</button>}</For>
         <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
-        <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>
+        <Show when={connected.hasView("made")}><Deliverables state={deliverables} onClose={() => { connected.hideView("made"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }} /></Show>
         <Show when={connected.hasView("ask-history")}><AskRows keys={scope} onOpened={() => close(false)} /></Show>
       </section>
     </Show>
@@ -349,7 +348,7 @@ export const AskBar = (props: {
 };
 
 const ProjectOverview = () => {
-  const { rail, hasView } = useConnectedProject();
+  const { rail, hasView, hideView } = useConnectedProject();
   const attention = createMemo(() => attentionOrder(rail.nodes));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
@@ -359,6 +358,7 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
+    <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
@@ -439,7 +439,7 @@ const createDeliverables = () => {
   return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
 };
 
-const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
+const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onClose?: () => void }) => {
   const connected = useConnectedProject();
   const scope = shelfScope(connected);
   const records = createMemo(() => props.state.records().filter(record => scope.includes(record.home, record.maker)));
@@ -518,10 +518,10 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
     : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
-  return <Show when={records().length > 0 || props.state.failure() !== null}>
+  return <Show when={props.onClose || records().length > 0 || props.state.failure() !== null}>
     <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
-        <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
+        <div class="reaction-actions"><button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button><Show when={props.onClose}><button type="button" data-button="quiet" onClick={() => props.onClose?.()}>{copy.closeView(copy.deliverables)}</button></Show></div>
       </div>
       <ReservedLine message={props.state.failure()} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
