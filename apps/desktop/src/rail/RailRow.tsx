@@ -91,6 +91,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       }); }}
       onInput={(event) => edit(event.currentTarget)}
       onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
+      onClick={(event) => event.stopPropagation()}
       onKeyDown={(key) => {
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 

@@ -1,5 +1,8 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { App } from "../App";
+import { saveAppSettings } from "../settings/preferences";
+import { createFakeApp } from "../testing/fakeApp";
 import { mountNavigation as mount } from "../testing/navigationFixture";
 import { agent, info } from "../testing/nodes";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
@@ -63,7 +66,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
   const { connected } = await mount();
 
   if (view === "resources") {
-    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(false);
+    expect(projectMenu.items.find(item => item.id === "view:resources")).toBeUndefined();
     connected().rail.select("a0");
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
@@ -78,7 +81,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
 });
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
-  (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source }))))("u2539b_top_ten_tasks_complete_within_three_presses: $task from $source", async ({ task, source }) => {
+  (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source, scenario: source === "native-menu" ? "u4278b_native_accelerator_runs_the_action_once" : "u2539b_top_ten_tasks_complete_within_three_presses" }))))("$scenario: $task from $source", async ({ task, source }) => {
   const { daemon, connected, store, nodes, shells, emulators } = await mount();
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
@@ -176,10 +179,15 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
-    ["action:leader:A", "⌘K A"], ["action:leader:P", "⌘K P"], ["action:leader:C", "⌘K C"], ["action:leader:J", "⌘K J"],
+    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
+    ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
   ]);
+  await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
+  await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create" && item.label === "Capture a Todo").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
+  openProjectPage("action:chord:⌃⇧Y", "/p");
+  await screen.findByRole("textbox", { name: "Capture a Todo" });
+  key("Escape");
   openProjectPage("action:leader:J", "/wrong-project");
   expect(connected().rail.selected()).toBeNull();
   openProjectPage("action:leader:J", "/p");
@@ -302,13 +310,24 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 });
 
 
-it("u2539b_unavailable_native_actions_invoke_nothing", async () => {
+it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:C")?.enabled).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id))).toBe(false));
+  expect(projectMenu.items.every(item => item.enabled)).toBe(true);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
   expect(daemon.calls.filter(call => ["agent.changedFiles", "todo.assign", "terminal.write"].includes(call.method))).toHaveLength(0);
+});
+
+
+it("u4278a_no_selected_project_projects_no_actions", async () => {
+  const app = createFakeApp();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await waitFor(() => expect(projectMenu.path).toBeNull());
+  expect(projectMenu.items).toEqual([]);
+  openProjectPage("action:chord:⌘N", "/p");
+  expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });
 
 it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
