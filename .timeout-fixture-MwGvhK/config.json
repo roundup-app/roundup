@@ -1,1 +1,0 @@
-{"jsPlugins":[{"name":"anti-slop","specifier":"/tmp/roundup-form-controls/tools/oxlint/anti-slop/index.ts"}],"rules":{"anti-slop/bounded-test-timeout":["error",{"exceptions":[]}]}}
