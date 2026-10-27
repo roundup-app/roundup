@@ -231,7 +231,10 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await lane.until("!!document.querySelector('#shelf-tab-todos')");
-    await lane.browser("click", `.rail-row[data-id="${home.id}"] .name`);
+    await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await lane.until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
+    await lane.browser("press", "Enter");
+    await lane.until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
@@ -306,13 +309,14 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     const beforeBurst = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);
 
-    await lane.evaluate("window.__glideRate = 0.1");
+    await lane.evaluate("window.__glideRate = 0");
     await app.rpc("todo.assign", { id: moved.id, owner: actor(agents[1]!.id) });
     await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===${beforeBurst + 1}`);
     await app.rpc("todo.assign", { id: moved.id, owner: actor(agents[2]!.id) });
     await observe(moved.id, agents[2]!.id);
     await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===${beforeBurst + 2} && window.__glides.filter(item=>item.id===${moved.id})[${beforeBurst}].canceled`);
     expect(await lane.evaluate<boolean>("window.__glides.every(item=>item.frames.every(frame=>frame.active<=1))")).toBe(true);
+    await lane.evaluate("(() => { window.__glideRate = 1; for (const row of document.querySelectorAll('.todo-row')) for (const animation of row.getAnimations()) animation.playbackRate = 1; })()");
     // Motion frames above record the retarget; the layout Checks read its settled destination.
     await lane.evaluate("Promise.all([...document.querySelectorAll('.todo-row')].flatMap(row=>row.getAnimations()).map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
     await lane.capture("delegate-board", "burst-hand-off");
