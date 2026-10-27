@@ -230,12 +230,19 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
   const { app, connections } = await unconfirmed();
   const { connected, opening, button, field, drawer } = await openSeventh(connections);
   fireEvent.click(button);
-  await within(drawer).findByText("An earlier deletion is unconfirmed. Check that deletion before trying Delete again.");
+  await within(drawer).findByText("Deleting #5 is unconfirmed. Check that deletion before trying Delete again.");
   expect(connected.drawer.content()).toBe(opening);
   expect(document.activeElement).toBe(button);
   expect(field.value).toBe(draftBytes);
   const recovery = within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" });
   expect(recovery.disabled).toBe(false);
+  const feedback = within(drawer).getByRole("alert");
+  const announcements: string[] = [];
+  const observer = new MutationObserver(() => { announcements.push(feedback.textContent ?? ""); });
+  observer.observe(feedback, { childList: true, characterData: true, subtree: true });
+  fireEvent.click(button);
+  await waitFor(() => expect(announcements).toContain(feedback.textContent));
+  observer.disconnect();
   recovery.focus();
   expect(document.activeElement).toBe(recovery);
   expect(app.of("/a").calls.filter(call => ["todo.delete", "todo.restore", "todo.comment", "todo.update"].includes(call.method))).toEqual([
@@ -295,7 +302,9 @@ const restoring = async () => {
 
 it("u3787h_a_drawer_delete_explains_the_pending_restore", async () => {
   const { app, daemon, connected, opening, drawer, button, field } = await restoring();
-  await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  const progress = await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  expect(within(drawer).queryByRole("alert")).toBe(null);
+  expect(progress.closest('[role="status"]')?.getAttribute("aria-live")).toBe("polite");
   expect(connected.drawer.content()).toBe(opening);
   expect(document.activeElement).toBe(button);
   expect(field.value).toBe(draftBytes);

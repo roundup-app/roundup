@@ -118,7 +118,7 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
 
       await lane.capture(id, "before-refusal");
       await lane.browser("click", ".todo-delete");
-      await lane.until(`document.querySelector('.todo-delete-feedback')?.textContent.includes('${restoring ? "Restoration is in progress" : "An earlier deletion is unconfirmed"}')`);
+      await lane.until(`document.querySelector('.todo-delete-feedback')?.textContent.includes('${restoring ? "Restoration is in progress" : "Deleting #5 is unconfirmed"}')`);
       await lane.capture(id, "refused");
       expect(await lane.focused()).toBe("Delete Todo");
       expect(await lane.evaluate<string>("document.querySelector('.todo-comment-field').value")).toBe("  未送信 é 🧭\n keep trailing spaces  ");
