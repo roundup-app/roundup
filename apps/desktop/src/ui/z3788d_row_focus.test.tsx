@@ -5,17 +5,20 @@ import { createRowCollection, rowKey } from "./RowCollection";
 
 afterEach(cleanup);
 
-const mount = (onFocus = vi.fn<(value: string) => void>()) => {
+const mount = (onRequest?: (value: string) => void) => {
+  const onFocus = vi.fn((value: string) => onRequest?.(value));
   const all = Array.from({ length: 5 }, (_, index) => ({ value: `row-${index}`, label: `Name ${index}` }));
   const [items, setItems] = createSignal(all);
   const [rows, setRows] = createSignal(all.slice(0, 2));
   const onActivate = vi.fn();
   let holder!: ReturnType<typeof createRowCollection>;
+
   const view = render(() => {
     holder = createRowCollection(items, { onFocus, onActivate });
 
     return <For each={rows()}>{item => <button ref={row => holder.register(row, item.value)} onKeyDown={rowKey}>{item.label}</button>}</For>;
   });
+
   const row = (value: string) => view.container.querySelector<HTMLButtonElement>(`[data-collection-value="${value}"]`)!;
   row("row-0").focus();
 
@@ -57,11 +60,13 @@ it("z3788d_filtering_away_an_identity_cancels_its_pending_focus", async () => {
 it("z3788d_holder_cleanup_cancels_queued_registration_focus", async () => {
   const items = [{ value: "first", label: "First" }, { value: "last", label: "Last" }];
   let holder!: ReturnType<typeof createRowCollection>;
+
   const dispose = createRoot(dispose => {
     holder = createRowCollection(() => items, { onFocus: () => {}, onActivate: () => {} });
 
     return dispose;
   });
+
   const [rows, setRows] = createSignal(items.slice(0, 1));
   // Registration belongs to the renderer; disposing the holder must cancel even
   // while its renderer's DOM and registration owners remain alive.
