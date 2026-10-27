@@ -33,6 +33,8 @@ Checks on main (numbered references, not evidence that this specification implem
 
 Policy — validation reporting: record progress and unresolved engineering questions on #4274, never in scenario Work tables. For each failed command or script, report one Issue row containing the command, its exit code, the failed check and the repair; a failed observer is never a pass. This specification needs `loop/rules.sh vocab` on exit 0 before publication.
 
+**U4455 Rail rows carry no Open button.** Given a Rail row (Agent, Workstream or Terminal), when it renders, then it has no button named "Open", and its row actions (`RowIcons`) end at the row's right edge with no empty slot after them. Clicking the row selects it (U6) and `Enter` on it opens it (U31), as before. Asserted by `u4455_rail_row_has_no_open_button` in `apps/desktop/src/rail/`, checking roles and the click and Enter dispatch (policy for the layout, judged by the design critic). Pad and Agent Pad rows keep their Open button: a click there only selects, so it is their one pointer way to open (policy).
+
 ## Agent view gives its space to the Terminal
 
 Acceptance for #4453. Journey stages: Understand and Intervene. Owner direction, 2026-10-27: the Agent view's header bar, goal dialog, empty strip, bottom bar and undo controls are lost space; the Agent's Terminal takes it. This amends U4315a/U4315b (the centre row), U4313a (the always-present bar), U4323a (hint-line placement), U4274c and the Todo quick-add and undo controls where they contradict the clauses below. Implementation is a dependent Issue; this specification PR leaves #4453 open until its observers exist. The test names below are planned observers, not claims of existing behavior.
