@@ -4,7 +4,7 @@ import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { visualizer } from "rollup-plugin-visualizer";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
@@ -17,6 +17,13 @@ postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")
 });
 
 const served = realDaemonFromEnv(process.env);
+
+// These scenario-prescribed files own no browser or App server, including S3806b when its caller slice lands.
+const webkitGuards = [
+  "src/ui/s3806a_interruption.test.tsx",
+  "src/ui/s3806b_actions.test.tsx",
+  "src/terminal/s3806c_scale.test.ts",
+];
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
@@ -170,11 +177,21 @@ export default defineConfig({
     reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/, /src\/ui\/\w+\.css/] },
-    include: ["src/**/*.test.{ts,tsx}"],
     // L89: `--shard` balances by measured time, not path hash.
     sequence: { sequencer: TimedSequencer },
     setupFiles: ["src/testing/domStubs.ts"],
-    globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+    // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
+    projects: [
+      { test: { name: "webkit-guards", include: webkitGuards } },
+      {
+        test: {
+          name: "app",
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [...configDefaults.exclude, ...webkitGuards],
+          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+        },
+      },
+    ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },
