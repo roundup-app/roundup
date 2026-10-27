@@ -91,7 +91,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   expect(centre.hasAttribute("aria-busy")).toBe(false);
 
   fireEvent.click(within(screen.getByRole("region", { name: "Rail" })).getByText("Seeded Agent"));
-  await screen.findByRole("heading", { name: "Seeded Agent" });
+  await within(screen.getByRole("navigation", { name: "Centre" })).findByText("Seeded Agent");
 });
 
 it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contract_scheme_and_event_order: %s", async contract => {
