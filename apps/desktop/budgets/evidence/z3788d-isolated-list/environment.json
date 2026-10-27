@@ -1,5 +1,5 @@
 {
-  "revision": "8d177763e266492dfe16d1f51ab8ae065e9bfae4",
+  "revision": "1494ab15241e8811f0f1f7c8b96dc441ff5f7f2f",
   "host": "runnervmtai0g",
   "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "browser": {
@@ -14,5 +14,17 @@
   "warmups": 20,
   "measured": 200,
   "seed": "alternating alpha/beta suffix, zero-padded sequential row ids",
-  "interval": "trusted input EventTiming start to presentation of committed filtered results"
+  "interval": "trusted input EventTiming start to presentation of committed filtered results",
+  "fixtureSha256": "5feb27a64dd067d06d8a2513ba8e99dc1d9bd87be39b7876d7579f72dc599fd6",
+  "sources": {
+    "apps/desktop/src/switcher/Switcher.tsx": "58fa84a47cdc951e16535741cfd1197306683b98309e5bcf955021b9f37ba092",
+    "apps/desktop/src/switcher/entries.ts": "06a1f04032a5ff92d014e5792c12ad861cd13f2a43e08623f0b8ca357fe644d7",
+    "apps/desktop/src/ui/Combobox.tsx": "132cde6e7afe2916f44034ddc4288608a5c858c7de5e0fbfc6493cd117b08be8",
+    "apps/desktop/src/state/connectedProject.ts": "239913cc100fd9120843248a48f7e0768d4393cffdf133af376abb57fa7b3287",
+    "apps/desktop/src/state/storage.ts": "aa55db7f15f706d20d1dd92b33fb21a891d7011d36481e0cb9ee0a9ceaf79340"
+  },
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "vite": "8.3.5",
+  "agentBrowser": "0.27.0"
 }

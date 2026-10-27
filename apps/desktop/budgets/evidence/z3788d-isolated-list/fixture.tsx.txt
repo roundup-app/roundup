@@ -3,6 +3,7 @@ import { ConnectedProjectContext, connectProject } from "./src/state/connectedPr
 import { createFakeApp } from "./src/testing/fakeApp";
 import { workstream } from "./src/testing/nodes";
 import { useBrowserStorage } from "./src/state/storage";
+import { Leader } from "./src/keys/Leader";
 import { Switcher } from "./src/switcher/Switcher";
 import "./src/tokens.css";
 import "./src/styles.css";
@@ -18,7 +19,7 @@ app.handlers["rail.tree"] = () => Array.from({ length }, (_, i) => workstream(
 const connected = await connectProject(app, { name: "measurement", path: "/z3788d" }, () => false, () => 0);
 window.__observer = { app, connected };
 render(() => <ConnectedProjectContext.Provider value={connected}>
-  <main class="window"><div class="centre-stack">
+  <Leader /><main class="window"><div class="centre-stack">
     <button autofocus>Open destinations with Cmd+K, K</button>
     <div class="pane-screen"><textarea aria-label="Selection focus target" /></div>
     <Switcher onOpen={() => {}} onFailure={message => { window.__failure = message; }} />
