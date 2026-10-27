@@ -170,7 +170,7 @@ export const OpenRow = (props: {
 
   return (
     <ShelfRow
-      glyph={<span classList={{ "row-secondary": failure() === null && !props.todo.blocked && !props.todo.done }}><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
+      glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
       onClick={event => {
@@ -198,7 +198,7 @@ export const OpenRow = (props: {
       aria-owns={props.treeItem?.["aria-owns"]}
       aria-current={props.current && props.treeItem?.role === "treeitem" ? "step" : undefined}
       data-level={props.place?.level}
-      style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-4))` } : undefined}
+      style={props.place ? { "--todo-depth": props.place.level - 1 } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
       ref={(frame) => {
@@ -206,7 +206,7 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      <div class="row-secondary">{props.groupProgress}</div>
+      <div class="todo-group-status">{props.groupProgress}</div>
       <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
   );
