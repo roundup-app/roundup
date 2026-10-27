@@ -69,7 +69,7 @@ it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.getHistory", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
-it.each(cases.flatMap(kind => ["return", "open"].map(input => ({ kind, input, name: `${kind}-${input}` }))))("u3789a_return_and_open_activate_once_$name", async ({ kind, input }) => {
+it.each(cases.flatMap(kind => (kind === "workstream" || kind === "agent" ? ["return"] : ["return", "open"]).map(input => ({ kind, input, name: `${kind}-${input}` }))))("u3789a_return_and_open_activate_once_$name", async ({ kind, input }) => {
   const { app, row } = await target(kind);
 
   if (input === "return") { row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
@@ -166,7 +166,8 @@ it("u3789a_open_never_starts_a_stopped_door", async () => {
   const row = document.querySelector<HTMLElement>(".rail-row")!;
   fireEvent.click(row);
   await settled();
-  fireEvent.click(row.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  await settled();
   expect(app.calls.filter(call => ["rail.startDoor", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
@@ -401,7 +402,7 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
 });
 
 
-it.each(["return", "open"])("u3789d_controls_keep_native_attention_destination_%s", async input => {
+it.each(["return"])("u3789d_controls_keep_native_attention_destination_%s", async input => {
   const {app, emulators} = await open();
   const row = document.querySelector<HTMLElement>('.rail-row[data-id="backend"]')!;
   fireEvent.click(row);

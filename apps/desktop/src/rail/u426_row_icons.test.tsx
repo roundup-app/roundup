@@ -45,8 +45,8 @@ it("u426_a_stopped_agent_offers_no_stop_icon", async () => {
 
 it("u4455_rail_row_has_no_open_button", async () => {
   const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
-  expect(within(rowOf("a")).queryByRole("button", { name: "Open" })).toBeNull();
-  expect(within(rowOf("g")).queryByRole("button", { name: "Open" })).toBeNull();
+  const openButtons = ["a", "g"].flatMap(id => within(rowOf(id)).queryAllByRole("button").filter(b => b.getAttribute("aria-label") === "Open" || b.textContent === "Open"));
+  expect(openButtons).toHaveLength(0);
   fireEvent.click(rowOf("a"));
   await settled();
   expect(mounted.rail.selected()).toBe("a");
