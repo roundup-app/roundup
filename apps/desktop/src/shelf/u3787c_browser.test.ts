@@ -5,16 +5,21 @@ import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 
 let lane: LaneBrowser;
+
 beforeAll(async () => { lane = await openLane(1512, "dark", "u3787c"); }, 180_000);
+
 afterAll(async () => { await lane?.close(); }, 180_000);
 
 it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
   for (const seed of ["tree-40", "tabs-8", "conflict"]) {
     const dir = captureDir("U3787c");
+
     if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, `${seed}.webm`)); }
+
     try {
-    await lane.seedTodos(["same", "same", "長い名前 é 🧭 ".repeat(12), "dependent", "fifth", "sixth"], true, seed);
+      await lane.seedTodos(["same", "same", "長い名前 é 🧭 ".repeat(12), "dependent", "fifth", "sixth"], true, seed);
       await lane.browser("set", "media", "dark");
+
       for (const kind of ["todos", "pads"]) {
         if (kind === "pads") {
           await lane.evaluate(`(async () => {
@@ -27,8 +32,11 @@ it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
             return true;
           })()`);
         }
+
         const selector = `.shelf ${kind === "todos" ? ".todo-row-button" : ".pad-name"}`;
         await lane.until(`document.querySelectorAll('${selector}').length === 6`);
+        await lane.evaluate("(() => { for (const control of document.querySelectorAll('.shelf [data-shelf-group][data-state=closed] [data-part=branch-control]')) control.click(); return true; })()");
+        await lane.until(`[...document.querySelectorAll('${selector}')].every(row => !row.closest('[hidden]'))`);
         await lane.resetCalls();
         await lane.browser("focus", selector);
         await lane.capture("U3787c", `${seed}-${kind}-before`);
@@ -40,8 +48,11 @@ it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
         expect(await lane.calls()).toEqual([]);
         await lane.capture("U3787c", `${seed}-${kind}-selected`);
       }
+
       await lane.evaluate("(() => { window.__fake.failNext(-32003, 'The original Home is unavailable. Restore the Home and retry deletion.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 6').click(); return true; })()");
       await lane.until("document.body.textContent.includes('Could not delete')");
+      await lane.browser("focus", ".shelf-bulk [role=alert]");
+      await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(t => t.textContent.includes('The original Home is unavailable. Restore the Home and retry deletion.'))");
       await lane.capture("U3787c", `${seed}-partial-failure`);
     } finally { if (dir) await lane.browser("record", "stop"); }
   }
