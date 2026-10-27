@@ -300,6 +300,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
           </Tabs.List>
       </Show>
     </div>
+    {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- The design system requires a focusable disabled button to expose its reason as title. */}
     <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" aria-disabled={props.backDisabled} title={props.backDisabled ? copy.importPendingBack : undefined} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
   </nav>;
 
