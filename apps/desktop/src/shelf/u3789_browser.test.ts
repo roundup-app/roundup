@@ -15,17 +15,20 @@ const shot = async (id: string, stage: string, step: string) => {
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
     await browser("screenshot", join(folder, `${step}.png`));
+
     if (id === "U4335a") {
       const geometry = await read(`Array.from(document.querySelectorAll('.rail-row, .rail-leaf, .todo-row')).filter(row => row.checkVisibility()).map(row => {
         const style = getComputedStyle(row);
         const rect = element => element?.getBoundingClientRect().toJSON();
-        return {id: row.dataset.id ?? row.dataset.todo, level: row.getAttribute('aria-level') ?? row.dataset.level,
-          row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph')), label: rect(row.querySelector('.name, .shelf-title')),
+        return {id: row.dataset.id ?? row.dataset.todo, level: row.getAttribute('aria-level') ?? row.dataset.level, parent: window.__fake.app.rail?.find(node => node.id === row.dataset.id)?.parent ?? null,
+          row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .line .glyph, .todo-tick')), label: rect(row.querySelector('.name, .shelf-title')),
           step: style.getPropertyValue('--tree-step'), origin: style.getPropertyValue('--tree-origin'),
           trunks: Array.from(row.querySelectorAll('.tree-pass, .tree-stem, .tree-branch, .rail-pass, .rail-stem, .rail-branch')).map(line => ({kind: line.className, level: line.style.getPropertyValue('--level'), last: line.dataset.last, rect: rect(line), backgroundSize: getComputedStyle(line).backgroundSize, backgroundPosition: getComputedStyle(line).backgroundPosition}))};
       })`);
+
       writeFileSync(join(folder, `${step}.geometry.json`), JSON.stringify({sha: stage === "base" ? process.env.U4335_BASE_SHA : process.env.U4335_HEAD_SHA, seed: step, indentToken: "--space-5", rows: geometry}) + "\n");
     }
+
     const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
     writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
   }
@@ -272,7 +275,7 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   expect(await read("window.__fake.app.openedTargets[0]")).toEqual(await read("window.__fake.app.openedTargets[1]"));
 }, 120_000);
 
-it("u4335a_u4275a_u4275b_u4275c_dense_row_captures", async () => {
+it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   const baselines = new Map<string, Checks>();
@@ -297,7 +300,7 @@ it("u4335a_u4275a_u4275b_u4275c_dense_row_captures", async () => {
           await rpc('todo.setBlockers', {id:child.id,blockers:[parent.id]});
           await rpc('todo.setBlockers', {id:sibling.id,blockers:[parent.id]});
           await rpc('todo.setBlockers', {id:grandchild.id,blockers:[child.id]});
-          const cousin = await rpc('todo.create', {title: 'Grandchild sibling Todo', body: null, blockers:[child.id]});
+          await rpc('todo.create', {title: 'Grandchild sibling Todo', body: null, blockers:[child.id]});
         })()`);
       }
 
@@ -332,15 +335,8 @@ it("u4335a_u4275a_u4275b_u4275c_dense_row_captures", async () => {
         {
           await browser("eval", "(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.openFailure = new RpcError(-32008, 'Folder unavailable; try again.'); })()");
 
-          if (base) {
-            await browser("focus", '.rail-row[data-id="agent-4"]');
-            await browser("press", "Shift+F10");
-            await wait("window.__fake.app.menuLabels().includes('Open folder')");
-            await browser("eval", "window.__fake.app.pickMenu('Open folder')");
-          } else {
-            await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
-            await browser("press", "Enter");
-          }
+          await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
+          await browser("press", "Enter");
 
           await wait("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Folder unavailable')");
 
