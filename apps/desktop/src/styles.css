@@ -335,6 +335,25 @@ p {
   transition: none;
 }
 
+/* Press on the leading border before the moving surface leaves the pointer. The content padding remains inert. */
+.drawer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--space-2);
+  box-sizing: border-box;
+  border-left: var(--stroke-width) solid var(--hairline);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .drawer:hover::before {
+    border-left-color: var(--accent);
+  }
+}
+
 .drawer .close {
   position: absolute;
   top: var(--space-2);
