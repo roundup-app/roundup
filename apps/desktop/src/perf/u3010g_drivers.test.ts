@@ -263,6 +263,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     try {
       expect(callbacks).toHaveLength(1);
+
       // Deliver the native input at the event seam; the existing owner's
       // subsequent state change determines whether this phase completed.
       const event: MouseEvent = Object.create(MouseEvent.prototype, {
