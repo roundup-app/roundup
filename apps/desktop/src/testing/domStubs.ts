@@ -33,3 +33,13 @@ CSSStyleSheet.prototype.replaceSync ??= () => undefined;
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get() {
   return this.isConnected && this.closest('.switcher[data-scope="dialog"], .ask-bar[data-scope="dialog"]') && !this.closest("[hidden]") ? 1 : 0;
 } });
+
+// The Switcher windows its destinations by the list's viewport and its measured rows; jsdom measures neither.
+// Scoped to the Switcher so every other layout read stays zero.
+Object.defineProperty(Element.prototype, "clientHeight", { configurable: true, get() {
+  return this.isConnected && this.closest(".switcher .app-combobox-list") ? 240 : 0;
+} });
+
+Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get() {
+  return this.isConnected && this.closest(".switcher .app-combobox-slot") ? 24 : 0;
+} });
