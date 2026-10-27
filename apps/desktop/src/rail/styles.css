@@ -772,7 +772,6 @@
   scroll-padding-bottom: var(--line);
 }
 
-/* U4275b: reserve every action at rest so reveal never changes the name width. */
 .rail-row .name { flex: 1; }
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
@@ -810,14 +809,27 @@
   display: inline-flex;
   align-items: center;
   flex: none;
-  margin-inline-end: var(--rail-gap);
+  position: absolute;
+  inset-inline-end: calc(100% + var(--rail-gap));
+  background: var(--sunken);
   opacity: 0;
+  pointer-events: none;
+}
+.rail-row .row-icons::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 100%;
+  width: var(--space-4);
+  background: inherit;
+  mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
 .rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-icons {
   opacity: 1;
   pointer-events: auto;
 }
+.rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }

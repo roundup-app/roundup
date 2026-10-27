@@ -25,10 +25,11 @@ const field = async (kind: string, initial = "alpha bravo charlie") => {
 
   if (kind === "pad") {
     await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
-    await browser("click", '[data-id="payments"] .name');
+    await read('document.querySelector(".rail-row[data-id=payments] .name").click()');
+    await wait("document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'payments'");
     await read("(() => {const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
     await wait("document.querySelector('.pads-tab')?.checkVisibility()");
-    await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
+    await wait("!!document.querySelector('.pads-tab [data-incarnation=fixture-3] .pad-name')");
     await read("document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await browser("click", '.pads-tab [data-incarnation="fixture-3"] .pad-name');
     await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
