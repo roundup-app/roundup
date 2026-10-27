@@ -54,7 +54,7 @@ const Root = (props: {
 
   let list: HTMLDivElement | undefined;
   const destinations = createMemo(() => props.items.filter(item => !props.group?.(item)));
-  // Z3788d baseline 40507415273: 4,000 destinations spend 51.740 ms p95 in style/layout.
+  // Z3788d baseline 40507415273: 4,000 destinations spend 21.520 ms p95 in layout alone.
   const virtual = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     get count() { return props.virtualized ? destinations().length : 0; },
     getScrollElement: () => list ?? null,
