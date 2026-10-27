@@ -10,7 +10,8 @@
   "native_timing": "unmeasured",
   "reports": {
     "reserved.json": "Earlier working-tree full sequence: observed opening half-crossing, missing trusted hairline reversal retained incomplete. Collected before the listener injection refactor.",
-    "settled-reserved.json": "Committed implementation: real trusted hairline activation from settled open state completed; D2/D5/D6 pass. This does not establish interruption."
+    "settled-reserved.json": "Committed implementation: real trusted hairline activation from settled open state completed; D2/D5/D6 pass. This does not establish interruption.",
+    "settled-overlay.json": "Committed implementation: real trusted hairline activation from settled open state completed in overlay mode; D2/D5/D6 pass. This does not establish interruption."
   },
   "failures": [
     "Initial preparation awaited every document animation, including infinite Glyphs; corrected preparation to await only layers.",
@@ -26,5 +27,6 @@
     "crates/perf stream and settled-idle qualification and immutable paired native evidence remain with #3013."
   ],
   "capture": "just capture U3010d,U3010e,U3010g invoked with a 45-second outer process bound; broad runner began unrelated suites and did not complete. Focused preparations are retained separately.",
-  "policy": "No native window or OS input. No timeout increase, skip, retry, timing budget change or Mac request. Previously returned owner reports remain retained."
+  "policy": "No native window or OS input. No timeout increase, skip, retry, timing budget change or Mac request. Previously returned owner reports remain retained.",
+  "browser": "Dedicated headless agent-browser session motion-40445298668, initialized with fresh /tmp/motion-profile-40445298668; never attached to a user browser."
 }
