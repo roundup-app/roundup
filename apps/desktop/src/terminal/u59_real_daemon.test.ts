@@ -52,6 +52,8 @@ run("u59 on the real Daemon", () => {
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
 
+    await page.until(`() => document.querySelectorAll('.rail-row').length === 1 && document.querySelector('.rail-row[data-selected="true"]') !== null`);
+
     await page.call(`async () => { window.__u59Menu = (await import('/src/testing/menuProbe.ts')).menuProbe; }`);
 
     for (let count = 1; count <= 10; count += 1) {
@@ -60,7 +62,8 @@ run("u59 on the real Daemon", () => {
       await page.press("F10", "F10", 8);
       await page.until(`() => window.__u59Menu.shown?.some(item => item.id === 'add' && item.enabled)`);
       await page.call(`() => window.__u59Menu.answer('add')`);
-      await page.until(`() => document.querySelectorAll('.rail-row').length >= ${count + 1}`);
+      // Rail selects the returned Agent only after agent.spawn acknowledges it.
+      await page.until(`() => document.querySelectorAll('.rail-row').length === ${count + 1} && document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-part') === 'item'`);
     }
 
     await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
