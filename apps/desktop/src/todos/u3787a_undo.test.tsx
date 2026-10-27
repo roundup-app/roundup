@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { showEverythingInApp } from "../testing/showEverything";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -210,3 +211,27 @@ it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
     { ids: [5], operation: expect.any(String) }, { ids: [7], operation: expect.any(String) },
   ]);
 });
+
+for (const entry of ["selection", "single", "clear-done"] as const) {
+  it(`u3787a_delete_has_no_question_and_freezes_targets_${entry}`, async () => {
+    const { app } = await mount();
+    const daemon = app.of("/a");
+    daemon.handlers["todo.list"] = () => [todo(5, { done: entry === "clear-done" }), todo(7, { done: entry === "clear-done" })];
+    await showEverythingInApp();
+    if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+    else {
+      const first = await screen.findByRole("button", { name: /#5 / });
+      if (entry === "selection") {
+        fireEvent.click(first, { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
+    }
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([
+      { operation: expect.any(String), ids: entry === "single" ? [5] : [5, 7] },
+    ]));
+    expect([questionProbe.shown]).toEqual([null]);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
+  });
+}
