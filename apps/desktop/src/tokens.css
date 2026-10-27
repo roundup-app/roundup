@@ -36,6 +36,11 @@
   --terminal-bright-cyan: #3e999f;
   --terminal-bright-white: #ffffff;
 
+  --form-border: var(--gray-8);
+  --form-ground: var(--ground);
+  --form-off: var(--gray-9);
+  --form-on-ink: var(--ground);
+  --form-thumb: #ffffff;
   --transparent: transparent;
   --ground: var(--gray-1);
   --sunken: var(--gray-2);

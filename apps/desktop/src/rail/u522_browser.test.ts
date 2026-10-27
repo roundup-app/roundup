@@ -153,8 +153,12 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     expect(await moves()).toEqual([]);
   }
 
+  const destination = await read<number>(`[...document.querySelectorAll('.rail-row[data-id]')].findIndex(row => row.dataset.id === 'agent-31')`);
+
+  expect(destination).toBeGreaterThan(0);
   await dragBelow("backend", "agent-31", -20);
-  await wait("Number(document.querySelector('.rail-sortable').dataset.sortableIndex) > 0");
+  // A positive index can still be inside backend's descendants, where dropping is a no-op.
+  await wait(`Number(document.querySelector('.rail-sortable').dataset.sortableIndex) >= ${destination}`);
   await mouse("up");
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);

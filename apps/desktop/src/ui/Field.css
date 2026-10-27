@@ -1,0 +1,99 @@
+/* U4382a: Ark owns relationships and validation; shared parts own form paint. */
+[data-scope="field"][data-part="root"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="label"] {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]),
+.app-dialog-form textarea,
+.import-prompt,
+.note-form input,
+.note-form textarea,
+.app-combobox-input,
+.app-select-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--space-6);
+  border: var(--hairline-width) solid var(--form-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  background: var(--form-ground);
+  color: var(--text);
+  font: inherit;
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"])::placeholder,
+.app-dialog-form textarea::placeholder,
+.app-combobox-input::placeholder {
+  color: var(--grey);
+  opacity: 1;
+}
+:where([data-scope="field"][data-part="textarea"]) {
+  resize: vertical;
+}
+[data-scope="field"][data-part="helper-text"] {
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+[data-scope="field"][data-part="error-text"] {
+  color: var(--red);
+  font-size: var(--text-caption);
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"])[data-invalid],
+.app-select-trigger[data-invalid],
+.app-combobox-input[data-invalid] {
+  border-color: var(--red);
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
+.app-dialog-form textarea:disabled,
+.import-prompt:disabled,
+.note-form input:disabled,
+.note-form textarea:disabled,
+.app-select-trigger:disabled,
+.app-combobox-input:disabled {
+  background: var(--sunken);
+  color: var(--disabled);
+  cursor: not-allowed;
+}
+
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):focus-visible,
+.app-dialog-form textarea:focus-visible,
+.import-prompt:focus-visible,
+.note-form input:focus-visible,
+.note-form textarea:focus-visible,
+.app-select-trigger:focus-visible,
+.app-combobox-input:focus-visible,
+.app-checkbox:has(input:focus-visible) .app-checkbox-box,
+.app-switch:has(input:focus-visible) .app-switch-track,
+.app-radio:has(input:focus-visible) .app-radio-mark {
+  outline: var(--stroke-width) solid var(--accent);
+  outline-offset: var(--stroke-width);
+}
+
+/* Native numeric fields retain their existing pointer feedback and spinbutton semantics. */
+.note-form input {
+  appearance: textfield;
+  cursor: pointer;
+}
+.note-form input:hover {
+  color: var(--text);
+}
+
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="input"]:hover:not(:disabled),
+.app-combobox-input:hover:not(:disabled) {
+  color: var(--text);
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled::placeholder,
+.app-combobox-input:disabled::placeholder {
+  color: var(--disabled);
+}
+
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="input"]:hover:not(:disabled, [data-invalid]),
+.app-combobox-input:hover:not(:disabled, [data-invalid]) {
+  border-color: var(--disabled);
+}
