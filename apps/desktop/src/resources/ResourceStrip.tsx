@@ -123,7 +123,6 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
     <div class="resource-strip" aria-live="off">
       <WorktreeControl returnFocus={props.returnFocus} />
     </div>
-    <div class="hint-frame" aria-hidden="true" />
     <span class="resource-agent" />
   </>);
 };

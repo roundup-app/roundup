@@ -21,12 +21,12 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("region").map(item => item.getAttribute("aria-label"))).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
-  expect(screen.getAllByRole("region", { name: "Settings" })).toHaveLength(1);
+  expect(screen.getByRole("region", { name: "Settings" })).toBe(view);
 });
 
 it("u3800_close_returns_the_center_and_focus", async () => {
@@ -53,10 +53,13 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
-  fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo ⇧⌘T" }));
-  expect(screen.getByRole("button", { name: "Quick add a Todo Press a shortcut" })).toBeTruthy();
+  const settings = within(await screen.findByRole("region", { name: "Settings" }));
+  fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
+  const recorder = await settings.findByRole("button", { name: /^Quick add a Todo/ });
+  fireEvent.click(recorder);
+  expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
+  fireEvent.click(settings.getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -292,3 +295,47 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     try { await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
 }, 180_000);
+
+it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s", async project => {
+  const { seedApp } = await import("../testing/seeds");
+  render(() => <App app={project ? seedApp("tree-40", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+
+  if (project) await screen.findAllByRole("treeitem");
+  else await screen.findByRole("button", { name: /Choose/ });
+  window.dispatchEvent(new Event("open-app-settings"));
+  const view = await screen.findByRole("region", { name: "Settings" });
+
+  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+    fireEvent.click(within(view).getByRole("tab", { name }));
+    await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
+  }
+
+  const appearance = within(view).getByRole("tab", { name: "Appearance" });
+  appearance.focus();
+  await Promise.resolve();
+  fireEvent.keyDown(appearance, { key: "ArrowUp" });
+  await waitFor(() => expect(document.activeElement).toBe(within(view).getByRole("tab", { name: "Shortcuts" })));
+  await waitFor(() => expect(document.activeElement?.getAttribute("aria-selected")).toBe("true"));
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+  await waitFor(() => expect(document.activeElement).toBe(appearance));
+  await waitFor(() => expect(appearance.getAttribute("aria-selected")).toBe("true"));
+  const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
+  const mode = within(panel).getByRole("combobox", { name: "Mode" });
+  mode.focus();
+  await waitFor(() => expect(within(view).getByRole("tabpanel").contains(mode)).toBe(true));
+  expect(document.activeElement).toBe(mode);
+});
+
+it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {
+  const { appSettings, saveAppSettings } = await import("./preferences");
+  await saveAppSettings({ fontSize: 17 });
+  render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
+  await screen.findByRole("button", { name: /Choose/ });
+  window.dispatchEvent(new Event("open-app-settings"));
+  fireEvent.click(await screen.findByRole("tab", { name: "Terminal" }));
+  fireEvent.input(await screen.findByRole("spinbutton", { name: "Font size" }), { target: { value: " 300 " } });
+  fireEvent.click(screen.getByRole("tab", { name: "Agents" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe(" 300 ");
+  expect(appSettings().fontSize).toBe(17);
+});
