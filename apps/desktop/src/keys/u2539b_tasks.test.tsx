@@ -24,7 +24,7 @@ it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () 
   key("KeyT", { metaKey: true, shiftKey: true });
   const field = await screen.findByRole("textbox", { name: "Capture a Todo" });
   await waitFor(() => expect(document.activeElement).toBe(field));
-  expect(document.querySelector(".todos-tab, .shelf-tabs")).toBeNull();
+  expect(document.querySelector(".shelf-panel")).toBeNull();
 });
 
 it("u2539b_drawer_keeps_attention_reachable", async () => {
