@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
@@ -11,8 +12,16 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
 
-const open = async (seed: SeedName = "tree-40") => {
+const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false) => {
   const controls = seedApp(seed, 0);
+
+  if (seed === "tree-40") {
+    const tree = await controls.app.rpc("rail.tree", null);
+
+    if (withWorktree) for (const node of tree) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main"};
+    controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
+  }
+
   const drafts = createProjectDrafts();
   const emulators = fakeEmulators();
   const view = render(() => <App app={controls.app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
@@ -459,4 +468,102 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   expect(rpcCalls(app, "rail.rename")).toEqual([{ id: "tokens", name: "exact 日本語 🌱" }]);
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+
+it.each(["payments", "tokens", "auth"].flatMap(id => [false, true].map(withWorktree => ({id, withWorktree}))))("u4275b_quick_actions_use_the_rows_directory_$id/$withWorktree", async ({id, withWorktree}) => {
+  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"], withWorktree);
+  const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
+  const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
+  const directory = node.worktree?.path ?? "/Users/you/harness";
+  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
+  fireEvent.click(row.querySelector('[aria-label="Open folder"]')!);
+  await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: directory, line: null }]));
+  fireEvent.click(row.querySelector('[aria-label="Open in editor"]')!);
+  await waitFor(() => expect(app.editorOpened).toEqual([directory]));
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+});
+
+
+it("u4275a_state_updates_without_row_activation", async () => {
+  const { setStatus, app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
+
+  for (const kind of ["idle", "working", "needs-you", "blocked", "done", "error"] as const) {
+    setStatus("tokens", kind, kind);
+    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? "Needs-you" : kind[0]!.toUpperCase() + kind.slice(1)));
+  }
+
+  fireEvent.click(document.querySelector('.shelf-done-line .todo-row-button')!);
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="7"]')).not.toBeNull());
+  await app.rpc("todo.setBlockers", {id: 1, blockers: [2]});
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Blocked"));
+  await app.rpc("todo.setBlockers", {id: 1, blockers: []});
+  await app.rpc("todo.complete", { id: 1 });
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Done"));
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+});
+
+it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", async input => {
+  const { app, row } = await target("todo-shelf");
+  const authored = await app.rpc("todo.update", { id: 1, title: "Name only", body: "Private multiline body\nSecond detail" });
+  await waitFor(() => expect(row.textContent).toContain(authored.title));
+  const before = app.calls.length;
+  fireEvent.click(row);
+  expect(row.closest('.shelf-row')!.textContent).not.toContain(authored.body!.split("\n")[0]!);
+
+  if (input === "return") fireEvent.keyDown(row, { key: "Enter" });
+  else fireEvent.click(row.closest('.shelf-row')!.querySelector('[aria-label="Open"]')!);
+  await waitFor(() => expect(document.querySelector('.drawer[data-open=true]')?.textContent).toContain(authored.body!.split("\n")[0]!));
+  expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
+});
+
+it("u4275b_row_actions_keep_menu_semantics", async () => {
+  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="auth"]')!;
+  fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null}]));
+  fireEvent.click(row.querySelector('[aria-label="Clear…"]')!);
+  await screen.findByRole("textbox", { name: "Why clear?" });
+  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: /^Keep$/ }));
+  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+});
+
+
+it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
+  const { app } = await open("tree-40", ["backend", "auth", "tokens"]);
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  fireEvent.click(row.querySelector('[aria-label="Stop"]')!);
+  await questionDialog();
+  expect(rpcCalls(app, "agent.stop")).toEqual([]);
+  await answerQuestion(false);
+  expect(rpcCalls(app, "agent.stop")).toEqual([]);
+  fireEvent.click(row.querySelector('[aria-label="Stop"]')!);
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(rpcCalls(app, "agent.stop")).toEqual([{id:"tokens"}]));
+});
+
+it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
+  const { app } = await open("door-stopped");
+  const row = document.querySelector('.rail-row')!;
+  const id = row.getAttribute("data-id")!;
+  fireEvent.click(row.querySelector('[aria-label="Start supervisor"]')!);
+  await waitFor(() => expect(rpcCalls(app, "rail.startDoor")).toEqual([{id}]));
+});
+
+it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
+  const { app, emit } = await open("tree-40", ["backend", "auth", "tokens"]);
+  const tree = await app.rpc("rail.tree", null);
+  const node = tree.find(node => node.id === "tokens")!;
+  node.can_resume = true;
+  app.handlers["agent.resume"] = () => node;
+  await app.rpc("agent.stop", {id:"tokens"});
+  emit({ actor: {kind:"user",id:"you",parent:null}, name:"rail.changed" });
+  const row = document.querySelector('.rail-row[data-id="tokens"]')!;
+  await waitFor(() => expect(row.querySelector('[aria-label="Resume"]')).not.toBeNull());
+  fireEvent.click(row.querySelector('[aria-label="Resume"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens"}]));
 });
