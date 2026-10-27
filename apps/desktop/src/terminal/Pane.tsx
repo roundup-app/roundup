@@ -289,7 +289,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
 
   const navigation = () => <nav class="pane-navigation" aria-label={copy.centreRegion}>
     <div class="pane-identity">
-      <Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={selected()?.status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show></Show>
+      <Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={connected.drawer.content() === null ? selected()?.status?.kind : undefined}>{kind => <KindGlyph kind={kind()} />}</Show></Show>
       <Show when={!props.requested && !requested() && selected()?.kind === "workstream"} fallback={
         <Show when={props.requested ?? requested()}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
       }>
