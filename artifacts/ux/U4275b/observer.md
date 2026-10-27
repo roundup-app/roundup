@@ -1,17 +1,15 @@
 # U4275b rendered observation
 
-Baseline: `fdf5b5737` (`origin/main`). UI merge: `629a25945`; final observer code: `e66f3890d`. Dedicated headless Chromium sessions, fresh temporary profiles, 1512×950, dark.
+Continuation of #4352, merged with main `691c6e43c`. Baseline images use `ce308a653`. Dedicated headless Chromium sessions, temporary profiles, 1512×950, dark.
 
-The available head stills cover tree-40 and agents-10 at rest, hover, focus and selection, nested Todos and the dense folder failure. Every saved head Check reading passes, including D2, D5 and D6. The folder failure is visible. Images remain untracked under `base/` and `head/`.
+| Before | After |
+| --- | --- |
+| Hidden actions consume the name column and can push Open beyond the Rail | Main’s trailing overlay preserves resting names and keeps the whole action group inside the Rail |
 
-Paired selection now uses focus/Enter and awaits matching row and Shelf scope acknowledgements. The earlier name click could hit an overlaid baseline action and compare different scopes. The latest paired run was still running when this evidence was recorded; no completed final comparison is claimed.
+The Rail stylesheet equals main. On the ordinary tree, backend, auth-refactor and token-rotation are readable at rest. Focused backend and the long-name Workstream have pointer-reachable Add Agent, Clear, folder, editor and Open; Open ends at x=271 within the x=288 Rail. The screen’s Checks pass.
 
-| Observer | Exit | Result |
-|---|---:|---|
-| Initial `just ready` | 0 | Lints, proofs, trailers, frozen checks, workflow tests and N7 pass. |
-| Final terminal file, no retries | 0 | 34 pass; optional capture test skipped. |
-| Truncated-name test, no retries | 0 | Narrow/wide/narrow through the Rail separator passes within the original budget. |
-| Final targeted lint and desktop type check | 0 | Both edited observer files pass. |
-| Head capture with recording | 1 | Still readings pass; `record stop` fails. No finalized video is claimed. |
+Fresh tree-40 images cover rest, hover, focus, selection, nested Todos and visible folder-failure feedback. Their saved Checks pass, including D2, D5 and D6. Images remain untracked. Historical geometry files identify their earlier observations; the fresh paired readings supersede them.
 
-The full related run and final gate repetition were still running at this snapshot. CI judges the push. No new native Mac behavior is introduced; the incoming head passed macOS build and shortcut lanes.
+The combined baseline/head capture hit its unchanged 300-second limit. The separate head capture completed the tree images but `agent-browser record stop` exited 1; no finalized video is claimed. The ordinary capture observer is also run without recording. The title observer hit its unchanged 15-second limit under concurrent compilation. These are observer limits, not claimed passes.
+
+Fresh Linux desktop build: exit 0, zero `Modifiers::SUPER` diagnostics. Cargo tree resolves crates.io global-hotkey 0.9.0. Unchanged shortcut web tests: 27 pass. The same dependency replacement passed #4352’s fresh macOS build and native shortcut lane. This head retains both CI observers; no manual Mac observation is needed.
