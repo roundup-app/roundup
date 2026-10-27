@@ -14,6 +14,39 @@ import { mergeProps, onCleanup, splitProps, useContext, type JSX } from "solid-j
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
 
+// DOM 0.5.1 cancels pointercancel/Escape, but omits window blur even while activation is pending.
+class InterruptiblePointerSensor extends PointerSensor {
+  private stopBlur: (() => void) | undefined;
+
+  protected override handlePointerDown(event: PointerEvent, source: Draggable, options: Parameters<PointerSensor["bind"]>[1]) {
+    const previous = this.controller;
+
+    super.handlePointerDown(event, source, options);
+
+    if (!this.controller || this.controller === previous) return;
+    const owner = event.view ?? window;
+    const cancel = (event: Event) => this.handleCancel(event);
+
+    owner.addEventListener("blur", cancel);
+    this.stopBlur = () => owner.removeEventListener("blur", cancel);
+  }
+
+  protected override handleStart(source: Draggable, event: PointerEvent) {
+    super.handleStart(source, event);
+
+    // A blur during capture can make the superclass attach its final listeners after cancellation.
+    if (!this.controller) this.cleanup();
+  }
+
+  protected override cleanup() {
+    this.stopBlur?.();
+    this.stopBlur = undefined;
+    super.cleanup();
+  }
+}
+
+const pointerSensor = () => ({ ...PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }), plugin: InterruptiblePointerSensor });
+
 /** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
 type ExternalTarget = { element: HTMLElement; /** Carried instead of the list's `attribute` while the pointer is over this target. */ attribute?: string };
 
@@ -244,7 +277,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { clearPreview(); stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
-  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }) : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null })]} onDragStart={(event) => {
+  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null })]} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
@@ -426,7 +459,7 @@ type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
 };
 
 const Item = (props: ItemProps) => {
-  const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, props.pressable ? { sensors: [PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] })] } : {}));
+  const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, props.pressable ? { sensors: [pointerSensor()] } : {}));
 
   return props.children(sortable);
 };
