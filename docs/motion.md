@@ -304,4 +304,11 @@ keyboard. Consequence reads do not animate or delay a reversible removal for
 confirmation. Native consent remains for process termination and Worktree disposal;
 restoration uses retained data and starts no program. No motion is introduced.
 
-U3787c Rail rename cancellation immediately restores the saved label and row focus, with no motion or rename RPC; the exact edited revision remains in the existing draft recovery holder.
+U3787c Rail and Project-tab rename cancellation immediately restores the saved label
+and focus to the original row or Project tab, with no motion or rename RPC. Project
+rename opens through focused-tab F2, name double-click or native-menu Rename; all
+three cancel instantly. The exact edited revision and selection remain in the
+existing Project-owned draft holder through navigation and reload. The mounted
+Project recovery dialog copies or explicitly discards a selected revision; opening
+or closing recovery never submits a rename. Requested Project recovery expands its
+failure text immediately so the full retention warning and retry stay visible.
