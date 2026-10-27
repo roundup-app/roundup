@@ -333,7 +333,7 @@ export const copy = {
   notesAccepted: (status: string) => `Notes accepted — ${status}`,
   notesUnknown: (reason: string) => `Acceptance unknown. ${reason}`,
 
-  todoUndo: "Undo", todoDeletedFeedback: "Deleted", todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.", todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.", todoDeleteRetry: "Check deletion",
+  todoUndo: "Undo", todoDeletedFeedback: "Deleted", todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.", todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.", todoDeleteRetry: "Check deletion", todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`, todoRestorePending: "Restoration is in progress. Wait for it to finish, then try Delete again.",
   todoDeleted: (id: number) => `#${id} was deleted`,
   couldNotDelete: "Could not delete",
   rowActionsFor: (id: number) => `Actions for todo ${id}`,
