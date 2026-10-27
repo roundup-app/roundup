@@ -435,7 +435,7 @@ it.each(["Engine", "Model"])("u3756d_settings_picker_escape_returns_focus_%s", a
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
   await browser("press", "Meta+Comma");
   await wait("!!document.querySelector('.settings-view')");
-  await read(`window.pickerTrigger = [...document.querySelectorAll('.app-select-trigger')].find(button => button.textContent.startsWith('${label}'))`);
+  await read(`window.pickerTrigger = [...document.querySelectorAll('.app-select-trigger')].find(button => button.getAttribute('aria-labelledby')?.split(' ').map(id => document.getElementById(id)?.textContent ?? '').join(' ').startsWith('${label}'))`);
   await read("window.pickerTrigger.click()");
   await wait("document.activeElement?.matches('.app-combobox-input')");
   await browser("fill", ".app-combobox-input", "One");
