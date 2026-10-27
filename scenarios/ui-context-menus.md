@@ -55,7 +55,7 @@ Checks on main (references, not delivery claims):
 
 ## Per-surface regression coverage (#4409)
 
-**U4409a every caller proves its own group boundaries.** Given a mounted App with an open Project, an eligible other Agent, an alternative Home and owner, and the fixtures below, when the user context-clicks each named surface through its real UI handler, then each request to `showContextMenu` has exactly the action ids and group boundaries below. Each row is a separate named case of planned `u4409a_each_surface_projects_ordered_nonempty_groups` in `apps/desktop/src/rail/menu/u2694_menu.test.tsx`; neither calling `contextMenu` directly nor opening another surface stands for opening that row. Terminal tab and Bubble, Rail and work-item Pad, and Rail and work-item Todo are distinct cases. This adds an observer to U4322a, not new menu behavior.
+**U4409a every caller proves its own group boundaries.** Given a mounted App with an open Project and the fixtures below, with an eligible other Agent, alternative Home and owner wherever those actions are expected, when the user context-clicks each named surface through its real UI handler, then each request to `showContextMenu` has exactly the action ids and group boundaries below. Each row is a separate named case of planned `u4409a_each_surface_projects_ordered_nonempty_groups` in `apps/desktop/src/rail/menu/u2694_menu.test.tsx`; neither calling `contextMenu` directly nor opening another surface stands for opening that row. Terminal tab and Bubble, Rail and work-item Pad, and Rail and work-item Todo are distinct cases. This adds an observer to U4322a, not new menu behavior.
 
 In this table, `|` means exactly one separator boundary; commas mean no separator. The App seam carries boundaries as adjacent unequal `group` values, not fake separator action ids. Assert the complete ordered `(id, group)` sequence against fixture-owned expected values, including equal groups within each comma-separated run and unequal groups at every `|`. Expectations must not be generated from the production grouping table, a sort of the actual reply, or another caller's reply.
 
@@ -70,7 +70,7 @@ In this table, `|` means exactly one separator boundary; commas mean no separato
 | Agent-owned Pad in the Rail, expanded Pads branch | `send, copy-link | delete` |
 | Agent-owned Pad in work items, another eligible owner | `send, copy-link | assign, make-yours | delete` |
 | Incomplete Todo in the Rail, middle of three owned Todos, another Home | `complete | send, copy-link | move, move-up, move-down | delete` |
-| Incomplete Todo in work items, middle of three Todos, another Home | `complete | send, copy-link | assign, move, move-up, move-down | delete` |
+| Incomplete Todo in work items, middle of three Todos with the same owner, another Home | `complete | send, copy-link | assign, move, move-up, move-down | delete` |
 | Ask's published-output row, available publication | `send, copy-link` |
 
 Policy: `copy-link` is also the existing published-output Copy action's id; the displayed label does not change. All fixtures have no outstanding failure. Keep existing eligibility: the Rail Todo does not gain Assign, and a queued Workstream has queue actions rather than running-Door actions. Preserve Send receiver membership and the Workstream Add children in the same captured model; the existing U4322a Add test proves their creation dispatch. No new menu action, contract, library, helper or native rendering claim is requested.
