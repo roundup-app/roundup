@@ -98,7 +98,6 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
           const row = rows.find(todo => todo.id === id);
           await app.rpc('todo.update', { id, title: '未完了 é 🧭 '.repeat(10) + id, body: row.body, expected_change: null });
         }
-        for (const branch of document.querySelectorAll('.shelf [data-state="closed"] [data-part="branch-control"]')) branch.click();
         window.__recoverDeletion = false;
         const remove = app.handlers['todo.delete'];
         const receipt = app.handlers['todo.deletion'];
@@ -124,7 +123,7 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
       })()`);
 
       const open = async (todo: number) => {
-        await lane.until(`!!document.querySelector('.shelf [data-todo="${todo}"] .todo-row-button')`);
+        await lane.until(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return !!document.querySelector('.shelf [data-todo="${todo}"] .todo-row-button'); })()`);
         await lane.browser("focus", `.shelf [data-todo="${todo}"] .todo-row-button`);
         await lane.browser("press", "Enter");
         await lane.until("!!document.querySelector('.todo-delete')");
