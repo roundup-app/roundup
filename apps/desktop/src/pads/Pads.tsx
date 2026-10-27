@@ -22,7 +22,7 @@ import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ReservedLine } from "../ink/ReservedLine";
 import { ShelfRow } from "../ink/ShelfRow";
-import { type ConnectedProject, useConnectedProject } from "../state/connectedProject";
+import { type ConnectedProject, useConnectedProject, useCreation } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
