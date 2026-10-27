@@ -87,6 +87,9 @@ const Root = (props: {
   }));
 
   const api = createMemo(() => combobox.connect(service, normalizeProps));
+  // Z3788d: new group tuple identities dispose surviving rows on every keystroke.
+  // Stable group names let Solid retain the inner item identities.
+  const groups = createMemo(() => new Map(collection().group()));
 
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
@@ -102,11 +105,11 @@ const Root = (props: {
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
-      <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
-        {([group, items]) => group ? <ArkCombobox.ItemGroup>
+      <For each={[...groups().keys()]} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
+        {(group) => group ? <ArkCombobox.ItemGroup>
           <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
-          <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
-        </ArkCombobox.ItemGroup> : <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
+          <For each={groups().get(group)}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
+        </ArkCombobox.ItemGroup> : <For each={groups().get(group)}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
       </For>
     </ArkCombobox.Content>
   </ArkCombobox.RootProvider>;
