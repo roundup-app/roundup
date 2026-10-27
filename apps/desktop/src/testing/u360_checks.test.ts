@@ -12,7 +12,7 @@ const list = (name: string, count: number, top: number) => {
     return `<div class="shelf-row" data-box="${box(0, y, 160, 32)}">
         <span class="shelf-glyph"><span data-box="${box(0, y, 16, 24)}">g</span></span>
         <div class="shelf-text">
-          <div class="row-head"><button><span class="shelf-title" data-box="${box(24, y, 100, 16)}">title</span></button></div>
+          <div class="row-head" data-box="${box(24, y, 100, 16)}"><button><span class="shelf-title" data-box="${box(24, y, 100, 16)}">title</span></button></div>
           <p class="shelf-meta" data-box="${box(24, y + 24, 100, 16)}">meta</p>
         </div>
       </div>`;
