@@ -79,7 +79,13 @@
       ],
       "gzip": 157712
     },
-    "wasm": []
+    "wasm": [],
+    "additionalLazyScrollback": {
+      "files": [
+        "assets/scrollback-BSXF08oe.js"
+      ],
+      "gzip": 582
+    }
   },
   "environment": {
     "host": "same Linux runner",
