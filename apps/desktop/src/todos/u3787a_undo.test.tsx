@@ -476,6 +476,30 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
   expect(app.of("/b").calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
 });
 
+it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
+  const { app, connections } = await mount();
+  const daemon = app.of("/a");
+  const remove = daemon.handlers["pad.delete"]!;
+  daemon.handlers["pad.delete"] = async params => { await remove(params); throw new Error("reply lost"); };
+
+  daemon.handlers["pad.getDeletion"] = () => { throw new Error("offline"); };
+
+  await showEverythingInApp();
+  await showPads();
+  const row = await screen.findByRole("button", { name: "first" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  await screen.findByRole("button", { name: "Check deletion" });
+  const { drawer, button, field, connected, opening } = await openSeventh(connections);
+  fireEvent.click(button);
+  await within(drawer).findByRole("alert", { name: "An earlier deletion is unconfirmed. Check deletion first." });
+  expect(connected.drawer.content()).toBe(opening);
+  expect(field.value).toBe(draftBytes);
+  expect(document.activeElement).toBe(button);
+  expect(within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" }).disabled).toBe(false);
+  expect(daemon.calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
+});
+
 it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async () => {
   const { app, connections, daemon } = await unconfirmed();
   const { button, drawer, field, connected, opening } = await openSeventh(connections);
