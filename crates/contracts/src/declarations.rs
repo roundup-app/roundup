@@ -140,6 +140,7 @@ declarations! { $;
         "terminal.scheme": contracts::terminal::SchemeParams => (), rpc_terminal_scheme, none();
         "terminal.show": contracts::terminal::TerminalId => (), rpc_terminal_show, door(custom(terminal_show()));
         "terminal.list": () => Vec<contracts::terminal::TerminalInfo>, rpc_terminal_list, none();
+        "terminal.catchUp": contracts::terminal::CatchUpParams => contracts::terminal::CatchUp, rpc_terminal_catch_up, none();
         "terminal.snapshot": contracts::terminal::TerminalId => contracts::terminal::Snapshot, rpc_terminal_snapshot, none();
         "terminal.screen": contracts::terminal::TerminalId => contracts::terminal::Screen, rpc_terminal_screen, all(schema(contracts::terminal::TerminalId,"Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream."));
         "terminal.read": contracts::terminal::ReadParams => contracts::terminal::Read, rpc_terminal_read, all(custom(terminal_read()));

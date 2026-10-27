@@ -53,7 +53,8 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
-                "todo.delete"
+                "terminal.catchUp"
+                    | "todo.delete"
                     | "todo.deletion"
                     | "todo.restore"
                     | "rail.remove"
