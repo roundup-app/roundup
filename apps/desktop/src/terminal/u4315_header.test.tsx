@@ -1,4 +1,6 @@
-import { agent, door } from "../testing/nodes";
+import { captureDir } from "../testing/captures";
+import { openLane } from "../todos/laneBrowser";
+import { agent, door, workstream } from "../testing/nodes";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -78,3 +80,131 @@ it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves
   expect(connected().project.path).toBe("/p");
   expect(daemon.calls.filter(call => ["ask.send", "message.send"].includes(call.method))).toHaveLength(0);
 });
+
+
+it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", async outcome => {
+  const { connected, daemon, nodes } = await mountNavigation();
+  const candidates = [
+    { source: "source-first", revision: "revision-first", title: "First work", cwd: "", last_activity_ms: 2n },
+    { source: "source-second", revision: "revision-second", title: "Second work", cwd: "sub", last_activity_ms: 1n },
+  ];
+  daemon.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
+  let settle!: (result: import("@contracts/project/ImportResult").ImportResult) => void;
+  daemon.handlers["project.importCommit"] = () => new Promise(resolve => { settle = resolve; });
+  const commits = () => daemon.calls.filter(call => call.method === "project.importCommit");
+  connected().rail.select("a0");
+  openProjectPage("import-work", "/p");
+  await screen.findByRole("checkbox", { name: /First work/ });
+  fireEvent.click(screen.getByRole("button", { name: "Last month" }));
+  await waitFor(() => expect(connected().importing.loading()).toBe(false));
+  fireEvent.click(screen.getByText("First work"));
+  await screen.findByRole("button", { name: "Import 1" });
+  fireEvent.click(screen.getByText("Second work"));
+  const region = screen.getByRole("region", { name: "Import Claude Code work" });
+  const back = within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" });
+  fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
+  await waitFor(() => expect(commits()).toHaveLength(1));
+  expect(back).toHaveProperty("disabled", true);
+  fireEvent.click(back);
+  fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
+  fireEvent.keyDown(back, { key: " ", code: "Space" });
+  expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
+  expect(connected().importing.pending()).toBe(true);
+  expect(connected().rail.selected()).toBe("a0");
+  expect(connected().project.path).toBe("/p");
+  expect(connected().importing.period()).toBe("month");
+  expect([...connected().importing.selected()]).toEqual([
+    ["source-first", { revision: "revision-first", title: "First work" }],
+    ["source-second", { revision: "revision-second", title: "Second work" }],
+  ]);
+  expect(commits()[0]?.params).toEqual({ selections: [
+    { source: "source-first", revision: "revision-first" },
+    { source: "source-second", revision: "revision-second" },
+  ] });
+
+  if (outcome === "success") nodes.push(workstream("imported"), agent("imported-agent", "idle", "", { parent: "imported" }));
+  settle({ outcomes: candidates.map(candidate => outcome === "success"
+    ? { source: candidate.source, workstream: "imported", agent: "imported-agent", error: null }
+    : { source: candidate.source, workstream: null, agent: null, error: { code: -32003, message: "Source changed", outcome: "failed" } }) });
+  await waitFor(() => expect(connected().importing.pending()).toBe(false));
+
+  if (outcome === "success") {
+    await waitFor(() => expect(connected().rail.selected()).toBe("imported-agent"));
+    expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull();
+  } else {
+    expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
+    expect(connected().rail.selected()).toBe("a0");
+    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
+    expect(back).toHaveProperty("disabled", false);
+    fireEvent.click(back);
+    await screen.findByRole("textbox", { name: "Ask" });
+    expect(connected().rail.selected()).toBeNull();
+    openProjectPage("import-work", "/p");
+    await waitFor(() => expect(connected().importing.loading()).toBe(false));
+    expect(screen.getByRole("checkbox", { name: /First work/ })).toHaveProperty("checked", true);
+    expect(screen.getByRole("checkbox", { name: /Second work/ })).toHaveProperty("checked", true);
+    expect(screen.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
+    expect(connected().project.path).toBe("/p");
+  }
+  expect(commits()).toHaveLength(1);
+});
+
+it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { startAppServer } = await import("../testing/appServer");
+  const baseline = process.env.ROUNDUP_BASELINE_ROOT ? await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT }) : null;
+  const page = await openLane(1512, "dark", "u4355");
+  const headUrl = await page.evaluate<string>("location.origin");
+  const dir = captureDir("U4355")!;
+
+  try {
+    for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]]) {
+      const output = join(dir, side!);
+      mkdirSync(output, { recursive: true });
+      await page.browser("record", "start", join(output, "import.webm"));
+      await page.browser("set", "media", "dark");
+
+      for (const outcome of ["success", "refused"]) {
+        await page.browser("open", `${url}/harness.html?seed=tree-40`);
+        await page.until("!!document.querySelector('.rail-row[data-id=tokens]')");
+        await page.evaluate("localStorage.clear()");
+        await page.browser("click", ".rail-row[data-id=tokens] .row-state");
+        await page.evaluate(`(() => {
+          const app = window.__fake.app;
+          app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:('Review changes '+n+' 長い会話 ').repeat(8),cwd:'src',last_activity_ms:1n})),excluded:[] });
+          app.handlers['project.importCommit'] = params => new Promise(resolve => { window.__settleImport = () => resolve({outcomes:params.selections.map(entry => ${outcome === "success" ? "({source:entry.source,workstream:'backend',agent:'tokens',error:null})" : "({source:entry.source,workstream:null,agent:null,error:{code:-32003,message:'The saved conversation changed. Refresh and select the conversation again.',outcome:'failed'}})"})}); });
+          window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'import-work'}}));
+          return true;
+        })()`);
+        await page.until("document.querySelectorAll('.import-check').length === 10");
+        await page.browser("find", "role", "button", "click", "--name", "Last month");
+        await page.until("document.querySelectorAll('.import-check').length === 10");
+        await page.browser("click", ".import-check:first-child .app-checkbox-label");
+        await page.until("document.querySelector('.import-confirm').textContent.trim() === 'Import 1'");
+        await page.browser("click", ".import-confirm");
+        await page.until("!!window.__settleImport");
+
+        const capture = async (step: string) => {
+          writeFileSync(join(output, `${outcome}-${step}.checks.json`), JSON.stringify(await page.evaluate("window.__checks()")) + "\n");
+          await page.browser("screenshot", join(output, `${outcome}-${step}.png`));
+        };
+        await capture("pending");
+        // A real coordinate press can target the disabled control without waiting for it to enable.
+        const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.pane-navigation button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+        await page.browser("mouse", "move", String(box.x), String(box.y));
+        await page.browser("mouse", "down");
+        await page.browser("mouse", "up");
+        await capture("attempted-back");
+        await page.evaluate("(() => {window.__settleImport(); delete window.__settleImport; return true;})()");
+        await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
+        await capture("settled");
+      }
+      await page.browser("record", "stop");
+    }
+  } finally {
+    await page.close();
+    await baseline?.close();
+  }
+}, 180_000);
