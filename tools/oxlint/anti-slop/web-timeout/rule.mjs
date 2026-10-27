@@ -30,7 +30,7 @@ function changedObject(source, binding, seen = new Set()) {
     let callee = parent.callee;
     while (callee.type === "MemberExpression") callee = callee.object;
     if (callee.type === "Identifier" && resolveVariable(source, callee) === binding) return true;
-    return !registration(source, parent.callee) && !isConfig(source, parent) && !configDefinition(source, parent.callee);
+    return !registration(source, parent.callee) && !isConfig(source, parent) && !isConfigDefinition(source, parent.callee);
   });
 }
 
@@ -114,7 +114,7 @@ function registration(source, node, seen = new Set()) {
 }
 
 // Both Vite and Vitest expose defineConfig as an identity helper; it does not mutate options.
-function configDefinition(source, node, seen = new Set()) {
+function isConfigDefinition(source, node, seen = new Set()) {
   node = unwrap(node);
   if (!node || seen.has(node)) return false;
   seen = new Set(seen).add(node);
@@ -128,7 +128,7 @@ function configDefinition(source, node, seen = new Set()) {
     if (property) return def.node.type === "ImportNamespaceSpecifier" && property.name === "defineConfig";
     return (def.node.imported?.name ?? def.node.imported?.value) === "defineConfig";
   }
-  return !property && configDefinition(source, initializer(source, node), seen);
+  return !property && isConfigDefinition(source, initializer(source, node), seen);
 }
 
 function objectProperty(source, node, name, seen = new Set()) {
@@ -211,7 +211,7 @@ export const boundedTestTimeoutRule = defineRule({
 
     return {
       CallExpression(node) {
-        if (configDefinition(source, node.callee)) {
+        if (isConfigDefinition(source, node.callee)) {
           const options = objectProperty(source, node.arguments[0], "test");
           const configured = objectProperty(source, options, "testTimeout");
           if (configured) defaults.add(configured);
