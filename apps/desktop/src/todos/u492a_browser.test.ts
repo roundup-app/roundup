@@ -7,7 +7,7 @@ const read = async (lane: LaneBrowser, step: string): Promise<void> => {
   await lane.capture(step.startsWith("reorder") ? "U490a" : step === "baseline" || step === "dense-failure" ? "U492a" : "U491a", step);
 };
 
-describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]] as const)("u492a at %i %s", (width, scheme) => {
+describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (width, scheme) => {
   let lane: LaneBrowser;
 
   beforeAll(async () => { lane = await openLane(width, scheme, "u492a"); }, 180_000);

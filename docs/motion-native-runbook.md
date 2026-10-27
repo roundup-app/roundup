@@ -171,3 +171,22 @@ Open control. `domLayers` retained the activation box at left 1512, destination
 true. The activation box precedes the post-propagation samples. This observation
 qualifies that origin/crossing path only: no full interruption sequence, pointer
 reorder, live halfway preference switch or native timing was qualified.
+
+### Displacement at a live source change
+
+During `sample`, a live preference change now retains `movement` when the last
+trusted pointer layer segment is still visibly between its endpoints. It includes
+the panel, actual action target, activation timestamp, origin, destination,
+displayed left edge and signed displacement fraction. The read happens in the
+shared accessor recorder's synchronous computation; it is not a later frame,
+an animation-time percentage or the most recently sampled position. The initial
+preference value, warmup/after-actions changes, missing/unactivated targets and
+settled geometry carry no movement claim.
+
+For a halfway switch, compare `movement.progress` with 0.5 and the segment's raw
+samples. A change observed before halfway or without `movement` does not establish
+the reduced-motion variant. This evidence alone never changes `variant` from
+`unqualified`: completed trusted actions, both Shelf cases, and Todo/Glyph halfway
+switches still require their rendered observer qualification. The page observes
+the existing preference; it generates no OS preference change or input. No Mac
+sequence is requested by this slice.
