@@ -136,7 +136,7 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   await app.rpc("pad.delete", { name });
 }, 60_000);
 
-it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", async () => {
+it("u460_refused_transaction_preserves_t6_across_homes", async () => {
   const app = createServedApp(real.base);
   const homes = await app.rpc("rail.tree", null);
   const one = homes.find((row) => row.name === "bulk-scope")!;
@@ -161,8 +161,8 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
   await deleteSelected(2);
   await screen.findByText(/partial two .*injected unavailable connection/);
   const rows = await app.rpc("todo.list", null);
-  expect(rows.find((row) => row.id === dependent.id)).toMatchObject({ blockers: [second.id], blocked: true, home: other.id });
-  expect(rows.some((row) => row.id === first.id)).toBe(false);
+  expect(rows.find((row) => row.id === dependent.id)).toMatchObject({ blockers: [first.id, second.id], blocked: true, home: other.id });
+  expect(rows.some((row) => row.id === first.id)).toBe(true);
   expect(rows.some((row) => row.id === second.id)).toBe(true);
 }, 60_000);
 
@@ -170,7 +170,7 @@ it("u460_deleted_rows_stay_absent_after_reopening_the_project", async () => {
   await real.restart();
   const app = createServedApp(real.base);
   const todos = await app.rpc("todo.list", null);
-  expect(todos.map((todo) => todo.title)).toEqual(["dependent", "partial two", "partial dependent"]);
+  expect(todos.map((todo) => todo.title)).toEqual(["dependent", "partial one", "partial two", "partial dependent"]);
   expect((await app.rpc("pad.list", null)).some((pad) => pad.name.startsWith("bulk-pad-"))).toBe(false);
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await openShelf("Todos");
