@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 228 timeout observations in 95 files require review
+  -> 149 timeout observations in 46 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source is unchanged from merged base `c9c69c69f`;
+file count and each diagnostic. Its App source is base `f7662db2d` with 79 timeouts lowered to 60,000 ms in files whose committed elapsed time is at most 45 s;
 the recorded revision contains the current rule and boundary fixtures. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /

@@ -102,7 +102,7 @@ const lifetimeArt = captureDir("P3557c");
 
 const lifetimeBase = process.env["P3557C_SIDE"] === "base";
 
-it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", { timeout: 120_000, retry: 0 }, async () => {
+it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", { timeout: 60_000, retry: 0 }, async () => {
   const directory = lifetimeBase ? join(lifetimeArt!, "base") : lifetimeArt!;
   mkdirSync(directory, { recursive: true });
 

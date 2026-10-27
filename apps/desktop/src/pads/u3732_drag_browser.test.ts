@@ -32,4 +32,4 @@ it("u3732_drag_to_a_group_calls_set_owner_once", async () => {
 
   expect((await lane.calls()).filter(call => call.method !== "pad.list" && call.method.startsWith("pad."))).toEqual([{ method: "pad.setOwner", params: { name: "pad-0", owner: { kind: "user", id: "you", parent: null } } }]);
   await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="me"] [data-pad="pad-0"]')`);
-}, 120_000);
+}, 60_000);

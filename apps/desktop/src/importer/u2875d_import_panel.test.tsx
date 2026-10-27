@@ -177,7 +177,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
   } finally {
     await lane.close();
   }
-}, 120_000);
+}, 60_000);
 
 it("u3037d_discovery_deadline_and_retry", async () => {
   const { app } = await mount();
@@ -522,7 +522,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     await baseline?.close();
     rmSync(clockDirectory, { recursive: true, force: true });
   }
-}, 180_000);
+}, 60_000);
 
 it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   const { app, connected } = await mount();

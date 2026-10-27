@@ -15,7 +15,7 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
     const { stdout } = await promisify(execFile)("python3", ["src/settings/u3799_browser.test.py", server.resolvedUrls.local[0]!, output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
 
     expect(stdout).toContain("ok");
-  }, 180_000);
+  }, 60_000);
 });
 
 it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
@@ -146,4 +146,4 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
   } finally {
     try { if (recording) await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
-}, 180_000);
+}, 60_000);

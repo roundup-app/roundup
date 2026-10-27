@@ -54,7 +54,7 @@ it("u2234_a_rename_field_opens_without_selecting_the_tab", async () => {
 
     expect(await page.call<string | null>(`() => document.querySelector('#renamed').getAttribute('data-selected')`), `${surface} ${state}`).toBe(String(state === "selected"));
   }
-}, 120_000);
+}, 60_000);
 
 it("u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable", async () => {
   for (const scheme of ["light"] as const) {
@@ -75,7 +75,7 @@ it("u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable", async () => {
       expect(reading, `${scheme} ${index}`).toEqual({ focused: true, named: true });
     }
   }
-}, 240_000);
+}, 60_000);
 
 it("u2235_a_cut_tab_name_is_shown_by_the_shared_tooltip", async () => {
   await runs("light", undefined, "dense");

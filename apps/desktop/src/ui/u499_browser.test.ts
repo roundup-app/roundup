@@ -36,4 +36,4 @@ it("u499_content_retention", async () => {
     })()`)).toEqual({ draft, count: "1", mount: "1", same: true });
   }
 
-}, 90_000);
+}, 60_000);
