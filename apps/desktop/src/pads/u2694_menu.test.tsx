@@ -11,7 +11,7 @@ it("u2694a_each_object_builds_its_items_pad", async () => {
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual(["Assign", "Send to Agent", "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual(["Copy link", "Delete"]);
   await app.pickMenu("Delete");
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "notes", expectedIncarnation: "fixture-notes", operation: expect.any(String) }]));
 });

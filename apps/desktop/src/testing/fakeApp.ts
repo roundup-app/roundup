@@ -173,7 +173,7 @@ export const createFakeApp = (): FakeApp => {
 
       if (!found) throw new Error(`no menu item ${label}`);
 
-      app.menuResolve?.(found.id);
+      if (!found.children && found.enabled) app.menuResolve?.(found.id);
       await new Promise((done) => setTimeout(done, 0));
     },
     closeMenu: async () => {

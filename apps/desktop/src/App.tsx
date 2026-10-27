@@ -431,6 +431,15 @@ export const App = (props: {
   // U370, U373: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
+  createEffect(() => {
+    const connected = activeConnection();
+    const request = connected && !(connected instanceof Error) ? connected.creation() : null;
+
+    if (!request || request.kind === "terminal") return;
+    frame.setTab(request.kind === "todo" ? "todos" : "pads");
+
+    if (!frame.open()) frame.toggle("key");
+  });
   const widths = createWidths(projects.active);
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });

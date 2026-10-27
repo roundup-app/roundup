@@ -309,6 +309,17 @@ export const Pads = (props: {
     },
   };
 
+  useCreation("pad", targetHome => {
+    if (revision && home !== targetHome) {
+      revision = undefined;
+      captured = null;
+      setName("");
+    }
+
+    home = targetHome;
+    setNaming(true);
+  });
+
   const isEmpty = createMemo(() => list.loaded() && shown().length === 0);
 
   return (

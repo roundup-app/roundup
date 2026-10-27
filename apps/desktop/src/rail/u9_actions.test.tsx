@@ -31,7 +31,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    await chooseAction(mounted.app, "g", "Add Agent");
+    await chooseAction(mounted.app, "g", "Agent");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
@@ -41,7 +41,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    await chooseAction(mounted.app, "lead", "Add Agent");
+    await chooseAction(mounted.app, "lead", "Agent");
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
@@ -222,8 +222,8 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    await chooseAction(mounted.app, "g", "Add Agent");
-    await chooseAction(mounted.app, "g", "Add Agent");
+    await chooseAction(mounted.app, "g", "Agent");
+    await chooseAction(mounted.app, "g", "Agent");
     finish(SPAWNED);
     await mounted.rail.settled();
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
