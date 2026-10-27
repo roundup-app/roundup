@@ -110,6 +110,18 @@ Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
 separately and need not match. Preserve this entire observer overlay unchanged on
 both immutable sources. This is a preparation implementation, not native evidence.
 
+Before sampling Layers or Todos, preparation opens both owner groups and every
+fixture parent through the existing Ark disclosure controls, in dependency order.
+It waits for each parent's expanded acknowledgement and refuses setup unless all
+eight original rows are mounted outside hidden/inert subtrees. Missing controls,
+unapplied disclosure actions or a missing row fail within the existing setup
+bound; setup does not mutate Todos or take focus. Rendered geometry remains a
+separate Chromium observation, never WKWebView timing.
+
+The temporary insertion remains a root in the selected owner group: completed
+nested rows remain under their parent and cannot exercise the global done fold.
+The original depth-three branches stay expanded alongside that structural cycle.
+
 The Todo driver restores the original eight open rows in canonical order before each
 four-action repeat. It deletes only its recorded temporary insertion, preserves
 original owners, bodies, homes and blockers, and refuses changed fixture content.
@@ -218,3 +230,19 @@ result. The fake App supplied readiness and status only, with no qualified
 64 KiB/s native stream. Raw setup, rendered boxes, Checks and the report remain
 under `artifacts/ux/U3010d/fixture-boundaries/`. The bounded whole-suite capture
 was incomplete; its focused observer completed.
+
+### Nested fixture preparation (#4244)
+
+An isolated dark 1512×950 Chromium run prepared the unchanged
+`tree-40-native-v1` bytes through `prepareFixture`, adapting the harness's existing
+spawn/signal handlers only. It unfolded all eight original rows, then drove two
+`domTodos` repeats with trusted pointer reorders `4 → 1` and `8 → 5`, restoring
+the fixture between repeats. Both groups' insertion, completion, fold and reorder
+journals completed; original owners and blockers remained intact. D2/D5/D6 passed.
+D14 passed setup and the first group’s settled reading; the second group’s
+after-action reading failed. Retain that failure; this is not full Check qualification.
+Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
+`artifacts/ux/U3010d/nested-fixture/`. The broad `just capture U3010d,U3010e,U3010g`
+invocation ended at its 60-second outer bound, so no whole-suite capture pass is
+claimed. This direct action-seam observation qualifies no 60-second sample,
+stream byte accounting, halfway preference variant or WKWebView timing.
