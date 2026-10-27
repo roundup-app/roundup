@@ -31,7 +31,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    await chooseAction(mounted.app, "g", "Add Agent");
+    await chooseAction(mounted.app, "g", "Agent");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
@@ -41,7 +41,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    await chooseAction(mounted.app, "lead", "Add Agent");
+    await chooseAction(mounted.app, "lead", "Agent");
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
@@ -222,8 +222,10 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    await chooseAction(mounted.app, "g", "Add Agent");
-    await chooseAction(mounted.app, "g", "Add Agent");
+    await chooseAction(mounted.app, "g", "Agent");
+    fireEvent.contextMenu(rowOf("g"));
+    expect(mounted.app.shownMenus.at(-1)!.items.find(item => item.id === "add")?.children?.map(item => item.id)).not.toContain("add-agent");
+    await mounted.app.closeMenu();
     finish(SPAWNED);
     await mounted.rail.settled();
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
@@ -267,7 +269,9 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
   await chooseAction(mounted.app, "actual", "Retry supervisor");
-  await chooseAction(mounted.app, "actual", "Start supervisor");
+  fireEvent.contextMenu(rowOf("actual"));
+  expect(mounted.app.shownMenus.at(-1)!.items.some(item => item.id === "start")).toBe(false);
+  await mounted.app.closeMenu();
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toHaveLength(2));
   expect(mounted.rail.doorPending("actual")).toBe(true);
   const live = door("actual", "working", "starting");

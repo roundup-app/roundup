@@ -191,3 +191,86 @@ it("z3788a_osc52_query_does_not_read_clipboard", async () => {
   expect(input.join("")).toBe("\x1b]52;c;\x07");
   emulator.dispose();
 });
+
+it("z3788a_images_keep_output_and_input_usable", async () => {
+  const { openLane } = await import("../todos/laneBrowser");
+  const { captureDir } = await import("../testing/captures");
+  const { mkdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const dir = captureDir("Z3788a");
+  const page = await openLane(1512, "dark", "z3788a-images");
+
+  try {
+    const base = await page.evaluate<string>("location.origin");
+
+    if (dir) {
+      mkdirSync(dir, { recursive: true });
+      await page.browser("record", "start", join(dir, "images.webm"));
+      await page.browser("set", "media", "dark");
+    }
+
+    for (const renderer of ["dom", "webgl"]) {
+      await page.browser("open", `${base}/harness.html?seed=tree-40&view=workstreams&items=1&tabs=1&renderer=${renderer}`);
+      await page.until("!!document.querySelector('.rail-row[data-id=migrate]')");
+      await page.browser("focus", '.rail-row[data-id="migrate"]');
+      await page.browser("press", "Enter");
+      await page.until("!!document.querySelector('.pane-screen .xterm-helper-textarea')");
+      await page.evaluate(`(async () => {
+        const emulator = window.__terminals.get('t-migrate');
+        window.__fake.app.calls.length = 0;
+        const write = text => new Promise(resolve => emulator.write(new TextEncoder().encode(text), resolve));
+        await write('\\x1bc');
+        await write('\\x1bPq"1;1;120;60#1;2;100;0;0#1!120~-!120~-!120~-!120~-!120~-!120~-!120~-!120~-!120~-!120~\\x1b\\\\');
+        await write('\\x1b[6n');
+        return true;
+      })()`);
+      // Cursor reports prove the parser consumed image rows, rather than silently dropping the sequence.
+      const reports = await page.evaluate<string[]>("window.__fake.app.calls.filter(call => call.method === 'terminal.write').map(call => atob(call.params.data))");
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toMatch(/^\x1b\[\d+;\d+R$/);
+      expect(reports[0]).not.toBe("\x1b[1;1R");
+      await page.evaluate(`(async () => {
+        const emulator = window.__terminals.get('t-migrate');
+        const canvas = document.createElement('canvas');
+        canvas.width = 120; canvas.height = 60;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#55cc88'; context.fillRect(0, 0, 120, 60);
+        const png = canvas.toDataURL('image/png').split(',')[1];
+        window.__fake.app.calls.length = 0;
+        window.__imageOutput = '\\x1bc\\x1b]1337;File=inline=1;size=' + atob(png).length + ':' + png + '\\x07\\x1b[6n\\r\\n\\x1b]133;A\\x07Images complete\\x1b]133;D;0\\x07';
+        await new Promise(resolve => emulator.write(new TextEncoder().encode(window.__imageOutput), resolve));
+        emulator.selectTurn(0, false);
+        return true;
+      })()`);
+      const copied = await page.evaluate<string>("window.__terminals.get('t-migrate').selection()");
+      expect(copied).toContain("Images complete");
+      const afterImage = await page.evaluate<string[]>("window.__fake.app.calls.filter(call => call.method === 'terminal.write').map(call => atob(call.params.data))");
+      expect(afterImage).toHaveLength(1);
+      expect(afterImage[0]).not.toBe("\x1b[1;1R");
+      await page.resetCalls();
+      await page.browser("focus", ".pane-screen .xterm-helper-textarea");
+      await page.browser("press", "a");
+      await page.until("window.__fake.app.calls.some(call => call.method === 'terminal.write')");
+      expect(await page.evaluate("window.__fake.app.calls.filter(call => call.method === 'terminal.write').map(call => [call.params.id, atob(call.params.data)])")).toEqual([["t-migrate", "a"]]);
+      // Keep the fixture's authoritative snapshot in step with the parser probe before navigation.
+      await page.evaluate("(() => { window.__fake.writeOutput('t-migrate', window.__imageOutput); return true; })()");
+      await page.browser("focus", '.rail-row[data-id="tokens"]');
+      await page.browser("press", "Enter");
+      await page.until("window.__terminals.has('t-tokens')");
+      await page.browser("focus", '.rail-row[data-id="migrate"]');
+      await page.browser("press", "Enter");
+      await page.until("document.querySelector('.rail-row[data-id=migrate]')?.dataset.selected === 'true'");
+      await page.browser("set", "viewport", "1400", "900");
+      await page.browser("set", "viewport", "1512", "950");
+      await page.until("(() => { const e = window.__terminals.get('t-migrate'); e.selectTurn(0, false); return e.selection().includes('Images complete'); })()");
+      expect(await page.evaluate("window.__terminals.get('t-migrate').selection()")).toContain("Images complete");
+      await page.capture("Z3788a", `images-${renderer}`);
+    }
+  } finally {
+    try {
+      if (dir) await page.browser("record", "stop");
+    } finally {
+      await page.close();
+    }
+  }
+}, 120_000);

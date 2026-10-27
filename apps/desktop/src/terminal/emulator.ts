@@ -10,6 +10,7 @@ import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { ImageAddon } from "@xterm/addon-image";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
@@ -176,6 +177,14 @@ export const createXtermEmulators = (
     terminal.loadAddon(new ClipboardAddon(undefined, {
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
+    }));
+    // Bound each Terminal's decoded cache and decoder workspace, including idle Agents.
+    terminal.loadAddon(new ImageAddon({
+      storageLimit: 1,
+      pixelLimit: 262_144,
+      sixelSizeLimit: 1_048_576,
+      iipSizeLimit: 1_048_576,
+      enableSizeReports: false,
     }));
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
