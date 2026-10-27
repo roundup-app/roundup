@@ -143,7 +143,7 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     expect(await moves()).toEqual([]);
   }
 
-  await dragBelow("backend", "agent-31", -100);
+  await dragBelow("backend", "agent-31", -24);
   await wait("Number(document.querySelector('.rail-sortable').dataset.sortableIndex) > 0");
   await mouse("up");
   await settle(1);
