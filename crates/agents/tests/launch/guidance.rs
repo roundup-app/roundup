@@ -141,37 +141,62 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
 }
 
 #[test]
-fn q11_a_worker_gets_plain_for_every_reply() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
-    assert!(text.contains(&asset("hold-plain.md")));
+fn q11_every_role_defaults_to_plain_in_settings() {
+    for role in [Role::Door, Role::Scout, Role::Agent] {
+        for resume in [None, Some("saved-conversation")] {
+            let s = setup();
+            let argv = s
+                .launcher()
+                .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, role)
+                .unwrap();
+            let settings = read(Path::new(&argv[2]));
+            assert_eq!(settings["outputStyle"], "hold:Plain", "{role:?} {resume:?}");
+        }
+    }
 }
 
 #[test]
 fn q11_the_users_output_style_replaces_plain() {
+    for local in [false, true] {
+        let s = setup();
+        std::fs::write(
+            s.root.path().join("settings.json"),
+            r#"{"outputStyle":"Learning"}"#,
+        )
+        .unwrap();
+        if local {
+            let project = s.dir.parent().unwrap().join(".claude");
+            std::fs::create_dir_all(&project).unwrap();
+            std::fs::write(
+                project.join("settings.local.json"),
+                r#"{"outputStyle":"Personal"}"#,
+            )
+            .unwrap();
+        }
+        for role in [Role::Door, Role::Scout, Role::Agent] {
+            for resume in [None, Some("saved-conversation")] {
+                let argv = s
+                    .launcher()
+                    .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, role)
+                    .unwrap();
+                let settings = read(Path::new(&argv[2]));
+                assert_eq!(
+                    settings["outputStyle"],
+                    if local { "Personal" } else { "Learning" }
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn q11_the_brief_has_no_output_style_copy() {
     let s = setup();
-    std::fs::write(
-        s.root.path().join("settings.json"),
-        r#"{"outputStyle":"Learning"}"#,
-    )
-    .unwrap();
-    let project = s.dir.parent().unwrap().join(".claude");
-    std::fs::create_dir_all(&project).unwrap();
-    std::fs::write(
-        project.join("settings.local.json"),
-        r#"{"outputStyle":"Personal"}"#,
-    )
-    .unwrap();
     for role in [Role::Door, Role::Scout, Role::Agent] {
-        let argv = s.prepare_as("7", role).unwrap();
-        let settings = read(Path::new(&argv[2]));
-        assert_eq!(settings["outputStyle"], "Personal");
         let text = brief(&s, "7", role);
-        assert!(!text.contains("hold:Plain"));
-        assert!(!text.contains(&asset("hold-plain.md")));
-        assert!(!text.contains("## Output style"));
-        assert_eq!(text, brief(&s, "8", role));
+        assert!(!text.contains("hold:Plain"), "{role:?}");
+        assert!(!text.contains(&asset("hold-plain.md")), "{role:?}");
+        assert!(!text.contains("## Output style"), "{role:?}");
     }
 }
 

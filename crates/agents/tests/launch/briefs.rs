@@ -171,30 +171,3 @@ fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
     assert!(!agent.contains("checkpoint_write"));
     assert!(agent.contains("- `checkpoint_list`:"));
 }
-
-#[test]
-fn q1_pin() {
-    use sha2::{Digest, Sha256};
-    let bytes =
-        std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md")).unwrap();
-    let hex: String = Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    assert_eq!(
-        hex,
-        "0f2c26f0cea8ba39af771d2fdb09db6ae4a7a90c64c272a0a0e967f420e9af1e"
-    );
-}
-
-#[test]
-fn q1_brief() {
-    let s = setup();
-    let body =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md"))
-            .unwrap();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains(&body));
-    assert!(text.contains("Digest and Pad reply"));
-    assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
-}
