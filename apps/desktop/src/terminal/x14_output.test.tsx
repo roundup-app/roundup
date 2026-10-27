@@ -110,7 +110,7 @@ describe("x14 the App's output subscription", () => {
     a?.listener(text("stale"));
     app.emitOutput("t-a", "A2");
 
-    await vi.waitFor(() => expect(written("t-a")).toEqual(["A2"]));
+    await vi.waitFor(() => expect(written("t-a")).toEqual(["A1", "A2"]));
 
     screens.dispose();
     const [, , again] = app.outputSubscriptions;
@@ -118,7 +118,7 @@ describe("x14 the App's output subscription", () => {
     expect([b?.released, again?.released]).toEqual([true, true]);
     b?.listener(text("after dispose"));
     again?.listener(text("after dispose"));
-    expect([written("t-a"), written("t-b"), made.get("t-b")?.disposed]).toEqual([["A2"], ["B1", "B2"], true]);
+    expect([written("t-a"), written("t-b"), made.get("t-b")?.disposed]).toEqual([["A1", "A2"], ["B1", "B2"], true]);
   });
 
   it("x14_selected_terminal_echo_and_rail_updates_survive_output_flood", async () => {

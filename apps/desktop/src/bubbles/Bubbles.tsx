@@ -20,7 +20,7 @@ import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
-import { useConnectedProject } from "../state/connectedProject";
+import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
   clamped, defaultPlace, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
@@ -347,9 +347,9 @@ export const Bubbles = (props: {
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
-  const openTerminal = async (current = () => true, focus = true): Promise<string | null> => {
+  const openTerminal = async (current = () => true, focus = true, home = terminalOwner()): Promise<string | null> => {
     // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
-    const workstream = terminalOwner();
+    const workstream = home;
     const selection = rail.selected();
 
     if (opening() || readOnly()) return null;
@@ -391,6 +391,10 @@ export const Bubbles = (props: {
       if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
+
+  useCreation("terminal", home => {
+    void openTerminal(() => true, true, home);
+  });
 
   const open = async (): Promise<void> => {
     await openTerminal();

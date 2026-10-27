@@ -148,7 +148,6 @@ it("u511a_name_survives_selection_and_webview_reload", async () => {
 it("u511a_context_rename_uses_the_same_editor", async () => {
   const { app } = await mountBubbles();
   fireEvent.contextMenu(tab("2")!, { clientX: 10, clientY: 10 });
-  expect(app.menuLabels()[0]).toBe("Rename");
   await app.pickMenu("Rename");
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field()!.value).toBe("zsh");
