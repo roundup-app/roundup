@@ -14,7 +14,16 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
   const origin = server.resolvedUrls.local[0]!;
   const session = `switcher-list-${process.pid}`;
   const profile = mkdtempSync(join(tmpdir(), "switcher-list-"));
-  const browser = async (...args: string[]) => { return (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout; };
+
+  const browser = async (...args: string[]) => {
+    try {
+      return (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+    } catch (failure) {
+      if (failure instanceof Error && "stdout" in failure) throw new Error(`${failure.message}\n${String(failure.stdout)}`, { cause: failure });
+
+      throw failure;
+    }
+  };
 
   const read = async <T,>(expression: string): Promise<T> => {
     // SAFETY: agent-browser's JSON envelope holds the result of these constant DOM expressions.
@@ -57,7 +66,10 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
         // The tab seed's secondary Daemons replace the fake's primary binding; extend the
         // first Project explicitly so its owned content, including duplicate Unicode names, is dense.
         await read("(() => { const app=window.__fake.app.of('/Users/you/harness'); const base=window.__fake.app.handlers['rail.tree']()[0]; app.handlers['rail.tree']=()=>Array.from({length:8},(_,i)=>({...base,id:'switcher-'+i,name:i<2?'調査 é 🧭':'調査 é 🧭 '+i+' '+ 'Long name '.repeat(4),parent:null,order:i,terminal_id:null})); app.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'}); })()");
-        await browser("click", '.project-tab[data-path="/Users/you/harness"] .tab-name-button');
+        // The first tab can be clipped by the overflow strip; use its native keyboard activation.
+        await browser("focus", '.project-tab[data-path="/Users/you/harness"] .tab-name-button');
+        await browser("press", "Enter");
+        await browser("wait", "--fn", `document.querySelectorAll('.rail-row[data-id^="switcher-"]').length === 8`);
       }
 
       await browser("press", "Meta+k");
@@ -67,7 +79,9 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       const before = await read<number>("window.__fake.app.calls.length");
       const ids = await read<string[]>("[...document.querySelectorAll('.switcher [data-collection-value]')].map(e=>e.dataset.value)");
       expect(ids.length).toBeGreaterThanOrEqual(5);
-      await capture(`${seed}-before`);
+
+      if (seed !== "agents-10") await capture(`${seed}-before`);
+
       // Native Tab from the query reaches the content list, not a manufactured focus event.
       await browser("press", "Tab");
       await browser("wait", "--fn", "!!document.activeElement?.dataset.collectionValue");

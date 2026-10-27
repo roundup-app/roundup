@@ -64,17 +64,19 @@
 }
 
 .switcher .reserved-content {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .switcher .ink[role="alert"] {
-  flex-basis: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
-  padding-inline-start: calc(var(--space-4) + var(--space-1));
-  text-indent: calc((var(--space-4) + var(--space-1)) * -1);
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-1);
+  align-items: baseline;
 }
 
 .switcher .reserved-actions {
-  margin-inline-start: auto;
+  justify-self: end;
 }
