@@ -830,9 +830,9 @@
 .rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row .row-state { flex: none; }
 
-.rail-leaf[data-leaf="todo"] { padding-inline: 0; }
+.rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }
 .rail-leaf[data-leaf="todo"] .shelf-row {
-  padding-inline-start: calc(var(--space-6) - var(--rail-inset));
+  padding-inline-start: var(--space-6);
   padding-inline-end: var(--space-4);
   grid-template-columns: var(--space-4) minmax(0, 1fr);
   column-gap: var(--space-2);
