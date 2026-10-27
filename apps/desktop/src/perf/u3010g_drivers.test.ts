@@ -27,7 +27,7 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
     return name !== missing;
   };
 
-  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), keyShelf: press("keyShelf"), halfway: async (_panel, action) => await action() };
+  return { openDrawer: press("openDrawer"), closeDrawer: press("closeDrawer"), escapeDrawer: press("escapeDrawer"), toggleShelf: press("toggleShelf"), keyShelf: press("keyShelf"), settled: async (_panel, action) => await action(), halfway: async (_panel, action) => await action() };
 };
 
 const fixtureApp = (prefix: string) => {
@@ -315,6 +315,30 @@ describe("u3010g the frame recorder drives every workload", () => {
     release(false);
     expect(await run).toBe(false);
     expect(log).toHaveLength(3);
+  });
+
+  it.each([0, 1])("u3010d_layers_continue_on_the_live_reduced_source_after_a_switch (%s)", async index => {
+    const log: [number, string][] = [];
+    const controls = layers(log);
+    let reduced = false;
+    let release: (done: boolean) => void = () => {};
+
+    controls.halfway = async (_panel, action) => await action() && await new Promise<boolean>(resolve => { release = resolve; });
+    controls.settled = async (_panel, action) => await action();
+    const halfway = vi.spyOn(controls, "halfway");
+    const settled = vi.spyOn(controls, "settled");
+    const run = layersCycle(controls, () => reduced)(index);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log).toHaveLength(1);
+    reduced = true;
+    release(true);
+    expect(await run).toBe(true);
+    expect(halfway).toHaveBeenCalledTimes(1);
+    expect(settled).toHaveBeenCalledTimes(2);
+    expect(log.map(([, action]) => action)).toEqual(index === 0
+      ? ["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]
+      : ["toggleShelf", "toggleShelf", "toggleShelf", "keyShelf"]);
   });
 
   it("u3010g_todos_cycle_one_structural_action_every_two_seconds", async () => {
