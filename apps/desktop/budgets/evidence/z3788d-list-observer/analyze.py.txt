@@ -41,7 +41,8 @@ for length in [40,400,4000]:
   (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
   names={'EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
   retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
-  (out/f'{length}-trace.json').write_text(json.dumps({'traceEvents':retained},ensure_ascii=False,separators=(',',':')))
+  for at in range(0,len(retained),1500):
+   (out/f'{length}-trace-{at//1500:02d}.json').write_text(json.dumps({'traceEvents':retained[at:at+1500]},ensure_ascii=False,separators=(',',':'))+'\n')
   report['fullTraceSha256']=hashlib.sha256((media/f'{length}-trace.json').read_bytes()).hexdigest();reports.append(report)
  except Exception as error:failure.append({'length':length,'condition':('Missing samples: ' if isinstance(error,FileNotFoundError) else '')+str(error),'exit':2})
 result={'exit':2 if failure else max(r['exit'] for r in reports),'reports':reports,'failures':failure,'nativeClaim':False,'virtualizationAuthorized':False}

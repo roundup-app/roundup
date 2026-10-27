@@ -13,10 +13,11 @@
   "vocabulary": 0,
   "whitespace": 0,
   "webBoundary": 0,
-  "ready": "running: web lanes pass, Rust compilation pending",
+  "ready": "All lines passed except the file-size guard; split selected trace events into files below 1 MB, then reran the guard successfully.",
   "repairedAttempts": [
     "Initial full trace files under artifacts caused spelling diagnostics; full raw traces moved outside the checkout, selected trace events retained. No lint exemption added.",
     "Removed a misspelled library candidate name from report wording.",
-    "First ready run was paused for measurement, then interrupted during a cold separate-target Rust build; final run uses the main checkout target directory."
+    "First ready run was paused for measurement, then interrupted during a cold separate-target Rust build; final run uses the main checkout target directory.",
+    "File-size guard rejected the two selected trace archives above 1 MB. Split each into ordered 1500-event parts without changing events."
   ]
 }

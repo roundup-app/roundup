@@ -37,3 +37,5 @@ The 40-row selection readback chooses `row-0000` with no RPC calls. The 400-row 
 | 4000 | 0 | — | — | Not reached; missing samples (2). |
 
 Overall exit: **2**. No completed Z3788d decision or virtualization authorization. Style-recalculation p95 is 20.413 ms at 40 and 176.301 ms at 400, nested inside input dispatch; these overlapping components must not be added together. Layout p95 is 0.743 / 5.551 ms. The retained traces support a style-cost investigation but do not isolate a particular selector or prove that virtualization is the appropriate repair.
+
+Read each `<length>-trace-NN.json` in numeric order to reconstruct the selected trace events. Splitting keeps each archive below the existing 1 MB file-size gate without dropping or changing an event. All `just ready` lines passed except the initial archive-size guard; its repaired rerun passes.
