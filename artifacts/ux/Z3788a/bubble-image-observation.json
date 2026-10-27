@@ -100,5 +100,51 @@
       }
     },
     "strictCeiling": "Both entries exceed 409600; no strict addon budget or memory pass claimed."
+  },
+  "realDaemon": {
+    "observer": "bubble-image-real-observer.py.txt",
+    "exit": 0,
+    "rendererPaths": [
+      "DOM fallback",
+      "WebGL enabled"
+    ],
+    "result": "Both images and following text remain visible after switching to another shell and returning. No App terminal.write calls during navigation.",
+    "checks": {
+      "real-dom-shell-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "real-dom-shell-images.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "real-webgl-shell-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "real-webgl-shell-images.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    "unexpectedInput": {
+      "real-dom-shell-return.json": [],
+      "real-webgl-shell-return.json": []
+    },
+    "video": "real-shell-images.webm"
+  },
+  "validation": {
+    "terminal": "33 tests pass: u102_emulator, u103_snapshot, u103_webgl_reflow",
+    "fullCapture": "just capture Z3788a failed before App tests: L107 reporting fixture spawnSync pnpm ETIMEDOUT at 60 seconds",
+    "broadRelated": "Stopped after cold-build U194 retry pass and U166 failure; fresh attention rerun pending; no complete related-suite pass claimed",
+    "initialCaptureFailures": [
+      "ffmpeg absent; installed for final videos",
+      "A manual observer file was removed before its worker imported it; rerun completed",
+      "First head multi-seed screenshots were light; final dark observations overwrite them"
+    ]
   }
 }
