@@ -1,7 +1,10 @@
+import "./Field.css";
+import "./Checkbox.css";
 import { Field } from "@ark-ui/solid/field";
 import { Fieldset } from "@ark-ui/solid/fieldset";
 import { DatePicker } from "@ark-ui/solid/date-picker";
 import { NumberInput } from "@ark-ui/solid/number-input";
+import Check from "lucide-solid/icons/check";
 import { Checkbox as ArkCheckbox } from "@ark-ui/solid/checkbox";
 import { createUniqueId, For, Show, type JSX } from "solid-js";
 
@@ -38,7 +41,7 @@ const Checks = (props: { label: string; values: string[]; items: { value: string
   return <div class="reaction-field"><span id={label} class="reaction-label">{props.label}</span>
   <ArkCheckbox.Group class="reaction-agents" aria-labelledby={label} value={() => props.values} onValueChange={props.onChange}>
     <For each={props.items}>{item => <ArkCheckbox.Root class="app-checkbox" value={item.value}>
-      <ArkCheckbox.Control class="app-checkbox-box" /><ArkCheckbox.Label class="app-checkbox-label">{item.label}</ArkCheckbox.Label>
+      <ArkCheckbox.Control class="app-checkbox-box"><ArkCheckbox.Indicator><Check aria-hidden="true" /></ArkCheckbox.Indicator></ArkCheckbox.Control><ArkCheckbox.Label class="app-checkbox-label">{item.label}</ArkCheckbox.Label>
       <ArkCheckbox.HiddenInput asChild={(input) => <input {...input()} style="" />} />
     </ArkCheckbox.Root>}</For>
   </ArkCheckbox.Group></div>;

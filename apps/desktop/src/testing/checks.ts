@@ -472,12 +472,15 @@ const d8 = (page: Page): Measure => {
 
     if (!hairline) return { border: NOT_MEASURABLE };
 
+    const formFrame = el.matches(':is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]), .app-dialog-form textarea, .import-prompt, .note-form input, .note-form textarea, .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
+    const frameColours = formFrame ? ["--form-border", "--accent", "--red", "--disabled"].map(token => parseColour(resolveAt(page, el, `var(${token})`))) : [];
+
     for (const side of ["top", "right", "bottom", "left"]) {
       const width = px(style.getPropertyValue(`border-${side}-width`));
       const drawn = style.getPropertyValue(`border-${side}-style`) !== "none" && (width ?? 0) > 0;
       const colour = parseColour(resolveAt(page, el, style.getPropertyValue(`border-${side}-color`)));
 
-      if (drawn && ((width ?? 0) > 1 || !colour || !sameColour(colour, hairline) || Math.abs(colour.a - hairline.a) > 0.01)) return { [`border-${side}`]: `${style.getPropertyValue(`border-${side}-width`)} ${style.getPropertyValue(`border-${side}-color`)}` };
+      if (drawn && ((width ?? 0) > 1 || !colour || !(sameColour(colour, hairline) && Math.abs(colour.a - hairline.a) <= 0.01) && !frameColours.some(frame => frame && sameColour(colour, frame) && Math.abs(colour.a - frame.a) <= 0.01))) return { [`border-${side}`]: `${style.getPropertyValue(`border-${side}-width`)} ${style.getPropertyValue(`border-${side}-color`)}` };
     }
 
     const shadow = style.boxShadow;

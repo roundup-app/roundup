@@ -19,7 +19,7 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
   const feedback = rules.filter(rule => rule.selectorText.includes('[data-pressed="true"]') || rule.selectorText.includes("input:active"));
 
   for (const el of controls) {
-    const owner = el.matches("input") ? el.closest(".app-checkbox, .app-radio, .app-segment") ?? el : el;
+    const owner = el.matches("input") ? el.closest(".app-checkbox, .app-radio, .app-switch, .app-segment") ?? el : el;
 
     const covered = feedback.some(rule => {
       if (rule.style.opacity !== "var(--press-opacity)") return false;

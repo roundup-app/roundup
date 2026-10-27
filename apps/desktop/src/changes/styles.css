@@ -103,13 +103,10 @@
 .diff-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .diff-selection { margin: 0; color: var(--grey); }
 .diff-header .diff-actions { flex: none; }
-.note-form input { appearance: textfield; cursor: pointer; box-sizing: border-box; min-height: var(--space-5); border: 0; border-radius: 0; padding: var(--space-1) var(--space-2); font: inherit; color: var(--grey); background: var(--ground); }
-.note-form input:hover { color: var(--text); }
-.note-form input:active { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
+
 .note-form .app-tabs-trigger[data-selected] { --button-surface: var(--transparent); color: var(--text); }
 .note-form .app-tabs-trigger { color: var(--grey); }
 .note-form .app-tabs-content { padding-inline: 0; }
-.note-form textarea { border: 0; border-radius: 0; padding: var(--space-2); font: inherit; color: var(--text); background: var(--ground); }
 
 .note-batch .note-path { max-width: calc(var(--space-6) * 12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--font-mono); }
 .note-batch li { padding-inline-end: var(--space-3); }

@@ -1,3 +1,4 @@
+import "./Field.css";
 import { focusActions } from "./focusActions";
 import { captureFocus } from "../keys/focus";
 import * as select from "@zag-js/select";
@@ -10,6 +11,7 @@ import "./Select.css";
 import { floatingControl } from "./Dialog";
 import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
 import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
+import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { Portal } from "solid-js/web";
 
@@ -105,6 +107,7 @@ export const Select = (props: {
           }}>
             <For each={props.choices}>{(choice) => <ArkSelect.Item item={choice} class="app-select-item">
               <ArkSelect.ItemText>{choice.label}</ArkSelect.ItemText>
+              <ArkSelect.ItemIndicator class="app-choice-check"><Check aria-hidden="true" size={16} /></ArkSelect.ItemIndicator>
             </ArkSelect.Item>}</For>
           </ArkSelect.Content>
         </ArkSelect.Positioner>
