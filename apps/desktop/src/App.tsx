@@ -592,8 +592,8 @@ export const App = (props: {
             const undo = drafts(path).todoUndo;
 
             const shown = () => projects.active() === path && undo.visible();
-            const failure = () => shown() && (undo.uncertain() || !connectionOf(path)?.drawer.content()) ? undo.failure() : null;
-            const status = () => shown() && undo.available() ? copy.todoDeletedFeedback : null;
+            const failure = () => shown() ? undo.feedbackFailure() : null;
+            const status = () => shown() && undo.available() ? undo.feedback() : null;
 
             return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
               <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
