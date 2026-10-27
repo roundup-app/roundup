@@ -191,3 +191,23 @@ it("z3788a_osc52_query_does_not_read_clipboard", async () => {
   expect(input.join("")).toBe("\x1b]52;c;\x07");
   emulator.dispose();
 });
+
+it("z3788a_images_keep_output_and_input_usable", async () => {
+  const spy = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators()("t-images");
+  const terminal = spy.mock.instances[0];
+
+  if (!terminal) throw new Error("xterm was not created");
+  spy.mockRestore();
+  const input: string[] = [];
+  emulator.onInput(bytes => input.push(new TextDecoder().decode(bytes)));
+  // A small two-band SIXEL advances output beyond its image rows.
+  await new Promise<void>(resolve => emulator.write(new TextEncoder().encode('\x1bPq"1;1;24;12#1;2;100;0;0#1!24~-!24~\x1b\\after-image'), resolve));
+  const buffer = terminal.buffer.active;
+  expect(buffer.cursorY).toBeGreaterThan(0);
+  expect(buffer.getLine(buffer.cursorY)?.translateToString(true)).toContain("after-image");
+  expect(input).toEqual([]);
+  emulator.paste("user-input");
+  expect(input).toEqual(["user-input"]);
+  emulator.dispose();
+});
