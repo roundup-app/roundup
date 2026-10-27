@@ -41,7 +41,8 @@ async function mountTree(options: Partial<import("@pierre/trees").FileTreeOption
   const { FileTree } = await import("@pierre/trees");
   const tree = new FileTree({
     paths: ["folded/echo-hidden.ts", "alpha.ts", "bravo.ts", "delta.ts", "echo.ts"],
-    initialExpandedPaths: [],
+    initialExpansion: "closed",
+    flattenEmptyDirectories: false,
     ...options,
   });
   const host = document.createElement("div");
