@@ -75,6 +75,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
 
+  const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
+
   const shown = createMemo(() => [
     ...matching(entries(), text()),
     ...matching(actions(), text()),
@@ -233,7 +235,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
-            const entry = entries().find((candidate) => candidate.value === item.value);
+            const entry = byValue().get(item.value);
 
             if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
 
