@@ -1,0 +1,27 @@
+{
+  "pnpmInstall": 0,
+  "focusedOriginal": {
+    "exit": 0,
+    "tests": 71
+  },
+  "focusedFinal": {
+    "exit": 0,
+    "tests": 71
+  },
+  "productionBuild": 0,
+  "startupGzipBytes": 433753,
+  "startupCeiling": 437814,
+  "mergeLoss": 0,
+  "vocabulary": 0,
+  "justReady": "Initial attempt failed only on temporary observer fixtures, removed. Second attempt failed new spelling diagnostic for image acronym in README; corrected to Images and boundary check rerun. Rust/proofs still running at this evidence snapshot; no complete clean pass claimed.",
+  "relatedTests": "Four u159_workstream_todos scope tests failed, then the remaining broad run was terminated. No clean related-suite pass claimed.",
+  "capture": {
+    "exit": 124,
+    "explicitCaptures": 6,
+    "allRenderedChecks": "pass"
+  },
+  "beforePresentation": 1,
+  "candidatePresentation": 2,
+  "finalCancelScrollLatency": "unmeasured",
+  "nativeClaim": false
+}

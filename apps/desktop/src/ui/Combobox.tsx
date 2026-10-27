@@ -130,7 +130,10 @@ const Root = (props: {
     scrollToIndexFn: props.virtualized ? ({ index, getElement }) => {
       // Z3788d profile: _elementMaxScrollOffset takes 95 input samples; query edits always reset to index zero.
       // The browser can reset that offset without TanStack reading scrollHeight/clientHeight during rendering.
-      if (index === 0 && list) list.scrollTop = 0;
+      if (index === 0 && list) {
+        virtual.cancelScroll();
+        list.scrollTop = 0;
+      }
       else if (index < destinations().length) virtual.scrollToIndex(index, { align: "auto" });
       else getElement()?.scrollIntoView({ block: "nearest" });
     } : undefined,
