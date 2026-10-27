@@ -1,0 +1,338 @@
+{
+  "baseline": "e47f3c4d8abd517ed273615687b358e9268b6d9c",
+  "implementation": "6e07124fc",
+  "observer": "u4424a_u4424b_rendered_host_absence_replacement_and_dense_failure",
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "dark",
+  "stages": {
+    "U4424a/opened-without-host": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "focused": "xterm-helper-textarea",
+        "same": false,
+        "shown": [
+          "121"
+        ]
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "focused": "xterm-helper-textarea",
+        "same": false,
+        "shown": [
+          "121"
+        ]
+      }
+    },
+    "U4424b/absent": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      }
+    },
+    "U4424b/dense-failure": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "failure": "Cannot close Terminal: shell is busy. Stop the command and retry.",
+        "focused": "",
+        "menu": [
+          "Send to Agent",
+          "Copy link",
+          "Rename",
+          "Close"
+        ],
+        "same": false,
+        "shown": []
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "failure": "Cannot close Terminal: shell is busy. Stop the command and retry.",
+        "focused": "",
+        "menu": [
+          "Send to Agent",
+          "Copy link",
+          "Rename",
+          "Close"
+        ],
+        "same": false,
+        "shown": []
+      }
+    },
+    "U4424b/dense": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "focused": "rail-row",
+        "same": false,
+        "shown": []
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "focused": "rail-row",
+        "same": false,
+        "shown": []
+      }
+    },
+    "U4424b/header-menu": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "menu": [
+          "Send to Agent",
+          "Copy link",
+          "Rename",
+          "Close"
+        ],
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "menu": [
+          "Send to Agent",
+          "Copy link",
+          "Rename",
+          "Close"
+        ],
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      }
+    },
+    "U4424b/replaced": {
+      "base": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      },
+      "head": {
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "connected": true,
+        "focused": "xterm-helper-textarea",
+        "same": true,
+        "shown": [
+          "121"
+        ]
+      }
+    }
+  }
+}
