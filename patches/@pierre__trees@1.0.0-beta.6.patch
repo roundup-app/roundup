@@ -85,11 +85,11 @@ index 305714319d9d988bfc025ecaaca662562a3a0ff7..07c5f0151a356d8d6ff1ef76f7ff0a7c
  		initialViewportHeight
  	}));
 diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
-index 7d3b818c43a7621ab9170da32b180232ed3c9472..db18b952980bb6323876c28066ca051359572777 100644
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..f84a16363a8f63122c91784863f0531d983de9bd 100644
 --- a/dist/render/FileTreeView.js
 +++ b/dist/render/FileTreeView.js
 @@ -1,3 +1,4 @@
-+import { getByTypeahead } from "@zag-js/dom-query";
++import { ListCollection } from "@zag-js/collection";
  import { CONTEXT_MENU_SLOT_NAME, CONTEXT_MENU_TRIGGER_TYPE, HEADER_SLOT_NAME } from "../constants.js";
  import { createFileTreeIconResolver } from "./iconResolver.js";
  import { FILE_TREE_DEFAULT_ITEM_HEIGHT } from "../model/virtualization.js";
@@ -106,31 +106,34 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..db18b952980bb6323876c28066ca0513
  			document.addEventListener("touchcancel", handleActiveTouchCancel);
  		}, TOUCH_LONG_PRESS_DELAY);
  	};
-+	const typeaheadState = useRef({ ...getByTypeahead.defaultOptions });
++	const typeaheadState = useRef({ keysSoFar: "", timer: -1 });
 +	useEffect(() => () => clearTimeout(typeaheadState.current.timer), []);
  	const handleTreeKeyDown = (event) => {
  		if (contextMenuState != null) {
  			if (event.key === "Escape") {
-@@ -1083,6 +1086,28 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1083,6 +1086,31 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  			event.stopPropagation();
  			return;
  		}
 +		// Composed paths retain the real editable target across shadow roots.
 +		const target = event.composedPath()[0];
 +		if (typeahead === "name-prefix" && target instanceof HTMLElement && target.closest('input, textarea, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
-+		if (typeahead === "name-prefix" && !event.altKey && !event.isComposing && event.keyCode !== 229 && getByTypeahead.isValidEvent(event)) {
++		if (typeahead === "name-prefix" && !event.altKey && !event.isComposing && event.keyCode !== 229 && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
 +			const rows = controller.getVisibleRows(0, controller.getVisibleCount() - 1);
-+			const match = getByTypeahead(rows.map((row) => ({ id: getFileTreeRowPath(row), textContent: row.name })), {
++			const names = new ListCollection({
++				items: rows,
++				itemToValue: getFileTreeRowPath,
++				itemToString: (row) => row.name
++			});
++			const match = names.search(event.key, {
 +				state: typeaheadState.current,
-+				activeId: controller.getFocusedPath(),
-+				key: event.key,
-+				itemToId: (item) => item.id
++				currentValue: controller.getFocusedPath()
 +			});
 +			if (match != null) {
-+				controller.selectOnlyPath(match.id);
-+				controller.focusPath(match.id);
++				controller.selectOnlyPath(match);
++				controller.focusPath(match);
 +				domFocusOwnerRef.current = true;
-+				setActiveItemPath(match.id);
++				setActiveItemPath(match);
 +				setControllerRevision((revision) => revision + 1);
 +			}
 +			event.preventDefault();
@@ -140,7 +143,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..db18b952980bb6323876c28066ca0513
  		if (searchEnabled && isSearchOpenSeedKey(event)) {
  			controller.openSearch(event.key);
  			setControllerRevision((revision) => revision + 1);
-@@ -1684,7 +1709,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1684,7 +1712,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  		const actionTargetPath = mountedDirectoryPath ?? targetPath;
  		switch (plan.selection.kind) {
  			case "range":
@@ -149,7 +152,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..db18b952980bb6323876c28066ca0513
  				break;
  			case "toggle":
  				controller.togglePathSelectionFromInput(actionTargetPath);
-@@ -1707,6 +1732,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1707,6 +1735,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  		if (plan.revealCanonical) revealCanonicalRowAtStickyOffset(actionTargetPath, { targetOffset: "sticky-parents" });
  	}, [
  		controller,

@@ -39,34 +39,114 @@ it("u2539b_file_names_announce_status_old_path_and_deleted_action", async () => 
 // Dependency probes deliberately bypass the App: #4396 owns mounted integration.
 async function mountTree(options: Partial<import("@pierre/trees").FileTreeOptions> = {}) {
   const { FileTree } = await import("@pierre/trees");
+
   const tree = new FileTree({
     paths: ["folded/echo-hidden.ts", "alpha.ts", "bravo.ts", "delta.ts", "echo.ts"],
     initialExpansion: "closed",
     flattenEmptyDirectories: false,
     ...options,
   });
+
   const host = document.createElement("div");
   document.body.append(host);
   tree.render({ containerWrapper: host });
   const root = tree.getFileTreeContainer()?.shadowRoot;
+
   if (!root) throw new Error("Pierre did not mount its shadow root");
+
   const row = (path: string) => {
     const element = root.querySelector<HTMLButtonElement>(`[data-item-path="${path}"]`);
+
     if (!element) throw new Error(`Missing visible row: ${path}`);
+
     return element;
   };
+
   return { tree, root, row, close() { tree.cleanUp(); host.remove(); } };
 }
 
-it("u3787c_vanilla_prefix_selects_a_visible_name_without_search_or_unfolding", async () => {
-  const view = await mountTree({ typeahead: "name-prefix", search: true });
+it.each([
+  { prefix: "ec", path: "echo.ts" },
+  { prefix: "éC", path: "Écho.ts" },
+  { prefix: "東京", path: "東京.ts" },
+])("u3787c_vanilla_prefix_selects_a_visible_name_without_search_or_unfolding_$prefix", async ({ prefix, path }) => {
+  const view = await mountTree({
+    typeahead: "name-prefix", search: true,
+    initialVisibleRowCount: 2, overscan: 0,
+    paths: [`folded/${path}`, "alpha.ts", "bravo.ts", "delta.ts", path],
+  });
+
   try {
     view.row("alpha.ts").focus();
-    fireEvent.keyDown(view.row("alpha.ts"), { key: "e" });
-    await waitFor(() => expect(view.tree.getFocusedPath()).toBe("echo.ts"));
-    expect(view.tree.getSelectedPaths()).toEqual(["echo.ts"]);
+
+    for (const key of prefix) fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key });
+    await waitFor(() => expect(view.tree.getFocusedPath()).toBe(path), { timeout: 1000 });
+    expect(view.tree.getSelectedPaths()).toEqual([path]);
     expect(view.tree.getVisibleCount()).toBe(5);
     expect(view.tree.isSearchOpen()).toBe(false);
-    await waitFor(() => expect(view.root.activeElement).toBe(view.row("echo.ts")));
+    await waitFor(() => expect(view.root.activeElement).toBe(view.row(path)), { timeout: 1000 });
+  } finally { view.close(); }
+});
+
+it.each([false, true])("u3787c_vanilla_shift_range_replaces_disjoint_selection_meta_%s", async metaKey => {
+  const view = await mountTree({ rangeSelection: "replace" });
+
+  try {
+    fireEvent.click(view.row("alpha.ts"));
+    fireEvent.click(view.row("bravo.ts"), { metaKey: true });
+    fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey });
+    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "delta.ts", "echo.ts"]);
+  } finally { view.close(); }
+});
+
+it.each([false, true])("u3787c_vanilla_range_without_anchor_selects_only_target_meta_%s", async metaKey => {
+  const view = await mountTree({ rangeSelection: "replace" });
+
+  try {
+    fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey });
+    expect(view.tree.getSelectedPaths()).toEqual(["echo.ts"]);
+  } finally { view.close(); }
+});
+
+it("u3787c_vanilla_meta_toggle_establishes_anchor_even_when_deselecting", async () => {
+  const view = await mountTree({ rangeSelection: "replace" });
+
+  try {
+    fireEvent.click(view.row("alpha.ts"));
+    fireEvent.click(view.row("bravo.ts"), { metaKey: true });
+    expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts", "bravo.ts"]);
+    fireEvent.click(view.row("bravo.ts"), { metaKey: true });
+    expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts"]);
+    fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey: true });
+    expect(view.tree.getSelectedPaths()).toEqual(["bravo.ts", "delta.ts", "echo.ts"]);
+  } finally { view.close(); }
+});
+
+it("u3787c_vanilla_default_retains_additive_meta_shift_selection", async () => {
+  const view = await mountTree();
+
+  try {
+    fireEvent.click(view.row("alpha.ts"));
+    fireEvent.click(view.row("delta.ts"), { metaKey: true });
+    fireEvent.click(view.row("echo.ts"), { shiftKey: true, metaKey: true });
+    expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts", "delta.ts", "echo.ts"]);
+  } finally { view.close(); }
+});
+
+it.each(["input", "textarea", "editable", "terminal"])("u3787c_vanilla_prefix_leaves_%s_input_untouched", async kind => {
+  const view = await mountTree({ typeahead: "name-prefix" });
+
+  try {
+    fireEvent.click(view.row("alpha.ts"));
+    const editor = document.createElement(kind === "input" || kind === "textarea" ? kind : "div");
+
+    if (kind === "editable") editor.setAttribute("contenteditable", "true");
+
+    if (kind === "terminal") editor.setAttribute("role", "textbox");
+    view.row("alpha.ts").append(editor);
+    editor.focus();
+    expect(fireEvent.keyDown(editor, { key: "e" })).toBe(true);
+    expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts"]);
+    expect(view.tree.getFocusedPath()).toBe("alpha.ts");
   } finally { view.close(); }
 });
