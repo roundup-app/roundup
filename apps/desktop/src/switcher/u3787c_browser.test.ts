@@ -73,8 +73,14 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       await browser("press", "Shift+Tab");
       await browser("wait", "--fn", "document.activeElement?.matches('.switcher input')");
       await browser("fill", ".switcher input", "  é 🧭 東京  ");
-      await browser("press", "Meta+a");
+      // The native Linux editor uses Control; the App's content selection above uses Meta.
+      await browser("press", process.platform === "darwin" ? "Meta+a" : "Control+a");
       expect(await read("[document.activeElement.selectionStart,document.activeElement.selectionEnd,document.activeElement.value]")).toEqual([0, 12, "  é 🧭 東京  "]);
+
+      await browser("press", "Home");
+      expect(await read("[document.activeElement.selectionStart,document.activeElement.selectionEnd]")).toEqual([0, 0]);
+      await browser("press", "End");
+      expect(await read("[document.activeElement.selectionStart,document.activeElement.selectionEnd]")).toEqual([12, 12]);
 
       if (seed === "tree-40") {
         await read("(() => { Storage.prototype.setItem=()=>{throw new Error('full')}; const f=document.querySelector('.switcher input'); f.value+='!'; f.dispatchEvent(new Event('input',{bubbles:true})); })()");

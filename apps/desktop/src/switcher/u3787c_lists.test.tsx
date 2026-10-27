@@ -97,3 +97,19 @@ it("u3787c_filter_and_reopening_preserve_query_and_reset_content_selection", asy
   expect(selected()).toEqual([]);
   expect(app.calls.slice(before)).toEqual([]);
 });
+
+
+it("u3787c_query_Home_End_keep_native_editing_without_row_selection", async () => {
+  await mount(inventory[0]!.open);
+  const input = document.querySelector<HTMLInputElement>(".switcher input")!;
+
+  fireEvent.input(input, { target: { value: "Delta" } });
+  input.setSelectionRange(1, 4, "backward");
+
+  for (const key of ["Home", "End"]) {
+    expect(fireEvent.keyDown(input, { key })).toBe(true);
+  }
+
+  expect(selected()).toEqual([]);
+  expect(input.value).toBe("Delta");
+});
