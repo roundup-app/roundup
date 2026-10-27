@@ -417,6 +417,7 @@ for (const kind of ["todo", "pad"] as const) {
     expect(row.getAttribute("aria-pressed")).toBe("true");
   });
 }
+
 const deletions = (daemon: FakeApp): DeleteParams[] => daemon.calls.filter(call => call.method === "todo.delete").map(call => {
   // SAFETY: journal entries filtered to todo.delete have the generated DeleteParams.
   return call.params as DeleteParams;
