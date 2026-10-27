@@ -72,6 +72,11 @@ export const TodoDrawer = (props: {
   const [noticeDismissed, setNoticeDismissed] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
+  const [deleteRefused, setDeleteRefused] = createSignal(0);
+
+  const deletionRefusal = () => !deleteRefused() ? null
+    : drafts.todoUndo.uncertain() ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids())
+    : drafts.todoUndo.pending() ? copy.todoRestorePending : null;
 
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
@@ -257,7 +262,15 @@ export const TodoDrawer = (props: {
   return (
     <>
       <div class="todo-detail">
-        <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+        <ReservedLine class="todo-delete-feedback"
+          aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
+          message={deletionRefusal() && drafts.todoUndo.uncertain() ? deletionRefusal() : failure()}
+          status={deletionRefusal() && !drafts.todoUndo.uncertain() ? deletionRefusal() : null}
+          content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}>
+          <Show when={deletionRefusal() && drafts.todoUndo.uncertain()}>
+            <button data-button="quiet" type="button" disabled={drafts.todoUndo.pending()} onClick={() => void drafts.todoUndo.retryDelete()}>{copy.todoDeleteRetry}</button>
+          </Show>
+          <button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setDeleteRefused(0); setFailure(null); }}>{copy.dismissFailure}</button></ReservedLine>
           <Show
             when={todo()}
             fallback={
@@ -331,9 +344,17 @@ export const TodoDrawer = (props: {
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
-          disabled={deleting() || drafts.todoUndo.pending()}
+          disabled={deleting()}
           onClick={() => {
             if (deleting()) return;
+
+            if (drafts.todoUndo.pending() || drafts.todoUndo.uncertain()) {
+              setDeleteRefused(count => count + 1);
+
+              return;
+            }
+
+            setDeleteRefused(0);
             const id = props.id;
             const opening = drawer.content();
             setDeleting(true);
