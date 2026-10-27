@@ -150,7 +150,7 @@
 }
 
 /* U371: a rejected call keeps its complete explanation visible at the Shelf width. */
-.shelf p[role="alert"]:not(.reserved-content) {
+.shelf p[role="alert"]:not(.reserved-line *) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow: visible;
