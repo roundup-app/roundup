@@ -278,7 +278,7 @@ export const Rail = () => {
     }
 
     event.preventDefault(); event.stopPropagation();
-    selection.selection.replace(match); anchor = match; focusRow(match);
+    rail.select(match); focusRow(match);
   };
 
 
@@ -720,6 +720,7 @@ export const Rail = () => {
                           editing={editingName() === view().node.id}
                           onOpen={() => openRow(view().node.id)}
                           selected={selection.selection.isSelected(view().node.id)}
+                          multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
