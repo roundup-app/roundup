@@ -13,10 +13,16 @@ afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: 
 type Pending = { resolve: () => void; reject: (error: Error) => void };
 
 /** One call the fake Daemon has received and not yet answered. */
-const pending = <T,>(entered: () => void, value: T): { handler: () => Promise<T>; held: Pending } => {
+const pending = <T,>(entered: () => void, value: T) => {
   const reply = Promise.withResolvers<T>();
 
-  return { handler: () => { entered(); return reply.promise; }, held: { resolve: () => reply.resolve(value), reject: reply.reject } };
+  const handler = (): Promise<T> => {
+    entered();
+
+    return reply.promise;
+  };
+
+  return { handler, held: { resolve: () => reply.resolve(value), reject: reply.reject } satisfies Pending };
 };
 
 type Row = {
@@ -37,16 +43,40 @@ type Row = {
 const ROWS: Row[] = [
   { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "ops",
     params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
-    hold: (app, entered) => { const { handler, held } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" })); app.handlers["agent.spawn"] = handler; return held; } },
+    hold: (app, entered) => {
+      const { handler, held } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
+
+      app.handlers["agent.spawn"] = handler;
+
+      return held;
+    } },
   { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", confirms: false, removes: "ops",
     params: { workstream: "ops" },
-    hold: (app, entered) => { const { handler, held } = pending(entered, { terminal_id: "8" }); app.handlers["terminal.open"] = handler; return held; } },
+    hold: (app, entered) => {
+      const { handler, held } = pending(entered, { terminal_id: "8" });
+
+      app.handlers["terminal.open"] = handler;
+
+      return held;
+    } },
   { owner: "Rail", label: "Remove", selected: "ann", origin: '[data-id="ann"][role="treeitem"]', method: "rail.remove", confirms: true, removes: "bob",
     params: { id: "ann" },
-    hold: (app, entered) => { const { handler, held } = pending(entered, null); app.handlers["rail.remove"] = handler; return held; } },
+    hold: (app, entered) => {
+      const { handler, held } = pending(entered, null);
+
+      app.handlers["rail.remove"] = handler;
+
+      return held;
+    } },
   { owner: "Bubble", label: "Close the Bubble", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.close", confirms: true, removes: "ops",
     params: { id: "7" },
-    hold: (app, entered) => { const { handler, held } = pending(entered, null); app.handlers["terminal.close"] = handler; return held; } },
+    hold: (app, entered) => {
+      const { handler, held } = pending(entered, null);
+
+      app.handlers["terminal.close"] = handler;
+
+      return held;
+    } },
 ];
 
 const options = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')];
@@ -72,7 +102,11 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   Object.defineProperty(questionProbe, "shown", {
     configurable: true,
     get: () => shown,
-    set: (value) => { shown = value; if (value !== null) trace.push(`question:${field() === null ? "closed" : "open"}`); },
+    set: (value) => {
+      shown = value;
+
+      if (value !== null) trace.push(`question:${field() === null ? "closed" : "open"}`);
+    },
   });
 
   document.querySelector<HTMLElement>(row.origin)!.focus();
@@ -121,6 +155,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   // The originating owner leaves and the selection moves while the reply is pending.
   const tree = app.handlers["rail.tree"]!;
+  // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
   app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== row.removes), agent("keep", "idle", "idle", { order: 9 })];
   await connected.rail.refresh({ terminals: true });
   connected.rail.select("keep");
