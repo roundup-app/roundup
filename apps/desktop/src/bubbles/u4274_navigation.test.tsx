@@ -3,11 +3,11 @@ import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { info } from "../testing/nodes";
+import { agent, info } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-it.each(["keyboard", "menu", "rail"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4274c_new_terminal_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
+it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
   const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty");
 
   if (selection !== "empty") connected().rail.select(selection);
@@ -19,7 +19,7 @@ it.each(["keyboard", "menu", "rail"].flatMap(source => ["home", "a1", null, "emp
 
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   else if (source === "menu") openProjectPage("action:chord:⌘T", "/p");
-  else fireEvent.click(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: "New Terminal" }));
+  else fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
   expect(daemon.calls.filter(call => ["rail.createWorkstream", "rail.startDoor", "agent.spawn"].includes(call.method))).toHaveLength(0);
@@ -28,10 +28,12 @@ it.each(["keyboard", "menu", "rail"].flatMap(source => ["home", "a1", null, "emp
   expect(document.querySelector('.terminal-tabs[role="group"]')).toBeTruthy();
 });
 
-it("u4274c_terminal_bar_follows_eligible_terminals", async () => {
+it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const { connected, daemon, shells, emulators } = await mountNavigation(true);
   const portal = document.querySelector(".resource-agent");
-  expect(document.querySelector('.terminal-tabs[role="group"]')).toBeNull();
+  const initial = screen.getByRole("group", { name: "Terminals" });
+  expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
+  expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
   const bar = await screen.findByRole("group", { name: "Terminals" });
@@ -44,7 +46,7 @@ it("u4274c_terminal_bar_follows_eligible_terminals", async () => {
   expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
   shells.splice(0);
   await connected().rail.refresh({ terminals: true });
-  expect(document.querySelector('.terminal-tabs[role="group"]')).toBeNull();
+  expect(screen.getByRole("group", { name: "Terminals" })).toBe(initial);
   expect(document.querySelector(".resource-agent")).toBe(portal);
   expect(daemon.calls.filter(call => ["terminal.close", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
@@ -69,7 +71,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   const { daemon, shells } = await mountNavigation(true);
   daemon.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
 
-  const action = document.querySelector<HTMLButtonElement>(".rail-terminal-new")!;
+  const action = document.querySelector<HTMLButtonElement>(".terminal-new")!;
   fireEvent.click(action);
   await screen.findByRole("alert");
   await waitFor(() => expect(document.activeElement).toBe(action));
@@ -85,7 +87,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("u4274c_closing_the_last_terminal_returns_focus_to_rail", async () => {
+it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
   const { connected, daemon, shells } = await mountNavigation(true);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
@@ -97,9 +99,36 @@ it("u4274c_closing_the_last_terminal_returns_focus_to_rail", async () => {
   close.focus();
   fireEvent.click(close);
   await answerQuestion(true);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".rail-terminal-new")));
-  expect(document.querySelector(".terminal-tabs")).toBeNull();
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".terminal-new")));
+  expect(within(screen.getByRole("group", { name: "Terminals" })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
   expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]);
+});
+
+it("u4313a_rail_footer_offers_workstream_and_agent", async () => {
+  await mountNavigation(true);
+  const footer = document.querySelector<HTMLElement>(".rail-actions")!;
+  expect(within(footer).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Workstream", "New Agent"]);
+});
+
+it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
+  const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
+
+  if (selection !== "empty") connected().rail.select(selection);
+  const parent = selection === "home" ? "home" : null;
+  daemon.handlers["agent.spawn"] = () => {
+    const spawned = agent("fresh", "idle", "starting", { parent });
+    nodes.push(spawned);
+    queueMicrotask(() => daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" }));
+
+    return spawned;
+  };
+
+  if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
+  else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
+  await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
+  expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "rail.createWorkstream"].includes(call.method))).toEqual([
+    { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null } },
+  ]);
 });
 
 it("u4277c_hidden_project_terminals_never_report_empty", async () => {

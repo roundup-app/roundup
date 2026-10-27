@@ -6,6 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
+import { HintLine } from "../keys/HintLine";
 import { Tip } from "../ui/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
 import { WorktreeControl } from "../changes/WorktreeControl";
@@ -40,7 +41,7 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
 );
 
 /** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
-export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined }) => {
+export const ResourceStrip = (props: { compact?: boolean | undefined; returnFocus?: (() => void) | undefined }) => {
   const { app, rail, daemonExit, hasView, hideView } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
   const [failed, setFailed] = createSignal(false);
@@ -118,11 +119,12 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
         <Show when={!failed() && (!mine() || [sizeText(mine()?.memory_bytes), cpuText(mine()?.cpu_percent), sizeText(mine()?.disk_bytes)].every(value => value === MISSING))}><ReservedLine status={result() === null && live() ? copy.resourcesLoading : copy.resourcesEmpty} /></Show>
       </div>
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
-      <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
+      <Show when={!props.compact}><button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button></Show>
     </section></Show>
     <div class="resource-strip" aria-live="off">
-      <WorktreeControl returnFocus={props.returnFocus} />
+      <WorktreeControl compact={props.compact} returnFocus={props.returnFocus} />
     </div>
+    <HintLine />
     <span class="resource-agent" />
   </>);
 };
