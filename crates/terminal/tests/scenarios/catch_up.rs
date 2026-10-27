@@ -87,13 +87,32 @@ async fn z3788a_raw_catch_up_and_subscription_overlap_keep_binary_bytes_once() {
     }
     terminals.write(&spawned.id, b"done\n").await.unwrap();
     until_printed(&mut observer, "tail").await;
-    match live.next().await.unwrap() {
-        Output::Bytes { offset, bytes } => {
-            assert_eq!(offset, cut);
-            assert_eq!(bytes.as_ref(), b"tail\x00\xff");
+    let mut tail = Vec::new();
+    while tail.len() < 6 {
+        match live.next().await.unwrap() {
+            Output::Bytes { offset, bytes } => {
+                assert_eq!(offset, cut + tail.len() as u64);
+                tail.extend_from_slice(&bytes);
+            }
+            Output::Gap { .. } => panic!("tail lost"),
         }
-        Output::Gap { .. } => panic!("tail lost"),
     }
+    assert_eq!(tail, b"tail\x00\xff");
+    let replay = terminals
+        .call(
+            &ctx(&dir, &bus),
+            "terminal.catchUp",
+            json!({
+                "id":spawned.id, "incarnation":info.incarnation, "after":cut,
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(replay["after"], cut + 6);
+    assert_eq!(
+        STANDARD.decode(replay["data"].as_str().unwrap()).unwrap(),
+        tail
+    );
     terminals.kill(&spawned.id).await.unwrap();
 }
 
