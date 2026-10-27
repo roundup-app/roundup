@@ -53,11 +53,13 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
-  fireEvent.click(await screen.findByRole("tab", { name: "Shortcuts" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo ⇧⌘T" }));
-  expect(screen.getByRole("button", { name: "Quick add a Todo Press a shortcut" }).getAttribute("aria-pressed")).toBe("true");
+  const settings = within(await screen.findByRole("region", { name: "Settings" }));
+  fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
+  const recorder = await settings.findByRole("button", { name: /^Quick add a Todo/ });
+  fireEvent.click(recorder);
+  expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
+  fireEvent.click(settings.getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
