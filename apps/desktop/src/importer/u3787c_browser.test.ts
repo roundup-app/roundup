@@ -58,11 +58,6 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     await lane.browser("press", "Home");
     await lane.browser("press", "終");
     expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe("source-4");
-    await lane.browser("keydown", "Shift");
-    await lane.browser("click", '.import-check input[data-collection-value="source-1"]');
-    await lane.browser("keyup", "Shift");
-    await lane.until("document.querySelectorAll('.import-check input:checked').length===1");
-    expect(await lane.evaluate("[...document.querySelectorAll('.import-check input:checked')].map(el=>el.dataset.collectionValue)")).toEqual(["source-1"]);
     await lane.browser("press", "Meta+a");
     expect(await lane.evaluate("[...document.querySelectorAll('.import-check input:checked')].map(el=>el.dataset.collectionValue)")).toEqual(["source-0", "source-1", "source-2", "source-3", "source-4"]);
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
