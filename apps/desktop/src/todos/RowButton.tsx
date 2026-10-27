@@ -27,6 +27,9 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
   return (
     <button type="button" class="todo-row-button"
       onDblClick={() => props.onRename?.()}
+      on:keydown={(event) => {
+        if (event.target === event.currentTarget && !event.defaultPrevented && !props.keysSuspended) props.onKeyDown?.(event);
+      }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 

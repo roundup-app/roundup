@@ -1,0 +1,24 @@
+[
+  {
+    "package": "agent-browser",
+    "version": "0.27.0",
+    "published": "2026-05-07T15:59:31.059Z",
+    "latest": "0.39.4",
+    "source": {
+      "url": "git+https://github.com/vercel-labs/agent-browser.git",
+      "type": "git"
+    },
+    "registry": "https://registry.npmjs.org/agent-browser"
+  },
+  {
+    "package": "@playwright/test",
+    "version": "1.64.1",
+    "published": "2026-10-14T11:58:13.696Z",
+    "latest": "1.64.1",
+    "source": {
+      "url": "git+https://github.com/microsoft/playwright.git",
+      "type": "git"
+    },
+    "registry": "https://registry.npmjs.org/@playwright/test"
+  }
+]
