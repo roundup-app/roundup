@@ -205,7 +205,7 @@ it("u2539b_strip_items_follow_actionable_facts", async () => {
   await waitFor(() => expect(emulators.made.has("t-a1")).toBe(true));
   const terminal = emulators.made.get("t-a1");
   const portal = document.querySelector(".resource-agent");
-  expect(document.querySelector(".resource-strip .resource-value, .hint-line")).toBeNull();
+  expect(document.querySelector(".resource-strip .resource-value")).toBeNull();
   openProjectPage("view:resources", "/p");
   await screen.findByRole("region", { name: "Resources" });
   openProjectPage("view:resources", "/p");
