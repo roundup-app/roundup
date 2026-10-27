@@ -8,6 +8,7 @@ import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
+import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
 import type { AgentRow, RowActions } from "./InboxRow";
@@ -82,6 +83,33 @@ export const Inbox = () => {
 
   const toggle = (key: string) => setOpenKey((current) => current === key ? null : key);
 
+  // One collection follows the mounted section order; actions and disclosure bodies never join it.
+  const content = createRowCollection(() => [
+    ...model().needs.map(row => ({ value: row.key, label: row.node.name })),
+    ...rows().map(row => ({ value: `c:${row.comment.id}`, label: copy.inboxRow(rail.nameOf(row.comment.author), row.title) })),
+    ...model().running.map(row => ({ value: row.key, label: row.node.name })),
+    ...model().done.map(row => ({ value: row.key, label: row.node.name })),
+  ].filter(row => {
+    const head = heads.get(row.value);
+
+    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
+  }), {
+    onFocus: () => {},
+    onActivate: key => {
+      const agent = byKey().get(key);
+      const comment = rows().find(row => `c:${row.comment.id}` === key);
+
+      if (agent) toggle(key);
+      else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key");
+    },
+  });
+
+  const head = (key: string, element: HTMLElement) => {
+    heads.set(key, element);
+    content.register(element, key);
+    onCleanup(() => heads.delete(key));
+  };
+
   const flag = (key: string, on: boolean) => setBusy((current) => {
     const next = new Set(current);
 
@@ -140,9 +168,9 @@ export const Inbox = () => {
   }]);
 
   const agentRow = (key: string) => <Show when={byKey().get(key)}>{(row) =>
-    <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} head={(element) => { heads.set(key, element); onCleanup(() => heads.delete(key)); }} />}</Show>;
+    <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} selected={content.selection.isSelected(key)} head={(element) => head(key, element)} />}</Show>;
 
-  return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1}>
+  return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
     <h2>{copy.inbox}</h2>
     <ReservedLine message={failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
@@ -151,6 +179,7 @@ export const Inbox = () => {
         <ul class="inbox-list">
           <For each={needsKeys()}>{agentRow}</For>
           <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
+            ref={element => head(`c:${row.comment.id}`, element)} aria-pressed={content.selection.isSelected(`c:${row.comment.id}`)}
             onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
             <KindGlyph kind="needs-you" />
             <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
