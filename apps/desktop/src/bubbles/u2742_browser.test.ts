@@ -308,7 +308,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
       await browser("click", ".ask-input");
       await wait(`document.activeElement === document.querySelector('.ask-input')`);
     } else if (choice === "other-row") {
-      await browser("click", '.rail-row[data-id="backend"]');
+      await read('document.querySelector(".rail-row[data-id=backend] .name").click()');
       await wait(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'backend'`);
     } else {
       // The scroll container's bottom edge is empty Rail space, outside its rows and actions.

@@ -276,6 +276,47 @@ describe("u3010g the frame recorder drives every workload", () => {
   });
 
   it.each([
+    { action: "openDrawer", applied: false }, { action: "openDrawer", applied: true },
+    { action: "toggleShelf", applied: false }, { action: "toggleShelf", applied: true },
+  ] as const)("u3010g_a_pointer_activation_requires_its_layer_owner (%j)", async ({ action, applied }) => {
+    vi.useRealTimers();
+    const root = document.createElement("div");
+
+    root.dataset.layoutRoot = "";
+    root.dataset.shelf = "open";
+    root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><div class="row-controls"><button aria-label="Open"></button></div></div></section><button class="shelf-tab" data-selected></button>';
+    document.body.append(root);
+    let activate: (event: Event) => void = () => {};
+
+    const controls = domLayers([], (_type, listener) => {
+      activate = listener;
+
+      return () => {};
+    });
+
+    const target = root.querySelector(action === "openDrawer" ? '[aria-label="Open"]' : '.shelf-tab')!;
+
+    try {
+      const run = controls[action]();
+
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: true }, target: { value: target }, detail: { value: 1 },
+      });
+
+      activate(event);
+
+      if (applied) {
+        if (action === "openDrawer") root.querySelector<HTMLElement>(".drawer")!.dataset.open = "true";
+        else root.dataset.shelf = "closed";
+      }
+
+      expect(await run).toBe(applied);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it.each([
     { applied: false, trusted: true, button: 0, x: 0.5, completed: false },
     { applied: true, trusted: true, button: 0, x: 0.5, completed: true },
     { applied: true, trusted: false, button: 0, x: 0.5, completed: false },
@@ -288,6 +329,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     drawer.className = "drawer";
     drawer.dataset.open = "true";
+    root.dataset.layoutRoot = "";
     root.append(drawer);
     document.body.append(root);
     const callbacks: ((event: Event) => void)[] = [];
