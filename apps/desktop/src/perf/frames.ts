@@ -53,7 +53,13 @@ export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer"
 export type TodoAction = { action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
 
 /** Changes observed through the same live accessor the App consumes; no second preference source. */
-export type PreferenceAction = { at_ms: number; reduced: boolean; phase: "warmup" | "sample" | "after-actions" };
+export type PreferenceAction = {
+  at_ms: number;
+  reduced: boolean;
+  phase: "warmup" | "sample" | "after-actions";
+  /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
+  movement?: { panel: "drawer" | "shelf"; target: string; action_at_ms: number; from: number; destination: number; observed: number; progress: number };
+};
 
 export type FrameReport = {
   probe: "roundup-frame-recorder";
