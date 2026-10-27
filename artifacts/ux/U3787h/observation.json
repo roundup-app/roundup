@@ -1,12 +1,12 @@
 {
   "scenario": "U3787h",
-  "base": "2bcba5ed7",
-  "head": "9f0ae2b0d0a54c22fb19b63109bf65ca7b67d0c8",
+  "base": "19e7963d67542ee4b88a8c707373520c2d652dce",
+  "head": "98dbfffe5e888cb48edee7c0f96ba3fd2c605b53",
   "viewport": [
     1512,
     950
   ],
   "scheme": "dark",
   "seed": "tree-40",
-  "observation": "Full cause and recovery visible beside long Unicode Todo titles. Delete retains focus and exact comment draft bytes; recovery does not delete Todo 7. D2/D5/D6 pass on base and head; no passing Check regresses. Isolated headless Chromium with fresh profiles; no native-only observation required."
+  "observation": "Isolated headless Chromium, fresh profiles, Noto CJK installed. Readable long CJK titles and exact unsent comment bytes on both paths. Refusal actions align with the first text line; wrapped error text hangs after the icon. The two-line feedback slot leaves the title, body, Blocker and Comments stationary. U3787h uses a polite status with no error icon. Both scenarios clear after recovery and require a new Delete. Paired delta exits 0: all D1\u2013D14 remain passing, including D2/D5/D6."
 }
