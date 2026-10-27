@@ -128,7 +128,11 @@ it("u2773a_changes_restores_exact_work", async () => {
   const saved = "  saved e\u0301 🐝\nexact  ";
   const unfinished = "  unfinished 🐝\n e\u0301  ";
   const { view } = await openDiff();
-  await saveNote(saved);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unfinished } });
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
@@ -176,7 +180,11 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const memory = "  memory 🐝\nnewer  ";
   const { app, view, connected } = await openDiff();
   const retrying = vi.spyOn(notesFor(app, "/p", connected.drafts), "retry");
-  await saveNote(saved);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   const before = localStorage.getItem("roundup:drafts:/p");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -185,7 +193,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
   fireEvent.click(screen.getByRole("button", { name: "Review recovery options" }));
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   const copyText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
   vi.spyOn(app, "clipboardWrite").mockImplementation(copyText);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[0]!);
@@ -210,8 +218,8 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await screen.findByRole("alert");
   blockedWrite.mockRestore();
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovered = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovered = await screen.findByRole("dialog", { name: "Recover notes" });
   // The form is first; discard only that draft, keeping the older saved batch note.
   const discarding = vi.spyOn(notesFor(reopened.app, "/p"), "discardForm");
   fireEvent.click(within(recovered).getAllByRole("button", { name: "Discard this draft" })[0]!);
@@ -348,8 +356,8 @@ it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: null })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "a")?.worktree).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(noteText);
   expect(document.querySelector('[data-note-action="resume"]')).toBeNull();
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
@@ -371,8 +379,8 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   app.handlers["rail.tree"] = () => [agent("replacement", "working", "building", { name: "a", worktree: WORKTREE })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "a")).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(unavailableText);
   expect(document.querySelector('[data-note-action="resume"]')).toBeNull();
   expect(within(recovery).getByRole("status")).toBeTruthy();
@@ -385,29 +393,35 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
 });
 
 it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
+  const older = "older retained work";
+  const newer = "newer memory work";
   const first = await openDiff();
-  await saveNote("older retained work");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: older } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   first.view.unmount();
   const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("temporarily unreadable"); });
   const current = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer memory work" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   read.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(recovery.textContent).toContain("older retained work"));
-  expect(recovery.textContent).toContain("newer memory work");
+  await waitFor(() => expect(recovery.textContent).toContain(older));
+  expect(recovery.textContent).toContain(newer);
   current.view.unmount();
   const reopened = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer memory work");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", newer);
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  expect((await screen.findByRole("dialog", { name: "Recover Changes drafts" })).textContent).toContain("older retained work");
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  expect((await screen.findByRole("dialog", { name: "Recover notes" })).textContent).toContain(older);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
@@ -418,13 +432,13 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
   await screen.findByRole("alert");
   blockedWrite.mockRestore();
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
   fireEvent.click(within(recovery).getByRole("button", { name: "Resume note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer recovery editor work 🐝" } });
   fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
-  await waitFor(() => { if (screen.queryByRole("dialog", { name: "Recover Changes drafts" })) throw new Error("Previous dialog remains mounted"); });
+  await waitFor(() => { if (screen.queryByRole("dialog", { name: "Recover notes" })) throw new Error("Previous dialog remains mounted"); });
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer recovery editor work 🐝");
@@ -503,8 +517,8 @@ it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(
   app.handlers["rail.tree"] = () => [agent("plain", "working", "building")];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "a")).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   const first = within(recovery).getByText("  copied note e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
   const other = within(recovery).getByText("  other note 🐝  ", { normalizer: value => value }).parentElement!;
   const copied = vi.fn<(text: string) => Promise<void>>().mockRejectedValue(new Error("clipboard refused"));
@@ -532,28 +546,34 @@ it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(
 });
 
 it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", async action => {
+  const exact = "  exact form e\u0301\n🐝  ";
+  const saved = "unrelated saved note";
   const { app } = await openDiff();
-  await saveNote("unrelated saved note");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   app.handlers["message.send"] = () => { throw new Error("reply lost"); };
 
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
   await screen.findByRole("button", { name: "Check Message history" });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  exact form e\u0301\n🐝  " } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: exact } });
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  const form = within(recovery).getByText("  exact form e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
+  const form = within(recovery).getByText(exact, { normalizer: value => value }).parentElement!;
   vi.spyOn(app, "clipboardWrite").mockRejectedValue(new Error("refused"));
   fireEvent.click(within(form).getByRole("button", { name: "Copy" }));
   await within(recovery).findByRole("alert");
   fireEvent.click(within(form).getByRole("button", { name: "Resume note" }));
-  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  exact form e\u0301\n🐝  ");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", exact);
   fireEvent.click(within(recovery).getByRole("button", { name: action === "save" ? "Save" : "Cancel" }));
   await waitFor(() => expect(within(recovery).queryByRole("alert") !== null).toBe(action === "cancel"));
-  expect(recovery.textContent).toContain("  exact form e\u0301\n🐝  ");
-  expect(recovery.textContent).toContain("unrelated saved note");
+  expect(recovery.textContent).toContain(exact);
+  expect(recovery.textContent).toContain(saved);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 });
 
@@ -568,7 +588,7 @@ it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () 
   await waitFor(() => expect(document.querySelector(".worktree-control, .worktree-panel")).toBeNull());
   expect(connected.drafts.list()).toEqual(original);
   connected.showView("notes");
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(text);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
@@ -585,7 +605,7 @@ it("u4277b_empty_recovery_has_no_copy_action", async () => {
   const { openProjectPage } = await import("../testing/menuProbe");
   const { app } = await openTabs({ api: [] });
   openProjectPage("view:notes");
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(within(recovery).getAllByRole("button")).toHaveLength(1);
   expect(app.calls.filter(call => /spawn|send|importCommit/.test(call.method))).toHaveLength(0);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));

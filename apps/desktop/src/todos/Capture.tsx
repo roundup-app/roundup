@@ -9,7 +9,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
-import { CHORDS, leaderChord } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -273,7 +273,10 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     });
   }
 
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
+  registerKeys({ kind: "leader" }, [{
+    action: LEADER.find(row => row.keys === "T")!,
+    capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
+  }]);
   onMount(() => props.onReady?.(port ? nativeShow : show));
   onCleanup(() => props.onReady?.(undefined));
   createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
