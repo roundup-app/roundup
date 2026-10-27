@@ -379,10 +379,10 @@ esac
   const app = createServedApp(real.base);
   const dir = captureDir("U4276b");
 
-  const tabTo = async (selector: string) => {
+  const tabTo = async (selector: string, reverse = false) => {
     for (let step = 0; step < 40; step++) {
       if (await evaluate(`document.activeElement?.matches(${JSON.stringify(selector)})`)) return;
-      await browser("press", "Tab");
+      await browser("press", reverse ? "Shift+Tab" : "Tab");
     }
 
     throw new Error(`Keyboard could not reach ${selector}: ${await evaluate("document.activeElement?.outerHTML")}`);
@@ -415,10 +415,9 @@ esac
       };
     })()`);
     await wait("!!document.querySelector('[data-reaction-opener=create]')");
-    // Reach the requested screen through the App shortcut, beyond the dense Rail.
-    await browser("press", "Meta+/");
-    await wait("document.activeElement?.matches('.ask-input')");
-    await tabTo('[data-reaction-opener="create"]');
+    // The requested screen follows the dense Rail in document order. Reach its
+    // last action backwards without opening the separate Ask overlay.
+    await tabTo('[data-reaction-opener="create"]', true);
     await browser("press", "Enter");
     await wait("document.activeElement?.matches('.reaction-back')");
     await field('.reaction-form [data-scope="field"][data-part="input"]', `Keyboard ${kind}`);
