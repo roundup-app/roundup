@@ -230,6 +230,7 @@ export const Bubbles = (props: {
 
     const listed = new Set(rail.terminals().map((terminal) => terminal.id));
     const roots = untrack(fromRoot);
+
     // An acknowledged opening survives absent lists until a list has actually included it.
     const retained = roots.filter(root => !root.listed || listed.has(root.id))
       .map(root => !root.listed && listed.has(root.id) ? { ...root, listed: true } : root);
