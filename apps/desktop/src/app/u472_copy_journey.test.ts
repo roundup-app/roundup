@@ -66,8 +66,8 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
   await load(origin, "tree-40", 1512, "dark");
   await browser("set", "viewport", "1512", "950");
   await wait("Boolean(document.querySelector('.rail-row[data-id=\"payments\"]'))");
-  await browser("click", '.rail-row[data-id="payments"] .name');
-  await wait("Boolean(document.querySelector('.pane-screen textarea'))");
+  await evaluate('document.querySelector(".rail-row[data-id=payments] .name").click()');
+  await wait("document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'payments' && Boolean(document.querySelector('.pane-screen textarea'))");
   // Layout measures this Token-derived floor on resize, as the U2892 capture observer does.
   await evaluate(`document.querySelector('.window').style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 40) + 'px')`);
   await browser("set", "viewport", "1511", "950");
@@ -104,7 +104,7 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
   expect(await evaluate("!!document.activeElement?.closest('.project-tab') && document.querySelector('.shelf').dataset.open === 'true'")).toBe(true);
   await browser("focus", '.rail-row[data-id="payments"]');
   await evaluate("window.__backdropReturn = document.activeElement; window.__backdropStart = window.__fake.app.calls.length");
-  // The pane is in the scrim's existing dismissal target. Its press closes only the Shelf.
+  // The centre content is the Scrim's dismissal target; the shared header stays reachable.
   await pressAt(".pane-screen");
   await wait("document.querySelector('.shelf').hidden && !document.querySelector('.shelf-scrim')");
   expect(await evaluate(`({focus:document.activeElement === window.__backdropReturn, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ focus: true, mutations: [] });

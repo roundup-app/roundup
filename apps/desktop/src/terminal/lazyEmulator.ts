@@ -1,12 +1,12 @@
-import type { Emulator, EmulatorFactory, EchoProbe, RendererAddon, Size } from "./emulator";
+import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 type Loader = () => Promise<EmulatorFactory>;
 
 /** The first Terminal's load and every later Terminal's reuse of it (R3800): xterm stays out of the entry until a Terminal mounts. */
-export const lazyEmulators = (load: Loader, probe?: EchoProbe): EmulatorFactory => {
+export const lazyEmulators = (load: Loader): EmulatorFactory => {
   let factory: Promise<EmulatorFactory> | undefined;
 
-  return (id) => {
+  return (id, copy) => {
     const created = (factory ??= load());
     let real: Emulator | null = null;
     let disposed = false;
@@ -22,7 +22,7 @@ export const lazyEmulators = (load: Loader, probe?: EchoProbe): EmulatorFactory 
     const ready = created.then((create) => {
       if (disposed) return undefined;
 
-      real = create(id);
+      real = create(id, copy);
 
       for (const call of queue.splice(0)) call(real);
 
@@ -35,9 +35,6 @@ export const lazyEmulators = (load: Loader, probe?: EchoProbe): EmulatorFactory 
       setSize: (next) => { size = next; run(emulator => emulator.setSize(next)); },
       setFontSize: (next) => run(emulator => emulator.setFontSize(next)),
       reset: () => run(emulator => emulator.reset()),
-      outputArrived: probe ? (bytes) => probe.arrived(bytes, id) : undefined,
-      inputEncoding: probe ? (bytes) => probe.encoding(id, bytes) : undefined,
-      inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => run(emulator => emulator.onInput(listener)),
       onLink: (listener) => run(emulator => emulator.onLink(listener)),
       selection: () => real?.selection() ?? "",
@@ -66,5 +63,5 @@ export const lazyEmulators = (load: Loader, probe?: EchoProbe): EmulatorFactory 
 };
 
 /** The App's Terminals: xterm and its addons load by native dynamic import on the first one. */
-export const lazyXtermEmulators = (probe?: EchoProbe, createWebgl?: () => RendererAddon): EmulatorFactory =>
-  lazyEmulators(() => import("./emulator").then(module => module.createXtermEmulators(probe, createWebgl)), probe);
+export const lazyXtermEmulators = (): EmulatorFactory =>
+  lazyEmulators(() => import("./emulator").then(module => module.createXtermEmulators()));

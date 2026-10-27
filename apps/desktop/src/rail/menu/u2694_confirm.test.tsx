@@ -6,8 +6,13 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { CHORDS, LEADER, RAIL_KEYS } from "../../keys/chords";
-import { agent, door, terminal, workstream } from "../../testing/nodes";
-import { exitedTerminal, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+import { agent, door, info, terminal, workstream } from "../../testing/nodes";
+import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+
+import { createFakeApp } from "../../testing/fakeApp";
+import { judgeRemoval } from "./removal";
+import { padOf } from "../../pads/padsFixture";
+import { todo } from "../../todos/testHarness";
 
 afterEach(cleanup);
 
@@ -17,7 +22,7 @@ const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120
 
 const removals = (app: Awaited<ReturnType<typeof mountRail>>["app"]) => app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method));
 
-const button = (name: string) => screen.getByRole("button", { name });
+
 
 const PING = { pong: true as const, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } };
 
@@ -60,9 +65,8 @@ describe("u2694 the Rail's menu actions", () => {
   it.each([
     [agent("chosen", "working", "busy"), []],
     [agent("chosen", "idle", "idle"), []],
-    [agent("chosen", "done", "done"), [exitedTerminal("chosen", 0)]],
     [terminal("chosen"), []],
-  ])("u3512a_every_rail_removal_waits_for_native_consent_%j", async (node, terminals) => {
+  ])("u3787a_live_rail_removal_waits_for_native_consent_%j", async (node, terminals) => {
     const { app } = await mountRail([node], terminals);
     app.handlers["rail.remove"] = () => null;
     open("chosen");
@@ -98,8 +102,8 @@ describe("u2694 the Rail's menu actions", () => {
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
   });
 
-  it("u2694b_a_workstream_remove_asks_what_goes_and_esc_keeps", async () => {
-    const { app } = await mountRail([workstream("g")]);
+  it("u2694b_a_workstream_worktree_remove_asks_what_goes_and_esc_keeps", async () => {
+    const { app } = await mountRail([workstream("g", { worktree: { path: "/p/tree", branch: "work", base: "main" } })]);
     app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
 
     open("g");
@@ -168,4 +172,68 @@ describe("u2694 the Rail's menu actions", () => {
 
     expect(await screen.findByText("inbox closed")).toBeTruthy();
   });
+});
+
+
+it.each([
+  workstream("group", { parent: "chosen", status: null }),
+  workstream("group", { parent: "chosen", worktree: { path: "/p/group", branch: "group", base: "main" } }),
+  door("supervisor", "working", "busy", { parent: "chosen" }),
+  door("supervisor", "done", "finished", { parent: "chosen", worktree: { path: "/p/door", branch: "door", base: "main" } }),
+])("u4368_only_agent_nodes_enter_goes_and_stays_%j", async container => {
+  const app = createFakeApp();
+  const result = await judgeRemoval(app, [workstream("chosen"), container], "chosen");
+
+  expect(result.removedIds).toEqual([container.id]);
+  expect(result.goes).toEqual({ agents: [], todos: 0, pads: 0 });
+  expect(result.stays).toEqual({ agents: [], todos: 0, pads: 0 });
+  expect(railCallsTo(app, "agent.worktreeState")).toEqual([]);
+});
+
+it("u4368_nested_agents_keep_a34_classification", async () => {
+  const app = createFakeApp();
+  app.handlers["todo.list"] = () => [todo(1, { home: "chosen", done: true }), todo(2, { home: "chosen" })];
+  app.handlers["pad.list"] = () => [
+    { ...padOf("finished notes", { kind: "agent", id: "finished", parent: null }), home: "chosen" },
+    { ...padOf("running notes", { kind: "agent", id: "running", parent: null }), home: "chosen" },
+  ];
+
+  const result = await judgeRemoval(app, [
+    workstream("chosen"),
+    workstream("group", { parent: "chosen", status: null }),
+    agent("finished", "done", "finished", { parent: "group", worktree: { path: "/p/finished", branch: "finished", base: "main" } }),
+    door("supervisor", "working", "busy", { parent: "group" }),
+    agent("running", "working", "busy", { parent: "supervisor" }),
+  ], "chosen");
+
+  expect(result.goes).toEqual({ agents: ["finished"], todos: 1, pads: 1 });
+  expect(result.stays).toEqual({ agents: [{ name: "running", reason: "Running" }], todos: 1, pads: 1 });
+  expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
+});
+
+it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_requires_consent_%s", async owner => {
+  const { app } = await mountRail([
+    workstream("chosen"),
+    workstream("group", { parent: "chosen", status: null }),
+    door("supervisor", "done", "finished", { parent: "group", terminal_id: null }),
+  ], [info("live-shell", { owner })]);
+
+  app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
+
+  open("chosen");
+  await app.pickMenu("Remove");
+  const question = await questionDialog();
+  const summary = question.message.slice(question.message.indexOf("Goes:"));
+  expect(question.message).toMatch(new RegExp(`Stop.*process.*${owner}`));
+  expect(summary).not.toMatch(/group|supervisor|Agents|Running/);
+  expect(removals(app)).toEqual([]);
+  await answerQuestion(false);
+  await waitFor(() => expect(questionProbe.shown).toBeNull());
+  expect(removals(app)).toEqual([]);
+
+  open("chosen");
+  await app.pickMenu("Remove");
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen" }]));
 });
