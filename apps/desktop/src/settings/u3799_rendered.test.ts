@@ -44,9 +44,9 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
     await lane.evaluate(`window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:window.__auditPath,command:${JSON.stringify(name)}}}))`);
   };
 
-  try {
-    await lane.browser("record", "start", join(dir, view + ".webm"));
+  let recording = false;
 
+  try {
     for (const filled of [false, true]) {
         await lane.evaluate("localStorage.clear()");
         await lane.browser("open");
@@ -88,6 +88,9 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           app.handlers['project.importDiscover'] = () => ({candidates:${filled ? "Array.from({length:3},(_,i)=>({source:'s'+i,revision:'r'+i,title:('Distinct conversation '+i+' 長い名前 ').repeat(12),cwd:'src',last_activity_ms:1n}))" : "[]"},excluded:[]});
           return true;
         })()`);
+
+        await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`));
+        recording = true;
 
         if (view === "resources") {
           await command("view:workstreams");
@@ -135,8 +138,10 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         }
 
         await capture(`${view}-${filled ? "filled" : "empty"}`);
+        await lane.browser("record", "stop");
+        recording = false;
     }
   } finally {
-    try { await lane.browser("record", "stop"); } finally { await lane.close(); }
+    try { if (recording) await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
 }, 180_000);
