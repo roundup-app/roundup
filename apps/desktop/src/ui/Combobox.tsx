@@ -41,6 +41,8 @@ const Root = (props: {
   const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && (props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
 
+  const groups = createMemo(() => collection().group());
+
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
   let pointerEvent = false;
 
@@ -87,9 +89,6 @@ const Root = (props: {
   }));
 
   const api = createMemo(() => combobox.connect(service, normalizeProps));
-  // Z3788d: new group tuple identities dispose surviving rows on every keystroke.
-  // Stable group names let Solid retain the inner item identities.
-  const groups = createMemo(() => new Map(collection().group()));
 
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
@@ -105,11 +104,16 @@ const Root = (props: {
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
-      <For each={[...groups().keys()]} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
-        {(group) => group ? <ArkCombobox.ItemGroup>
-          <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
-          <For each={groups().get(group)}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
-        </ArkCombobox.ItemGroup> : <For each={groups().get(group)}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
+      <For each={groups().map(([group]) => group)} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
+        {(group) => {
+          // Key the owner by its group name: replacing a tuple remounts every option on each edit (Z3788d).
+          const items = () => groups().find(([name]) => name === group)?.[1] ?? [];
+
+          return group ? <ArkCombobox.ItemGroup>
+            <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
+            <For each={items()}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
+          </ArkCombobox.ItemGroup> : <For each={items()}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>;
+        }}
       </For>
     </ArkCombobox.Content>
   </ArkCombobox.RootProvider>;

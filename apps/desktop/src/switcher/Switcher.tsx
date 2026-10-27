@@ -74,6 +74,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const actions = createMemo(() => openingSurvives() ? opening().actions.filter((action) => action.available()) : []);
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
+
   const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
 
   const shown = createMemo(() => [
