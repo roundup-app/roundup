@@ -10,7 +10,7 @@ const load = async () => {
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); const name = document.querySelector('.rail-row[data-id="${id}"] .name').getBoundingClientRect(); return { x: name.left + 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
@@ -25,8 +25,8 @@ const dragBelow = async (id: string, to: string, shift = 0) => {
   await mouse("down");
   await mouse("move", from.x + 6, from.y + 6);
   await wait(`document.querySelector('[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
-  await mouse("move", from.x + 6 + shift, target.bottom + 2);
-  await mouse("move", from.x + shift, target.bottom + 2);
+  await mouse("move", Math.max(1, from.x + 6 + shift), target.bottom + 2);
+  await mouse("move", Math.max(1, from.x + shift), target.bottom + 2);
 };
 
 const settle = (calls: number) => wait(`window.__fake.app.calls.filter(call => call.method === 'rail.move').length >= ${calls} && !document.querySelector('[data-dnd-placeholder]')`);
