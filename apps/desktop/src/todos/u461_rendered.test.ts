@@ -260,13 +260,13 @@ it("u3789a_real_daemon_rows", async () => {
       const fetch = window.fetch;
       window.fetch = (...args) => { if (String(args[0]).endsWith('/__daemon/rpc')) window.__rowCalls.push(JSON.parse(args[1].body)); return fetch(...args); };
     })()`);
-    await browser("click", `.rail-row[data-id="${child.id}"]`);
+    await browser("click", `.rail-row[data-id="${child.id}"] .name`);
     await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${child.id}'`);
     expect(await evaluate("window.__rowCalls.filter(call => ['agent.spawn','agent.resume','rail.startDoor'].includes(call.method))")).toEqual([]);
     expect(await evaluate("!!document.querySelector('.bubble:not([hidden])')")).toBe(false);
     await browser("press", "Enter");
     await until("document.activeElement?.closest('.pane-screen')");
-    await browser("click", `.rail-row[data-id="${home.id}"]`);
+    await browser("click", `.rail-row[data-id="${home.id}"] .name`);
     await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${home.id}'`);
     await evaluate("(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
 

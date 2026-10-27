@@ -231,7 +231,10 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await lane.until("!!document.querySelector('#shelf-tab-todos')");
-    await lane.browser("click", `.rail-row[data-id="${home.id}"] .name`);
+    await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await lane.until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
+    await lane.browser("press", "Enter");
+    await lane.until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
