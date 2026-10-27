@@ -211,7 +211,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         <Combobox.Root virtualized autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
-          element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
+          element.addEventListener("input", () => batch(() => { restoring = false; setText(element.value); retain(); }));
           element.addEventListener("focus", () => {
             // Ark selects an input after focusing it; restore the retained caret after that selection.
             queueMicrotask(() => {

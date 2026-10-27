@@ -15,7 +15,7 @@ import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { copy } from "../copy";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
-import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
 
 import { createVirtualizer, defaultRangeExtractor } from "@tanstack/solid-virtual";
 
@@ -48,9 +48,15 @@ const Root = (props: {
 }) => {
   const dismiss = props.onDismiss ?? Popover.dismiss();
   const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && (props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
-  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
+  const grouped = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
 
-  const groups = createMemo(() => collection().group());
+  const groups = createMemo(() => grouped().group());
+
+  // Zag 1.45 regrouped the complete list on each at()/firstValue read in the Z3788d profile.
+  // Its flat collection preserves the rendered group order without repeating that traversal.
+  const collection = createMemo(() => props.virtualized ? createListCollection({
+    items: groups().flatMap(([, items]) => items), itemToValue: item => item.value, itemToString: item => item.label,
+  }) : grouped());
 
   let list: HTMLDivElement | undefined;
   const destinations = createMemo(() => props.items.filter(item => !props.group?.(item)));
@@ -114,24 +120,26 @@ const Root = (props: {
     },
   });
 
-  const service = useMachine(machine, () => ({
-    id, ids: { label: field?.().ids.label, input: field?.().ids.control },
-    disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
-    dir: locale().dir, getRootNode: environment().getRootNode,
-    collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
+  // Getter props let Zag's scope read only ids/environment, rather than rebuilding on each query.
+  const service = useMachine(machine, {
+    id, get ids() { return { label: field?.().ids.label, input: field?.().ids.control }; },
+    get disabled() { return field?.().disabled; }, get readOnly() { return field?.().readOnly; },
+    get required() { return field?.().required; }, get invalid() { return field?.().invalid; },
+    get dir() { return locale().dir; }, get getRootNode() { return environment().getRootNode; },
+    get collection() { return collection(); }, get multiple() { return props.items.some(item => props.contentRow?.(item)); }, open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
     scrollToIndexFn: props.virtualized ? ({ index, getElement }) => {
       if (index < destinations().length) virtual.scrollToIndex(index, { align: "auto" });
       else getElement()?.scrollIntoView({ block: "nearest" });
     } : undefined,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
-    inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
+    get inputValue() { return props.inputValue; }, value: [], get highlightedValue() { return props.highlightedValue ?? undefined; },
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
     onOpenChange: details => { if (!details.open && details.reason === "escape-key") dismiss?.(); },
     onValueChange: details => { const [value] = details.value;
 
       if (value !== undefined) props.onSelect(value); },
-  }));
+  });
 
   const api = createMemo(() => combobox.connect(service, normalizeProps));
 
@@ -148,16 +156,20 @@ const Root = (props: {
   const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
     ?? props.items.find(item => props.contentRow?.(item))?.value;
 
-  const itemRow = (item: ComboboxItem) => <ArkCombobox.Item item={item} asChild={itemProps => <div {...itemProps({})} class="app-combobox-item"
+  const itemRow = (item: () => ComboboxItem) => <ArkCombobox.Item item={item()} asChild={itemProps => <div {...itemProps({})} class="app-combobox-item"
     ref={element => {
-      if (!props.contentRow?.(item)) return;
-      rows.set(item.value, element);
-      content.register(element, item.value);
-      onCleanup(() => rows.delete(item.value));
-    }} tabIndex={props.contentRow?.(item) && tabStop() === item.value ? 0 : -1}
-    onFocus={() => { if (props.contentRow?.(item)) props.onHighlightChange(item.value); }} aria-selected={props.contentRow?.(item) ? content.selection.isSelected(item.value) : undefined}
-    data-row-selected={props.contentRow?.(item) && content.selection.isSelected(item.value) ? "true" : undefined}>
-    {props.row(item)}
+      createEffect(() => {
+        const entry = item();
+
+        if (!props.contentRow?.(entry)) return;
+        rows.set(entry.value, element);
+        content.register(element, entry.value);
+        onCleanup(() => { if (rows.get(entry.value) === element) rows.delete(entry.value); });
+      });
+    }} tabIndex={props.contentRow?.(item()) && tabStop() === item().value ? 0 : -1}
+    onFocus={() => { if (props.contentRow?.(item())) props.onHighlightChange(item().value); }} aria-selected={props.contentRow?.(item()) ? content.selection.isSelected(item().value) : undefined}
+    data-row-selected={props.contentRow?.(item()) && content.selection.isSelected(item().value) ? "true" : undefined}>
+    {props.row(item())}
   </div>} />;
 
 
@@ -185,13 +197,22 @@ const Root = (props: {
 
           return group ? <ArkCombobox.ItemGroup>
             <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
-            <For each={items()}>{(item) => itemRow(item)}</For>
+            <For each={items()}>{(item) => itemRow(() => item)}</For>
           </ArkCombobox.ItemGroup> : props.virtualized ? <div class="app-combobox-viewport" style={{ height: `${virtual.getTotalSize()}px` }}>
-            <For each={virtual.getVirtualItems().map(slot => destinations()[slot.index]).filter((item): item is ComboboxItem => item !== undefined)}>{item => <div class="app-combobox-slot" style={{ transform: `translateY(${virtual.getVirtualItems().find(slot => slot.key === item.value)?.start ?? 0}px)` }}
-              data-index={destinations().indexOf(item)} ref={element => { queueMicrotask(() => { if (element.isConnected) virtual.measureElement(element); }); }}>
-              {itemRow(item)}
-            </div>}</For>
-          </div> : <For each={items()}>{(item) => itemRow(item)}</For>;
+            {/* Z3788d: disjoint queries remounted every visible Ark owner in the 8.243 ms input span.
+                Keep logical indices mounted so scrolling cannot replace the focused row's owner. */}
+            <For each={virtual.getVirtualItems().map(slot => slot.index).filter(index => destinations()[index] !== undefined)}>{index => {
+              // A removed index retains its last item until Solid disposes its Ark owner.
+              const item = createMemo<ComboboxItem>(previous => destinations()[index] ?? previous!, destinations()[index]!);
+
+              return <div class="app-combobox-slot" style={{ transform: `translateY(${virtual.getVirtualItems().find(slot => slot.index === index)?.start ?? 0}px)` }}
+                data-index={index} ref={element => { createEffect(() => {
+                  if (item()) queueMicrotask(() => { if (element.isConnected) virtual.measureElement(element); });
+                }); }}>
+                {itemRow(item)}
+              </div>;
+            }}</For>
+          </div> : <For each={items()}>{(item) => itemRow(() => item)}</For>;
         }}
       </For>
     </ArkCombobox.Content>

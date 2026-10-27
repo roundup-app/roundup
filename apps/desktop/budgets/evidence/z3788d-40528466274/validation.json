@@ -1,0 +1,23 @@
+{
+  "focusedTests": {
+    "exit": 0,
+    "files": 4,
+    "tests": 71
+  },
+  "types": 0,
+  "pnpmInstall": 0,
+  "mergeLoss": 0,
+  "productionBuild": 0,
+  "startupGzipBytes": 433700,
+  "startupCeiling": 437814,
+  "candidateObserver": 1,
+  "baselineObserver": 2,
+  "justReady": "in progress; Rust checks passed, proof toolchain installing",
+  "relatedTests": "in progress; compilation lock caused a retry; no complete pass",
+  "justCapture": "full workspace attempt interrupted; explicit six captures pass",
+  "nativeCI": {
+    "run": 40520992110,
+    "mac": "success",
+    "mac-clippy": "success"
+  }
+}
