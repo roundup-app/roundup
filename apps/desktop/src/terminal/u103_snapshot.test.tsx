@@ -448,6 +448,7 @@ it.each(["gap", "refused"])("z3788a_catch_up_%s_preserves_snapshot_authority", a
 
     return { kind: "gap", id, incarnation, from: 10, after: 14 };
   };
+
   screens.show("t-a", host);
 
   if (result === "gap") {
