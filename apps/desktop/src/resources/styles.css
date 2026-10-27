@@ -98,6 +98,11 @@
   display: none;
 }
 
+.hint-frame {
+  flex: none;
+  height: var(--hint-row-height);
+}
+
 .hint-line {
   grid-column: 1 / -1;
   grid-row: 1;
