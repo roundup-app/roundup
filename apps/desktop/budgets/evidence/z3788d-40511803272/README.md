@@ -43,3 +43,5 @@ The production archives now replay without recollection. Each input mark is uniq
 Both phases validate all 660 samples and selection/focus/zero-write observations; both exit 1, valid over budget. No native or rule-7 pass is claimed. The original final diagnostic is decoded in `../z3788d-40519088221/profile-final-analysis.json`: of 1,083 inclusive input-handler samples, 253 include estimateSize and 137 getPropertyValue, with 169 under matching including the logical observer's own ranking. These are overlapping diagnostic counts, not latency intervals.
 
 Reports larger than 1 MB are stored losslessly as .json.gz; active verifiers read compressed samples directly and write large timings compressed. Decompress those reports before running an original historical verifier unchanged. Raw Chromium trace bytes are unchanged.
+
+The 4000-timings.json.gz report uses wrapped .part-NNN.gz fragments too: decompress each wrapper and concatenate to recover its original gzip stream.
