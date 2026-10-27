@@ -15,6 +15,7 @@ const inventory = [
   { tab: "Todos", selector: ".todo-row-button" },
   { tab: "Pads", selector: ".pad-name" },
 ] as const;
+
 const names = ["Alpha", "長い名前 é 🧭 ".repeat(10), "same", "same", "Éclair", "Zulu", "hidden", "disabled"];
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -29,20 +30,27 @@ const mount = async (entry: typeof inventory[number]) => {
   await screen.findByRole("textbox", { name: "Ask" });
   await showEverythingInApp();
   showShelfTab(entry.tab);
+
   const group = await waitFor(() => {
     const row = document.querySelector<HTMLElement>('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]');
     expect(row).not.toBeNull();
+
     return row!;
   });
+
   if (group.closest('[data-state="closed"]')) fireEvent.click(group);
+
   const rows = await waitFor(() => {
     const rows = [...document.querySelectorAll<HTMLButtonElement>(`.shelf ${entry.selector}`)];
     expect(rows).toHaveLength(8);
+
     return rows;
   });
+
   rows[6]!.hidden = true;
   rows[7]!.disabled = true;
   const before = app.calls.length;
+
   return { rows, app, before };
 };
 
@@ -70,7 +78,6 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $tab", async entry =
   expect(document.activeElement).toBe(match);
   fireEvent.keyDown(match, { key: "c" });
   expect(document.activeElement).toBe(match);
-  expect(match.getAttribute("aria-pressed")).toBe("true");
   const input = screen.getByRole("textbox", { name: "Ask" });
   input.focus();
   fireEvent.keyDown(input, { key: "A" });

@@ -77,11 +77,13 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     if (event.metaKey && !event.shiftKey && event.key.toLowerCase() === "a") {
       event.preventDefault();
       library.selection.setSelectedValues(collection.getValues());
+
       return;
     }
 
     if (event.metaKey) return;
     const current = String(id);
+
     const next = event.key === "Home" ? collection.firstValue
       : event.key === "End" ? collection.lastValue
       : event.key === "ArrowUp" ? collection.getPreviousValue(current)
