@@ -1,7 +1,8 @@
+import type { DeleteParams } from "@contracts/todo/DeleteParams";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
-import { createFakeApp } from "../testing/fakeApp";
+import { createFakeApp, type FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { TodoHost } from "./TodoDrawer";
 import { todo } from "./testHarness";
@@ -140,25 +141,6 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
 });
 
-it("u3787a_unknown_delete_reconciles_before_retry", async () => {
-  const { app, remove } = await mount();
-  const daemon = app.of("/a");
-  daemon.handlers["todo.delete"] = () => { throw new Error("reply lost"); };
-
-  daemon.handlers["todo.deletion"] = () => { throw new Error("offline"); };
-
-  await remove("/a");
-  await screen.findByRole("button", { name: "Check deletion" });
-  expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
-  // SAFETY: the journal is filtered to todo.delete, whose generated params contain operation.
-  const original = app.of("/a").calls.filter(call => call.method === "todo.delete")[0]!.params as { operation: string };
-  daemon.handlers["todo.deletion"] = () => ({ ...original, deleted: [5], missing: [], state: "deleted" });
-  fireEvent.click(screen.getByRole("button", { name: "Check deletion" }));
-  await screen.findByRole("button", { name: "Undo" });
-  expect(app.of("/a").calls.filter(call => call.method === "todo.delete").length).toBe(1);
-  expect(app.of("/a").calls.filter(call => call.method === "todo.deletion").map(c => c.params)).toEqual([{ operation: original.operation }, { operation: original.operation }]);
-});
-
 it("u3787a_undo_failure_is_retryable", async () => {
   const { app, remove } = await mount();
   await remove("/a");
@@ -209,4 +191,152 @@ it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
   expect(app.of("/a").calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([
     { ids: [5], operation: expect.any(String) }, { ids: [7], operation: expect.any(String) },
   ]);
+});
+
+const deletions = (daemon: FakeApp): DeleteParams[] => daemon.calls.filter(call => call.method === "todo.delete").map(call => {
+  // SAFETY: journal entries filtered to todo.delete have the generated DeleteParams.
+  return call.params as DeleteParams;
+});
+
+const draftBytes = "  未送信 é 🧭\n keep trailing spaces  ";
+
+const openSeventh = async (connections: Map<string, ConnectedProject>) => {
+  const connected = connections.get("/a")!;
+  connected.drawer.open(() => <TodoHost id={7} />, "key");
+  const drawer = screen.getByRole("complementary", { name: "Drawer" });
+  const button = await within(drawer).findByRole<HTMLButtonElement>("button", { name: "Delete Todo" });
+  const field = await within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  fireEvent.input(field, { target: { value: draftBytes } });
+  button.focus();
+
+  return { connected, opening: connected.drawer.content(), button, field, drawer };
+};
+
+const unconfirmed = async () => {
+  const mounted = await mount();
+  const daemon = mounted.app.of("/a");
+
+  daemon.handlers["todo.delete"] = () => { throw new Error("reply lost"); };
+
+  daemon.handlers["todo.deletion"] = () => { throw new Error("offline"); };
+
+  await mounted.remove("/a");
+  await screen.findByRole("button", { name: "Check deletion" });
+
+  return { ...mounted, daemon };
+};
+
+it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async () => {
+  const { app, connections } = await unconfirmed();
+  const { connected, opening, button, field, drawer } = await openSeventh(connections);
+  fireEvent.click(button);
+  await within(drawer).findByText("Deleting #5 is unconfirmed. Check that deletion before trying Delete again.");
+  expect(connected.drawer.content()).toBe(opening);
+  expect(document.activeElement).toBe(button);
+  expect(field.value).toBe(draftBytes);
+  const recovery = within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" });
+  expect(recovery.disabled).toBe(false);
+  const feedback = within(drawer).getByRole("alert");
+  const announcements: string[] = [];
+  const observer = new MutationObserver(() => { announcements.push(feedback.textContent ?? ""); });
+  observer.observe(feedback, { childList: true, characterData: true, subtree: true });
+  fireEvent.click(button);
+  await waitFor(() => expect(announcements).toContain(feedback.textContent));
+  observer.disconnect();
+  recovery.focus();
+  expect(document.activeElement).toBe(recovery);
+  expect(app.of("/a").calls.filter(call => ["todo.delete", "todo.restore", "todo.comment", "todo.update"].includes(call.method))).toEqual([
+    { method: "todo.delete", params: { operation: expect.any(String), ids: [5] } },
+  ]);
+  expect(app.of("/b").calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
+});
+
+it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async () => {
+  const { app, connections, daemon } = await unconfirmed();
+  const { button, drawer, field, connected, opening } = await openSeventh(connections);
+  fireEvent.click(button);
+  const recovery = await within(drawer).findByRole("button", { name: "Check deletion" });
+  const original = deletions(daemon)[0]!;
+  daemon.handlers["todo.deletion"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "deleted" });
+  fireEvent.click(recovery);
+  await screen.findByRole("button", { name: "Undo" });
+  expect(connected.drawer.content()).toBe(opening);
+  expect(field.value).toBe(draftBytes);
+  expect(daemon.calls.filter(call => call.method === "todo.deletion").map(call => call.params)).toEqual([
+    { operation: expect.any(String) }, { operation: expect.any(String) },
+  ]);
+  expect(daemon.calls.filter(call => call.method === "todo.deletion").every(call => JSON.stringify(call.params) === JSON.stringify({ operation: original.operation }))).toBe(true);
+  expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([{ method: "todo.delete", params: original }]);
+  daemon.handlers["todo.delete"] = p => ({ operation: p.operation, deleted: p.ids, missing: [], state: "deleted" });
+  button.focus();
+  fireEvent.click(button);
+  await waitFor(() => expect(connected.drawer.content()).toBe(null));
+  expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
+    { method: "todo.delete", params: original }, { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
+  ]);
+  daemon.handlers["todo.restore"] = p => ({ operation: p.operation, deleted: [7], missing: [], state: "restored" });
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
+    { method: "todo.restore", params: { operation: deletions(daemon)[1]!.operation } },
+  ]));
+  expect(app.of("/b").calls.filter(call => ["todo.delete", "todo.restore", "todo.deletion"].includes(call.method))).toEqual([]);
+});
+
+const restoring = async () => {
+  const mounted = await mount();
+  await mounted.remove("/a");
+  await waitFor(() => expect(mounted.connections.get("/a")!.drawer.content()).toBe(null));
+  const opened = await openSeventh(mounted.connections);
+  const daemon = mounted.app.of("/a");
+  let finish!: (value: { operation: string; deleted: number[]; missing: number[]; state: "restored" }) => void;
+  daemon.handlers["todo.restore"] = () => new Promise(resolve => { finish = resolve; });
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
+    { method: "todo.restore", params: { operation: deletions(daemon)[0]!.operation } },
+  ]));
+  opened.button.focus();
+  fireEvent.click(opened.button);
+
+  return { ...mounted, ...opened, daemon, finish };
+};
+
+it("u3787h_a_drawer_delete_explains_the_pending_restore", async () => {
+  const { app, daemon, connected, opening, drawer, button, field } = await restoring();
+  const progress = await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  expect(within(drawer).queryByRole("alert")).toBe(null);
+  expect(progress.closest('[role="status"]')?.getAttribute("aria-live")).toBe("polite");
+  expect(connected.drawer.content()).toBe(opening);
+  expect(document.activeElement).toBe(button);
+  expect(field.value).toBe(draftBytes);
+  expect(daemon.calls.filter(call => ["todo.delete", "todo.restore", "todo.comment", "todo.update"].includes(call.method))).toEqual([
+    { method: "todo.delete", params: { operation: expect.any(String), ids: [5] } },
+    { method: "todo.restore", params: { operation: deletions(daemon)[0]!.operation } },
+  ]);
+  expect(app.of("/b").calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
+});
+
+it("u3787h_restore_completion_requires_a_new_delete", async () => {
+  const { daemon, finish, connected, opening, drawer, button, field } = await restoring();
+  await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  const operation = deletions(daemon)[0]!.operation;
+  finish({ operation, deleted: [5], missing: [], state: "restored" });
+  await waitFor(() => expect(within(drawer).queryByText("Restoration is in progress. Wait for it to finish, then try Delete again.")).toBe(null));
+  expect(connected.drawer.content()).toBe(opening);
+  expect(field.value).toBe(draftBytes);
+  expect(document.activeElement).toBe(button);
+  expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
+    { method: "todo.delete", params: { operation, ids: [5] } },
+  ]);
+  fireEvent.click(button);
+  await waitFor(() => expect(connected.drawer.content()).toBe(null));
+  const undo = await screen.findByRole("button", { name: "Undo" });
+  expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
+    { method: "todo.delete", params: { operation, ids: [5] } },
+    { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
+  ]);
+  fireEvent.click(undo);
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
+    { method: "todo.restore", params: { operation } },
+    { method: "todo.restore", params: { operation: deletions(daemon)[1]!.operation } },
+  ]));
 });
