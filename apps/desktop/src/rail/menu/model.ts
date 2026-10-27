@@ -153,7 +153,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     try {
       const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
-      const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds?.includes(node.id))];
+      const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
       const losses = chosen.flatMap(node => [
         ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),

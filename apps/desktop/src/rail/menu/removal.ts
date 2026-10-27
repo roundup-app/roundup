@@ -10,7 +10,7 @@ export type Stay = { name: string; reason: string };
 
 /** A34's judgement of a Workstream, from the same facts: what goes, and what stays at the Project root. */
 export type Removal = {
-  removedIds?: string[];
+  removedIds: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
 };
@@ -29,7 +29,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   const removal: Removal = { removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
   const staying = new Set<string>();
 
-  for (const node of below(nodes, id).filter((each) => each.kind === "agent")) {
+  for (const node of below(nodes, id)) {
     const reason = !FINISHED.has(node.status?.kind ?? "")
       ? copy.running
       : node.worktree === null
@@ -38,7 +38,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
     if (reason === null) {
       removal.goes.agents.push(node.name);
-      removal.removedIds!.push(node.id);
+      removal.removedIds.push(node.id);
     } else {
       removal.stays.agents.push({ name: node.name, reason });
       staying.add(node.id);
