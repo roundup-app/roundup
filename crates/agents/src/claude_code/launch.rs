@@ -394,7 +394,9 @@ impl Launcher {
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &carried, &project);
-        let plain = carried.get("outputStyle").is_none();
+        if carried.get("outputStyle").is_none() {
+            carried["outputStyle"] = json!("hold:Plain");
+        }
         replace_file(&settings, &{
             let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried)?;
             if role == Role::Door && mcp {
@@ -458,7 +460,7 @@ impl Launcher {
             }
         }
         let brief_file = brief_path(&dir, id);
-        let mut brief = brief::text(role, mcp, plain);
+        let mut brief = brief::text(role, mcp);
         if missing_intent {
             brief = brief::without_intent(&brief);
         }
