@@ -67,7 +67,7 @@ const capture = async (step: string, id = "U3021c") => {
   if (!directory) return;
   mkdirSync(directory, { recursive: true });
   await browser("screenshot", join(directory, `${step}.png`));
-  writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
+  writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`)) + "\n");
 };
 
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
