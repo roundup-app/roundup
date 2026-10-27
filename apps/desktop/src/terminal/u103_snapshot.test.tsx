@@ -430,3 +430,37 @@ it.each(["", "later\r\n"])("z3788a_retained_emulator_catches_up_hidden_output_%j
   screens.dispose();
   connected.stopTerminalScheme();
 });
+
+it.each(["gap", "refused"])("z3788a_catch_up_%s_preserves_snapshot_authority", async (result) => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const { factory, made } = recordingEmulators();
+  const screens = createScreens(connected, factory);
+  const host = document.createElement("div");
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(made.get("t-a")?.log).toContain(""));
+  app.emitOutput("t-a", "retained");
+  screens.hide("t-a");
+  app.emitOutput("t-a", "hidden");
+  app.handlers["terminal.snapshot"] = () => snapshotOf("authoritative screen", 14);
+  app.handlers["terminal.catchUp"] = ({ id, incarnation }) => {
+    if (result === "refused") throw new Error("original Terminal unavailable");
+
+    return { kind: "gap", id, incarnation, from: 10, after: 14 };
+  };
+  screens.show("t-a", host);
+
+  if (result === "gap") {
+    await vi.waitFor(() => expect(made.get("t-a")?.log.at(-1)).toBe("authoritative screen"));
+    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained", "reset", "size 100x30", "authoritative screen"]);
+    expect(screens.failure("t-a")).toBeNull();
+  } else {
+    await vi.waitFor(() => expect(screens.failure("t-a")).toBe("terminal.catchUp: original Terminal unavailable"));
+    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained"]);
+    expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1);
+  }
+
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
