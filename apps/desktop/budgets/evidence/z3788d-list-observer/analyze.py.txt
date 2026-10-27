@@ -47,8 +47,8 @@ for length in [40,400,4000]:
   (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
   names={'PipelineReporter','EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
   retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
-  with gzip.open(out/f'{length}-full-trace.json.gz','wb') as archive: archive.write(raw)
-  with gzip.open(out/f'{length}-trace.json.gz','wt') as archive: json.dump({'traceEvents':retained},archive,ensure_ascii=False,separators=(',',':'))
+  (out/f'{length}-full-trace.json.gz').write_bytes(gzip.compress(raw,mtime=0))
+  (out/f'{length}-trace.json.gz').write_bytes(gzip.compress(json.dumps({'traceEvents':retained},ensure_ascii=False,separators=(',',':')).encode(),mtime=0))
   report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
   trace.unlink(missing_ok=True)
  except Exception as error:
