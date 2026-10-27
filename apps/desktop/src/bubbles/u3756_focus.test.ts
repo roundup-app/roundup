@@ -23,12 +23,12 @@ const load = async (seed = "empty-project", recording?: string) => {
   // agent-browser start creates a new context and drops media emulation; restart records this dark context.
   if (recording) await browser("record", "restart", recording);
 
-  await wait(`!!window.__fake && !!document.querySelector('.rail-actions button')`);
+  await wait(`!!window.__fake && !!document.querySelector('.rail-actions [data-button="add"]')`);
   await read(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    document.querySelector('.rail-actions button').click();
+    document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
   await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
 };
@@ -305,7 +305,7 @@ const loadDense = async () => {
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('.rail-actions button').click();
+    document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
   await wait(`!!window.arrive`);
   await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);

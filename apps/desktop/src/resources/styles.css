@@ -121,7 +121,7 @@
 
 .resource-inspection {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -129,6 +129,9 @@
 
 
 .resource-values {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: var(--space-3);

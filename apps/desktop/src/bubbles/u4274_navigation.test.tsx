@@ -130,3 +130,11 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
     { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null } },
   ]);
 });
+
+it("u4277c_hidden_project_terminals_never_report_empty", async () => {
+  const { connected, shells } = await mountNavigation(true);
+  shells.push(info("shell", { owner: "other" }));
+  await connected().rail.refresh({ terminals: true });
+  const bar = await screen.findByRole("group", { name: "Terminals" });
+  expect(within(bar).queryByRole("status")).toBeNull();
+});
