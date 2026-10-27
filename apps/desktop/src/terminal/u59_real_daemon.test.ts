@@ -61,7 +61,9 @@ run("u59 on the real Daemon", () => {
     await openHarness();
     await page.until(`() => Boolean(document.querySelector('.rail-row[data-id="${selected}"]'))`);
     await page.call(`id => document.querySelector('.rail-row[data-id="' + id + '"]').focus()`, selected);
+    await page.until(`() => document.activeElement?.matches('.rail-row[data-id="${selected}"]')`);
     await page.press("Enter", "Enter");
+    await page.until(`() => document.querySelector('.rail-row[data-id="${selected}"]')?.dataset.selected === 'true'`);
 
     await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
 
