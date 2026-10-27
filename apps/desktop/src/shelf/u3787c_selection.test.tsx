@@ -68,7 +68,15 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $tab", async entry =
   const match = eligible.find(row => row.textContent?.includes("Éclair"))!;
   fireEvent.keyDown(first, { key: "É" });
   expect(document.activeElement).toBe(match);
+  fireEvent.keyDown(match, { key: "c" });
+  expect(document.activeElement).toBe(match);
   expect(match.getAttribute("aria-pressed")).toBe("true");
+  const input = screen.getByRole("textbox", { name: "Ask" });
+  input.focus();
+  fireEvent.keyDown(input, { key: "A" });
+  fireEvent.keyDown(input, { key: "a", metaKey: true });
+  expect(document.activeElement).toBe(input);
+  expect(eligible.filter(row => row.getAttribute("aria-pressed") === "true")).toEqual([match]);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
 });
@@ -78,6 +86,8 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $tab", async entr
   const eligible = rows.filter(row => !row.hidden && !row.disabled);
   const selected = () => rows.filter(row => row.getAttribute("aria-pressed") === "true");
   fireEvent.click(eligible[2]!, { shiftKey: true });
+  expect(selected()).toEqual([eligible[2]]);
+  fireEvent.click(eligible[2]!, { metaKey: true, shiftKey: true });
   expect(selected()).toEqual([eligible[2]]);
   fireEvent.click(eligible[0]!, { metaKey: true });
   expect(selected()).toEqual([eligible[0], eligible[2]]);
