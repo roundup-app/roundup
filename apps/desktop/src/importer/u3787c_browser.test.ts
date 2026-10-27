@@ -15,10 +15,17 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
   const dir = captureDir("U3787c");
   const daemon = seed === "tabs-8" ? "window.__fake.app.of('/Users/you/project-number-2')" : "window.__fake.app";
 
-  if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, `import-${seed}.webm`)); }
+  if (dir) {
+    mkdirSync(dir, { recursive: true });
+    const url = await lane.evaluate<string>("location.href");
+
+    await lane.browser("record", "start", join(dir, `import-${seed}.webm`), url);
+  }
 
   try {
     await lane.until("!!window.__fake && !!document.querySelector('.rail-row')");
+    await lane.browser("set", "viewport", "1512", "950");
+    await lane.browser("set", "media", "dark");
 
     if (seed === "tabs-8") {
       await lane.browser("focus", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
@@ -33,6 +40,8 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
       window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'import-work'}}));
       return true;
     })()`);
+    await lane.until("!!document.querySelector('.import-panel')");
+    await lane.browser("click", ".import-words > button");
     await lane.until("document.querySelectorAll('.import-check input').length === 8");
     await lane.capture("U3787c", `import-${seed}-before`);
     await lane.evaluate(`(() => {
