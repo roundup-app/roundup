@@ -1,7 +1,10 @@
 (async()=>{
 const frame=document.createElement('iframe');
 frame.id='motion-observer';frame.style='position:fixed;inset:0;width:1512px;height:950px;border:0;z-index:99999';
-frame.srcdoc=`<!doctype html><html><head><link rel="stylesheet" href="/src/tokens.css"><link rel="stylesheet" href="/src/styles.css"><link rel="stylesheet" href="/src/scrollbar.css"></head><body style="margin:0"><div id="root"></div><script type="module">
+frame.srcdoc=`<!doctype html><html><head></head><body style="margin:0"><div id="root"></div><script type="module">
+import '/src/tokens.css';
+import '/src/styles.css';
+import '/src/scrollbar.css';
 import {createRoot} from '/node_modules/.vite/deps/solid-js.js';
 import {render} from '/node_modules/.vite/deps/solid-js_web.js';
 import {App} from '/src/App.tsx';
