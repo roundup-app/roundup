@@ -78,3 +78,36 @@ All 29 existing tests pass in `u102_emulator.test.ts`, `u103_snapshot.test.tsx` 
 Remaining on #3853: integrate Find and query retention, serialize with authoritative Daemon snapshot offsets/reload recovery, route copy/failure through the real App clipboard owner, adopt bounded images lazily, prove native copy authority and ten-Agent memory, record production entry/lazy/WASM bytes, then make required real-Daemon captures. The Intervene journey, P1/P3/P9/P11 and D2/D5/D6 still require their App observers after integration. Z3788d's valid rendered list measurements remain separate; no virtualization is authorized or installed.
 
 `just ready` exits 0, including web/Rust lints, proofs, workflow checks, trailers, frozen checks and N7. The final report boundary lint also exits 0 after correcting two spelling matches. `validation.json` records these exits; merge-loss, vocabulary and whitespace checks pass.
+
+## Continued verification
+
+The replacement for closed PR #4312 starts at its final head `07189f34309cc8f2504e39a7eb78e9b844ca21de`, which already removed the unrelated recovery, styling and browser-test changes. A clean merge of main `02dd47127` leaves only this evidence directory in the diff; merge-loss passes. The original 13 evidence files were unchanged before this continuation.
+
+A fresh isolated installation, patched packages and fresh dedicated headless Chromium profile at 1512×950 reproduce all 40 checks (`continued-result.json`). All 29 existing emulator/snapshot/renderer-recovery tests pass again. The dedicated browser and probe server are closed. `continued-validation.json` records the revision pair and results. This does not extend the native, rendering, memory or production-byte claims above.
+
+After a further clean merge of main `eb7397cfb`, `just ready` exits 0: web/Rust lints, types, proofs and mutation checks, trailers, frozen checks, 36 workflow tests and N7 pass. App source still equals main, and merge-loss passes. The first verification caught escaped Unicode in the new JSON evidence; readable Unicode repairs it without changing decoded values. An interrupted lint left a temporary test fixture, removed before the complete passing rerun. Both repaired attempts are recorded in `continued-validation.json`.
+
+
+## Required check failures on main
+
+PR #4334 head `7dc58c64c` fails [check 40431297227](https://github.com/roundup-app/roundup/actions/runs/40431297227) in all seven web lanes. Main `eb7397cfb` independently fails [check 40430430021](https://github.com/roundup-app/roundup/actions/runs/40430430021) on the same behavioral cases. `git diff 7dc58c64c eb7397cfb -- apps/desktop/src` is empty. `continued-validation.json` records the exact common cases and the additional Pad-rename setup failure observed only in the PR run. This establishes a shared baseline failure; it does not establish one cause for all cases.
+
+The logs include waits for removed `.terminal-new`, `.pane-action` and `.measurement-action` controls, Pad/Shelf navigation that never reaches its target, drag/call assertions, focus failures and setup timeouts. A dependency-scan warning also names a missing temporary `u507-bound-layout.js`; no claim is made that it explains the other failures. PR #4312's review rejected including unrelated product and test repairs in this probe slice.
+
+| Existing observer group | Scoped repair prerequisite |
+| --- | --- |
+| terminal | [#4339](https://github.com/roundup-app/roundup/issues/4339) |
+| bubbles | [#4340](https://github.com/roundup-app/roundup/issues/4340) |
+| app | [#4341](https://github.com/roundup-app/roundup/issues/4341) |
+| todos | [#4342](https://github.com/roundup-app/roundup/issues/4342) |
+| rail | [#4343](https://github.com/roundup-app/roundup/issues/4343) |
+| timeline | [#4344](https://github.com/roundup-app/roundup/issues/4344) |
+| ui | [#4345](https://github.com/roundup-app/roundup/issues/4345) |
+| drawer | [#4346](https://github.com/roundup-app/roundup/issues/4346) |
+| ask | [#4347](https://github.com/roundup-app/roundup/issues/4347) |
+
+Each work order was checked with `python3 loop/orders.py check` before filing and is a native blocked-by dependency of #3853. Each orders repair of the original behavior without skipped assertions, longer timeouts, added retries or weaker gates. These are engineering prerequisites, with no user decision pending.
+
+A clean merge of main `bae255acb` keeps this PR's diff within the evidence directory and passes merge-loss. All 29 existing emulator, snapshot and renderer-recovery tests pass after that merge. The compatibility probe is unchanged and was not rerun in this fix. The required full `check` is still red until the separate baseline repairs land; local regression success does not replace it. Keep #3853 open.
+
+Fix-run `just ready` exits 0, including lints, types, proofs, frozen/trailer checks, all 36 workflow tests and N7. The boundary lint after the evidence edit, vocabulary, merge-loss and whitespace checks also exit 0. `pnpm install` completed before pushing. These local gates do not claim that the full web check is green.
