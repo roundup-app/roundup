@@ -33,7 +33,7 @@
   color: var(--grey);
   opacity: 1;
 }
-[data-scope="field"][data-part="textarea"] {
+:where([data-scope="field"][data-part="textarea"]) {
   resize: vertical;
 }
 [data-scope="field"][data-part="helper-text"] {
@@ -56,7 +56,8 @@
 .note-form textarea:disabled,
 .app-select-trigger:disabled,
 .app-combobox-input:disabled {
-  background: var(--sunken);
+  background: var(--selected);
+  border-style: dashed;
   color: var(--disabled);
   cursor: not-allowed;
 }
@@ -82,4 +83,13 @@
 }
 .note-form input:hover {
   color: var(--text);
+}
+
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="input"]:hover:not(:disabled),
+.app-combobox-input:hover:not(:disabled) {
+  color: var(--text);
+}
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled::placeholder,
+.app-combobox-input:disabled::placeholder {
+  color: var(--disabled);
 }
