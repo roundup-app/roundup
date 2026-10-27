@@ -2,12 +2,50 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
-import { info } from "../testing/nodes";
+import { info, workstream } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
+
+it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
+  // jsdom has no scroll viewport; supply the browser's scroll metrics and event.
+  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
+  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(11200);
+  vi.spyOn(Element.prototype, "scrollTo").mockImplementation(function (this: Element, options) {
+    if (typeof options !== "object") return;
+    this.scrollTop = options.top ?? 0;
+    this.dispatchEvent(new Event("scroll"));
+  });
+  const { app, connected } = await mountSwitcher(null, Array.from({ length: 400 }, (_, index) => workstream(`row-${index}`, {
+    name: `Destination ${String(index).padStart(3, "0")}`, order: index,
+  })), []);
+  openSwitcher();
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  const option = (value: string) => document.querySelector<HTMLElement>(`.switcher [role=option][data-value="${value}"]`);
+  expect(option("row-399")).toBeNull();
+  option("row-0")!.focus();
+  press("End");
+  await waitFor(() => expect(document.activeElement).toBe(option("row-399")));
+  fireEvent.click(option("row-399")!, { metaKey: true });
+  field()!.focus();
+  type("Destination 399");
+  await waitFor(() => expect(option("row-399")?.getAttribute("aria-selected")).toBe("true"));
+  expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-399")!.id);
+  press("Enter", {}, field()!);
+  await waitFor(() => expect(connected.rail.selected()).toBe("row-399"));
+  await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe("Destination 399"));
+  type("");
+  await waitFor(() => expect(option("row-0")).not.toBeNull());
+  const list = document.querySelector<HTMLElement>(".switcher [role=listbox]")!;
+  list.scrollTo({ top: 10960 });
+  await waitFor(() => expect(option("row-399")).not.toBeNull());
+  expect(connected.rail.selected()).toBe("row-399");
+  expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
 
 describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   it("u529_cmd_k_lists_agents_doors_groups_and_terminals_and_filters_as_you_type", async () => {
