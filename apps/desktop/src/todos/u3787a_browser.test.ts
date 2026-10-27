@@ -76,6 +76,7 @@ it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => 
   expect(await lane.calls("pad.restore")).toHaveLength(1);
   await lane.capture("U3787a", "shelf-pads-restored");
 }, 180_000);
+
 for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
   it(`${id.toLowerCase()}_refusal_and_recovery_on_the_dense_drawer`, async () => {
     const url = await lane.evaluate<string>("location.href");
