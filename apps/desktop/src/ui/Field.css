@@ -93,3 +93,8 @@
 .app-combobox-input:disabled::placeholder {
   color: var(--disabled);
 }
+
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="input"]:hover:not(:disabled, [data-invalid]),
+.app-combobox-input:hover:not(:disabled, [data-invalid]) {
+  border-color: var(--disabled);
+}
