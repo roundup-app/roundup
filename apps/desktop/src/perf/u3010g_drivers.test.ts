@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
@@ -8,6 +9,8 @@ import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { agent, info, workstream } from "../testing/nodes";
 import type { AppSeam } from "../app/seam";
+
+vi.mock("@solid-primitives/event-listener", () => ({ makeEventListener: vi.fn(() => () => {}) }));
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -235,6 +238,41 @@ describe("u3010g the frame recorder drives every workload", () => {
       expect(await outcome).toBe(false);
     } finally {
       root.remove();
+    }
+  });
+
+  it("u3010g_the_drawer_hairline_phase_requires_the_existing_close_owner", async () => {
+    const root = document.createElement("div");
+    const drawer = document.createElement("aside");
+
+    drawer.className = "drawer";
+    drawer.dataset.open = "true";
+    root.append(drawer);
+    document.body.append(root);
+    const callbacks: ((event: Event) => void)[] = [];
+
+    vi.mocked(makeEventListener).mockImplementation((_target, _type, handler) => {
+      // SAFETY: this test supplies only the PointerEvent shape consumed by the driver.
+      callbacks.push(handler as (event: Event) => void);
+
+      return () => {};
+    });
+    const run = domLayers([]).closeDrawer();
+
+    try {
+      expect(callbacks).toHaveLength(1);
+      // A trusted hairline activation is necessary, but without the owner's state
+      // change it must still fail. No production mutation/focus owner is replaced.
+      const event = { isTrusted: true, target: drawer, button: 0, clientX: 0.5 };
+
+      Object.setPrototypeOf(event, MouseEvent.prototype);
+      drawer.style.borderLeftWidth = "1px";
+      callbacks[0]!(event as PointerEvent);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await run).toBe(false);
+    } finally {
+      root.remove();
+      vi.mocked(makeEventListener).mockReset();
     }
   });
 
