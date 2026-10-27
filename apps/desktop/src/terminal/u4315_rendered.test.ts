@@ -13,7 +13,15 @@ afterAll(async () => { await page?.close(); });
 it("u4315b_sub_links_switch_by_click_and_arrow", async () => {
   const dir = captureDir("U4315b");
 
-  if (dir) { mkdirSync(dir, { recursive: true }); await page.browser("record", "start", join(dir, "navigation.webm")); }
+  if (dir) {
+    const url = await page.evaluate<string>("location.href");
+
+    mkdirSync(dir, { recursive: true });
+    // Recording creates a fresh browser context, so restore the harness and its dark media.
+    await page.browser("record", "start", join(dir, "navigation.webm"));
+    await page.browser("set", "media", "dark");
+    await page.browser("open", url);
+  }
 
   await page.until("!!document.querySelector('.rail-row[data-id=payments]')");
   // Hover actions cover the midpoint of a long name; the state column remains a selection target.
