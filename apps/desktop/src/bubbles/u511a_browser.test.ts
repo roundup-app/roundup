@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -52,7 +53,7 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try { await browser("close"); } finally { await server?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 }, 90_000);
 
 const edit = async () => {
@@ -74,7 +75,7 @@ const key = async (name: string) => browser("eval", `document.activeElement.disp
 it("u511a_click_away_commits_without_swallowing_the_click", async () => {
   await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
   await until(`!!window.__fake`);
-  await browser("click", '[data-id="runner"]');
+  await browser("click", '.rail-row[data-id="runner"] .name');
   await until(`!!document.querySelector('.terminal-tab-name')`);
   await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
   await until(`document.activeElement?.matches('.terminal-tab-editor input')`);

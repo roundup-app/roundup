@@ -218,7 +218,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
     await overview();
     await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await browser("click", '.todos-tab [data-todo="2"] .todo-row-button');
-    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.todo-row-button')");
+    await wait("document.activeElement?.matches('.todo-row-button')");
     await shot("U3789d", stage, "tree-40-shelf-select");
     await browser("eval", "document.querySelector('.drawer[data-open=true] .close')?.click()");
     await wait("!document.querySelector('.drawer[data-open=true]')");
@@ -227,7 +227,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
     await shot("U3789d", stage, "tree-40-pads-rest");
     await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await browser("click", '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name');
-    await wait(base ? "document.querySelector('.drawer[data-open=true]')" : "document.activeElement?.matches('.pad-name')");
+    await wait("document.activeElement?.matches('.pad-name')");
     await shot("U3789d", stage, "tree-40-pads-select");
     await load("conflict", base);
     await browser("click", "#shelf-tab-pads");
@@ -248,7 +248,7 @@ it("u3789d_single_selection_and_retained_rail_failure", async () => {
   await browser("eval", "(async () => { const { RpcError } = await import('/src/app/seam.ts'); window.__fake.app.handlers['rail.rename'] = () => { throw new RpcError(-32003, 'name already taken'); }; })()");
   await browser("eval", "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}))");
   await wait("document.querySelector('[role=alert]')?.textContent.includes('name already taken')");
-  await browser("click", '.rail-row[data-id="agent-4"]');
+  await browser("click", '.rail-row[data-id="agent-4"] .name');
   await wait("document.activeElement?.closest('[data-id]')?.dataset.id === 'agent-4'");
   await shot("U3789d", "head", "rail-rename-failure-after-selection");
   await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
@@ -328,7 +328,14 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
 
-        if (step === "selected") await browser("click", seed === "tree-40" ? '.rail-row[data-id="tokens"]' : '.rail-row[data-id="agent-4"]');
+        if (step === "selected") {
+          const row = seed === "tree-40" ? '.rail-row[data-id="tokens"]' : '.rail-row[data-id="agent-4"]';
+
+          await browser("focus", row);
+          await browser("press", "Enter");
+          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('.shelf-scope-name')?.textContent === document.querySelector('${row} .name')?.textContent`);
+        }
+
 
         for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) {
           const checks = await shot(id, stage, `${seed}-${step}`);
