@@ -14,12 +14,12 @@ export const rowTypeahead = (event: KeyboardEvent) => event.target instanceof El
   && searches.get(event.target)?.(event) != null;
 
 /** Ark owns selection, ranges, navigation and the buffered name search of existing row buttons. */
-export const createRowCollection = (items: () => { value: string; label: string }[], interaction?: { onFocus?: (value: string) => void; onActivate: (value: string) => void }) => {
+export const createRowCollection = (items: () => { value: string; label: string }[], interaction?: { onFocus?: (value: string) => void; onActivate: (value: string) => void }, retained?: Pick<ReturnType<typeof useListSelection>, "setSelectedValues" | "toggle" | "replace" | "isSelected" | "isEmpty" | "clear" | "selectedValues">) => {
   const [mounted, setMounted] = createSignal(false);
   onMount(() => setMounted(true));
   const collection = () => createListCollection({ items: mounted() ? items() : [], itemToValue: item => item.value, itemToString: item => item.label });
   // Native hidden/inert changes need a fresh eligibility read at each selection gesture.
-  const selection = useListSelection(() => ({ get collection() { return collection(); }, selectionMode: "multiple" }));
+  const selection = retained ?? useListSelection(() => ({ get collection() { return collection(); }, selectionMode: "multiple" }));
   const state = { keysSoFar: "", timer: -1 };
   const results = new WeakMap<KeyboardEvent, string | null>();
 
