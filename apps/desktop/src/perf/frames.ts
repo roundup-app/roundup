@@ -67,6 +67,7 @@ export type FrameReport = {
   observer?: {
     viewport: { width: number; height: number; device_pixel_ratio: number };
     shelf_mode: string;
+    fixture_failures: { at_ms: number; reason: string }[];
     layer_actions: LayerAction[];
     todo_actions?: TodoAction[];
     preference: PreferenceAction[];
