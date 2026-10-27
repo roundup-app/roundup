@@ -241,7 +241,7 @@ the fixture between repeats. Both groups' insertion, completion, fold and reorde
 journals completed; original owners and blockers remained intact. D2/D5/D6 passed.
 D14 passed setup and the first group’s settled reading; the second group’s
 after-action reading failed. Retain that failure; this is not full Check qualification.
-Raw setup, action journals, boxes, Checks, scripts and PNGs remain under
+Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
 `artifacts/ux/U3010d/nested-fixture/`. The broad `just capture U3010d,U3010e,U3010g`
 invocation ended at its 60-second outer bound, so no whole-suite capture pass is
 claimed. This direct action-seam observation qualifies no 60-second sample,
