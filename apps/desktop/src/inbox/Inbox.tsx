@@ -167,7 +167,11 @@ export const Inbox = () => {
   registerKeys({ kind: "layer", element: () => root, active: () => !content.selection.isEmpty() || openKey() !== null, modal: false }, [{
     chords: ["Escape"],
     run: () => {
-      if (!content.selection.isEmpty()) { content.selection.clear(); return; }
+      if (!content.selection.isEmpty()) {
+        content.selection.clear();
+
+        return;
+      }
 
       const key = openKey();
 
