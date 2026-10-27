@@ -88,10 +88,12 @@ it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves
 
 it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", async outcome => {
   const { connected, daemon, nodes } = await mountNavigation(false, 0);
+
   const candidates = [
     { source: "source-first", revision: "revision-first", title: "First work", cwd: "", last_activity_ms: 2n },
     { source: "source-second", revision: "revision-second", title: "Second work", cwd: "sub", last_activity_ms: 1n },
   ];
+
   daemon.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
   let settle!: (result: import("@contracts/project/ImportResult").ImportResult) => void;
   daemon.handlers["project.importCommit"] = () => new Promise(resolve => { settle = resolve; });
@@ -135,7 +137,7 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
 
   if (outcome === "success") {
     await waitFor(() => expect(connected().rail.selected()).toBe("imported-agent"));
-    expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull();
+    expect(region.isConnected).toBe(false);
   } else {
     expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
     expect(connected().rail.selected()).toBe("a0");
@@ -153,6 +155,7 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
     expect(reopened.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
     expect(connected().project.path).toBe("/p");
   }
+
   expect(commits()).toHaveLength(1);
 });
 
@@ -196,6 +199,7 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
           writeFileSync(join(output, `${outcome}-${step}.checks.json`), JSON.stringify(await page.evaluate("window.__checks()")) + "\n");
           await page.browser("screenshot", join(output, `${outcome}-${step}.png`));
         };
+
         expect(await page.evaluate("document.querySelector('.pane-navigation button').disabled")).toBe(side === "head");
         await capture("pending");
         // A real coordinate press can target the disabled control without waiting for it to enable.
@@ -203,13 +207,16 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
         await page.browser("mouse", "move", String(Math.round(box.x)), String(Math.round(box.y)));
         await page.browser("mouse", "down");
         await page.browser("mouse", "up");
+
         if (side === "head") expect(await page.evaluate("!!document.querySelector('.import-panel')")).toBe(true);
+
         await capture("attempted-back");
         const discoveries = (await page.calls("project.importDiscover")).length;
         await page.evaluate("(() => {window.__settleImport(); delete window.__settleImport; return true;})()");
         await page.until(outcome === "success" ? "!document.querySelector('.import-panel')" : side === "base" ? `window.__fake.app.calls.filter(call => call.method === 'project.importDiscover').length > ${discoveries}` : "!!document.querySelector('.import-panel [role=alert]') && !document.querySelector('.import-confirm').disabled");
         await capture("settled");
       }
+
       await page.browser("record", "stop");
     }
   } finally {
