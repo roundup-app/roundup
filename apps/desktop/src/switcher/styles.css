@@ -56,3 +56,19 @@
 .switcher-recovery p {
   margin: 0;
 }
+
+/* Recovery keeps its full cause and its actions visible on dense results. */
+.switcher .reserved-line:not([data-empty]) {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.switcher .reserved-content {
+  flex-wrap: wrap;
+}
+
+.switcher .ink[role="alert"] {
+  flex-basis: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
