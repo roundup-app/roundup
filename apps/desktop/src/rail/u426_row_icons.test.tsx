@@ -1,5 +1,5 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { cleanup, fireEvent } from "@solidjs/testing-library";
+import { cleanup, fireEvent, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { chooseAction, exitedTerminal, mountRail, rowOf, settled } from "./railFixture";
@@ -41,4 +41,13 @@ it("u426_a_stopped_agent_offers_no_stop_icon", async () => {
   const { app } = await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
   fireEvent.contextMenu(rowOf("m"));
   expect(app.menuLabels()).not.toContain("Stop");
+});
+
+it("u4455_rail_row_has_no_open_button", async () => {
+  const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
+  expect(within(rowOf("a")).queryByRole("button", { name: "Open" })).toBeNull();
+  expect(within(rowOf("g")).queryByRole("button", { name: "Open" })).toBeNull();
+  fireEvent.click(rowOf("a"));
+  await settled();
+  expect(mounted.rail.selected()).toBe("a");
 });
