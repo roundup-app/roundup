@@ -814,6 +814,7 @@ export const copy = {
   noWorkstreamYet: "No Workstream yet",
   newWorkstreamWord: " New Workstream",
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run",
+  terminalRestoreFailed: (cause: string) => `Could not restore Terminal output: ${cause}. Switch away and back to retry.`,
   latest: "↓ Latest",
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,

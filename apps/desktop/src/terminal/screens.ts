@@ -79,6 +79,7 @@ const takeFirst = (stream: Stream): void => {
 
 type Holder = {
   ready: boolean;
+  incarnation: string | undefined;
   emulator: Emulator;
   stopClipboard: (() => void) | null;
   atBottom: Accessor<boolean>;
@@ -145,13 +146,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
         for (const operation of sameKind) replaced[operation] = null;
 
-        if (FAILURE_KINDS.some(operation => replaced[operation] !== null)) next.set(otherId, replaced);
+        if (newestFailure(replaced)) next.set(otherId, replaced);
         else next.delete(otherId);
       }
 
       next.delete(id);
 
-      if (state.snapshot !== null || state.live !== null || state.output !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
+      if (newestFailure(state)) next.set(id, state);
 
       return next;
     });
@@ -305,21 +306,39 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     stream.restoring = true;
 
     try {
-      const snapshot = await app.rpc("terminal.snapshot", { id });
+      const after = shownTo.get(id);
+      let retained = false;
 
-      if (!stream.open) return;
+      if (holder.complete && stream.after === null && holder.incarnation !== undefined && after !== undefined && !stream.lost) {
+        const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after }).catch((thrown) => {
+          if (!(thrown instanceof Error)) throw thrown;
 
-      const bytes = fromBase64(snapshot.data);
+          // An unavailable replay still permits an authoritative screen read.
+          return null;
+        });
 
-      // An unchanged stream already has its images and scrollback; screen snapshots contain neither.
-      if (!holder.complete || stream.after !== null || shownTo.get(id) !== snapshot.after) {
+        if (!stream.open) return;
+
+        if (catchUp?.kind === "contiguous") {
+          holder.emulator.write(fromBase64(catchUp.data));
+          stream.after = catchUp.after;
+          retained = true;
+        }
+      }
+
+      if (!retained) {
+        const snapshot = await app.rpc("terminal.snapshot", { id });
+
+        if (!stream.open) return;
+
         if (holder.complete) holder.emulator.reset();
 
         holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
-        holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
+        holder.emulator.write(fromBase64(snapshot.data), () => requestAnimationFrame(() => reflow(id, holder)));
+
+        stream.after = snapshot.after;
       }
 
-      stream.after = snapshot.after;
       holder.complete = true;
       setFailure(id, "snapshot", null);
     } catch (thrown) {
@@ -327,7 +346,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", `terminal.snapshot: ${thrown.message}`);
+      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message));
 
       if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
@@ -538,7 +557,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
+      emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
