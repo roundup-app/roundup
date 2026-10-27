@@ -334,8 +334,6 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
           await browser("focus", row);
           await browser("press", "Enter");
           await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('.shelf-scope-name')?.textContent === document.querySelector('${row} .name')?.textContent`);
-          // Shelf selection changes its scope and folds; capture after its finite animations settle or cancel.
-          await browser("eval", "Promise.all(document.querySelector('.shelf').getAnimations({subtree:true}).filter(animation => animation.effect.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.then(() => true, () => true)))");
         }
 
 
