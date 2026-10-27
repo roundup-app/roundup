@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
 import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
@@ -7,7 +8,7 @@ import { ownersOnRail, sameOwner } from "../shelf/scope";
 import type { TodosState } from "./state";
 import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
-import { chordsFor } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS, chordsFor } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
 import { failureOf } from "./failureOf";
 
@@ -97,7 +98,7 @@ export const createOwnerKeys = (source: {
     return todo?.done === false ? todo : undefined;
   };
 
-  const can = (event: KeyboardEvent) => source.active() && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
+  const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
   registerKeys(shelfKeyScope, [{
@@ -107,6 +108,26 @@ export const createOwnerKeys = (source: {
       const target = owners().filter(owner => owner.actor?.kind === "agent")[Number(event.key) - 1];
 
       if (todo && target && !sameOwner(todo.owner, target.actor)) void source.assign(todo.id, target.actor);
+    },
+  }]);
+};
+
+/** U3720: assignment captures the focused Todo before opening its picker. */
+export const createOwnerPicker = (source: {
+  todos: TodosState;
+  when: (event: KeyboardEvent) => boolean;
+  pick: (id: number, anchor: HTMLElement) => void;
+}) => {
+  registerKeys(shelfKeyScope, [{
+    action: CHORDS.find(row => row.keys === "O")!,
+    when: source.when,
+    capture: (focus) => {
+      const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
+      const id = Number(row?.dataset.todo);
+      const found = row && source.todos.byId().get(id);
+      const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
+
+      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { source.pick(id, anchor); } } };
     },
   }]);
 };

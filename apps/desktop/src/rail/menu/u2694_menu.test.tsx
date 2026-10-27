@@ -405,7 +405,8 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Todo Home and nesting keys: root and itself only; assignment keeps New Workstream", run: async () => {
-      const { app, connected } = await mountTodos([todo(1, { owner: USER })]);
+      // U3787c reserves matching prefixes; this fixture exercises T's unmatched triage command.
+      const { app, connected } = await mountTodos([todo(1, { owner: USER, title: "review" })]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
       const me = document.querySelector<HTMLElement>('[data-shelf-group="me"] [data-part="branch-control"]');
