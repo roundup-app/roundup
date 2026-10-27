@@ -1,0 +1,21 @@
+{
+  "continuedFrom": "07189f34309cc8f2504e39a7eb78e9b844ca21de",
+  "main": "02dd471273080db813e6dfcc55582dfd2e80b01b",
+  "source": "da27247dfd948b6b3ff02215db587a3cd9cb9281",
+  "authorAgent": "builder-40429733966",
+  "freshNpmCi": true,
+  "freshHeadlessBrowserProfile": true,
+  "viewport": [
+    1512,
+    950
+  ],
+  "probeExit": 0,
+  "checks": 40,
+  "regression": {
+    "tests": 29,
+    "passed": 29
+  },
+  "probeSha256": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
+  "browserClosed": true,
+  "ownedServerStopped": true
+}
