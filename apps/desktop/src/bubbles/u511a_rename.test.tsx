@@ -79,14 +79,51 @@ it("u511a_completion_preserves_expected_focus", async () => {
   expect(document.activeElement).toBe(other);
 });
 
-it("u511a_escape_then_blur_keeps_the_previous_name", async () => {
-  await mountBubbles();
+// Production rename openings: tab double-click and native context-menu Rename.
+// Selected-revision recovery is exercised separately below with its captured identity.
+it.each(["double-click", "native Rename"] as const)("u3787c_escape_restores_the_name_terminal_%s", async opening => {
+  const mounted = await mountBubbles();
+  const saved = tab("2")!.getAttribute("aria-label");
+  const visibility = [...document.querySelectorAll("button.terminal-tab")].map(control => control.getAttribute("aria-pressed"));
+  tab("2")!.focus();
+
+  if (opening === "double-click") await edit("2");
+  else {
+    fireEvent.contextMenu(tab("2")!);
+    await mounted.app.pickMenu("Rename");
+    await waitFor(() => expect(document.activeElement).toBe(field()));
+  }
+
+  const input = field()!;
+  const exact = "  e\u0301 🪁 雪\t  ";
+  fireEvent.input(input, { target: { value: exact } });
+  input.setSelectionRange(2, 6, "backward");
+  fireEvent.select(input);
+  const writes = vi.spyOn(Storage.prototype, "setItem");
+  const calls = [...mounted.app.calls];
+  const underlying = vi.fn();
+  document.addEventListener("keydown", underlying);
+
+  try { fireEvent.keyDown(input, { key: "Escape" }); }
+  finally { document.removeEventListener("keydown", underlying); }
+
+  fireEvent.blur(input);
+  await waitFor(() => expect(document.activeElement).toBe(tab("2")));
+  expect(tab("2")!.getAttribute("aria-label")).toBe(saved);
+  expect([...document.querySelectorAll("button.terminal-tab")].map(control => control.getAttribute("aria-pressed"))).toEqual(visibility);
+  expect(underlying).not.toHaveBeenCalled();
+  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toEqual([]);
+  expect(mounted.app.calls).toEqual(calls);
+  const retained = mounted.connected.drafts.list();
+  expect(retained).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" },
+    value: { name: exact, base: "zsh" }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" })]);
   await edit("2");
-  fireEvent.input(field()!, { target: { value: "other" } });
-  fireEvent.keyDown(field()!, { key: "Escape" });
-  await waitFor(() => expect(tab("2")).not.toBeNull());
-  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
-  expect(document.querySelector('.bubble[data-bubble="2"] .bubble-name')?.textContent).toBe("zsh");
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
+  fireEvent.blur(field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  expect(mounted.connected.drafts.list()).toEqual(retained);
+  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toEqual([]);
+  expect(mounted.app.calls).toEqual(calls);
 });
 
 it("u511a_empty_restores_the_default", async () => {
