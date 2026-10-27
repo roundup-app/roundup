@@ -352,7 +352,6 @@
 }
 
 .rail-leaf .row-head {
-  grid-column: 2;
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -804,7 +803,6 @@
 .rail-row .line::before { content: ""; width: var(--space-1); flex: none; }
 .rail-row .row-state { position: static; margin-inline-start: 0; }
 .rail-row .rail-chevron { left: calc(var(--space-1) + var(--tree-depth) * var(--tree-step)); transform: none; }
-
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
