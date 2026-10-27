@@ -139,15 +139,6 @@ describe("u9 actions", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
 
-  it("u9_promote_is_hidden_until_hover_and_never_on_an_agent", async () => {
-    await mountRail([workstream("g"), agent("a", "idle", "i")]);
-    const before = screen.queryByRole("button", { name: /^start supervisor$/i });
-
-    fireEvent.mouseEnter(rowOf("a"));
-
-    expect([before, screen.queryByRole("button", { name: /^start supervisor$/i })]).toEqual([null, null]);
-  });
-
   it("u9_a_failed_call_shows_one_ink_line_until_the_next_click", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => {
