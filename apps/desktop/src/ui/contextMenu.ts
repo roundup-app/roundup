@@ -195,6 +195,8 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
   const stop = () => {
     document.removeEventListener("pointerup", release);
     window.removeEventListener("pointerdown", stop, true);
+    window.removeEventListener("blur", stop);
+    window.removeEventListener("pointercancel", stop, true);
   };
 
   const release = (event: PointerEvent) => {
@@ -205,4 +207,6 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
 
   document.addEventListener("pointerup", release);
   window.addEventListener("pointerdown", stop, true);
+  window.addEventListener("blur", stop);
+  window.addEventListener("pointercancel", stop, true);
 };
