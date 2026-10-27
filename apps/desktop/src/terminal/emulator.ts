@@ -38,8 +38,6 @@ export type Emulator = {
   inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
-  /** OSC 52 copies use the originating Terminal's clipboard failure owner. */
-  onCopy?: ((listener: (text: string) => Promise<void>) => void) | undefined;
   selection(): string;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
@@ -64,7 +62,8 @@ export type Emulator = {
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
-export type EmulatorFactory = (id: string) => Emulator;
+/** OSC 52 copies use the originating Terminal's clipboard failure owner. */
+export type EmulatorFactory = (id: string, copy?: (text: string) => Promise<void>) => Emulator;
 
 /** Loads the WebGL renderer, or leaves the DOM renderer and says so once through `warn`. Returns whether WebGL is in use. */
 export const attachRenderer = (
@@ -172,9 +171,8 @@ export const createXtermEmulators = (
 ): EmulatorFactory => {
   let webglDenied = false;
 
-  return (id) => {
+  return (id, copy) => {
     const terminal = new Terminal(xtermOptions);
-    let copy: ((text: string) => Promise<void>) | undefined;
     terminal.loadAddon(new ClipboardAddon(undefined, {
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
@@ -487,7 +485,6 @@ export const createXtermEmulators = (
       onLink: (listener) => {
         linkListener = listener;
       },
-      onCopy: (listener) => { copy = listener; },
       selection: () => terminal.getSelection(),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
