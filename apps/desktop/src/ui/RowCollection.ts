@@ -37,7 +37,7 @@ export const createRowCollection = (items: () => { value: string; label: string 
 
   return {
     collection, selection, search, reset,
-    register: (row: HTMLButtonElement, value: string) => {
+    register: (row: HTMLElement, value: string) => {
       row.dataset.collectionValue = value;
       searches.set(row, search);
     },

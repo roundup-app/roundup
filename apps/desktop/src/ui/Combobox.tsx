@@ -1,3 +1,4 @@
+import { createRowCollection } from "./RowCollection";
 import { focusActions } from "./focusActions";
 import * as combobox from "@zag-js/combobox";
 import { normalizeProps, useMachine } from "@zag-js/solid";
@@ -19,6 +20,8 @@ type ComboboxItem = { value: string; label: string };
 /** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓` (no wrap); a resting or moving pointer never moves the highlight. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
+  /** Opt in only owned content rows; commands and form choices keep single activation. */
+  contentRow?: (item: ComboboxItem) => boolean;
   highlightedValue: string | null;
   onHighlightChange: (value: string | null) => void;
   inputValue: string;
@@ -88,6 +91,101 @@ const Root = (props: {
 
   const api = createMemo(() => combobox.connect(service, normalizeProps));
 
+  // Keep content selection independent of Zag's always-empty activation value and native query.
+  const rows = new Map<string, HTMLDivElement>();
+
+  const content = createRowCollection(() => props.items.filter(item => {
+    const row = rows.get(item.value);
+
+    return props.contentRow?.(item) && row && !row.closest("[hidden], [inert], [aria-disabled=true]");
+  }));
+
+  let anchor: string | undefined;
+
+  const focusRow = (value: string | null | undefined) => {
+    if (value == null) return;
+    props.onHighlightChange(value);
+    rows.get(value)?.focus({ preventScroll: true });
+    rows.get(value)?.scrollIntoView?.({ block: "nearest" });
+  };
+
+  const targetRow = (event: Event) => event.target instanceof Element ? event.target.closest<HTMLElement>("[data-collection-value]") : null;
+
+  const selectClick = (event: MouseEvent) => {
+    const row = targetRow(event);
+    const value = row?.dataset.collectionValue;
+
+    if (value === undefined || event.ctrlKey || !event.metaKey && !event.shiftKey) return;
+    event.preventDefault(); event.stopPropagation();
+    const collection = content.collection();
+
+    if (!collection.has(value)) return;
+
+    if (event.shiftKey) content.selection.setSelectedValues(anchor === undefined || !collection.has(anchor) ? [value] : collection.getValueRange(anchor, value));
+    else { content.selection.toggle(value); anchor = value; }
+
+    focusRow(value);
+  };
+
+  const selectKey = (event: KeyboardEvent) => {
+    const value = targetRow(event)?.dataset.collectionValue;
+
+    if (value === undefined || event.ctrlKey || event.altKey || event.isComposing) return;
+    const collection = content.collection();
+
+    if (event.metaKey && event.key.toLowerCase() === "a") {
+      event.preventDefault(); event.stopPropagation();
+      content.selection.setSelectedValues(collection.getValues());
+
+      return;
+    }
+
+    if (event.metaKey) return;
+
+    const next = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(value)
+      : event.key === "ArrowDown" ? collection.getNextValue(value) : undefined;
+
+    if (next !== undefined) {
+      event.preventDefault(); event.stopPropagation(); focusRow(next);
+
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault(); event.stopPropagation();
+
+      if (collection.has(value)) props.onSelect(value);
+
+      return;
+    }
+
+    const match = content.search(event);
+
+    if (match !== null) {
+      event.preventDefault(); event.stopPropagation();
+      content.selection.replace(match); focusRow(match);
+    }
+  };
+
+  // The Tab stop is available before item refs mount; gesture eligibility uses the mounted collection.
+  const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
+    ?? props.items.find(item => props.contentRow?.(item))?.value;
+
+  const itemRow = (item: ComboboxItem) => <ArkCombobox.Item item={item} asChild={itemProps => <div {...itemProps({})} class="app-combobox-item"
+    ref={element => {
+      if (!props.contentRow?.(item)) return;
+      rows.set(item.value, element);
+      content.register(element, item.value);
+      onCleanup(() => rows.delete(item.value));
+    }} tabIndex={props.contentRow?.(item) && tabStop() === item.value ? 0 : -1}
+    onFocus={() => { if (props.contentRow?.(item)) props.onHighlightChange(item.value); }} aria-selected={props.contentRow?.(item) ? content.selection.isSelected(item.value) : undefined}
+    data-row-selected={props.contentRow?.(item) && content.selection.isSelected(item.value) ? "true" : undefined}>
+    {props.row(item)}
+  </div>} />;
+
+
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
     <ArkCombobox.Control><ArkCombobox.Input ref={element => {
@@ -101,12 +199,13 @@ const Root = (props: {
       if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
-    <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
+    <ArkCombobox.Content class="app-combobox-list"
+      on:click={{ handleEvent: selectClick, capture: true }} on:keydown={{ handleEvent: selectKey, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {([group, items]) => group ? <ArkCombobox.ItemGroup>
           <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
-          <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
-        </ArkCombobox.ItemGroup> : <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
+          <For each={items}>{(item) => itemRow(item)}</For>
+        </ArkCombobox.ItemGroup> : <For each={items}>{(item) => itemRow(item)}</For>}
       </For>
     </ArkCombobox.Content>
   </ArkCombobox.RootProvider>;

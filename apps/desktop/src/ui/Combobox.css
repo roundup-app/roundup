@@ -31,7 +31,8 @@
   cursor: default;
 }
 
-.app-combobox-item[data-highlighted] {
+.app-combobox-item[data-highlighted],
+.app-combobox-item[data-row-selected=true] {
   background-color: var(--sunken);
 }
 
