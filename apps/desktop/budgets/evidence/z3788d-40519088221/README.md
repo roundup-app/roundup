@@ -21,3 +21,5 @@ A valid continuation must collect with validation processes stopped, retain the 
 Required checks: the broad related run hit real-Daemon build-lock timeouts in u166/u177 and was stopped; the 70 Switcher tests passed independently. just ready's initial web lint failures (spacing and temporary measurement entrypoints) were repaired and the command rerun. Final command results are recorded in validation.json. The complete capture workspace suite was interrupted; explicit six-screen rendered observations passed.
 
 The fresh candidate validates only 40 destinations (p95 59.882 ms under concurrent load). At 400, sample 8 has no matching paint/draw; 4000 has no samples because its initial navigation timed out. Both fresh phase reports exit 2. These results supersede no archived valid observation.
+
+Reports larger than 1 MB are stored losslessly as .json.gz; active verifiers read compressed samples directly and write large timings compressed. Decompress those reports before running an original historical verifier unchanged. Raw Chromium trace bytes are unchanged.

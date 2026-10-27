@@ -5,7 +5,7 @@ reports=[];failure=[];selection_failures=[]
 for length in [40,400,4000]:
  try:
   raw=gzip.decompress(b''.join(gzip.decompress(p.read_bytes()) for p in sorted(archive.glob(f'{length}-trace.json.gz.part-*.gz'))))
-  rows=json.loads((archive/f'{length}-samples.json').read_text());es=json.loads(raw)['traceEvents']
+  rows=json.loads((archive/f'{length}-samples.json').read_text() if (archive/f'{length}-samples.json').exists() else gzip.decompress((archive/f'{length}-samples.json.gz').read_bytes()));es=json.loads(raw)['traceEvents']
   if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
   starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']
   marks={e['name']:e for e in es if e['name'].startswith('z3788d-')}
@@ -64,7 +64,9 @@ for length in [40,400,4000]:
   report={'length':length,'warmups':20,'measured':200,'p50Ms':values[math.ceil(len(values)*.5)-1],'p95Ms':values[math.ceil(len(values)*.95)-1],'minMs':values[0],'maxMs':values[-1],'budgetMs':16,'exit':int(values[189]>=16)}
   for name in ['EventDispatch','UpdateLayoutTree','Layout','PrePaint','Paint']:
    values2=sorted(r[name+'Ms'] for r in measures if not r['warmup']);report[name+'P95Ms']=values2[189]
-  (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
+  serialized=json.dumps(measures,ensure_ascii=False,separators=(',',':'))
+  if len(serialized.encode())>1000000: (out/f'{length}-timings.json.gz').write_bytes(gzip.compress(serialized.encode(),mtime=0))
+  else: (out/f'{length}-timings.json').write_text(serialized)
   report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
  except Exception as error:
   detail={'length':length,'condition':str(error),'exit':2}
