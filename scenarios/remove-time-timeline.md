@@ -16,7 +16,7 @@ Order of work, one PR per module directory (rule 3), each blocked by the one bef
 
 Policy — gates: P3 asks whether removal adds an interruption; it adds none. P6 asks whether removal drops a Workstream's work; only the derived measurement is dropped, never the Workstream, its Agents or their Events. P11 asks whether leaving a view loses a draft; `u4454a_the_centre_has_no_time_timeline_or_back_to_ask` observes it. Rule 7 can only improve: the Event log subscription and the one-second display clock for the timeline go.
 
-Policy — rendered observer for the App PR: `just capture U4454a` at 1512×950 in dark mode from `tree-40`, with Agent, Workstream and Ask selected, leaving PNGs under `artifacts/ux/U4454a/` uncommitted. The design critic judges D2, D5 and D6, and no Check passing on main regresses.
+Policy — rendered observer for the App PR: `just capture U4454a` at 1512×950 in dark mode from `tree-40`, with Agent, Workstream and Ask selected, leaving screenshots under `artifacts/ux/U4454a/` uncommitted. The design critic judges D2, D5 and D6, and no Check passing on main regresses.
 
 Checks on main:
 
