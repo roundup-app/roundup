@@ -30,7 +30,7 @@ function changedObject(source, binding, seen = new Set()) {
     let callee = parent.callee;
     while (callee.type === "MemberExpression") callee = callee.object;
     if (callee.type === "Identifier" && resolveVariable(source, callee) === binding) return true;
-    return !registration(source, parent.callee) && !isConfig(source, parent);
+    return !registration(source, parent.callee) && !isConfig(source, parent) && !isConfigDefinition(source, parent.callee);
   });
 }
 
@@ -113,6 +113,24 @@ function registration(source, node, seen = new Set()) {
   return null;
 }
 
+// Both Vite and Vitest expose defineConfig as an identity helper; it does not mutate options.
+function isConfigDefinition(source, node, seen = new Set()) {
+  node = unwrap(node);
+  if (!node || seen.has(node)) return false;
+  seen = new Set(seen).add(node);
+  const property = member(node);
+  const identifier = property?.object ?? node;
+  if (identifier.type !== "Identifier") return false;
+  const binding = resolveVariable(source, identifier);
+  if (!binding) return !property && identifier.name === "defineConfig";
+  for (const def of binding.defs) {
+    if (def.type !== "ImportBinding" || !["vite", "vitest/config"].includes(def.parent?.source.value)) continue;
+    if (property) return def.node.type === "ImportNamespaceSpecifier" && property.name === "defineConfig";
+    return (def.node.imported?.name ?? def.node.imported?.value) === "defineConfig";
+  }
+  return !property && isConfigDefinition(source, initializer(source, node), seen);
+}
+
 function objectProperty(source, node, name, seen = new Set()) {
   node = unwrap(node);
   if (!node) return undefined;
@@ -182,7 +200,7 @@ export const boundedTestTimeoutRule = defineRule({
     const exceptions = context.options[0]?.exceptions ?? [];
     const calls = [];
     const configs = [];
-    const defaults = [];
+    const defaults = new Set();
 
     function check(node, title, maximum) {
       const actual = value(source, node);
@@ -193,6 +211,11 @@ export const boundedTestTimeoutRule = defineRule({
 
     return {
       CallExpression(node) {
+        if (isConfigDefinition(source, node.callee)) {
+          const options = objectProperty(source, node.arguments[0], "test");
+          const configured = objectProperty(source, options, "testTimeout");
+          if (configured) defaults.add(configured);
+        }
         const kind = registration(source, node.callee);
         const method = member(node.callee);
         const builder = method && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(method.name);
@@ -204,7 +227,7 @@ export const boundedTestTimeoutRule = defineRule({
       },
       Property(node) {
         if ((node.key.name ?? node.key.value) !== "testTimeout") return;
-        defaults.push(node.value);
+        defaults.add(node.value);
       },
       "Program:exit"(program) {
         for (const entry of exceptions) {
