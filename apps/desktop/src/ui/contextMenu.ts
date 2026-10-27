@@ -10,8 +10,9 @@ import type { App, AppSeam, MenuItem } from "../app/seam";
 export type MenuEntry = {
   id: string;
   label: string;
-  /** The chord as `keys/chords.ts` shows it: label text, never an accelerator. */
+  /** The chord as `keys/chords.ts` shows it: one-step native accelerator or separate sequence hint. */
   shortcut?: string | undefined;
+  group?: MenuItem["group"];
   enabled?: boolean;
   run?: () => void | Promise<void>;
   children?: MenuEntry[];
@@ -19,6 +20,8 @@ export type MenuEntry = {
 
 const wire = (entry: MenuEntry): MenuItem => {
   const item: MenuItem = { id: entry.id, label: entry.label, enabled: entry.enabled ?? true };
+
+  if (entry.group !== undefined) item.group = entry.group;
 
   if (entry.shortcut !== undefined) item.shortcut = entry.shortcut;
 
@@ -37,12 +40,43 @@ const find = (entries: MenuEntry[], id: string): MenuEntry | undefined => {
   return undefined;
 };
 
-/** U2694a: the only caller of `showContextMenu`. Pops the system menu of `model` at `x`, `y`, then runs the chosen item; closing with no choice runs nothing. */
-export const contextMenu = async (app: Pick<App, "showContextMenu">, model: MenuEntry[], x: number, y: number): Promise<void> => {
-  const chosen = await app.showContextMenu(model.map(wire), x, y);
-  const entry = chosen === null ? undefined : find(model, chosen);
+// U4322a: stable action ids, shared by every producer; child order remains the producer's.
+const groups = [
+  ["dismiss", "recover"],
+  ["start-now", "dequeue", "move-up", "move-down"],
+  ["start", "restart", "yolo", "stop", "resume"],
+  ["complete"],
+  ["folder", "editor", "send", "copy-link", "copy"],
+  ["rename", "clear", "assign", "make-yours", "move", "move-up", "move-down"],
+  ["add"],
+  ["remove", "delete", "close"],
+];
 
-  if (entry && entry.enabled !== false) await entry.run?.();
+const applicable = (entries: MenuEntry[]): MenuEntry[] => entries.flatMap(entry => {
+  if (entry.enabled === false) return [];
+
+  if (!entry.children) return [entry];
+  const children = applicable(entry.children);
+
+  return children.length ? [{ ...entry, children }] : [];
+});
+
+/** U4322a/b: project applicable groups, then dispatch only a chosen leaf on the captured object. */
+export const contextMenu = async (app: Pick<App, "showContextMenu">, model: MenuEntry[], x: number, y: number): Promise<void> => {
+  const queue = model.some(entry => entry.id === "dequeue");
+
+  const ordered = groups.flatMap((ids, index) => ids.flatMap(id => {
+    if ((id === "move-up" || id === "move-down") && (queue ? index !== 1 : index !== 5)) return [];
+
+    return model.flatMap(entry => entry.id === id ? [{ ...entry, group: String(index) }] : []);
+  }));
+
+  const known = new Set(groups.flat());
+  const entries = applicable([...ordered, ...model.filter(entry => !known.has(entry.id))]);
+  const chosen = await app.showContextMenu(entries.map(wire), x, y);
+  const entry = chosen === null ? undefined : find(entries, chosen);
+
+  if (entry && !entry.children) await entry.run?.();
 };
 
 /** LK1: the kinds a link names. */
