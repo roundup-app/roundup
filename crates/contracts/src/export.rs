@@ -157,6 +157,8 @@ pub fn types() -> specta::Types {
         .register::<crate::terminal::OutputStarted>()
         .register::<crate::terminal::OutputEvent>()
         .register::<crate::terminal::OutputGap>()
+        .register::<crate::terminal::CatchUpParams>()
+        .register::<crate::terminal::CatchUp>()
         .register::<crate::terminal::Snapshot>()
         .register::<crate::terminal::TitleEvent>()
         .register::<crate::terminal::ExitedEvent>()

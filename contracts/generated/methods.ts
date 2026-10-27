@@ -112,6 +112,8 @@ import type { PreviewParams as reaction_PreviewParams } from "./reaction/Preview
 import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
 import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
 import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
+import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
+import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
 import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
 import type { Measurement as terminal_Measurement } from "./terminal/Measurement";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
@@ -259,6 +261,7 @@ export type RpcMethods = {
   "terminal.scheme": { params: terminal_SchemeParams; result: null };
   "terminal.show": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
+  "terminal.catchUp": { params: terminal_CatchUpParams; result: terminal_CatchUp };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };
   "terminal.read": { params: terminal_ReadParams; result: terminal_Read };

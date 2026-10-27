@@ -72,8 +72,27 @@ impl Log {
         self.end
     }
 
-    fn start(&self) -> u64 {
+    pub(crate) fn start(&self) -> u64 {
         self.end - self.bytes.len() as u64
+    }
+
+    /// Exact retained bytes, without cloning the plain-text checkpoint parser.
+    pub(crate) fn raw(&self, after: u64) -> Result<Vec<u8>, RpcError> {
+        if after > self.end {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "after is beyond the output end",
+            ));
+        }
+        if after < self.start() {
+            return Ok(Vec::new());
+        }
+        Ok(self
+            .bytes
+            .iter()
+            .skip(after.saturating_sub(self.start()) as usize)
+            .copied()
+            .collect())
     }
 
     /// A copy of the log from `after` (or the log's start when that is older), so the caller can work on it holding no lock.

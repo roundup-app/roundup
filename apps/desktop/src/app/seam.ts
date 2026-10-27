@@ -73,6 +73,10 @@ export type OutputSubscription = { offset: number; release(): Promise<void> };
 
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
+  /** terminal.catchUp is user-only and bound to this Project and the original incarnation.
+   * Select output first, buffer it, replay a contiguous result, then skip buffered bytes through
+   * its authoritative `after`. A gap uses terminal.snapshot; hidden Terminals stay unsubscribed.
+   */
   rpc<M extends RpcMethodName>(
     method: M,
     params: RpcMethods[M]["params"],

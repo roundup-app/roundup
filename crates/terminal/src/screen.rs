@@ -123,3 +123,43 @@ pub(super) fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, RpcE
 pub(super) fn snapshot_size_supported(cols: u16, rows: u16) -> bool {
     u32::from(cols) * u32::from(rows) <= SNAPSHOT_MAX_CELLS
 }
+
+impl Terminals {
+    /// Z3788a: bounded raw output for the original Terminal, at one authoritative cut.
+    pub fn catch_up(
+        &self,
+        params: &contracts::terminal::CatchUpParams,
+    ) -> Result<contracts::terminal::CatchUp, RpcError> {
+        use contracts::terminal::CatchUp;
+        let number = parse_terminal_number(&params.id)?;
+        let table = self.shared.table();
+        let entry = table
+            .get(&number)
+            .ok_or_else(|| RpcError::not_found(format!("terminal {}", params.id)))?;
+        if entry.info.incarnation != params.incarnation {
+            return Err(RpcError::conflict(
+                "original Terminal is no longer available in this Project",
+            ));
+        }
+        let state = entry.screen.lock().expect("terminal screen lock");
+        let data = state.log.raw(params.after)?;
+        let id = entry.info.id.clone();
+        let incarnation = entry.info.incarnation.clone();
+        let after = state.log.end();
+        if params.after < state.log.start() {
+            return Ok(CatchUp::Gap {
+                id,
+                incarnation,
+                from: state.log.start(),
+                after,
+            });
+        }
+        Ok(CatchUp::Contiguous {
+            id,
+            incarnation,
+            from: params.after,
+            after,
+            data: STANDARD.encode(data),
+        })
+    }
+}

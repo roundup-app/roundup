@@ -108,6 +108,20 @@ impl Terminals {
         reply(&self.list())
     }
 
+    pub(super) async fn rpc_terminal_catch_up(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        if ctx.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the App may catch up raw Terminal output",
+            ));
+        }
+        reply(&self.catch_up(&params(value)?)?)
+    }
+
     pub(super) async fn rpc_terminal_snapshot(
         &self,
         _ctx: &Ctx,

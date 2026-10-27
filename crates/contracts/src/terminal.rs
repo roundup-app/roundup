@@ -110,6 +110,47 @@ pub struct OutputGap {
     pub to: u64,
 }
 
+/// Z3788a: user/App-only raw catch-up for the original Terminal in this Project.
+/// Subscribe only while selected, buffer live output, then request from the retained emulator's
+/// byte offset. INVALID_PARAMS when `after` is beyond the current end; CONFLICT for a replaced
+/// incarnation. No input, parser, clipboard or Message authority is granted.
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct CatchUpParams {
+    pub id: String,
+    pub incarnation: String,
+    #[specta(type = specta_typescript::Number)]
+    pub after: u64,
+}
+
+/// One authoritative cut under the output owner's lock. At most 1,048,576 raw bytes (base64
+/// encoded). Contiguous covers exactly `from..after`, including partial UTF-8/escape sequences.
+/// Apply it, then discard buffered live bytes before `after` (trim an overlapping chunk).
+/// Continue live delivery from `after`; a live gap still requires U103 snapshot recovery.
+/// Gap returns no bytes: the requested start was evicted; `from` is the earliest retained byte.
+/// Recover with the existing authoritative snapshot, never treat the gap as contiguous replay.
+/// Both variants identify the original Terminal; the Project is the RPC connection's Project.
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum CatchUp {
+    Contiguous {
+        id: String,
+        incarnation: String,
+        #[specta(type = specta_typescript::Number)]
+        from: u64,
+        #[specta(type = specta_typescript::Number)]
+        after: u64,
+        data: String,
+    },
+    Gap {
+        id: String,
+        incarnation: String,
+        #[specta(type = specta_typescript::Number)]
+        from: u64,
+        #[specta(type = specta_typescript::Number)]
+        after: u64,
+    },
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct Snapshot {
     pub cols: u16,
