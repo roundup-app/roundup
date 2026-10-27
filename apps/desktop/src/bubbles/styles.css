@@ -138,11 +138,6 @@
   background: var(--terminal-background);
 }
 
-.bubble-body div {
-  height: 100%;
-  width: 100%;
-}
-
 /* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */
 .bubble-zone {
   position: absolute;
