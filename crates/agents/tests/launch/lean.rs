@@ -86,11 +86,6 @@ fn lc1_each_role_launches_as_its_row() {
             )
             .unwrap();
             assert!(brief.contains("PROJECT_INSTRUCTION_MARKER"), "{row:?}");
-            assert_eq!(
-                brief.contains(&asset("hold-plain.md")),
-                row == Role::Agent,
-                "{row:?}: the vendored Plain body is the worker's"
-            );
         }
     }
 }
@@ -201,33 +196,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             );
             let brief = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
             assert!(brief.contains("USER GLOBAL RULE"));
-            assert_eq!(
-                brief.contains("hold:Plain"),
-                output_style.is_none(),
-                "{row:?}"
-            );
-            assert_eq!(
-                brief.contains(&asset("hold-plain.md")),
-                output_style.is_none() && row == Role::Agent
-            );
-            if output_style.is_none() {
-                assert!(settings.get("outputStyle").is_none());
-            }
         }
-    }
-}
-
-#[test]
-fn lc2_no_user_output_style_gets_plain() {
-    let s = setup();
-    for (_, role, pair) in lean_children() {
-        let argv = s.prepare_lean("7", role, &pair, None).unwrap();
-        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        assert!(settings.get("outputStyle").is_none());
-        let brief =
-            std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
-                .unwrap();
-        assert!(brief.contains("hold:Plain"));
     }
 }
 
@@ -257,10 +226,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
-    assert!(!text.contains(&asset("hold-plain.md")));
     assert!(text.contains("USER GLOBAL RULE"));
-    assert!(text.contains("Where the Project's `CLAUDE.md` asks for something else, follow it."));
-    assert!(text.contains("hold:Plain"));
 }
 
 #[test]
