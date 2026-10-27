@@ -380,6 +380,39 @@ export const App = (props: {
   const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
   const captureOwner = () => captureConnection() ?? activeConnection();
 
+  const [captureShow, setCaptureShow] = createSignal<() => void>();
+  const [capturePending, setCapturePending] = createSignal(false);
+  const [captureChoosing, setCaptureChoosing] = createSignal(false);
+
+  const openCapture = async () => {
+    if (captureChoosing()) return;
+
+    if (projects.active() === null) {
+      setCaptureChoosing(true);
+      await projects.choose();
+      setCaptureChoosing(false);
+
+      if (projects.active() === null) return;
+    }
+
+    setCapturePending(true);
+  };
+
+  createEffect(() => {
+    const show = captureShow();
+
+    if (!capturePending() || !show) return;
+    setCapturePending(false);
+    show();
+  });
+  createEffect(() => registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    capture: () => ({
+      available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
+      invoke: () => void openCapture(),
+    }),
+  }]));
+
   const storageFailures = createMemo(() => {
     const open = activeConnection();
     const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
@@ -637,7 +670,6 @@ export const App = (props: {
               {(open) => (
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                  <Help />
                   <Leader />
                   <InboxKey />
                   
@@ -647,7 +679,8 @@ export const App = (props: {
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
-            <InProject open={captureOwner()}>{(open) => <Capture onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
         }
