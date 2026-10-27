@@ -81,3 +81,18 @@ it("u4390_close_after_first_listing_removes_only_the_chosen_terminal", async () 
   mounted.connected.rail.select(null);
   expect(tabs()).toEqual(["project"]);
 });
+
+it("u524_a_non_root_open_resets_root_visibility_and_keeps_project_terminals", async () => {
+  const mounted = await openThroughStaleList("plus");
+  const listed = [...mounted.connected.rail.terminals(), info("10", { owner: "w", title: "selected shell" })];
+  mounted.app.handlers["terminal.open"] = () => ({ terminal_id: "10" });
+  mounted.app.handlers["terminal.list"] = () => listed;
+  mounted.connected.rail.select("w");
+  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  await mounted.connected.rail.settled();
+  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("10"));
+  await mounted.connected.rail.settled();
+  mounted.connected.rail.select(null);
+  expect(tabs()).toEqual(["project"]);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w" }, { workstream: "w" }]);
+});

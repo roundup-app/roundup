@@ -60,15 +60,19 @@ const capture = async (step: string) => {
   const target = join(directory, baseline ? "base" : "head");
   mkdirSync(target, { recursive: true });
   await browser("screenshot", join(target, `${step}.png`));
-  writeFileSync(join(target, `${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
-  writeFileSync(join(target, `${step}.observation.json`), JSON.stringify(await read(`({
+
+  const observed = await read<{ checks: unknown }>(`({
+    checks: window.__checks(),
     tabs: [...document.querySelectorAll('.terminal-tab')].map(tab => tab.dataset.bubble),
     focused: document.activeElement?.outerHTML,
     shown: [...document.querySelectorAll('.bubble:not([hidden])')].map(bubble => bubble.dataset.bubble),
     root: document.querySelector('.todo-project-root')?.getAttribute('aria-pressed'),
     calls: window.__fake.app.calls.filter(call => ['terminal.open','terminal.close'].includes(call.method)),
     failure: document.querySelector('.bubbles [role="alert"]')?.textContent
-  })`), null, 2));
+  })`);
+
+  writeFileSync(join(target, `${step}.checks.json`), JSON.stringify(observed.checks, null, 2));
+  writeFileSync(join(target, `${step}.observation.json`), JSON.stringify(observed, null, 2));
 };
 
 it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () => {
