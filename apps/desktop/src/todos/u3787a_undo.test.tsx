@@ -1,5 +1,5 @@
 import { padHandlers } from "../testing/stores";
-import { padOf, AGENT } from "../pads/padsFixture";
+import { padOf, AGENT, openPad } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
 import { showShelfTab } from "../testing/shelfTabs";
 import { RpcError } from "../app/seam";
@@ -30,7 +30,7 @@ const mount = async (done = false) => {
     app.add(path);
     const daemon = app.of(path);
     Object.assign(daemon.handlers, padHandlers({ pads: [padOf("first", AGENT, "original"), padOf("second", USER, "other")], history: [] }, data => daemon.emit({ actor: USER, ...data })));
-    daemon.handlers["todo.list"] = () => [todo(5, { done }), todo(7, { done })];
+    daemon.handlers["todo.list"] = () => [todo(5, { done, title: "same" }), todo(7, { done, title: "same" })];
     daemon.handlers["todo.getHistory"] = () => ({ changes: [], unread: null });
     daemon.handlers["todo.comments"] = () => [];
     daemon.handlers["todo.refs"] = () => [];
@@ -248,11 +248,11 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
 const showPads = async () => {
   showShelfTab("Pads");
   await waitFor(() => {
-    const groups = document.querySelectorAll('.shelf [data-shelf-group]');
+    const groups = document.querySelectorAll('.pads-tab [data-shelf-group]');
 
     if (!groups.length) throw new Error("Pad groups are loading");
 
-    for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
   });
 };
 
@@ -296,7 +296,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   const { app } = await mount();
   const daemon = app.of("/a");
   await showEverythingInApp();
-  showShelfTab("Pads");
+  await showPads();
   fireEvent.click(await screen.findByRole("button", { name: "first" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
@@ -384,10 +384,28 @@ for (const entry of ["selection", "clear-done"] as const) {
       fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
     }
 
-    await screen.findByText("Could not delete todo 7 #7: The chosen Todo is no longer available. Refresh to check again.");
+    await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
     expect(screen.getByRole("button", { name: /#7 / }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
     expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([{ ids: [5, 7], operation: expect.any(String) }]);
   });
 }
+
+it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async () => {
+  const { connections } = await mount();
+  await showEverythingInApp();
+  await showPads();
+  const field = await openPad("second");
+  const text = "  unfinished é 🧭\n\nlast  ";
+  fireEvent.input(field, { target: { value: text } });
+  const connected = connections.get("/a")!;
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.value.source === text)).toBe(true));
+  const retained = connected.drafts.list();
+  fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
+  const undo = await screen.findByRole("button", { name: "Undo" });
+  expect(connected.drafts.list()).toEqual(retained);
+  fireEvent.click(undo);
+  await screen.findByRole("button", { name: "second" });
+  expect(connected.drafts.list()).toEqual(retained);
+});

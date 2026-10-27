@@ -69,7 +69,8 @@ it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => 
   await lane.evaluate("(() => { window.__fake.failNext(-32002, 'The original Home is unavailable. Restore the Home and retry deletion.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 2').click(); return true; })()");
   await lane.until("document.body.textContent.includes('Could not delete') && [...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
   await lane.capture("U3787a", "shelf-pads-partial-failure");
-  expect(await lane.calls("pad.delete")).toHaveLength(2);
+  // The fake transport refuses failNext before journaling; only the acknowledged member reaches its call journal.
+  expect(await lane.calls("pad.delete")).toHaveLength(1);
   await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
   await lane.until("document.querySelectorAll('.shelf .pad-name').length >= 5");
   expect(await lane.calls("pad.restore")).toHaveLength(1);
