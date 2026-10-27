@@ -84,6 +84,34 @@ it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_th
   expect(mounted.connected.rail.selected()).toBeNull();
 });
 
+it("u524_every_root_opened_terminal_stays_in_the_bar_after_returning", async () => {
+  const projectTerminal = info("project", { owner: "/p", title: "project shell" });
+  const mounted = await mountBubbles(null, [projectTerminal]);
+  const listed = [projectTerminal];
+  let opened = 0;
+
+  mounted.app.handlers["terminal.open"] = ({ workstream: owner }) => {
+    const id = `root-${++opened}`;
+    listed.push(info(id, { owner, title: `shell ${opened}` }));
+    mounted.setListed([...listed]);
+
+    return { terminal_id: id };
+  };
+  const tabs = () => [...document.querySelectorAll(".terminal-tab")].map(tab => tab.getAttribute("data-bubble"));
+
+  for (const id of ["root-1", "root-2", "root-3"]) {
+    fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+    // Wait for the acknowledged Terminal focus, then join the Rail refresh before another open.
+    await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe(id));
+    await mounted.connected.rail.refresh({ terminals: true });
+  }
+  expect(tabs()).toEqual(["project", "root-1", "root-2", "root-3"]);
+  mounted.connected.rail.select("w");
+  expect(tabs()).toEqual(["root-1", "root-2", "root-3"]);
+  mounted.connected.rail.select(null);
+  expect(tabs()).toEqual(["project", "root-1", "root-2", "root-3"]);
+});
+
 it("u524_a_project_terminal_is_available_after_reload", async () => {
   const mounted = await mountBubbles(null, [info("9", { owner: "/p", title: "login" })], []);
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).not.toBeNull());
