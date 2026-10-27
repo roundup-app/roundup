@@ -59,7 +59,7 @@ describe("u467 the primary Terminal stands alone", () => {
         await record("U467", `door-${width}-${scheme}`, checks);
       }
     }
-  }, 120_000);
+  }, 60_000);
 });
 
 describe("u468 attention keeps focus until activated", () => {
@@ -92,5 +92,5 @@ describe("u468 attention keeps focus until activated", () => {
         await page.until(`() => document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id === 'tokens'`);
       }
     }
-  }, 120_000);
+  }, 60_000);
 });

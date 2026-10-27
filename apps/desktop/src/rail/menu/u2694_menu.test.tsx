@@ -439,7 +439,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
     catch (error) { throw new Error(each.name, { cause: error }); }
     finally { cleanup(); window.localStorage.clear(); }
   }
-}, 90_000);
+}, 60_000);
 
 
 it.each([

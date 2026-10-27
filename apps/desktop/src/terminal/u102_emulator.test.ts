@@ -273,4 +273,4 @@ it("z3788a_images_keep_output_and_input_usable", async () => {
       await page.close();
     }
   }
-}, 120_000);
+}, 60_000);

@@ -80,4 +80,4 @@ it("u533_message_an_agent_in_two_chords_on_tree_40", async () => {
   expect(seen.written).toBe("hello\r");
   expect(seen.order.length).toBeGreaterThan(0);
   expect(seen.order.every((call) => call.startsWith("terminal.write t-agent-23"))).toBe(true);
-}, 120_000);
+}, 60_000);

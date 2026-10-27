@@ -87,7 +87,7 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
     await second.stop();
     await first.stop();
   }
-}, 180_000);
+}, 60_000);
 
 
 it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => {
@@ -187,4 +187,4 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     await real.stop();
     await rm(profile, { recursive: true, force: true });
   }
-}, 180_000);
+}, 60_000);

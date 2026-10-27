@@ -102,7 +102,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         await browser("eval", "localStorage.clear()");
       }
     });
-  }, 120_000);
+  }, 60_000);
 
   it("u505_arrows_move_between_openable_rows", async () => {
     await observe(async (browser, origin) => {
@@ -131,7 +131,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
       expect((await browser("eval", "document.querySelector('.pane-screen').contains(document.activeElement)")).result).toBe(true);
     });
-  }, 120_000);
+  }, 60_000);
 
   it("u505_a_row_is_a_button_named_by_its_cells", async () => {
     await mountAskBar([typed, ask("plain", 1, [{ text: "plain", placement: { kind: "new", title: "future" }, state: "placing" }])]);

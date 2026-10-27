@@ -140,4 +140,4 @@ it("u3732_real_daemon_agent_owner", async () => {
   } finally {
     try { await browser("close"); } finally { await real.stop(); await rm(profile, { recursive: true, force: true }); }
   }
-}, 240_000);
+}, 60_000);
