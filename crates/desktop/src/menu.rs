@@ -157,7 +157,7 @@ pub fn select_project_menu<R: Runtime>(
     Ok(())
 }
 
-/// Context menus display shortcut text; the Project menu projects accelerators and separate hints.
+/// Native menus share one-step accelerators, sequence hints and group metadata.
 #[derive(Deserialize)]
 pub struct Item {
     id: String,
@@ -180,36 +180,42 @@ impl Choice {
     }
 }
 
-fn text(item: &Item) -> String {
-    match &item.shortcut {
-        Some(chord) => format!("{}\t{chord}", item.label),
-        None => item.label.clone(),
-    }
+fn applicable(item: &Item) -> bool {
+    item.enabled
+        && item
+            .children
+            .as_ref()
+            .is_none_or(|children| children.iter().any(applicable))
 }
 
 fn append<R: Runtime>(app: &AppHandle<R>, into: &Menu<R>, items: &[Item]) -> tauri::Result<()> {
-    for item in items {
-        into.append(&kind(app, item)?)?;
+    let mut group = None;
+    for item in items.iter().filter(|item| applicable(item)) {
+        if group.is_some() && group != Some(&item.group) {
+            into.append(&tauri::menu::PredefinedMenuItem::separator(app)?)?;
+        }
+        group = Some(&item.group);
+        into.append(&kind(app, item, |app, id, label, enabled, accelerator| {
+            MenuItem::with_id(app, id, label, enabled, accelerator)
+        })?)?;
     }
     Ok(())
 }
 
-fn kind<R: Runtime>(app: &AppHandle<R>, item: &Item) -> tauri::Result<MenuItemKind<R>> {
+fn kind<R: Runtime>(
+    app: &AppHandle<R>,
+    item: &Item,
+    build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
+) -> tauri::Result<MenuItemKind<R>> {
     match &item.children {
         Some(children) => {
             let sub = Submenu::new(app, &item.label, item.enabled)?;
-            for child in children {
-                sub.append(&kind(app, child)?)?;
+            for child in children.iter().filter(|child| applicable(child)) {
+                sub.append(&kind(app, child, build)?)?;
             }
             Ok(MenuItemKind::Submenu(sub))
         }
-        None => Ok(MenuItemKind::MenuItem(MenuItem::with_id(
-            app,
-            item.id.clone(),
-            text(item),
-            item.enabled,
-            None::<&str>,
-        )?)),
+        None => project_kind(app, item, build).map(|(entry, _)| entry),
     }
 }
 
@@ -250,6 +256,25 @@ fn project_kind<R: Runtime>(
     Ok((MenuItemKind::MenuItem(entry), hint))
 }
 
+#[cfg(any(target_vendor = "apple", test))]
+fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
+    items
+        .iter()
+        .filter(|item| item.enabled)
+        .flat_map(|item| {
+            if let Some(children) = &item.children {
+                return sequence_hints(children);
+            }
+            item.shortcut
+                .as_ref()
+                .filter(|shortcut| shortcut.starts_with("⌘K "))
+                .map(|shortcut| (item.label.clone(), shortcut.clone()))
+                .into_iter()
+                .collect()
+        })
+        .collect()
+}
+
 fn internal(error: impl ToString) -> RpcError {
     RpcError::new(code::INTERNAL, error.to_string())
 }
@@ -270,9 +295,15 @@ pub async fn show_context_menu<R: Runtime>(
     let (shown, closed) = oneshot::channel();
     let target = window.as_ref().window();
     let popped = target.clone();
+    #[cfg(target_vendor = "apple")]
+    let hints = sequence_hints(&items);
     target
         .run_on_main_thread(move || {
-            let _ = shown.send(popped.popup_menu_at(&menu, LogicalPosition::new(x, y)));
+            #[cfg(target_vendor = "apple")]
+            let result = native::context_menu(&popped, &menu, LogicalPosition::new(x, y), hints);
+            #[cfg(not(target_vendor = "apple"))]
+            let result = popped.popup_menu_at(&menu, LogicalPosition::new(x, y));
+            let _ = shown.send(result);
         })
         .map_err(internal)?;
     closed.await.map_err(internal)?.map_err(internal)?;
@@ -317,54 +348,114 @@ mod tests {
         }
     }
 
-    /// U2694a: the host builds each item with no accelerator; a chord is label text only, so no `NSMenu` key equivalent fires from the menu bar.
     #[test]
-    fn u2694a_no_item_carries_an_accelerator() {
+    fn u4322b_items_carry_native_accelerators() {
         let app = mock_app();
-        let rename =
-            plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
-        let copy = plain(kind(app.handle(), &item("copy", "Copy Link", None, None)).unwrap());
-
-        assert_eq!(rename.text().unwrap(), "Rename\tF2");
-        assert_eq!(copy.text().unwrap(), "Copy Link");
+        for (chord, accelerator) in [
+            (Some("F2"), Some("F2")),
+            (Some("⌘⌫"), Some("Super+Backspace")),
+            (None, None),
+        ] {
+            let built = kind(
+                app.handle(),
+                &item("action", "Rename", chord, None),
+                |app, id, label, enabled, supplied| {
+                    assert_eq!(supplied, accelerator);
+                    MenuItem::with_id(app, id, label, enabled, supplied)
+                },
+            )
+            .unwrap();
+            let leaf = plain(built);
+            assert_eq!(leaf.text().unwrap(), "Rename");
+            assert_eq!(leaf.id().0, "action");
+        }
     }
 
-    /// U2694a: a `children` list is a submenu, each child an item with its own id and enabled state.
     #[test]
-    fn u2694a_children_build_a_submenu() {
+    fn u4322b_native_groups_and_submenus_reach_the_menu() {
         let app = mock_app();
-        let mut gone = item("send:x", "x", None, None);
-        gone.enabled = false;
-        let built = kind(
+        let menu = Menu::new(app.handle()).unwrap();
+        let mut rename = item("rename", "Rename", Some("F2"), None);
+        rename.group = Some("edit".into());
+        let mut remove = item("remove", "Remove", Some("⌘⌫"), None);
+        remove.group = Some("remove".into());
+        let mut hidden = item("hidden", "Hidden", None, None);
+        hidden.enabled = false;
+        hidden.group = Some("omitted".into());
+        append(
             app.handle(),
-            &item(
-                "send",
-                "Send to Agent",
-                None,
-                Some(vec![item("send:a", "a", None, None), gone]),
-            ),
+            &menu,
+            &[
+                rename,
+                hidden,
+                item("empty", "Empty", None, Some(vec![])),
+                remove,
+                item(
+                    "add",
+                    "Add",
+                    None,
+                    Some(vec![
+                        item("child", "Pad", None, None),
+                        Item {
+                            enabled: false,
+                            ..item("unavailable-child", "Unavailable", None, None)
+                        },
+                    ]),
+                ),
+            ],
         )
         .unwrap();
-        let MenuItemKind::Submenu(sub) = built else {
-            panic!("expected a submenu")
+        let built = menu.items().unwrap();
+        assert_eq!(built.len(), 5);
+        assert_eq!(plain(built[0].clone()).id().0, "rename");
+        assert!(matches!(built[1], MenuItemKind::Predefined(_)));
+        assert_eq!(plain(built[2].clone()).id().0, "remove");
+        assert!(matches!(built[3], MenuItemKind::Predefined(_)));
+        let MenuItemKind::Submenu(sub) = &built[4] else {
+            panic!("submenu missing")
         };
-        let children: Vec<_> = sub.items().unwrap().into_iter().map(plain).collect();
-
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.text().unwrap())
-                .collect::<Vec<_>>(),
-            ["a", "x"]
-        );
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.is_enabled().unwrap())
-                .collect::<Vec<_>>(),
-            [true, false]
-        );
+        assert_eq!(sub.items().unwrap().len(), 1);
+        assert_eq!(plain(sub.items().unwrap()[0].clone()).id().0, "child");
     }
+
+    #[test]
+    fn u4322b_sequences_remain_hints() {
+        let app = mock_app();
+        let action = item("close", "Close", Some("⌘K W"), None);
+        let (entry, hint) = project_kind(
+            app.handle(),
+            &action,
+            |app, id, label, enabled, accelerator| {
+                assert_eq!(accelerator, None);
+                MenuItem::with_id(app, id, label, enabled, accelerator)
+            },
+        )
+        .unwrap();
+        assert_eq!(plain(entry).text().unwrap(), "Close");
+        assert_eq!(hint.as_deref(), Some("⌘K W"));
+        assert_eq!(sequence_hints(&[action]), [("Close".into(), "⌘K W".into())]);
+    }
+
+    #[test]
+    fn u4322b_popup_accelerators_stay_in_the_popup() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let popup = Menu::new(app.handle()).unwrap();
+        append(
+            app.handle(),
+            &popup,
+            &[item("popup-rename", "Rename", Some("F2"), None)],
+        )
+        .unwrap();
+        assert!(popup.get("popup-rename").is_some());
+        assert!(app.menu().unwrap().get("popup-rename").is_none());
+        drop(popup);
+        assert!(app.menu().unwrap().get("popup-rename").is_none());
+    }
+
     #[test]
     fn s_u3813_project_menu_tracks_the_selected_project() {
         use std::sync::Arc;

@@ -42,8 +42,8 @@ describe("u176 Agent names", () => {
       await waitFor(() => expect(within(rail).getByRole("button", { name: "Add Workstream" }).getAttribute("aria-disabled")).not.toBe("true"));
       const home = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
       fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
-      await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "add" && item.enabled)).toBe(true));
-      menuProbe.answer!("add");
+      await waitFor(() => expect(menuProbe.shown?.find(item => item.id === "add")?.children?.some(item => item.id === "add-agent" && item.enabled)).toBe(true));
+      menuProbe.answer!("add-agent");
       await waitFor(async () => expect(await agents()).toHaveLength(count), { timeout: 30_000 });
       await waitFor(async () => expect((await agents())[count - 1]!.status?.label).not.toBe("starting"), { timeout: 30_000 });
       await waitFor(async () => expect(await app.rpc("agent.prompt", { id: (await agents())[count - 1]!.id, text: "what should this do" })).toBeNull(), { timeout: 30_000 });
