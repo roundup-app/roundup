@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from "@solidjs/testing-library";
+import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp } from "../testing/appFixture";
 import { agent, info, event } from "../testing/nodes";
@@ -71,7 +71,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(app.calls.slice(before)).toEqual([]);
   app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "working", "editing", { name: "running again" }), agent("b", "done", "finished", { name: "終 é 😀" })];
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(row("a:r").textContent).toContain("running again"));
+  await within(document.querySelector(".inbox")!).findByRole("button", { name: "running again" });
   const afterRefresh = app.calls.length;
   row("c:13").hidden = false;
   fireEvent.click(row("c:13"), { metaKey: true });
