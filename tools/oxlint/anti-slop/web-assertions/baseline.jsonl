@@ -83,7 +83,6 @@
 {"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_controls_use_sentence_case","identity":"218ff310100bbfe36b2a0d1ab153172ce7d178c163d6eb01bacb1a4a96c937c8"}
 {"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written","identity":"6fbcd85c3eca37a2b7167fe390f810767a62bb28e6646c988ee6b51164996568"}
 {"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written","identity":"4ada8d545913b74ead3f0a23f0fe9f6ae17fb36b328a65fe04740055936d35e9"}
-{"file":"apps/desktop/src/bubbles/u511a_rename.test.tsx","test":"u511a_escape_then_blur_keeps_the_previous_name","identity":"d0c07d5f56f46a324529a4cbf7b92a26fbe7cb4288cf30406546c39e3164e102"}
 {"file":"apps/desktop/src/bubbles/u511a_rename.test.tsx","test":"u2773c_bubbles_external_change_keeps_original","identity":"3c07699129adb38f6edbf31eab475f94643c2e28103ee02fb008c839aba9e1e0"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_control_shows_the_branch_and_its_state","identity":"bbef3bc5f77e9315a9edd16914a78beadc34eca257946acca5fb0218ad9f9f56"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_tree_lists_each_file_with_its_status","identity":"682c7fc1802f239ab90a4eb78258a8683918785ee79382e9dcd6aeb1b9c84fca"}
