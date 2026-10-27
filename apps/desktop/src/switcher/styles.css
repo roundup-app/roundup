@@ -71,4 +71,10 @@
   flex-basis: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+  padding-inline-start: calc(var(--space-4) + var(--space-1));
+  text-indent: calc((var(--space-4) + var(--space-1)) * -1);
+}
+
+.switcher .reserved-actions {
+  margin-inline-start: auto;
 }

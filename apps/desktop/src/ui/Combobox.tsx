@@ -78,7 +78,7 @@ const Root = (props: {
     id, ids: { label: field?.().ids.label, input: field?.().ids.control },
     disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
     dir: locale().dir, getRootNode: environment().getRootNode,
-    collection: collection(), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
+    collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
     inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
@@ -98,76 +98,7 @@ const Root = (props: {
     const row = rows.get(item.value);
 
     return props.contentRow?.(item) && row && !row.closest("[hidden], [inert], [aria-disabled=true]");
-  }));
-
-  let anchor: string | undefined;
-
-  const focusRow = (value: string | null | undefined) => {
-    if (value == null) return;
-    props.onHighlightChange(value);
-    rows.get(value)?.focus({ preventScroll: true });
-    rows.get(value)?.scrollIntoView?.({ block: "nearest" });
-  };
-
-  const targetRow = (event: Event) => event.target instanceof Element ? event.target.closest<HTMLElement>("[data-collection-value]") : null;
-
-  const selectClick = (event: MouseEvent) => {
-    const row = targetRow(event);
-    const value = row?.dataset.collectionValue;
-
-    if (value === undefined || event.ctrlKey || !event.metaKey && !event.shiftKey) return;
-    event.preventDefault(); event.stopPropagation();
-    const collection = content.collection();
-
-    if (!collection.has(value)) return;
-
-    if (event.shiftKey) content.selection.setSelectedValues(anchor === undefined || !collection.has(anchor) ? [value] : collection.getValueRange(anchor, value));
-    else { content.selection.toggle(value); anchor = value; }
-
-    focusRow(value);
-  };
-
-  const selectKey = (event: KeyboardEvent) => {
-    const value = targetRow(event)?.dataset.collectionValue;
-
-    if (value === undefined || event.ctrlKey || event.altKey || event.isComposing) return;
-    const collection = content.collection();
-
-    if (event.metaKey && event.key.toLowerCase() === "a") {
-      event.preventDefault(); event.stopPropagation();
-      content.selection.setSelectedValues(collection.getValues());
-
-      return;
-    }
-
-    if (event.metaKey) return;
-
-    const next = event.key === "Home" ? collection.firstValue
-      : event.key === "End" ? collection.lastValue
-      : event.key === "ArrowUp" ? collection.getPreviousValue(value)
-      : event.key === "ArrowDown" ? collection.getNextValue(value) : undefined;
-
-    if (next !== undefined) {
-      event.preventDefault(); event.stopPropagation(); focusRow(next);
-
-      return;
-    }
-
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault(); event.stopPropagation();
-
-      if (collection.has(value)) props.onSelect(value);
-
-      return;
-    }
-
-    const match = content.search(event);
-
-    if (match !== null) {
-      event.preventDefault(); event.stopPropagation();
-      content.selection.replace(match); focusRow(match);
-    }
-  };
+  }), { onFocus: value => props.onHighlightChange(value), onActivate: value => props.onSelect(value) });
 
   // The Tab stop is available before item refs mount; gesture eligibility uses the mounted collection.
   const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
@@ -203,7 +134,7 @@ const Root = (props: {
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list"
-      on:click={{ handleEvent: selectClick, capture: true }} on:keydown={{ handleEvent: selectKey, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
+      on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {([group, items]) => group ? <ArkCombobox.ItemGroup>
           <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>

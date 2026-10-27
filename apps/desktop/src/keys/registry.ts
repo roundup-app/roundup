@@ -1,3 +1,4 @@
+import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
 import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
@@ -11,7 +12,7 @@ export type KeyScope =
   | { kind: "app" }
   | { kind: "leader" }
   | { kind: "region"; element: () => HTMLElement | undefined }
-  | { kind: "layer"; element: () => HTMLElement | undefined; active: () => boolean; modal: boolean; parent?: KeyScope; localKeys?: (event: KeyboardEvent) => boolean };
+  | { kind: "layer"; element: () => HTMLElement | undefined; active: () => boolean; modal: boolean; parent?: KeyScope };
 
 export type ActivationSource = "key" | "pointer";
 
@@ -180,7 +181,9 @@ const dispatch = (event: KeyboardEvent): void => {
     }
   }
 
-  if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible) && !(layer?.scope.kind === "layer" && layer.scope.localKeys?.(event))) event.stopImmediatePropagation();
+  if (modal && layer?.scope.kind === "layer" && event.target instanceof Node && layer.scope.element()?.contains(event.target) && rowKey(event)) return;
+
+  if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible)) event.stopImmediatePropagation();
 };
 
 /** Register within a Solid owner. Matching is tinykeys' job; guards and repeats belong to each caller.

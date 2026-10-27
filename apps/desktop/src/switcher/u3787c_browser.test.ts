@@ -39,7 +39,7 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
 
-    for (const seed of ["tree-40", "tabs-8", "conflict"]) {
+    for (const seed of ["tree-40", "tabs-8", "conflict", "agents-10"]) {
       // Seeds share an origin and Project path; begin each mounted observation with fresh drafts.
       await read("localStorage.clear()");
       await browser("open", new URL(`/harness.html?seed=${seed}`, origin).href);
@@ -80,6 +80,7 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       await browser("press", "Meta+a");
       expect(await read("[...document.querySelectorAll('.switcher [aria-selected=true]')].map(e=>e.dataset.value)")).toEqual(ids);
       expect(await read("window.__fake.app.calls.length")).toBe(before);
+      await browser("press", "ArrowDown");
       await capture(`${seed}-selected`);
       await browser("press", "Shift+Tab");
       await browser("wait", "--fn", "document.activeElement?.matches('.switcher input')");

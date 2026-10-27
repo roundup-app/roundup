@@ -62,3 +62,12 @@
 .choice-picker .app-combobox-input {
   box-sizing: border-box;
 }
+
+/* Content selection shares one ground; the keyboard position changes only its tone. */
+.app-combobox-item[data-collection-value] {
+  border-radius: 0;
+}
+
+.app-combobox-item[data-row-selected=true]:focus {
+  background-color: var(--selected);
+}
