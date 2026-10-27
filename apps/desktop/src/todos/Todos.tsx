@@ -1,7 +1,6 @@
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { deleteTodos } from "./deleteTodos";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
@@ -201,7 +200,8 @@ export const Todos = (props: {
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: connected.drafts.todoUndo.removeTodos,
     reload: async () => {
       await todos.reload();
 
