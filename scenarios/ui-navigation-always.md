@@ -49,7 +49,7 @@ Policy — scope: remove markup, copy keys, styles and tests together for the Ag
 
 Policy — retirement: the implementation cuts, in the files it touches, only tests that asserted the removed row, goal dialog, strip, bottom bar or undo controls, and names the replacement above in each cut; Rail, Terminal, attention and draft proofs stay.
 
-Policy — rendered observer: isolated headless Chromium, fresh profile, 1512×950 in dark mode, seeds `agents-10`, `door-stopped`, `tree-40` and `empty-project`, with a long Agent name. Run `just capture U4453a,U4453b,U4453c`; leave paired main/head PNGs under `artifacts/ux/<id>/{base,head}/` and never commit images. The critic judges D2, D5 and D6 (check 2) and that the Terminal fills the freed height.
+Policy — rendered observer: isolated headless Chromium, fresh profile, 1512×950 in dark mode, seeds `agents-10`, `door-stopped`, `tree-40` and `empty-project`, with a long Agent name. Run `just capture U4453a,U4453b,U4453c`; leave paired main/head captures under `artifacts/ux/<id>/{base,head}/` and never commit images. The critic judges D2, D5 and D6 (check 2) and that the Terminal fills the freed height.
 
 Checks on main:
 
