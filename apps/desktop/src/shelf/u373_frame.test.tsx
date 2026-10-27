@@ -159,6 +159,33 @@ describe("u373 and u370 on one mounted App", () => {
     expect(controls.app.calls.slice(before).filter((call) => call.method !== "terminal.resize")).toEqual([]);
   });
 
+  it("u3010d_reduced_motion_keeps_the_pointer_target_through_close_open_close_and_key_open", async () => {
+    await shared();
+    const row = document.querySelector<HTMLElement>(".rail-row")!;
+    const selected = document.querySelector('.rail-row[aria-selected="true"]');
+
+    row.focus();
+    chord();
+    chord();
+    const target = tabNamed("Todos");
+
+    await waitFor(() => expect(document.activeElement).toBe(target));
+
+    for (const closed of [true, false, true]) {
+      fireEvent.click(target);
+      expect(shelf().hidden).toBe(closed);
+      expect(tabNamed("Todos")).toBe(target);
+      expect(target.getAttribute("aria-expanded")).toBe(String(!closed));
+      expect(tabs().find(tab => tab.getAttribute("aria-selected") === "true")).toBe(closed ? undefined : target);
+      await waitFor(() => expect(document.activeElement).toBe(closed ? row : target));
+    }
+
+    chord({}, row);
+    expect(shelf().hidden).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(target));
+    expect(document.querySelector('.rail-row[aria-selected="true"]')).toBe(selected);
+  });
+
   it("u370_focus_returns_where_it_was", async () => {
     await shared();
     const row = document.querySelector<HTMLElement>(".rail-row")!;
