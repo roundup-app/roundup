@@ -328,7 +328,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
 
-        if (step === "selected") await browser("click", '.rail-row[data-id="tokens"]');
+        if (step === "selected") await browser("click", seed === "tree-40" ? '.rail-row[data-id="tokens"]' : '.rail-row[data-id="agent-4"]');
 
         for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) {
           const checks = await shot(id, stage, `${seed}-${step}`);
