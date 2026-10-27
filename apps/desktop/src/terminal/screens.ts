@@ -1,4 +1,5 @@
 import { throttle } from "@solid-primitives/scheduled";
+import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
@@ -306,12 +307,18 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const retain = (id: string, holder: Holder, after: number): void => {
     if (!holder.incarnation || !holder.emulator.serialize) return;
 
+    if (exited(id)) {
+      forgetScrollback(project.path, holder.incarnation);
+
+      return;
+    }
+
     holder.emulator.write(new Uint8Array(), () => {
       if (disposed) return;
       const output = holder.emulator.serialize?.();
 
-      if (output) void import("./scrollback").then(module => module.retainScrollback(project.path, holder.incarnation!, { ...output, after },
-        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause))));
+      if (output) retainScrollback(project.path, holder.incarnation!, { ...output, after },
+        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)));
     });
   };
 
@@ -321,11 +328,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     stream.restoring = true;
 
     try {
-      const retained = await import("./scrollback").then(module => module.restoreScrollback(
+      const retained = await restoreScrollback(
         connected, id, holder.incarnation, holder.emulator, holder.complete, shownTo.get(id),
         () => stream.open && stream.after === null && !stream.lost,
         cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)),
-      ));
+      );
 
       if (!stream.open) return;
 
@@ -576,7 +583,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         const after = holder.stream?.after;
 
         if (after != null) retain(id, holder, after);
-      }, 250),
+      }, 2000),
       emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 

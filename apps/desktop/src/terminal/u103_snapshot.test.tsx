@@ -489,7 +489,7 @@ it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
   app.emitOutput("t-a", output);
   await parsed();
   const { scrollbackStorage } = await import("./scrollback");
-  await vi.waitFor(() => expect(scrollbackStorage("/p", "fixture-t-a").read()?.after).toBe(app.outputPositions.get("t-a")));
+  await vi.waitFor(() => expect(scrollbackStorage("/p", "fixture-t-a").read()?.after).toBe(app.outputPositions.get("t-a")), { timeout: 5000 });
   const content = (terminal: Terminal) => Array.from({ length: terminal.buffer.active.length }, (_, i) => terminal.buffer.active.getLine(i)?.translateToString(true));
   const before = content(terminals[0]!);
   const cursor = { x: terminals[0]!.buffer.active.cursorX, y: terminals[0]!.buffer.active.cursorY };

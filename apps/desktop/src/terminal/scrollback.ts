@@ -28,7 +28,14 @@ export const retainScrollback = (project: string, incarnation: string, output: v
     return;
   }
 
-  void storage.write(output, saved.status === "restored" ? saved.value : null);
+  void storage.write(output, saved.status === "restored" ? saved.value : null).then(cause => {
+    if (cause !== null) failed(cause);
+  });
+};
+
+/** An exited Terminal is never replayed, so its record only costs storage. */
+export const forgetScrollback = (project: string, incarnation: string): void => {
+  void scrollbackStorage(project, incarnation).clear();
 };
 
 /** Only a contiguous authoritative handoff licenses replay of locally retained output. */
@@ -41,7 +48,7 @@ export const restoreScrollback = async (
 
   if (saved?.status === "failed") failed(saved.cause);
   const local = saved?.status === "restored" ? saved.value : null;
-  after ??= local?.after;
+  after = local?.after ?? after;
 
   if ((!complete && !local) || after === undefined) return null;
 
