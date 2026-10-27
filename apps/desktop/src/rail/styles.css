@@ -420,6 +420,7 @@
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
+  position: relative;
   display: flex;
   align-items: center;
   flex: none;
@@ -802,7 +803,7 @@
   align-items: center;
   flex: none;
   position: absolute;
-  inset-inline-end: 0;
+  inset-inline-end: calc(-1 * var(--space-4));
   inset-block: 0;
   background: var(--sunken);
   opacity: 0;
@@ -822,6 +823,8 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* The Open and Pads controls show with focus and selection: the group then sits before them, never under them. */
+.rail-row:is(:focus-within, [data-selected="true"]) .row-icons { inset-inline-end: calc(100% + var(--rail-gap)); }
 .rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row .row-state { flex: none; }
 
