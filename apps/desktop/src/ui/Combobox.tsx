@@ -188,7 +188,10 @@ const Root = (props: {
 
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
-    <ArkCombobox.Control><ArkCombobox.Input ref={element => {
+    <ArkCombobox.Control><ArkCombobox.Input on:keydown={{ capture: true, handleEvent: (event: KeyboardEvent) => {
+      // Home/End edit the query; content-row navigation starts only after focus leaves it.
+      if (props.contentRow && (event.key === "Home" || event.key === "End")) event.stopPropagation();
+    } }} ref={element => {
       const focus = initialFocus;
       input = element;
       const signal = focus.signal(target => contains(target, element));
