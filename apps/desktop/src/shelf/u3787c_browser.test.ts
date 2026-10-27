@@ -33,6 +33,7 @@ it("u3787c_shelf_selection_is_instant_on_dense_seeds", async () => {
         await lane.browser("focus", selector);
         await lane.capture("U3787c", `${seed}-${kind}-before`);
         await lane.browser("press", "End");
+        await lane.until(`document.activeElement === [...document.querySelectorAll('${selector}')].at(-1)`);
         expect(await lane.evaluate<boolean>(`document.activeElement === [...document.querySelectorAll('${selector}')].at(-1)`)).toBe(true);
         await lane.browser("press", "Meta+a");
         await lane.until(`document.querySelectorAll('${selector}[aria-pressed=true]').length === 6`);
