@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
-import { createSignal, For } from "solid-js";
+import { createRoot, createSignal, For } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRowCollection, rowKey } from "./RowCollection";
 
@@ -55,13 +55,27 @@ it("z3788d_filtering_away_an_identity_cancels_its_pending_focus", async () => {
 });
 
 it("z3788d_holder_cleanup_cancels_queued_registration_focus", async () => {
-  const list = mount();
-  fireEvent.keyDown(list.row("row-0"), { key: "End" });
-  list.setRows(list.all);
-  const focus = vi.spyOn(list.row("row-4"), "focus");
-  list.dispose();
+  const items = [{ value: "first", label: "First" }, { value: "last", label: "Last" }];
+  let holder!: ReturnType<typeof createRowCollection>;
+  const dispose = createRoot(dispose => {
+    holder = createRowCollection(() => items, { onFocus: () => {}, onActivate: () => {} });
+
+    return dispose;
+  });
+  const [rows, setRows] = createSignal(items.slice(0, 1));
+  // Registration belongs to the renderer; disposing the holder must cancel even
+  // while its renderer's DOM and registration owners remain alive.
+  const view = render(() => <For each={rows()}>{item => <button ref={row => holder.register(row, item.value)} onKeyDown={rowKey}>{item.label}</button>}</For>);
+  const first = view.getByText("First");
+  first.focus();
+  fireEvent.keyDown(first, { key: "End" });
+  setRows(items);
+  const last = view.getByText("Last");
+  const focus = vi.spyOn(last, "focus");
+  dispose();
   await Promise.resolve();
   expect(focus).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(first);
 });
 
 it("z3788d_old_row_cleanup_preserves_a_new_registration_of_the_same_identity", () => {
