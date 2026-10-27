@@ -59,7 +59,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(settings.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -76,8 +76,6 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
-    expect(screen.queryByRole("button", { name: "Import Claude Code work" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Project settings" })).toBeNull();
 
     for (const [command, heading] of [["import-work", "Import Claude Code work"], ["project-settings", "Project settings"]] as const) {
       openProjectPage(command);
@@ -87,7 +85,8 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
       else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", String(cap)));
-      fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+      // Shared-row return is proved by u4315b_back_to_ask_clears_centre_navigation.
+      fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
     }
 
     expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(1);
@@ -128,7 +127,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
-  fireEvent.click(within(document.querySelector<HTMLElement>(".rail")!).getByRole("button", { name: "New Terminal" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
@@ -183,7 +182,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
   expect(app.of(path("api")).calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 
-it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_previous_center_and_focus_missing_element_%s", async command => {
+it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the_previous_center_and_focus_missing_element_%s", async command => {
   await openTabs({ api: [workstream("w")] });
   const opener = document.createElement("button");
   document.body.append(opener);
@@ -191,7 +190,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_
   openProjectPage(command);
   const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code work" : "Project settings" });
   opener.remove();
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview, Project root/ })));
 });
 
@@ -201,15 +200,15 @@ it("u3814_switching_settings_pages_keeps_the_original_return_destination", async
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  const appPage = await screen.findByRole("region", { name: "Settings" });
   openProjectPage("import-work");
-  expect(await screen.findByRole("region", { name: "Import Claude Code work" })).toBeTruthy();
-  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
+  const imported = await screen.findByRole("region", { name: "Import Claude Code work" });
+  expect(appPage.isConnected).toBe(false);
   openProjectPage("project-settings");
   const page = await screen.findByRole("region", { name: "Project settings" });
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
-  expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull();
+  expect(imported.isConnected).toBe(false);
 });
 
 it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", async () => {

@@ -663,7 +663,7 @@ fn advertised(brief: &str) -> Vec<String> {
     names
 }
 
-/// Q1: the vendored style every Brief carries.
+/// Q11: style text belongs to the plugin, never the Brief.
 const HOLD_PLAIN: &str = include_str!("../../agents/assets/hold-plain.md");
 
 /// Q6: the two pinned skills every Brief carries.
@@ -685,8 +685,8 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
     assert!(!seen.brief.contains("coordinating Door"));
     assert!(
-        seen.brief.contains(HOLD_PLAIN),
-        "Q1: the pinned hold:Plain body"
+        !seen.brief.contains(HOLD_PLAIN),
+        "Q11: the Brief must not duplicate the plugin style"
     );
     assert!(
         seen.brief.contains(REDUCE) && seen.brief.contains(SHOW_ME),
