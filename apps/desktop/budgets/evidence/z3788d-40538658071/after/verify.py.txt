@@ -1,0 +1,83 @@
+import json,pathlib,math,sys,hashlib,collections,gzip
+root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-40538658071/after';media=root/'artifacts/ux/Z3788d/continued'
+archive=out;out.mkdir(exist_ok=True)
+reports=[];failure=[];selection_failures=[]
+for length in [40,400,4000]:
+ try:
+  raw=gzip.decompress(b''.join(gzip.decompress(p.read_bytes()) for p in sorted(archive.glob(f'{length}-trace.json.gz.part-*.gz'))))
+  rows=json.loads((archive/f'{length}-samples.json').read_text() if (archive/f'{length}-samples.json').exists() else gzip.decompress((archive/f'{length}-samples.json.gz').read_bytes()));es=json.loads(raw)['traceEvents']
+  if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
+  starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']
+  marks={e['name']:e for e in es if e['name'].startswith('z3788d-')}
+  by_name=collections.defaultdict(list)
+  for e in es: by_name[e['name']].append(e)
+  # Reporter and presentation stage share the local trace id, process, thread and category.
+  # The reporter wrapper may end at Commit; its presentation stage is authoritative.
+  def key(e): return (e['pid'],e['tid'],e.get('cat'),json.dumps(e.get('id2'),sort_keys=True))
+  reporters={};pending={};presented=[]
+  stages=by_name['PipelineReporter']+by_name['SubmitCompositorFrameToPresentationCompositorFrame']
+  for e in sorted(stages,key=lambda event:event['ts']):
+   if e['name']=='PipelineReporter':
+    if e['ph'] in ('b','n') and 'frame_reporter' in e.get('args',{}):reporters[key(e)]=e
+    continue
+   if e['ph']=='b':pending[key(e)]=(e,reporters.get(key(e)))
+   elif e['ph']=='e' and key(e) in pending:
+    begin,reporter=pending.pop(key(e))
+    if reporter is None: continue
+    info=reporter.get('args',{}).get('frame_reporter',{})
+    if info.get('state')=='STATE_PRESENTED_ALL': presented.append((begin,e,info))
+  measures=[]
+  for row in rows:
+   n=row['id']
+   if not row.get('selectedVisible') or row.get('displayedSelected')!=('row-0000' if n%2==0 else 'row-0001'):raise ValueError(f'{n}: selected result is not displayed')
+   if not row.get('mounted') or not set(row['mounted']).issubset(set([f'row-{i:04d}' for i in range(length)])):raise ValueError(f'{n}: invalid mounted viewport identities')
+   if n!=len(measures):raise ValueError('Missing or reordered sample id')
+   expected=[f'row-{i:04d}' for i in range(0 if n%2==0 else 1,length,2)]
+   digest=hashlib.sha256(json.dumps(expected,separators=(',',':')).encode()).hexdigest()
+   if row['count']!=len(expected) or row['identitiesSha256']!=digest:raise ValueError(f'{n}: wrong displayed identities')
+   if row['query']!=('l' if n%2==0 else 'b'): raise ValueError(f'{n}: unexpected query')
+   start=marks[f'z3788d-input-{n}'];ready=marks[f'z3788d-ready-{n}']
+   dispatches=[e for e in by_name['EventDispatch'] if e.get('ph')=='X' and e['pid']==start['pid'] and e['tid']==start['tid'] and e.get('args',{}).get('data',{}).get('type')=='input' and e['ts']<=start['ts']<=e['ts']+e['dur']]
+   if len(dispatches)!=1:raise ValueError(f'{n}: ambiguous enclosing input dispatch ({len(dispatches)})')
+   dispatch=dispatches[0]
+   # Bind the mark to its enclosing native dispatch, then to EventTiming's processing start.
+   # Trace timestamps retain microseconds; DOM e.timeStamp/performance.now may be quantized.
+   matches=[e for e in starts if e['pid']==start['pid'] and e['tid']==start['tid'] and e['ts']+(e['args']['data']['processingStart']-e['args']['data']['timeStamp'])*1000<=start['ts']<=e['ts']+(e['args']['data']['processingEnd']-e['args']['data']['timeStamp'])*1000]
+   if len(matches)!=1:raise ValueError(f'{n}: ambiguous input event ({len(matches)})')
+   event=matches[0];data=event['args']['data'];end=event['ts']+data['duration']*1000
+   if not row['identitiesMatch'] or not row['trusted']:raise ValueError(f'{n}: identities or trusted input failed')
+   commit=event['ts']+(data['commitFinishTime']-data['timeStamp'])*1000
+   if not (dispatch['ts']+dispatch['dur']<=ready['ts']<=commit<=end):raise ValueError(f'{n}: filtered identities do not precede presented commit')
+   paints=[e for e in by_name['Paint'] if e['pid']==ready['pid'] and e.get('args',{}).get('data',{}).get('frame')==data['frame'] and 'switcher' in e.get('args',{}).get('data',{}).get('nodeName','') and ready['ts']<=e['ts']<=end]
+   draws=[e for e in by_name['DrawFrame'] if e['pid']==ready['pid'] and ready['ts']<=e['ts']<=end]
+   if not paints or not draws:raise ValueError(f'{n}: no matching paint/draw before presentation')
+   frames=[{'sequence':info['frame_sequence'],'layerTreeId':info['layer_tree_host_id'],'drawTraceUs':d['ts'],'presentationTraceUs':finish['ts']} for d in draws for begin,finish,info in presented if begin['pid']==d['pid'] and info['frame_sequence']==d['args']['frameSeqId'] and info['layer_tree_host_id']==d['args']['layerTreeId'] and begin['ts']<=d['ts']<=finish['ts'] and abs(finish['ts']-end)<=2]
+   if not frames: raise ValueError(f'{n}: displayed frame not paired to presentation')
+   timed={**row,'presentedFrames':frames,'warmup':n<20,'latencyMs':data['duration'],'inputTraceUs':event['ts'],'readyTraceUs':ready['ts'],'presentationTraceUs':end,'eventTiming':data,'paintTraceUs':[p['ts'] for p in paints],'drawFrameTraceUs':[d['ts'] for d in draws]}
+   for name in ['EventDispatch','UpdateLayoutTree','Layout','PrePaint','Paint']:
+    events=[e for e in by_name[name] if e.get('ph')=='X' and e['pid']==ready['pid'] and event['ts']<=e['ts']<end]
+    # EventDispatch is nested; retain input callback alone, not overlapping key/text dispatch.
+    if name=='EventDispatch':events=[e for e in events if e.get('args',{}).get('data',{}).get('type')=='input']
+    timed[name+'Ms']=sum(e.get('dur',0) for e in events)/1000
+   measures.append(timed)
+  values=sorted(r['latencyMs'] for r in measures if not r['warmup'])
+  report={'length':length,'warmups':20,'measured':200,'p50Ms':values[math.ceil(len(values)*.5)-1],'p95Ms':values[math.ceil(len(values)*.95)-1],'minMs':values[0],'maxMs':values[-1],'budgetMs':16,'exit':int(values[189]>=16)}
+  for name in ['EventDispatch','UpdateLayoutTree','Layout','PrePaint','Paint']:
+   values2=sorted(r[name+'Ms'] for r in measures if not r['warmup']);report[name+'P95Ms']=values2[189]
+  serialized=json.dumps(measures,ensure_ascii=False,separators=(',',':'))
+  if len(serialized.encode())>1000000: (out/f'{length}-timings.json.gz').write_bytes(gzip.compress(serialized.encode(),mtime=0))
+  else: (out/f'{length}-timings.json').write_text(serialized)
+  report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
+ except Exception as error:
+  detail={'length':length,'condition':str(error),'exit':2}
+  if (archive/'collection-failure.json').exists():
+   collection=json.loads((archive/'collection-failure.json').read_text())
+   if collection.get('length')==length: detail['collectionFailure']={k:v for k,v in collection.items() if k!='log'}
+  failure.append(detail)
+for length in [40,400,4000]:
+ try:
+  selection=json.loads((archive/f'{length}-selection.json').read_text())
+  if selection.get('selected')!='true' or selection.get('writes')!=[] or selection.get('focus')!='Selection focus target': selection_failures.append({'length':length,'exit':2,**selection})
+ except Exception as error: selection_failures.append({'length':length,'exit':2,'condition':str(error)})
+result={'exit':2 if failure or selection_failures else max(r['exit'] for r in reports),'reports':reports,'failures':failure,'selectionFailures':selection_failures,'nativeClaim':False,'virtualizationAuthorized':False}
+(out/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));print(json.dumps(result,indent=2));sys.exit(result['exit'])
