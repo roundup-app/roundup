@@ -1,11 +1,14 @@
-import { createEffect, createSignal, on, onCleanup, useContext } from "solid-js";
+import { createEffect, on, onCleanup, untrack, useContext } from "solid-js";
 import { ShelfActions } from "./BulkDelete";
+import { createRowCollection } from "../ui/RowCollection";
 import type { Accessor } from "solid-js";
 
 /** U458: identities, rather than positions, survive a list refetch. */
 export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>, find?: (id: Id) => HTMLButtonElement | null | undefined) => {
   const host = useContext(ShelfActions);
-  const [selected, setSelected] = createSignal<readonly Id[]>([]);
+  const list = createRowCollection(() => visibleOrder().map(id => ({ value: String(id), label: rowOf(id)?.querySelector(".shelf-title")?.textContent ?? rowOf(id)?.textContent ?? "" })));
+  const selected = () => ids().filter(id => list.selection.selectedValues().includes(String(id)));
+  const setSelected = (values: readonly Id[]) => untrack(() => list.selection.setSelectedValues(values.map(String)));
   let anchor: Id | undefined;
   const rows = new Map<Id, HTMLButtonElement>();
   const rowOf = find ?? ((id: Id) => rows.get(id));
@@ -13,12 +16,13 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   const clear = () => {
     setSelected([]);
     anchor = undefined;
+    list.reset();
   };
 
   createEffect(on(() => `${context()}:${host?.open()}`, clear, { defer: true }));
   createEffect(() => {
     const visible = ids();
-    setSelected((kept) => kept.filter((id) => visible.includes(id)));
+    setSelected(untrack(selected).filter(id => visible.includes(id)));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
 
@@ -27,28 +31,26 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   onCleanup(clear);
 
   const toggle = (id: Id) => {
-    setSelected((kept) => kept.includes(id) ? kept.filter((other) => other !== id) : [...kept, id]);
+    list.selection.toggle(String(id));
     anchor = id;
   };
 
   const visibleOrder = () => ids().filter(id => {
     const row = rowOf(id);
 
-    return row && !row.closest("[hidden]");
+    return row && !row.disabled && !row.closest("[hidden], [inert], [aria-disabled=true], [data-state=closed]");
   }).sort((a, b) => rowOf(a)!.compareDocumentPosition(rowOf(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 
   const range = (id: Id) => {
-    const order = visibleOrder();
-    const start = anchor === undefined ? -1 : order.indexOf(anchor);
-    const end = order.indexOf(id);
-    setSelected(start < 0 ? [id] : [...new Set(order.slice(Math.min(start, end), Math.max(start, end) + 1))]);
+    const collection = list.collection();
+    list.selection.setSelectedValues(anchor === undefined || !collection.has(String(anchor)) ? [String(id)] : collection.getValueRange(String(anchor), String(id)));
   };
 
   const click = (id: Id, event: MouseEvent) => {
     if (event.shiftKey) range(id);
     else if (event.metaKey) toggle(id);
     else {
-      setSelected([id]);
+      list.selection.replace(String(id));
       anchor = id;
       rowOf(id)?.focus();
     }
@@ -65,16 +67,37 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       return;
     }
 
-    if (event.metaKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    if (event.metaKey && event.key.toLowerCase() === "a" && !event.shiftKey) {
+      event.preventDefault();
+      list.selection.setSelectedValues(list.collection().getValues());
+
+      return;
+    }
+
+    if (event.metaKey || event.isComposing) return;
+    const collection = list.collection();
+    const value = String(id);
+
+    const nextValue = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(value)
+      : event.key === "ArrowDown" ? collection.getNextValue(value)
+      : list.search(event);
+
+    const navigation = event.key === "Home" || event.key === "End" || event.key === "ArrowUp" || event.key === "ArrowDown";
+
+    if (!navigation && nextValue === null) return;
     event.preventDefault();
-    const order = visibleOrder();
-    const next = order[order.indexOf(id) + (event.key === "ArrowUp" ? -1 : 1)];
+    const next = ids().find(id => String(id) === nextValue);
 
-    if (next === undefined) return;
+    if (next === undefined || next === id && navigation) return;
 
-    if (event.shiftKey) {
+    if (event.shiftKey && navigation) {
       anchor ??= id;
       range(next);
+    } else if (!navigation) {
+      list.selection.replace(String(next));
+      anchor = next;
     }
 
     rowOf(next)?.focus();
@@ -95,6 +118,6 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     selected, clear, click, key, toggle,
     cancel: () => { const row = rowOf(selected()[0]!); clear(); row?.focus(); },
     replace: (values: readonly Id[]) => setSelected([...new Set(values)]),
-    register: (id: Id, row: HTMLButtonElement | null) => row ? rows.set(id, row) : rows.delete(id),
+    register: (id: Id, row: HTMLButtonElement | null) => { if (row) { rows.set(id, row); list.register(row, String(id)); } else rows.delete(id); },
   };
 };
