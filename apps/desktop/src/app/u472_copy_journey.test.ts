@@ -66,7 +66,7 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
   await load(origin, "tree-40", 1512, "dark");
   await browser("set", "viewport", "1512", "950");
   await wait("Boolean(document.querySelector('.rail-row[data-id=\"payments\"]'))");
-  await browser("click", '.rail-row[data-id="payments"]');
+  await browser("click", '.rail-row[data-id="payments"] .name');
   await wait("Boolean(document.querySelector('.pane-screen textarea'))");
   // Layout measures this Token-derived floor on resize, as the U2892 capture observer does.
   await evaluate(`document.querySelector('.window').style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 40) + 'px')`);
