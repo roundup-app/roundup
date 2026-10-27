@@ -492,3 +492,32 @@
   margin: 0;
   color: var(--grey);
 }
+
+.made-actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.ask-history,
+.ask-bar .made {
+  box-sizing: border-box;
+  width: min(100%, var(--ask-width));
+  align-self: center;
+  padding: var(--space-3) 0;
+}
+
+.ask-bar .made-heading {
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+
+.made-heading .overview-heading {
+  font-size: var(--text-title);
+  color: var(--text);
+}
+
+.ask-history .ask-rows {
+  width: 100%;
+}

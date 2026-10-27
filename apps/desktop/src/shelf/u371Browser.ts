@@ -31,8 +31,8 @@ export function shelfBrowser() {
   afterAll(async () => {
     await browser("close");
     await rig.server?.close();
-    rmSync(profile, { recursive: true, force: true });
-  });
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }, 90_000);
 
   // ResizeObserver delivers geometry before the next paint; frame.toggle flushes the
   // hidden Shelf before showing it, and Pane refits on the next frame after settling.
