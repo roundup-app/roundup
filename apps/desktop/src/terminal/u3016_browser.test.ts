@@ -212,4 +212,4 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await real.stop();
     rmSync(profile, { recursive: true, force: true });
   }
-}, 120_000);
+}, 60_000);

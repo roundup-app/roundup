@@ -49,4 +49,4 @@ it("u3770e_the_drawer_renders_its_sections_with_a_failed_retry_visible", async (
 
   if (dir) await browser("record", "stop");
   expect(await read<boolean>(`!!document.querySelector('.inbox-body [role=alert]')`)).toBe(false);
-}, 90_000);
+}, 60_000);

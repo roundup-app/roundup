@@ -96,7 +96,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await baseline?.close();
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async () => {
   const real = await startRealDaemon({}, true);
@@ -153,7 +153,7 @@ it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async 
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", async () => {
   const real = await startRealDaemon({}, true);
@@ -226,7 +226,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", a
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 
 it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identity_on_the_dense_failure_screen", async () => {
@@ -307,4 +307,4 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);

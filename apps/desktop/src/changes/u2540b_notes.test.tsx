@@ -345,7 +345,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
     await Promise.all(projects.map(real => real.stop()));
     await rm(logs, { recursive: true, force: true });
   }
-}, 180_000);
+}, 60_000);
 
 
 it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {

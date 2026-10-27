@@ -54,7 +54,7 @@ it("u501_controls_have_names", async () => {
     await browser("focus", `button[aria-label="${first}"]`);
     await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(first)}`);
   }
-}, 180_000);
+}, 60_000);
 
 it("u501_full_content_is_available", async () => {
   await open("tree-40");
@@ -81,4 +81,4 @@ it("u501_full_content_is_available", async () => {
   await wait(`document.querySelectorAll('.resource-value').length === 3`);
   await browser("hover", ".resource-value");
   await wait(`document.querySelector('.app-tooltip')?.textContent === document.querySelector('.resource-name').textContent`);
-}, 120_000);
+}, 60_000);

@@ -35,5 +35,5 @@ describe("u198 the real Daemon lists Skills", () => {
 
     expect(skills.map((each) => each.name)).toEqual(["reduce"]);
     expect(skills[0]?.description).toBe("does reduce");
-  }, 120_000);
+  }, 60_000);
 });

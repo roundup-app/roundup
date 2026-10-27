@@ -66,5 +66,5 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });
     await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Idle"));
     await real.model!.assertMatched();
-  }, 240_000);
+  }, 60_000);
 });

@@ -89,7 +89,7 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);
 
 it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
   const run = await interrupted("document");
@@ -111,7 +111,7 @@ it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
     cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);
 
 it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
   const run = await interrupted("replace");
@@ -132,4 +132,4 @@ it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
     cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);

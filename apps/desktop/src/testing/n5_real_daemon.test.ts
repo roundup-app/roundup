@@ -113,7 +113,7 @@ it("n5_fixture_data_is_private_and_survives_restart", async () => {
   await first.stop();
   await second.stop();
   expect(await snapshot(home)).toEqual(before);
-}, 120_000);
+}, 60_000);
 
 it("n5_fixture_rejects_data_redirection", async () => {
   const appData = join(home, "xdg", "dev.roundup.app");
@@ -128,7 +128,7 @@ it("n5_fixture_rejects_data_redirection", async () => {
   expect(lastLaunch().data).toBe(fixture.dataDir);
   await fixture.stop();
   expect(await snapshot(home)).toEqual(before);
-}, 120_000);
+}, 60_000);
 
 it("n5_fixture_cleans_data_after_stop_and_failed_start", async () => {
   const fixture = await open();
@@ -179,4 +179,4 @@ it("n5_fixture_cleans_data_after_stop_and_failed_start", async () => {
   expect(existsSync(early.data)).toBe(false);
   expect(existsSync(early.project)).toBe(false);
   expect(await snapshot(home)).toEqual(before);
-}, 120_000);
+}, 60_000);
