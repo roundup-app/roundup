@@ -1,145 +1,22 @@
-import { spawn } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromePath, headlessChromeArgs } from "../testing/chromePage";
-
-/** U142 in a real Chromium: Vite serves the U26 harness, Chrome is driven over its DevTools pipe, so no package beyond a Chrome binary is needed. */
-
-type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
-
-type Params = Readonly<Record<string, Json>>;
-
-type Reply = { id?: number; sessionId?: string; result?: unknown; error?: { message: string } };
-
-class Browser {
-  private next = 0;
-  private waiting = new Map<number, (reply: Reply) => void>();
-  private buffer = "";
-  session = "";
-
-  constructor(private child: ChildProcess) {
-    // SAFETY: the child is spawned with a pipe at fd 4.
-    (child.stdio[4] as NodeJS.ReadableStream).on("data", (chunk: Buffer) => {
-      this.buffer += chunk.toString();
-      let end = this.buffer.indexOf("\0");
-
-      while (end >= 0) {
-        // SAFETY: Chrome writes one JSON message per NUL on its DevTools pipe.
-        const reply = JSON.parse(this.buffer.slice(0, end)) as Reply;
-
-        this.buffer = this.buffer.slice(end + 1);
-
-        if (reply.id !== undefined) this.waiting.get(reply.id)?.(reply);
-        end = this.buffer.indexOf("\0");
-      }
-    });
-  }
-
-  send<T = unknown>(method: string, params: Params = {}, sessionId?: string): Promise<T> {
-    const id = ++this.next;
-
-    return new Promise((resolve, reject) => {
-      // SAFETY: the caller names the result type it expects of this DevTools method.
-      this.waiting.set(id, (reply) => (reply.error ? reject(new Error(`${method}: ${reply.error.message}`)) : resolve(reply.result as T)));
-      // SAFETY: the child is spawned with a pipe at fd 3.
-      (this.child.stdio[3] as NodeJS.WritableStream).write(`${JSON.stringify({ id, method, params, sessionId })}\0`);
-    });
-  }
-
-  async open() {
-    const { targetId } = await this.send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
-    const { sessionId } = await this.send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true });
-
-    this.session = sessionId;
-  }
-
-  page<T = unknown>(method: string, params: Params = {}) {
-    return this.send<T>(method, params, this.session);
-  }
-
-  async eval<T>(expression: string): Promise<T> {
-    const out = await this.page<{ result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } }>(
-      "Runtime.evaluate",
-      { expression, returnByValue: true, awaitPromise: true },
-    );
-
-    if (out.exceptionDetails) throw new Error(out.exceptionDetails.exception?.description ?? out.exceptionDetails.text);
-
-    return out.result.value;
-  }
-
-  /** Runs a constant function declaration in the page with `args` passed as data, so no value is ever spliced into source. */
-  async call<T>(declaration: string, ...args: Json[]): Promise<T> {
-    const { result: page } = await this.page<{ result: { objectId: string } }>("Runtime.evaluate", { expression: "globalThis" });
-
-    const out = await this.page<{ result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } }>("Runtime.callFunctionOn", {
-      objectId: page.objectId,
-      functionDeclaration: declaration,
-      arguments: args.map((value) => ({ value })),
-      returnByValue: true,
-      awaitPromise: true,
-    });
-
-    if (out.exceptionDetails) throw new Error(out.exceptionDetails.exception?.description ?? out.exceptionDetails.text);
-
-    return out.result.value;
-  }
-
-  mouse(type: "mousePressed" | "mouseMoved" | "mouseReleased", x: number, y: number, extra: Params = {}) {
-    return this.page("Input.dispatchMouseEvent", { type, x, y, button: type === "mouseMoved" && !("buttons" in extra) ? "none" : "left", ...extra });
-  }
-
-  async drag(from: Point, to: Point) {
-    await this.mouse("mouseMoved", from.x, from.y);
-    await this.mouse("mousePressed", from.x, from.y, { buttons: 1, clickCount: 1 });
-
-    for (let step = 1; step <= 8; step++) {
-      await this.mouse("mouseMoved", from.x + ((to.x - from.x) * step) / 8, from.y + ((to.y - from.y) * step) / 8, { buttons: 1 });
-    }
-
-    await this.mouse("mouseReleased", to.x, to.y, { buttons: 0, clickCount: 1 });
-  }
-
-  async click(at: Point, clickCount = 1) {
-    await this.mouse("mouseMoved", at.x, at.y);
-
-    for (let count = 1; count <= clickCount; count++) {
-      await this.mouse("mousePressed", at.x, at.y, { buttons: 1, clickCount: count });
-      await this.mouse("mouseReleased", at.x, at.y, { buttons: 0, clickCount: count });
-    }
-  }
-
-  key(key: string, extra: Params = {}) {
-    return this.page("Input.dispatchKeyEvent", { type: "keyDown", key, ...extra });
-  }
-}
+import { chromePath, openPage, type ChromePage } from "../testing/chromePage";
 
 type Point = { x: number; y: number };
 
-const SIZES = [
-  { width: 1280, height: 800 },
-] as const;
-
-let server: ViteDevServer;
-
-let child: ChildProcess;
-
-let profile: string;
-
-let cacheDir = "";
-
-let browser: Browser;
-
-let origin = "";
+const SIZES = [{ width: 1280, height: 800 }] as const;
 
 const found = chromePath();
 
-/** Where a selector's n-th match is, as a point `dx` pixels from its left edge or `fx` of its width, and the vertical middle. */
+const run = found ? describe : describe.skip;
+
+let browser: ChromePage;
+
+beforeAll(async () => {
+  if (found) browser = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await browser?.close(); });
+
 const pointOf = (selector: string, at: { dx?: number; fx?: number; nth?: number } = {}) =>
   browser.call<Point>(
     `function (selector, dx, fx, nth) {
@@ -149,101 +26,46 @@ const pointOf = (selector: string, at: { dx?: number; fx?: number; nth?: number 
       const box = element.getBoundingClientRect();
       return { x: box.left + dx + box.width * fx, y: box.top + box.height / 2 };
     }`,
-    selector,
-    at.dx ?? 0,
-    at.fx ?? 0,
-    at.nth ?? 0,
+    selector, at.dx ?? 0, at.fx ?? 0, at.nth ?? 0,
   );
 
-const selected = () => browser.eval<string>("window.getSelection().toString()");
-
-/** Resolves when the page function (a constant declaration taking `args`) returns truthy: the App's own state is the bound, not a sleep. */
-const until = async (predicate: string, ...args: Json[]) => {
-  const stop = Date.now() + 15_000;
-
-  while (!(await browser.call<boolean>(predicate, ...args))) {
-    if (Date.now() > stop) throw new Error(`never became true: ${predicate}`);
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-};
+const selected = () => browser.call<string>("() => window.getSelection().toString()");
 
 const load = async (size: { width: number; height: number }) => {
-  await browser.page("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 1, mobile: false });
-  await browser.page("Page.navigate", { url: `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40` });
-  // The harness asks for its pads last, once the Rail's tree and Terminals are in.
-  await until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector(".rail-fold button"))`);
-  await browser.eval("window.getSelection().removeAllRanges()");
+  await browser.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", size.width, size.height);
+  await browser.until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector(".rail-fold button"))`);
+  await browser.call("() => window.getSelection().removeAllRanges()");
 };
 
 const calls = (method: string) =>
   browser.call<unknown[]>(`(method) => window.__fake.app.calls.filter((call) => call.method === method).map((call) => call.params)`, method);
 
-beforeAll(async () => {
-  if (!found) return;
+const drag = async (from: Point, to: Point) => {
+  await browser.pointer("move", from.x, from.y);
+  await browser.pointer("down", from.x, from.y);
 
-  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
-  cacheDir = mkdtempSync(join(tmpdir(), "u142-vite-"));
-  server = await createServer({
-    root: process.cwd(),
-    cacheDir,
-    server: { port: 0, strictPort: false, hmr: false },
-    logLevel: "silent",
-  });
-  await server.listen();
-  origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
-  // Prepare Vite separately so its cold transforms do not consume the App readiness bound.
-  const ready = await fetch(`${origin}/__roundup_ready`, { signal: AbortSignal.timeout(90_000) });
-
-  if (!ready.ok) throw new Error(`U142 Vite preparation failed (${ready.status}): ${await ready.text()}`);
-  profile = mkdtempSync(join(tmpdir(), "u142-"));
-  child = spawn(
-    found,
-    [...headlessChromeArgs, `--user-data-dir=${profile}`, "about:blank"],
-    { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
-  );
-  browser = new Browser(child);
-  await browser.open();
-  await browser.page("Page.enable");
-  await browser.page("Runtime.enable");
-  // Observe App readiness only after the server has prepared its module graph.
-  await load(SIZES[0]);
-}, 90_000);
-
-afterAll(async () => {
-  if (child) {
-    const exited = new Promise((resolve) => child.once("exit", resolve));
-    // Browser.close lets Chrome stop its helper processes, which still write the profile after a SIGKILL of the main one.
-    const late = Promise.withResolvers<never>();
-
-    const guard = setTimeout(() => {
-      child.kill("SIGKILL");
-      late.reject(new Error("Browser.close timed out"));
-    }, 10_000);
-
-    await Promise.race([browser.send("Browser.close"), late.promise]).finally(() => clearTimeout(guard));
-    await exited;
+  for (let step = 1; step <= 8; step++) {
+    await browser.pointer("move", from.x + ((to.x - from.x) * step) / 8, from.y + ((to.y - from.y) * step) / 8);
   }
 
-  await server?.close();
-
-  if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-
-  if (profile) rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-});
-
-const run = found ? describe : describe.skip;
+  await browser.pointer("up", to.x, to.y);
+};
 
 const editName = async (nth: number) => {
-  await browser.click(await pointOf(".rail-row .name", { dx: 3, nth }), 2);
-  await until(`() => Boolean(document.querySelector(".rail-row input"))`);
+  const at = await pointOf(".rail-row", { dx: 2, nth });
+
+  await browser.click(at.x, at.y);
+  await browser.until(`() => document.querySelectorAll(".rail-row")[${nth}].dataset.selected === "true"`);
+  await browser.call(`nth => document.querySelectorAll(".rail-row .name")[nth].closest(".rail-row").focus()`, nth);
+  await browser.press("F2", "F2");
+  await browser.until(`() => document.activeElement?.matches(".rail-row input") && document.activeElement.selectionEnd > document.activeElement.selectionStart`);
 };
 
 run("u142 the Rail selects rows, not browser text", () => {
   it("u142_the_drag_helper_selects_text_where_the_browser_allows_it", async () => {
     await load(SIZES[0]);
-    await browser.eval(`document.body.insertAdjacentHTML("afterbegin", '<p id="ctl" style="position:fixed;top:0;left:400px;margin:0;z-index:99;background:white;color:black;user-select:text;-webkit-user-select:text">selectable control text</p>')`);
-    await browser.drag(await pointOf("#ctl", { dx: 2 }), await pointOf("#ctl", { fx: 1, dx: -2 }));
+    await browser.call(`() => document.body.insertAdjacentHTML("afterbegin", '<p id="ctl" style="position:fixed;top:0;left:400px;margin:0;z-index:99;background:white;color:black;user-select:text;-webkit-user-select:text">selectable control text</p>')`);
+    await drag(await pointOf("#ctl", { dx: 2 }), await pointOf("#ctl", { fx: 1, dx: -2 }));
     expect(await selected()).not.toBe("");
   }, 30_000);
 
@@ -261,7 +83,7 @@ run("u142 the Rail selects rows, not browser text", () => {
         await load(size);
         const [from, to] = await aim();
 
-        await browser.drag(from, to);
+        await drag(from, to);
         expect(await selected()).toBe("");
       }, 30_000);
     }
@@ -269,11 +91,15 @@ run("u142 the Rail selects rows, not browser text", () => {
     it(`u142_${at}_dragging_in_the_rename_input_selects_its_text_and_moves_no_row`, async () => {
       await load(size);
       await editName(2);
-      // The field opens with its whole name selected, and a press inside a selection starts a text drag on macOS; Home puts the caret at the start first.
-      await browser.key("Home", { code: "Home", windowsVirtualKeyCode: 36 });
-      expect(await browser.eval<boolean>(`document.querySelector(".rail-row input").selectionEnd === document.querySelector(".rail-row input").selectionStart`)).toBe(true);
-      await browser.drag(await pointOf(".rail-row input", { dx: 2 }), await pointOf(".rail-row input", { dx: 30 }));
-      expect(await browser.eval<boolean>(`document.querySelector(".rail-row input").selectionEnd > document.querySelector(".rail-row input").selectionStart`)).toBe(true);
+      // A selection drag must start from a caret: dragging an existing selection moves text on macOS.
+      const caret = await pointOf(".rail-row input", { dx: 2 });
+
+      await browser.click(caret.x, caret.y);
+      await browser.until(`() => document.activeElement?.matches(".rail-row input") && document.activeElement.selectionEnd === document.activeElement.selectionStart`);
+      expect(await browser.call<boolean>(`() => document.querySelector(".rail-row input").selectionEnd === document.querySelector(".rail-row input").selectionStart`)).toBe(true);
+      await drag(await pointOf(".rail-row input", { dx: 2 }), await pointOf(".rail-row input", { dx: 30 }));
+      await browser.until(`() => document.querySelector(".rail-row input")?.selectionEnd > document.querySelector(".rail-row input")?.selectionStart`);
+      expect(await browser.call<boolean>(`() => document.querySelector(".rail-row input").selectionEnd > document.querySelector(".rail-row input").selectionStart`)).toBe(true);
       expect(await calls("rail.move")).toEqual([]);
     }, 30_000);
   }
