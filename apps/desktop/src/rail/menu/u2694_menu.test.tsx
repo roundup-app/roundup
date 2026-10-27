@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion, questionClosed } from "../../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountTodos, todo } from "../../todos/testHarness";
@@ -60,12 +59,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.menuLabels()).toEqual(["Send to Agent", "Copy Link", "Delete"]);
     expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
     await app.pickMenu("Delete");
-    const question = await questionDialog();
-    expect(question.message).toContain("notes");
-    expect(railCallsTo(app, "pad.delete")).toEqual([]);
-    await answerQuestion(false);
-    await questionClosed();
-    expect(railCallsTo(app, "pad.delete")).toEqual([]);
+    await waitFor(() => expect(railCallsTo(app, "pad.delete")).toEqual([{ name: "notes", expectedIncarnation: "notes-1", operation: expect.any(String) }]));
   });
 
   it("u2694e_an_agent_owned_todo_opens_its_menu_on_release", async () => {
