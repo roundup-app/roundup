@@ -184,6 +184,7 @@ it.each([
   const app = createFakeApp();
   const result = await judgeRemoval(app, [workstream("chosen"), container], "chosen");
 
+  expect(result.removedIds).toEqual([container.id]);
   expect(result.goes).toEqual({ agents: [], todos: 0, pads: 0 });
   expect(result.stays).toEqual({ agents: [], todos: 0, pads: 0 });
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([]);
@@ -207,4 +208,30 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
   expect(result.goes).toEqual({ agents: ["finished"], todos: 1, pads: 1 });
   expect(result.stays).toEqual({ agents: [{ name: "running", reason: "Running" }], todos: 1, pads: 1 });
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
+});
+
+it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_requires_consent_%s", async owner => {
+  const { app } = await mountRail([
+    workstream("chosen"),
+    workstream("group", { parent: "chosen", status: null }),
+    door("supervisor", "done", "finished", { parent: "group", terminal_id: null }),
+  ], [info("live-shell", { owner })]);
+  app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
+
+  open("chosen");
+  await app.pickMenu("Remove");
+  const question = await questionDialog();
+  const summary = question.message.slice(question.message.indexOf("Goes:"));
+  expect(question.message).toMatch(new RegExp(`Stop.*process.*${owner}`));
+  expect(summary).not.toMatch(/group|supervisor|Agents|Running/);
+  expect(removals(app)).toEqual([]);
+  await answerQuestion(false);
+  await waitFor(() => expect(questionProbe.shown).toBeNull());
+  expect(removals(app)).toEqual([]);
+
+  open("chosen");
+  await app.pickMenu("Remove");
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen" }]));
 });
