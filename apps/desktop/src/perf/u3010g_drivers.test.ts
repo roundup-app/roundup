@@ -220,6 +220,12 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     const run = everyTwoSeconds(clock, todosCycle(controls));
 
+    await vi.advanceTimersByTimeAsync(0);
+    const insertion = (await app.rpc("todo.list", null)).find(row => row.title === "motion insertion")!;
+
+    // U3010d requires the structural action on the depth-three workload, not a flat extra root.
+    expect(insertion.blockers).toEqual([2]);
+    expect(insertion.owner).toEqual(initial[1]!.owner);
     await vi.advanceTimersByTimeAsync(SAMPLE_MS);
     expect(await run).toEqual({ performed: 30, completed: true });
     expect(journal.map(row => row.action)).toEqual(Array.from({ length: 30 }, (_, index) => ["insert", "complete", "fold", "reorder"][index % 4]));
