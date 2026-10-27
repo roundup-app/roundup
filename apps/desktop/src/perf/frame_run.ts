@@ -1,4 +1,6 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
+import { createComputed, createRoot } from "solid-js";
+import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
@@ -6,7 +8,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { prepareFixture } from "./fixture";
 import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
-import type { FrameReport, LayerAction, TodoAction } from "./frames";
+import type { FrameReport, LayerAction, PreferenceAction, TodoAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
@@ -19,12 +21,22 @@ const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
 
+/** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[]): (() => void) => createRoot(dispose => {
+  createComputed(() => {
+    journal.push({ at_ms: now(), reduced: reduced(), phase: phase() });
+  });
+
+  return dispose;
+});
+
 /** The first task after the rendering update that follows the current animation callback. */
 const afterUpdate = (callback: () => void) => {
   const channel = new MessageChannel();
 
   channel.port1.onmessage = () => {
     channel.port1.close();
+    channel.port2.close();
     callback();
   };
 
@@ -145,7 +157,7 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   const edge = root.getBoundingClientRect().right;
   const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
   const opening = element.dataset.open !== "true";
-  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer";
   const entry: LayerAction = { panel, source: "trusted-pointer", target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
   journal.push(entry);
@@ -200,8 +212,10 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   });
 };
 
+type Listen = (type: "click" | "keydown" | "pointerdown", listener: (event: Event) => void) => () => void;
+
 /** Observe the platform's real activation; never send input or take focus from its current owner. */
-const observeActivation = (selector: string, source: "pointer" | "key" | "escape", accept: () => boolean): Promise<boolean> => {
+const observeActivation = (selector: string, source: "pointer" | "hairline" | "key" | "escape", accept: () => boolean, listen: Listen, applied: () => boolean = () => true): Promise<boolean> => {
   const target = document.querySelector(selector);
 
   if (!target) return Promise.resolve(false);
@@ -215,20 +229,27 @@ const observeActivation = (selector: string, source: "pointer" | "key" | "escape
 
     const timer = setTimeout(() => finish(false), CYCLE_MS / 2);
 
-    const clear = makeEventListener(window, source === "escape" ? "keydown" : "click", event => {
+    const clear = listen(source === "escape" ? "keydown" : source === "hairline" ? "pointerdown" : "click", event => {
       if (!event.isTrusted || !(event.target instanceof Node) || !target.contains(event.target)) return;
 
-      if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
+      if (source === "hairline") {
+        if (!(event instanceof MouseEvent) || event.button !== 0 || event.target !== target) return;
+        const x = event.clientX - target.getBoundingClientRect().left;
+
+        const width = parseFloat(getComputedStyle(target).borderLeftWidth);
+
+        if (!Number.isFinite(width) || width <= 0 || x < 0 || x >= width) return;
+      } else if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
 
       if (!accept()) return;
       // Native event dispatch can checkpoint microtasks between listeners. A task observes
       // the existing activation/keyboard owner after propagation, including Solid delegation.
-      afterUpdate(() => finish(target.isConnected));
-    }, { capture: true });
+      afterUpdate(() => finish(target.isConnected && applied()));
+    });
   });
 };
 
-export const domLayers = (journal: LayerAction[]): Layers => {
+export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true })): Layers => {
   let pending: LayerAction | null = null;
 
   const interruptible = () => {
@@ -248,7 +269,7 @@ export const domLayers = (journal: LayerAction[]): Layers => {
 
     journal.push(entry);
 
-    if (!(await observeActivation(target, source, interruptible))) return false;
+    if (!(await observeActivation(target, source, interruptible, listen))) return false;
     entry.at_ms = performance.now();
     entry.observed = element.getBoundingClientRect().left;
     entry.completed = panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed");
@@ -259,10 +280,10 @@ export const domLayers = (journal: LayerAction[]): Layers => {
   };
 
   return {
-    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible),
-    closeDrawer: () => observeActivation(".drawer .close", "pointer", interruptible),
+    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible, listen),
+    closeDrawer: () => observeActivation(".drawer", "hairline", interruptible, listen, () => document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false"),
     escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
-    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible),
+    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible, listen),
     keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
     halfway: async (panel, action) => {
       const completed = await halfDisplacement(panel, action, journal);
@@ -493,7 +514,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
-export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
+export const createFrameRun = (app: AppSeam, workload: string, cwd: string, reduced: Accessor<boolean>) => {
   const terminal = reportTerminal(createXtermEmulators());
 
   const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
@@ -541,6 +562,9 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       input.focus();
     }
 
+    const preference: PreferenceAction[] = [];
+    let phase: PreferenceAction["phase"] = "warmup";
+    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference);
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
 
@@ -575,13 +599,20 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
           userAgent: navigator.userAgent,
           entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
-        async () => (await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle)).completed,
+        async () => {
+          phase = "sample";
+          const actions = await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle);
+
+          phase = "after-actions";
+
+          return actions.completed;
+        },
       );
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
       const observer: NonNullable<FrameReport["observer"]> = {
-        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, variant: "unqualified",
+        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, preference, variant: "unqualified",
         native_qualification: "incomplete: trusted layer sequence, both Shelf cases and live preference variants remain unqualified",
       };
 
@@ -592,6 +623,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       await report(observed);
     } finally {
       controller.abort();
+      stopPreference();
     }
   };
 
