@@ -297,3 +297,8 @@ by nesting a different upper row, including the synchronous post-key state. Exis
 U3709/U3711 tests retain the mutation/focus/refusal proof; geometry remains a rendered
 observation. This does not complete keyboard completion, Motion layout, layer springs,
 retirement, the preference/inventory migration or the full capture/performance protocol.
+
+U3787a Rail removal dispatch and Project Undo feedback are instant for pointer and
+keyboard. Consequence reads do not animate or delay a reversible removal for
+confirmation. Native consent remains for process termination and Worktree disposal;
+restoration uses retained data and starts no program. No motion is introduced.
