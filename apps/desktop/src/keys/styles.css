@@ -18,7 +18,9 @@
 }
 .help .key-hint {
   display: grid;
-  grid-template-columns: calc(var(--space-6) * 4) 1fr;
+  grid-template-columns: calc(var(--space-6) * 4) minmax(0, 1fr);
+  align-items: start;
+  white-space: normal;
   gap: var(--space-1);
 }
 .key-chip {
