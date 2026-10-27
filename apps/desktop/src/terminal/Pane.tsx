@@ -34,7 +34,7 @@ const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { viewLabel?: (id: string) => string | undefined; navigationHost?: HTMLElement | undefined; requested?: string | null; backRequested?: () => void; notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
+export const Pane = (props: { viewLabel?: (id: string) => string | undefined; navigationHost?: HTMLElement | undefined; requested?: string | null; backDisabled?: boolean; backRequested?: () => void; notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -300,7 +300,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
           </Tabs.List>
       </Show>
     </div>
-    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" onClick={() => { props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
+    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" disabled={props.backDisabled} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
   </nav>;
 
   return (
