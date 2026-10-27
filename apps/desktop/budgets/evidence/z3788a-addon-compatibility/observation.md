@@ -111,3 +111,11 @@ Each work order was checked with `python3 loop/orders.py check` before filing an
 A clean merge of main `bae255acb` keeps this PR's diff within the evidence directory and passes merge-loss. All 29 existing emulator, snapshot and renderer-recovery tests pass after that merge. The compatibility probe is unchanged and was not rerun in this fix. The required full `check` is still red until the separate baseline repairs land; local regression success does not replace it. Keep #3853 open.
 
 Fix-run `just ready` exits 0, including lints, types, proofs, frozen/trailer checks, all 36 workflow tests and N7. The boundary lint after the evidence edit, vocabulary, merge-loss and whitespace checks also exit 0. `pnpm install` completed before pushing. These local gates do not claim that the full web check is green.
+
+## OSC 52 adoption
+
+Commit `c695f8acb` integrates ClipboardAddon 0.2.0 inside the lazy emulator. Screens supplies the existing native clipboard write and failure owner. Copy output reaches that owner once; a rejected write leaves parsing usable and the next successful copy clears only that Terminal's clipboard failure. A read query returns an empty OSC reply without reading clipboard contents. All 35 focused emulator, snapshot, renderer-recovery and copy/paste tests pass; the two new cases failed before implementation. The fresh isolated compatibility probe also passes all 40 checks.
+
+This continuation remains a draft. The production entry closure grows 35 gzip bytes (418326 to 418361); it meets neither the no-growth condition nor the strict 409600-byte ceiling. The original baseline already exceeded the latter. No budget is weakened. Native clipboard execution, ten-Agent RSS and the real-Daemon rendered action are not claimed. The broad related run was interrupted; CI remains authoritative. Existing source and tests outside Terminal are unchanged. The cancelled repair Issues are not dependencies of this slice.
+
+Finish the entry no-growth gate and the rendered observer before making the PR ready. Keep #3853 open for the remaining Find, serialization, image, memory and virtualization acceptance.
