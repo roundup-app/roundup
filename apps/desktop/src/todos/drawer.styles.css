@@ -126,9 +126,9 @@
 .todo-draft-actions button { font-size: inherit; }
 
 /* Refusal names its cause and recovery in full, including on the dense Drawer. */
-.todo-delete-feedback {
+.reserved-line.todo-delete-feedback {
   block-size: auto;
   max-block-size: none;
 }
 .todo-delete-feedback .reserved-content { flex-wrap: wrap; }
-.todo-delete-feedback .ink { white-space: normal; overflow: visible; }
+.todo-delete-feedback .ink[data-tone] { white-space: normal; overflow: visible; }

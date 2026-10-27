@@ -46,3 +46,98 @@ it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () =
     }
   }
 }, 180_000);
+
+for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
+  it(`${id.toLowerCase()}_refusal_and_recovery_on_the_dense_drawer`, async () => {
+    const url = await lane.evaluate<string>("location.href");
+    const dir = captureDir(id);
+
+    if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, "refusal-recovery.webm")); }
+
+    try {
+      await lane.browser("open", url);
+      await lane.browser("set", "media", "dark");
+      await lane.until("!!document.querySelector('[data-todo-root]')");
+      await lane.browser("click", "[data-todo-root]");
+      await lane.evaluate(`(async () => {
+        const app = window.__fake.app;
+        await app.rpc('todo.reopen', { id: 7 });
+        const rows = await app.rpc('todo.list', null);
+        for (const id of [5, 7]) {
+          const row = rows.find(todo => todo.id === id);
+          await app.rpc('todo.update', { id, title: '未完了 é 🧭 '.repeat(10) + id, body: row.body, expected_change: null });
+        }
+        for (const branch of document.querySelectorAll('.shelf [data-state="closed"] [data-part="branch-control"]')) branch.click();
+        window.__recoverDeletion = false;
+        const remove = app.handlers['todo.delete'];
+        const receipt = app.handlers['todo.deletion'];
+        const restore = app.handlers['todo.restore'];
+        if (!${restoring}) {
+          app.handlers['todo.delete'] = async params => {
+            const result = await remove(params);
+            if (params.ids.includes(5)) throw new Error('Deletion reply lost. Check deletion to recover.');
+            return result;
+          };
+          app.handlers['todo.deletion'] = params => {
+            if (!window.__recoverDeletion) throw new Error('Receipt lookup unavailable. Check deletion to recover.');
+            return receipt(params);
+          };
+        } else {
+          app.handlers['todo.restore'] = async params => {
+            window.__restoreWaiting = true;
+            await new Promise(resolve => { window.__finishRestore = resolve; });
+            return restore(params);
+          };
+        }
+        return true;
+      })()`);
+
+      const open = async (todo: number) => {
+        await lane.until(`!!document.querySelector('.shelf [data-todo="${todo}"] .todo-row-button')`);
+        await lane.browser("focus", `.shelf [data-todo="${todo}"] .todo-row-button`);
+        await lane.browser("press", "Enter");
+        await lane.until("!!document.querySelector('.todo-delete')");
+      };
+
+      await open(5);
+      await lane.browser("click", ".todo-delete");
+      await lane.until(restoring ? "!document.querySelector('.todo-delete')" : "[...document.querySelectorAll('button')].some(b => b.textContent === 'Check deletion')");
+
+      if (!restoring) {
+        await lane.browser("click", ".drawer .close");
+        await lane.until("!document.querySelector('.drawer[data-open=true]')");
+      }
+
+      await open(7);
+      await lane.browser("fill", ".todo-comment-field", "  未送信 é 🧭\n keep trailing spaces  ");
+
+      if (restoring) {
+        await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+        await lane.until("window.__restoreWaiting === true");
+      }
+
+      await lane.capture(id, "before-refusal");
+      await lane.browser("click", ".todo-delete");
+      await lane.until(`document.querySelector('.todo-delete-feedback')?.textContent.includes('${restoring ? "Restoration is in progress" : "An earlier deletion is unconfirmed"}')`);
+      await lane.capture(id, "refused");
+      expect(await lane.focused()).toBe("Delete Todo");
+      expect(await lane.evaluate<string>("document.querySelector('.todo-comment-field').value")).toBe("  未送信 é 🧭\n keep trailing spaces  ");
+
+      if (restoring) await lane.evaluate("(() => { window.__finishRestore(); return true; })()");
+      else {
+        await lane.evaluate("window.__recoverDeletion = true");
+        await lane.browser("focus", ".todo-delete-feedback .reserved-actions button");
+        await lane.browser("press", "Enter");
+      }
+
+      await lane.until("!document.querySelector('.todo-delete-feedback')?.textContent.includes('before trying Delete') && !document.querySelector('.todo-delete-feedback')?.textContent.includes('Restoration is in progress')");
+      expect(await lane.evaluate<number[]>("window.__fake.app.calls.filter(c => c.method === 'todo.delete').flatMap(c => c.params.ids)")).toEqual([5]);
+      expect(await lane.evaluate<number[]>("window.__fake.app.rpc('todo.list', null).then(rows => rows.filter(t => [5,7].includes(t.id)).map(t => t.id).sort())")).toEqual(restoring ? [5, 7] : [7]);
+      await lane.capture(id, "recovered");
+      await lane.browser("click", ".todo-delete");
+      await lane.until("!document.querySelector('.todo-delete')");
+      expect(await lane.evaluate<number[]>("window.__fake.app.calls.filter(c => c.method === 'todo.delete').flatMap(c => c.params.ids)")).toEqual([5, 7]);
+      await lane.capture(id, "new-delete");
+    } finally { if (dir) await lane.browser("record", "stop"); }
+  }, 180_000);
+}
