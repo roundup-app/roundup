@@ -35,6 +35,8 @@ From the repository root:
 
 ```sh
 python3 apps/desktop/budgets/evidence/z3788d-isolated-list/replay.py.txt
+# Separately, run the negative probes (expected exit 0):
+python3 apps/desktop/budgets/evidence/z3788d-isolated-list/replay/verify.py.txt
 ```
 
 Expected exit: **1**, valid over-budget measurements. `result.json` contains all three reports; each timings file retains 220 samples and their frame evidence. The command uses Python's installed standard library and needs no browser, server, install or new profile because it replays the same archived collection.
