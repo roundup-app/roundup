@@ -46,3 +46,32 @@ it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () =
     }
   }
 }, 180_000);
+
+it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => {
+  await lane.seedTodos(["same", "same", "long é 🧭".repeat(12), "dependent", "fifth"]);
+  await lane.browser("set", "media", "dark");
+  await lane.evaluate(`(async () => {
+    const rpc = window.__fake.app.rpc;
+    for (const pad of await rpc('pad.list', null)) await rpc('pad.delete', { name: pad.name });
+    window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
+    for (const name of ['first', 'second', '長い名前 é 🧭 '.repeat(6), 'fourth', 'fifth']) await rpc('pad.create', { name, text: 'original content' });
+    window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
+    document.querySelector('#shelf-tab-pads').click();
+    return true;
+  })()`);
+  await lane.until("document.querySelectorAll('.shelf .pad-name').length >= 5");
+  await lane.resetCalls();
+  await lane.browser("focus", ".shelf .pad-name");
+  await lane.browser("press", "Meta+Enter");
+  await lane.browser("press", "Shift+ArrowDown");
+  await lane.until("[...document.querySelectorAll('.shelf button')].some(b => b.textContent === 'Delete 2')");
+  await lane.capture("U3787a", "shelf-pads-before");
+  await lane.evaluate("(() => { window.__fake.failNext(-32002, 'The original Home is unavailable. Restore the Home and retry deletion.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 2').click(); return true; })()");
+  await lane.until("document.body.textContent.includes('Could not delete') && [...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
+  await lane.capture("U3787a", "shelf-pads-partial-failure");
+  expect(await lane.calls("pad.delete")).toHaveLength(2);
+  await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+  await lane.until("document.querySelectorAll('.shelf .pad-name').length >= 5");
+  expect(await lane.calls("pad.restore")).toHaveLength(1);
+  await lane.capture("U3787a", "shelf-pads-restored");
+}, 180_000);

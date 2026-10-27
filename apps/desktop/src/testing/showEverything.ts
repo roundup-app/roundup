@@ -24,7 +24,7 @@ export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   showShelfTab("Todos");
 
   await waitFor(() => {
-    if (!document.querySelector(".shelf [data-shelf-group], .shelf .empty-state")) throw new Error("Shelf list has not loaded");
+    if (!document.querySelector(".shelf [data-shelf-group], .shelf .shelf-done-line, .shelf .empty-state")) throw new Error("Shelf list has not loaded");
   });
 
   for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);

@@ -1,4 +1,4 @@
-import { askToDelete, answerQuestion, questionClosed } from "./bulkQuestionHarness";
+import { askToDelete, questionClosed } from "./bulkQuestionHarness";
 // @vitest-environment jsdom
 import { connect } from "node:net";
 import * as v from "valibot";
@@ -75,7 +75,6 @@ const selectRow = async (name: string | RegExp) => {
 
 const deleteSelected = async (count: number) => {
   await askToDelete(count);
-  await answerQuestion(true);
   await questionClosed();
 };
 
