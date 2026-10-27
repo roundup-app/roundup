@@ -474,6 +474,24 @@ export const pointerReorder = (id: number): Promise<boolean> => new Promise(reso
   window.addEventListener("keydown", event => { if (event.key === "Escape") finish(false); }, { capture: true, signal: controller.signal });
 });
 
+/** Preparation uses the existing disclosure owners, so nested structural actions reach rendered rows. */
+export const expandFixtureTodos = async (fixture: Pick<Fixture, "todos">): Promise<void> => {
+  for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
+
+  for (const id of new Set(fixture.todos.flatMap(row => row.blockers))) {
+    const control = await appears(() => document.querySelector<HTMLElement>(`.shelf [data-group-toggle="${id}"]`), `the fixture Todo ${id} disclosure`);
+
+    if (control.getAttribute("aria-expanded") === "false") control.click();
+    await appears(() => control.isConnected && control.getAttribute("aria-expanded") === "true" ? true : null, `the expanded fixture Todo ${id}`);
+  }
+
+  await appears(() => fixture.todos.every(({ id }) => {
+    const row = document.querySelector(`.shelf [data-todo="${id}"]`);
+
+    return row && !row.closest('[hidden], [inert], [aria-hidden="true"]');
+  }) ? true : null, "all eight unfolded fixture Todos");
+};
+
 export const domTodos = (app: AppSeam, fixture: Fixture, journal: TodoAction[]): Todos => fixtureTodos(app, fixture, {
   toggleFold: async () => {
     const fold = document.querySelector<HTMLElement>(".shelf-done-line button");
@@ -524,9 +542,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
     }
 
     // Open the existing owner groups through their controls; setup does not replace their state owner.
-    if (fixture) {
-      for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
-    }
+    if (fixture) await expandFixtureTodos(fixture);
 
     if (workload === "drag") clickAt('.shelf-groups [aria-expanded="false"] .shelf-group-control');
 
