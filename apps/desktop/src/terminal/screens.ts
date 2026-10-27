@@ -346,7 +346,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", `Could not restore Terminal output: ${thrown.message}. Switch away and back to retry.`);
+      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message));
 
       if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
