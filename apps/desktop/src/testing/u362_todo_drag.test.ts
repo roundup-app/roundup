@@ -175,6 +175,7 @@ run('u362 rendered move failure', () => {
         await document.fonts.ready;
         await Promise.all([...document.querySelectorAll('.columns, .shelf, .shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
+      const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
       const from = await point('.shelf .todo-row-button');
       const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
       await page.pointer('down', from.x, from.y);
@@ -186,6 +187,10 @@ run('u362 rendered move failure', () => {
       await page.call(`async () => {
         await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
+      expect(await page.call<boolean>(`id => {
+        const row = document.querySelector('.shelf [data-todo="' + id + '"]');
+        return row?.checkVisibility() && row.querySelector('[role="alert"]')?.textContent.includes('Cannot move this Todo');
+      }`, id)).toBe(true);
     }, 30_000);
   }
 });
