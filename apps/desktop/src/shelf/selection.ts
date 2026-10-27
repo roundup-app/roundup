@@ -8,7 +8,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   const host = useContext(ShelfActions);
   const list = createRowCollection(() => visibleOrder().map(id => ({ value: String(id), label: rowOf(id)?.querySelector(".shelf-title")?.textContent ?? rowOf(id)?.textContent ?? "" })));
   const selected = () => ids().filter(id => list.selection.selectedValues().includes(String(id)));
-  const setSelected = (values: readonly Id[] | ((kept: readonly Id[]) => readonly Id[])) => untrack(() => list.selection.setSelectedValues((typeof values === "function" ? values(untrack(selected)) : values).map(String)));
+  const setSelected = (values: readonly Id[]) => untrack(() => list.selection.setSelectedValues(values.map(String)));
   let anchor: Id | undefined;
   const rows = new Map<Id, HTMLButtonElement>();
   const rowOf = find ?? ((id: Id) => rows.get(id));
@@ -22,7 +22,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   createEffect(on(() => `${context()}:${host?.open()}`, clear, { defer: true }));
   createEffect(() => {
     const visible = ids();
-    setSelected((kept) => kept.filter((id) => visible.includes(id)));
+    setSelected(untrack(selected).filter(id => visible.includes(id)));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
 
@@ -70,21 +70,28 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     if (event.metaKey && event.key.toLowerCase() === "a" && !event.shiftKey) {
       event.preventDefault();
       list.selection.setSelectedValues(list.collection().getValues());
+
       return;
     }
+
     if (event.metaKey || event.isComposing) return;
     const collection = list.collection();
     const value = String(id);
+
     const nextValue = event.key === "Home" ? collection.firstValue
       : event.key === "End" ? collection.lastValue
       : event.key === "ArrowUp" ? collection.getPreviousValue(value)
       : event.key === "ArrowDown" ? collection.getNextValue(value)
       : list.search(event);
+
     const navigation = ["Home", "End", "ArrowUp", "ArrowDown"].includes(event.key);
+
     if (!navigation && nextValue === null) return;
     event.preventDefault();
     const next = ids().find(id => String(id) === nextValue);
+
     if (next === undefined || next === id && navigation) return;
+
     if (event.shiftKey && navigation) {
       anchor ??= id;
       range(next);
@@ -92,6 +99,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       list.selection.replace(String(next));
       anchor = next;
     }
+
     rowOf(next)?.focus();
   };
 
