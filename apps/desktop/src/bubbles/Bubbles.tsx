@@ -115,6 +115,7 @@ export const Bubbles = (props: {
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
+  const parkedTabs = document.createElement("div");
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
@@ -253,6 +254,7 @@ export const Bubbles = (props: {
 
     // U469: the layer ends above the bar.
     const sync = (): void => {
+      setBar(host.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = host.parentElement?.getBoundingClientRect();
       const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
       host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
@@ -905,7 +907,8 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
+      {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
+      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
         <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
@@ -915,7 +918,7 @@ export const Bubbles = (props: {
             <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
           </div>
         </div>
-      </Portal>}</Show>
+      </Portal>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
