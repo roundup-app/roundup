@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { captureDir } from "../testing/captures";
@@ -39,7 +41,7 @@ const nested: List = {
   name: "an Agent's Todos in the Rail",
   rows: "[data-pads] .todo-row-button",
   setup: async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ...(captureDir("U490a") ? [1512, 950] as const : [1280, 820] as const));
     await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('.rail-pads-control').click()`);
     await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
@@ -51,7 +53,7 @@ const shelf: List = {
   name: "the Shelf's Todos",
   rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ...(captureDir("U490a") ? [1512, 950] as const : [1280, 820] as const));
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
@@ -106,7 +108,7 @@ for (const list of [nested, shelf]) {
 
   run(`u490a ${list.name} order on the shared Sortable`, () => {
     it.each(["fresh", "no event", "equal refetch"])("u490a_pointer_reorders after %s", async (preceding) => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       if (preceding !== "fresh") {
@@ -146,10 +148,18 @@ for (const list of [nested, shelf]) {
       expect(after.ids[0]).toBe(before.ids[last]);
       expect(after.drawer).toBe(false);
       expect(after.active).toContain(`#${before.ids[last]} `);
+      const dir = captureDir("U490a");
+
+      if (dir && preceding === "fresh") {
+        mkdirSync(dir, { recursive: true });
+        const name = list === nested ? "rail" : "shelf";
+        writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+        writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`)));
+      }
     }, 60_000);
 
     it("u490a_cancel_and_noop_escape_cancels", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const before = await state(rows);
@@ -175,7 +185,7 @@ for (const list of [nested, shelf]) {
     }, 60_000);
 
     it("u490a_cancel_and_noop_original_gap_makes_no_call", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const before = await state(rows);
@@ -195,7 +205,7 @@ for (const list of [nested, shelf]) {
     }, 60_000);
 
     it("u3789a_a_click_selects_the_Todo_without_open_or_drag", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const beforeHover = await centre(rows, 0);
@@ -209,7 +219,7 @@ for (const list of [nested, shelf]) {
     }, 60_000);
 
     it("u3789a_Return_on_a_row_button_opens_it_without_drag_semantics", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
       // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
@@ -220,7 +230,7 @@ for (const list of [nested, shelf]) {
     }, 60_000);
 
     it("u490a_keyboard_reorders", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const before = await state(rows);

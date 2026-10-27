@@ -441,6 +441,7 @@
   box-sizing: border-box;
 }
 .todo-row .row-head {
+  grid-column: 2;
   height: var(--space-5);
   align-items: center;
   padding-inline-start: calc(var(--todo-depth) * var(--space-4));
@@ -503,6 +504,7 @@
 .shelf-row.todo-row .shelf-text { min-block-size: 0; }
 .shelf-row.todo-row .todo-row-notice { block-size: auto; }
 .shelf-row.todo-row .shelf-text {
+  column-gap: 0;
   display: grid;
   grid-template-columns: calc(var(--todo-depth) * var(--space-4)) minmax(0, 1fr);
 }
