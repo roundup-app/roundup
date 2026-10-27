@@ -382,6 +382,7 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
     const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   })()`);
+  await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
   await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
   await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
   await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
