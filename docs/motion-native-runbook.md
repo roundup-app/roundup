@@ -367,3 +367,34 @@ path through an injected preference seam, not an OS preference observation, full
 workload variant, native stream, scheduling sample, settled idle or WKWebView
 result. The broad capture invocation was stopped after starting unrelated suites;
 no whole-suite capture pass is claimed.
+
+### Reduced Layers action phase
+
+The driver reads the existing App reduced-motion accessor before each segment.
+With normal motion it still requires measured half-displacement and a reversal
+before settlement. With reduced motion it observes the same trusted pointer
+sequence at final geometry, followed by the same trusted key action. A live
+source switch during an in-flight normal segment can complete that segment at
+final geometry; it cannot supply half-displacement evidence. Each journal entry
+retains `reduced` at trusted activation and its actual `criterion`:
+`halfway`, `reduced-settlement` or `key-settlement`. Key completion requires both
+the existing owner's requested state and the observed destination. No new
+preference subscription or focus owner is introduced. Missing targets, input,
+displacement or settlement still invalidate the run within the existing bounds.
+
+This phase does not qualify a complete reduced-motion variant: reports retain
+`variant: "unqualified"` until all fixture/actions and the measured halfway
+source change are demonstrated. No new owner sequence is requested.
+
+Dark isolated Chromium preparation at 1512×950 with the unchanged derived
+fixture completed the three reduced Drawer pointer segments. The following key
+step did not complete; the initial attempt retained focus outside the Drawer.
+Additional keyboard-input attempts also failed and remain retained. The first
+reduced Shelf close removed its tabs and box, preventing the required pointer
+reopening; #4408 owns that production prerequisite outside this observer's
+scope. D2/D5/D6 and all other rendered Checks passed in these retained readings.
+Raw fixture bytes/hash, action journals, scripts and uncommitted screenshots
+remain under `artifacts/ux/U3010d/reduced-layers/`. These preparations establish
+neither a full variant nor a selected native stream, scheduling sample,
+settled idle, OS preference change or WKWebView timing. #3013 retains the
+stream/idle repair and immutable paired native qualification.
