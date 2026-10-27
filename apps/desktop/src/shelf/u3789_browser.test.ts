@@ -328,7 +328,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
 
-        if (step === "selected") await browser("click", '.rail-row[data-id="agent-4"]');
+        if (step === "selected") await browser("click", '.rail-row[data-id="tokens"]');
 
         for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) {
           const checks = await shot(id, stage, `${seed}-${step}`);
@@ -340,6 +340,8 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
       }
 
       if (seed === "tree-40") {
+        await overview();
+        await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
         await browser("eval", "document.querySelector('.todos-tab [data-todo=\"19\"]')?.scrollIntoView({block:'center'})");
 
         for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) await shot(id, stage, "nested-todos");
