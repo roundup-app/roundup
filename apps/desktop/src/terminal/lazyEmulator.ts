@@ -40,6 +40,7 @@ export const lazyEmulators = (load: Loader, probe?: EchoProbe): EmulatorFactory 
       inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => run(emulator => emulator.onInput(listener)),
       onLink: (listener) => run(emulator => emulator.onLink(listener)),
+      onCopy: (listener) => run(emulator => emulator.onCopy?.(listener)),
       selection: () => real?.selection() ?? "",
       turns: () => real?.turns() ?? [],
       selectTurn: (index, extend) => run(emulator => emulator.selectTurn(index, extend)),
