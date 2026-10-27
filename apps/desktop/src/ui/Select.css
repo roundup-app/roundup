@@ -79,4 +79,8 @@
   background-color: var(--selected);
 }
 
-.app-choice-check { margin-inline-start: auto; display: flex; color: var(--accent); }
+.app-choice-check:not([hidden]) { margin-inline-start: auto; display: flex; color: var(--accent); }
+
+.app-select-trigger:active:not(:disabled) {
+  opacity: var(--press-opacity);
+}

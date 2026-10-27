@@ -302,3 +302,32 @@ Retain this as incomplete reader qualification, not a halfway switch or native
 result. Raw observations, setup script and screenshots are under
 `artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
 at 45 seconds; no whole-suite capture pass is claimed.
+
+### Live switch completion
+
+A sample-phase enable change now retains `settlement`: `pending` until the existing
+post-update task reads the motion owners, then `settled`, `moving` or `unavailable`
+with its actual page timestamp. Layers must reach the recorded destination (or
+finish a closed panel's lifetime); Todos require an acknowledged action, mounted
+original rows and no displayed row translation; Glyphs require the same ten visible
+working identities with no running arc transforms. Missing fixture identities or
+required targets produce `unavailable`, never settlement.
+
+A later source change marks a pending observation `superseded`; recorder disposal
+marks it `disposed`. Neither late callback can overwrite that result. The initial
+value, disabling changes and changes outside the sample claim no settlement.
+The App keeps its sole live preference source. This readback neither switches the
+OS preference nor proves a halfway crossing, action sequence, native timing or
+settled idle. Keep the variant unqualified until those separate obligations hold.
+
+Isolated dark Chromium at 1512×950 observed all ten fixture arcs moving, then
+emulated the live reduced-motion source shared by a freshly mounted App and the
+recorder. The corrected preparation retained ten raw matrices at 201.9375 degrees; its post-update
+readback recorded settlement and no running arcs. D2/D5/D6 passed before and after.
+All rendered Checks passed. The initial CSS-link setup reported D1/D10 failures;
+those readings and its earlier 27.675-degree switch remain in `initial-*.json`.
+Importing the existing styles through Vite repaired that observer setup. Neither
+switch retained a measured half-turn crossing: this is **not halfway evidence**. It qualifies the shared-source snapshot/readback
+path only. The fake App supplied no qualified native stream, scheduling sample or
+settled idle. Raw readings and screenshots remain under
+`artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.

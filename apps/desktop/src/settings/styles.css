@@ -51,8 +51,7 @@
   min-width: 0;
 }
 
-.settings-field span,
-.settings-field span {
+.settings-field-caption {
   font-size: var(--text-caption);
   color: var(--grey);
 }
