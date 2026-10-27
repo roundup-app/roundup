@@ -148,6 +148,9 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: 2.5.0
         version: 2.5.0
+      '@xterm/addon-clipboard':
+        specifier: 0.2.0
+        version: 0.2.0
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)
@@ -2160,6 +2163,9 @@ packages:
   '@vue/shared@3.5.43':
     resolution: {integrity: sha512-uksS7YGMR5NZyr4JNq0Rp+QyLns0ueaz20KwzIPW9R0LH1Vnt4E+XUM29PNseEbf1www2gOuhuDi5AKOIXag9Q==}
 
+  '@xterm/addon-clipboard@0.2.0':
+    resolution: {integrity: sha512-Dl31BCtBhLaUEECUbEiVcCLvLBbaeGYdT7NofB8OJkGTD3MWgBsaLjXvfGAD4tQNHhm6mbKyYkR7XD8kiZsdNg==}
+
   '@xterm/addon-fit@0.11.0':
     resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
 
@@ -3737,6 +3743,9 @@ packages:
         optional: true
       react:
         optional: true
+
+  js-base64@3.9.5:
+    resolution: {integrity: sha512-u0CFDUca8BbBRkMkF/fDcuoLCx9nTNbXdVtbjVnBqySA9E221u0uYKbACiYGOEk1heY69qM4caeX3OwjSyxevw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -7730,6 +7739,10 @@ snapshots:
 
   '@vue/shared@3.5.43': {}
 
+  '@xterm/addon-clipboard@0.2.0':
+    dependencies:
+      js-base64: 3.9.5
+
   '@xterm/addon-fit@0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)': {}
 
   '@xterm/addon-unicode11@0.9.0': {}
@@ -9711,6 +9724,8 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
       react: 19.3.0
+
+  js-base64@3.9.5: {}
 
   js-tokens@4.0.0: {}
 

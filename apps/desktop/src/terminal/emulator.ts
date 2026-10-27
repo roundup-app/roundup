@@ -10,6 +10,7 @@ import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -61,7 +62,8 @@ export type Emulator = {
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
-export type EmulatorFactory = (id: string) => Emulator;
+/** OSC 52 copies use the originating Terminal's clipboard failure owner. */
+export type EmulatorFactory = (id: string, copy?: (text: string) => Promise<void>) => Emulator;
 
 /** Loads the WebGL renderer, or leaves the DOM renderer and says so once through `warn`. Returns whether WebGL is in use. */
 export const attachRenderer = (
@@ -169,8 +171,12 @@ export const createXtermEmulators = (
 ): EmulatorFactory => {
   let webglDenied = false;
 
-  return (id) => {
+  return (id, copy) => {
     const terminal = new Terminal(xtermOptions);
+    terminal.loadAddon(new ClipboardAddon(undefined, {
+      readText: () => "",
+      writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
+    }));
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
