@@ -7,7 +7,7 @@ import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
-const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash", "meta+Comma"];
+const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash", "meta+KeyZ", "meta+Comma"];
 
 /** The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act in the Terminal screen (U101, U102), not at App scope. */
 const TERMINALS_OWN = ["meta+KeyC", "meta+KeyV", "meta+Equal", "meta+Minus", "meta+Digit0", "meta+shift+Equal"];
@@ -38,7 +38,8 @@ it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
       const press = new KeyboardEvent("keydown", { code, key: code.replace(/^(Key|Digit)/, "").toLowerCase(), bubbles: true, cancelable: true, ...mods });
       const name = pressOf(press);
 
-      if (KEPT.includes(name) || TERMINALS_OWN.includes(name)) continue;
+      // U3787a lists item undo, but a focused Terminal must still receive ⌘Z.
+      if ((KEPT.includes(name) && name !== "meta+KeyZ") || TERMINALS_OWN.includes(name)) continue;
 
       sent.push(name);
       terminal.dispatchEvent(press);
