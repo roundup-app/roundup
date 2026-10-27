@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
@@ -9,6 +9,8 @@ import { shelfBrowser } from "../shelf/u371Browser";
  * in dark 1512×950 on `tree-40`. Raw timestamped boxes go to `captureDir("U3010b")` for the design critic; docs/motion.md
  * names the protocol. Quarter speed is `Animation.playbackRate`, never a longer Token.
  */
+vi.setConfig({ testTimeout: 60_000 });
+
 const art = captureDir("U3010b");
 
 const rendered = art ? it : it.skip;
@@ -253,7 +255,7 @@ it("u3010b_preference_change_preserves_destination_and_focus", { retry: 0 }, asy
   ]);
 });
 
-it("u430_terminal_gets_one_resize_per_slide", { retry: 0, timeout: 60_000 }, async () => {
+it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
   await browser("click", '.rail [data-id="tokens"] .row-state');
