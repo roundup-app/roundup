@@ -872,7 +872,8 @@ export const Bubbles = (props: {
                 return <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
                 on:keydown={event => {
                   if (event.key !== "Escape" || event.isComposing) return;
-                  capture(event.currentTarget);
+
+                  if (revision || event.currentTarget.value !== initial) capture(event.currentTarget);
                   // Ark blurs before onEditChange; cancellation must close through that callback.
                   cancelling = true;
                   event.preventDefault();

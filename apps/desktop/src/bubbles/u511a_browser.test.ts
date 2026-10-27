@@ -188,11 +188,14 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
     const baseline = await read(`window.__checks()`);
     await capture(`terminal-${seed}-before`, "U3787c");
 
+    let edited = "";
+
     for (const opening of ["double-click", "native Rename"]) {
       if (opening === "double-click") await browser("dblclick", '.terminal-tab-name');
       else await browser("eval", `(() => { window.__fake.app.menuChoice = 'rename'; document.querySelector('${target}').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true})); })()`);
       await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
       const exact = `  ${opening} é 🪁 雪\t  `;
+      edited = exact;
       await browser("fill", '.terminal-tab-editor input', exact);
       await browser("eval", `(() => {
         window.__renameInput = document.activeElement;
@@ -227,7 +230,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
     if (seed !== "tree-40") {
       await browser("click", '[aria-label="Recover unfinished work · Terminal name"]');
       await until(`!!document.querySelector('.bubble-recovery .draft-value')`);
-      expect(await read<string>(`document.querySelector('.bubble-recovery .draft-value').textContent`)).toBe('  native Rename é 🪁 雪\t  ');
+      expect(await read<string>(`document.querySelector('.bubble-recovery .draft-value').textContent`)).toBe(edited);
       await capture(`terminal-${seed}-recovery`, "U3787c");
       await browser("press", "Escape");
       await until(`!document.querySelector('.bubble-recovery')`);
