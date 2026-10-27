@@ -186,5 +186,83 @@
       "loop/rules.sh vocab": 0,
       "git diff --check": 0
     }
+  },
+  "osc52Runtime": {
+    "source": "c695f8acb",
+    "base": "a635310794b15170126fc9d4320e7d830f114cff",
+    "testsPassed": 35,
+    "compatibilityChecksPassed": 40,
+    "productionBuildExit": 0,
+    "gzip": "level 9, each static closure file counted once, mtime 0",
+    "before": {
+      "entry": {
+        "files": [
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/index-CIbrWwza.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1315949,
+        "gzip9": 418326
+      },
+      "terminal": {
+        "files": [
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/index-CIbrWwza.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/emulator-B6m-aV-G.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1839230,
+        "gzip9": 550159
+      },
+      "wasm": []
+    },
+    "after": {
+      "entry": {
+        "files": [
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/index-BUOO4Y3M.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1316035,
+        "gzip9": 418361
+      },
+      "terminal": {
+        "files": [
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/emulator-Cbl2FitR.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/index-BUOO4Y3M.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1844281,
+        "gzip9": 551968
+      },
+      "wasm": []
+    },
+    "entryNoGrowthPassed": false,
+    "strictEntryCeilingPassed": false,
+    "nativeClipboardPass": false,
+    "tenAgentRssPass": false,
+    "realDaemonRenderedObserver": "incomplete: new Terminal did not reach the mounted xterm state; no pass claimed",
+    "relatedSuite": "interrupted; no full related-suite pass claimed"
   }
 }
