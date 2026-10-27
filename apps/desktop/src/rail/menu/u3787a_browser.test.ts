@@ -19,8 +19,8 @@ afterAll(async () => {
 }, 180_000);
 
 it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () => {
-  for (const seed of ["tree-40", "tabs-8", "conflict"]) {
-    await lane.seedTodos(["same", "same", "long é 🧭 ".repeat(8), "dependent", "fifth"], true, seed);
+  for (const seed of ["tree-40", "tabs-8", "conflict", "dense-failure"]) {
+    await lane.seedTodos(["same", "same", "long é 🧭 ".repeat(8), "dependent", "fifth"], true, seed === "dense-failure" ? "tree-40" : seed);
     await lane.browser("set", "media", "dark");
     await lane.evaluate(`(async () => {
       const app = window.__fake.app;
@@ -35,7 +35,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
       };
       app.handlers['rail.deletion'] = () => receipt;
       app.handlers['rail.restore'] = () => {
-        if (${JSON.stringify(seed)} === 'conflict') throw new Error('The original Home changed. Restore the Home and retry Undo.');
+        if (['conflict','dense-failure'].includes(${JSON.stringify(seed)})) throw new Error('The original Home changed. Restore the Home and retry Undo.');
         app.handlers['rail.tree'] = () => before;
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         return receipt = {...receipt, deletion:{...receipt.deletion, restored:true}};
@@ -50,8 +50,8 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.until("[...document.querySelectorAll('button')].some(b=>b.textContent==='Undo')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
     await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b=>b.textContent==='Undo').click(); return true; })()");
-    await lane.until(seed === "conflict" ? "document.body.textContent.includes('The original Home changed')" : "!!document.querySelector('[data-id=\"'+window.__railChosen+'\"]')");
+    await lane.until((seed === "conflict" || seed === "dense-failure") ? "document.body.textContent.includes('The original Home changed')" : "!!document.querySelector('[data-id=\"'+window.__railChosen+'\"]')");
     expect(await lane.calls("rail.restore")).toHaveLength(1);
-    await lane.capture("U3787a", `rail-${seed}-${seed === "conflict" ? "conflict" : "restored"}`);
+    await lane.capture("U3787a", `rail-${seed}-${(seed === "conflict" || seed === "dense-failure") ? "conflict" : "restored"}`);
   }
 }, 180_000);

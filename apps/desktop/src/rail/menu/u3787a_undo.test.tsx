@@ -78,13 +78,13 @@ it.each(["menu", "key", "unknown", "exited", "pending"])("u3787a_rail_%s_deletes
   expect(daemon.calls.filter(c => ["agent.resume", "terminal.create"].includes(c.method))).toEqual([]);
 });
 
-it.each(["process", "worktree"])("u3787a_rail_%s_requires_native_consent", async effect => {
+it.each(["process", "worktree", "cascade"])("u3787a_rail_%s_requires_native_consent", async effect => {
   localStorage.clear();
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   app.add("/p");
   const daemon = app.of("/p");
-  daemon.handlers["rail.tree"] = () => [agent("chosen", "idle", "idle", effect === "process" ? {} : { terminal_id: null, worktree: { path: "/p/tree", branch: "work", base: "main" } })];
+  daemon.handlers["rail.tree"] = () => effect === "cascade" ? [workstream("chosen"), workstream("child", { parent: "chosen", worktree: { path: "/p/tree", branch: "work", base: "main" } })] : [agent("chosen", "idle", "idle", effect === "process" ? {} : { terminal_id: null, worktree: { path: "/p/tree", branch: "work", base: "main" } })];
   render(() => <App clock={() => 0} app={app} reducedMotion={() => true} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("workstreams")} />);
   await screen.findByText("chosen", { selector: ".name" });
   fireEvent.contextMenu(rowOf("chosen"));
