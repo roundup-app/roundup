@@ -181,7 +181,7 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
         await page.until("document.querySelectorAll('.import-check').length === 10");
         await page.browser("find", "role", "button", "click", "--name", "Last month");
         await page.until("document.querySelectorAll('.import-check').length === 10");
-        await page.browser("click", ".import-check:first-child .app-checkbox-label");
+        await page.browser("click", ".import-list li:first-child .app-checkbox-label");
         await page.until("document.querySelector('.import-confirm').textContent.trim() === 'Import 1'");
         await page.browser("click", ".import-confirm");
         await page.until("!!window.__settleImport");
