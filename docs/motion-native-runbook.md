@@ -302,3 +302,20 @@ Retain this as incomplete reader qualification, not a halfway switch or native
 result. Raw observations, setup script and screenshots are under
 `artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
 at 45 seconds; no whole-suite capture pass is claimed.
+
+### Live switch completion
+
+A sample-phase enable change now retains `settlement`: `pending` until the existing
+post-update task reads the motion owners, then `settled`, `moving` or `unavailable`
+with its actual page timestamp. Layers must reach the recorded destination (or
+finish a closed panel's lifetime); Todos require an acknowledged action, mounted
+original rows and no displayed row translation; Glyphs require the same ten visible
+working identities with no running arc transforms. Missing fixture identities or
+required targets produce `unavailable`, never settlement.
+
+A later source change marks a pending observation `superseded`; recorder disposal
+marks it `disposed`. Neither late callback can overwrite that result. The initial
+value, disabling changes and changes outside the sample claim no settlement.
+The App keeps its sole live preference source. This readback neither switches the
+OS preference nor proves a halfway crossing, action sequence, native timing or
+settled idle. Keep the variant unqualified until those separate obligations hold.

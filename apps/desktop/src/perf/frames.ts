@@ -57,6 +57,8 @@ export type PreferenceAction = {
   at_ms: number;
   reduced: boolean;
   phase: "warmup" | "sample" | "after-actions";
+  /** Post-update result for this exact enable change, never a halfway or native qualification. */
+  settlement?: { status: "pending" | "superseded" | "disposed" } | { status: "settled" | "moving" | "unavailable"; at_ms: number };
   /** Row translations read at the source change, correlated to the latest structural action. Empty rows claim no displacement. */
   todos?: {
     action_at_ms: number;
