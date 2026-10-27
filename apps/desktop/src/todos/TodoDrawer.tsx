@@ -262,7 +262,7 @@ export const TodoDrawer = (props: {
   return (
     <>
       <div class="todo-detail">
-        <ReservedLine class="todo-delete-feedback" message={deletionRefusal() ?? failure()}>
+        <ReservedLine class={deletionRefusal() ? "todo-delete-feedback" : undefined} message={deletionRefusal() ?? failure()}>
           <Show when={deletionRefusal() && drafts.todoUndo.uncertain()}>
             <button data-button="quiet" type="button" disabled={drafts.todoUndo.pending()} onClick={() => void drafts.todoUndo.retryDelete()}>{copy.todoDeleteRetry}</button>
           </Show>
