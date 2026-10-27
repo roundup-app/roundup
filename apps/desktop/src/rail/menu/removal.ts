@@ -29,7 +29,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   const removal: Removal = { removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
   const staying = new Set<string>();
 
-  for (const node of below(nodes, id)) {
+  for (const node of below(nodes, id).filter(node => node.kind === "agent")) {
     const reason = !FINISHED.has(node.status?.kind ?? "")
       ? copy.running
       : node.worktree === null
