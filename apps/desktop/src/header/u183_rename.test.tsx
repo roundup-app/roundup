@@ -38,15 +38,6 @@ describe("u183 rename in place", () => {
     expect(input.selectionEnd).toBe(3);
   });
 
-  it("u183_f2_opens_it_from_the_focused_tab", async () => {
-    await openTabs({ api: [], web: [] });
-
-    tab("api").focus();
-    fireEvent.keyDown(tab("api"), { key: "F2" });
-
-    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" })).value).toBe("api");
-  });
-
   it("u183_enter_saves_and_returns_focus_to_the_tab", async () => {
     const { app } = await openTabs({ api: [], web: [] });
     const input = await edit();
@@ -210,29 +201,61 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
 });
 
 
-it("u2773a_header_restores_exact_work", async () => {
+// Production opening inventory: focused-tab F2, name double-click, native menu Rename.
+// Recovery in the mounted Strip is copy/discard-only; it opens no additional rename target.
+it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restores_the_name_project_%s", async opening => {
   const { app, view } = await openTabs({ api: [], web: [] });
-  let sends = 0;
-  const rename = app.renameProject;
-  app.renameProject = (...args) => { sends++;
+  const sends = vi.spyOn(app, "renameProject");
+  fireEvent.click(tab("api"));
+  await settled();
+  const original = tab("api");
+  const saved = original.textContent;
+  original.focus();
 
- return rename(...args); };
+  if (opening === "F2") fireEvent.keyDown(original, { key: "F2" });
+  else if (opening === "double-click") fireEvent.dblClick(original.querySelector(".tab-name")!);
+  else {
+    fireEvent.contextMenu(original);
+    await app.pickMenu("Rename");
+  }
 
-  const input = await edit();
-  fireEvent.input(input, { target: { value: "  e\u0301 🪁 雪  " } });
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  const exact = "  e\u0301 🪁 雪\t  ";
+  fireEvent.input(input, { target: { value: exact } });
   input.setSelectionRange(2, 6, "backward");
   fireEvent.select(input);
-  press("Escape");
+  const underlying = vi.fn();
+  document.addEventListener("keydown", underlying);
+
+  try { press("Escape"); }
+  finally { document.removeEventListener("keydown", underlying); }
+
+  expect(tab("api").textContent).toBe(saved);
   expect(document.activeElement).toBe(tab("api"));
+  expect(tab("api").getAttribute("aria-selected")).toBe("true");
+  expect(underlying).not.toHaveBeenCalled();
+  expect(sends).not.toHaveBeenCalled();
+  const records = () => JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts;
+  await waitFor(() => expect(records()).toEqual([expect.objectContaining({ destination: { surface: "header", object: path("api"), recipient: null },
+    value: { name: exact, base: "api" }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" })]));
+  const retained = records()[0];
   fireEvent.click(tab("web"));
+  await settled();
   fireEvent.click(tab("api"));
   const restored = await edit();
-  expect(restored.value).toBe("  e\u0301 🪁 雪  ");
-  expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 6, "backward"]);
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
   fireEvent.blur(restored);
-  expect(sends).toBe(0);
+  expect(records()).toEqual([retained]);
+  expect(sends).not.toHaveBeenCalled();
   view.unmount();
+  const { app: reopened } = await openTabs({ api: [], web: [] }, true);
+  const restoredSends = vi.spyOn(reopened, "renameProject");
+  const reloaded = await edit();
+  expect([reloaded.value, reloaded.selectionStart, reloaded.selectionEnd, reloaded.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
+  expect(restoredSends).not.toHaveBeenCalled();
 });
+
 
 it("u2773c_header_external_change_keeps_original", async () => {
   const { app } = await openTabs({ api: [], web: [] });
