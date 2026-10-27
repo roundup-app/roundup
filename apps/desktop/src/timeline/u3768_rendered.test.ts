@@ -57,7 +57,7 @@ const capture = async (name: string) => {
 };
 
 const select = async (id: string) => {
-  await browser("click", `[role=treeitem][data-id="${id}"]`);
+  await browser("click", `.rail-row[data-id="${id}"] .name`);
   await wait("!!Array.from(document.querySelectorAll('button')).find(e => e.textContent === 'Timeline')");
   await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
   await wait("!!document.querySelector('.timeline-view')");
