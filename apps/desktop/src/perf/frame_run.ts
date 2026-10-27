@@ -1,5 +1,6 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
 import { createComputed, createRoot } from "solid-js";
+import { is, string } from "valibot";
 import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
@@ -22,7 +23,7 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
-export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs"> = () => ({})): (() => void) => createRoot(dispose => {
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({})): (() => void) => createRoot(dispose => {
   let initial = true;
   createComputed(() => {
     const entry: PreferenceAction = { at_ms: now(), reduced: reduced(), phase: phase() };
@@ -360,6 +361,50 @@ export const glyphDisplacement = (fixture: Pick<Fixture, "working">): NonNullabl
   return Number.isFinite(degrees) ? [{ target: id, transform, degrees }] : [];
 });
 
+/** The installed row owner animates translations to final geometry; read its displayed offset, never animation time. */
+export const todoDisplacement = (fixture: Pick<Fixture, "todos">, action: TodoAction | undefined): PreferenceAction["todos"] => {
+  if (!action) return undefined;
+  const ids = new Set([...fixture.todos.map(row => row.id), ...action.targets]);
+  const rows: NonNullable<PreferenceAction["todos"]>["rows"] = [];
+
+  for (const row of document.querySelectorAll<HTMLElement>(".shelf [data-todo]")) {
+    const target = Number(row.dataset.todo);
+
+    if (!ids.has(target) || !row.isConnected || row.closest('[hidden], [inert], [aria-hidden="true"]')) continue;
+    const box = row.getBoundingClientRect();
+
+    if (box.width <= 0 || box.height <= 0 || box.bottom <= 0 || box.top >= innerHeight || box.right <= 0 || box.left >= innerWidth) continue;
+
+    for (const animation of row.getAnimations()) {
+      if (animation.playState !== "running" || !(animation.effect instanceof KeyframeEffect)) continue;
+      const frames = animation.effect.getKeyframes();
+      const from = frames[0]?.transform;
+      const to = frames.at(-1)?.transform;
+
+      // The existing sorted-list owner uses exactly two translation endpoints.
+      // Fades, loops, keyframes with intermediate destinations and other effects cannot stand for row displacement.
+      if (frames.length !== 2 || !is(string(), from) || !is(string(), to) || animation.effect.getTiming().iterations !== 1) continue;
+      const start = new DOMMatrixReadOnly(from);
+      const end = new DOMMatrixReadOnly(to);
+      const transform = getComputedStyle(row).transform;
+      const shown = new DOMMatrixReadOnly(transform);
+
+      if (![start, end, shown].every(matrix => matrix.is2D && matrix.a === 1 && matrix.b === 0 && matrix.c === 0 && matrix.d === 1)) continue;
+      const dx = end.e - start.e;
+      const dy = end.f - start.f;
+      const distance = dx * dx + dy * dy;
+
+      if (distance < 1) continue;
+      const progress = ((shown.e - start.e) * dx + (shown.f - start.f) * dy) / distance;
+
+      if (!Number.isFinite(progress) || progress <= 0 || progress >= 1) continue;
+      rows.push({ target, transform, from, to, x: box.left, y: box.top, progress });
+    }
+  }
+
+  return { action_at_ms: action.at_ms, action: action.action, targets: [...action.targets], rows };
+};
+
 const wallClock: Clock = { sleep };
 
 /**
@@ -388,10 +433,11 @@ export const fixtureTodos = (app: Pick<AppSeam, "rpc">, fixture: Fixture, contro
   let group = fixture.todos.slice(0, 4);
 
   const record = async (action: TodoAction["action"], targets: number[], source: TodoAction["source"], work: () => Promise<boolean>) => {
-    const entry: TodoAction = { action, targets, source, completed: false };
+    const entry: TodoAction = { action, targets, source, at_ms: performance.now(), completed_at_ms: null, completed: false };
 
     journal.push(entry);
     entry.completed = await work();
+    entry.completed_at_ms = performance.now();
 
     return entry.completed;
   };
@@ -663,7 +709,14 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
     let phase: PreferenceAction["phase"] = "warmup";
 
     const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
+      if (workload === "todos" && fixture) {
+        const todos = todoDisplacement(fixture, todoActions.at(-1));
+
+        return todos ? { todos } : {};
+      }
+
       if (workload === "glyphs" && fixture) return { glyphs: glyphDisplacement(fixture) };
+
       const action = layerActions.at(-1);
 
       if (!action || action.source !== "trusted-pointer" || action.samples.length === 0) return {};
