@@ -420,7 +420,6 @@
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
-  position: relative;
   display: flex;
   align-items: center;
   flex: none;
@@ -435,11 +434,6 @@
  .rail-row .line {
     --rail-gap: var(--space-1);
   }
-}
-
-/* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
-[data-part="branch-control"].rail-row .row-icons {
-  gap: var(--space-1);
 }
 
 .rail-add {
@@ -809,6 +803,7 @@
   flex: none;
   position: absolute;
   inset-inline-end: 0;
+  inset-block: 0;
   background: var(--sunken);
   opacity: 0;
   pointer-events: none;
