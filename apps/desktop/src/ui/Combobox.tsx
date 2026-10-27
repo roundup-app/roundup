@@ -56,16 +56,18 @@ const Root = (props: {
   const destinations = createMemo(() => props.items.filter(item => !props.group?.(item)));
 
   // Z3788d baseline 40507415273: 4,000 destinations spend 21.520 ms p95 in layout alone.
+  // Z3788d profile-final: repeated token reads occupy 253/1,083 inclusive input-handler samples.
+  const estimatedRowSize = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24;
   const virtual = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     get count() { return props.virtualized ? destinations().length : 0; },
     getScrollElement: () => list ?? null,
-    estimateSize: () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24,
+    estimateSize: () => estimatedRowSize,
     get getItemKey() {
       const items = destinations();
 
       return (index: number) => items[index]!.value;
     },
-    overscan: 8,
+    overscan: 2,
     rangeExtractor: range => {
       const indexes = defaultRangeExtractor(range);
       const active = destinations().findIndex(item => item.value === props.highlightedValue);
