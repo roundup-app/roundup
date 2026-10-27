@@ -109,6 +109,10 @@ export const Todos = (props: {
 
   const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
+  // U362 Chromium profile: per-row ownerGroups rebuilt Rail order for 7 s on 200 Todos.
+  const owners = createMemo(() => ownersOnRail(connected));
+  const groupOf = (todo: Todo) => owners().find(owner => sameOwner(owner.actor, todo.owner))?.id ?? "unassigned";
+
   const dependencyRows = createMemo(() => ownerGroups(connected, inScope(), todo => todo.owner).flatMap(group => treeRows(group.items)));
   const memberIds = createMemo(() => new Set(dependencyRows().flatMap(row => row.parent === null ? [] : [row.todo.id, row.parent])));
   const foldedDone = createMemo(() => done().filter(todo => !memberIds().has(todo.id)));
@@ -127,9 +131,8 @@ export const Todos = (props: {
       if (wasDone && !memberIds().has(id)) return unfolded();
 
       const todo = inScope().find(todo => todo.id === id);
-      const group = todo && ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
 
-      return group !== undefined && !closedGroups().includes(group.id);
+      return todo !== undefined && !closedGroups().includes(groupOf(todo));
     },
   });
 
@@ -183,9 +186,7 @@ export const Todos = (props: {
   });
 
   const selection = createSelection(() => [...listed().filter(todo => {
-    const group = ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
-
-    return dependency.visible(todo.id) && group !== undefined && !closedGroups().includes(group.id);
+    return dependency.visible(todo.id) && !closedGroups().includes(groupOf(todo));
   }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
@@ -221,8 +222,6 @@ export const Todos = (props: {
 
   const isEmpty = createMemo(() => todos.isLoaded() && inScope().length === 0);
 
-  /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
-  const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
   createEffect(() => {
     for (const todo of inScope()) if (finishing.row(todo.id) && (!dependency.visible(todo.id) || closedGroups().includes(groupOf(todo)))) finishing.rowEnded(todo.id);
   });
