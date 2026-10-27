@@ -47,10 +47,11 @@ for length in [40,400,4000]:
   (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
   names={'PipelineReporter','EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
   retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
-  packed=gzip.compress(raw,mtime=0)
   for stale in out.glob(f'{length}-full-trace.json.gz.part-*'): stale.unlink()
-  for i,offset in enumerate(range(0,len(packed),900000)):
-   (out/f'{length}-full-trace.json.gz.part-{i:03d}').write_bytes(packed[offset:offset+900000])
+  for i,offset in enumerate(range(0,len(raw),6000000)):
+   part=gzip.compress(raw[offset:offset+6000000],mtime=0)
+   if len(part)>=900000: raise ValueError('Compressed part exceeds file cap')
+   (out/f'{length}-full-trace.json.gz.part-{i:03d}').write_bytes(part)
   (out/f'{length}-trace.json.gz').write_bytes(gzip.compress(json.dumps({'traceEvents':retained},ensure_ascii=False,separators=(',',':')).encode(),mtime=0))
   report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
   trace.unlink(missing_ok=True)

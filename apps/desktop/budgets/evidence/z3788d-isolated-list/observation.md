@@ -21,7 +21,7 @@ cp apps/desktop/budgets/evidence/z3788d-isolated-list/fixture.html.txt apps/desk
 pnpm --filter desktop exec vite --host 127.0.0.1 --port 5257 --strictPort
 ```
 
-In another shell, from the root, run `python3 apps/desktop/budgets/evidence/z3788d-isolated-list/observe.py.txt`, then `python3 apps/desktop/budgets/evidence/z3788d-isolated-list/analyze.py.txt`. Remove only the two copied fixture files afterward. The collector closes its own session and removes its temporary browser profile. The analyzer preserves original traces as gzip parts under 900000 bytes; concatenate parts in name order to reconstruct them. Raw samples retain exact ordered-identity digests and trust flags. Screenshots remain uncommitted in `artifacts/ux/Z3788d`.
+In another shell, from the root, run `python3 apps/desktop/budgets/evidence/z3788d-isolated-list/observe.py.txt`, then `python3 apps/desktop/budgets/evidence/z3788d-isolated-list/analyze.py.txt`. Remove only the two copied fixture files afterward. The collector closes its own session and removes its temporary browser profile. The analyzer preserves original traces as individually valid gzip members under 900000 bytes; concatenate parts in name order and gzip-decompress the concatenation to reconstruct each original trace. Raw samples retain exact ordered-identity digests and trust flags. Screenshots remain uncommitted in `artifacts/ux/Z3788d`.
 
 `initial-setup-failure.json` retains the first fixture's missing Leader registration: the open-field wait timed out. Mounting the existing Leader repairs this setup; no synthetic event or product workaround is used. The first environment record was committed before this failure; the final environment describes the actual collection revision.
 
@@ -52,3 +52,5 @@ At 4000, input dispatch p95 is 587.720 ms, style recalculation 65.470 ms, Layout
 | Overall decision lacks valid timings at all three lengths | 2 |
 
 Remaining on #3853: Z3788d's valid three-length decision and any licensed measured successor; Z3788a Find/query retention, authoritative scrollback/reload, bounded images, ten-Agent memory, entry/static/lazy/WASM byte requirements and rendered observers. This archive completes no addon feature or native observation. The user reports what they meet on the Mac.
+
+Validation: all three decompressed trace hashes match the recorded originals; archive replay reproduces exit 2. Both Python programs compile. Vitest related exits 0 with no related tests. The first readiness run found a spelling-scanner decode failure on split compressed bytes; independently compressed gzip members fix the archive format without changing trace content, and the complete web-boundary rerun passes. No lint configuration or exemption changed.
