@@ -129,6 +129,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       const [reduced, change] = createSignal(false);
       const journal: import("./frames").PreferenceAction[] = [];
       let at = 0;
+
       const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
       const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({
         glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
