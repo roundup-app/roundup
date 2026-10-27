@@ -6,6 +6,7 @@ import { event, info } from "../testing/nodes";
 import { bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
+
 afterEach(cleanup);
 
 const tabs = () => [...document.querySelectorAll(".terminal-tab")].map(tab => tab.getAttribute("data-bubble"));
@@ -22,8 +23,14 @@ const openThroughStaleList = async (activation: string) => {
   let lists = 0;
   mounted.app.handlers["terminal.open"] = () => acknowledgement.promise;
   mounted.app.handlers["terminal.list"] = () => {
-    if (++lists === 1) { requested.resolve(); return stale.promise; }
+    if (++lists === 1) {
+      requested.resolve();
+
+      return stale.promise;
+    }
+
     openingRequested.resolve();
+
     return firstListing.promise;
   };
 
@@ -34,16 +41,16 @@ const openThroughStaleList = async (activation: string) => {
   acknowledgement.resolve({ terminal_id: "9" });
   // The opening queues its refresh synchronously after consuming the acknowledgement.
   await acknowledgement.promise;
-  const openingDone = mounted.connected.rail.settled();
   stale.resolve([project]);
   await openingRequested.promise;
   expect(mounted.connected.rail.terminals().map(terminal => terminal.id)).toEqual(["project"]);
   mounted.setListed([project, opened]);
   mounted.app.handlers["terminal.list"] = () => [project, opened];
   firstListing.resolve([project, opened]);
-  await openingDone;
   await mounted.connected.rail.settled();
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
+  expect(document.activeElement).toBe(mounted.emulators.made.get("9")?.host?.querySelector("[data-terminal]"));
+
   return mounted;
 };
 
