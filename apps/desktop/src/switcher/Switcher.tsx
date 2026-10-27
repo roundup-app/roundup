@@ -82,11 +82,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     ...matching(actions(), text()),
   ]);
 
-  createEffect(() => {
-    const list = shown();
+  // Z3788d input profile: a query and Zag's clear each invalidate row props before this fallback settles.
+  const active = createMemo(() => shown().some(entry => entry.value === highlighted()) ? highlighted() : shown()[0]?.value ?? null);
 
-    if (!list.some((entry) => entry.value === highlighted())) setHighlighted(list[0]?.value ?? null);
-  });
+  createEffect(() => setHighlighted(active()));
 
   const retain = (): void => {
     if (!open() || restoring) return;
@@ -230,7 +229,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
           });
-        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
+        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={active()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {

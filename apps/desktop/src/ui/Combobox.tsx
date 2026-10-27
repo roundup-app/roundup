@@ -153,10 +153,16 @@ const Root = (props: {
   }), { onFocus: value => { props.onHighlightChange(value); reveal(value); }, onActivate: value => props.onSelect(value) });
 
   // The Tab stop is available before item refs mount; gesture eligibility uses the mounted collection.
-  const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
-    ?? props.items.find(item => props.contentRow?.(item))?.value;
+  // Z3788d profile: repeated tab-stop scans occupy 192 inclusive input samples.
+  const tabStop = createMemo(() => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
+    ?? props.items.find(item => props.contentRow?.(item))?.value);
 
-  const itemRow = (item: () => ComboboxItem) => <ArkCombobox.Item item={item()} asChild={itemProps => <div {...itemProps({})} class="app-combobox-item"
+  const itemRow = (item: () => ComboboxItem) => <ArkCombobox.Item item={item()} asChild={() => {
+    // Z3788d input dispatch p95 is 4.938–7.931 ms: Ark's lazy merge repeats getItemProps for each attribute.
+    // Its asChild slot accepts the same Zag props, resolved once per reactive update.
+    const attributes = createMemo(() => api().getItemProps({ item: item() }));
+
+    return <div {...attributes()} class="app-combobox-item"
     ref={element => {
       createEffect(() => {
         const entry = item();
@@ -170,7 +176,8 @@ const Root = (props: {
     onFocus={() => { if (props.contentRow?.(item())) props.onHighlightChange(item().value); }} aria-selected={props.contentRow?.(item()) ? content.selection.isSelected(item().value) : undefined}
     data-row-selected={props.contentRow?.(item()) && content.selection.isSelected(item().value) ? "true" : undefined}>
     {props.row(item())}
-  </div>} />;
+  </div>;
+  }} />;
 
 
   return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
