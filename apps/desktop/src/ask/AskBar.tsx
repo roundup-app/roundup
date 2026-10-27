@@ -1,8 +1,8 @@
 import { useDialog } from "@ark-ui/solid/dialog";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "../copy";
@@ -24,9 +24,12 @@ import { Portal } from "solid-js/web";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
-import { createReactions, Reactions } from "../reactions/Reactions";
+import { createReactions } from "../reactions/state";
 import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
+
+// R3800: load the reactions screen and its Ark form controls only when requested.
+const Reactions = lazy(() => import("../reactions/Reactions").then(module => ({ default: module.Reactions })));
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
@@ -337,7 +340,7 @@ export const AskBar = (props: {
         </div>
         <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
-        <Show when={connected.hasView("made")}><Deliverables state={deliverables} /></Show>
+        <Show when={connected.hasView("made")}><Deliverables state={deliverables} onClose={() => { connected.hideView("made"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }} /></Show>
         <Show when={connected.hasView("ask-history")}><AskRows keys={scope} onOpened={() => close(false)} /></Show>
       </section>
     </Show>
@@ -345,7 +348,7 @@ export const AskBar = (props: {
 };
 
 const ProjectOverview = () => {
-  const { rail, hasView } = useConnectedProject();
+  const { rail, hasView, hideView } = useConnectedProject();
   const attention = createMemo(() => attentionOrder(rail.nodes));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
@@ -355,6 +358,7 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
+    <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
@@ -436,7 +440,7 @@ const createDeliverables = () => {
   return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
 };
 
-const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
+const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onClose?: () => void }) => {
   const connected = useConnectedProject();
   const scope = shelfScope(connected);
   const records = createMemo(() => props.state.records().filter(record => scope.includes(record.home, record.maker)));
@@ -517,7 +521,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   return <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
-        <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
+        <div class="made-actions"><button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button><Show when={props.onClose}><button type="button" data-button="quiet" onClick={() => props.onClose?.()}>{copy.closeView(copy.deliverables)}</button></Show></div>
       </div>
       <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : records().length === 0 && props.state.failure() === null ? copy.deliverablesEmpty : null} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}

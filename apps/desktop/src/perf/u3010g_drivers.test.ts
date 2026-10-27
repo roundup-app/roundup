@@ -80,6 +80,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     const journal: import("./frames").PreferenceAction[] = [];
     let phase: import("./frames").PreferenceAction["phase"] = "warmup";
     let at = 12;
+    const movement = vi.fn(() => ({ panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }));
 
     createRoot(dispose => {
       const reduced = createReducedMotion(() => ({
@@ -88,17 +89,19 @@ describe("u3010g the frame recorder drives every workload", () => {
         removeEventListener: (_type, listener) => { listeners.delete(listener); },
       }));
 
-      const stop = observePreference(reduced, () => at, () => phase, journal);
+      const stop = observePreference(reduced, () => at, () => phase, journal, movement);
 
       expect(listeners.size).toBe(1);
+      expect(movement).not.toHaveBeenCalled();
       phase = "sample";
       at = 23;
 
       for (const listener of listeners) listener({ matches: true });
       expect(journal).toEqual([
         { at_ms: 12, reduced: false, phase: "warmup" },
-        { at_ms: 23, reduced: true, phase: "sample" },
+        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 } },
       ]);
+      expect(movement).toHaveBeenCalledTimes(1);
       stop();
 
       for (const listener of listeners) listener({ matches: false });
