@@ -4,6 +4,7 @@
  *  encoded). Contiguous covers exactly `from..after`, including partial UTF-8/escape sequences.
  *  Apply it, then discard buffered live bytes before `after` (trim an overlapping chunk).
  *  Continue live delivery from `after`; a live gap still requires U103 snapshot recovery.
+ *  Retain U103's 1 MiB pre-reply live queue bound; overflow also uses snapshot recovery.
  *  Gap returns no bytes: the requested start was evicted; `from` is the earliest retained byte.
  *  Recover with the existing authoritative snapshot, never treat the gap as contiguous replay.
  *  Both variants identify the original Terminal; the Project is the RPC connection's Project.

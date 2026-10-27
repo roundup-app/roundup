@@ -119,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 74] = [
+pub const NO_TOOL: [&str; 75] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -157,6 +157,8 @@ pub const NO_TOOL: [&str; 74] = [
     "message.drop",
     "terminal.list",
     "terminal.snapshot",
+    // Z3788a: only the App replays raw bytes into its retained emulator; Agents read plain text.
+    "terminal.catchUp",
     // R20: only the App's opt-in keystroke probe records timing; Agents cannot enable or read it.
     "terminal.measure",
     // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
