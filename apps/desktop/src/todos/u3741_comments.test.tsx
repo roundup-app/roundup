@@ -153,7 +153,8 @@ it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", asy
   m.store.comments!.set(1, [line(1, AGENT, "old")]);
   await open();
   await within(panel()).findByText("old");
-  const live = within(panel()).getByRole("status");
+  const comments = within(panel()).getByRole("region", { name: /^Comments · / });
+  const live = within(comments).getByRole("status");
   expect(live.getAttribute("aria-live")).toBe("polite");
   expect(live.textContent).toBe("");
   const arrival = line(2, AGENT, "new one");
