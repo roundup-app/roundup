@@ -1,3 +1,4 @@
+import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
@@ -211,6 +212,80 @@ export const Rail = () => {
   };
 
   const focusRow = (id: string) => rowElement(id)?.focus();
+
+  const selection = createRowCollection(() => nodeRows().filter(row => {
+    const element = rowElement(row.node.id);
+
+    return element && !element.closest("[hidden], [inert], [aria-disabled=true]");
+  }).map(row => ({ value: row.node.id, label: row.node.name })));
+
+  let anchor: string | undefined;
+  createEffect(on(rail.selected, id => {
+    selection.selection.setSelectedValues(id === null ? [] : [id]);
+    anchor = id ?? undefined;
+  }));
+
+  const range = (id: string) => selection.selection.setSelectedValues(anchor === undefined || !selection.collection().has(anchor)
+    ? [id] : selection.collection().getValueRange(anchor, id));
+
+  const selectClick = (event: MouseEvent) => {
+    if (event.ctrlKey) return;
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>(".rail-row") : null;
+    const id = row?.dataset.id;
+
+    if (id === undefined || event.target instanceof Element && event.target.closest("button,input") || !event.metaKey && !event.shiftKey) return;
+    event.preventDefault(); event.stopPropagation();
+
+    if (!selection.collection().has(id)) return;
+
+    if (event.shiftKey) range(id);
+    else { selection.selection.toggle(id); anchor = id; }
+
+    row?.focus();
+  };
+
+  const selectKey = (event: KeyboardEvent) => {
+    const id = focusedRowId(event);
+
+    if (id === undefined || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
+
+    if (event.metaKey && event.key.toLowerCase() === "a") {
+      event.preventDefault(); event.stopPropagation();
+      selection.selection.setSelectedValues(selection.collection().getValues());
+
+      return;
+    }
+
+    const collection = selection.collection();
+
+    const navigation = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(id)
+      : event.key === "ArrowDown" ? collection.getNextValue(id) : undefined;
+
+    if (!event.metaKey && navigation !== undefined) {
+      event.preventDefault(); event.stopPropagation();
+
+      if (navigation !== null) focusRow(navigation);
+
+      return;
+    }
+
+    if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
+    const match = selection.search(event);
+
+    if (match === null) {
+      if (!event.metaKey && event.key.length === 1 && event.key !== " ") {
+        event.preventDefault(); event.stopPropagation();
+      }
+
+      return;
+    }
+
+    event.preventDefault(); event.stopPropagation();
+    selection.selection.replace(match); anchor = match; rail.select(match); focusRow(match);
+  };
+
 
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
   const tabbableId = createMemo(() => {
@@ -550,6 +625,8 @@ export const Rail = () => {
       class="rail-tree"
       ref={(element) => {
         setContainer(element);
+        element.addEventListener("click", selectClick, true);
+        element.addEventListener("keydown", selectKey, true);
         let contextClick = false;
         element.addEventListener("pointerdown", (event) => {
           contextClick = event.button === 0 && event.ctrlKey;
@@ -572,12 +649,12 @@ export const Rail = () => {
       }}
       collection={collection()}
       expandedValue={expanded()}
-      selectedValue={rail.selected() === null ? [] : [rail.selected()!]}
+      selectedValue={selection.selection.selectedValues()}
       expandOnClick={false}
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) { rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -647,7 +724,8 @@ export const Rail = () => {
                           }}
                           editing={editingName() === view().node.id}
                           onOpen={() => openRow(view().node.id)}
-                          selected={rail.selected() === view().node.id}
+                          selected={selection.selection.isSelected(view().node.id)}
+                          multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}

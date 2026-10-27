@@ -1,17 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { cleanup } from "@solidjs/testing-library";
 import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { createHomed, expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { agent, info, workstream } from "../testing/nodes";
-import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -82,7 +81,12 @@ describe("u3010g the frame recorder drives every workload", () => {
     const journal: import("./frames").PreferenceAction[] = [];
     let phase: import("./frames").PreferenceAction["phase"] = "warmup";
     let at = 12;
-    const movement = vi.fn(() => ({ panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }));
+
+    const movement = vi.fn(() => ({
+      movement: { panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 },
+      glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }],
+      todos: { action_at_ms: 21, action: "reorder" as const, targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] },
+    }));
 
     createRoot(dispose => {
       const reduced = createReducedMotion(() => ({
@@ -101,17 +105,97 @@ describe("u3010g the frame recorder drives every workload", () => {
       for (const listener of listeners) listener({ matches: true });
       expect(journal).toEqual([
         { at_ms: 12, reduced: false, phase: "warmup" },
-        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 } },
+        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }], todos: { action_at_ms: 21, action: "reorder", targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] } },
       ]);
       expect(movement).toHaveBeenCalledTimes(1);
-      stop();
+      phase = "after-actions";
 
       for (const listener of listeners) listener({ matches: false });
-      expect(reduced()).toBe(false);
-      expect(journal).toHaveLength(2);
+      expect(movement).toHaveBeenCalledTimes(1);
+      expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
+      stop();
+
+      for (const listener of listeners) listener({ matches: true });
+      expect(reduced()).toBe(true);
+      expect(journal).toHaveLength(3);
       expect(listeners.size).toBe(1);
       dispose();
       expect(listeners.size).toBe(0);
+    });
+  });
+
+  it("u3010d_a_live_switch_retains_only_the_preceding_frame_of_its_source_value", () => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      let at = 0;
+
+      const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
+
+      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({
+        glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
+      }), { afterUpdate: () => {}, read: () => "settled", previousFrame: () => previous });
+
+      at = 10;
+      change(true);
+      expect(journal.at(-1)).toMatchObject({ previous_frame: previous, glyphs: [{ degrees: 186 }] });
+      // No frame has observed the enabled source; the old disabled frame cannot
+      // stand for the immediately preceding movement when disabling again.
+      change(false);
+      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+      at = 11;
+      change(true);
+      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+      stop();
+      dispose();
+    });
+  });
+
+  it("u3010d_a_live_switch_records_its_result_after_the_app_update", () => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      const tasks: (() => void)[] = [];
+      let at = 10;
+      let result: "moving" | "settled" = "moving";
+
+      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({}), {
+        afterUpdate: callback => { tasks.push(callback); },
+        read: () => result,
+      });
+
+      change(true);
+      expect(journal.at(-1)?.settlement).toEqual({ status: "pending" });
+      result = "settled";
+      at = 11;
+      tasks.shift()!();
+      expect(journal.at(-1)?.settlement).toEqual({ status: "settled", at_ms: 11 });
+      stop();
+      dispose();
+    });
+  });
+
+  it.each(["superseded", "disposed"] as const)("u3010d_a_pending_switch_cannot_claim_completion_after_it_is_%s", reason => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      const tasks: (() => void)[] = [];
+
+      const stop = observePreference(reduced, () => 10, () => "sample", journal, () => ({}), {
+        afterUpdate: callback => { tasks.push(callback); },
+        read: () => "settled",
+      });
+
+      change(true);
+      const entry = journal.at(-1)!;
+
+      if (reason === "superseded") change(false);
+      else stop();
+      tasks.shift()!();
+      expect(entry.settlement).toEqual({ status: reason });
+      expect(reduced()).toBe(reason === "disposed");
+      stop();
+      dispose();
     });
   });
 
@@ -261,6 +345,31 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(actual).toHaveLength(9);
     expect(actual.filter(row => row.done)).toHaveLength(1);
     expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5], [4, 1], [8, 5], [4, 1], [8, 5], [4, 1]]);
+  });
+
+  it("u3010g_todo_action_times_bound_the_acknowledged_mutation", async () => {
+    const app = fixtureApp("action-times");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const journal: import("./frames").TodoAction[] = [];
+    const controls = fixtureTodos(app, fixture, { toggleFold: async () => true, reorder: async () => true }, journal);
+    const move = app.handlers["todo.move"]!;
+    let release: () => void = () => {};
+
+    app.handlers["todo.move"] = async params => {
+      await new Promise<void>(resolve => { release = resolve; });
+
+      return move(params);
+    };
+
+    const started = performance.now();
+    const action = controls.create();
+
+    await vi.advanceTimersByTimeAsync(75);
+    expect(journal[0]).toMatchObject({ action: "insert", at_ms: started, completed_at_ms: null, completed: false });
+    release();
+    expect(await action).toBe(true);
+    expect(journal[0]).toMatchObject({ completed_at_ms: started + 75, completed: true });
+    expect((await app.rpc("todo.get", { id: journal[0]!.targets[0]! })).home).toBe(fixture.home);
   });
 
   it("u3010g_synthetic_pointer_events_cannot_complete_the_native_reorder_phase", async () => {
@@ -417,16 +526,6 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     expect(await controls.complete(open.at(-1)!)).toBe(false);
     expect(journal.at(-1)).toMatchObject({ action: "complete", completed: false });
-  });
-
-  it("u3010g_a_driven_todo_is_homed_in_the_workstream_whose_shelf_shows_it", async () => {
-    const calls: [string, unknown][] = [];
-    const rpc = async (method: string, params: Record<string, string | number | null>) => (calls.push([method, params]), { id: 7 });
-
-    // SAFETY: createHomed calls only todo.create and todo.move, which this stub answers; the other methods are never reached.
-    await createHomed({ rpc } as Pick<AppSeam, "rpc">, "ws-1", "seed 0");
-
-    expect(calls).toEqual([["todo.create", { title: "seed 0", body: null, blockers: null }], ["todo.move", { id: 7, home: "ws-1" }]]);
   });
 
   it("u3010g_glyphs_need_ten_working_glyphs", async () => {

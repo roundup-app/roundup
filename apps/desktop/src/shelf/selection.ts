@@ -1,4 +1,4 @@
-import { createEffect, on, onCleanup, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, on, onCleanup, untrack, useContext } from "solid-js";
 import { ShelfActions } from "./BulkDelete";
 import { createRowCollection } from "../ui/RowCollection";
 import type { Accessor } from "solid-js";
@@ -7,7 +7,13 @@ import type { Accessor } from "solid-js";
 export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>, find?: (id: Id) => HTMLButtonElement | null | undefined) => {
   const host = useContext(ShelfActions);
   const list = createRowCollection(() => visibleOrder().map(id => ({ value: String(id), label: rowOf(id)?.querySelector(".shelf-title")?.textContent ?? rowOf(id)?.textContent ?? "" })));
-  const selected = () => ids().filter(id => list.selection.selectedValues().includes(String(id)));
+
+  const selected = createMemo(() => {
+    const chosen = new Set(list.selection.selectedValues());
+
+    return ids().filter(id => chosen.has(String(id)));
+  });
+
   const setSelected = (values: readonly Id[]) => untrack(() => list.selection.setSelectedValues(values.map(String)));
   let anchor: Id | undefined;
   const rows = new Map<Id, HTMLButtonElement>();

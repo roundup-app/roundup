@@ -246,3 +246,124 @@ Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
 invocation ended at its 60-second outer bound, so no whole-suite capture pass is
 claimed. This direct action-seam observation qualifies no 60-second sample,
 stream byte accounting, halfway preference variant or WKWebView timing.
+
+### Working-arc displacement at a live source change
+
+For the Glyphs workload, each sample-phase preference change now retains
+`glyphs`: the visible fixture Agent ids, raw computed transform matrices and
+displayed rotation in degrees (0–360). The existing shared accessor recorder
+reads this before the App's effects cancel the loops. Only a connected, visible
+current arc with a running transform animation is included; outgoing frozen
+marks, opacity-only fades, stopped loops and non-fixture Agents cannot supply
+this evidence. An empty array establishes no moving arc. Initial preference,
+warmup and after-actions entries carry no Glyph displacement claim.
+
+The half-turn is 180 degrees of displayed rotation. The raw matrix is retained
+so a rendered observer can check that reading; animation time/progress is never
+used as rotation. A snapshot does not establish a crossing or a completed live
+reduced-motion variant. Keep `variant: "unqualified"` until the complete required
+fixture, actions and measured halfway source switch are demonstrated. No new
+Mac sequence is requested.
+
+Isolated dark Chromium preparation at 1512×950 read all ten derived fixture
+arcs while moving; after emulating reduced motion it read no running transform
+arcs. D2/D5/D6 passed in both readings. Raw matrices, fixture bytes/hash and
+Checks remain under `artifacts/ux/U3010d/glyph-displacement/`, with uncommitted
+screenshots. This checks the geometry read path, not a halfway switch, full scheduling
+run, native stream or WKWebView timing.
+
+### Todo displacement at a live source change
+
+During `sample`, a Todos preference entry retains `todos`: the latest structural
+action's start timestamp, action name and actual targets, plus its visible moving
+rows. Each row records its displayed box origin, computed transform, the existing
+row owner's two translation endpoints and the projected displacement fraction.
+The reader uses displayed translation, never animation time. Fades, loops,
+non-translation effects, hidden rows and settled positions supply no displacement.
+An empty `rows` array establishes no moving row; a missing action supplies no
+Todo evidence. This observation uses the App's existing live preference accessor
+and neither changes the source nor owns another subscription.
+
+`todo_actions` now retains `at_ms` before invoking the action and
+`completed_at_ms` when its result returns, alongside the existing authoritative
+`completed` verdict. A returned RPC can precede visible motion; compare these
+with the preference entry timestamp and raw row geometry. The temporary insertion
+and original fixture ids remain distinguishable in `targets`. Recording a
+halfway row snapshot does not establish a completed live reduced-motion variant:
+retain `variant: "unqualified"` until the complete required sequence is observed.
+No new Mac sequence is requested; #4244 remains open for that qualification.
+
+Isolated dark 1512×950 Chromium preparation retained the derived fixture hash
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The focused reorder observation did not catch moving rows within the unchanged
+400 ms bound; its first rendered reads arrived after the displacement had ended.
+D2/D5/D6 passed; D14 failed during the action and passed at settled reduced motion.
+Retain this as incomplete reader qualification, not a halfway switch or native
+result. Raw observations, setup script and screenshots are under
+`artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
+at 45 seconds; no whole-suite capture pass is claimed.
+
+### Live switch completion
+
+A sample-phase enable change now retains `settlement`: `pending` until the existing
+post-update task reads the motion owners, then `settled`, `moving` or `unavailable`
+with its actual page timestamp. Layers must reach the recorded destination (or
+finish a closed panel's lifetime); Todos require an acknowledged action, mounted
+original rows and no displayed row translation; Glyphs require the same ten visible
+working identities with no running arc transforms. Missing fixture identities or
+required targets produce `unavailable`, never settlement.
+
+A later source change marks a pending observation `superseded`; recorder disposal
+marks it `disposed`. Neither late callback can overwrite that result. The initial
+value, disabling changes and changes outside the sample claim no settlement.
+The App keeps its sole live preference source. This readback neither switches the
+OS preference nor proves a halfway crossing, action sequence, native timing or
+settled idle. Keep the variant unqualified until those separate obligations hold.
+
+Isolated dark Chromium at 1512×950 observed all ten fixture arcs moving, then
+emulated the live reduced-motion source shared by a freshly mounted App and the
+recorder. The corrected preparation retained ten raw matrices at 201.9375 degrees; its post-update
+readback recorded settlement and no running arcs. D2/D5/D6 passed before and after.
+All rendered Checks passed. The initial CSS-link setup reported D1/D10 failures;
+those readings and its earlier 27.675-degree switch remain in `initial-*.json`.
+Importing the existing styles through Vite repaired that observer setup. Neither
+switch retained a measured half-turn crossing: this is **not halfway evidence**. It qualifies the shared-source snapshot/readback
+path only. The fake App supplied no qualified native stream, scheduling sample or
+settled idle. Raw readings and screenshots remain under
+`artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.
+
+### Frame before a live switch
+
+Each sample-phase change may retain `previous_frame`: the most recent frame
+callback's timestamp, source value and raw displacement for this workload. It
+uses the recorder's existing frame callback, not a second animation loop or
+preference subscription. Only one preceding snapshot is held. It is attached
+only when it follows the previous source change, predates this change and reads
+the value being replaced; a stale frame cannot survive a rapid toggle back.
+
+Compare the same layer action timestamp/target, Todo action/row, or working
+Glyph identity in `previous_frame` and the change's synchronous snapshot. A
+halfway crossing needs a preceding displacement below 0.5 (Glyph rotation below
+180 degrees), a switch at or beyond that point while still moving, and the
+existing post-update settlement. A missing pair, changed action/identity or a
+wrapped rotation establishes no crossing. The recorder retains facts rather
+than declaring these pairs qualified. The variant stays `unqualified`.
+
+These extra reads are observer work inside the scheduling sample. Preserve the
+identical observer overlay on base and head. This adds neither native input nor
+a timing result; complete the remaining full fixture, layer/Shelf sequences and
+all live variants before requesting another Mac sequence.
+
+Isolated dark Chromium preparation at 1512×950 retained ten derived fixture
+arcs and a preceding frame at 176.475 degrees, then switched the injected media
+query seam at the first observed crossing, 188.962 degrees. The mounted App and
+recorder consumed the same `createReducedMotion` accessor. The journal retains
+that preceding frame and the synchronous switch matrices; post-update readback
+reports settlement. Every rendered Check passed. The earlier wide-gap pair
+remains retained. Raw fixture bytes/hash, source
+snapshots, Checks, scripts and uncommitted screenshot are under
+`artifacts/ux/U3010d/preference-crossing/`. This is preparation of the correlation
+path through an injected preference seam, not an OS preference observation, full
+workload variant, native stream, scheduling sample, settled idle or WKWebView
+result. The broad capture invocation was stopped after starting unrelated suites;
+no whole-suite capture pass is claimed.

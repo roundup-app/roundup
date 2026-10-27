@@ -50,13 +50,26 @@ const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: 
 export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer" | "trusted-key"; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
 
 /** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
-export type TodoAction = { action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
+export type TodoAction = { at_ms: number; completed_at_ms: number | null; action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
 
 /** Changes observed through the same live accessor the App consumes; no second preference source. */
 export type PreferenceAction = {
   at_ms: number;
   reduced: boolean;
   phase: "warmup" | "sample" | "after-actions";
+  /** Last sampled frame before this source change, including its source value; compare matching targets/actions to establish a crossing. */
+  previous_frame?: { at_ms: number; reduced: boolean } & Pick<PreferenceAction, "movement" | "glyphs" | "todos">;
+  /** Post-update result for this exact enable change, never a halfway or native qualification. */
+  settlement?: { status: "pending" | "superseded" | "disposed" } | { status: "settled" | "moving" | "unavailable"; at_ms: number };
+  /** Row translations read at the source change, correlated to the latest structural action. Empty rows claim no displacement. */
+  todos?: {
+    action_at_ms: number;
+    action: TodoAction["action"];
+    targets: number[];
+    rows: { target: number; transform: string; from: string; to: string; x: number; y: number; progress: number }[];
+  };
+  /** Visible fixture arcs with a running transform loop, sampled at the live source change. Degrees are displayed rotation, not timeline progress. */
+  glyphs?: { target: string; transform: string; degrees: number }[];
   /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
   movement?: { panel: "drawer" | "shelf"; target: string; action_at_ms: number; from: number; destination: number; observed: number; progress: number };
 };
