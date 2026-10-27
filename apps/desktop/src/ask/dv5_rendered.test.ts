@@ -82,7 +82,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await browser("set", "media", "light");
     await until("matchMedia('(prefers-color-scheme: light)').matches");
     // Scope follows Rail selection without replacing its Terminal.
-    await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
+    await browser("click", `.rail-row[data-id="${home.id}"] .name`);
     await until(`document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')?.dataset.selected === 'true'`);
     await capture("home-strip");
     await until("document.querySelectorAll('.ask-bar .made-row').length === 10");
