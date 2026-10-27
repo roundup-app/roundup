@@ -92,10 +92,10 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       onInput={(event) => edit(event.currentTarget)}
       onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
       onClick={(event) => event.stopPropagation()}
-      onKeyDown={(key) => {
+      on:keydown={(key) => {
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 
-        if (key.key === "Escape") props.onCancel();
+        if (key.key === "Escape") { key.preventDefault(); key.stopPropagation(); props.onCancel(); }
       }}
       onBlur={() => props.onCancel(false)}
     />
