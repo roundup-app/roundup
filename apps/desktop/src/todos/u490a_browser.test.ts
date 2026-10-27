@@ -71,7 +71,8 @@ const shelf: List = {
 
 const centre = (rows: string, n: number) => page.call<Point>(`(rows, n) => {
   const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
-  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  const title = el.querySelector('.shelf-title')?.getBoundingClientRect();
+  return {x: title ? title.left + 2 : b.left + b.width / 2, y: b.top + b.height / 2};
 }`, rows, n);
 
 const state = (rows: string) => page.call<State>(`rows => ({

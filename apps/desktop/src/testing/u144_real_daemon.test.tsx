@@ -355,7 +355,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
       expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
       connected.showView("notes");
-      await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+      await screen.findByRole("dialog", { name: "Recover notes" });
       expect(document.querySelector(".note-recovery")?.textContent).toContain(unsent);
     } finally {
       calls.mockRestore();

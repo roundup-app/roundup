@@ -62,13 +62,14 @@ type Clock = { sleep(ms: number): Promise<void> };
  * Runs `cycle` once every `CYCLE_MS`, `CYCLES` times, and answers whether every one completed. A cycle that reports a missing target ends the run
  * at once, so the report stays invalid (U3010g): a target never found is not completed, and is never skipped.
  */
-export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Promise<boolean>): Promise<{ performed: number; completed: boolean }> => {
+export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Promise<boolean>, present: () => boolean = () => true): Promise<{ performed: number; completed: boolean }> => {
   let performed = 0;
 
   for (let index = 0; index < CYCLES; index += 1) {
+    if (!present()) return { performed, completed: false };
     const [done] = await Promise.all([cycle(index), clock.sleep(CYCLE_MS)]);
 
-    if (!done) return { performed, completed: false };
+    if (!done || !present()) return { performed, completed: false };
 
     performed += 1;
   }
@@ -334,7 +335,8 @@ export const domLayers = (journal: LayerAction[], listen: Listen = (type, listen
   };
 };
 
-const workingGlyphs = () => [...document.querySelectorAll('.rail .glyph[data-drawing="quarter"]')].filter(glyph => {
+const workingGlyphs = (fixture?: Fixture) => [...document.querySelectorAll('.rail-row[data-kind="working"] .glyph[data-drawing="quarter"]')].filter(glyph => {
+  if (fixture && !fixture.working.includes(glyph.closest<HTMLElement>(".rail-row")?.dataset.id ?? "")) return false;
   const box = glyph.getBoundingClientRect();
 
   return box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
@@ -541,9 +543,9 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
 
   if (workload === "glyphs") {
     if (!fixture) throw new Error("missing native fixture");
-    await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
+    await appears(() => workingGlyphs(fixture) >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
 
-    return glyphsCycle(workingGlyphs);
+    return glyphsCycle(() => workingGlyphs(fixture));
   }
 
   throw new Error(`the workload ${workload} is not layers, todos, drag or glyphs`);
@@ -589,7 +591,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
     if (fixture) {
       for (const control of document.querySelectorAll<HTMLElement>('.rail [aria-expanded="false"] .rail-chevron')) control.click();
-      await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
+      await appears(() => workingGlyphs(fixture) >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
     }
 
     const cycle = await bounded(prepare(app, workload, layerActions, todoActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
@@ -600,6 +602,28 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       if (!bubble || bubble.hidden || bubble.dataset.bubble !== fixture.terminal) throw new Error("the fixture streaming Terminal is not selected and visible");
       input.focus();
     }
+
+    const fixtureFailures: { at_ms: number; reason: string }[] = [];
+
+    const present = () => {
+      if (!fixture) return true;
+      const root = document.querySelector<HTMLElement>("[data-layout-root]");
+      const bubble = input.closest<HTMLElement>(".bubble[data-bubble]");
+      const screen = bubble?.getBoundingClientRect();
+
+      const failures = [
+        ...(innerWidth !== viewport.width || innerHeight !== viewport.height || devicePixelRatio !== viewport.device_pixel_ratio ? ["the viewport changed"] : []),
+        ...(root?.dataset.shelfMode !== shelfMode ? ["the Shelf mode changed"] : []),
+        ...(workingGlyphs(fixture) !== WORKING_GLYPHS ? ["the fixture no longer has ten visible working Glyphs"] : []),
+        ...(!input.isConnected || !bubble || bubble.hidden || bubble.dataset.bubble !== fixture.terminal || !screen || screen.width <= 0 || screen.height <= 0 || screen.bottom <= 0 || screen.top >= innerHeight || screen.right <= 0 || screen.left >= innerWidth ? ["the fixture streaming Terminal is not selected and visible"] : []),
+      ];
+
+      fixtureFailures.push(...failures.map(reason => ({ at_ms: performance.now(), reason })));
+
+      return failures.length === 0;
+    };
+
+    if (!present()) throw new Error(fixtureFailures.map(failure => failure.reason).join("; "));
 
     const preference: PreferenceAction[] = [];
     let phase: PreferenceAction["phase"] = "warmup";
@@ -657,7 +681,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
         },
         async () => {
           phase = "sample";
-          const actions = await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle);
+          const actions = await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle, present);
 
           phase = "after-actions";
 
@@ -668,7 +692,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
       const observer: NonNullable<FrameReport["observer"]> = {
-        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, preference, variant: "unqualified",
+        viewport, shelf_mode: shelfMode, fixture_failures: fixtureFailures, layer_actions: layerActions, todo_actions: todoActions, preference, variant: "unqualified",
         native_qualification: "incomplete: trusted layer sequence, both Shelf cases and live preference variants remain unqualified",
       };
 
