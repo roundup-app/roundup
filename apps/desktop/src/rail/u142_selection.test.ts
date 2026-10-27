@@ -105,15 +105,6 @@ class Browser {
     await this.mouse("mouseReleased", to.x, to.y, { buttons: 0, clickCount: 1 });
   }
 
-  async click(at: Point, clickCount = 1) {
-    await this.mouse("mouseMoved", at.x, at.y);
-
-    for (let count = 1; count <= clickCount; count++) {
-      await this.mouse("mousePressed", at.x, at.y, { buttons: 1, clickCount: count });
-      await this.mouse("mouseReleased", at.x, at.y, { buttons: 0, clickCount: count });
-    }
-  }
-
   key(key: string, extra: Params = {}) {
     return this.page("Input.dispatchKeyEvent", { type: "keyDown", key, ...extra });
   }
@@ -235,8 +226,9 @@ afterAll(async () => {
 const run = found ? describe : describe.skip;
 
 const editName = async (nth: number) => {
-  await browser.click(await pointOf(".rail-row .name", { dx: 3, nth }), 2);
-  await until(`() => Boolean(document.querySelector(".rail-row input"))`);
+  await browser.call(`(nth) => document.querySelectorAll(".rail-row")[nth].focus()`, nth);
+  await browser.key("F2", { code: "F2", windowsVirtualKeyCode: 113 });
+  await until(`() => document.activeElement === document.querySelector(".rail-row input")`);
 };
 
 run("u142 the Rail selects rows, not browser text", () => {
@@ -268,11 +260,11 @@ run("u142 the Rail selects rows, not browser text", () => {
 
     it(`u142_${at}_dragging_in_the_rename_input_selects_its_text_and_moves_no_row`, async () => {
       await load(size);
-      await editName(2);
+      await editName(0);
       // The field opens with its whole name selected, and a press inside a selection starts a text drag on macOS; Home puts the caret at the start first.
       await browser.key("Home", { code: "Home", windowsVirtualKeyCode: 36 });
       expect(await browser.eval<boolean>(`document.querySelector(".rail-row input").selectionEnd === document.querySelector(".rail-row input").selectionStart`)).toBe(true);
-      await browser.drag(await pointOf(".rail-row input", { dx: 2 }), await pointOf(".rail-row input", { dx: 30 }));
+      await browser.drag(await pointOf(".rail-row input", { dx: 2 }), await pointOf(".rail-row input", { dx: 12 }));
       expect(await browser.eval<boolean>(`document.querySelector(".rail-row input").selectionEnd > document.querySelector(".rail-row input").selectionStart`)).toBe(true);
       expect(await calls("rail.move")).toEqual([]);
     }, 30_000);
