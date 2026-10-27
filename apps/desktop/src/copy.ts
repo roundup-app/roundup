@@ -137,6 +137,7 @@ export const copy = {
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   backToAsk: "Back to Ask",
+  importPendingBack: "Import is in progress. Wait for it to finish before returning to Ask.",
   closeView: (name: string) => `Close ${name}`,
   ...railDraftCopy,
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
