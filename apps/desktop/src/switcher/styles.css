@@ -56,3 +56,27 @@
 .switcher-recovery p {
   margin: 0;
 }
+
+/* Recovery keeps its full cause and its actions visible on dense results. */
+.switcher .reserved-line:not([data-empty]) {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.switcher .reserved-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.switcher .ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-1);
+  align-items: baseline;
+}
+
+.switcher .reserved-actions {
+  justify-self: end;
+}
