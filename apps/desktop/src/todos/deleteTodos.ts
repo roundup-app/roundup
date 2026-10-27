@@ -143,6 +143,7 @@ export function createTodoUndo() {
     available: () => stack().length > 0 && !uncertain(),
     retryDelete: () => uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => !!uncertain(),
+    ids: () => uncertain() ?? [],
     dismiss: () => setVisible(false),
   };
 }
