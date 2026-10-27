@@ -1,0 +1,10 @@
+from pathlib import Path
+import gzip, hashlib,json
+out=Path('apps/desktop/budgets/evidence/z3788d-40523314552')
+for phase in ['baseline','after']:
+ for p in Path('/tmp/4421-traces',phase).glob('*-trace.json'):
+  target=out/phase
+  if list(target.glob(p.stem+'.json.gz.part-*.gz')):continue
+  raw=p.read_bytes();compressed=gzip.compress(raw,mtime=0)
+  for i,start in enumerate(range(0,len(compressed),700000)):(target/f'{p.stem}.json.gz.part-{i:03d}.gz').write_bytes(gzip.compress(compressed[start:start+700000],mtime=0))
+  print(phase,p.name,len(raw),hashlib.sha256(raw).hexdigest(),flush=True)

@@ -1,0 +1,35 @@
+import shlex,os,json,pathlib,subprocess,tempfile,uuid,time,platform,hashlib
+root=pathlib.Path(os.environ.get('Z3788_REPO',pathlib.Path.cwd()));out=root/'apps/desktop/budgets/evidence/z3788d-40523314552/visual';out.mkdir(parents=True,exist_ok=True)
+media=root/'artifacts/ux/Z3788d/fix-40523314552';media.mkdir(parents=True,exist_ok=True)
+session='z3788d-'+uuid.uuid4().hex
+scratch=tempfile.TemporaryDirectory(prefix='z3788d-');temp=pathlib.Path(scratch.name);(temp/'config.json').write_text('{}')
+env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+def browser(*args):
+ p=subprocess.run([str(root/'apps/desktop/node_modules/agent-browser/bin/agent-browser-linux-x64'),'--session',session,'--profile',str(temp/'profile'),'--config',str(temp/'config.json'),'--executable-path','/opt/google/chrome/chrome','--args','--no-sandbox','--json',*args],env=env,capture_output=True,text=True,timeout=60)
+ if p.returncode:raise RuntimeError(p.stdout+p.stderr)
+ r=json.loads(p.stdout)
+ if isinstance(r,list):
+  if any(not part.get('success') for part in r): raise RuntimeError(r)
+  return [part.get('data') for part in r]
+ if not r.get('success'):raise RuntimeError(r)
+ return r['data']
+def ev(s):return browser('eval',s)['result']
+try:
+ for seed in ['tree-40','agents-10','conflict']:
+  browser('open',f'http://127.0.0.1:5257/harness.html?seed={seed}')
+  browser('set','viewport','1512','950');browser('set','media','dark')
+  browser('wait','--fn','!!window.__fake && !!document.querySelector(".app-tree")')
+  browser('press','Meta+k');browser('press','k')
+  browser('wait','--fn',"!!document.querySelector('.switcher input') && document.activeElement===document.querySelector('.switcher input')")
+  checks=ev('window.__checks()')
+  (media/f'{seed}.checks.json').write_text(json.dumps(checks,indent=2))
+  browser('screenshot',str(media/f'{seed}.png'))
+  ev("window.__originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k.includes('draft'))throw new DOMException('disk is full','QuotaExceededError');return window.__originalSetItem.call(this,k,v)}")
+  browser('fill','.switcher input','a')
+  browser('wait','--fn',"!!document.querySelector('.switcher .reserved-line') && !!document.querySelector('.switcher .reserved-actions button')")
+  checks=ev('window.__checks()')
+  (media/f'{seed}-failure.checks.json').write_text(json.dumps(checks,indent=2))
+  (media/f'{seed}-failure-text.json').write_text(json.dumps(ev("document.querySelector('.switcher').innerText")))
+  browser('screenshot',str(media/f'{seed}-failure.png'))
+finally:
+ browser('close');scratch.cleanup()
