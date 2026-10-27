@@ -286,6 +286,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
       return move(params);
     };
+
     const started = performance.now();
     const action = controls.create();
 
