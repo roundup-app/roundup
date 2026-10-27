@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoot } from "solid-js";
+import { cleanup } from "@solidjs/testing-library";
+import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { createHomed, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { createHomed, expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -17,7 +19,7 @@ const SAMPLE_MS = 60_000;
 
 beforeEach(() => vi.useFakeTimers());
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
   const press = (name: keyof Layers) => () => {
@@ -140,6 +142,26 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(other.bytes).toBe(fixture.bytes);
     expect(other.sha256).toBe(fixture.sha256);
     expect(other.rail).not.toEqual(fixture.rail);
+  });
+
+  it("u3010g_setup_expands_the_nested_fixture_through_its_existing_controls", async () => {
+    vi.useRealTimers();
+    const app = fixtureApp("disclosures");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const mounted = await mountTodos(await app.rpc("todo.list", null), true, await app.rpc("rail.tree", null));
+
+    try {
+      const target = document.querySelector<HTMLElement>('[data-group-toggle="1"]')!;
+
+      if (target.getAttribute("aria-expanded") === "true") target.click();
+      const callsBefore = mounted.app.calls.length;
+
+      await expandFixtureTodos(fixture);
+      expect([1, 2, 5, 6].map(id => document.querySelector(`[data-group-toggle="${id}"]`)?.getAttribute("aria-expanded"))).toEqual(["true", "true", "true", "true"]);
+      expect(mounted.app.calls.slice(callsBefore)).toEqual([]);
+    } finally {
+      mounted.unmount();
+    }
   });
 
   it("u3010g_an_acknowledged_but_unapplied_fixture_write_is_refused", async () => {
