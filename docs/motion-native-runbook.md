@@ -359,8 +359,8 @@ arcs and a preceding frame at 176.475 degrees, then switched the injected media
 query seam at the first observed crossing, 188.962 degrees. The mounted App and
 recorder consumed the same `createReducedMotion` accessor. The journal retains
 that preceding frame and the synchronous switch matrices; post-update readback
-reports settlement. Every rendered Check passed. The earlier wide-gap pair and
-initial missing-crossing attempt remain retained. Raw fixture bytes/hash, source
+reports settlement. Every rendered Check passed. The earlier wide-gap pair
+remains retained. Raw fixture bytes/hash, source
 snapshots, Checks, scripts and uncommitted screenshot are under
 `artifacts/ux/U3010d/preference-crossing/`. This is preparation of the correlation
 path through an injected preference seam, not an OS preference observation, full
