@@ -28,7 +28,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Inbox_mounted_navigation_sele
 
     await lane.evaluate(`(() => {
       const app = ${daemon};
-      app.handlers['todo.unread'] = () => Array.from({length: 5}, (_,i) => ({todo: i+1, title: i<2?'同じ é 🧭':'長い名前 é 🧭 '.repeat(8), comment: {id: 900+i, author: {kind:'agent',id:'agent-1',parent:null}, body:'Review the requested change before continuing.',created_at:0,read:false}}));
+      app.handlers['todo.unread'] = () => Array.from({length: 5}, (_,i) => ({todo: i+1, title: i<2?'同じ é 🧭':'長い名前 é 🧭 '.repeat(8), comment: {id: 900+i, author: {kind:'agent',id:${JSON.stringify(seed === 'tabs-8' ? 'p2-agent' : 'agent-1')},parent:null}, body:'Review the requested change before continuing.',created_at:0,read:false}}));
       return true;
     })()`);
     await lane.browser("set", "media", "dark");
