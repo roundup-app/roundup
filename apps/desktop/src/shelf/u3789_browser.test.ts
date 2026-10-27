@@ -328,7 +328,14 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "focus") await browser("focus", '.rail-row[data-id="agent-4"]');
 
-        if (step === "selected") await browser("click", seed === "tree-40" ? '.rail-row[data-id="tokens"] .name' : '.rail-row[data-id="agent-4"] .name');
+        if (step === "selected") {
+          const row = seed === "tree-40" ? '.rail-row[data-id="tokens"]' : '.rail-row[data-id="agent-4"]';
+
+          await browser("click", `${row} .name`);
+          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('.shelf-scope-name')?.textContent === document.querySelector('${row} .name')?.textContent`);
+          // Shelf selection changes its scope and folds; capture after its finite animations settle or cancel.
+          await browser("eval", "Promise.all(document.querySelector('.shelf').getAnimations({subtree:true}).filter(animation => animation.effect.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.then(() => true, () => true)))");
+        }
 
 
         for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) {
