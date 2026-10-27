@@ -77,6 +77,37 @@ it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => 
   await lane.capture("U3787a", "shelf-pads-restored");
 }, 180_000);
 
+it("u3787a_todo_drawer_explains_an_unconfirmed_pad_deletion", async () => {
+  await lane.seedTodos(["same", "same", "Long é 🧭 ".repeat(12), "dependent", "fifth"]);
+  await lane.browser("set", "media", "dark");
+  const id = await lane.evaluate<number>("window.__fake.app.rpc('todo.list', null).then(rows => rows.find(row => row.title === 'same').id)");
+  await lane.evaluate(`(() => {
+    const app = window.__fake.app;
+    const remove = app.handlers['pad.delete'];
+    app.handlers['pad.delete'] = async params => { await remove(params); throw new Error('Deletion reply lost. Check deletion to recover.'); };
+    app.handlers['pad.getDeletion'] = () => { throw new Error('Receipt lookup unavailable. Check deletion to recover.'); };
+    document.querySelector('#shelf-tab-pads').click();
+    return true;
+  })()`);
+  await lane.until("(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')) group.click(); return !!document.querySelector('.shelf .pad-name'); })()");
+  await lane.browser("focus", ".shelf .pad-name");
+  await lane.browser("press", "d");
+  await lane.until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Check deletion')");
+  await lane.until("!document.querySelector('[data-deletion-pending=true]')");
+  await lane.browser("click", "#shelf-tab-todos");
+  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')`);
+  await lane.browser("click", `.shelf [data-todo="${id}"] .todo-row-button`);
+  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]')`);
+  await lane.evaluate(`(() => { document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]').click(); return true; })()`);
+  await lane.until("!!document.querySelector('.todo-delete')");
+  await lane.capture("U3787a", "pad-pending-before-refusal");
+  await lane.browser("click", ".todo-delete");
+  await lane.until("document.querySelector('.todo-delete-feedback')?.textContent.includes('An earlier deletion is unconfirmed. Check deletion first.')");
+  expect(await lane.calls("todo.delete")).toHaveLength(0);
+  expect(await lane.focused()).toBe("Delete Todo");
+  await lane.capture("U3787a", "pad-pending-refused");
+}, 180_000);
+
 for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
   it(`${id.toLowerCase()}_refusal_and_recovery_on_the_dense_drawer`, async () => {
     const url = await lane.evaluate<string>("location.href");
