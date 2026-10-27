@@ -10,6 +10,8 @@ import { copy } from "../copy";
 import { Show, onCleanup, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
+import { RowIcons } from "./RowIcons";
+import type { RowActions } from "./rows";
 import { ownKeys } from "./rows";
 import { createCutTitle } from "../ui/cutTitle";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -102,6 +104,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 
 export const RailRowView = (props: {
+  actions: RowActions; doorAction?: JSX.Element;
   row: NodeRow; rootDivider?: boolean; selected: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
@@ -126,7 +129,7 @@ export const RailRowView = (props: {
   const kind = (): Kind | null => {
     const kinds = [props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
 
-    return (["error", "needs-you", "blocked", "working", "done"] as const).find(kind => kinds.includes(kind)) ?? null;
+    return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
 
   const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
@@ -172,7 +175,7 @@ export const RailRowView = (props: {
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
-      <span class="row-state" classList={{ "row-secondary": kind() === null }}><KindGlyph kind={kind() ?? "idle"} /></span>
+      <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
@@ -182,9 +185,12 @@ export const RailRowView = (props: {
         <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
       </span></Show>
-      <span class="row-controls">
-        <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
-        <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
+      <span class="row-tail">
+        <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
+        <span class="row-controls">
+          <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
+          <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
+        </span>
       </span>
     </p>
     <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>
