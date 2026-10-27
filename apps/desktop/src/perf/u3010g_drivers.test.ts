@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { makeEventListener } from "@solid-primitives/event-listener";
 import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
@@ -9,8 +8,6 @@ import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { agent, info, workstream } from "../testing/nodes";
 import type { AppSeam } from "../app/seam";
-
-vi.mock("@solid-primitives/event-listener", () => ({ makeEventListener: vi.fn(() => () => {}) }));
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -206,7 +203,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(await run).toBe(false);
   });
 
-  it.each(["closeDrawer", "escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
+  it.each(["escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
     const drawer = document.createElement("div");
     const close = document.createElement("button");
 
@@ -241,7 +238,14 @@ describe("u3010g the frame recorder drives every workload", () => {
     }
   });
 
-  it("u3010g_the_drawer_hairline_phase_requires_the_existing_close_owner", async () => {
+  it.each([
+    { applied: false, trusted: true, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 0.5, completed: true },
+    { applied: true, trusted: false, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 2, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 2, completed: false },
+  ])("u3010g_the_drawer_hairline_phase_requires_the_existing_close_owner (%j)", async ({ applied, trusted, button, x, completed }) => {
+    vi.useRealTimers();
     const root = document.createElement("div");
     const drawer = document.createElement("aside");
 
@@ -251,28 +255,29 @@ describe("u3010g the frame recorder drives every workload", () => {
     document.body.append(root);
     const callbacks: ((event: Event) => void)[] = [];
 
-    vi.mocked(makeEventListener).mockImplementation((_target, _type, handler) => {
-      // SAFETY: this test supplies only the PointerEvent shape consumed by the driver.
-      callbacks.push(handler as (event: Event) => void);
+    const run = domLayers([], (_type, handler) => {
+      callbacks.push(handler);
 
       return () => {};
-    });
-    const run = domLayers([]).closeDrawer();
+    }).closeDrawer();
 
     try {
       expect(callbacks).toHaveLength(1);
-      // A trusted hairline activation is necessary, but without the owner's state
-      // change it must still fail. No production mutation/focus owner is replaced.
-      const event = { isTrusted: true, target: drawer, button: 0, clientX: 0.5 };
+      // Deliver the native input at the event seam; the existing owner's
+      // subsequent state change determines whether this phase completed.
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: trusted }, target: { value: drawer },
+        button: { value: button }, clientX: { value: x },
+      });
 
-      Object.setPrototypeOf(event, MouseEvent.prototype);
-      drawer.style.borderLeftWidth = "1px";
-      callbacks[0]!(event as PointerEvent);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(await run).toBe(false);
+      drawer.style.borderLeft = "1px solid black";
+      callbacks[0]!(event);
+
+      if (applied) drawer.dataset.open = "false";
+
+      expect(await run).toBe(completed);
     } finally {
       root.remove();
-      vi.mocked(makeEventListener).mockReset();
     }
   });
 

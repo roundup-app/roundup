@@ -76,11 +76,18 @@ never generates those inputs or changes focus. Each activation has the existing
 one-second input bound; geometry retains the 400 ms settling bound. A reversal
 or key interruption arriving after the preceding segment reaches its endpoint
 is refused. The action's start box is read at activation, rather than when the
-input phase began waiting. Missing activation is retained as an incomplete action.
+input phase began waiting. Missing activation is retained as an incomplete action. The Drawer reversal
+observes a trusted primary `pointerdown` on its existing leading hairline,
+not the corner Close button while that button is outside the viewport. The
+observed press must be on the panel itself within its computed border width,
+and the existing Drawer owner must acknowledge `data-open=false` after
+propagation. Content/padding presses and unapplied activations do not qualify.
+The action journal names `.drawer` as that reversal target; no new hit region,
+input generation or focus owner is introduced.
 
 In an eventual qualified Mac Layers sequence, select the first original Todo
 during warmup so its Open control is exposed; this is preparation, not a measured
-open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, pointer-close,
+open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, press the Drawer’s existing leading hairline to close,
 pointer-reopen, then Escape from inside the Drawer. For Shelf, pointer-toggle
 closed/open/closed, then activate its focused tab with Space or Return. Reverse
 on each measured half-displacement, and interrupt the third segment while it is
