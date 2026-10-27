@@ -44,6 +44,7 @@
 
 .app-popover.choice-picker {
   z-index: var(--layer-menu);
-  min-width: var(--pad-menu-min-width);
+  box-sizing: border-box;
+  width: 100%;
   padding: var(--space-1);
 }
