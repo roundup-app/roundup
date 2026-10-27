@@ -83,9 +83,10 @@
 
 .import-title {
   min-width: 0;
+  max-width: calc(100% - var(--space-6) * 2);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .import-meta {
@@ -131,12 +132,6 @@
   padding-inline-start: var(--space-4);
 }
 
-.import-panel p.ink[role="alert"] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-}
-
 .import-meta time {
   flex: none;
 }
@@ -151,17 +146,21 @@
 }
 
 .import-list .import-candidate {
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: first baseline;
   gap: var(--space-3);
 }
 
 .import-candidate .import-check {
-  flex: 1;
+  grid-column: 1 / -1;
+  grid-row: 1;
   min-width: 0;
 }
 
 .import-candidate button {
+  grid-column: 2;
+  grid-row: 1;
   opacity: 0;
 }
 
@@ -216,4 +215,13 @@
   align-items: center;
   gap: var(--space-2);
   margin: 0;
+}
+
+.import-content,
+.import-words {
+  box-sizing: border-box;
+  width: min(100%, var(--measure));
+  min-width: 0;
+  align-self: center;
+  overflow-wrap: anywhere;
 }

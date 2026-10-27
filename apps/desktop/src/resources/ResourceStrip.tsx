@@ -114,8 +114,10 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   };
 
   return (<>
-    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources}>
-      <div class="resource-values"><Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} /></div>
+    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources} aria-busy={live() && result() === null && !failed()}>
+      <div class="resource-values"><Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
+        <Show when={!failed() && (!mine() || [sizeText(mine()?.memory_bytes), cpuText(mine()?.cpu_percent), sizeText(mine()?.disk_bytes)].every(value => value === MISSING))}><ReservedLine status={result() === null && live() ? copy.resourcesLoading : copy.resourcesEmpty} /></Show>
+      </div>
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
       <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
     </section></Show>

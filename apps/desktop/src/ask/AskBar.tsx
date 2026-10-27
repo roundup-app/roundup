@@ -364,6 +364,7 @@ const ProjectOverview = () => {
     </div>}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
+    <Show when={hasView("workstreams") && workstreams().length === 0 && rail.failure() === null}><ReservedLine class="requested-empty" status={copy.noWorkstreamYet} /></Show>
     <ul class="overview-list">
       <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
         {entry(node)}
@@ -517,12 +518,11 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
     : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
-  return <Show when={records().length > 0 || props.state.failure() !== null}>
-    <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+  return <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
-      <ReservedLine message={props.state.failure()} />
+      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : records().length === 0 && props.state.failure() === null ? copy.deliverablesEmpty : null} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
@@ -538,6 +538,5 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
         </button>}</Tip>
         <ReservedLine overlay message={failure(record.id)}><button type="button" data-button="quiet" onClick={() => clear(record.id)}>{copy.dismiss}</button></ReservedLine>
       </li>}</For></ul>
-    </section>
-  </Show>;
+    </section>;
 };
