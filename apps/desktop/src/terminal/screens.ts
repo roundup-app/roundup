@@ -318,6 +318,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
         holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
       }
+
       stream.after = snapshot.after;
       holder.complete = true;
       setFailure(id, "snapshot", null);
