@@ -441,6 +441,8 @@
   box-sizing: border-box;
 }
 .todo-row .row-head {
+  /* A nested head carries its own depth indent, so it spans the .shelf-text spacer column instead of collapsing into it. */
+  grid-column: 1 / -1;
   height: var(--space-5);
   align-items: center;
   padding-inline-start: calc(var(--todo-depth) * var(--space-4));
