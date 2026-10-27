@@ -47,7 +47,8 @@ export type UpdateStage =
 
 const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: style, layout and paint recording together; not compositor, not presentation";
 
-export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer" | "trusted-key"; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
+/** `reduced` is the source at trusted activation; `criterion` states how this segment actually ended. A source switch can change the latter. */
+export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer" | "trusted-key"; criterion: "halfway" | "reduced-settlement" | "key-settlement"; reduced: boolean; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
 
 /** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
 export type TodoAction = { at_ms: number; completed_at_ms: number | null; action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
