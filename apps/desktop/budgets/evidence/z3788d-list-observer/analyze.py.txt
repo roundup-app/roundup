@@ -1,0 +1,49 @@
+import json,pathlib,math,sys,hashlib,collections
+root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-list-observer';media=root/'artifacts/ux/Z3788d'
+reports=[];failure=[]
+for length in [40,400,4000]:
+ try:
+  rows=json.loads((out/f'{length}-samples.json').read_text());es=json.loads((media/f'{length}-trace.json').read_text())['traceEvents']
+  if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
+  selection=None
+  selection_path=out/f'{length}-selection.json'
+  if selection_path.exists():
+   selection=json.loads(selection_path.read_text())
+   if selection['selected']!='row-0000' or not selection['highlight'].endswith(':row-0000'):raise ValueError('Wrong selection identity')
+   if any(c['method'] in ['terminal.write','message.send'] for c in selection['calls']):raise ValueError('Selection wrote input or sent a Message')
+  else:failure.append({'length':length,'condition':'Incomplete actions: selection readback missing','exit':2})
+  starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']
+  marks={e['name']:e for e in es if e['name'].startswith('z3788d-')}
+  measures=[]
+  for row in rows:
+   n=row['id'];start=marks[f'z3788d-input-{n}'];ready=marks[f'z3788d-ready-{n}']
+   matches=[e for e in starts if 0<=start['ts']-e['ts']<2000]
+   if len(matches)!=1:raise ValueError(f'{n}: ambiguous input event ({len(matches)})')
+   event=matches[0];data=event['args']['data'];end=event['ts']+data['duration']*1000
+   expected=[f'row-{i:04d}' for i in range(0,length,2)]+([f'row-{i:04d}' for i in range(1,length,2)] if row['query']=='a' else [])
+   digest=hashlib.sha256(json.dumps(expected,separators=(',',':')).encode()).hexdigest()
+   if row['identitiesSha256']!=digest or row['count']!=len(expected) or not row['trusted']:raise ValueError(f'{n}: identities or trusted input failed')
+   if not (data['processingEnd']<=row['ready']<=data['commitFinishTime']<=data['timeStamp']+data['duration']):raise ValueError(f'{n}: filtered identities do not precede presented commit: {row} {data}')
+   paints=[e for e in es if e['name']=='Paint' and e['pid']==ready['pid'] and ready['ts']<=e['ts']<=end]
+   draws=[e for e in es if e['name']=='DrawFrame' and ready['ts']<=e['ts']<=end]
+   if not paints or not draws:raise ValueError(f'{n}: no matching paint/draw before presentation')
+   timed={**row,'warmup':n<20,'latencyMs':data['duration'],'inputTraceUs':event['ts'],'readyTraceUs':ready['ts'],'presentationTraceUs':end,'eventTiming':data,'paintTraceUs':[p['ts'] for p in paints],'drawFrameTraceUs':[d['ts'] for d in draws]}
+   for name in ['EventDispatch','UpdateLayoutTree','Layout','PrePaint','Paint']:
+    events=[e for e in es if e['name']==name and e.get('ph')=='X' and e['pid']==ready['pid'] and event['ts']<=e['ts']<end]
+    # EventDispatch is nested; retain input callback alone, not overlapping key/text dispatch.
+    if name=='EventDispatch':events=[e for e in events if e.get('args',{}).get('data',{}).get('type')=='input']
+    timed[name+'Ms']=sum(e.get('dur',0) for e in events)/1000
+   measures.append(timed)
+  values=sorted(r['latencyMs'] for r in measures if not r['warmup'])
+  report={'length':length,'warmups':20,'measured':200,'p50Ms':values[math.ceil(len(values)*.5)-1],'p95Ms':values[math.ceil(len(values)*.95)-1],'minMs':values[0],'maxMs':values[-1],'budgetMs':16,'selectionComplete':selection is not None,'exit':int(values[189]>=16) if selection is not None else 2}
+  for name in ['EventDispatch','UpdateLayoutTree','Layout','PrePaint','Paint']:
+   values2=sorted(r[name+'Ms'] for r in measures if not r['warmup']);report[name+'P95Ms']=values2[189]
+  (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
+  names={'EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
+  retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
+  for at in range(0,len(retained),1500):
+   (out/f'{length}-trace-{at//1500:02d}.json').write_text(json.dumps({'traceEvents':retained[at:at+1500]},ensure_ascii=False,separators=(',',':'))+'\n')
+  report['fullTraceSha256']=hashlib.sha256((media/f'{length}-trace.json').read_bytes()).hexdigest();reports.append(report)
+ except Exception as error:failure.append({'length':length,'condition':('Missing samples: ' if isinstance(error,FileNotFoundError) else '')+str(error),'exit':2})
+result={'exit':2 if failure else max(r['exit'] for r in reports),'reports':reports,'failures':failure,'nativeClaim':False,'virtualizationAuthorized':False}
+(out/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));print(json.dumps(result,indent=2));sys.exit(result['exit'])
