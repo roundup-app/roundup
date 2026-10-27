@@ -89,7 +89,7 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
       await lane.browser("set", "media", "dark");
       await lane.until("!!document.querySelector('[data-todo-root]')");
       await lane.browser("click", "[data-todo-root]");
-      await lane.browser("click", "#shelf-tab-todos");
+      await lane.evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         await app.rpc('todo.reopen', { id: 7 });
