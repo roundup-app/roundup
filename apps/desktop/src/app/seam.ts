@@ -57,7 +57,7 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
 /** U2694a: one item of a native menu. Context menus display `shortcut` as text. Project menus use one-step accelerators and separate sequence hints; `group` places quick-add in create. `children` makes a context submenu. */
-export type MenuItem = { id: string; label: string; shortcut?: string; group?: "create"; enabled: boolean; children?: MenuItem[] };
+export type MenuItem = { id: string; label: string; shortcut?: string; group?: "create" | "navigate" | "views"; enabled: boolean; children?: MenuItem[] };
 
 /** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
 export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;

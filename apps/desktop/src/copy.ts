@@ -296,7 +296,7 @@ export const copy = {
   notesNoBaseline: "Acceptance is unknown: the original Message history could not be retained. Copy or discard this submission; a retry could duplicate an accepted send.",
   openNotesRecovery: "Review recovery options",
   noNoteDrafts: "No drafts to recover",
-  recoverNotes: "Recover Changes drafts", recoverNotesMenu: "Recover notes",
+  recoverNotes: "Recover notes",
   noteDraft: "draft",
   unavailableAgent: "Unavailable Agent",
   unreadableNoteDraft: "Draft details unavailable — copy the stored record to recover its contents.",
@@ -466,7 +466,7 @@ export const copy = {
   leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
   jumpToWhatNeedsYouInAnotherProject: "Jump to what needs you in another Project",
-  showOrHideTheShelf: "Toggle work items",
+
   doorsMayUse: "Supervisors may use",
   roundupToolsOverMcp: "Roundup tools over MCP",
   aRunningAgentIsNotChanged: "A running Agent is not changed.",

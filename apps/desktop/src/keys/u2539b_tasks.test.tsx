@@ -184,7 +184,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
     ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
   ]);
   await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
-  await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
+  await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create" && item.label === "Capture a Todo").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
   openProjectPage("action:chord:⌃⇧Y", "/p");
   await screen.findByRole("textbox", { name: "Capture a Todo" });
   key("Escape");

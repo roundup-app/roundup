@@ -107,36 +107,10 @@ pub fn select_project_menu<R: Runtime>(
         // Keep native separators between nonempty groups, including when availability changes.
         let mut separated = false;
         let mut hints = Vec::new();
-        for group in [
-            &[
-                "action:chord:⌘N",
-                "action:chord:⇧⌘N",
-                "action:chord:⌘T",
-                "create",
-            ][..],
-            &[
-                "action:leader:P",
-                "action:leader:J",
-                "action:leader:I",
-                "action:leader:C",
-                "action:chord:⌘/",
-                "action:leader:A",
-                "action:leader:S",
-            ][..],
-            &["views"][..],
-        ] {
-            let entries: Vec<_> = group
+        for group in ["create", "navigate", "views"] {
+            let entries: Vec<_> = items
                 .iter()
-                .flat_map(|id| {
-                    items.iter().filter(move |item| {
-                        item.enabled
-                            && match *id {
-                                "create" => item.group.as_deref() == Some("create"),
-                                "views" => item.id.starts_with("view:"),
-                                id => item.id == id,
-                            }
-                    })
-                })
+                .filter(|item| item.enabled && item.group.as_deref().unwrap_or("navigate") == group)
                 .collect();
             if entries.is_empty() {
                 continue;
@@ -321,8 +295,16 @@ mod tests {
             id: id.to_owned(),
             label: label.to_owned(),
             shortcut: shortcut.map(str::to_owned),
-            group: (label == "Capture a Todo" && id.starts_with("action:chord:"))
-                .then(|| "create".to_owned()),
+            group: Some(
+                if id.starts_with("view:") {
+                    "views"
+                } else if id.starts_with("action:chord:") && id != "action:chord:⌘/" {
+                    "create"
+                } else {
+                    "navigate"
+                }
+                .to_owned(),
+            ),
             enabled: true,
             children,
         }
@@ -475,6 +457,7 @@ mod tests {
                     None,
                 ),
                 item("action:leader:I", "Open the Inbox", Some("⌘K I"), None),
+                item("action:future", "A newly registered action", None, None),
                 item("view:workstreams", "Open Workstreams", None, None),
             ]),
         )
@@ -496,18 +479,20 @@ mod tests {
         assert_eq!(
             ids,
             [
-                "action:chord:⌘N",
-                "action:chord:⇧⌘N",
-                "action:chord:⌘T",
                 "action:chord:⇧⌘T",
+                "action:chord:⌘N",
+                "action:chord:⌘T",
+                "action:chord:⇧⌘N",
                 "separator",
-                "action:leader:P",
-                "action:leader:J",
-                "action:leader:I",
-                "action:leader:C",
                 "action:chord:⌘/",
                 "action:leader:A",
                 "action:leader:S",
+                "action:leader:C",
+                "action:leader:T",
+                "action:leader:P",
+                "action:leader:J",
+                "action:leader:I",
+                "action:future",
                 "separator",
                 "view:notes",
                 "view:workstreams",
