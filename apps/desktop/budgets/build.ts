@@ -12,6 +12,10 @@ export const buildModules = (): Plugin => ({
     handler(options, bundle) {
       if (!options.dir) throw new Error("production output directory is missing");
       const root = resolve(options.dir);
+      const manifest = resolve(root, ".vite/manifest.json");
+
+      // C9 counts shipped metadata too; compact it before hashing so the inventory still binds the emitted bytes.
+      writeFileSync(manifest, JSON.stringify(JSON.parse(readFileSync(manifest, "utf8"))));
 
       const files = Object.fromEntries([...Object.keys(bundle), ".vite/manifest.json"].map(file => [
         file, createHash("sha256").update(readFileSync(resolve(root, file))).digest("hex"),
@@ -20,7 +24,7 @@ export const buildModules = (): Plugin => ({
       const chunks = Object.fromEntries(Object.entries(bundle).flatMap(([file, output]) => output.type === "chunk" ? [[file, Object.entries(output.modules).filter(([, module]) => module.renderedLength > 0).map(([id]) => id)]] : []));
 
       mkdirSync(resolve(root, ".vite"), { recursive: true });
-      writeFileSync(resolve(root, ".vite/modules.json"), JSON.stringify({ files, chunks }, null, 2));
+      writeFileSync(resolve(root, ".vite/modules.json"), JSON.stringify({ files, chunks }));
     },
   },
 });
