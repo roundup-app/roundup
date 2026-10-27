@@ -57,6 +57,8 @@ export type PreferenceAction = {
   at_ms: number;
   reduced: boolean;
   phase: "warmup" | "sample" | "after-actions";
+  /** Last sampled frame before this source change, including its source value; compare matching targets/actions to establish a crossing. */
+  previous_frame?: { at_ms: number; reduced: boolean } & Pick<PreferenceAction, "movement" | "glyphs" | "todos">;
   /** Post-update result for this exact enable change, never a halfway or native qualification. */
   settlement?: { status: "pending" | "superseded" | "disposed" } | { status: "settled" | "moving" | "unavailable"; at_ms: number };
   /** Row translations read at the source change, correlated to the latest structural action. Empty rows claim no displacement. */
