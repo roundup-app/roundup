@@ -52,10 +52,12 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
       }
 
       await browser("set", "media", "dark");
+
       if (seed === "tabs-8") {
         await browser("click", '.project-tab[data-path="/Users/you/harness"] .tab-name-button');
         await browser("wait", "--fn", "document.querySelectorAll('.rail-row').length >= 5");
       }
+
       await browser("press", "Meta+k");
       await browser("press", "k");
       await browser("wait", "--fn", "!!document.querySelector('.switcher input') && document.activeElement === document.querySelector('.switcher input')");
