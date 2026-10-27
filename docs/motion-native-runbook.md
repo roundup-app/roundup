@@ -331,3 +331,39 @@ switch retained a measured half-turn crossing: this is **not halfway evidence**.
 path only. The fake App supplied no qualified native stream, scheduling sample or
 settled idle. Raw readings and screenshots remain under
 `artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.
+
+### Frame before a live switch
+
+Each sample-phase change may retain `previous_frame`: the most recent frame
+callback's timestamp, source value and raw displacement for this workload. It
+uses the recorder's existing frame callback, not a second animation loop or
+preference subscription. Only one preceding snapshot is held. It is attached
+only when it follows the previous source change, predates this change and reads
+the value being replaced; a stale frame cannot survive a rapid toggle back.
+
+Compare the same layer action timestamp/target, Todo action/row, or working
+Glyph identity in `previous_frame` and the change's synchronous snapshot. A
+halfway crossing needs a preceding displacement below 0.5 (Glyph rotation below
+180 degrees), a switch at or beyond that point while still moving, and the
+existing post-update settlement. A missing pair, changed action/identity or a
+wrapped rotation establishes no crossing. The recorder retains facts rather
+than declaring these pairs qualified. The variant stays `unqualified`.
+
+These extra reads are observer work inside the scheduling sample. Preserve the
+identical observer overlay on base and head. This adds neither native input nor
+a timing result; complete the remaining full fixture, layer/Shelf sequences and
+all live variants before requesting another Mac sequence.
+
+Isolated dark Chromium preparation at 1512×950 retained ten derived fixture
+arcs and a preceding frame at 176.475 degrees, then switched the injected media
+query seam at the first observed crossing, 188.962 degrees. The mounted App and
+recorder consumed the same `createReducedMotion` accessor. The journal retains
+that preceding frame and the synchronous switch matrices; post-update readback
+reports settlement. Every rendered Check passed. The earlier wide-gap pair and
+initial missing-crossing attempt remain retained. Raw fixture bytes/hash, source
+snapshots, Checks, scripts and uncommitted screenshot are under
+`artifacts/ux/U3010d/preference-crossing/`. This is preparation of the correlation
+path through an injected preference seam, not an OS preference observation, full
+workload variant, native stream, scheduling sample, settled idle or WKWebView
+result. The broad capture invocation was stopped after starting unrelated suites;
+no whole-suite capture pass is claimed.
