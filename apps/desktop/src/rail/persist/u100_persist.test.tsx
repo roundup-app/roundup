@@ -182,6 +182,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(focus).not.toHaveBeenCalled();
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
+  await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
   expect(app.calls.map((call) => call.method).sort()).toEqual([
     "ask.list", "daemon.ping", "deliverable.list", "message.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
   ]);
