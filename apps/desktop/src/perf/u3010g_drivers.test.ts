@@ -86,6 +86,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     const movement = vi.fn(() => ({
       movement: { panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 },
       glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }],
+      todos: { action_at_ms: 21, action: "reorder" as const, targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] },
     }));
 
     createRoot(dispose => {
@@ -105,7 +106,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       for (const listener of listeners) listener({ matches: true });
       expect(journal).toEqual([
         { at_ms: 12, reduced: false, phase: "warmup" },
-        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }] },
+        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }], todos: { action_at_ms: 21, action: "reorder", targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] } },
       ]);
       expect(movement).toHaveBeenCalledTimes(1);
       phase = "after-actions";
@@ -270,6 +271,31 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(actual).toHaveLength(9);
     expect(actual.filter(row => row.done)).toHaveLength(1);
     expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5], [4, 1], [8, 5], [4, 1], [8, 5], [4, 1]]);
+  });
+
+  it("u3010g_todo_action_times_bound_the_acknowledged_mutation", async () => {
+    const app = fixtureApp("action-times");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const journal: import("./frames").TodoAction[] = [];
+    const controls = fixtureTodos(app, fixture, { toggleFold: async () => true, reorder: async () => true }, journal);
+    const move = app.handlers["todo.move"]!;
+    let release: () => void = () => {};
+
+    app.handlers["todo.move"] = async params => {
+      await new Promise<void>(resolve => { release = resolve; });
+
+      return move(params);
+    };
+
+    const started = performance.now();
+    const action = controls.create();
+
+    await vi.advanceTimersByTimeAsync(75);
+    expect(journal[0]).toMatchObject({ action: "insert", at_ms: started, completed_at_ms: null, completed: false });
+    release();
+    expect(await action).toBe(true);
+    expect(journal[0]).toMatchObject({ completed_at_ms: started + 75, completed: true });
+    expect((await app.rpc("todo.get", { id: journal[0]!.targets[0]! })).home).toBe(fixture.home);
   });
 
   it("u3010g_synthetic_pointer_events_cannot_complete_the_native_reorder_phase", async () => {
