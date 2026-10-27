@@ -36,7 +36,7 @@ pub fn project_menu_hints<R: Runtime>(
 unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
     // SAFETY: callers supply a live NSMenu on the process main thread.
     unsafe {
-        let count: isize = msg_send![&*submenu, numberOfItems];
+        let count: isize = msg_send![submenu, numberOfItems];
         let font_class = AnyClass::get(c"NSFont").expect("AppKit is loaded");
         let font: Retained<AnyObject> = msg_send![font_class, menuFontOfSize: 0.0f64];
         let dictionary = AnyClass::get(c"NSDictionary").expect("Foundation is loaded");
@@ -46,7 +46,7 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
         let mut title_width = 0.0f64;
         let mut hint_width = 0.0f64;
         for index in 0..count {
-            let item: Retained<AnyObject> = msg_send![&*submenu, itemAtIndex: index];
+            let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
             let title: Retained<NSString> = msg_send![&*item, title];
             let size: NSSize = msg_send![&*title, sizeWithAttributes: &*fonts];
             title_width = title_width.max(size.width);
@@ -77,7 +77,7 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             if index >= count {
                 continue;
             }
-            let item: Retained<AnyObject> = msg_send![&*submenu, itemAtIndex: index];
+            let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
             let title: Retained<NSString> = msg_send![&*item, title];
             let display = NSString::from_str(&format!("{title}\t{hint}"));
             let attributed: Allocated<AnyObject> = msg_send![strings, alloc];

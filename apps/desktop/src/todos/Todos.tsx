@@ -930,7 +930,7 @@ export const Todos = (props: {
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null }, focus });
         } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
-      <Show when={typing() ? creationHome() ?? connected.project.path : null} keyed>{() => field()}</Show>
+      <Show when={typing() ? creationHome() ?? connected.project.path : null} keyed>{_home => field()}</Show>
       <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
         if (creation()?.revision === revision) setTyping(false);
       }} />

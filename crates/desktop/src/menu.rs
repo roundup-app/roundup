@@ -180,9 +180,17 @@ impl Choice {
     }
 }
 
+fn applicable(item: &Item) -> bool {
+    item.enabled
+        && item
+            .children
+            .as_ref()
+            .is_none_or(|children| children.iter().any(applicable))
+}
+
 fn append<R: Runtime>(app: &AppHandle<R>, into: &Menu<R>, items: &[Item]) -> tauri::Result<()> {
     let mut group = None;
-    for item in items.iter().filter(|item| item.enabled) {
+    for item in items.iter().filter(|item| applicable(item)) {
         if group.is_some() && group != Some(&item.group) {
             into.append(&tauri::menu::PredefinedMenuItem::separator(app)?)?;
         }
@@ -202,7 +210,7 @@ fn kind<R: Runtime>(
     match &item.children {
         Some(children) => {
             let sub = Submenu::new(app, &item.label, item.enabled)?;
-            for child in children {
+            for child in children.iter().filter(|child| applicable(child)) {
                 sub.append(&kind(app, child, build)?)?;
             }
             Ok(MenuItemKind::Submenu(sub))
@@ -380,12 +388,19 @@ mod tests {
             &[
                 rename,
                 hidden,
+                item("empty", "Empty", None, Some(vec![])),
                 remove,
                 item(
                     "add",
                     "Add",
                     None,
-                    Some(vec![item("child", "Pad", None, None)]),
+                    Some(vec![
+                        item("child", "Pad", None, None),
+                        Item {
+                            enabled: false,
+                            ..item("unavailable-child", "Unavailable", None, None)
+                        },
+                    ]),
                 ),
             ],
         )
@@ -399,6 +414,7 @@ mod tests {
         let MenuItemKind::Submenu(sub) = &built[4] else {
             panic!("submenu missing")
         };
+        assert_eq!(sub.items().unwrap().len(), 1);
         assert_eq!(plain(sub.items().unwrap()[0].clone()).id().0, "child");
     }
 
@@ -440,45 +456,6 @@ mod tests {
         assert!(app.menu().unwrap().get("popup-rename").is_none());
     }
 
-    /// U2694a: a `children` list is a submenu, each child an item with its own id and enabled state.
-    #[test]
-    fn u2694a_children_build_a_submenu() {
-        let app = mock_app();
-        let mut gone = item("send:x", "x", None, None);
-        gone.enabled = false;
-        let built = kind(
-            app.handle(),
-            &item(
-                "send",
-                "Send to Agent",
-                None,
-                Some(vec![item("send:a", "a", None, None), gone]),
-            ),
-            |app, id, label, enabled, accelerator| {
-                MenuItem::with_id(app, id, label, enabled, accelerator)
-            },
-        )
-        .unwrap();
-        let MenuItemKind::Submenu(sub) = built else {
-            panic!("expected a submenu")
-        };
-        let children: Vec<_> = sub.items().unwrap().into_iter().map(plain).collect();
-
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.text().unwrap())
-                .collect::<Vec<_>>(),
-            ["a", "x"]
-        );
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.is_enabled().unwrap())
-                .collect::<Vec<_>>(),
-            [true, false]
-        );
-    }
     #[test]
     fn s_u3813_project_menu_tracks_the_selected_project() {
         use std::sync::Arc;
