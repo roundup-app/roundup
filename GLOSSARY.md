@@ -104,6 +104,13 @@ A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is
 **Show request** (`terminal.show`, event `terminal.shown`):
 A Door's ask that the App show a Terminal in its Reach: the Daemon emits `terminal.shown {id}` and the App selects the Terminal's owner. It reads, writes and starts nothing.
 
+**Terminal catch-up** (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`):
+A user/App-only copy of the existing bounded raw output log from a retained emulator's byte
+offset to one authoritative cut, tied to the original Terminal incarnation and connection's
+Project. An evicted start is an explicit gap and uses Snapshot recovery. Subscribe while
+selected before requesting catch-up; discard live overlap through its cut, then continue by
+byte offset. It adds no input or Agent read authority.
+
 **Snapshot**:
 A bounded copy of a Terminal's screen and output byte offset that restores its pane after a webview reload.
 
