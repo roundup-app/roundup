@@ -365,7 +365,14 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   const made = await screen.findByRole("region", { name: "Made" });
 
   for (const [index, record] of [published, external, published].entries()) {
-    const row = made.querySelector<HTMLElement>(`[data-deliverable="${record.id}"]`)!;
+    const row = await waitFor(() => {
+      const found = made.querySelector<HTMLElement>(`[data-deliverable="${record.id}"]`);
+
+      if (!found) throw new Error("Publication row is not loaded");
+
+      return found;
+    });
+
     const button = await within(row).findByRole("button");
     button.focus();
 
@@ -440,7 +447,15 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
   connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
     const made = await screen.findByRole("region", { name: "Made" });
-    const row = made.querySelector<HTMLElement>(`[data-deliverable="${publication.id}"]`)!;
+
+    const row = await waitFor(() => {
+      const found = made.querySelector<HTMLElement>(`[data-deliverable="${publication.id}"]`);
+
+      if (!found) throw new Error("Publication row is not loaded");
+
+      return found;
+    });
+
     const messages = () => app.rpc("message.list", { to: receiver.id, status: null });
     let choice: string | null = null;
     app.showContextMenu = vi.fn(async () => choice);
