@@ -15,6 +15,17 @@ const shot = async (id: string, stage: string, step: string) => {
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
     await browser("screenshot", join(folder, `${step}.png`));
+    if (id === "U4335a") {
+      const geometry = await read(`Array.from(document.querySelectorAll('.rail-row, .rail-leaf, .todo-row')).filter(row => row.checkVisibility()).map(row => {
+        const style = getComputedStyle(row);
+        const rect = element => element?.getBoundingClientRect().toJSON();
+        return {id: row.dataset.id ?? row.dataset.todo, level: row.getAttribute('aria-level') ?? row.dataset.level,
+          row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph')), label: rect(row.querySelector('.name, .shelf-title')),
+          step: style.getPropertyValue('--tree-step'), origin: style.getPropertyValue('--tree-origin'),
+          trunks: Array.from(row.querySelectorAll('.tree-pass, .tree-stem, .tree-branch, .rail-pass, .rail-stem, .rail-branch')).map(line => ({kind: line.className, level: line.style.getPropertyValue('--level'), last: line.dataset.last, rect: rect(line), backgroundSize: getComputedStyle(line).backgroundSize, backgroundPosition: getComputedStyle(line).backgroundPosition}))};
+      })`);
+      writeFileSync(join(folder, `${step}.geometry.json`), JSON.stringify({sha: stage === "base" ? process.env.U4335_BASE_SHA : process.env.U4335_HEAD_SHA, seed: step, indentToken: "--space-5", rows: geometry}) + "\n");
+    }
     const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
     writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
   }
@@ -261,14 +272,14 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   expect(await read("window.__fake.app.openedTargets[0]")).toEqual(await read("window.__fake.app.openedTargets[1]"));
 }, 120_000);
 
-it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
+it("u4335a_u4275a_u4275b_u4275c_dense_row_captures", async () => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   const baselines = new Map<string, Checks>();
 
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     for (const seed of ["tree-40", "agents-10"]) {
-      const video = !base && seed === "tree-40" ? captureDir("U4275b") : null;
+      const video = !base && seed === "tree-40" ? (captureDir("U4335a") ?? captureDir("U4275b")) : null;
 
       if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await browser("set", "viewport", "1512", "950"); await browser("set", "media", "dark"); }
 
@@ -281,13 +292,17 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
           const rpc = window.__fake.app.rpc;
           const parent = await rpc('todo.create', {title: 'Parent Todo', body: 'Body stays in the opened Todo', blockers: null});
           const child = await rpc('todo.create', {title: 'Child Todo', body: null, blockers: null});
+          const sibling = await rpc('todo.create', {title: 'Child sibling Todo', body: null, blockers: null});
           const grandchild = await rpc('todo.create', {title: 'Grandchild Todo', body: null, blockers: null});
           await rpc('todo.setBlockers', {id:child.id,blockers:[parent.id]});
+          await rpc('todo.setBlockers', {id:sibling.id,blockers:[parent.id]});
           await rpc('todo.setBlockers', {id:grandchild.id,blockers:[child.id]});
+          const cousin = await rpc('todo.create', {title: 'Grandchild sibling Todo', body: null, blockers:[child.id]});
         })()`);
       }
 
       await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+      await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
       const stage = base ? "base" : "head";
 
       for (const step of ["rest", "hover", "focus", "selected"]) {
@@ -300,7 +315,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
         if (step === "selected") await browser("click", '.rail-row[data-id="agent-4"]');
 
-        for (const id of ["U4275a", "U4275b", "U4275c"]) {
+        for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) {
           const checks = await shot(id, stage, `${seed}-${step}`);
           const key = `${seed}-${step}`;
 
@@ -312,7 +327,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
       if (seed === "tree-40") {
         await browser("eval", "document.querySelector('.todos-tab [data-todo=\"19\"]')?.scrollIntoView({block:'center'})");
 
-        for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "nested-todos");
+        for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) await shot(id, stage, "nested-todos");
 
         {
           await browser("eval", "(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.openFailure = new RpcError(-32008, 'Folder unavailable; try again.'); })()");
@@ -329,7 +344,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
           await wait("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Folder unavailable')");
 
-          for (const id of ["U4275a", "U4275b", "U4275c"]) await shot(id, stage, "dense-action-failure");
+          for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) await shot(id, stage, "dense-action-failure");
         }
       }
 
