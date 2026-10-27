@@ -17,16 +17,18 @@ const shot = async (id: string, stage: string, step: string) => {
     await browser("screenshot", join(folder, `${step}.png`));
 
     if (id === "U4335a") {
-      const geometry = await read(`Array.from(document.querySelectorAll('.rail-row, .rail-leaf, .todo-row')).filter(row => row.checkVisibility()).map(row => {
+      const geometry = await read(`(async () => { const todos = await window.__fake.app.rpc('todo.list', {}); const nodes = await window.__fake.app.rpc('rail.tree', {}); return Array.from(document.querySelectorAll('.rail-row, .rail-leaf, .todos-tab .todo-row')).filter(row => row.checkVisibility()).map(row => {
         const style = getComputedStyle(row);
         const rect = element => element?.getBoundingClientRect().toJSON();
-        return {id: row.dataset.id ?? row.dataset.todo, level: row.getAttribute('aria-level') ?? row.dataset.level, parent: window.__fake.app.rail?.find(node => node.id === row.dataset.id)?.parent ?? null,
+        const id = row.dataset.id ?? row.dataset.todo ?? row.querySelector('[data-todo]')?.dataset.todo;
+        const todo = todos.find(todo => String(todo.id) === id);
+        return {id, surface: row.matches('.rail-leaf, .rail-row') ? 'rail' : 'shelf', depth: row.dataset.id ? Number(style.getPropertyValue('--tree-depth')) : Number(row.getAttribute('aria-level') ?? row.dataset.level) - 1, parent: todo ? todo.blockers[0] ?? (row.matches('.rail-leaf') ? todo.creator.id : null) : nodes.find(node => node.id === id)?.parent ?? null,
           row: rect(row), glyph: rect(row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .line .glyph, .todo-tick')), label: rect(row.querySelector('.name, .shelf-title')),
           step: style.getPropertyValue('--tree-step'), origin: style.getPropertyValue('--tree-origin'),
           trunks: Array.from(row.querySelectorAll('.tree-pass, .tree-stem, .tree-branch, .rail-pass, .rail-stem, .rail-branch')).map(line => ({kind: line.className, level: line.style.getPropertyValue('--level'), last: line.dataset.last, rect: rect(line), backgroundSize: getComputedStyle(line).backgroundSize, backgroundPosition: getComputedStyle(line).backgroundPosition}))};
-      })`);
+      }); })()`);
 
-      writeFileSync(join(folder, `${step}.geometry.json`), JSON.stringify({sha: stage === "base" ? process.env.U4335_BASE_SHA : process.env.U4335_HEAD_SHA, seed: step, indentToken: "--space-5", rows: geometry}) + "\n");
+      writeFileSync(join(folder, `${step}.geometry.json`), JSON.stringify({sha: stage === "head" ? process.env.U4335_HEAD_SHA : process.env.U4335_BASE_SHA, seed: step, indentToken: "--space-5", rows: geometry}) + "\n");
     }
 
     const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
@@ -287,6 +289,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
       await load(seed, base);
 
       if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await browser("set", "viewport", "1512", "950"); await browser("set", "media", "dark"); await wait("window.__fake && document.querySelector('.rail-tree')"); }
+
       await overview();
 
       if (seed === "tree-40") {
@@ -315,7 +318,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
       await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
       await browser("eval", "document.querySelector('.rail-row[data-id=tokens] [aria-label$=\"todos\"]')?.click()");
       await browser("eval", "document.querySelectorAll('.rail-leaf [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
-      const stage = base ? "base" : "head";
+      const stage = base ? process.env.U4335_BASE_STAGE ?? "base" : "head";
 
       for (const step of ["rest", "hover", "focus", "selected"]) {
         await browser("mouse", "move", "1", "1");
