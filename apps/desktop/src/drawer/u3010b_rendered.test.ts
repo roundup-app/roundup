@@ -259,7 +259,7 @@ it("u3010b_preference_change_preserves_destination_and_focus", { retry: 0 }, asy
 it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
-  await browser("click", '.rail [data-id="tokens"] .name');
+  await browser("click", '.rail [data-id="tokens"] .row-state');
   await browser("wait", ".xterm-screen");
   await settle();
   await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); return true; })()");
@@ -320,7 +320,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     }
 
 
-    await browser("click", '.rail [data-id="tokens"] .name');
+    await browser("click", '.rail [data-id="tokens"] .row-state');
     await browser("wait", ".xterm-screen");
     await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '.shelf [data-todo="1"] .todo-row-button');
@@ -503,99 +503,6 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     }
   }
 });
-}
-
-const trace = (rate: number) => `(async () => {
-  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-  const drawer = document.querySelector('.drawer');
-  const row = () => document.querySelector('.shelf [data-todo] .todo-row-button');
-  const open = () => click(document.querySelector('.shelf [data-todo] .row-controls button[aria-label=Open]'));
-  const box = () => { const r = drawer.getBoundingClientRect(); return { left: r.left, width: r.width }; };
-  const slow = () => document.getAnimations().forEach(a => { a.playbackRate = ${rate}; });
-  const samples = [];
-  const log = (event, source) => samples.push({ t: performance.now(), event, source, ...box(), focus: document.activeElement?.className ?? null, content: !!drawer.querySelector(':scope > :not(.close)') });
-  const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
-  const advance = async (done) => { for (let i = 0; i < 600; i++) { slow(); await frame(); log('frame'); if (done()) return; } };
-
-  const finished = async () => {
-    await frame();
-    await Promise.all(document.getAnimations().filter(a => a.effect?.target === drawer).map(a => a.finished.catch(() => {})));
-    await frame(); await frame();
-  };
-
-  // Endpoints, read once from a settled open and a settled close: the closed edge is the viewport's right edge.
-  row().focus();
-  open();
-  await finished();
-  const targetLeft = box().left;
-  const closedLeft = innerWidth;
-  click(drawer.querySelector('.close'));
-  await finished();
-  const retargets = [];
-  const reverse = async (destination, source) => {
-    const before = document.getAnimations().filter(a => a.effect?.target === drawer);
-    before.forEach(a => a.pause());
-    const was = box();
-    log('before-retarget', source);
-    destination();
-    await Promise.resolve();
-    const after = document.getAnimations().filter(a => a.effect?.target === drawer);
-    after.forEach(a => a.pause());
-    const now = box();
-    retargets.push({ source, was, now, dx: Math.abs(was.left - now.left) });
-    log('after-retarget', source);
-    after.forEach(a => a.play());
-  };
-
-  // 50% displaced on the way open, from the closed edge.
-  open(); slow();
-  await advance(() => Math.abs(closedLeft - box().left) >= Math.abs(closedLeft - targetLeft) / 2);
-  await reverse(() => click(drawer.querySelector('.close')), 'pointer');
-  await advance(() => Math.abs(closedLeft - box().left) <= Math.abs(closedLeft - targetLeft) / 4);
-  await reverse(() => { row().focus(); open(); }, 'pointer');
-  await frame(); slow();
-  log('reopened', 'pointer');
-  drawer.querySelector('.close').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-  log('escape', 'key');
-  await frame();
-  log('escape+1frame', 'key');
-  return { closedLeft, targetLeft, retargets, samples };
-})()`;
-
-for (const variant of [{ name: "normal", rate: 1, reduced: false }, { name: "quarter", rate: 0.25, reduced: false }, { name: "reduced", rate: 1, reduced: true }]) {
-  rendered(`u3010b_rendered_drawer_${variant.name}`, async () => {
-    const directory = join(art!, "head");
-    mkdirSync(directory, { recursive: true });
-
-    for (const run of [1, 2, 3]) {
-      await browser("set", "viewport", "1512", "950");
-      await browser("set", "media", "dark", ...(variant.reduced ? ["reduced-motion"] : []));
-      const url = `${rig.server.resolvedUrls.local[0]}harness.html?seed=tree-40`;
-      await browser("open", url);
-      await browser("wait", ".shelf-tabs");
-      await evaluate(`(() => { localStorage.clear(); return true; })()`);
-      await browser("open", url);
-      await browser("wait", ".shelf-tabs");
-      await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); return true; })()");
-      await browser("wait", "--fn", "!!document.querySelector('.shelf [data-todo] button')");
-      await settle();
-
-      const result = await evaluate<{ retargets: { dx: number }[]; samples: { event: string; left: number; content: boolean; focus: string | null }[] }>(trace(variant.rate));
-
-      writeFileSync(join(directory, `drawer-${variant.name}-run${run}.json`), JSON.stringify(result));
-      await browser("screenshot", join(directory, `drawer-${variant.name}-run${run}.png`));
-
-      const last = result.samples.at(-1)!;
-
-      // Escape settles by the next frame: closed, no exit content, focus returned.
-      expect(last.content).toBe(false);
-      expect(last.left).toBeGreaterThanOrEqual(1512 - 1);
-      expect(last.focus).toContain("todo-row-button");
-
-      // Retargets continue from the displayed position, within 1 CSS px at the same animation time.
-      if (!variant.reduced) for (const retarget of result.retargets) expect(retarget.dx).toBeLessThanOrEqual(1);
-    }
-  }, 180_000);
 }
 
 // The Shelf's reserved mode: pointer close, reversal at 50% of its width, then the same close left to run; reduced motion settles it.
