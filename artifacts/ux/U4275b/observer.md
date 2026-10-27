@@ -4,7 +4,7 @@ Base: `41b114d27790cba19db8c44cc4cc2810e264ae1c`.
 UI source: `2d62a832e`.
 Dedicated headless Chromium, fresh profiles, 1512×950, dark.
 
-The paired `tree-40` PNGs cover rest, hover, focus, selection, nested Todos and a refused folder action with visible failure text. Matching Check readings and row bounds are alongside them. Names retain their natural width before trailing actions scroll: `auth-refactor` has 105.34375 CSS px rather than the rejected head's 31 px. Hidden actions have no pointer activation; Tab reaches and scrolls the rightmost button without changing name width.
+The paired `tree-40` screenshots cover rest, hover, focus, selection, nested Todos and a refused folder action with visible failure text. Matching Check readings and row bounds are alongside them. Names retain their natural width before trailing actions scroll: `auth-refactor` has 105.34375 CSS px rather than the rejected head's 31 px. Hidden actions have no pointer activation; Tab reaches and scrolls the rightmost button without changing name width.
 
 The capture-producing observer reached all `tree-40` states, then failed while finalizing video (`agent-browser record stop`, exit 1). No finalized interaction video was produced. The separate rendered comparison passed both U4275b tests without recording, including every Check passing on the paired main baseline; this is a Chromium observation, with no native Mac appearance claim.
 
