@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { CHORDS, LEADER, RAIL_KEYS } from "../../keys/chords";
 import { agent, door, terminal, workstream } from "../../testing/nodes";
-import { exitedTerminal, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -60,9 +60,8 @@ describe("u2694 the Rail's menu actions", () => {
   it.each([
     [agent("chosen", "working", "busy"), []],
     [agent("chosen", "idle", "idle"), []],
-    [agent("chosen", "done", "done"), [exitedTerminal("chosen", 0)]],
     [terminal("chosen"), []],
-  ])("u3512a_every_rail_removal_waits_for_native_consent_%j", async (node, terminals) => {
+  ])("u3787a_live_rail_removal_waits_for_native_consent_%j", async (node, terminals) => {
     const { app } = await mountRail([node], terminals);
     app.handlers["rail.remove"] = () => null;
     open("chosen");
@@ -98,8 +97,8 @@ describe("u2694 the Rail's menu actions", () => {
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
   });
 
-  it("u2694b_a_workstream_remove_asks_what_goes_and_esc_keeps", async () => {
-    const { app } = await mountRail([workstream("g")]);
+  it("u2694b_a_workstream_worktree_remove_asks_what_goes_and_esc_keeps", async () => {
+    const { app } = await mountRail([workstream("g", { worktree: { path: "/p/tree", branch: "work", base: "main" } })]);
     app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
 
     open("g");
