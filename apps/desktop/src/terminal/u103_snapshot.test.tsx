@@ -223,7 +223,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     await exhaust(pending, 1, "recovery failed");
 
-    expect((await screen.findByRole("alert", { name: "terminal.snapshot: recovery failed" })).tagName).toBe("P");
+    expect((await screen.findByRole("alert", { name: "Could not restore Terminal output: recovery failed. Switch away and back to retry." })).tagName).toBe("P");
     expect(log()).toEqual(["size 100x30", "complete"]);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
@@ -263,7 +263,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await exhaust(pending, 0, "boom");
 
-    expect((await screen.findByRole("alert", { name: /^terminal\.snapshot:/ })).tagName).toBe("P");
+    expect((await screen.findByRole("alert", { name: /^Could not restore Terminal output:/ })).tagName).toBe("P");
     expect(log()).toEqual([]);
     app.emitOutput("t-a", "live");
     expect(log()).toEqual(["live"]);
@@ -279,7 +279,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await exhaust(pending, 0, "snapshot failed");
-    const snapshotFailure = await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    const snapshotFailure = await screen.findByRole("alert", { name: "Could not restore Terminal output: snapshot failed. Switch away and back to retry." });
     resize.resolve(null);
     await Promise.resolve();
     await Promise.resolve();
@@ -301,7 +301,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await vi.waitFor(() => expect(resizes).toHaveLength(1));
     await exhaust(pending, 0, "snapshot failed");
-    const snapshotFailure = await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    const snapshotFailure = await screen.findByRole("alert", { name: "Could not restore Terminal output: snapshot failed. Switch away and back to retry." });
     resizes[0]?.(new Error("resize failed"));
     await screen.findByRole("alert", { name: "resize failed" });
 
@@ -334,7 +334,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await exhaust(pending, 0, "A failed");
-    await screen.findByRole("alert", { name: "terminal.snapshot: A failed" });
+    await screen.findByRole("alert", { name: "Could not restore Terminal output: A failed. Switch away and back to retry." });
 
     connected.rail.select("b");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
@@ -345,7 +345,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     app.emitGap("t-b", 0, 50);
     await vi.waitFor(() => expect(snapshots()).toHaveLength(4));
     await exhaust(pending, 3, "B failed");
-    await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
+    await screen.findByRole("alert", { name: "Could not restore Terminal output: B failed. Switch away and back to retry." });
 
     connected.rail.select("a");
     expect(screen.queryByRole("alert")).toBeNull();
@@ -421,7 +421,7 @@ it.each(["", "later\r\n"])("z3788a_retained_emulator_catches_up_hidden_output_%j
   connected.stopTerminalScheme();
 });
 
-it.each(["gap", "refused"])("z3788a_catch_up_%s_preserves_snapshot_authority", async (result) => {
+it.each(["gap", "refused", "unavailable"])("z3788a_catch_up_%s_preserves_snapshot_authority", async (result) => {
   const { createScreens } = await import("./screens");
   const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
   const { factory, made } = recordingEmulators();
@@ -432,20 +432,26 @@ it.each(["gap", "refused"])("z3788a_catch_up_%s_preserves_snapshot_authority", a
   app.emitOutput("t-a", "retained");
   screens.hide("t-a");
   app.emitOutput("t-a", "hidden");
-  app.handlers["terminal.snapshot"] = () => snapshotOf("authoritative screen", 14);
+  app.handlers["terminal.snapshot"] = () => {
+    if (result === "unavailable") throw new Error("connection closed");
+
+    return snapshotOf("authoritative screen", 14);
+  };
   app.handlers["terminal.catchUp"] = ({ id, incarnation }) => {
-    if (result === "refused") throw new Error("original Terminal unavailable");
+    if (result !== "gap") throw new Error("original Terminal unavailable");
 
     return { kind: "gap", id, incarnation, from: 10, after: 14 };
   };
 
   screens.show("t-a", host);
 
-  if (result === "gap" || result === "refused") {
+  if (result === "unavailable") {
+    await vi.waitFor(() => expect(screens.failure("t-a")).toBe("Could not restore Terminal output: connection closed. Switch away and back to retry."));
+    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained"]);
+  } else {
     await vi.waitFor(() => expect(made.get("t-a")?.log.at(-1)).toBe("authoritative screen"));
     expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained", "reset", "size 100x30", "authoritative screen"]);
     expect(screens.failure("t-a")).toBeNull();
-
   }
 
   expect(typed(app)).toEqual([]);

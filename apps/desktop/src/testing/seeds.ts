@@ -16,7 +16,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
 import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
-import { toBase64 } from "../terminal/base64";
+import { fromBase64, toBase64 } from "../terminal/base64";
 import type { FakeApp } from "./fakeApp";
 import { agent, workstream, MINUTE, door, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
@@ -387,6 +387,17 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     }
 
     return { cols: 100, rows: 30, after: at, data: toBase64(bytes) };
+  };
+
+  app.handlers["terminal.catchUp"] = async ({ id, incarnation, after }) => {
+    const snapshot = await app.handlers["terminal.snapshot"]!({ id });
+    const current = `seed-${PROJECT.path}-${id}`;
+
+    if (incarnation !== current || after > snapshot.after) {
+      return { kind: "gap", id, incarnation: current, from: 0, after: snapshot.after };
+    }
+
+    return { kind: "contiguous", id, incarnation: current, from: after, after: snapshot.after, data: toBase64(fromBase64(snapshot.data).subarray(after)) };
   };
 
   app.handlers["terminal.write"] = () => null;
