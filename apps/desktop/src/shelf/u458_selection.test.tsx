@@ -1,8 +1,7 @@
-import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
-import { askToDelete, stubDialogLayout } from "./bulkQuestionHarness";
+import { stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
 
@@ -30,16 +29,6 @@ it("u458_keyboard_toggle_range_and_bounds", async () => {
   expect(screen.getByText("2 selected")).toBeTruthy();
 });
 
-it("u460_one_question_precedes_every_delete", async () => {
-  const { app } = await mountTodos([todo(1), todo(2)]);
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
-  await askToDelete(2);
-  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
-  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
-  await answerQuestion(false);
-  expect(screen.getByText("2 selected")).toBeTruthy();
-});
 
 it("u3789a_selection_keeps_ranges_and_disclosures_plain_click_replaces_selection", async () => {
   const { connected } = await mountTodos([todo(1)]);

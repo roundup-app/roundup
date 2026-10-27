@@ -1,5 +1,4 @@
 import { createCopyLabels, type createCopyFeedback } from "../../ui/CopyButton";
-import { deleteTodos } from "../../todos/deleteTodos";
 import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
@@ -27,7 +26,7 @@ import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { createItemFailure } from "../itemFailure";
-import { Trunks } from "../Trunks";
+import { Trunks } from "../../ui/TreeView";
 import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
@@ -94,7 +93,7 @@ export const PadsControl = (props: { pads: AgentPads }) => {
 };
 
 /** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
-const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; onContextMenu?: (event: MouseEvent) => void; children: JSX.Element }) => (
+const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; stem?: boolean; todo?: boolean; onContextMenu?: (event: MouseEvent) => void; children: JSX.Element }) => (
   <div
     role="treeitem"
     aria-level={props.depth + 2}
@@ -103,7 +102,7 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
     data-leaf={props.todo ? "todo" : "pad"}
     style={{ "--indent": `calc(${props.depth + 1} * var(--rail-step) + var(--rail-inset))` }}
   >
-    <Trunks depth={props.depth + 1} trail={[...props.trail, !props.last]} stem={false} />
+    <Trunks depth={props.depth + 1} trail={[...props.trail, !props.last]} stem={props.stem ?? false} />
     {props.children}
   </div>
 );
@@ -125,7 +124,15 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
-    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: async (names) => {
+      const pads = props.pads.owned().filter(pad => names.includes(pad.name));
+      const failures = await connected.drafts.todoUndo.removePads(pads);
+
+      return failures.flatMap(failure => { const pad = pads.find(pad => pad.incarnation === failure.id);
+
+ return pad ? [{ id: pad.name, message: failure.message }] : []; });
+    },
     reload: async () => {
       await list.reload();
 
@@ -144,7 +151,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
-    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: connected.drafts.todoUndo.removeTodos,
     reload: async () => {
       await props.pads.todos.reload();
 
@@ -228,13 +236,31 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           <For each={nested().map(place => place.todo)}>
             {(todo, at) => { const place = () => nested().find(place => place.todo.id === todo.id)!;
 
+              const continues = (id: number) => {
+                const row = nested().find(row => row.todo.id === id)!;
+
+                return nested().filter(other => other.parent === row.parent).at(-1)?.todo.id !== id || (row.parent === null && props.children);
+              };
+
+              const trail = () => {
+                const ancestors: boolean[] = [];
+                let parent = place().parent;
+
+                while (parent !== null) {
+                  ancestors.unshift(continues(parent));
+                  parent = nested().find(row => row.todo.id === parent)!.parent;
+                }
+
+                return [...props.trail, ...ancestors];
+              };
+
  return (
               <Sortable.Item id={String(todo.id)} index={at()} pressable>
                 {(parts) => {
                   const sorted = props.pads.reorder.row(todo.id, parts);
 
                   return (
-                    <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo onContextMenu={(event) => todoMenu(todo, event)}>
+                    <Leaf depth={props.depth + place().level - 1} trail={trail()} last={!continues(todo.id)} stem={nested().some(row => row.parent === todo.id)} todo onContextMenu={(event) => todoMenu(todo, event)}>
                       <OpenRow
                         copyWith={feedback => {
                           const id = todo.id;
