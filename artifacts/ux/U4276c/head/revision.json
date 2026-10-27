@@ -1,5 +1,5 @@
 {
-  "revision": "5d42d9b6fff27bebd990a5e6215d81430affda13",
+  "revision": "d27887b94735e0df10e98b8aa1d0835e4fd6a19d",
   "viewport": [
     1512,
     950
@@ -12,8 +12,8 @@
     "empty",
     "failed-create",
     "firing-detail",
-    "form-bottom",
     "form",
+    "form-bottom",
     "list",
     "message",
     "reconciled-form",
