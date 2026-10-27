@@ -1,5 +1,5 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
-import { createComputed, createRoot } from "solid-js";
+import { createComputed, createRoot, onCleanup, untrack } from "solid-js";
 import { is, string } from "valibot";
 import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
@@ -23,15 +23,38 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
-export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({})): (() => void) => createRoot(dispose => {
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({}), settlement?: {
+  afterUpdate(callback: () => void): void;
+  read(change: PreferenceAction): "settled" | "moving" | "unavailable";
+}): (() => void) => createRoot(dispose => {
   let initial = true;
+  let pending: PreferenceAction | undefined;
+
+  onCleanup(() => {
+    if (pending) pending.settlement = { status: "disposed" };
+    pending = undefined;
+  });
   createComputed(() => {
-    const entry: PreferenceAction = { at_ms: now(), reduced: reduced(), phase: phase() };
+    const value = reduced();
+    const entry: PreferenceAction = { at_ms: now(), reduced: value, phase: untrack(phase) };
+
+    if (pending) pending.settlement = { status: "superseded" };
+    pending = undefined;
 
     // The initial value is setup, not a switch. Sample displacement synchronously
     // with the shared source change, before a later frame can reach its endpoint.
     if (!initial && entry.phase === "sample") {
-      Object.assign(entry, displacement());
+      Object.assign(entry, untrack(displacement));
+
+      if (value && settlement) {
+        entry.settlement = { status: "pending" };
+        pending = entry;
+        settlement.afterUpdate(() => {
+          if (pending !== entry) return;
+          pending = undefined;
+          entry.settlement = { status: phase() === "sample" ? settlement.read(entry) : "unavailable", at_ms: now() };
+        });
+      }
     }
 
     initial = false;
@@ -405,6 +428,35 @@ export const todoDisplacement = (fixture: Pick<Fixture, "todos">, action: TodoAc
   return { action_at_ms: action.at_ms, action: action.action, targets: [...action.targets], rows };
 };
 
+/** Read the existing motion owners after a live enable change; missing fixture/targets never establish settlement. */
+export const preferenceSettlement = (workload: string, fixture: Fixture | undefined, layer?: LayerAction, todo?: TodoAction): "settled" | "moving" | "unavailable" => {
+  if (!fixture || workingGlyphs(fixture) !== WORKING_GLYPHS) return "unavailable";
+
+  if (workload === "glyphs") return glyphDisplacement(fixture).length === 0 ? "settled" : "moving";
+
+  if (workload === "todos") {
+    const action = todo;
+    const geometry = todoDisplacement(fixture, action);
+    const mounted = fixture.todos.every(({ id }) => document.querySelector(`.shelf [data-todo="${id}"]`));
+
+    if (!mounted || !action?.completed || !geometry) return "unavailable";
+
+    return geometry.rows.length === 0 ? "settled" : "moving";
+  }
+
+  const action = layer;
+  const panel = action && document.querySelector<HTMLElement>(`.${action.panel}`);
+
+  if (!action || !panel?.isConnected) return "unavailable";
+  const closed = action.panel === "drawer" ? panel.dataset.open === "false" : document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelf === "closed";
+
+  if (panel.hidden && closed) return "settled";
+
+  if (panel.hidden || panel.getBoundingClientRect().width <= 0) return "unavailable";
+
+  return Math.abs(panel.getBoundingClientRect().left - action.destination) < 1 ? "settled" : "moving";
+};
+
 const wallClock: Clock = { sleep };
 
 /**
@@ -731,6 +783,9 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return {};
 
       return { movement: { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress } };
+    }, {
+      afterUpdate,
+      read: change => preferenceSettlement(workload, fixture, layerActions.find(action => action.at_ms === change.movement?.action_at_ms), todoActions.find(action => action.at_ms === change.todos?.action_at_ms)),
     });
 
     const controller = new AbortController();
