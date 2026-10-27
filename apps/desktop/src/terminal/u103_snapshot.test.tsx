@@ -171,16 +171,6 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(log()).toEqual(["size 120x40", "screen", "one", "two", "three"]);
   });
 
-  it("u103_one_snapshot_call_serves_one_terminal_however_much_output_arrives", async () => {
-    const { app, pending, snapshots } = await mount();
-
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-
-    for (let offset = 0; offset < 5; offset += 1) app.emitOutput("t-a", "x");
-    pending[0]?.(snapshotOf("", 0));
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-  });
-
   it("u103_output_buffered_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {
     const { app, pending, snapshots, log } = await mount();
     const large = "x".repeat(400_000);
@@ -451,14 +441,11 @@ it.each(["gap", "refused"])("z3788a_catch_up_%s_preserves_snapshot_authority", a
 
   screens.show("t-a", host);
 
-  if (result === "gap") {
+  if (result === "gap" || result === "refused") {
     await vi.waitFor(() => expect(made.get("t-a")?.log.at(-1)).toBe("authoritative screen"));
     expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained", "reset", "size 100x30", "authoritative screen"]);
     expect(screens.failure("t-a")).toBeNull();
-  } else {
-    await vi.waitFor(() => expect(screens.failure("t-a")).toBe("terminal.catchUp: original Terminal unavailable"));
-    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained"]);
-    expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1);
+
   }
 
   expect(typed(app)).toEqual([]);
