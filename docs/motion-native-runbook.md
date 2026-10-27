@@ -299,6 +299,6 @@ The focused reorder observation did not catch moving rows within the unchanged
 400 ms bound; its first rendered reads arrived after the displacement had ended.
 D2/D5/D6 passed; D14 failed during the action and passed at settled reduced motion.
 Retain this as incomplete reader qualification, not a halfway switch or native
-result. Raw observations, setup script and PNGs are under
+result. Raw observations, setup script and screenshots are under
 `artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
 at 45 seconds; no whole-suite capture pass is claimed.
