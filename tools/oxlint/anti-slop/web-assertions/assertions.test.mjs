@@ -80,14 +80,15 @@ for (const [name, source, kind] of cases) {
 }
 
 
-for (const change of ["unchanged", "removed with entry", "additional", "duplicate", "deleted", "added entry", "broadened entry", "renamed", "moved", "edited"]) {
+for (const change of ["unchanged", "removed with entry", "additional", "duplicate", "deleted", "added entry", "broadened entry", "renamed", "moved", "edited", "timeout edited"]) {
+  const passing = ["unchanged", "removed with entry", "timeout edited"];
   test(`t3779b_assertion_boundary: baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), ".baseline-fixture-"));
     const file = resolve(dir, "fixture.test.tsx");
     const config = resolve(dir, "config.json");
     const baseline = resolve(dir, directory, "baseline.jsonl");
     mkdirSync(resolve(dir, directory), { recursive: true });
-    const source = 'import { expect, test } from "vitest"; test("t3779b_fixture", () => { expect(element.scrollWidth).toBe(10); });';
+    const source = 'import { expect, test } from "vitest"; test("t3779b_fixture", () => { expect(element.scrollWidth).toBe(10); }' + (change === "timeout edited" ? ", 90_000" : "") + ");";
     const run = () => spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
     const git = (...args) => {
       const result = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -125,13 +126,14 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
       }
       if (change === "renamed") writeFileSync(file, source.replace("t3779b_fixture", "t3779b_other"));
       if (change === "moved") { writeFileSync(resolve(dir, "other.test.tsx"), source); writeFileSync(file, ""); }
+      if (change === "timeout edited") writeFileSync(file, source.replace("90_000", "60_000"));
       if (change === "edited") writeFileSync(file, source.replace("toBe(10)", "toBe(11)"));
       const result = run();
-      assert.equal(result.status, ["unchanged", "removed with entry"].includes(change) ? 0 : 1, result.stdout + result.stderr);
+      assert.equal(result.status, passing.includes(change) ? 0 : 1, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, result.stdout);
       if (["added entry", "broadened entry"].includes(change)) assert.ok(report.diagnostics.some(item => item.message.startsWith("Added or broadened assertion baseline entry:")), result.stdout);
-      assert.equal(report.diagnostics.filter(item => item.severity === "error").length === 0, ["unchanged", "removed with entry"].includes(change), result.stdout);
+      assert.equal(report.diagnostics.filter(item => item.severity === "error").length === 0, passing.includes(change), result.stdout);
       if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `baseline ${change}`, source: readFileSync(file, "utf8"), exitCode: result.status, diagnostics: report.diagnostics.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
