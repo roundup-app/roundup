@@ -129,4 +129,4 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
 
   if (videoDir) await browser("record", "stop");
   expect(after).toEqual(before);
-}, 90_000);
+}, 60_000);

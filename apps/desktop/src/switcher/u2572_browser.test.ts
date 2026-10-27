@@ -96,4 +96,4 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
       }
     }
   } finally { await server.close(); }
-}, 180_000);
+}, 60_000);

@@ -87,5 +87,5 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     });
     expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
     await real.model!.assertMatched();
-  }, 300_000);
+  }, 60_000);
 });

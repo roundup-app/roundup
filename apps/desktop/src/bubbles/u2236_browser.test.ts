@@ -79,7 +79,7 @@ it("u2237_fill_and_restore_refit_once", async () => {
       await capture("closed");
     }
   }
-}, 90_000);
+}, 60_000);
 
 const capture = async (name: string) => {
   const dir = captureDir("U2892");

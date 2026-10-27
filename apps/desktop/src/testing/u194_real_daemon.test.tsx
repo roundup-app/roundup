@@ -52,5 +52,5 @@ describe("a3564a a Door's native prompt is attended to in its own Terminal on th
     await waitFor(async () => expect(emulators.made.get((await door()).terminal_id!)?.host?.contains(document.activeElement)).toBe(true));
     expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
     await real.model!.assertMatched();
-  }, 240_000);
+  }, 60_000);
 });

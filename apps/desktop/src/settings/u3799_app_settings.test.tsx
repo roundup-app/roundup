@@ -293,7 +293,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
   } finally {
     try { await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
-}, 180_000);
+}, 60_000);
 
 it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s", async project => {
   const { seedApp } = await import("../testing/seeds");

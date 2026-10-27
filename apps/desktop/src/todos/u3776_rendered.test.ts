@@ -16,5 +16,5 @@ describe.runIf(Boolean(output))("u3776 isolated rendered observer", () => {
     const { stdout } = await promisify(execFile)("python3", ["src/todos/u3776_browser.test.py", server.resolvedUrls.local[0]!, output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
 
     expect(stdout).toContain("ok");
-  }, 180_000);
+  }, 60_000);
 });

@@ -107,7 +107,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       await record('missing-selection');
     }
   }
-}, 120_000);
+}, 60_000);
 
 it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_from_the_keyboard_%s", async (key, code) => {
   await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', 1280, 800);

@@ -311,7 +311,7 @@ it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
     vi.restoreAllMocks();
     await second.stop();
   }
-}, 120_000);
+}, 60_000);
 
 
 it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async () => {
