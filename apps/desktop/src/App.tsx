@@ -556,6 +556,11 @@ export const App = (props: {
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
+            shelf={<Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
+              <Show when={projects.tabs().length > 0}><InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
+                {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
+              </InProject></Show>
+            </Tabs.RootProvider>}
           >
             <Show when={projects.tabs().length > 0}><Strip
               tabs={stripTabs()}
@@ -655,11 +660,6 @@ export const App = (props: {
           </div>
           </div>
         }
-        shelfTabs={<Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
-          <Show when={frame.rendered()}><InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
-            {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
-          </InProject></Show>
-        </Tabs.RootProvider>}
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
             <Show when={projects.tabs().length > 0} fallback={<Show when={frame.rendered()}><Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content></Show>}>
