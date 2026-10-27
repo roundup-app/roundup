@@ -52,3 +52,39 @@ Checks on main (references, not delivery claims):
 4. `scenarios/ui-native-menus.md`, U2694a–g and U3812; `scenarios/ui-target-pickers.md`, U3515a–d; `scenarios/ui-worktree-changes.md`, “Project menu (U4278a, U4278b)”: retained behavior and the clauses superseded above.
 5. `PRINCIPLES.md`, P1/P6/P9/P11; `.agents/data/journey.md`, “What must work”: direct access, exact Home, requested starts and draft preservation.
 6. `docs/design-system.md`, “The checks”, D2/D5/D6; `apps/desktop/src/testing/checks.ts`, `runChecks`; `.agents/data/harness.md`, “Captures”: type/spacing, contrast, reachability and evidence boundaries.
+
+## Per-surface regression coverage (#4409)
+
+**U4409a every caller proves its own group boundaries.** Given a mounted App with an open Project and the fixtures below, with an eligible other Agent, alternative Home and owner wherever those actions are expected, when the user context-clicks each named surface through its real UI handler, then each request to `showContextMenu` has exactly the action ids and group boundaries below. Each row is a separate named case of planned `u4409a_each_surface_projects_ordered_nonempty_groups` in `apps/desktop/src/rail/menu/u2694_menu.test.tsx`; neither calling `contextMenu` directly nor opening another surface stands for opening that row. Terminal tab and Bubble, Rail and work-item Pad, and Rail and work-item Todo are distinct cases. This adds an observer to U4322a, not new menu behavior.
+
+In this table, `|` means exactly one separator boundary; commas mean no separator. The App seam carries boundaries as adjacent unequal `group` values, not fake separator action ids. Assert the complete ordered `(id, group)` sequence against fixture-owned expected values, including equal groups within each comma-separated run and unequal groups at every `|`. Expectations must not be generated from the production grouping table, a sort of the actual reply, or another caller's reply.
+
+| Surface and fixture | Expected action ids and boundaries |
+| --- | --- |
+| Workstream row, running normal Door | `yolo, stop | folder, editor, send, copy-link | rename, clear | add | remove` |
+| Agent row, running normal Agent | `yolo, stop | folder, editor, send, copy-link | rename | remove` |
+| Queued Workstream row, middle of three queued entries | `start-now, dequeue, move-up, move-down | folder, editor | clear | add | remove` |
+| Project tab | `copy | rename | close` |
+| User-opened Terminal tab | `send, copy-link | rename | close` |
+| User-opened Terminal Bubble, its non-text bar | `send, copy-link | rename | close` |
+| Agent-owned Pad in the Rail, expanded Pads branch | `send, copy-link | delete` |
+| Agent-owned Pad in work items, another eligible owner | `send, copy-link | assign, make-yours | delete` |
+| Incomplete Todo in the Rail, middle of three owned Todos, another Home | `complete | send, copy-link | move, move-up, move-down | delete` |
+| Incomplete Todo in work items, middle of three Todos with the same owner, another Home | `complete | send, copy-link | assign, move, move-up, move-down | delete` |
+| Ask's published-output row, available publication | `send, copy-link` |
+
+Policy: `copy-link` is also the existing published-output Copy action's id; the displayed label does not change. All fixtures have no outstanding failure. Keep existing eligibility: the Rail Todo does not gain Assign, and a queued Workstream has queue actions rather than running-Door actions. Preserve Send receiver membership and the Workstream Add children in the same captured model; the existing U4322a Add test proves their creation dispatch. No new menu action, contract, library, helper or native rendering claim is requested.
+
+The same planned test also opens a completed Rail Todo whose maker has stopped, with no other Agent or alternative Home. Then its omitted status/open-share/edit actions leave exactly `copy-link | delete`, without extra boundaries for omitted groups. Dismissing every case makes zero mutation, Message, Agent-start/resume or Terminal-input calls, measured after fixture setup and navigation. These are further cases of `u4409a_each_surface_projects_ordered_nonempty_groups`, not new tests of a copied grouping helper. The original Workstream-only `u4322a_each_surface_projects_ordered_nonempty_groups` is replaced by this coverage; retain each assertion it alone proves in the replacement or name its surviving test on #4409 under rule 10 (policy).
+
+Native separator insertion remains proved by `u4322b_native_groups_and_submenus_reach_the_menu` in `crates/desktop/src/menu.rs`: actual native item kinds and exact indices, including omitted entries and nested membership, through `append`. Run that existing test on its supported CI host; do not add a second test of the same construction behavior. The per-caller App-seam assertions above fail when any caller's group order or boundary metadata moves; the native test fails when the host moves the corresponding separator. Neither observer tests geometry, colour or exact copy (policy).
+
+Policy: this is Understand/Intervene journey coverage. Applicable gate P9 asks whether opening or dismissing a menu starts work or sends input; its observer is the zero-action call log above. P1 direct Agent access and P6 Home authority remain as U4322a specifies. No editable-field or focus behavior changes; existing P11 observers remain in force. No visible product change, capture or Mac-only observation is required for this test-coverage work. If a case exposes behavior contradicting U4322a, repair that behavior within the implementation Issue's scope and apply its existing Code and visual-observer requirements; never weaken this table to accept the reply (policy).
+
+Checks on main (references, not completion evidence):
+
+1. `scenarios/ui-context-menus.md`, U4322a's surface table and “Separators and order”: required ordering and nonempty boundaries.
+2. `apps/desktop/src/rail/menu/u2694_menu.test.tsx`, `u4322a_each_surface_projects_ordered_nonempty_groups`: existing Workstream-only assertion to replace; `u4322a_add_uses_the_clicked_workstream_%s`: clicked-Home creation dispatch.
+3. `apps/desktop/src/ui/contextMenu.ts`, `contextMenu`; `crates/desktop/src/menu.rs`, `append` and `u4322b_native_groups_and_submenus_reach_the_menu`: group metadata to native separator construction.
+4. `apps/desktop/src/header/u2694_tab_menu.test.tsx`, `u2694a_each_object_builds_its_items`; `apps/desktop/src/pads/u2694_menu.test.tsx`, `u2694a_each_object_builds_its_items_pad`; `apps/desktop/src/todos/u2694_menu.test.tsx`, `u2694a_each_object_builds_its_items_todo`: existing surface fixtures and dispatch proofs, not substitutes for the complete matrix.
+5. `PRINCIPLES.md`, P1/P6/P9/P11; `.agents/data/journey.md`, “What must work”: retained access, Home, requested work and unfinished-input boundaries.
