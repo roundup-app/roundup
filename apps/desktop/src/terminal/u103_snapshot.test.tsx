@@ -387,7 +387,7 @@ describe("u103 a reloaded pane shows the screen", () => {
   });
 });
 
-it("z3788a_unchanged_output_keeps_the_retained_emulator_on_return", async () => {
+it.each(["", "later\r\n"])("z3788a_retained_emulator_catches_up_hidden_output_%j", async (hidden) => {
   const { createScreens } = await import("./screens");
   const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
   const spy = vi.spyOn(xtermModule, "Terminal");
@@ -408,11 +408,24 @@ it("z3788a_unchanged_output_keeps_the_retained_emulator_on_return", async () => 
   await parsed();
   const after = app.outputPositions.get("t-a")!;
   app.handlers["terminal.snapshot"] = () => snapshotOf("current screen only", after);
+  const reply = Promise.withResolvers<import("@contracts/terminal/CatchUp").CatchUp>();
+  app.handlers["terminal.catchUp"] = () => reply.promise;
   screens.hide("t-a");
+  app.emitOutput("t-a", hidden);
   screens.show("t-a", host);
-  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(2));
+  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.catchUp")).toHaveLength(1));
+  // The subscription precedes catch-up: the reply overlaps the first half of this live chunk.
+  app.emitOutput("t-a", "overlap-tail");
+  reply.resolve({ kind: "contiguous", id: "t-a", incarnation: "fixture-t-a", from: after,
+    after: after + new TextEncoder().encode(hidden + "overlap").length,
+    data: toBase64(new TextEncoder().encode(hidden + "overlap")) });
+  await vi.waitFor(() => expect(screens.failure("t-a")).toBeNull());
   await parsed();
   expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe("retained history");
+  const content = Array.from({ length: terminal.buffer.active.length }, (_, i) => terminal.buffer.active.getLine(i)?.translateToString(true)).join("\n");
+  expect(content).toContain((hidden + "overlap-tail").replaceAll("\r", ""));
+  expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1);
+  expect(app.calls.find(call => call.method === "terminal.catchUp")?.params).toEqual({ id: "t-a", incarnation: "fixture-t-a", after });
   expect(typed(app)).toEqual([]);
   screens.dispose();
   connected.stopTerminalScheme();
