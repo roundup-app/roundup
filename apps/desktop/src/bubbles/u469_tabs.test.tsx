@@ -87,6 +87,7 @@ it("u524_every_root_opened_terminal_stays_in_the_bar_after_returning", async () 
 
     return { terminal_id: id };
   };
+
   const tabs = () => [...document.querySelectorAll(".terminal-tab")].map(tab => tab.getAttribute("data-bubble"));
 
   for (const id of ["root-1", "root-2", "root-3"]) {
@@ -95,6 +96,7 @@ it("u524_every_root_opened_terminal_stays_in_the_bar_after_returning", async () 
     await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe(id));
     await mounted.connected.rail.refresh({ terminals: true });
   }
+
   expect(tabs()).toEqual(["project", "root-1", "root-2", "root-3"]);
   mounted.connected.rail.select("w");
   expect(tabs()).toEqual(["root-1", "root-2", "root-3"]);
