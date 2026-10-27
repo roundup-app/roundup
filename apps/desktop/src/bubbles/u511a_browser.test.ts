@@ -74,7 +74,7 @@ const key = async (name: string) => browser("eval", `document.activeElement.disp
 it("u511a_click_away_commits_without_swallowing_the_click", async () => {
   await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
   await until(`!!window.__fake`);
-  await browser("click", '[data-id="runner"]');
+  await browser("click", '.rail-row[data-id="runner"] .name');
   await until(`!!document.querySelector('.terminal-tab-name')`);
   await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
   await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
