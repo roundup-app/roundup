@@ -102,12 +102,15 @@ const newer = async (choice: string) => {
     await browser("press", "Meta+/");
     await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
   } else if (choice === "drawer") {
+    if (await read(`!!document.querySelector('.rail-row[data-id=backend]')`)) {
+      await browser("click", ".rail-row[data-id=backend] .row-state");
+      await wait(`document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'`);
+    }
+
     await read(`(async () => {
       const app = window.__fake.app;
       const made = await app.rpc('todo.create', {title:'Newer Drawer',body:null,blockers:null});
       window.newTodo = made.id;
-      const home = document.querySelector('.rail-row[data-id=backend] .row-state');
-      if (home) home.click();
       const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
       const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
