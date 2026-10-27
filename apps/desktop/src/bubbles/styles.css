@@ -165,7 +165,7 @@
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
-  height: var(--space-5);
+  height: var(--rail-actions-height);
   position: relative;
   z-index: 1;
   overflow-x: auto;
@@ -295,6 +295,13 @@
   right: var(--space-2);
   pointer-events: auto;
   background: var(--ground);
+}
+
+/* The centre-wide failure stays above navigation; a Bubble’s own failure stays inside its frame. */
+.bubbles .bubble-failure[data-overlay="true"] {
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  inset-inline: var(--space-2);
+  inline-size: auto;
 }
 
 .bubble-recovery {

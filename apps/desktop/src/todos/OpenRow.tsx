@@ -60,6 +60,7 @@ export const OpenRow = (props: {
   failWith?: (show: (message: string | null) => void, message: Accessor<string | null>) => void;
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
+  connections?: JSX.Element;
   /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
   treeItem?: JSX.HTMLAttributes<HTMLElement>;
   /** U3770: a finish is playing on this row. */
@@ -206,6 +207,7 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
+      {props.connections}
       <div class="todo-group-status">{props.groupProgress}</div>
       <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
