@@ -3,7 +3,9 @@ root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-list-obse
 reports=[];failure=[];selection_failures=[]
 for length in [40,400,4000]:
  try:
-  rows=json.loads((out/f'{length}-samples.json').read_text());es=json.loads((media/f'{length}-trace.json').read_text())['traceEvents']
+  trace=media/f'{length}-trace.json'
+  raw=trace.read_bytes() if trace.exists() else gzip.open(out/f'{length}-full-trace.json.gz','rb').read()
+  rows=json.loads((out/f'{length}-samples.json').read_text());es=json.loads(raw)['traceEvents']
   if len(rows)!=220:raise ValueError(f'{len(rows)} samples, expected 220')
   starts=[e for e in es if e['name']=='EventTiming' and e.get('ph')=='b' and e.get('args',{}).get('data',{}).get('type')=='input']
   marks={e['name']:e for e in es if e['name'].startswith('z3788d-')}
@@ -45,9 +47,10 @@ for length in [40,400,4000]:
   (out/f'{length}-timings.json').write_text(json.dumps(measures,ensure_ascii=False,separators=(',',':')))
   names={'PipelineReporter','EventTiming','Paint','DrawFrame','UpdateLayoutTree','Layout','PrePaint','EventDispatch','Commit','ActivateLayerTree','SubmitCompositorFrameToPresentationCompositorFrame'}
   retained=[e for e in es if e['name'] in names or e['name'].startswith('z3788d-')]
-  with gzip.open(out/f'{length}-full-trace.json.gz','wb') as archive: archive.write((media/f'{length}-trace.json').read_bytes())
+  with gzip.open(out/f'{length}-full-trace.json.gz','wb') as archive: archive.write(raw)
   with gzip.open(out/f'{length}-trace.json.gz','wt') as archive: json.dump({'traceEvents':retained},archive,ensure_ascii=False,separators=(',',':'))
-  report['fullTraceSha256']=hashlib.sha256((media/f'{length}-trace.json').read_bytes()).hexdigest();reports.append(report)
+  report['fullTraceSha256']=hashlib.sha256(raw).hexdigest();reports.append(report)
+  trace.unlink(missing_ok=True)
  except Exception as error:
   detail={'length':length,'condition':str(error),'exit':2}
   if (out/'collection-failure.json').exists():

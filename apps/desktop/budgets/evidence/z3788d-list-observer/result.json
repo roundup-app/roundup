@@ -39,7 +39,7 @@
   "failures": [
     {
       "length": 4000,
-      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/4000-samples.json'",
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/4000-full-trace.json.gz'",
       "exit": 2,
       "collectionFailure": {
         "length": 4000,
