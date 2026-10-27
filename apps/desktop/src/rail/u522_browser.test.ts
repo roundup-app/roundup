@@ -16,6 +16,7 @@ beforeAll(async () => {
 afterAll(async () => { await page?.close(); });
 
 const read = <T,>(expression: string) => page.call<T>(`() => (${expression})`);
+
 const wait = (expression: string) => page.until(`() => (${expression})`);
 
 const load = async () => {
