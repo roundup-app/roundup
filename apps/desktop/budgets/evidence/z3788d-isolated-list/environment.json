@@ -1,0 +1,18 @@
+{
+  "revision": "8d177763e266492dfe16d1f51ab8ae065e9bfae4",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "browser": {
+    "cpu": 4,
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "Vite development; isolated unchanged Switcher with real connected Project, draft storage, Combobox and styles",
+  "warmups": 20,
+  "measured": 200,
+  "seed": "alternating alpha/beta suffix, zero-padded sequential row ids",
+  "interval": "trusted input EventTiming start to presentation of committed filtered results"
+}
