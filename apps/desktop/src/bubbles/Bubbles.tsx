@@ -868,12 +868,21 @@ export const Bubbles = (props: {
               }}
               onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
               <Editable.Context>{(api) => {
+                let cancelling = false;
                 onMount(() => api().edit());
 
-                return null;
-              }}</Editable.Context>
-              <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
-                onBlur={() => { if (requiresConfirmation()) setEditing(null); }}
+                return <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
+                on:keydown={event => {
+                  if (event.key !== "Escape" || event.isComposing) return;
+
+                  if (revision || event.currentTarget.value !== initial) capture(event.currentTarget);
+                  // Ark blurs before onEditChange; cancellation must close through that callback.
+                  cancelling = true;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  api().cancel();
+                }}
+                onBlur={() => { if (!cancelling && (requiresConfirmation() || (restored === "current" && !changed()))) setEditing(null); }}
                 onInput={event => { change(true); capture(event.currentTarget); }}
                 onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
                 // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
@@ -883,7 +892,8 @@ export const Bubbles = (props: {
 
                   if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
                   else input.select(); })));
-              }} /></Editable.Area>
+              }} /></Editable.Area>;
+              }}</Editable.Context>
             </Editable.Root>
             <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
           </div>}

@@ -69,7 +69,7 @@ Read these current `apps/desktop/src/` callers and every additional `writeText` 
 | Import failure details | `importer/ImportPanel.tsx`, `ImportPanel` | Copy details without clearing import failure |
 | Rail draft | `rail/Rail.tsx`, `Rail` | Copy without sending/restoring the draft |
 | Todo history | `todos/TodoHistory.tsx`, `TodoHistory` | Existing JSON payload, local acknowledgement |
-| Terminal name recovery | `bubbles/Bubbles.tsx`, `Bubbles` | Selected revision only; local acknowledgement/refusal |
+| Terminal name rename/recovery | `bubbles/Bubbles.tsx`, `Bubbles` | Instant double-click/native Rename/Escape; selected revision only; local acknowledgement/refusal |
 | Todo draft and quick capture recovery | `todos/EditableText.tsx`, `todos/Capture.tsx` | Copy retained input without submitting or changing the draft |
 | Shared draft recovery | `drawer/DraftRecovery.tsx`, `DraftRecoveryPanel` | Original revision and credential policy retained |
 | Change-note recovery | `changes/NoteBatch.tsx`, `NoteRecovery` | Each form/note/submission/recovered record and aggregate has its own label |
@@ -312,3 +312,13 @@ existing Project-owned draft holder through navigation and reload. The mounted
 Project recovery dialog copies or explicitly discards a selected revision; opening
 or closing recovery never submits a rename. Requested Project recovery expands its
 failure text immediately so the full retention warning and retry stay visible.
+
+U3787c Terminal-tab rename opens by tab double-click or native context-menu Rename.
+Escape captures exact text and selection in the existing Project draft holder, calls
+Ark Editable cancellation, and restores the saved name and original tab focus
+immediately. The cancelled key never reaches an underlying Escape action, including
+when blur follows. No local saved-name write or rename RPC occurs. Selected-revision
+recovery uses the same editor and exact incarnation guard; reopening never submits.
+Only explicit confirmation or labelled discard settles its chosen revision. Existing
+successful Enter, click-away submission and Terminal input ownership remain. No motion
+is added; D2/D5/D6/D9 retain their existing Tokens and layout.
