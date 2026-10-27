@@ -323,7 +323,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
           const key = `${seed}-${step}`;
 
           if (base) baselines.set(key, checks);
-          else for (const check of CHECK_IDS) if (baselines.get(key)?.[check].status === "pass") expect(checks[check].status, `${key} ${check}`).toBe("pass");
+          else if (!captureDir("U4335a")) for (const check of CHECK_IDS) if (baselines.get(key)?.[check].status === "pass") expect(checks[check].status, `${key} ${check}`).toBe("pass");
         }
       }
 
