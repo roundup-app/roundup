@@ -1,5 +1,8 @@
 import { createSignal } from "solid-js";
 import { copy } from "../copy";
+import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
+import type { Pad } from "@contracts/pad/Pad";
+import { RpcError } from "../app/seam";
 import type { Deletion } from "@contracts/todo/Deletion";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
@@ -58,16 +61,21 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
 export function createTodoUndo() {
-  const [stack, setStack] = createSignal<Deletion[]>([]);
+  const [stack, setStack] = createSignal<({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] })[]>([]);
   const [pending, setPending] = createSignal(false);
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore"; message: string } | null>(null);
   const [visible, setVisible] = createSignal(false);
   let connection: AppSeam | undefined;
   let forwarding: AppSeam | undefined;
   const [uncertain, setUncertain] = createSignal<number[]>();
 
+  let deleted: number[] = [];
+  const [padPending, setPadPending] = createSignal<{ name: string; incarnation: string; operation: string }[]>([]);
+  let padReceipts: PadDeletion[] = [];
+
   const remove = async (ids: number[]): Promise<boolean> => {
-    if (pending() || !forwarding) return false;
+    if (pending() || !forwarding || padPending().length) return false;
+    deleted = [];
 
     if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) return false;
     const chosen = uncertain() ?? [...ids];
@@ -78,14 +86,15 @@ export function createTodoUndo() {
     try {
       const receipt = await deleteTodos(forwarding, chosen);
       setUncertain(undefined);
+      deleted = receipt.deleted;
 
       if (receipt.state === "deleted" && receipt.deleted.length) {
-        setStack(all => [...all, receipt]);
+        setStack(all => [...all, { kind: "todos", receipt }]);
         setVisible(true);
       }
 
       if (receipt.missing.length) {
-        setFailure(copy.todoDeleteMissing);
+        setFailure({ kind: "delete", message: copy.todoDeleteMissing });
         setVisible(true);
       }
 
@@ -95,23 +104,113 @@ export function createTodoUndo() {
       const identity = JSON.stringify([...new Set(chosen)].toSorted((a, b) => a - b));
 
       if (!calls.get(forwarding)?.has(identity)) setUncertain(undefined);
-      setFailure(error.message);
+      setFailure({ kind: "delete", message: error.message });
       setVisible(true);
 
       return false;
     } finally { setPending(false); }
   };
 
-  const undo = async () => {
-    const receipt = stack().at(-1);
+  const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[]) => {
+    if (pending() || !connection || uncertain()) return pads.map(pad => ({ id: pad.incarnation, message: failure()?.message ?? copy.deletePending }));
 
-    if (!receipt || pending() || !connection || uncertain()) return;
+    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) return pads.map(pad => ({ id: pad.incarnation, message: copy.deleteUnconfirmed }));
+    const app = connection;
+    const retry = padPending().length > 0;
+    const chosen = retry ? padPending() : pads.map(pad => ({ ...pad, operation: crypto.randomUUID() }));
+    setPadPending(chosen);
+    setPending(true);
+    setFailure(null);
+    const failed: { id: string; message: string }[] = [];
+    const unknown: typeof chosen = [];
+
+    for (const pad of chosen) {
+      try {
+        let receipt: PadDeletion | undefined;
+
+        if (retry) {
+          try { receipt = await app.rpc("pad.getDeletion", { operation: pad.operation }); }
+          catch (error) { if (!(error instanceof RpcError) || error.code !== -32001) throw error; }
+        }
+
+        if (!receipt) {
+          try { receipt = await app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: pad.operation }); }
+          catch (error) {
+            try { receipt = await app.rpc("pad.getDeletion", { operation: pad.operation }); }
+            catch (readError) {
+              if (!(readError instanceof RpcError) || readError.code !== -32001 || outcomeOf(error) !== "failed") unknown.push(pad);
+              throw error;
+            }
+          }
+        }
+
+        if (!receipt.restored) padReceipts.push(receipt);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+
+        if (retry && !unknown.some(item => item.operation === pad.operation)) unknown.push(pad);
+        failed.push({ id: pad.incarnation, message: error.message });
+      }
+    }
+
+    setPadPending(unknown);
+
+    if (!unknown.length && padReceipts.length) {
+      setStack(all => [...all, { kind: "pads", receipts: padReceipts }]);
+      padReceipts = [];
+    }
+
+    setFailure(failed.length ? { kind: "delete", message: failed.map(item => item.message).join("; ") } : null);
+    setVisible(true);
+    setPending(false);
+
+    return failed;
+  };
+
+  const undo = async () => {
+    const operation = stack().at(-1);
+
+    if (!operation || pending() || !connection || uncertain() || padPending().length) return;
     const app = connection;
     setPending(true);
     setFailure(null);
     setVisible(true);
 
     try {
+      if (operation.kind === "pads") {
+        const failed: PadDeletion[] = [];
+        const causes: string[] = [];
+
+        for (const receipt of operation.receipts) {
+          try {
+            let restored = await app.rpc("pad.getDeletion", { operation: receipt.operation });
+
+            if (!restored.restored) {
+              try { restored = await app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation }); }
+              catch (error) {
+                const retained = await app.rpc("pad.getDeletion", { operation: receipt.operation });
+
+                if (!retained.restored) throw error;
+                restored = retained;
+              }
+            }
+
+            if (!restored.restored) throw new Error(copy.todoRestoreUnknown);
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            failed.push(receipt);
+            causes.push(`${receipt.pad.name}: ${error.message}`);
+          }
+        }
+
+        setStack(all => all.flatMap(item => item !== operation ? [item] : failed.length ? [{ kind: "pads" as const, receipts: failed }] : []));
+        setFailure(causes.length ? { kind: "restore", message: causes.join("; ") } : null);
+        setVisible(failed.length > 0 || stack().length > 0);
+
+        return;
+      }
+
+      const receipt = operation.receipt;
       // Read first: an earlier lost restore acknowledgement may already have consumed it.
       let restored = await app.rpc("todo.deletion", { operation: receipt.operation });
 
@@ -126,11 +225,11 @@ export function createTodoUndo() {
       }
 
       if (restored.state !== "restored") throw new Error(copy.todoRestoreUnknown);
-      setStack(all => all.filter(item => item.operation !== receipt.operation));
+      setStack(all => all.filter(item => item !== operation));
       setVisible(stack().length > 0);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      setFailure(error.message);
+      setFailure({ kind: "restore", message: error.message });
     } finally { setPending(false); }
   };
 
@@ -139,10 +238,27 @@ export function createTodoUndo() {
       connection = app;
       forwarding ??= { ...app, rpc: (method, params) => connection!.rpc(method, params) };
     },
-    remove, undo, pending, failure, visible,
-    available: () => stack().length > 0 && !uncertain(),
-    retryDelete: () => uncertain() ? remove(uncertain()!) : Promise.resolve(false),
-    uncertain: () => !!uncertain(),
+    remove, removePads,
+    removeTodos: async (ids: readonly number[]) => {
+      await remove([...ids]);
+
+      return ids.flatMap(id => deleted.includes(id) ? [] : [{ id, message: failure()?.message ?? copy.todoDeleteMissing }]);
+    },
+    undo, pending, visible,
+    failure: () => failure()?.message ?? null,
+    feedback: () => {
+      const operation = stack().at(-1);
+
+      return operation ? copy.todoDeletedFeedback(operation.kind === "todos" ? operation.receipt.deleted.length : operation.receipts.length, operation.kind === "todos" ? copy.todo : copy.pad) : null;
+    },
+    feedbackFailure: () => {
+      const problem = failure();
+
+      return problem && (problem.kind === "restore" || uncertain() || padPending().length) ? problem.message : null;
+    },
+    available: () => stack().length > 0 && !uncertain() && !padPending().length,
+    retryDelete: () => padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
+    uncertain: () => !!uncertain() || padPending().length > 0,
     ids: () => uncertain() ?? [],
     dismiss: () => setVisible(false),
   };

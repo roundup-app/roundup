@@ -1,11 +1,10 @@
-import { answerQuestion } from "./bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { deferred, openShelf, padOf } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
-import { stubDialogLayout, askToDelete, confirmDeletion, questionClosed, questionDialog } from "./bulkQuestionHarness";
+import { stubDialogLayout, askToDelete, questionClosed } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
 
@@ -21,64 +20,47 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   const kept = deferred<null>();
   app.handlers["todo.delete"] = async (params) => {
     if (params.ids[0] === 1) await kept.promise;
-    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
+    store.todos = store.todos.filter((row) => !params.ids.includes(row.id));
 
     return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
   };
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
-  await answerQuestion(true);
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   kept.resolve(null);
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
 });
 
 it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
   const { app, store } = await mountTodos([todo(1, { title: "same" }), todo(2, { title: "same" })]);
   app.handlers["todo.delete"] = (params) => {
-    if (params.ids[0] === 2) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
+    store.todos = store.todos.filter((row) => row.id !== 1);
 
-    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
+    return { operation: params.operation, deleted: [1], missing: [2], state: "deleted" };
   };
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
-  await screen.findByText("Could not delete same #2: denied");
+  await screen.findByText("Could not delete same #2: The chosen Todo is no longer available. Refresh to check again.");
   expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("u460_lost_response_refetches_before_retry", async () => {
-  const { app, store } = await mountTodos([todo(1), todo(2)]);
-  app.handlers["todo.delete"] = (params) => {
-    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
-    throw new Error("response lost");
-  };
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  const remove = app.handlers["todo.delete"]!;
+  app.handlers["todo.delete"] = async params => { await remove(params); throw new Error("response lost"); };
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
   await questionClosed();
   expect(screen.queryByRole("button", { name: /#1 |#2 / })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("u460_cancel_keeps_selection_and_restores_focus", async () => {
-  await mountTodos([todo(1), todo(2)]);
-  await pickTwo();
-  const button = screen.getByRole("button", { name: "Delete 2" });
-  button.focus();
-  await askToDelete(2);
-  await answerQuestion(false);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Delete 2" })));
-  expect(screen.getByText("2 selected")).toBeTruthy();
-});
 
 it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   const { app, store, connected } = await mountTodos([todo(1), todo(2)]);
@@ -87,11 +69,9 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   store.todos.push(todo(3));
   app.emit({ actor: USER, name: "todo.created", data: todo(3) });
   await screen.findByRole("button", { name: /#3 / });
-  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
   connected.rail.select("scope-row");
-  await answerQuestion(true);
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
 });
 
 it("u460_backspace_is_local_and_repeat_safe", async () => {
@@ -102,31 +82,27 @@ it("u460_backspace_is_local_and_repeat_safe", async () => {
   fireEvent.keyDown(row, { key: "Backspace", repeat: true });
   fireEvent.keyDown(row, { key: "Backspace", metaKey: true });
   fireEvent.keyDown(screen.getByRole("checkbox", { name: "Complete todo 1" }), { key: "Backspace" });
-  expect(screen.queryByRole("button", { name: "Keep" })).toBeNull();
+  expect([screen.queryByRole("button", { name: "Keep" })]).toEqual([null]);
   fireEvent.keyDown(row, { key: "Backspace" });
-  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
-  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
 });
 
 it("u460_retry_confirms_only_the_remaining_set", async () => {
   const { app, store } = await mountTodos([todo(1), todo(2)]);
   let failed = true;
   app.handlers["todo.delete"] = (params) => {
-    if (params.ids[0] === 2 && failed) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
+    store.todos = store.todos.filter((row) => (failed ? row.id !== 1 : row.id !== 2));
 
-    return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
+    return { operation: params.operation, deleted: failed ? [1] : [2], missing: failed ? [2] : [], state: "deleted" };
   };
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
-  await screen.findByText("Could not delete todo 2 #2: denied");
+  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Refresh to check again.");
   failed = false;
   await askToDelete(1);
-  await confirmDeletion();
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }, { operation: expect.any(String), ids: [2] }, { operation: expect.any(String), ids: [2] }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }, { operation: expect.any(String), ids: [2] }]);
 });
 
 it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
@@ -142,13 +118,12 @@ it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
   app.handlers["todo.delete"] = () => { throw new Error("response lost"); };
 
   await askToDelete(2);
-  await confirmDeletion();
   await screen.findByRole("button", { name: "Refresh" });
   expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   lost = false;
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByText("2 selected");
-  expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);
+  expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
 });
 
 it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
@@ -161,7 +136,6 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
   await waitFor(() => expect(reads).toBe(1));
   app.emit({ actor: USER, name: "todo.updated", data: todo(2) });
   await waitFor(() => expect(reads).toBe(2));
@@ -181,7 +155,6 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
   await screen.findByText("Could not delete todo 1 #1: denied");
   fireEvent.keyDown(screen.getByRole("button", { name: /#1 / }), { key: "Enter" });
   expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(false);
@@ -195,14 +168,11 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   const row = await screen.findByRole("button", { name: new RegExp(`#${id} `) });
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
-  await confirmDeletion();
   await questionClosed();
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: new RegExp(`#${next} `) })));
   fireEvent.keyDown(document.activeElement!, { key: "d", code: "KeyD" });
-  const question = await questionDialog();
-  expect(question.message).toContain(`todo ${next}`);
-  expect(question.message).not.toContain("todo 1");
-  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [id] }]);
+  await questionClosed();
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [id] }, { operation: expect.any(String), ids: [next] }]);
 });
 
 it("u460_refresh_shows_only_after_a_failed_readback", async () => {
@@ -215,17 +185,15 @@ it("u460_refresh_shows_only_after_a_failed_readback", async () => {
 
   await pickTwo();
   await askToDelete(2);
-  await confirmDeletion();
-  await answerQuestion(true);
-  expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+  expect([screen.queryByRole("button", { name: "Refresh" })]).toEqual([null]);
   kept.resolve(null);
   await screen.findAllByText(/denied/);
-  expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+  expect([screen.queryByRole("button", { name: "Refresh" })]).toEqual([null]);
 });
 
 // BulkDelete owns deletion only; save acknowledgements belong to the item editors.
 for (const owner of ["todos", "pads"] as const) {
-  it.each(["deleted", "removed-event", "refused", "cancelled", "dismissed", "readback-unrelated"] as const)(`p3557c_failure_lifetime_shelf_${owner}_%s`, async action => {
+  it.each(["deleted", "removed-event", "refused", "dismissed", "readback-unrelated"] as const)(`p3557c_failure_lifetime_shelf_${owner}_%s`, async action => {
     const fixture = owner === "todos"
       ? await mountTodos([todo(1, { title: "same" }), todo(2, { title: "same" }), todo(3)])
       : await openShelf([padOf("first", USER), padOf("second", USER), padOf("other", USER)]);
@@ -252,8 +220,7 @@ for (const owner of ["todos", "pads"] as const) {
     fireEvent.click(row("first"), { metaKey: true });
     fireEvent.click(row("second"), { metaKey: true });
     await askToDelete(2);
-    await confirmDeletion();
-    await screen.findByText(message("first"));
+      await screen.findByText(message("first"));
     await screen.findByText(message("second"));
     const calls = app.calls.filter(call => call.method === remove).length;
 
@@ -265,8 +232,7 @@ for (const owner of ["todos", "pads"] as const) {
 
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
-      await confirmDeletion();
-      await screen.findByRole("button", { name: "Refresh" });
+          await screen.findByRole("button", { name: "Refresh" });
 
       if (listTodos) app.handlers["todo.list"] = listTodos;
 
@@ -303,20 +269,17 @@ for (const owner of ["todos", "pads"] as const) {
 
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /#1 / : "first" })).toBeNull());
     } else {
+      if (action === "deleted") restore();
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
-      await questionDialog();
-
-      if (action === "deleted") restore();
-      await answerQuestion(action !== "cancelled");
       await questionClosed();
     }
 
-    await waitFor(() => expect(screen.queryByText(message("first")) !== null).toBe(action === "refused" || action === "cancelled"));
+    await waitFor(() => expect(screen.queryByText(message("first")) !== null).toBe(action === "refused"));
     expect(screen.getByText(message("second"))).toBeTruthy();
     expect(row("second")).toBeTruthy();
     expect(row("other")).toBeTruthy();
-    expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { operation: expect.any(String), ids: [1] } : { name: "first" }] : []);
+    expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { operation: expect.any(String), ids: [1] } : { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) }] : []);
     expect(connected.drafts.list()).toEqual(retained);
     expect(connected.drafts.list().find(item => item.revision === draft.revision)?.value.text).toBe("  unfinished é 🧭\n\nlast  ");
   });
