@@ -509,6 +509,9 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 **Channel**:
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
+**Opening prompt**:
+The user's own saved first prompt for a Workstream (for example `/compose /intent …`). When the user clears and restarts that Workstream's session, roundup types it once as the session's first user message; a Workstream without one starts idle (A4452c). Set only by the user, never by an Agent or a Message.
+
 **Claude inbox**:
 Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for every Message to an Agent, notes and questions, never typing them (B50, B3563c). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
