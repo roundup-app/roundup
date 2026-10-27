@@ -1,0 +1,21 @@
+import json,collections,pathlib
+p=pathlib.Path('/tmp/4421-new-traces/40533566740-profile/4000-trace.json'); es=json.loads(p.read_text())['traceEvents'];chunks=[e for e in es if e['name'] in ['Profile','ProfileChunk']];nodes={};samples=[];t=0
+for e in chunks:
+ d=e['args']['data']
+ if e['name']=='Profile':t=d['startTime'];continue
+ c=d.get('cpuProfile',{})
+ for n in c.get('nodes',[]):nodes[n['id']]=n
+ for n,dt in zip(c.get('samples',[]),d.get('timeDeltas',[])):
+  t+=dt;samples.append((t,n))
+spans=[(e['ts'],e['ts']+e['dur']) for e in es if e['name']=='EventDispatch' and e.get('ph')=='X' and e.get('args',{}).get('data',{}).get('type')=='input']
+inc=collections.Counter();own=collections.Counter();total=0
+for t,n in samples:
+ if not any(a<=t<=b for a,b in spans):continue
+ total+=1;own[n]+=1
+ while n in nodes:inc[n]+=1;n=nodes[n].get('parent')
+def compact(c):
+ groups=collections.Counter()
+ for n,v in c.items():
+  f=nodes[n]['callFrame'];groups[(f.get('functionName'),f.get('lineNumber'))]+=v
+ return [{'name':k[0],'line':k[1],'samples':v} for k,v in groups.most_common(40)]
+r={'inputSamples':total,'self':compact(own),'inclusive':compact(inc)};pathlib.Path('/tmp/4421-profile-analysis.json').write_text(json.dumps(r,indent=2));print(json.dumps(r,indent=2))

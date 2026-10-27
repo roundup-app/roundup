@@ -1,0 +1,21 @@
+{
+  "revision": "b8c34622396d7592f7623304703d017dfb0b7124",
+  "host": "runnervmtai0g",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "browser": {
+    "cpu": 4,
+    "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "Diagnostic plain native input and DOM options; isolated Switcher with real connected Project, draft storage, Combobox and styles",
+  "warmups": 20,
+  "measured": 200,
+  "seed": "alternating alpha/beta suffix, zero-padded sequential row ids",
+  "interval": "trusted input EventTiming start to presentation of committed filtered results",
+  "sources": {
+    "/tmp/roundup-4421/apps/desktop/budgets/evidence/z3788d-40533566740/calibration-clean/calibration.html.txt": "6d64129311e1dd3ec786d1c5d4b95a7ead46e8f4593d1fddd3940f9fd3dcd1e5"
+  }
+}

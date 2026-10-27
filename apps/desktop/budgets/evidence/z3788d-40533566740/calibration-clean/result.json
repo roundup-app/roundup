@@ -1,0 +1,28 @@
+{
+  "exit": 1,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 8.78,
+      "p95Ms": 16.217,
+      "minMs": 1.546,
+      "maxMs": 17.367,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 0.206,
+      "UpdateLayoutTreeP95Ms": 0.034,
+      "LayoutP95Ms": 0.095,
+      "PrePaintP95Ms": 0.072,
+      "PaintP95Ms": 0.156,
+      "fullTraceSha256": "074b3db94816d40ddea315983afa2a4ad9feb59aac34d121bfbe8ff8221d1d7e"
+    }
+  ],
+  "failures": [],
+  "selectionFailures": [],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false,
+  "diagnosticOnly": true,
+  "purpose": "plain native input and direct DOM rows; not Switcher acceptance"
+}
