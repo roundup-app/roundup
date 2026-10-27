@@ -145,6 +145,30 @@
       "ffmpeg absent; installed for final videos",
       "A manual observer file was removed before its worker imported it; rerun completed",
       "First head multi-seed screenshots were light; final dark observations overwrite them"
-    ]
+    ],
+    "bubbles": "268 tests pass across all 18 existing Bubble TSX suites; no tests added, edited or retired",
+    "attention": "Fresh U166 and A3564a real-Daemon observers pass (2 tests), without retry",
+    "reporting": "Fresh L107 reporting observer passes (1 test); original broad capture failure retained above"
+  },
+  "failuresVisible": {
+    "real": "real-dom-shell-failure.png and real-dom-shell-failure-return.png: native clipboard unavailable after OSC 52, images and text visible",
+    "denseSeed": "tree-40-shell-clipboard-failure.png: clipboard write rejects, originating Bubble shows its failure beside retained image and output",
+    "checks": {
+      "real-dom-shell-failure-return.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "real-dom-shell-failure.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "tree-40-shell-clipboard-failure.checks.json": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    }
   }
 }
