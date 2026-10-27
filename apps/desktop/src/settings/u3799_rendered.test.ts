@@ -88,7 +88,13 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await command("view:workstreams");
           await lane.browser("click", `.rail-row[data-id="${agent}"]`);
           await lane.until(`document.querySelector('.rail-row[data-id="${agent}"]')?.dataset.selected === 'true'`);
-          if (seed === "tree-40") await lane.evaluate("window.__fake.setStatus('agent-1','working','building')");
+          await lane.evaluate(`(async () => {
+            const nodes = await window.__fake.app.rpc('rail.tree', null);
+            for (const node of nodes) if (node.id === ${JSON.stringify(agent)}) node.status.kind = 'working';
+            window.__fake.app.handlers['rail.tree'] = () => nodes;
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+            return true;
+          })()`);
         }
 
         if (filled && view === "ask-history") await lane.evaluate(`window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'audit',at:'1',text:'Audit',parts:[{text:'Long authored request '.repeat(20),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
@@ -105,7 +111,10 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tabs')" : `!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
+        if (view === "ask-history") await lane.until("document.querySelector('.ask-rows')?.getAttribute('aria-busy') === 'false'");
+        if (view === "made") await lane.until("document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
         if (filled && view === "made") await lane.until("!!document.querySelector('.made-row')");
+        if (view === "resources") await lane.until(`document.querySelector('.resource-inspection')?.getAttribute('aria-busy') === 'false' && window.__fake.app.calls.some(call => call.method === 'project.resources')${filled ? " && document.querySelectorAll('.resource-value').length === 3" : ""}`);
 
         if (filled && view === "import-work") {
           await lane.until("document.querySelectorAll('.import-check').length === 3");
