@@ -347,7 +347,12 @@ describe("u3010g the frame recorder drives every workload", () => {
     const log: [number, string][] = [];
     const controls = layers(log);
 
-    controls.settled = async (_panel, action) => { await action(); return false; };
+    controls.settled = async (_panel, action) => {
+      await action();
+
+      return false;
+    };
+
     expect(await layersCycle(controls, () => true)(index)).toBe(false);
     expect(log.map(([, action]) => action)).toEqual([index === 0 ? "openDrawer" : "toggleShelf"]);
   });
