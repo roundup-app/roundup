@@ -1,4 +1,4 @@
-import { render } from "@solidjs/testing-library";
+import { render, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -71,6 +71,14 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
         </div>
       </ConnectedProjectContext.Provider>
     );
+  });
+
+  // Output emitted by a test before selectOutput attaches would be lost by the fake transport.
+  await waitFor(() => {
+    const bubbles = [...document.querySelectorAll<HTMLElement>(".bubble")];
+
+    if (!document.querySelector(".terminal-tabs") || bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
+      && !app.outputSubscriptions.some(subscription => subscription.id === bubble.dataset.bubble))) throw new Error("Terminal output subscriptions not attached");
   });
 
   return { app, connected, emulators, setExit, recover, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
