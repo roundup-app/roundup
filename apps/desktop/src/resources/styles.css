@@ -98,6 +98,11 @@
   display: none;
 }
 
+.hint-frame {
+  flex: none;
+  height: var(--hint-row-height);
+}
+
 .hint-line {
   grid-column: 1 / -1;
   grid-row: 1;
@@ -105,7 +110,6 @@
   column-gap: var(--space-4);
   box-sizing: border-box;
   flex: none;
-  background-color: var(--sunken);
   height: var(--hint-row-height);
   inline-size: 0;
   min-inline-size: 100%;
