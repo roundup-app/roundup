@@ -251,10 +251,30 @@ export const Rail = () => {
       return;
     }
 
+    const collection = selection.collection();
+    const navigation = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(id)
+      : event.key === "ArrowDown" ? collection.getNextValue(id) : undefined;
+
+    if (!event.metaKey && navigation !== undefined) {
+      event.preventDefault(); event.stopPropagation();
+
+      if (navigation !== null) focusRow(navigation);
+
+      return;
+    }
+
     if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
     const match = selection.search(event);
 
-    if (match === null) return;
+    if (match === null) {
+      if (!event.metaKey && event.key.length === 1 && event.key !== " ") {
+        event.preventDefault(); event.stopPropagation();
+      }
+
+      return;
+    }
     event.preventDefault(); event.stopPropagation();
     selection.selection.replace(match); anchor = match; focusRow(match);
   };

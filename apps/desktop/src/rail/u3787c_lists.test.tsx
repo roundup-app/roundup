@@ -136,3 +136,16 @@ it("u3787c_ranges_have_no_implicit_anchor_and_skip_folded_rows", async () => {
   fireEvent.keyDown(rowOf("Gamma"), { key: "a", metaKey: true });
   expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma", "Delta", "End"]);
 });
+
+it.each(kinds)("u3787c_navigation_and_selection_skip_ineligible_rows_%#", async make => {
+  await mountRail(["Alpha", "Hidden", "Disabled", "Beta"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
+  rowOf("Hidden").hidden = true;
+  rowOf("Disabled").setAttribute("aria-disabled", "true");
+  rowOf("Alpha").focus();
+  fireEvent.keyDown(rowOf("Alpha"), { key: "H" });
+  expect(document.activeElement).toBe(rowOf("Alpha"));
+  fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowDown" });
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("Beta")));
+  fireEvent.keyDown(rowOf("Beta"), { key: "a", metaKey: true });
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Alpha", "Beta"]);
+});
