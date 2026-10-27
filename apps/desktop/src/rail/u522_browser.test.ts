@@ -1,13 +1,27 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
-import { expect, it } from "vitest";
-import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { chromePath, openPage, type ChromePage } from "../testing/chromePage";
+
+let page: ChromePage;
+
+beforeAll(async () => {
+  const found = chromePath();
+
+  if (!found) throw new Error("U522 needs Chromium");
+  page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await page?.close(); });
+
+const read = <T,>(expression: string) => page.call<T>(`() => (${expression})`);
+
+const wait = (expression: string) => page.until(`() => (${expression})`);
 
 const load = async () => {
-  await browser("set", "viewport", captureDir("U522") ? "1512" : "1280", captureDir("U522") ? "950" : "800");
-  await browser("set", "media", captureDir("U522") ? "dark" : "light");
-  await browser("open", url("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40"));
+  await page.scheme(captureDir("U522") ? "dark" : "light");
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", captureDir("U522") ? 1512 : 1280, captureDir("U522") ? 950 : 800);
   await wait(`document.querySelector('[data-id="tokens"]') && window.__fake`);
 };
 
@@ -17,9 +31,15 @@ const box = (id: string) => read<{ x: number; y: number; top: number; bottom: nu
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
-const mouse = (action: string, x?: number, y?: number) => browser("mouse", action, ...(x === undefined ? [] : [String(Math.round(x)), String(Math.round(y!))]));
+let pointer = { x: 0, y: 0 };
 
-/** Presses `id`'s row, then moves the pointer to the gap `depth` indents right of the row's left edge, `below` the bottom of `to`. */
+const mouse = (action: "move" | "down" | "up", x = pointer.x, y = pointer.y) => {
+  pointer = { x: Math.round(x), y: Math.round(y) };
+
+  return page.pointer(action, pointer.x, pointer.y);
+};
+
+/** Presses `id`'s row, then moves below `to`, offset `shift` pixels from the press. */
 const dragBelow = async (id: string, to: string, shift = 0) => {
   const from = await box(id);
   const target = await box(to);
@@ -46,7 +66,7 @@ it("u522_cancel_calls_nothing", async () => {
   await load();
   const before = await order();
   await dragBelow("tokens", "logins");
-  await browser("press", "Escape");
+  await page.press("Escape", "Escape");
   await mouse("up");
   await wait(`!document.querySelector('[data-dnd-placeholder]')`);
   expect(await moves()).toEqual([]);
@@ -71,7 +91,7 @@ it("u522_conflict_restores_the_row", async () => {
 
   if (dir) {
     mkdirSync(dir, { recursive: true });
-    await browser("screenshot", join(dir, "conflict.png"));
+    writeFileSync(join(dir, "conflict.png"), Buffer.from(await page.shot(), "base64"));
     writeFileSync(join(dir, "conflict.checks.json"), JSON.stringify(await read("window.__checks()")));
   }
 }, 90_000);
@@ -86,19 +106,19 @@ it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
   await mouse("move", from.x + 6, from.y + 6);
   await mouse("move", edge.x, edge.y);
   await wait(`document.querySelector('.rail-scroll').scrollTop > 100`);
-  await browser("press", "Escape");
+  await page.press("Escape", "Escape");
   await mouse("up");
   expect(await moves()).toEqual([]);
 }, 90_000);
 
 it("u522_keyboard_move", async () => {
   await load();
-  await browser("focus", `[data-part="item"][data-id="tokens"]`);
-  await browser("press", "Space");
+  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
+  await page.press(" ", "Space");
   await wait(`document.querySelector('[data-dnd-placeholder]')`);
-  await browser("press", "ArrowDown");
-  await browser("press", "ArrowRight");
-  await browser("press", "Space");
+  await page.press("ArrowDown", "ArrowDown");
+  await page.press("ArrowRight", "ArrowRight");
+  await page.press(" ", "Space");
   await settle(1);
   expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
   await wait(`document.activeElement?.dataset.id === 'tokens'`);
@@ -106,8 +126,8 @@ it("u522_keyboard_move", async () => {
 
 it("u522_enter_still_selects_the_focused_row", async () => {
   await load();
-  await browser("focus", `[data-part="item"][data-id="tokens"]`);
-  await browser("press", "Enter");
+  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
+  await page.press("Enter", "Enter");
   await wait(`document.querySelector('[data-part="item"][data-id="tokens"]').getAttribute('aria-selected') === 'true'`);
   expect(await read<boolean>(`document.querySelector('[data-dnd-placeholder]') === null`)).toBe(true);
   expect(await moves()).toEqual([]);
@@ -129,7 +149,7 @@ it("u522_file_drop_coexists", async () => {
 
 it("u522_a_press_on_a_button_starts_no_drag", async () => {
   await load();
-  await browser("focus", '.rail-row[data-id="backend"]');
+  await read<void>(`document.querySelector('.rail-row[data-id="backend"]').focus()`);
   const chevron = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('[data-id="backend"] .rail-chevron, .rail-chevron').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 
   await mouse("move", chevron.x, chevron.y);
@@ -142,8 +162,8 @@ it("u522_a_press_on_a_button_starts_no_drag", async () => {
 
 it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
   await load();
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
+  await page.resize(1512, 950);
+  await page.scheme("dark");
 
   // backend contains auth, which contains tokens. None is a destination for backend.
   for (const target of ["backend", "auth", "tokens"]) {
@@ -163,4 +183,4 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);
   expect((await order()).indexOf("backend")).toBeGreaterThan(0);
-}, 90_000);
+}, 10_000);
