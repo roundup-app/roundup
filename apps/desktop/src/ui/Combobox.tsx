@@ -58,6 +58,7 @@ const Root = (props: {
   // Z3788d baseline 40507415273: 4,000 destinations spend 21.520 ms p95 in layout alone.
   // Z3788d profile-final: repeated token reads occupy 253/1,083 inclusive input-handler samples.
   const estimatedRowSize = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24;
+
   const virtual = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     get count() { return props.virtualized ? destinations().length : 0; },
     getScrollElement: () => list ?? null,
