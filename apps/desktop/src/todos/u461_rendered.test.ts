@@ -266,8 +266,10 @@ it("u3789a_real_daemon_rows", async () => {
     expect(await evaluate("!!document.querySelector('.bubble:not([hidden])')")).toBe(false);
     await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))");
     await until("document.activeElement?.closest('.pane-screen')");
-    await browser("click", `.rail-row[data-id="${home.id}"] .name`);
-    await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${home.id}'`);
+    await browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
+    await browser("press", "Enter");
+    await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await evaluate("(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
 
     for (const kind of ["todo", "pad"]) {
