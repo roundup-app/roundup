@@ -1,0 +1,1 @@
+{"exit":2,"reports":[],"failures":[{"length":40,"condition":"1: ambiguous input event (0)","exit":2},{"length":400,"condition":"17: ambiguous input event (0)","exit":2},{"length":4000,"condition":"4: ambiguous input event (0)","exit":2}],"selectionFailures":[],"nativeClaim":false,"virtualizationAuthorized":false}

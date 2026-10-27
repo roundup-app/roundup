@@ -1,0 +1,25 @@
+# Z3788d measured continuation
+
+The performance budget remains binding. This run does not close #4401 or parent #3853.
+
+The original production pair's repaired replay is in ../z3788d-40511803272/README.md. Its 660 edits per phase validate exact input EventTiming, logical identities, mounted selection, paint/draw and compositor presentation, but remain over budget. Original failed results/verifiers remain. profile-final-analysis.json decodes the retained final V8 diagnostic: repeated token reads account for 253 of 1,083 overlapping inclusive input-handler samples. The candidate reads the Token once per opening and uses two overscan rows.
+
+baseline/ and after/ hold fresh production observations on this run's host, Chromium, fresh isolated profiles and 1512×950 dark viewport. The immutable fixtures and exact runtime sources used for each separate build are retained as text. Seed, 20 warmups, 200 measured alternating edits, interval and environment are unchanged. Both phases use the same production config retained in the previous continuation. Source snapshots, not a later checkout, identify each build. Concurrent local validation consumed CPU during collection; this is not an idle-host or native claim. failed-baseline/ retains the original load failure and its completed 40/400 traces. All collection failures remain, even when a written trace can be replayed independently.
+
+Run each phase's verify.py.txt from the repository root. Exit 2 is invalid/missing evidence, 1 is valid over budget, 0 requires valid complete sub-16-ms results. Input marks bind to their unique native input dispatch/EventTiming processing interval, avoiding DOM timestamp quantization. Exact compositor pairing is unchanged. Every .part-NNN.gz wraps a compressed-stream fragment: decompress each wrapper, concatenate in numeric order, then gzip-decompress the joined stream. archive.py.txt preserves those bytes; reports retain full-trace SHA256.
+
+All 70 Switcher tests pass, including virtual navigation, action identity, content selection, retained query/caret/recovery and zero Terminal writes. No behavior test was removed; the deleted root fixture was an accidentally committed lint-test temporary directory. Six fresh dark tree-40/agents-10/conflict captures, normal and storage-failure, pass every rendered Check including D2/D5/D6. Visible failure text and readings are in visual/; PNG files remain uncommitted under artifacts/ux/Z3788d/fix-40519088221. just capture Z3788d was invoked, its full workspace suite interrupted after the explicit captures completed; no full-suite capture pass is claimed.
+
+The final full production build passes startup.json (433313/437814 gzip bytes), static-output.json (17961421/18000000 bytes) and modules.json (4319 modules, including lazy/WASM inventory). pnpm install and merge-loss pass. Main CI 40507426523 passed mac and mac-clippy; the user reports what they meet on the Mac.
+
+## Result and next engineering step
+
+The fresh baseline collected 660 edits, but only 40 destinations validates presentation (p95 94.385 ms under concurrent validation load). The 400/4000 traces lack the required matching paint/draw for at least one sample and exit 2. The profiler reported "No profiling in progress" after writing the complete 4000 trace; the file and error are both retained. The candidate collected 40/400, then failed loading 4000; it cannot prove the budget. No missing sample, paint or frame is treated as zero latency. The unchanged trace verifier remains strict.
+
+A valid continuation must collect with validation processes stopped, retain the failed runs, and ensure each fixed query action visibly changes the selected result before claiming its presentation. The current alpha-prefix/blank alternation can leave the first visible alpha rows unchanged at larger lengths; inspect actual paint ownership rather than weakening the frame check. Then measure both full lists and the candidate on one host with identical build/browser settings, all 660 samples each, and all three candidate p95 values below 16 ms with no regression over 10%.
+
+Required checks: the broad related run hit real-Daemon build-lock timeouts in u166/u177 and was stopped; the 70 Switcher tests passed independently. just ready's initial web lint failures (spacing and temporary measurement entrypoints) were repaired and the command rerun. Final command results are recorded in validation.json. The complete capture workspace suite was interrupted; explicit six-screen rendered observations passed.
+
+The fresh candidate validates only 40 destinations (p95 59.882 ms under concurrent load). At 400, sample 8 has no matching paint/draw; 4000 has no samples because its initial navigation timed out. Both fresh phase reports exit 2. These results supersede no archived valid observation.
+
+Reports larger than 1 MB are stored losslessly as .json.gz; active verifiers read compressed samples directly and write large timings compressed. Decompress those reports before running an original historical verifier unchanged. Raw Chromium trace bytes are unchanged.

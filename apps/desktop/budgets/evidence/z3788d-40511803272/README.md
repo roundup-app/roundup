@@ -29,3 +29,19 @@ The production fixtures were built using production.config.ts.txt with main's Co
 The three existing Switcher suites passed 70 tests, including selected identity, exact single activation, retained query/caret, actions, content selection and zero Terminal writes. The caret observer now waits for the dialog's acknowledged focus return before reopening; no tests were removed. pnpm install and merge-loss passed. The production entry budget passed at 433301/437814 gzip bytes. Six 1512×950 dark App captures (tree-40, agents-10, conflict, each normal and draft-save failure) pass D2/D5/D6 and retain visible failure text under artifacts/ux/Z3788d/fix-40511803272. Main CI 40507426523 passed mac and mac-clippy; the user reports what they meet on the Mac.
 
 just ready was rerun after repairing accidental fixture files and the compressed fragment text-decoding failure. just capture Z3788d was invoked; its complete workspace suite exceeded the available run time and was stopped, while the explicit rendered captures above completed. No full-suite capture pass is claimed. The remaining engineering work is a clean complete paired observer, all three p95 values below 16 ms without a rule-7 regression, and complete byte/capture verification. These remain under #4401; no product decision is requested.
+
+## Exact trace replay (40519088221)
+
+The production archives now replay without recollection. Each input mark is uniquely enclosed by its native input EventDispatch and EventTiming processing interval on the same process/thread, using microsecond trace clocks rather than quantized DOM timestamps. Exact paint, draw and compositor sequence/presentation checks remain unchanged. Original verifiers and failed results remain beside the repaired reports.
+
+| Destinations | Baseline production p95 ms | Candidate production p95 ms |
+|---|---:|---:|
+| 40 | 19.726 | 19.855 |
+| 400 | 32.826 | 16.237 |
+| 4,000 | 291.883 | 17.351 |
+
+Both phases validate all 660 samples and selection/focus/zero-write observations; both exit 1, valid over budget. No native or rule-7 pass is claimed. The original final diagnostic is decoded in `../z3788d-40519088221/profile-final-analysis.json`: of 1,083 inclusive input-handler samples, 253 include estimateSize and 137 getPropertyValue, with 169 under matching including the logical observer's own ranking. These are overlapping diagnostic counts, not latency intervals.
+
+Reports larger than 1 MB are stored losslessly as .json.gz; active verifiers read compressed samples directly and write large timings compressed. Decompress those reports before running an original historical verifier unchanged. Raw Chromium trace bytes are unchanged.
+
+The 4000-timings.json.gz report uses wrapped .part-NNN.gz fragments too: decompress each wrapper and concatenate to recover its original gzip stream.
