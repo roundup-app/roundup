@@ -40,6 +40,8 @@ it("u3787c_switcher_keyboard_entry_selection_and_native_query_in_the_mounted_App
     await browser("set", "media", "dark");
 
     for (const seed of ["tree-40", "tabs-8", "conflict"]) {
+      // Seeds share an origin and Project path; begin each mounted observation with fresh drafts.
+      await read("localStorage.clear()");
       await browser("open", new URL(`/harness.html?seed=${seed}`, origin).href);
       await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
 
