@@ -319,3 +319,12 @@ value, disabling changes and changes outside the sample claim no settlement.
 The App keeps its sole live preference source. This readback neither switches the
 OS preference nor proves a halfway crossing, action sequence, native timing or
 settled idle. Keep the variant unqualified until those separate obligations hold.
+
+Isolated dark Chromium at 1512×950 observed all ten fixture arcs moving, then
+emulated the live reduced-motion source shared by a freshly mounted App and the
+recorder. The change retained ten raw matrices at 27.675 degrees; its post-update
+readback recorded settlement and no running arcs. D2/D5/D6 passed before and after.
+This switch was **not halfway**. It qualifies the shared-source snapshot/readback
+path only. The fake App supplied no qualified native stream, scheduling sample or
+settled idle. Raw readings and screenshots remain under
+`artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.
