@@ -437,6 +437,7 @@ it.each(["gap", "refused", "unavailable"])("z3788a_catch_up_%s_preserves_snapsho
 
     return snapshotOf("authoritative screen", 14);
   };
+
   app.handlers["terminal.catchUp"] = ({ id, incarnation }) => {
     if (result !== "gap") throw new Error("original Terminal unavailable");
 

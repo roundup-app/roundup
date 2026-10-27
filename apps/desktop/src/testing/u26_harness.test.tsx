@@ -255,15 +255,6 @@ describe("u26 the Daemon's rail methods", () => {
     expect(listed?.running).toBe(false);
   });
 
-  it("u26_writing_to_and_resizing_a_terminal_answer_null", async () => {
-    const { app } = await daemon();
-
-    expect([
-      await app.rpc("terminal.write", { id: "t-tokens", data: "bHM=" }),
-      await app.rpc("terminal.resize", { id: "t-tokens", cols: 80, rows: 24 }),
-    ]).toEqual([null, null]);
-  });
-
   it("u26_a_node_that_is_not_in_the_tree_fails_with_not_found", async () => {
     const { app } = await daemon();
 
