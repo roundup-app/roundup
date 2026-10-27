@@ -163,4 +163,4 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);
   expect((await order()).indexOf("backend")).toBeGreaterThan(0);
-}, 90_000);
+}, 10_000);
