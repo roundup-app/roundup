@@ -404,11 +404,6 @@
 {"file":"apps/desktop/src/reactions/nr9_reactions.test.tsx","test":"p3557c_failure_lifetime_reactions_list_%s","identity":"593f1a5d5fdd43aa17cbc93a7a45cee66985ba3faa0aba407299044b58a59444"}
 {"file":"apps/desktop/src/resize/u389_resize.test.tsx","test":"u390 the Shelf's width is the user's > u390_closed_has_no_edge","identity":"4df631818835327746ed92ea0f55f2eb0596343903beb2b52622f8cc94f7b491"}
 {"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3800_close_returns_the_center_and_focus","identity":"244b23827313f5b04517e69ebb0f3489fafaaccd2416abfa57cc26411865c007"}
-{"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages","identity":"28b8826ce4c44ef1c22ad793412ce51817aee2dfc3c389b09f0380846e5046ed"}
-{"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages","identity":"c82df24e03240fcef486cf1037dea1cf80521b77870034fe8cb2ea3763639f1c"}
-{"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3814_switching_settings_pages_keeps_the_original_return_destination","identity":"0206fa230e7b21a97849a97fa0b71c934b16ad37f9e653d013e2d75d8be9c0e8"}
-{"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3814_switching_settings_pages_keeps_the_original_return_destination","identity":"f81a8c5d8aa6ab19c3f47fbe07109b423f3dc0c4fe7d04df50c66a53d450cb4c"}
-{"file":"apps/desktop/src/settings/u3799_app_settings.test.tsx","test":"u3814_switching_settings_pages_keeps_the_original_return_destination","identity":"73655265d1200c06814fe84c1ada284e96a33c533dfa95c87e7fb801180600c4"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"85ab15b551b2ab7e4896718f825f66be740e55b3d3f87b890f25b79ddaa5b8d2"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"867c09b7869223d7825e13b327a36098630100eedabe32959bbda83e1917ad84"}
 {"file":"apps/desktop/src/shelf/u371_reserved_checks_light.test.ts","test":"u371_failure_text_stays_visible","identity":"e812eac5eebe760ecca64b82c98c15e896726537997de1da86a0a2280dbf99a1"}
@@ -450,11 +445,6 @@
 {"file":"apps/desktop/src/terminal/p3557c_failure_lifetime_screens.test.tsx","test":"p3557c_failure_lifetime_screens_%s","identity":"7d7f837cf538ad5a9568afef10e23a351b688f6a101a7200876d94a55fb259e9"}
 {"file":"apps/desktop/src/terminal/u12_typing.test.tsx","test":"u12 typing > u12_a_failed_write_shows_its_message","identity":"4b33efa986dfa5805e6a43b8bde9ae8405ae59d46d8a0adbd33616acc8aeaf1b"}
 {"file":"apps/desktop/src/terminal/u162_file_drop.test.tsx","test":"u162 drop files on a pane > u162_a_failed_write_shows_its_message","identity":"b82d3922e0cf2d1b5e4b6511b22a271d3a12081e74a23609e4403ca02262ac35"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016d_stale_reads_keep_original_identity_and_retry","identity":"cfdfc968d53215b4fcfb406701a15de27b2ab743d026016e982c6f3ad27ff247"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016d_stale_reads_keep_original_identity_and_retry","identity":"c4125487304f8150d8f0ab7e1610e4aa5bb3e8269ac12ed8305d3cf3c2b62e0a"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016g_dashboard_reads_in_the_ordered_layout","identity":"475546c92c8f0c18143af474f47e3fc4cd47daf36035133b555e5b0cdc21b6da"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016g_dashboard_reads_in_the_ordered_layout","identity":"107efc5b4a39eb2c6ad451f26dc9670abd0eb0e8d04728b16d3d22ec95c50226"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016g_dashboard_reads_in_the_ordered_layout","identity":"9c3f6964bf3cba12c7ea7d8a0f514bfc9085d8544cb977e6060aac153460aab9"}
 {"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016g_a_summary_of_two_agents_renders_one_mark_per_nonzero_category_and_no_cost","identity":"51ad49f454ebff42f4d4b6e25359087a4c6c49d5e640690b5d3737130ad2053d"}
 {"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016j_state_changes_never_add_or_remove_content_above_the_chart","identity":"4289ad1eab880024fb2652b0b6532da5965a5408ca36d870631a3144fd87cdbd"}
 {"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016j_one_failed_read_then_success_shows_no_message","identity":"7475f3d725ab9efee68591ea41573d9417873bc850844157b74c86bd2853ccc0"}
