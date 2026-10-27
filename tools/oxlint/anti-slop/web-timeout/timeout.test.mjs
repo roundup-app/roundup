@@ -38,7 +38,6 @@ const cases = [
   ["unresolved configuration key", 'defineConfig({ test: { [externalKey]: 90_000 } });', 1, "unresolved"],
   ["configuration spread", 'defineConfig({ test: { ...externalOptions } });', 1, "unresolved"],
   ["root configuration spread", 'defineConfig({ ...externalOptions });', 1, "unresolved"],
-  ["configuration object alias", 'const options = { testTimeout: 60_001 }; defineConfig({ test: options });', 1, "60001"],
   ["mutated configuration alias", 'const options = { testTimeout: 60_000 }; options.testTimeout++; defineConfig({ test: options });', 1, "unresolved"],
   ["configuration spread overrides default", 'defineConfig({ test: { testTimeout: 60_000, ...externalOptions } });', 1, "unresolved"],
   ["configuration default overrides spread", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000 } });', 0],
