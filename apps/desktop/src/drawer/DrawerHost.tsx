@@ -97,15 +97,6 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
       ref={setPanel}
-      onPointerDown={(event) => {
-        if (!isOpen() || event.button !== 0 || event.target !== event.currentTarget) return;
-        const host = event.currentTarget;
-        const edge = event.clientX - host.getBoundingClientRect().left;
-
-        if (edge < 0 || edge >= parseFloat(getComputedStyle(host).getPropertyValue("--space-2"))) return;
-        event.preventDefault();
-        props.drawer.close("pointer");
-      }}
       style={{
         position: "absolute",
         top: "0",
