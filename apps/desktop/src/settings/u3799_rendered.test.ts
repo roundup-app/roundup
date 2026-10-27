@@ -54,13 +54,16 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
+
         if (seed === "tabs-8") {
           await lane.until("document.querySelectorAll('.project-tab').length === 8");
           await lane.browser("focus", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
           await lane.browser("press", "Enter");
           await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-input')");
         }
+
         await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; return true;})`);
+
         if (seed === "tabs-8" && !filled && view !== "resources") {
           await lane.evaluate(`(() => {
             window.__fake.app.handlers['rail.tree'] = () => [];
@@ -71,10 +74,12 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           })()`);
           await lane.until("document.querySelectorAll('.rail-row').length === 0 && !document.querySelector('.terminal-tabs')");
         }
+
         if (seed === "tabs-8" && filled && view === "workstreams") {
           await lane.evaluate("window.__fake.app.rpc('rail.createWorkstream', {name:'Distinct long Workstream 長い名前 '.repeat(12),parent:null})");
           await lane.until("[...document.querySelectorAll('.rail-row')].some(row => row.textContent.includes('Distinct long Workstream'))");
         }
+
         await lane.evaluate(`(() => {
           const app = window.__fake.app;
           app.handlers['ask.list'] = () => [];
@@ -112,8 +117,11 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
         if (view === "ask-history") await lane.until("document.querySelector('.ask-rows')?.getAttribute('aria-busy') === 'false'");
+
         if (view === "made") await lane.until("document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
+
         if (filled && view === "made") await lane.until("!!document.querySelector('.made-row')");
+
         if (view === "resources") await lane.until(`document.querySelector('.resource-inspection')?.getAttribute('aria-busy') === 'false' && window.__fake.app.calls.some(call => call.method === 'project.resources')${filled ? " && document.querySelectorAll('.resource-value').length === 3" : ""}`);
 
         if (filled && view === "import-work") {
