@@ -1,0 +1,28 @@
+{
+  "pnpmInstall": 0,
+  "focusedBehaviorTests": {
+    "files": 3,
+    "tests": 70,
+    "exit": 0
+  },
+  "mountedBrowserTest": "running at evidence snapshot; no pass claimed",
+  "justReady": "running; web lints passed, Rust clippy compiling at snapshot",
+  "relatedTests": "running; real-Daemon test retry and worker shutdown timeout observed; no clean pass",
+  "justCapture": {
+    "exit": 124,
+    "condition": "bounded 30-second attempt ended; six explicit fresh captures pass"
+  },
+  "productionBuild": 0,
+  "startupGzipBytes": 433715,
+  "startupCeiling": 437814,
+  "mergeLoss": 0,
+  "candidatePresentationObserver": 1,
+  "baselinePresentationObserver": 1,
+  "calibrationDiagnostic": 1,
+  "nativeCI": {
+    "run": 40531762446,
+    "mac": "success",
+    "mac-clippy": "success"
+  },
+  "nativeClaim": false
+}
