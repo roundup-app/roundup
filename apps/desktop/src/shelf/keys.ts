@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
 import { chordsFor } from "../keys/chords";
@@ -7,7 +8,7 @@ import type { ShelfFrame } from "./frame";
 
 export const shelfKeyScope: KeyScope = { kind: "region", element: () => document.querySelector<HTMLElement>(".shelf") ?? undefined };
 
-const canShelfKey = (event: KeyboardEvent) => !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+const canShelfKey = (event: KeyboardEvent) => !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
   && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .drawer, [role=dialog], [role=alertdialog]")
   && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]');
 
