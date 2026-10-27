@@ -11,6 +11,9 @@
 }
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]),
 .app-dialog-form textarea,
+.import-prompt,
+.note-form input,
+.note-form textarea,
 .app-combobox-input,
 .app-select-trigger {
   box-sizing: border-box;
@@ -56,6 +59,9 @@
 
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):focus-visible,
 .app-dialog-form textarea:focus-visible,
+.import-prompt:focus-visible,
+.note-form input:focus-visible,
+.note-form textarea:focus-visible,
 .app-select-trigger:focus-visible,
 .app-combobox-input:focus-visible,
 .app-checkbox:has(input:focus-visible) .app-checkbox-box,

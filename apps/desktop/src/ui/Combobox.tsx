@@ -128,7 +128,7 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
   return <div class="app-select"><span id={caption} class="app-select-label">{props.label}</span><Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger disabled={field?.().disabled} data-invalid={field?.().invalid ? "" : undefined} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
+    <Popover.Trigger id={field?.().ids.control} disabled={field?.().disabled} aria-invalid={field?.().invalid ? "true" : undefined} aria-describedby={field?.().ariaDescribedby} data-invalid={field?.().invalid ? "" : undefined} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>
       <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
     </Popover.Trigger>

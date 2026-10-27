@@ -20,7 +20,7 @@ it("u4382a_disabled_invalid_and_indeterminate_semantics", async () => {
   const name = screen.getByRole<HTMLInputElement>("textbox", { name: "Name" });
   expect(name.getAttribute("aria-invalid")).toBe("true");
   const error = document.getElementById(name.getAttribute("aria-describedby")!);
-  expect(error?.textContent).toBe("Choose a name");
+  expect(error).toBe(screen.getByText("Choose a name"));
   fireEvent.input(name, { target: { value: "Repaired" } });
   expect(name.value).toBe("Repaired");
 });
