@@ -6,7 +6,7 @@
   "cpu": "model name\t: AMD EPYC 9V74 80-Core Processor",
   "browserExecutable": "/opt/google/chrome/chrome",
   "browserSha256": "9bfb381296dffe75f3419d07b6cc64525105ed117d1453a4ef3b291cb97d2b58",
-  "sourceRevision": "b1ba3be42",
+  "sourceRevision": "b1ba3be42b6bb3b5d1fd51af79cf2b631e5dfd63",
   "baselineRevision": "c9c69c69f6ff685dc81cd579b806abb45306a64e",
   "pauseCondition": "Owned validation processes stopped during repeated 4000 baseline and final candidate; resumed after collection; no validation CPU work overlapped those samples."
 }

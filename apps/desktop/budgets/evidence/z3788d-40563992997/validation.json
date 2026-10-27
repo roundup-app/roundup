@@ -1,0 +1,38 @@
+{
+  "snapshotUtc": "2026-10-27T19:21:50.681379+00:00",
+  "pnpmInstall": 0,
+  "focused": {
+    "exit": 0,
+    "tests": 63
+  },
+  "allSwitcher": {
+    "exit": 0,
+    "tests": 72
+  },
+  "beforePresentation": 1,
+  "afterPresentation": 1,
+  "allPresentationSamplesValid": true,
+  "finalRuntimeMeasured": true,
+  "nativeClaim": false,
+  "captures": {
+    "directScreens": 6,
+    "allChecksPass": true,
+    "fullCommand": 124
+  },
+  "startup": {
+    "exit": 0,
+    "gzip": 433969,
+    "ceiling": 437814
+  },
+  "distribution": {
+    "exit": 0,
+    "bytes": 17963740,
+    "ceilingExclusive": 18000000
+  },
+  "moduleInventory": "No valid pass; original failed invocations retained.",
+  "justReady": "Still running Rust checks at snapshot; no complete pass claimed.",
+  "relatedTests": "Still running broad App-dependent suite at snapshot; no complete pass claimed.",
+  "mergeLoss": 0,
+  "vocabulary": 0,
+  "boundaries": "Initial evidence-text diagnostics corrected; retry log retained."
+}
