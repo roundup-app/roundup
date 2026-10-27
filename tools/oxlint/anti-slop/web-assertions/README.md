@@ -25,7 +25,7 @@ There is no command that updates or expands the baseline during lint.
 
 An identity pins exact assertion source, dependency source, enclosing registration
 or helper source, and its AST path. Identical assertions are distinct, without a
-line-number or count exemption. An edit to an enclosing registration invalidates
+line-number or count exemption. A test's numeric or `timeout:` argument is left out of the pinned registration source, so a timeout repair keeps its legacy entries. Any other edit to an enclosing registration invalidates
 its legacy exceptions: remove its forbidden assertions and their entries rather
 than re-keying them. Deleting a file, test or assertion requires removing its
 entries. Adding a second identical assertion cannot reuse the original's entry.
@@ -88,3 +88,7 @@ exact manifest reads and the merge-base comparison.
   and types 7.29.8 for expressions Oxlint sees only as strings. Maintenance:
   [8.0.9, October 23](https://github.com/babel/babel/releases/tag/v8.0.9).
   Python reuses its built-in AST.
+
+## Timeout re-key
+
+`rekey.jsonl` maps 59 baseline entries from the identity that included the timeout argument to the current one. The head's entry count cannot exceed the merge base's, and a new key passes the subset check only through a row whose `from` key the base holds (once). It adds no assertion; once the new keys are on `main` the rows are inert.
