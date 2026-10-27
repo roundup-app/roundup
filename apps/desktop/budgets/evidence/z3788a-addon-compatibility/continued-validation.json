@@ -17,5 +17,26 @@
   },
   "probeSha256": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
   "browserClosed": true,
-  "ownedServerStopped": true
+  "ownedServerStopped": true,
+  "mergedMain": "eb7397cfb921315bc33b37eb4cf69b773bd5257a",
+  "validatedHead": "e488fa4a5b608c695e7ffa931e674df9c7cdb92c",
+  "gates": {
+    "just ready": 0,
+    "loop/rules.sh merge-loss": 0,
+    "loop/rules.sh vocab": 0,
+    "git diff --check": 0,
+    "App source equals origin/main": true
+  },
+  "repairedVerificationAttempts": [
+    {
+      "command": "just ready",
+      "exit": 1,
+      "cause": "Escaped Unicode in the new result left a word fragment for the spelling checker; retain readable Unicode."
+    },
+    {
+      "command": "just ready after main merge",
+      "exit": 1,
+      "cause": "Interrupted lint left a temporary test fixture; removed the run-owned fixture before the complete passing rerun."
+    }
+  ]
 }
