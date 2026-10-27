@@ -10,10 +10,10 @@ import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
-export const mountNavigation = async (empty = false) => {
+export const mountNavigation = async (empty = false, projectCount = 7) => {
   const app = createFakeApp();
 
-  for (let n = 0; n < 7; n++) app.add(`/project${n}`);
+  for (let n = 0; n < projectCount; n++) app.add(`/project${n}`);
   app.add("/p");
   const daemon = app.of("/p");
   const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: 12 }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
