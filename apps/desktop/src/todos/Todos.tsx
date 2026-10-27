@@ -31,7 +31,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { useConnectedProject } from "../state/connectedProject";
+import { useConnectedProject, useCreation } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
@@ -417,7 +417,7 @@ export const Todos = (props: {
 
   const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
   const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
-  const creationRecipient = () => creationHome();
+  const creationRecipient = creationHome;
   const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
 
   createEffect(() => {
@@ -493,15 +493,17 @@ export const Todos = (props: {
     }
   };
 
-  const openField = () => {
+  const openField = (home = selectedWorkstream(), owner = scope.agent()?.id ?? null) => {
     setCreateFailure(null);
 
-    if (typing()) { document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
+    if (typing()) {
+      document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
 
- return; }
+      return;
+    }
 
-    setCreationHome(selectedWorkstream());
-    setCreationOwner(scope.agent()?.id ?? null);
+    setCreationHome(home);
+    setCreationOwner(owner);
     const draft = creation();
     const saved = v.safeParse(creationSchema, draft?.value);
 
@@ -517,9 +519,14 @@ export const Todos = (props: {
     setTyping(true);
   };
 
+  useCreation("todo", home => {
+    setTyping(false);
+    setCreationRevision(null);
+    openField(home, null);
+  });
   registerKeys(shelfKeyScope, [{ chords: ["n"],
     when: event => !event.repeat && !event.isComposing && event.target instanceof Element && section?.contains(event.target) === true && !event.target.closest(TEXT_FIELDS),
-    run: openField,
+    run: () => openField(),
   }]);
 
   const field = () => (
@@ -923,9 +930,7 @@ export const Todos = (props: {
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null }, focus });
         } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
-      <Show when={typing()}>
-        {field()}
-      </Show>
+      <Show when={typing() ? creationHome() ?? connected.project.path : null} keyed>{_home => field()}</Show>
       <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
         if (creation()?.revision === revision) setTyping(false);
       }} />

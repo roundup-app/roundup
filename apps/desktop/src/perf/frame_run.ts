@@ -113,29 +113,34 @@ export type Layers = {
   escapeDrawer(): boolean | Promise<boolean>;
   toggleShelf(): boolean | Promise<boolean>;
   keyShelf(): boolean | Promise<boolean>;
-  /** Performs an action and waits for half the actual distance to its destination; missing movement fails. */
+  /** Waits for half-displacement, or records final settlement if the live source reduces movement first. */
   halfway(panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>): Promise<boolean>;
+  /** Reduced motion has final geometry rather than interruptible displacement. */
+  settled(panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>): Promise<boolean>;
 };
 
-/** One Layers cycle: a Drawer cycle, then a Shelf cycle, alternating. Each reverses twice at measured half-displacement, then interrupts by key. */
-export const layersCycle = (layers: Layers) => async (index: number): Promise<boolean> => {
+/** One Layers cycle: a Drawer cycle, then a Shelf cycle, alternating. Normal motion reverses at measured half-displacement; reduced motion observes settlement before the next action. */
+export const layersCycle = (layers: Layers, reduced: Accessor<boolean> = () => false) => async (index: number): Promise<boolean> => {
+  // Read the live source for every segment: a switch can settle the preceding one.
+  const movement = (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>) => reduced() ? layers.settled(panel, action) : layers.halfway(panel, action);
+
   if (index % 2 === 0) {
-    if (!(await layers.halfway("drawer", layers.openDrawer))) return false;
+    if (!(await movement("drawer", layers.openDrawer))) return false;
 
-    if (!(await layers.halfway("drawer", layers.closeDrawer))) return false;
+    if (!(await movement("drawer", layers.closeDrawer))) return false;
 
-    if (!(await layers.halfway("drawer", layers.openDrawer))) return false;
+    if (!(await movement("drawer", layers.openDrawer))) return false;
 
     // Interrupt the reopened movement with a key before it settles.
     return layers.escapeDrawer();
   }
 
   // Start open, reverse twice, then interrupt by key back to open for the next cycle.
-  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
+  if (!(await movement("shelf", layers.toggleShelf))) return false;
 
-  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
+  if (!(await movement("shelf", layers.toggleShelf))) return false;
 
-  if (!(await layers.halfway("shelf", layers.toggleShelf))) return false;
+  if (!(await movement("shelf", layers.toggleShelf))) return false;
 
   return layers.keyShelf();
 };
@@ -188,10 +193,10 @@ const clickAt = (selector: string): boolean => {
   return true;
 };
 
-type LayerStart = { at_ms: number; left: number; width: number; edge: number; opening: boolean };
+type LayerStart = { at_ms: number; left: number; width: number; edge: number; opening: boolean; reduced: boolean };
 
 /** Reads displayed boxes; animation progress/time is not displacement. */
-const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[], activation: () => LayerStart | null): Promise<boolean> => {
+const observeLayerMovement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[], activation: () => LayerStart | null, reduced: Accessor<boolean>, criterion: "halfway" | "reduced-settlement"): Promise<boolean> => {
   const element = document.querySelector<HTMLElement>(`.${panel}`);
   const root = document.querySelector("[data-layout-root]");
 
@@ -201,7 +206,7 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
   const opening = element.dataset.open !== "true";
   const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer";
-  const entry: LayerAction = { panel, source: "trusted-pointer", target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
+  const entry: LayerAction = { panel, source: "trusted-pointer", criterion, reduced: reduced(), target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
   journal.push(entry);
 
@@ -213,6 +218,7 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   const destination = before.opening ? before.edge - before.width : before.edge;
   const distance = destination - before.left;
 
+  entry.reduced = before.reduced;
   entry.at_ms = before.at_ms;
   entry.from = before.left;
   entry.destination = destination;
@@ -247,6 +253,16 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
 
       entry.observed = left;
       entry.samples.push({ at_ms: performance.now(), left });
+
+      // A live switch can settle an in-flight normal segment. Preserve that actual
+      // completion criterion; final geometry never becomes half-displacement evidence.
+      if (reduced()) {
+        entry.criterion = "reduced-settlement";
+
+        return finish(Math.abs(left - destination) < 1);
+      }
+
+      if (criterion === "reduced-settlement") return finish(false);
 
       // A jump to final geometry did not expose an interruptible half-displacement.
       if (progress >= 0.5) return finish(progress < 1 - 1 / Math.abs(distance));
@@ -296,12 +312,12 @@ const observeActivation = (selector: string, source: "pointer" | "hairline" | "k
   });
 };
 
-export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true })): Layers => {
+export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true }), reduced: Accessor<boolean> = () => false): Layers => {
   let pending: LayerAction | null = null;
   let activation: LayerStart | null = null;
 
   const interruptible = () => {
-    if (!pending) return true;
+    if (!pending || reduced()) return true;
     const element = document.querySelector<HTMLElement>(`.${pending.panel}`);
 
     return element !== null && element.isConnected && !element.hidden && Math.abs(element.getBoundingClientRect().left - pending.destination) >= 1;
@@ -320,7 +336,7 @@ export const domLayers = (journal: LayerAction[], listen: Listen = (type, listen
 
       opening = panel === "drawer" ? element.dataset.open !== "true" : root.dataset.shelf !== "open";
       // Capture before propagation: a post-activation task can already see movement.
-      activation = { at_ms: performance.now(), left: box.left, width: box.width, edge: root.getBoundingClientRect().right, opening };
+      activation = { at_ms: performance.now(), left: box.left, width: box.width, edge: root.getBoundingClientRect().right, opening, reduced: reduced() };
 
       return true;
     }, listen, () => panel === "drawer" ? element.dataset.open === String(opening) : root.dataset.shelf === (opening ? "open" : "closed"));
@@ -332,18 +348,32 @@ export const domLayers = (journal: LayerAction[], listen: Listen = (type, listen
 
     if (!element || !root) return false;
     const before = element.getBoundingClientRect();
-    const entry: LayerAction = { panel, source: "trusted-key", target, at_ms: performance.now(), from: before.left, destination: root.getBoundingClientRect().right - (open ? before.width : 0), observed: null, completed: false, samples: [] };
+    const entry: LayerAction = { panel, source: "trusted-key", criterion: "key-settlement", reduced: reduced(), target, at_ms: performance.now(), from: before.left, destination: root.getBoundingClientRect().right - (open ? before.width : 0), observed: null, completed: false, samples: [] };
 
     journal.push(entry);
 
-    if (!(await observeActivation(target, source, interruptible, listen))) return false;
+    if (!(await observeActivation(target, source, () => {
+      entry.reduced = reduced();
+
+      return interruptible();
+    }, listen))) return false;
     entry.at_ms = performance.now();
     entry.observed = element.getBoundingClientRect().left;
-    entry.completed = panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed");
+    entry.completed = (panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed")) && Math.abs(entry.observed - entry.destination) < 1;
 
     if (entry.completed) pending = null;
 
     return entry.completed;
+  };
+
+  const movement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, criterion: "halfway" | "reduced-settlement") => {
+    activation = null;
+    const completed = await observeLayerMovement(panel, action, journal, () => activation, reduced, criterion);
+    const entry = journal.at(-1);
+
+    pending = completed && entry?.criterion === "halfway" ? entry : null;
+
+    return completed;
   };
 
   return {
@@ -352,14 +382,8 @@ export const domLayers = (journal: LayerAction[], listen: Listen = (type, listen
     escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
     toggleShelf: () => pointerAction("shelf", ".shelf-tab[data-selected]", "pointer"),
     keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
-    halfway: async (panel, action) => {
-      activation = null;
-      const completed = await halfDisplacement(panel, action, journal, () => activation);
-
-      if (completed) pending = journal.at(-1) ?? null;
-
-      return completed;
-    },
+    halfway: (panel, action) => movement(panel, action, "halfway"),
+    settled: (panel, action) => movement(panel, action, "reduced-settlement"),
   };
 };
 
@@ -648,7 +672,7 @@ export const domTodos = (app: AppSeam, fixture: Fixture, journal: TodoAction[]):
 }, journal);
 
 /** The workload's setup, then the cycle its actions repeat; an unknown workload is an error, never an empty run. */
-const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], todoJournal: TodoAction[], fixture?: Fixture): Promise<(index: number) => Promise<boolean>> => {
+const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], todoJournal: TodoAction[], reduced: Accessor<boolean>, fixture?: Fixture): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos" || workload === "drag") {
     // Rows to open, complete and reorder; one open Todo always stays.
     const home = fixture?.home ?? await runWorkstream(app);
@@ -674,7 +698,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
     // Native pointer input is supplied by the Mac observer, never by a synthetic event driver.
     if (workload === "drag") return async () => true;
 
-    if (workload === "layers") return layersCycle(domLayers(journal));
+    if (workload === "layers") return layersCycle(domLayers(journal, undefined, reduced), reduced);
 
     return todosCycle(domTodos(app, fixture!, todoJournal));
   }
@@ -732,7 +756,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       await appears(() => workingGlyphs(fixture) >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
     }
 
-    const cycle = await bounded(prepare(app, workload, layerActions, todoActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
+    const cycle = await bounded(prepare(app, workload, layerActions, todoActions, reduced, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
 
     if (fixture) {
       const bubble = input.closest<HTMLElement>(".bubble[data-bubble]");
