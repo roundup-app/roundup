@@ -110,6 +110,7 @@ const newer = async (choice: string) => {
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
       const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
+    await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
     await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
     await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
     await wait(`!!document.querySelector('.drawer[data-open=true]')`);
