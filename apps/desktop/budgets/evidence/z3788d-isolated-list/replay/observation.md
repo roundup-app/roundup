@@ -56,8 +56,22 @@ This read-only replay creates no external resource needing cleanup. `validation.
 
 ## Reuse and remaining work
 
-Continues PR #4312: its corrected compatibility evidence and OSC 52 copy already landed through #4353. This slice extends #4377's existing archived analyzer only, within one evidence module. It changes no App source, dependency, excluded #3742 surface, contract or frozen machinery.
+Continues PR #4312: its corrected compatibility evidence and OSC 52 copy already landed through #4353. The replay extends #4377's existing archived analyzer. The required-gate repair below also changes the Todo selection derivation; no dependency, excluded #3742 surface, contract or frozen machinery changes.
 
 The installed agent-browser 0.27.0 already collected the trusted input and Chromium profiler trace; Python's JSON/gzip/hash libraries read it directly. The existing candidate evidence in `../libraries.json` records agent-browser 0.27.0 (published 2026-05-07; newer maintained releases available) and Playwright 1.64.1 (2026-10-14). [agent-browser](https://github.com/vercel-labs/agent-browser) remains selected: no additional collector is needed. [Playwright Trace Viewer](https://playwright.dev/docs/trace-viewer-intro) does not itself pair these Chromium frame identities to presentation, and replacing collection would lose the same-observer replay. No new automation or UI library, adapter or custom runtime machinery is added or deleted.
 
 The isolated fixture has no Rail DOM, and input dispatch grows with list length, but nested dispatch/style/layout totals alone do not isolate the causal cost of whole-list rendering. Attribute the expensive work before selecting virtualization or filing its measured implementation successor; compare any implementation on that same observer, host and actions. No no-gap decision is available. Z3788a still needs Find/query retention, authoritative serialized scrollback/reload, bounded images, ten-Agent memory, strict entry/static/lazy/WASM bytes and rendered observers. No cancelled prerequisite is needed or restored. The user reports what they meet on the Mac; no user-only decision is pending.
+
+## Required-gate repair (PR #4384)
+
+`check` run 40477290026 failed U362's unchanged 200-Todo failure observer on head `91ff04323811473894490046aa5810fc5764bd8d`: `Input.dispatchKeyEvent` exceeded its 20,000 ms reply bound. A fresh isolated Chromium/profile reproduces it locally (five other cases pass). Changing the setup to the native-menu seam still times out mounting the list; those setup experiments were discarded.
+
+A debugger pause during dense rendering finds `createSelection.selected` reading eligible identities through `ownerGroups`, `ownersOnRail` and `railOrder`. The uncached accessor repeats that full derivation for each row. `Todos.tsx` now passes the same derivation through the already imported Solid `createMemo`, sharing its result until its reactive inputs change. No identity, ordering, visibility or selection rule changes; the retained memo holds only the current derived list.
+
+| Unchanged observer, fresh headless Chromium profile | Result |
+| --- | --- |
+| `vitest run src/testing/u362_todo_drag.test.ts --retry=0` before repair | 5 pass, densest failure case times out at 20,000 ms |
+| Same file after memoization | 6 pass, densest failure case 6,838 ms |
+| Archived replay and four negative probes | Same valid over-budget replay; each invalid archive probe exits 2 |
+
+The observer, fixture, 200-row assertion, drag actions, failure readback and timeout remain unchanged. This is regression evidence, not a native or controlled production performance claim. Solid's installed [createMemo](https://docs.solidjs.com/reference/basic-reactivity/create-memo) supplies dependency tracking and caching directly; no custom cache, selection controller or library adapter is introduced.
