@@ -99,7 +99,7 @@ const FAILURE_KINDS = ["snapshot", "live", "output", "clipboard", "link"] as con
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
 
-  return [state.snapshot, state.live, state.output, state.clipboard, state.link].reduce<FailureEntry | null>(
+  return Object.values(state).reduce<FailureEntry | null>(
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
@@ -311,10 +311,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       const bytes = fromBase64(snapshot.data);
 
-      if (holder.complete) holder.emulator.reset();
+      // An unchanged stream already has its images and scrollback; screen snapshots contain neither.
+      if (!holder.complete || stream.after !== null || shownTo.get(id) !== snapshot.after) {
+        if (holder.complete) holder.emulator.reset();
 
-      holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
-      holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
+        holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
+        holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
+      }
       stream.after = snapshot.after;
       holder.complete = true;
       setFailure(id, "snapshot", null);
@@ -431,7 +434,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (!stream) return;
 
-    if (stream.placed) shownTo.set(id, stream.position);
+    if (stream.placed && stream.after !== null) shownTo.set(id, stream.after);
 
     stream.open = false;
     stream.queue = [];
