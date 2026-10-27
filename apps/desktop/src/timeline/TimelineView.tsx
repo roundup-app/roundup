@@ -2,7 +2,6 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { queueFocus } from "../keys/focus";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
-import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Kind } from "@contracts/Kind";
@@ -30,7 +29,7 @@ const SpanLabel = (props: { kind: Kind }) => {
  * It reads the Project's timeline log, which holds the `agent.status` Events heard since connecting and the Rail's current Statuses; an Agent's time before both is unknown.
  * At most one display clock lives here, and it ends with the view.
  */
-export const TimelineView = (props: { home: string; name: string; back: () => void; clock?: () => number }) => {
+export const TimelineView = (props: { focusOnMount?: boolean; home: string; name: string; back: () => void; clock?: () => number }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const clock = props.clock ?? Date.now;
@@ -114,14 +113,13 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     props.back();
   };
 
-  return <section class="timeline-view" classList={{ "timeline-single": lanes().length === 1 }} ref={(element) => queueFocus(() => element.focus())} role="region" aria-label={copy.timeline} data-window-start={Math.round(axisStart())} data-window-end={Math.round(axisEnd())} data-running={running() ? "" : undefined} tabIndex={-1}
+  return <section class="timeline-view" classList={{ "timeline-single": lanes().length === 1 }} ref={(element) => { if (props.focusOnMount !== false) queueFocus(() => element.focus()); }} role="region" aria-label={copy.timeline} data-window-start={Math.round(axisStart())} data-window-end={Math.round(axisEnd())} data-running={running() ? "" : undefined} tabIndex={-1}
     onKeyDown={(event) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.stopPropagation();
 
       props.back();
     }}>
-    <header class="timeline-header"><h2>{props.name}</h2><ExitButton onClick={props.back} /></header>
     <Show when={lanes().length > 0} fallback={<p class="empty-state timeline-empty">{copy.timelineEmpty}</p>}>
       <div class="timeline-axis"><span /><div class="timeline-axis-ticks"><For each={[30, 20, 10, 0]}>{(minutes) => <span style={{ left: `${(30 - minutes) / 30 * 100}%` }}>{minutes === 0 ? copy.timelineNow : copy.timelineAgo(minutes)}</span>}</For></div></div>
       <div class="timeline-lanes">

@@ -3,6 +3,7 @@ const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submittingâ€
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 export const railDraftCopy = {
+  addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
