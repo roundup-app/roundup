@@ -21,7 +21,8 @@
   cursor: default;
 }
 
-.app-combobox-item[data-highlighted] {
+.app-combobox-item[data-highlighted],
+.app-combobox-item[data-row-selected=true] {
   background-color: var(--sunken);
 }
 
@@ -47,4 +48,17 @@
   box-sizing: border-box;
   width: 100%;
   padding: var(--space-1);
+}
+
+.choice-picker .app-combobox-input {
+  box-sizing: border-box;
+}
+
+/* Content selection shares one ground; the keyboard position changes only its tone. */
+.app-combobox-item[data-collection-value] {
+  border-radius: 0;
+}
+
+.app-combobox-item[data-row-selected=true]:focus {
+  background-color: var(--selected);
 }
