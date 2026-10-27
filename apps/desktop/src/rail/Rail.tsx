@@ -25,7 +25,7 @@ import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
-import { Trunks } from "./Trunks";
+import { Trunks } from "../ui/TreeView";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";

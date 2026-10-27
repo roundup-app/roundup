@@ -91,7 +91,7 @@ export function rowAlignmentCheck(doc: Document) {
     const rail = row.matches(".rail-row, .rail-fold");
 
     const indent = rail ? parseFloat(rowStyle.gridTemplateColumns) - parseFloat(rowStyle.getPropertyValue("--rail-inset"))
-      : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--space-4")) : 0;
+      : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
 
     const inset = name.getBoundingClientRect().left - row.getBoundingClientRect().left - indent;
     const range = doc.createRange();
