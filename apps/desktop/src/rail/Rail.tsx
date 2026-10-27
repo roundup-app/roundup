@@ -572,7 +572,11 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) { rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined) {
+          const focus = captureFocus(true);
+          focus(() => rail.select(id, focus));
+          queueMicrotask(() => rowElement(id)?.focus());
+        }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
