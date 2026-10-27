@@ -73,7 +73,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       app.handlers["daemon.ping"] = () => { throw new Error("Close refused\nTry again"); };
 
       fireEvent.contextMenu(tab("2"), { clientX: 10, clientY: 10 });
-      await app.pickMenu("Copy Link");
+      await app.pickMenu("Copy link");
       await screen.findByRole("alert", { name: refusal });
     }
 
