@@ -15,7 +15,7 @@ it("u3010c_native_copy_waits_for_dismissal_and_acknowledgement_on_its_row", () =
 
   fireEvent.contextMenu(chosen);
   expect(acknowledge).toBeUndefined();
-  await app.pickMenu("Copy Link");
+  await app.pickMenu("Copy link");
   expect(acknowledge).toBeTypeOf("function");
   expect(within(chosen).queryByText(copy.copied)).toBeNull();
   acknowledge!();

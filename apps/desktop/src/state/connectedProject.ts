@@ -3,7 +3,7 @@ import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
-import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
+import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, untrack, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
@@ -142,6 +142,9 @@ export type ConnectedProject = {
   /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
   timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
+  creation: Accessor<{ kind: "todo" | "pad" | "terminal"; home: string } | null>;
+  createIn: (kind: "todo" | "pad" | "terminal", home: string) => void;
+  finishCreation: () => void;
   view: Accessor<string | null>;
   hasView: (view: string) => boolean;
   hideView: (view: string) => void;
@@ -265,6 +268,10 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
+  const [creation, setCreation] = createSignal<{ kind: "todo" | "pad" | "terminal"; home: string } | null>(null);
+  const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
+  const finishCreation = () => setCreation(null);
+
   const [views, setViews] = createSignal<readonly string[]>([]);
   const view = () => views().at(-1) ?? null;
   const hasView = (name: string) => views().includes(name);
@@ -272,7 +279,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
@@ -288,4 +295,18 @@ export const useConnectedProject = (): ConnectedProject => {
   if (!connected) throw new Error("no open Project: a region read the ConnectedProject outside one");
 
   return connected;
+};
+
+/** Consume only the creation requested for this surface, retaining its captured Home. */
+export const useCreation = (kind: "todo" | "pad" | "terminal", consume: (home: string) => void) => {
+  const connected = useConnectedProject();
+
+  createEffect(() => {
+    const request = connected.creation();
+
+    if (request?.kind !== kind) return;
+
+    connected.finishCreation();
+    untrack(() => consume(request.home));
+  });
 };

@@ -105,7 +105,7 @@ const mountItems = async (kind: "pad" | "todo") => {
 
   const fail = async (n: number) => {
     fireEvent.contextMenu(await target(n), { clientX: 1, clientY: 1 });
-    await mounted.app.pickMenu(kind === "pad" ? "Copy Link" : "Complete");
+    await mounted.app.pickMenu(kind === "pad" ? "Copy link" : "Complete");
     await waitFor(() => expect(within(rowOf("auth")).getByText(new RegExp(REFUSED))).toBeTruthy());
   };
 

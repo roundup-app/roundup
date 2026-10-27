@@ -65,7 +65,12 @@ export const Rail = () => {
     return [
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
-      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addAgentLabel, enabled: !actions.add.disabled, run: actions.add.run },
+      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
+        { id: "add-agent", label: copy.addAgentMenu, enabled: !actions.add.disabled, run: actions.add.run },
+        { id: "add-todo", label: copy.todo, run: () => connected.createIn("todo", node.id) },
+        { id: "add-pad", label: copy.pad, run: () => connected.createIn("pad", node.id) },
+        { id: "add-terminal", label: copy.addTerminalMenu, run: () => connected.createIn("terminal", node.id) },
+      ] },
         ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
   }, id => copied.get(id));

@@ -8,6 +8,7 @@ import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 import { openShelf, padOf } from "../../pads/padsFixture";
 import { mountBubbles } from "../../bubbles/bubblesFixture";
 import { mountAskBar } from "../../ask/askFixture";
+import { mountApp, rpcCalls, select } from "../../testing/appFixture";
 import { openLane } from "../../todos/laneBrowser";
 
 afterEach(cleanup);
@@ -22,11 +23,11 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Open folder", "Open in editor", "Add Agent", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy link", "Rename", "Clear…", "Add", "Remove"]);
     expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
-    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy link", "Rename", "Remove"]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -56,7 +57,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.shownMenus).toHaveLength(0);
     fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
 
-    expect(app.menuLabels()).toEqual(["Send to Agent", "Copy Link", "Delete"]);
+    expect(app.menuLabels()).toEqual(["Send to Agent", "Copy link", "Delete"]);
     expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
     await app.pickMenu("Delete");
     await waitFor(() => expect(railCallsTo(app, "pad.delete")).toEqual([{ name: "notes", expectedIncarnation: "notes-1", operation: expect.any(String) }]));
@@ -74,7 +75,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(press.defaultPrevented).toBe(true);
     expect(app.shownMenus).toHaveLength(0);
     fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
-    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Complete", "Send to Agent", "Copy Link", "Delete"]));
+    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Complete", "Send to Agent", "Copy link", "Delete"]));
     app.handlers["todo.complete"] = () => todo(5, { done: true });
     await app.pickMenu("Complete");
     expect(railCallsTo(app, "todo.complete")).toEqual([{ id: 5 }]);
@@ -85,7 +86,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual(["Open folder", "Open in editor", "Clear…", "Add Agent", "Start supervisor", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Start supervisor", "Open folder", "Open in editor", "Clear…", "Add", "Remove"]);
   });
 
   it.each([
@@ -119,16 +120,17 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Open folder", "Open in editor", "Add Agent", ...(!running ? ["Start supervisor"] : []), "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual([...(!running ? ["Start supervisor"] : []), ...actions, "Open folder", "Open in editor", "Copy link", "Rename", "Clear…", "Add", "Remove"]);
   });
 
-  it("u3515b_only_send_is_disabled_in_an_exhausted_row_menu", async () => {
+  it("u4322a_inapplicable_actions_are_absent", async () => {
     const { app } = await mountRail([door("w", "done", "stopped", { yolo: true })], [exitedTerminal("w", 0)]);
 
     open("w");
 
     const items = app.shownMenus.at(-1)!.items;
-    expect(items.flatMap(item => [item, ...(item.children ?? [])]).filter(item => !item.enabled).map(item => item.label)).toEqual(["Send to Agent"]);
+    expect(items.some(item => item.id === "send")).toBe(false);
+    expect(items.every(item => item.enabled)).toBe(true);
   });
 
   it("u2694d_a_failed_resume_shows_the_failure_line", async () => {
@@ -141,12 +143,16 @@ describe("u2694 the Rail's system menu", () => {
     await waitFor(() => expect(document.body.textContent).toContain("already running"));
   });
 
-  it("u3515a_choosing_another_agent_sends_once", async () => {
+  it("u4322b_native_choice_dispatches_once", async () => {
     const { app } = await mountRail([workstream("w1"), agent("a", "working", "busy", { parent: "w1" }), workstream("w2", { order: 1 }), agent("c", "working", "busy", { parent: "w2" }), agent("x", "done", "done")], [exitedTerminal("x", 0)]);
     app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
     // SAFETY: the Message of the answer is never read by the menu.
     app.handlers["message.send"] = () => ({}) as never;
 
+    open("a");
+    await app.pickMenu("Send to Agent");
+    expect(railCallsTo(app, "message.send")).toEqual([]);
+    await app.closeMenu();
     open("a");
     await app.pickMenu("c");
 
@@ -163,7 +169,7 @@ describe("u2694 the Rail's system menu", () => {
     app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
 
     open("a");
-    await app.pickMenu("Copy Link");
+    await app.pickMenu("Copy link");
 
     await waitFor(() => expect(write).toHaveBeenCalledWith("roundup://agent/a?project=p-1"));
   });
@@ -228,7 +234,7 @@ it("u3515a_source_identity_follows_the_object_not_selection", async () => {
   }
 });
 
-it("u3515d_only_self_disables_every_target_picker", async () => {
+it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async () => {
   // Each row mounts the real caller. Creation alternatives remain changing actions.
   const actionCalls = (app: { calls: { method: string }[] }) => app.calls.filter(call => ["message.send", "terminal.write", "agent.spawn", "agent.resume", "rail.startDoor", "todo.move", "todo.assign", "todo.setBlockers", "todo.reorder", "rail.move", "pad.setOwner"].includes(call.method));
 
@@ -236,9 +242,8 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
     ...([["agent", false], ["agent", true], ["door", false], ["door", true]] as const).map(([kind, exited]) => ({ name: `${kind} link: only source is eligible${exited ? "; peer exited" : ""}`, run: async () => {
       const { app } = await mountRail([kind === "agent" ? agent("a", "idle", "ready") : door("a", "idle", "ready"), ...(exited ? [agent("x", "done", "ended", { order: 1 })] : [])], exited ? [exitedTerminal("x", 0)] : []);
       open("a");
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
-      await app.pickMenu("Send to Agent");
+      expect(app.menuLabels()).not.toContain("Send to Agent");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } })),
     { name: "Rail reparent keys: only itself at the current root", run: async () => {
@@ -285,10 +290,9 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       app.emit(event({ name: "todo.created", data: item }));
       fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
       fireEvent.contextMenu(await screen.findByRole("button", { name: /#1 todo 1/ }));
-      expect(entry(app, "Move").enabled).toBe(false);
-      expect(entry(app, "Move").children).toBeUndefined();
+      expect(app.menuLabels()).not.toContain("Move");
       expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
-      await app.pickMenu("Move");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Rail Pad link: its only Agent has exited", run: async () => {
@@ -296,18 +300,16 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       const { app } = await mountRail([agent("a", "done", "stopped")], [exitedTerminal("a", 0)], undefined, () => true, {}, [padOf("notes", own)]);
       fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
       fireEvent.contextMenu(await screen.findByRole("button", { name: "notes" }));
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
-      await app.pickMenu("Send to Agent");
+      expect(app.menuLabels()).not.toContain("Send to Agent");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Terminal tab: no eligible receiver", run: async () => {
       const { app } = await mountBubbles(null, [info("shell", { owner: "/p" })], []);
       const tab = await waitFor(() => document.querySelector(".terminal-tab-pair") ?? Promise.reject(new Error("No Terminal tab")));
       fireEvent.contextMenu(tab);
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
-      await app.pickMenu("Send to Agent");
+      expect(app.menuLabels()).not.toContain("Send to Agent");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Published output: no eligible receiver", run: async () => {
@@ -320,9 +322,8 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       window.dispatchEvent(new Event("focus"));
       const made = await screen.findByRole("region", { name: "Made" });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
-      await app.pickMenu("Send to Agent");
+      expect(app.menuLabels()).not.toContain("Send to Agent");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Todo and Pad owner drags: the current owner is never a drop target", run: async () => {
@@ -392,12 +393,11 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       screen.getByRole("button", { name: "mine" }).focus();
       const button = screen.getByRole("button", { name: "mine" });
       fireEvent.contextMenu(button);
-      expect(entry(app, "Assign").enabled).toBe(false);
-      await app.pickMenu("Assign");
+      expect(app.menuLabels()).not.toContain("Assign");
+      await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
       fireEvent.contextMenu(button);
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
+      expect(app.menuLabels()).not.toContain("Send to Agent");
       await app.closeMenu();
       button.focus();
       fireEvent.keyDown(button, { key: "o", code: "KeyO" });
@@ -414,8 +414,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       const button = await screen.findByRole("button", { name: /Idle #1 / });
       fireEvent.contextMenu(button);
-      expect(entry(app, "Send to Agent").enabled).toBe(false);
-      expect(entry(app, "Send to Agent").children).toBeUndefined();
+      expect(app.menuLabels()).not.toContain("Send to Agent");
       await app.closeMenu();
       button.focus();
       fireEvent.keyDown(button, { key: "Tab" });
@@ -441,3 +440,46 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
     finally { cleanup(); window.localStorage.clear(); }
   }
 }, 90_000);
+
+
+it("u4322a_each_surface_projects_ordered_nonempty_groups", async () => {
+  const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
+  open("w");
+  const items = app.shownMenus.at(-1)!.items;
+  expect(items.map(item => item.id)).toEqual(["yolo", "stop", "folder", "editor", "send", "copy-link", "rename", "clear", "add", "remove"]);
+  expect(items.map(item => item.group)).toEqual(["2", "2", "4", "4", "4", "4", "5", "5", "6", "7"]);
+  expect(items.find(item => item.id === "add")?.children?.map(item => item.id)).toEqual(["add-agent", "add-todo", "add-pad", "add-terminal"]);
+  await app.closeMenu();
+  expect(app.calls.filter(call => ["agent.spawn", "rail.startDoor", "terminal.open", "todo.create", "pad.create"].includes(call.method))).toEqual([]);
+});
+
+it.each(["Agent", "Todo", "Pad", "Terminal"])("u4322a_add_uses_the_clicked_workstream_%s", async child => {
+  const { app } = await mountApp(app => {
+    app.handlers["rail.tree"] = () => [workstream("selected"), workstream("clicked", { order: 1 }), agent("peer", "idle", "ready", { order: 2 })];
+    app.handlers["agent.spawn"] = () => agent("new", "idle", "ready", { parent: "clicked" });
+    app.handlers["todo.create"] = () => todo(42);
+    app.handlers["todo.move"] = () => todo(42, { home: "clicked" });
+    app.handlers["pad.create"] = () => padOf("created", USER);
+    app.handlers["pad.move"] = () => ({ ...padOf("created", USER), home: "clicked" });
+    app.handlers["terminal.open"] = () => ({ terminal_id: "created-terminal" });
+  });
+
+  select("selected");
+  open("clicked");
+  await app.pickMenu(child);
+
+  if (child === "Todo") {
+    const field = await screen.findByRole("textbox", { name: "New Todo title" });
+    fireEvent.input(field, { target: { value: "created" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(rpcCalls(app, "todo.move")).toEqual([{ id: 42, home: "clicked" }]));
+  } else if (child === "Pad") {
+    const field = await screen.findByRole("textbox", { name: "Pad name" });
+    fireEvent.input(field, { target: { value: "created" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(rpcCalls(app, "pad.move")).toEqual([{ name: "created", home: "clicked" }]));
+  } else if (child === "Agent") {
+    await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{ cwd: "/p", parent: "clicked", prompt: null, model: null, effort: null }]));
+  } else await waitFor(() => expect(rpcCalls(app, "terminal.open")).toEqual([{ workstream: "clicked" }]));
+  expect(rpcCalls(app, "rail.startDoor")).toEqual([]);
+});
