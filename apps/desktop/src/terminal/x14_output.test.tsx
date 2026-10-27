@@ -106,7 +106,7 @@ describe("x14 the App's output subscription", () => {
     // Replacing the selection: the Terminal shown again has a new subscription, and the old one's late callbacks reach nothing.
     screens.show("t-a", host());
     await vi.waitFor(() => expect(app.outputSubscriptions).toHaveLength(3));
-    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "terminal.snapshot")).toHaveLength(3));
+    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "terminal.catchUp")).toHaveLength(1));
     a?.listener(text("stale"));
     app.emitOutput("t-a", "A2");
 
