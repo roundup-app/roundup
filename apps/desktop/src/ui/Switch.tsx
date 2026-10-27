@@ -1,14 +1,14 @@
-import "./Checkbox.css";
+import "./Field.css";
 import "./Switch.css";
 import { Switch as ArkSwitch } from "@ark-ui/solid/switch";
 import type { JSX } from "solid-js";
 
 /** A labelled switch over Ark; the caller supplies the acknowledged value. */
-export const Switch = (props: { class?: string; checked: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => (
-  <ArkSwitch.Root class={`app-checkbox app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled}
+export const Switch = (props: { class?: string; checked: boolean; disabled?: boolean; invalid?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => (
+  <ArkSwitch.Root class={`app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
     onCheckedChange={(details) => props.onCheckedChange(details.checked)}>
-    <ArkSwitch.Control class="app-checkbox-box" />
-    <ArkSwitch.Label class="app-checkbox-label">{props.children}</ArkSwitch.Label>
+    <ArkSwitch.Control class="app-switch-track"><ArkSwitch.Thumb class="app-switch-thumb" /></ArkSwitch.Control>
+    <ArkSwitch.Label class="app-switch-label">{props.children}</ArkSwitch.Label>
     <ArkSwitch.HiddenInput onClick={(event) => {
       const input = event.currentTarget;
 

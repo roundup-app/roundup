@@ -64,13 +64,6 @@
 }
 
 /* A square tick box, not the shared radio-like circle. */
-.import-check .app-checkbox-box::before {
-  content: "☐";
-}
-
-.import-check .app-checkbox-box[data-state="checked"]::before {
-  content: "☑";
-}
 
 .import-text {
   display: flex;
@@ -175,11 +168,6 @@
   height: var(--space-6);
   box-sizing: border-box;
   resize: none;
-  border: 0;
-  padding: var(--space-2);
-  background: var(--sunken);
-  color: var(--text);
-  font: inherit;
 }
 
 .import-prompt:focus {
