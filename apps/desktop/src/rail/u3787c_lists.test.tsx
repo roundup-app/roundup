@@ -57,6 +57,8 @@ it.each(kinds.flatMap(make => ["F2", "double-click"].map(open => ({ make, open }
 it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   const { rail } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
 
+  fireEvent.click(rowOf("Beta"));
+
   const press = async (name: string, key: string, expected: string) => {
     rowOf(name).focus();
     fireEvent.keyDown(rowOf(name), { key });
@@ -69,8 +71,9 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   await press("終 e\u0301 😀", "ArrowDown", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "ArrowUp", "Delta");
   await press("Delta", "ArrowDown", "終 e\u0301 😀");
+  fireEvent.keyDown(rowOf("終 e\u0301 😀"), { key: "a", metaKey: true });
   await press("終 e\u0301 😀", "B", "Beta");
-  expect(rowOf("Beta").getAttribute("data-selected")).toBe("true");
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Beta"]);
   expect(rail.selected()).toBe("row-1");
 });
 

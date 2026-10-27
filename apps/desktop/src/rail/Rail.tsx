@@ -278,7 +278,7 @@ export const Rail = () => {
     }
 
     event.preventDefault(); event.stopPropagation();
-    rail.select(match); focusRow(match);
+    selection.selection.replace(match); anchor = match; rail.select(match); focusRow(match);
   };
 
 
