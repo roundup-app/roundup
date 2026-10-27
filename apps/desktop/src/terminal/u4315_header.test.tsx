@@ -173,13 +173,13 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
       await page.browser("set", "media", "dark");
 
       for (const outcome of ["success", "refused"]) {
+        await page.evaluate("localStorage.clear()");
         await page.browser("open", `${url}/harness.html?seed=tree-40`);
         await page.until("!!document.querySelector('.rail-row[data-id=tokens]')");
-        await page.evaluate("localStorage.clear()");
         await page.browser("click", ".rail-row[data-id=tokens] .row-state");
         await page.evaluate(`(() => {
           const app = window.__fake.app;
-          app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:('Review changes '+n+' 長い会話 ').repeat(8),cwd:'src',last_activity_ms:1n})),excluded:[] });
+          app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:('Review changes '+n+' with a long conversation title ').repeat(8),cwd:'src',last_activity_ms:BigInt(Date.now()-60_000)})),excluded:[] });
           app.handlers['project.importCommit'] = params => new Promise(resolve => { window.__settleImport = () => resolve({outcomes:params.selections.map(entry => ${outcome === "success" ? "({source:entry.source,workstream:'backend',agent:'tokens',error:null})" : "({source:entry.source,workstream:null,agent:null,error:{code:-32003,message:'The saved conversation changed. Refresh and select the conversation again.',outcome:'failed'}})"})}); });
           window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'import-work'}}));
           return true;
