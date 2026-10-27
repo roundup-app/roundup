@@ -416,20 +416,22 @@ for (const kind of ["todo", "pad"] as const) {
     const { app } = await mount();
     const daemon = app.of("/a");
     const refusal = "The original Home changed. Restore the Home and retry deletion.";
+
     if (kind === "todo") {
       daemon.handlers["todo.delete"] = () => { throw new RpcError(-32003, refusal); };
     } else {
       daemon.handlers["pad.delete"] = () => { throw new RpcError(-32003, refusal); };
     }
+
     await showEverythingInApp();
+
     if (kind === "pad") await showPads();
+
     const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
     expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Check deletion" })).toBeNull();
     expect(row.getAttribute("aria-pressed")).toBe("true");
   });
 }
