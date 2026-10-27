@@ -569,9 +569,12 @@
   "historical_reports": "Earlier edge, visible-edge, border, padding-fix and verification reports describe their named historical heads; they do not verify this hairline repair. This report and its traces supersede those Drawer reachability claims. All owner-returned reports are retained.",
   "scope": "Production prerequisite for #4244 only. #4244 owns full fixture/live-preference variants; #3013 owns immutable paired native scheduling and stream/settled-idle qualification. No native or displayed-FPS claim.",
   "validation": {
-    "pointer_observer": "4 tests passed, 8 cycles",
-    "focused_tests": "pending",
-    "just_ready": "pending",
-    "just_capture_U3010b": "invoked with a 90-second process bound; the full suite is broader than this repair. Focused rendered pointer evidence above completed separately."
+    "pointer_observer": "4 rendered tests pass; 8 complete trusted pointer cycles at normal and quarter speed in both Shelf modes.",
+    "focused_tests": "63 distinct focused tests pass across 8 files: 53 in the seven other files plus all 10 ordinary Drawer observer tests in the final isolated related run. The 7 optional capture cases are covered separately where changed; the 3 unchanged Shelf capture cases were not rerun by the targeted pointer command.",
+    "just_ready": "pass, exit 0: both lints, proofs (ALL PROOFS CHECK), trailers, frozen checks, workflow tests and launch-sites.",
+    "merge_loss": "pass; no output",
+    "vocab": "pass",
+    "earlier_loaded_validation": "A concurrent capture/lint run had 61 passed and 2 lifetime timeouts. A second run during cold Clippy had 2 passed, 8 timeouts and ENOTEMPTY on browser profile cleanup. No timeout or retry was added. After compilation finished, the related Drawer file passed all 10 tests in 103.04 seconds. The isolated first lifetime case also passed in 11.923 seconds.",
+    "just_capture_U3010b": "Invoked with a 90-second process bound, exit 124. The full workspace suite is broader than this repair; the focused rendered pointer command completed separately."
   }
 }
