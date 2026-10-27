@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -20,8 +19,8 @@ it("u2694a_each_object_builds_its_items_todo", async () => {
 
   expect(app.menuLabels()).toEqual(expect.arrayContaining(["Complete", "Send to Agent", "Copy Link", "Delete"]));
   await app.pickMenu("Delete");
-  await questionDialog();
-  expect(callsTo(app, "todo.delete")).toEqual([]);
+  await waitFor(() => expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]));
+  expect(questionProbe.count).toBe(0);
 });
 
 it("u2694b_complete_calls_todo_complete", async () => {
@@ -78,11 +77,7 @@ it("u2694b_deleting_a_completed_todo_keeps_other_completed_todos", async () => {
   fireEvent.click(screen.getByRole("button", { name: /2 done/ }));
   fireEvent.contextMenu(await rowOf("chosen"), { clientX: 10, clientY: 10 });
   await app.pickMenu("Delete");
-  await questionDialog();
-  expect(callsTo(app, "todo.delete")).toEqual([]);
-  await answerQuestion(true);
-
-  await waitFor(() => expect(questionProbe.shown).toBeNull());
-  expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]);
+  await waitFor(() => expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]));
+  expect(questionProbe.count).toBe(0);
   expect(await rowOf("keep")).toBeTruthy();
 });
