@@ -141,11 +141,18 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
 }
 
 #[test]
-fn q11_a_worker_gets_plain_for_every_reply() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
-    assert!(text.contains(&asset("hold-plain.md")));
+fn q11_every_role_defaults_to_plain_in_settings() {
+    for role in [Role::Door, Role::Scout, Role::Agent] {
+        for resume in [None, Some("saved-conversation")] {
+            let s = setup();
+            let argv = s
+                .launcher()
+                .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, role)
+                .unwrap();
+            let settings = read(Path::new(&argv[2]));
+            assert_eq!(settings["outputStyle"], "hold:Plain", "{role:?} {resume:?}");
+        }
+    }
 }
 
 #[test]
