@@ -10,6 +10,7 @@ export type Stay = { name: string; reason: string };
 
 /** A34's judgement of a Workstream, from the same facts: what goes, and what stays at the Project root. */
 export type Removal = {
+  /** Removed Agents and non-Agent containers, for irreversible-loss detection only. */
   removedIds: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
@@ -30,6 +31,11 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   const staying = new Set<string>();
 
   for (const node of below(nodes, id)) {
+    if (node.kind !== "agent") {
+      removal.removedIds.push(node.id);
+      continue;
+    }
+
     const reason = !FINISHED.has(node.status?.kind ?? "")
       ? copy.running
       : node.worktree === null
