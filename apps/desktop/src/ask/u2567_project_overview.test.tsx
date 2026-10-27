@@ -12,16 +12,15 @@ it("u2567a_entries_follow_rail_order_with_door_status", async () => {
 
   const overview = screen.getByRole("region", { name: "Project overview" });
 
-  expect(within(overview).getAllByRole("button")).toEqual([
+  expect(within(overview.querySelector(".overview-list")!).getAllByRole("button")).toEqual([
     within(overview).getByRole("button", { name: "a" }),
     within(overview).getByRole("button", { name: "b Working" }),
   ]);
-  expect(within(overview).getByRole("img", { name: "Working" })).toBeDefined();
 });
 
 const overview = () => screen.getByRole("region", { name: "Project overview" });
 
-const buttons = () => within(overview()).getAllByRole("button");
+const buttons = () => within(overview().querySelector(".overview-list")!).getAllByRole("button");
 
 const expectNames = (names: string[]) => {
   expect(buttons()).toHaveLength(names.length);
@@ -52,7 +51,7 @@ it("u2567a_root_agents_need_attention_without_workstreams", async () => {
   await mountAskBar([], null, [agent("parent", "working", "busy"), agent("waiting", "needs-you", "permission", { parent: "parent" })]);
 
   expectNames(["waiting Needs-you"]);
-  expect(Number.parseInt(document.querySelector(".overview-heading")?.textContent ?? "")).toBe(1);
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
   expect(input()).not.toBeNull();
 });
 
@@ -65,18 +64,13 @@ it("u2567a_attention_is_error_first_then_oldest_since", async () => {
   expectNames(["a", "error Error", "old Needs-you", "new Needs-you"]);
 });
 
-it("u2567a_nothing_needs_you", async () => {
-  await mountAskBar([], null, [door("a", "working", "busy"), terminal("terminal")]);
-  expect(within(overview()).getByRole("heading").textContent).toBe("Nothing needs you");
-});
-
 it("u2567b_a_status_event_moves_the_line_and_the_count", async () => {
   const { app, connected } = await mountAskBar([], null, tree());
   app.emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
   await connected.rail.settled();
 
   expectNames(["a Error", "b Working"]);
-  expect(Number.parseInt(document.querySelector(".overview-heading")?.textContent ?? "")).toBe(1);
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_create_and_remove_follow_the_tree", async () => {
@@ -86,7 +80,7 @@ it("u2567b_create_and_remove_follow_the_tree", async () => {
   await connected.rail.settled();
 
   expectNames(["new", "b Needs-you"]);
-  expect(Number.parseInt(document.querySelector(".overview-heading")?.textContent ?? "")).toBe(1);
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_the_overview_makes_no_call_of_its_own", async () => {

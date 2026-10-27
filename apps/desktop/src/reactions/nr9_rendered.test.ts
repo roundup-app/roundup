@@ -15,8 +15,7 @@ import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
 
-it("nr9_cli_mcp_and_app_share_authority", async () => {
-  const real = await startRealDaemon({}, true);
+const reactionBrowser = async () => {
   const profile = await mkdtemp(join(tmpdir(), "nr9-browser-"));
   const config = join(profile, "config.json");
   await writeFile(config, "{}");
@@ -24,7 +23,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 
   if (!executable) throw new Error("NR9 needs headless Chromium");
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-  const session = `nr9-${process.pid}`;
+  const session = `nr9-${process.pid}-${profile.split("-").at(-1)}`;
 
   const browser = async (...args: string[]) => {
     const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
@@ -37,18 +36,28 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 
   const evaluate = async (source: string) => (await browser("eval", source)).result;
   const wait = (source: string) => browser("wait", "--fn", source);
+
+  return { browser, evaluate, wait, close: async () => {
+    await browser("close").catch(() => {});
+    await rm(profile, { recursive: true, force: true });
+  } };
+};
+
+it("nr9_cli_mcp_and_app_share_authority", async () => {
+  const real = await startRealDaemon({}, true);
+  const { browser, evaluate, wait, close } = await reactionBrowser();
   const app = createServedApp(real.base);
   const socketEnv = { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") };
   const cli = (...args: string[]) => execute(resolve("../../target/debug/rup"), ["--json", ...args], { env: socketEnv });
 
   const capture = async (step: string, screenshot = true) => {
-    const dir = captureDir("NR9");
+    const dir = captureDir("U4276c") ?? captureDir("U4276b") ?? captureDir("U4276a") ?? captureDir("NR9");
 
     if (!dir) return;
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 
-    if (step === "failed-create" || step === "unknown-create") await evaluate("document.querySelector('.reaction-form > [role=alert]').scrollIntoView({ block: 'center' })");
+    if (step === "failed-create" || step === "unknown-create") await evaluate("document.querySelector('.reaction-form [role=alert]').scrollIntoView({ block: 'center' })");
 
     if (screenshot) await browser("screenshot", join(dir, `${step}.png`));
   };
@@ -134,33 +143,29 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("document.activeElement?.matches('.reaction-row')");
     await activate('[data-reaction-opener="create"]', true);
     await wait("!!document.querySelector('.reaction-form')");
-    const trigger = await evaluate("(() => { const bounds = document.querySelector('.reaction-form .app-select-trigger').getBoundingClientRect(); return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }; })()");
+    const trigger = await evaluate("(() => { const bounds = document.querySelector('.reaction-form [data-scope=popover][data-part=trigger]').getBoundingClientRect(); return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }; })()");
     await browser("mouse", "move", String(Math.round(trigger.x)), String(Math.round(trigger.y)));
     await browser("mouse", "down", "left");
     await capture("target-pressed");
     await browser("mouse", "up", "left");
-    await wait("!!document.querySelector('.app-select-list [role=option]')");
-    await browser("hover", '.app-select-list [role="option"]:nth-child(2)');
+    await wait("!!document.querySelector('.choice-picker [role=option]')");
+    await browser("hover", '.choice-picker [role="option"]:first-child');
     await capture("target-options");
-    await activate('.app-select-list [role="option"]:nth-child(2)');
-    await wait("!document.querySelector('.app-select-list [role=option]')");
+    await activate('.choice-picker [role="option"]:first-child');
+    await wait("!document.querySelector('.choice-picker [role=option]')");
     await evaluate(`(() => {
       const field = (label, value) => {
-        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('span').textContent === label).querySelector('input,textarea');
+        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('label')?.textContent === label).querySelector('input,textarea');
         element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
       };
       field('Name', 'Form reaction'); field('Instruction', ' exact newer\\n words 🧭 ');
-      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))}); field('UTC offset', '+00:00');
+      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))});
     })()`);
     await evaluate("document.querySelector('.app-checkbox input').focus()");
     await browser("press", "Space");
     await browser("press", "Tab");
     await capture("form");
-    await browser("set", "media", "light");
-    await wait("matchMedia('(prefers-color-scheme: light)').matches");
-    await capture("light-form", false);
-    await browser("set", "media", "dark");
-    await wait("matchMedia('(prefers-color-scheme: dark)').matches");
+
 
     await evaluate("document.querySelector('.reaction-form .reaction-actions button').scrollIntoView({ block: 'center' })");
     await capture("form-bottom");
@@ -241,12 +246,10 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("!!document.querySelector('.reaction-detail .reaction-facts')");
     expect((await app.rpc("reaction.get", { id: created.id })).target).toBe(target.id);
     await capture("retired-project");
-    await browser("set", "media", "light");
-    await wait("matchMedia('(prefers-color-scheme: light)').matches");
+
   } finally {
-    await browser("close").catch(() => {});
+    await close();
     await real.stop();
-    await rm(profile, { recursive: true, force: true });
   }
 }, 180_000);
 
@@ -352,3 +355,155 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
     await rm(profile, { recursive: true, force: true });
   }
 }, 90_000);
+
+it.each(["all", "any", "pr-checks", "instant"])("u4276b_keyboard_creates_each_condition: %s", async kind => {
+  const forge = await mkdtemp(join(tmpdir(), "u4276b-forge-"));
+  // Exercise the production collector and NR7 pinning with deterministic external CLI replies.
+  await writeFile(join(forge, "wt"), `#!/usr/bin/env python3
+import json, subprocess, sys
+rows = []
+for entry in subprocess.check_output(['git', 'worktree', 'list', '--porcelain'], text=True).strip().split('\\n\\n'):
+    fields = dict(line.split(' ', 1) for line in entry.splitlines() if ' ' in line)
+    rows.append({'branch': fields.get('branch', '').removeprefix('refs/heads/'), 'worktree': {'path': fields['worktree']}, 'pr': {'number': 23}, 'checks': {'status': 'running', 'source': 'pr', 'stale': False}})
+print(json.dumps({'schema': 2, 'repo': {}, 'collected': {'ci': '--full' in sys.argv, 'summary': False}, 'items': rows}))
+`, { mode: 0o755 });
+  await writeFile(join(forge, "gh"), `#!/bin/sh
+case "$1 $2" in
+"pr view") echo '{"number":23,"headRefOid":"1111111111111111111111111111111111111111","url":"https://github.com/acme/keyboard/pull/23"}';;
+"pr checks") echo '[{"name":"check","bucket":"pending"}]'; exit 8;;
+*) exit 1;;
+esac
+`, { mode: 0o755 });
+  const real = await startRealDaemon(kind === "pr-checks" ? { PATH: `${forge}:${process.env.PATH}` } : {}, true);
+  const { browser, evaluate, wait, close } = await reactionBrowser();
+  const app = createServedApp(real.base);
+  const dir = captureDir("U4276b");
+
+  const tabTo = async (selector: string, reverse = false) => {
+    for (let step = 0; step < 40; step++) {
+      if (await evaluate(`document.activeElement?.matches(${JSON.stringify(selector)})`)) return;
+      await browser("press", reverse ? "Shift+Tab" : "Tab");
+    }
+
+    throw new Error(`Keyboard could not reach ${selector}: ${await evaluate("document.activeElement?.outerHTML")}`);
+  };
+
+  const type = (text: string) => browser("keyboard", "type", text);
+  const field = async (selector: string, text: string) => { await tabTo(selector); await type(text); };
+
+  try {
+    const agents: RailNode[] = [];
+
+    if (kind === "pr-checks") {
+      for (const args of [["init", "-b", "main"], ["-c", "user.name=Observer", "-c", "user.email=observer@example.invalid", "commit", "--allow-empty", "-m", "base"]]) await execute("git", ["-C", real.dir, ...args]);
+      await app.rpc("project.setWorktrees", { on: true, check: "true" });
+    }
+
+    for (let n = 0; n < 10; n++) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: n === 0 ? "Exact recipient" : `Same long watched Agent name ${n}` }));
+
+    if (kind === "pr-checks") await vi.waitUntil(async () => (await app.rpc("agent.worktreeState", { id: agents[0]!.id })).evidence?.head === "1111111111111111111111111111111111111111", { timeout: 20_000 });
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${real.base}/harness.html?view=reactions&daemon=1`);
+    await evaluate(`(() => {
+      window.__reactionCalls = [];
+      const send = window.fetch;
+      window.fetch = async (url, options) => {
+        const call = options?.body ? JSON.parse(options.body) : null;
+        if (call?.method?.startsWith('reaction.')) window.__reactionCalls.push(call);
+        return send(url, options);
+      };
+    })()`);
+    await wait("!!document.querySelector('[data-reaction-opener=create]')");
+    // The requested screen follows the dense Rail in document order. Reach its
+    // last action backwards without opening the separate Ask overlay.
+    await tabTo('[data-reaction-opener="create"]', true);
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.reaction-back')");
+    await field('.reaction-form [data-scope="field"][data-part="input"]', `Keyboard ${kind}`);
+    await tabTo('.reaction-form [data-scope="popover"][data-part="trigger"]');
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.app-combobox-input')");
+    await type("Exact recipient");
+    await wait("document.querySelectorAll('.choice-picker [role=option]').length === 1");
+    await browser("press", "ArrowDown");
+    await browser("press", "Enter");
+    await wait("!document.querySelector('.choice-picker')");
+    const instruction = "exact first line\n second line 🧭 ";
+    await field('.reaction-form textarea', instruction);
+
+    if (kind === "instant" || kind === "pr-checks") {
+      await tabTo('.reaction-form .app-select-trigger[aria-label="Condition"]');
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('.app-select-list')");
+      await browser("press", "Home");
+      await browser("press", "ArrowDown");
+
+      if (kind === "instant") await browser("press", "ArrowDown");
+      await browser("press", "Enter");
+      await wait("!document.querySelector('.app-select-list')");
+    }
+
+    if (kind === "instant") {
+      await wait("!!document.querySelector('.reaction-when[aria-label=At]')");
+      await field('.reaction-when[aria-label=At] input[data-part=input]', "2098-01-01");
+      await field('.reaction-when[aria-label=At] [data-scope=field] input', "09:00");
+      await tabTo('.reaction-when[aria-label=At] .app-select-trigger');
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('.app-select-list')");
+      await browser("press", "Home");
+
+      for (let step = 0; step < 7; step++) await browser("press", "ArrowDown");
+      await browser("press", "Enter");
+      await wait("!document.querySelector('.app-select-list')");
+    } else if (kind === "pr-checks") {
+      await field('.reaction-form input[placeholder="github.com/owner/name"]', "github.com/acme/keyboard");
+      await field('.reaction-form [data-scope=number-input] input', "23");
+    } else {
+      await tabTo(`.reaction-agents input[value="${agents[1]!.id}"]`);
+      await browser("press", "Space");
+      await tabTo(`.reaction-agents input[value="${agents[2]!.id}"]`);
+      await browser("press", "Space");
+
+      if (kind === "any") {
+        await tabTo('.app-radio input[value="all"]');
+        await browser("press", "ArrowRight");
+      }
+    }
+
+    await field('.reaction-when[aria-label=Expires] input[data-part=input]', "2099-01-01");
+    await field('.reaction-when[aria-label=Expires] [data-scope=field] input', "09:00");
+    await wait("!document.querySelector('.reaction-form button[type=submit]').disabled");
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.create')")).toHaveLength(0);
+
+    if (dir) {
+      await mkdir(dir, { recursive: true });
+      await browser("screenshot", join(dir, `keyboard-${kind}.png`));
+      await writeFile(join(dir, `keyboard-${kind}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    }
+
+    await tabTo('.reaction-form button[type=submit]');
+    await browser("press", "Enter");
+    await wait("!!document.querySelector('.reaction-detail') || !!document.querySelector('.reaction-form [role=alert]')");
+    expect(await evaluate("document.querySelector('.reaction-form [role=alert]')?.textContent ?? null")).toBeNull();
+    const listed = await app.rpc("reaction.list", null);
+    expect(listed).toHaveLength(1);
+    const saved = await app.rpc("reaction.get", { id: listed[0]!.id });
+    expect(saved).toMatchObject({ target: agents[0]!.id, instruction, max_firings: 1, expires_at: "2099-01-01T09:00:00Z" });
+    expect(saved.condition).toEqual(kind === "instant" ? { kind: "instant", at: "2098-01-01T09:00:00+05:30", late: "once-before-expiry" } : kind === "pr-checks" ? { kind: "pr-checks", repository: "github.com/acme/keyboard", number: 23 } : { kind: "agents", ids: [agents[1]!.id, agents[2]!.id], any: kind === "any" });
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.create')")).toHaveLength(1);
+    expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.run')")).toHaveLength(0);
+
+    if (kind === "pr-checks") expect(saved.observation.pinned_head).toBe("1111111111111111111111111111111111111111");
+
+    if (kind === "instant") expect(await evaluate("window.__reactionCalls.filter(call => call.method === 'reaction.preview').map(call => call.params)")).toContainEqual({ date: "2098-01-01", time: "09:00", offset: "+05:30" });
+    await tabTo('.reaction-back');
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('[data-reaction-opener=create]')");
+    await tabTo(`[data-reaction-opener="${saved.id}"]`);
+    await browser("press", "Enter");
+    await wait("document.activeElement?.matches('.reaction-back')");
+    await browser("press", "Enter");
+    await wait(`document.activeElement?.matches('[data-reaction-opener="${saved.id}"]')`);
+  } finally { await close(); await real.stop(); await rm(forge, { recursive: true, force: true }); }
+}, 60_000);
