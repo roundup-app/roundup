@@ -110,36 +110,9 @@
   font-size: var(--text-caption);
 }
 
-.reaction-field input,
-.reaction-field textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--space-6);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--text);
-  background: var(--hover);
-  border: 0;
-  border-radius: 0;
-}
-
 .reaction-field textarea {
   resize: none;
   field-sizing: content;
-}
-
-.reaction-field input:hover {
-  cursor: text;
-}
-
-.reaction-field input:active {
-  color: var(--text);
-}
-
-.reaction-field input::placeholder,
-.reaction-field textarea::placeholder {
-  color: var(--grey);
-  opacity: 1;
 }
 
 .reaction-when,
@@ -156,27 +129,6 @@
 .reaction-form .app-checkbox {
   min-height: var(--space-5);
   padding-inline: 0;
-}
-
-.reaction-form .app-select-trigger {
-  border-radius: 0;
-  color: var(--text);
-}
-
-.reaction-form .app-select-trigger:hover,
-.reaction-form .app-select-trigger[data-state="open"] {
-  color: var(--text);
-  background-color: var(--ground);
-}
-
-body:has(.reaction-form) .app-select-item {
-  color: var(--grey);
-  border-radius: 0;
-}
-
-body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="checked"]) {
-  color: var(--text);
-  background-color: var(--transparent);
 }
 
 .reactions {
@@ -260,53 +212,16 @@ body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="ch
   gap: var(--space-2);
 }
 
-.reaction-field input:hover,
-.reaction-field textarea:hover {
-  color: var(--text);
-}
-
 .reaction-when {
   gap: var(--space-3);
   position: relative;
   padding-bottom: var(--line);
 }
 
-.reaction-time-fields .app-select-trigger {
-  box-sizing: border-box;
-  min-height: var(--space-6);
-  padding: var(--space-1) var(--space-2);
-  background: var(--hover);
-}
-
-.reaction-target .app-select-trigger {
-  min-height: var(--space-6);
-}
-
 .reaction-preview .reaction-legend {
   margin: 0;
   padding: 0;
   font-weight: inherit;
-}
-
-.reaction-form .app-radio-mark {
-  width: auto;
-  height: auto;
-  border: 0;
-  display: inline;
-}
-
-.reaction-form .app-radio-mark::before {
-  content: "○";
-  color: var(--grey);
-}
-
-.reaction-form .app-radio-mark[data-state="checked"]::before {
-  content: "●";
-  color: var(--text);
-}
-
-.reaction-form .app-radio-mark::after {
-  content: none;
 }
 
 .reaction-detail {

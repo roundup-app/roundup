@@ -1,3 +1,4 @@
+import "./Field.css";
 import { createRowCollection } from "./RowCollection";
 import { focusActions } from "./focusActions";
 import * as combobox from "@zag-js/combobox";
@@ -10,6 +11,7 @@ import "./Combobox.css";
 import "./Select.css";
 import { Portal } from "solid-js/web";
 import { Popover } from "./Popover";
+import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { copy } from "../copy";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
@@ -43,6 +45,8 @@ const Root = (props: {
   const dismiss = props.onDismiss ?? Popover.dismiss();
   const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && (props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
+
+  const groups = createMemo(() => collection().group());
 
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
   let pointerEvent = false;
@@ -133,13 +137,17 @@ const Root = (props: {
       if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
-    <ArkCombobox.Content class="app-combobox-list"
-      on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
-      <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
-        {([group, items]) => group ? <ArkCombobox.ItemGroup>
-          <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
-          <For each={items}>{(item) => itemRow(item)}</For>
-        </ArkCombobox.ItemGroup> : <For each={items}>{(item) => itemRow(item)}</For>}
+    <ArkCombobox.Content class="app-combobox-list" on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
+      <For each={groups().map(([group]) => group)} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
+        {(group) => {
+          // Key the owner by its group name: replacing a tuple remounts every option on each edit (Z3788d).
+          const items = () => groups().find(([name]) => name === group)?.[1] ?? [];
+
+          return group ? <ArkCombobox.ItemGroup>
+            <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
+            <For each={items()}>{(item) => itemRow(item)}</For>
+          </ArkCombobox.ItemGroup> : <For each={items()}>{(item) => itemRow(item)}</For>;
+        }}
       </For>
     </ArkCombobox.Content>
   </ArkCombobox.RootProvider>;
@@ -148,6 +156,7 @@ const Root = (props: {
 
 /** A filtered choice anchored to its trigger. Ark owns opening, dismissal and focus return. */
 const Picker = (props: { label: string; value: string; savedLabel?: string; items: readonly ComboboxItem[]; onSelect: (value: string) => void }) => {
+  const field = useFieldContext();
   const caption = createUniqueId();
   const valueId = createUniqueId();
   const [open, setOpen] = createSignal(false);
@@ -157,17 +166,16 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   let content: HTMLDivElement | undefined;
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
-  return <Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
-      <span id={caption} class="app-combobox-label">{props.label}</span>
+  return <div class="app-select"><span id={caption} class="app-combobox-label">{props.label}</span><Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnEscape closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed", sameWidth: true }}>
+    <Popover.Trigger id={field?.().ids.control} disabled={field?.().disabled} aria-invalid={field?.().invalid ? "true" : undefined} aria-describedby={field?.().ariaDescribedby} data-invalid={field?.().invalid ? "" : undefined} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>
       <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
     </Popover.Trigger>
     <Portal><Popover.Positioner><Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
       <Root focusScope={() => content} onDismiss={() => setOpen(false)} items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
-        onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => item.label} />
+        onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => <>{item.label}{item.value === props.value && <Check class="app-choice-check" aria-hidden="true" size={16} />}</>} />
     </Popover.Content></Popover.Positioner></Portal>
-  </Popover.Root>;
+  </Popover.Root></div>;
 };
 
 export const Combobox = { Root, Picker };
