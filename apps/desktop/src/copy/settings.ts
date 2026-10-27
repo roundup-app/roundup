@@ -18,6 +18,7 @@ export const settingsCopy = {
   fontSize: "Font size",
   fontSizeRefusal: (min: number, max: number) => `Choose a font size from ${min} to ${max}.`,
   quickAddTodo: "Quick add a Todo",
+  recordingMark: "●",
   recordShortcut: "Press a shortcut",
   shortcutRefusal: (chord: string, action: string) => `${chord} is already ${action}`,
   shortcutModifier: "Use one key with ⌘ or ⌃.",
