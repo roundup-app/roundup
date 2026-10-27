@@ -40,9 +40,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? lazyXtermEmulators();
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createScreens(connected, (id, copy) => {
     fontSize ??= storage.read() ?? appSettings().fontSize;
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, copy);
 
     emulator.setFontSize(fontSize);
 

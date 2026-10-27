@@ -489,7 +489,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, (text) => copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -522,7 +522,6 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     };
 
     emulator.onLink((printed) => void open(id, printed));
-    emulator.onCopy?.((text) => copy(id, text));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes) => {
       if (exited(id) || daemonExit() !== null) return;
