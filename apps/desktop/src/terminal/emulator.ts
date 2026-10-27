@@ -8,6 +8,7 @@ import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
+import { SerializeAddon } from "@xterm/addon-serialize";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
@@ -39,6 +40,8 @@ export type Emulator = {
   inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
+  /** Parsed output only, at the grid SerializeAddon requires for restoration. */
+  serialize?(): Size & { data: string };
   selection(): string;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
@@ -174,6 +177,8 @@ export const createXtermEmulators = (
 
   return (id, copy) => {
     const terminal = new Terminal(xtermOptions);
+    const serializer = new SerializeAddon();
+    terminal.loadAddon(serializer);
     terminal.loadAddon(new ClipboardAddon(undefined, {
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
@@ -494,6 +499,7 @@ export const createXtermEmulators = (
       onLink: (listener) => {
         linkListener = listener;
       },
+      serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: serializer.serialize({ scrollback: SCROLLBACK_LINES }) }),
       selection: () => terminal.getSelection(),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,

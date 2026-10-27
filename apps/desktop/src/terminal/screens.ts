@@ -1,3 +1,5 @@
+import { throttle } from "@solid-primitives/scheduled";
+import { scrollbackStorage } from "./scrollback";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
@@ -78,6 +80,7 @@ const takeFirst = (stream: Stream): void => {
 };
 
 type Holder = {
+  retain: (() => void) & { clear: () => void };
   ready: boolean;
   incarnation: string | undefined;
   emulator: Emulator;
@@ -296,8 +299,26 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       stream.after = end;
+      holder.retain();
       takeFirst(stream);
     }
+  };
+
+  const retain = (id: string, holder: Holder, after: number): void => {
+    if (!holder.incarnation || !holder.emulator.serialize) return;
+
+    holder.emulator.write(new Uint8Array(), () => {
+      if (disposed) return;
+      const output = holder.emulator.serialize?.();
+      if (!output) return;
+      const storage = scrollbackStorage(project.path, holder.incarnation!);
+      const saved = storage.restore();
+      if (saved.status === "failed") {
+        setFailure(id, "output", appCopy.terminalRestoreFailed(saved.cause));
+        return;
+      }
+      void storage.write({ ...output, after }, saved.status === "restored" ? saved.value : null);
+    });
   };
 
   const restore = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
@@ -306,10 +327,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     stream.restoring = true;
 
     try {
-      const after = shownTo.get(id);
+      const storage = holder.incarnation && holder.emulator.serialize ? scrollbackStorage(project.path, holder.incarnation) : null;
+      const saved = !holder.complete ? storage?.restore() : null;
+      if (saved?.status === "failed") setFailure(id, "output", appCopy.terminalRestoreFailed(saved.cause));
+      const local = saved?.status === "restored" ? saved.value : null;
+      const after = shownTo.get(id) ?? local?.after;
       let retained = false;
 
-      if (holder.complete && stream.after === null && holder.incarnation !== undefined && after !== undefined && !stream.lost) {
+      if ((holder.complete || local) && stream.after === null && holder.incarnation !== undefined && after !== undefined && !stream.lost) {
         const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after }).catch((thrown) => {
           if (!(thrown instanceof Error)) throw thrown;
 
@@ -320,7 +345,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         if (!stream.open) return;
 
         if (catchUp?.kind === "contiguous") {
-          holder.emulator.write(fromBase64(catchUp.data));
+          if (local) {
+            holder.emulator.setSize(local);
+            holder.emulator.write(new TextEncoder().encode(local.data));
+          }
+          holder.emulator.write(fromBase64(catchUp.data), () => requestAnimationFrame(() => reflow(id, holder)));
           stream.after = catchUp.after;
           retained = true;
         }
@@ -340,6 +369,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       holder.complete = true;
+      holder.retain();
       setFailure(id, "snapshot", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
@@ -454,7 +484,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (!stream) return;
 
-    if (stream.placed && stream.after !== null) shownTo.set(id, stream.after);
+    if (stream.placed && stream.after !== null) {
+      shownTo.set(id, stream.after);
+      if (holder.complete) retain(id, holder, stream.after);
+    }
+    holder.retain.clear();
 
     stream.open = false;
     stream.queue = [];
@@ -557,6 +591,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
+      retain: throttle(() => {
+        const after = holder.stream?.after;
+        if (after != null) retain(id, holder, after);
+      }, 250),
       emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
@@ -745,6 +783,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       for (const [id, holder] of holders) {
         void release(id, holder);
         holder.stopClipboard?.();
+        holder.retain.clear();
         holder.emulator.dispose();
       }
 
