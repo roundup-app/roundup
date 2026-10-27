@@ -304,20 +304,22 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (stream.restoring || !stream.open) return;
 
     stream.restoring = true;
-    let operation = "terminal.snapshot";
 
     try {
       const after = shownTo.get(id);
       let retained = false;
 
       if (holder.complete && stream.after === null && holder.incarnation !== undefined && after !== undefined && !stream.lost) {
-        operation = "terminal.catchUp";
+        const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after }).catch((thrown: unknown) => {
+          if (!(thrown instanceof Error)) throw thrown;
 
-        const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after });
+          // An unavailable replay still permits an authoritative screen read.
+          return null;
+        });
 
         if (!stream.open) return;
 
-        if (catchUp.kind === "contiguous") {
+        if (catchUp?.kind === "contiguous") {
           holder.emulator.write(fromBase64(catchUp.data));
           stream.after = catchUp.after;
           retained = true;
@@ -325,8 +327,6 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       if (!retained) {
-        operation = "terminal.snapshot";
-
         const snapshot = await app.rpc("terminal.snapshot", { id });
 
         if (!stream.open) return;
@@ -346,7 +346,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", `${operation}: ${thrown.message}`);
+      setFailure(id, "snapshot", `Could not restore Terminal output: ${thrown.message}. Switch away and back to retry.`);
 
       if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
