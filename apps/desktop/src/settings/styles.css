@@ -123,6 +123,9 @@
   min-height: 0;
 }
 
+.centre-frame { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.centre-navigation-host { flex: none; height: var(--space-6); }
+.centre-frame .settings-center { flex: 1; height: auto; min-height: 0; }
 .settings-sections {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
