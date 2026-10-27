@@ -24,6 +24,7 @@ const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
 export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({}), settlement?: {
+  previousFrame?(): PreferenceAction["previous_frame"];
   afterUpdate(callback: () => void): void;
   read(change: PreferenceAction): "settled" | "moving" | "unavailable";
 }): (() => void) => createRoot(dispose => {
@@ -45,6 +46,11 @@ export const observePreference = (reduced: Accessor<boolean>, now: () => number,
     // with the shared source change, before a later frame can reach its endpoint.
     if (!initial && entry.phase === "sample") {
       Object.assign(entry, untrack(displacement));
+      const previous = untrack(() => settlement?.previousFrame?.());
+
+      // A frame from before another source change or the sample cannot establish
+      // the immediately preceding movement of the value being replaced.
+      if (previous && previous.reduced !== value && previous.at_ms < entry.at_ms && previous.at_ms > (journal.at(-1)?.at_ms ?? -Infinity)) entry.previous_frame = previous;
 
       if (value && settlement) {
         entry.settlement = { status: "pending" };
@@ -760,7 +766,9 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
     const preference: PreferenceAction[] = [];
     let phase: PreferenceAction["phase"] = "warmup";
 
-    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
+    let previousFrame: PreferenceAction["previous_frame"];
+
+    const displacement = (): Pick<PreferenceAction, "movement" | "glyphs" | "todos"> => {
       if (workload === "todos" && fixture) {
         const todos = todoDisplacement(fixture, todoActions.at(-1));
 
@@ -783,7 +791,10 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return {};
 
       return { movement: { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress } };
-    }, {
+    };
+
+    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, displacement, {
+      previousFrame: () => previousFrame,
       afterUpdate,
       read: change => preferenceSettlement(workload, fixture, layerActions.find(action => action.at_ms === change.movement?.action_at_ms), todoActions.find(action => action.at_ms === change.todos?.action_at_ms)),
     });
@@ -813,7 +824,10 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
     try {
       const measured = await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
+        { frame: callback => void requestAnimationFrame(at => {
+          previousFrame = phase === "sample" ? { at_ms: performance.now(), reduced: reduced(), ...displacement() } : undefined;
+          callback(at);
+        }), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           timeOriginMs: performance.timeOrigin,

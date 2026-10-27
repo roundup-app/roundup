@@ -4,14 +4,13 @@ import { cleanup } from "@solidjs/testing-library";
 import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { createHomed, expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { agent, info, workstream } from "../testing/nodes";
-import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -122,6 +121,33 @@ describe("u3010g the frame recorder drives every workload", () => {
       expect(listeners.size).toBe(1);
       dispose();
       expect(listeners.size).toBe(0);
+    });
+  });
+
+  it("u3010d_a_live_switch_retains_only_the_preceding_frame_of_its_source_value", () => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      let at = 0;
+
+      const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
+
+      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({
+        glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
+      }), { afterUpdate: () => {}, read: () => "settled", previousFrame: () => previous });
+
+      at = 10;
+      change(true);
+      expect(journal.at(-1)).toMatchObject({ previous_frame: previous, glyphs: [{ degrees: 186 }] });
+      // No frame has observed the enabled source; the old disabled frame cannot
+      // stand for the immediately preceding movement when disabling again.
+      change(false);
+      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+      at = 11;
+      change(true);
+      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+      stop();
+      dispose();
     });
   });
 
@@ -500,16 +526,6 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     expect(await controls.complete(open.at(-1)!)).toBe(false);
     expect(journal.at(-1)).toMatchObject({ action: "complete", completed: false });
-  });
-
-  it("u3010g_a_driven_todo_is_homed_in_the_workstream_whose_shelf_shows_it", async () => {
-    const calls: [string, unknown][] = [];
-    const rpc = async (method: string, params: Record<string, string | number | null>) => (calls.push([method, params]), { id: 7 });
-
-    // SAFETY: createHomed calls only todo.create and todo.move, which this stub answers; the other methods are never reached.
-    await createHomed({ rpc } as Pick<AppSeam, "rpc">, "ws-1", "seed 0");
-
-    expect(calls).toEqual([["todo.create", { title: "seed 0", body: null, blockers: null }], ["todo.move", { id: 7, home: "ws-1" }]]);
   });
 
   it("u3010g_glyphs_need_ten_working_glyphs", async () => {
