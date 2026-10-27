@@ -2,6 +2,7 @@
 //! Each module groups the tests of related scenario ids.
 
 mod common;
+mod catch_up;
 mod control;
 mod in_process;
 mod owned;
