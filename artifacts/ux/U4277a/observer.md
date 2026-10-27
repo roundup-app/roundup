@@ -14,3 +14,5 @@ Source: `7e9d1dd7c8fbb499970d8f35a408efdf4326a078`; baseline: `120b9d3f9` (origi
 PNG/video payloads remain untracked under each scenario's `base/` and `head/`. Baseline Settings has no section tabs; its named section captures show the original combined form.
 
 Increased-contrast observation is unavailable through this agent-browser setup: fresh Chromium 156 launches with `--force-high-contrast,--disable-blink-features=ForcedColors` still report `matchMedia('(prefers-contrast: more)').matches === false`. Those attempts produce no claimed increased-contrast capture. The changed surfaces retain their existing contrast Tokens.
+
+Fix verification source: `cd982c2a0` with clean merge of `2bcba5ed7`. The catalogue keeps the existing recording glyph; Settings copy is extracted by surface. The isolated U4277 rendered observer passes after installing the runner's missing ffmpeg. Refreshed head readings show no passing Check regressed; 38 PNGs and the interaction video remain untracked. Catalogue, preferences and recovery suites pass (42 tests).
