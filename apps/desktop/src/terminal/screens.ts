@@ -310,7 +310,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       let retained = false;
 
       if (holder.complete && stream.after === null && holder.incarnation !== undefined && after !== undefined && !stream.lost) {
-        const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after }).catch((thrown: unknown) => {
+        const catchUp = await app.rpc("terminal.catchUp", { id, incarnation: holder.incarnation, after }).catch((thrown) => {
           if (!(thrown instanceof Error)) throw thrown;
 
           // An unavailable replay still permits an authoritative screen read.
