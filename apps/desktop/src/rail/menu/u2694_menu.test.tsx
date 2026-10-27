@@ -9,6 +9,7 @@ import { openShelf, padOf } from "../../pads/padsFixture";
 import { mountBubbles } from "../../bubbles/bubblesFixture";
 import { mountAskBar } from "../../ask/askFixture";
 import { mountApp, rpcCalls, select } from "../../testing/appFixture";
+import { openTabs, tab } from "../../header/stripFixture";
 import { openLane } from "../../todos/laneBrowser";
 
 afterEach(cleanup);
@@ -442,15 +443,176 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 }, 90_000);
 
 
-it("u4322a_each_surface_projects_ordered_nonempty_groups", async () => {
-  const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
-  open("w");
-  const items = app.shownMenus.at(-1)!.items;
-  expect(items.map(item => item.id)).toEqual(["yolo", "stop", "folder", "editor", "send", "copy-link", "rename", "clear", "add", "remove"]);
-  expect(items.map(item => item.group)).toEqual(["2", "2", "4", "4", "4", "4", "5", "5", "6", "7"]);
-  expect(items.find(item => item.id === "add")?.children?.map(item => item.id)).toEqual(["add-agent", "add-todo", "add-pad", "add-terminal"]);
+it.each([
+  {
+    name: "Workstream row",
+    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    receivers: ["a"],
+    mount: async () => {
+      const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
+
+      return { app, target: rowOf("w") };
+    },
+  },
+  {
+    name: "Agent row",
+    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
+    receivers: ["b"],
+    mount: async () => {
+      const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })]);
+
+      return { app, target: rowOf("a") };
+    },
+  },
+  {
+    name: "Queued Workstream row",
+    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    receivers: [],
+    mount: async () => {
+      const { app, connected } = await mountRail([workstream("first"), workstream("middle", { order: 1 }), workstream("last", { order: 2 })]);
+      app.handlers["workstream.queue"] = () => ({ running: 1, cap: 1, entries: ["first", "middle", "last"].map(workstream => ({ workstream, start: { kind: "queued" as const } })) });
+      await connected.queue.refresh();
+
+      return { app, target: rowOf("middle") };
+    },
+  },
+  {
+    name: "Project tab",
+    expected: [["copy", "4"], ["rename", "5"], ["close", "7"]],
+    receivers: [],
+    mount: async () => {
+      const { app } = await openTabs({ api: [agent("a", "idle", "ready")] });
+
+      return { app, target: tab("api") };
+    },
+  },
+  {
+    name: "Terminal tab",
+    expected: [["send", "4"], ["copy-link", "4"], ["rename", "5"], ["close", "7"]],
+    receivers: ["a"],
+    mount: async () => {
+      const { app, container } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+
+      return { app, target: container.querySelector(".terminal-tab-pair")! };
+    },
+  },
+  {
+    name: "Terminal Bubble bar",
+    expected: [["send", "4"], ["copy-link", "4"], ["rename", "5"], ["close", "7"]],
+    receivers: ["a"],
+    mount: async () => {
+      const { app } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+
+      return { app, target: document.querySelector(".bubble:not([hidden]) .bubble-header")! };
+    },
+  },
+  {
+    name: "Rail Pad",
+    expected: [["send", "4"], ["copy-link", "4"], ["delete", "7"]],
+    receivers: ["a", "b"],
+    mount: async () => {
+      const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })], [], undefined, () => true, {}, [padOf("notes", { kind: "agent", id: "a", parent: null })]);
+      fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
+
+      return { app, target: await screen.findByRole("button", { name: "notes" }) };
+    },
+  },
+  {
+    name: "Work-item Pad",
+    expected: [["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
+    receivers: ["a", "b"],
+    mount: async () => {
+      const { app, connected } = await openShelf([padOf("notes", { kind: "agent", id: "a", parent: null })]);
+      app.handlers["rail.tree"] = () => [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })];
+      await connected.rail.refresh();
+      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] [data-part="branch-control"]');
+
+      if (disclosure?.getAttribute("aria-expanded") === "false") fireEvent.click(disclosure);
+
+      return { app, target: (await screen.findByText("notes")).closest("[data-shelf-row]")! };
+    },
+  },
+  {
+    name: "Rail Todo",
+    expected: [["complete", "3"], ["send", "4"], ["copy-link", "4"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    receivers: ["a", "b"],
+    mount: async () => {
+      const owner = { kind: "agent" as const, id: "a", parent: null };
+      const { app } = await mountTodos([1, 2, 3].map(id => todo(id, { owner, creator: owner })), true, [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 }), workstream("other", { order: 2 })], true);
+      fireEvent.click(await screen.findByRole("button", { name: "3 todos" }));
+      const rail = screen.getByRole("tree", { name: "Rail" });
+
+      return { app, target: (await within(rail).findByText("todo 2")).closest("[data-todo]")! };
+    },
+  },
+  {
+    name: "Work-item Todo",
+    expected: [["complete", "3"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    receivers: ["a", "b"],
+    mount: async () => {
+      const owner = { kind: "agent" as const, id: "a", parent: null };
+      const { app } = await mountTodos([1, 2, 3].map(id => todo(id, { owner, creator: owner })), true, [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 }), workstream("other", { order: 2 })]);
+      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] [data-part="branch-control"]');
+
+      if (disclosure?.getAttribute("aria-expanded") === "false") fireEvent.click(disclosure);
+      const todos = screen.getByRole("region", { name: "Todos" });
+
+      return { app, target: (await within(todos).findByText("todo 2")).closest("[data-todo]")! };
+    },
+  },
+  {
+    name: "Ask published output",
+    expected: [["send", "4"], ["copy-link", "4"]],
+    receivers: ["a"],
+    mount: async () => {
+      const { app } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+      app.handlers["deliverable.list"] = () => [{
+        id: "publication", project: "p", maker: USER, maker_name: "Me", home: null,
+        title: "Result", published_at: 1792713600000,
+        target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
+      }];
+      window.dispatchEvent(new Event("focus"));
+      const made = await screen.findByRole("region", { name: "Made" });
+
+      return { app, target: await within(made).findByRole("listitem") };
+    },
+  },
+  {
+    name: "Completed Rail Todo with omitted groups",
+    expected: [["copy-link", "4"], ["delete", "7"]],
+    receivers: [],
+    mount: async () => {
+      const owner = { kind: "agent" as const, id: "a", parent: null };
+      const { app, connected } = await mountTodos([todo(2, { owner, creator: owner, done: true })], true, [agent("a", "done", "stopped")], true);
+      app.handlers["terminal.list"] = () => [exitedTerminal("a", 0)];
+      app.handlers["rail.tree"] = () => [agent("a", "done", "stopped")];
+      await connected.rail.refresh({ terminals: true });
+      fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+      const rail = screen.getByRole("tree", { name: "Rail" });
+
+      return { app, target: (await within(rail).findByText("todo 2")).closest("[data-todo]")! };
+    },
+  },
+])("u4409a_each_surface_projects_ordered_nonempty_groups: $name", async ({ mount, expected, receivers }) => {
+  const { app, target } = await mount();
+  const before = app.calls.length;
+  const clipboard = [...app.clipboardWrites];
+
+  fireEvent.contextMenu(target, { clientX: 120, clientY: 80 });
+  await waitFor(() => expect(app.shownMenus).toHaveLength(1));
+  const items = app.shownMenus[0]!.items;
+
+  expect(items.map(item => [item.id, item.group])).toEqual(expected);
+  expect(items.find(item => item.id === "send")?.children?.map(item => item.label) ?? []).toEqual(receivers);
+
+  if (expected.some(([id]) => id === "add")) {
+    expect(items.find(item => item.id === "add")?.children?.map(item => item.id)).toEqual(["add-agent", "add-todo", "add-pad", "add-terminal"]);
+  }
+
   await app.closeMenu();
-  expect(app.calls.filter(call => ["agent.spawn", "rail.startDoor", "terminal.open", "todo.create", "pad.create"].includes(call.method))).toEqual([]);
+  // These are the read-only refreshes the mounted surfaces may perform; every action RPC fails this assertion.
+  expect(app.calls.slice(before).filter(call => !["rail.tree", "terminal.list", "todo.list", "pad.list", "workstream.queue", "deliverable.list", "ask.list", "reaction.list"].includes(call.method))).toEqual([]);
+  expect(app.clipboardWrites).toEqual(clipboard);
 });
 
 it.each(["Agent", "Todo", "Pad", "Terminal"])("u4322a_add_uses_the_clicked_workstream_%s", async child => {
