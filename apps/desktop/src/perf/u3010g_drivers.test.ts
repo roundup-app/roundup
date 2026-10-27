@@ -437,6 +437,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     await vi.advanceTimersByTimeAsync(SAMPLE_MS);
     const actions = await run;
+
     const report = buildReport({
       workload: "layers", hz: 60, engine: "chromium", timerResolutionMs: 0.1, userAgent: "test",
       sample: Array(600).fill(16.7), idle: Array(300).fill(16.7), hidden: false, completed: true, actionsDone: actions.completed,
