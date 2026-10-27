@@ -18,7 +18,9 @@ export const createRowCollection = (items: () => { value: string; label: string 
     if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey || event.key.length !== 1 || event.key === " ") return null;
     if (results.has(event)) return results.get(event)!;
     const row = event.target instanceof HTMLElement ? event.target : null;
-    const value = collection().search(event.key, { state, currentValue: row?.dataset.collectionValue ?? null });
+    // Ark cycles past the current row for a repeated letter. Its sole match still owns typing.
+    const value = collection().search(event.key, { state, currentValue: row?.dataset.collectionValue ?? null })
+      ?? collection().search("", { state, currentValue: null });
     results.set(event, value);
     return value;
   };
