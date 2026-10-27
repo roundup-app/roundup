@@ -123,6 +123,7 @@ export const createRowCollection = (items: () => { value: string; label: string 
       searches.set(row, search);
 
       if (interaction) { rows.set(value, row); keys.set(row, key); }
+
       onCleanup(() => { rows.delete(value); keys.delete(row); searches.delete(row); });
     },
   };
