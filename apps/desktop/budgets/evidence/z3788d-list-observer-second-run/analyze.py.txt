@@ -1,5 +1,5 @@
 import json,pathlib,math,sys,hashlib,collections,gzip
-root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-list-observer';media=root/'artifacts/ux/Z3788d'
+root=pathlib.Path.cwd();out=root/'apps/desktop/budgets/evidence/z3788d-list-observer-second-run';media=root/'artifacts/ux/Z3788d'
 reports=[];failure=[];selection_failures=[]
 for length in [40,400,4000]:
  try:
