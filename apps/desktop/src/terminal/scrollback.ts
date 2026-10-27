@@ -1,4 +1,7 @@
 import * as v from "valibot";
+import type { ConnectedProject } from "../state/connectedProject";
+import type { Emulator } from "./emulator";
+import { fromBase64 } from "./base64";
 import { storageSchema, storedValue } from "../state/storage";
 
 const grid = v.pipe(v.number(), v.integer(), v.minValue(1));
@@ -14,19 +17,16 @@ const schema = storageSchema("roundup:terminal-scrollback", v.strictObject({
 export const scrollbackStorage = (project: string, incarnation: string) =>
   storedValue(`roundup:terminal-scrollback:${project}:${incarnation}`, schema);
 
-
-import type { ConnectedProject } from "../state/connectedProject";
-import type { Emulator } from "./emulator";
-import { fromBase64 } from "./base64";
-
 /** A damaged or externally replaced record remains recoverable through the existing storage owner. */
 export const retainScrollback = (project: string, incarnation: string, output: v.InferOutput<typeof schema>, failed: (cause: string) => void): void => {
   const storage = scrollbackStorage(project, incarnation);
   const saved = storage.restore();
 
-  if (saved.status === "failed") { failed(saved.cause);
+  if (saved.status === "failed") {
+    failed(saved.cause);
 
- return; }
+    return;
+  }
 
   void storage.write(output, saved.status === "restored" ? saved.value : null);
 };
