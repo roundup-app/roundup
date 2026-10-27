@@ -338,7 +338,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
           await browser("focus", '.rail-row[data-id="agent-4"] [aria-label="Open folder"]');
           await browser("press", "Enter");
 
-          await wait("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Folder unavailable')");
+          await wait("Array.from(document.querySelectorAll('.rail [role=alert]')).some(alert => alert.textContent.includes('Folder unavailable'))");
 
           for (const id of ["U4275a", "U4275b", "U4275c", "U4335a"]) await shot(id, stage, "dense-action-failure");
         }
