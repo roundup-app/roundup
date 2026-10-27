@@ -8,6 +8,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RequestedApp as App } from "../testing/requestedApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { openProjectPage } from "../testing/menuProbe";
 import { measurementFixture } from "../testing/measurementFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, NOW } from "../testing/nodes";
@@ -191,8 +192,11 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
 
   await assertSleeping(app);
 
+  openProjectPage("view:resources", "/p");
+  await settle();
+
   for (const name of ["Timeline", "Time"]) {
-    fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".measurement-action button")].find((button) => button.textContent === name)!);
+    fireEvent.click(screen.getByRole("tab", { name }));
     // View mounting bounds the interval probe and the next Escape input.
     await vi.waitFor(() => expect(document.querySelector(name === "Timeline" ? ".timeline-view" : ".measurement-dashboard")).not.toBeNull());
     await assertSleeping(app);
@@ -204,6 +208,8 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
   }
 
   if (initial === "transition") {
+    openProjectPage("view:resources", "/p");
+    await settle();
     visibility("visible");
     await settle();
     expect(intervals.size).toBe(3);
