@@ -1,9 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
-import { info, workstream } from "../testing/nodes";
+import { agent, info, workstream } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
+
+// The browser supplies the viewport and measured row sizes; jsdom supplies no boxes.
+beforeEach(() => {
+  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(24);
+});
+
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
@@ -12,38 +19,39 @@ const type = (text: string) => fireEvent.input(field()!, { target: { value: text
 it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   // jsdom has no scroll viewport; supply the browser's scroll metrics and event.
   vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
-  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(11200);
-  vi.spyOn(Element.prototype, "scrollTo").mockImplementation(function (this: Element, options) {
+  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(1120);
+  vi.spyOn(Element.prototype, "scrollTo").mockImplementation(function (this: Element, options: ScrollToOptions | number) {
     if (typeof options !== "object") return;
     this.scrollTop = options.top ?? 0;
     this.dispatchEvent(new Event("scroll"));
   });
-  const { app, connected } = await mountSwitcher(null, Array.from({ length: 400 }, (_, index) => workstream(`row-${index}`, {
+  const { app, connected } = await mountSwitcher(null, [workstream("ops"), ...Array.from({ length: 40 }, (_, index) => agent(`row-${index}`, "idle", "idle", { parent: "ops",
     name: `Destination ${String(index).padStart(3, "0")}`, order: index,
-  })), []);
+  }))], []);
   openSwitcher();
   await waitFor(() => expect(document.activeElement).toBe(field()));
   const option = (value: string) => document.querySelector<HTMLElement>(`.switcher [role=option][data-value="${value}"]`);
-  expect(option("row-399")).toBeNull();
+  expect(option("row-39")).toBeNull();
   option("row-0")!.focus();
   press("End");
-  await waitFor(() => expect(document.activeElement).toBe(option("row-399")));
-  fireEvent.click(option("row-399")!, { metaKey: true });
+  await waitFor(() => expect(document.activeElement).toBe(option("row-39")));
+  fireEvent.click(option("row-39")!, { metaKey: true });
   field()!.focus();
-  type("Destination 399");
-  await waitFor(() => expect(option("row-399")?.getAttribute("aria-selected")).toBe("true"));
-  expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-399")!.id);
+  type("Destination 039");
+  await waitFor(() => expect(option("row-39")?.getAttribute("aria-selected")).toBe("true"));
+  expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-39")!.id);
   press("Enter", {}, field()!);
-  await waitFor(() => expect(connected.rail.selected()).toBe("row-399"));
+  await waitFor(() => expect(connected.rail.selected()).toBe("row-39"));
   await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
   openSwitcher();
-  await waitFor(() => expect(field()?.value).toBe("Destination 399"));
+  await waitFor(() => expect(field()?.value).toBe("Destination 039"));
   type("");
-  await waitFor(() => expect(option("row-0")).not.toBeNull());
   const list = document.querySelector<HTMLElement>(".switcher [role=listbox]")!;
-  list.scrollTo({ top: 10960 });
-  await waitFor(() => expect(option("row-399")).not.toBeNull());
-  expect(connected.rail.selected()).toBe("row-399");
+  list.scrollTo({ top: 0 });
+  await waitFor(() => expect(option("row-0")).not.toBeNull());
+  list.scrollTo({ top: 880 });
+  await waitFor(() => expect(option("row-39")).not.toBeNull());
+  expect(connected.rail.selected()).toBe("row-39");
   expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 

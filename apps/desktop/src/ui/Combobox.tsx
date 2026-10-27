@@ -17,11 +17,15 @@ import { copy } from "../copy";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
 import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
 
+import { createVirtualizer, defaultRangeExtractor } from "@tanstack/solid-virtual";
+
 type ComboboxItem = { value: string; label: string };
 
 /** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓` (no wrap); a resting or moving pointer never moves the highlight. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
+  /** Window destinations; Ark retains the complete logical collection. */
+  virtualized?: boolean;
   /** Opt in only owned content rows; commands and form choices keep single activation. */
   contentRow?: (item: ComboboxItem) => boolean;
   highlightedValue: string | null;
@@ -47,6 +51,29 @@ const Root = (props: {
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
 
   const groups = createMemo(() => collection().group());
+
+  let list: HTMLDivElement | undefined;
+  const destinations = createMemo(() => props.items.filter(item => !props.group?.(item)));
+  // Z3788d baseline 40507415273: 4,000 destinations spend 51.740 ms p95 in style/layout.
+  const virtual = createVirtualizer<HTMLDivElement, HTMLDivElement>({
+    get count() { return props.virtualized ? destinations().length : 0; },
+    getScrollElement: () => list ?? null,
+    estimateSize: () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24,
+    getItemKey: index => destinations()[index]!.value,
+    overscan: 8,
+    rangeExtractor: range => {
+      const indexes = defaultRangeExtractor(range);
+      const active = destinations().findIndex(item => item.value === props.highlightedValue);
+
+      return active < 0 || indexes.includes(active) ? indexes : [...indexes, active].sort((a, b) => a - b);
+    },
+  });
+  const reveal = (value: string) => {
+    if (!props.virtualized) return;
+    const index = destinations().findIndex(item => item.value === value);
+
+    if (index >= 0) virtual.scrollToIndex(index, { align: "auto" });
+  };
 
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
   let pointerEvent = false;
@@ -83,6 +110,10 @@ const Root = (props: {
     disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
     dir: locale().dir, getRootNode: environment().getRootNode,
     collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
+    scrollToIndexFn: props.virtualized ? ({ index, getElement }) => {
+      if (index < destinations().length) virtual.scrollToIndex(index, { align: "auto" });
+      else getElement()?.scrollIntoView({ block: "nearest" });
+    } : undefined,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
     inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
@@ -101,8 +132,8 @@ const Root = (props: {
   const content = createRowCollection(() => props.items.filter(item => {
     const row = rows.get(item.value);
 
-    return props.contentRow?.(item) && row && !row.closest("[hidden], [inert], [aria-disabled=true]");
-  }), { onFocus: value => props.onHighlightChange(value), onActivate: value => props.onSelect(value) });
+    return props.contentRow?.(item) && (row ? !row.closest("[hidden], [inert], [aria-disabled=true]") : props.virtualized);
+  }), { onFocus: value => { props.onHighlightChange(value); reveal(value); }, onActivate: value => props.onSelect(value) });
 
   // The Tab stop is available before item refs mount; gesture eligibility uses the mounted collection.
   const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
@@ -137,7 +168,7 @@ const Root = (props: {
       if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
-    <ArkCombobox.Content class="app-combobox-list" on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
+    <ArkCombobox.Content ref={element => { list = element; }} class="app-combobox-list" on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={groups().map(([group]) => group)} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {(group) => {
           // Key the owner by its group name: replacing a tuple remounts every option on each edit (Z3788d).
@@ -146,7 +177,12 @@ const Root = (props: {
           return group ? <ArkCombobox.ItemGroup>
             <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
             <For each={items()}>{(item) => itemRow(item)}</For>
-          </ArkCombobox.ItemGroup> : <For each={items()}>{(item) => itemRow(item)}</For>;
+          </ArkCombobox.ItemGroup> : props.virtualized ? <div class="app-combobox-viewport" style={{ height: `${virtual.getTotalSize()}px` }}>
+            <For each={virtual.getVirtualItems().map(slot => destinations()[slot.index]).filter((item): item is ComboboxItem => item !== undefined)}>{item => <div class="app-combobox-slot" style={{ transform: `translateY(${virtual.getVirtualItems().find(slot => slot.key === item.value)?.start ?? 0}px)` }}
+              data-index={destinations().indexOf(item)} ref={element => { queueMicrotask(() => { if (element.isConnected) virtual.measureElement(element); }); }}>
+              {itemRow(item)}
+            </div>}</For>
+          </div> : <For each={items()}>{(item) => itemRow(item)}</For>;
         }}
       </For>
     </ArkCombobox.Content>

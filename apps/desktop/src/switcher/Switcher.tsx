@@ -208,7 +208,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   return (
     <Show when={open()}>
       <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
-        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
+        <Combobox.Root virtualized autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
           element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });

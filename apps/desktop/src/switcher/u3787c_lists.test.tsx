@@ -1,8 +1,15 @@
 import { fireEvent, waitFor } from "@solidjs/testing-library";
-import { expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { mountApp } from "../testing/appFixture";
 import { info } from "../testing/nodes";
 import { leaderKey } from "../keys/leaderFixture";
+
+// The browser supplies the viewport and measured row sizes; jsdom supplies no boxes.
+beforeEach(() => {
+  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(24);
+});
+
 
 // Mounted inventory: one mixed collection, opened from the production App by ⌘K then K.
 // Captured actions are commands, not members of the content selection.

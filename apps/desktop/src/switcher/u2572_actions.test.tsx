@@ -1,6 +1,6 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
 import { chooseAction as chooseRailAction } from "../rail/railFixture";
@@ -9,6 +9,13 @@ import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
 import { agent, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./switcherFixture";
+
+// The browser supplies the viewport and measured row sizes; jsdom supplies no boxes.
+beforeEach(() => {
+  vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(24);
+});
+
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 

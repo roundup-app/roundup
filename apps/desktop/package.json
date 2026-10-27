@@ -23,6 +23,7 @@
     "@solid-primitives/event-listener": "2.4.6",
     "@solid-primitives/resize-observer": "2.2.0",
     "@solid-primitives/scheduled": "^1.5.3",
+    "@tanstack/solid-virtual": "3.13.50",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.8.1",
