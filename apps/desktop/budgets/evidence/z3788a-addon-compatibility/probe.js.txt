@@ -1,0 +1,123 @@
+import { Terminal } from '@xterm/xterm';
+import { SearchAddon } from '@xterm/addon-search';
+import { SerializeAddon } from '@xterm/addon-serialize';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { ImageAddon } from '@xterm/addon-image';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+
+const rows = [];
+const check = (name, pass, detail) => { rows.push({ name, pass: !!pass, detail }); };
+const write = (t, data) => Promise.race([
+  new Promise(resolve => t.write(data, resolve)),
+  new Promise((_, reject) => setTimeout(() => reject(Error('parse timeout')), 5000)),
+]);
+const contents = t => Array.from({ length: t.buffer.active.length }, (_, y) => t.buffer.active.getLine(y).translateToString(true));
+const snapshot = t => ({ lines: contents(t), x: t.buffer.active.cursorX, y: t.buffer.active.cursorY, base: t.buffer.active.baseY });
+const imageCells = (t, addon) => {
+  const found = [];
+  for (let y = 0; y < t.buffer.active.length; y++) for (let x = 0; x < t.cols; x++) {
+    const image = addon.getImageAtBufferCell(x, y);
+    if (image && !found.includes(image)) found.push(image);
+  }
+  return found.map(canvas => ({ width: canvas.width, height: canvas.height }));
+};
+const options = { cols: 80, rows: 24, scrollback: 10000, allowProposedApi: true };
+const run = async mode => {
+  const t = new Terminal(options);
+  const search = new SearchAddon();
+  const serial = new SerializeAddon();
+  const images = new ImageAddon({ storageLimit: 1, pixelLimit: 262144, sixelSizeLimit: 1048576, iipSizeLimit: 1048576, enableSizeReports: false });
+  const copies = [], failures = [], input = [];
+  let readRequests = 0, nativeReads = 0, refuse = false;
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { readText: async () => { nativeReads++; return 'native-secret-never-disclosed'; } } });
+  const nativeWrite = async text => { if (refuse) throw Error('copy refused'); copies.push(text); };
+  const clipboard = new ClipboardAddon(undefined, {
+    // No native clipboard read capability is passed. An empty OSC reply reveals no clipboard bytes.
+    readText: () => { readRequests++; return ''; },
+    writeText: async (selection, text) => {
+      if (selection !== 'c') return;
+      try { await nativeWrite(text); } catch (error) { failures.push(error.message); }
+    },
+  });
+  for (const addon of [search, serial, clipboard, images]) t.loadAddon(addon);
+  t.open(document.querySelector('#term'));
+  const fitter = new FitAddon(); t.loadAddon(fitter);
+  check(`${mode}:patched fit proposes a grid`, fitter.proposeDimensions()?.cols > 0, fitter.proposeDimensions());
+  let webgl, lost;
+  if (mode === 'webgl') {
+    webgl = new WebglAddon(); t.loadAddon(webgl);
+    lost = new Promise(resolve => webgl.onContextLoss(() => { webgl.dispose(); resolve(); }));
+    check('webgl:active canvas', !!t.element.querySelector('canvas'), navigator.userAgent);
+  }
+  t.onData(text => input.push(text));
+  await write(t, Array.from({ length: 100 }, (_, i) => `${i}: ${i === 4 || i === 94 ? 'needle' : 'plain'}\r\n`).join('') + '\x1b[31mstyled 世界\x1b[0m\r\n' + 'wrapped 界'.repeat(20));
+  check(`${mode}:search scrollback`, search.findNext('needle') && t.getSelection() === 'needle', t.getSelectionPosition());
+  const first = t.getSelectionPosition();
+  check(`${mode}:search next`, search.findNext('needle') && t.getSelectionPosition().start.y !== first.start.y, t.getSelectionPosition());
+  check(`${mode}:search previous`, search.findPrevious('needle') && t.getSelectionPosition().start.y === first.start.y, t.getSelectionPosition());
+  check(`${mode}:search missing`, !search.findNext('absent-query'), null);
+  check(`${mode}:search sends no input`, input.length === 0, [...input]);
+  const before = snapshot(t), serialized = serial.serialize({ scrollback: 10000 });
+  const restored = new Terminal(options); const host = document.createElement('div'); document.body.append(host); restored.open(host);
+  await write(restored, serialized);
+  check(`${mode}:serialize exact buffer and cursor`, JSON.stringify(snapshot(restored)) === JSON.stringify(before), { before, after: snapshot(restored), serializedBytes: new TextEncoder().encode(serialized).length });
+  const style = t.buffer.active.getLine(100)?.getCell(0);
+  const restoredStyle = restored.buffer.active.getLine(100)?.getCell(0);
+  check(`${mode}:serialize styled cell`, style?.getFgColor() === 1 && restoredStyle?.getFgColor() === 1, { original: style?.getFgColor(), restored: restoredStyle?.getFgColor() });
+  await write(restored, '\r\nlater-once');
+  check(`${mode}:output after restore`, contents(restored).filter(line => line === 'later-once').length === 1, contents(restored).slice(-3));
+  restored.dispose(); host.remove();
+  const text = 'copy 世界 café';
+  await write(t, `\x1b]52;c;${btoa(String.fromCharCode(...new TextEncoder().encode(text)))}\x07`);
+  check(`${mode}:copy exact once`, copies.length === 1 && copies[0] === text, [...copies]);
+  refuse = true;
+  await write(t, '\x1b]52;c;ZmFpbA==\x07after-failed-copy');
+  check(`${mode}:copy failure retains parser progress`, failures.length === 1 && contents(t).some(line => line.includes('after-failed-copy')), [...failures]);
+  await write(t, '\x1b]52;c;?\x07');
+  check(`${mode}:no native readback`, nativeReads === 0 && readRequests === 1 && input.join('') === '\x1b]52;c;\x07', { nativeReads, readRequests, input: [...input] });
+  input.length = 0;
+  await write(t, '\r\n\x1bPq"1;1;24;12#1;2;100;0;0#1!24~-!24~\x1b\\\r\nSIXEL done\r\n');
+  const sixel = imageCells(t, images);
+  check(`${mode}:SIXEL decoded`, sixel.some(img => img.width === 24 && img.height === 12), sixel);
+  const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 16;
+  canvas.getContext('2d').fillRect(0, 0, 32, 16);
+  const png = canvas.toDataURL('image/png').split(',')[1];
+  await write(t, `\x1b]1337;File=inline=1;size=${atob(png).length}:${png}\x07\r\nIIP done\r\n`);
+  check(`${mode}:IIP decoded separately`, imageCells(t, images).some(img => img.width === 24 && img.height === 12) && imageCells(t, images).some(img => img.width === 32 && img.height === 16), imageCells(t, images));
+  check(`${mode}:image output continues`, contents(t).some(line => line.includes('IIP done')), contents(t).slice(-4));
+  t.resize(90, 26); t.scrollToTop(); t.scrollToBottom();
+  if (webgl) {
+    const gl = Array.from(t.element.querySelectorAll('canvas')).map(canvas => canvas.getContext('webgl2')).find(Boolean);
+    const extension = gl?.getExtension('WEBGL_lose_context');
+    if (!extension) throw Error('context loss unsupported');
+    extension.loseContext();
+    await Promise.race([lost, new Promise((_, reject) => setTimeout(() => reject(Error('context-loss timeout')), 5000))]);
+    await write(t, 'after-loss\r\n');
+    check('webgl:DOM fallback keeps images', imageCells(t, images).some(img => img.width === 24 && img.height === 12) && imageCells(t, images).some(img => img.width === 32 && img.height === 16) && !!t.element.querySelector('.xterm-rows'), imageCells(t, images));
+  }
+  t.input('user-input', true);
+  check(`${mode}:input remains usable`, input.join('') === 'user-input', [...input]);
+  const usage = images.storageUsage;
+  // Exercise the public FIFO cap with decoded images large enough to overflow it.
+  canvas.width = 256; canvas.height = 256;
+  const large = canvas.toDataURL('image/png').split(',')[1];
+  const usages = [];
+  for (let i = 0; i < 12; i++) {
+    await write(t, `\x1b]1337;File=inline=1;size=${atob(large).length}:${large}\x07\r\n`);
+    usages.push(images.storageUsage);
+  }
+  check(`${mode}:image cache FIFO saturates below cap`, usages.every(value => value > 0 && value <= 1) && usages.at(-1) < 12 * 256 * 256 * 4 / 1000000, usages);
+  check(`${mode}:image cache within configured limit`, usage > 0 && usage <= images.storageLimit, { usage, limit: images.storageLimit });
+  t.dispose();
+  check(`${mode}:dispose clears image storage`, images.storageUsage === 0, images.storageUsage);
+};
+window.probeDone = (async () => {
+  try { await run('dom'); await run('webgl'); }
+  catch (error) { rows.push({ name: 'setup or incomplete action', pass: false, detail: error.stack }); }
+  const result = { exit: rows.some(row => row.name === 'setup or incomplete action') ? 2 : rows.every(row => row.pass) ? 0 : 1, rows };
+  window.probeResult = result;
+  document.querySelector('#result').textContent = JSON.stringify(result, null, 2);
+  return result;
+})();

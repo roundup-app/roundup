@@ -152,3 +152,42 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   expect(terminal.markers).toHaveLength(0);
   emulator.dispose();
 });
+
+it("z3788a_osc52_copies_once_and_reports_failure", async () => {
+  const { connectFakeProject, callsTo } = await import("./paneHarness");
+  const { terminal, info } = await import("../testing/nodes");
+  const { createScreens } = await import("./screens");
+  const { lazyXtermEmulators } = await import("./lazyEmulator");
+  const { app, connected } = await connectFakeProject([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
+  const screens = createScreens(connected, lazyXtermEmulators());
+  const emulator = screens.emulatorFor("t-a");
+  await emulator.ready;
+  const output = () => new Promise<void>(resolve => emulator.write(new TextEncoder().encode("\x1b]52;c;Y2Fmw6kg5LiW55WM\x07after"), resolve));
+  await output();
+  expect(app.clipboardWrites).toEqual(["café 世界"]);
+  app.clipboardWrite = async () => { throw new Error("pasteboard unavailable"); };
+
+  await output();
+  expect(screens.failure("t-a")).toContain("pasteboard unavailable");
+  expect(screens.failure("t-b")).toBeNull();
+  app.clipboardWrite = async text => { app.clipboardWrites.push(text); };
+
+  await output();
+  expect(app.clipboardWrites).toEqual(["café 世界", "café 世界"]);
+  expect(screens.failure("t-a")).toBeNull();
+  expect(callsTo(app, "terminal.write")).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
+
+it("z3788a_osc52_query_does_not_read_clipboard", async () => {
+  const readText = vi.fn(async () => "private clipboard");
+  vi.stubGlobal("navigator", { clipboard: { readText } });
+  const emulator = createXtermEmulators()("t-a");
+  const input: string[] = [];
+  emulator.onInput(bytes => input.push(new TextDecoder().decode(bytes)));
+  await new Promise<void>(resolve => emulator.write(new TextEncoder().encode("\x1b]52;c;?\x07"), resolve));
+  expect(readText).not.toHaveBeenCalled();
+  expect(input.join("")).toBe("\x1b]52;c;\x07");
+  emulator.dispose();
+});

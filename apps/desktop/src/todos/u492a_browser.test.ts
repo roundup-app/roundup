@@ -37,19 +37,44 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await read(lane, "reorder-failure");
     expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: one, before: initial[2] }]);
 
-    // U3787a replaces reversible deletion's question with immediate deletion and Undo.
-    const [first, second] = await lane.order() ;
+    // U3787a replaces U491a's confirmation with immediate deletion and Undo.
+    const [first, second] = await lane.order();
 
     await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
     await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${first}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
     await lane.browser("focus", `.shelf [data-todo="${second}"] .todo-row-button`);
     await lane.browser("press", "Meta+Enter");
-    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot delete'); return true; })()");
+    await lane.until(`document.querySelector('.shelf [data-todo="${second}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
-    await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('cannot delete')");
+    await lane.until(`!document.querySelector('.shelf [data-todo="${first}"]') && !document.querySelector('.shelf [data-todo="${second}"]')`);
+    expect(await lane.order()).toEqual([initial[2]]);
+    await lane.browser("click", '.todo-undo button:first-of-type');
+    await lane.until(`!!document.querySelector('.shelf [data-todo="${first}"]') && !!document.querySelector('.shelf [data-todo="${second}"]')`);
+    await read(lane, "undo");
+    await lane.resetCalls();
+
+    await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${first}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
+    await lane.browser("focus", `.shelf [data-todo="${second}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${second}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
+    await lane.evaluate(`(() => {
+      const app = window.__fake.app;
+      const remove = app.handlers['todo.delete'];
+      app.handlers['todo.delete'] = async params => {
+        app.handlers['todo.delete'] = remove;
+        const receipt = await remove({...params, ids: [${second}]});
+        return {...receipt, missing: [${first}]};
+      };
+      return true;
+    })()`);
+    await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
+    await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('no longer available')");
     await read(lane, "bulk-failure");
-    expect(await lane.order()).toEqual([first, second, initial[2]]);
-    expect(await lane.calls("todo.delete")).toEqual([]);
+    expect(await lane.order()).toEqual([first, initial[2]]);
+    expect((await lane.calls("todo.delete")).map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [second, first] }]);
 
     // Tabs and the Home menu of an Agent's own Todo.
     await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-pads"]');
