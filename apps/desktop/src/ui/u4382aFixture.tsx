@@ -8,6 +8,7 @@ import { RadioGroup } from "./RadioGroup";
 import { NumberInput } from "./NumberInput";
 import { Combobox } from "./Combobox";
 import { runChecks } from "../testing/checks";
+import { ReservedLine } from "../ink/ReservedLine";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
@@ -37,7 +38,7 @@ const Fixture = () => {
         <RadioGroup label="Mode" choices={choices} value={value()} disabled={disabled} invalid={invalid} onValueChange={setValue} />
         <NumberInput.Root disabled={disabled} invalid={invalid} defaultValue="12"><NumberInput.Label>Font size</NumberInput.Label><NumberInput.Input /></NumberInput.Root>
         <Field.Root disabled={disabled} invalid={invalid}><Combobox.Picker label="Model" items={choices} value={value()} onSelect={setValue} /><Field.ErrorText>Choose an available model.</Field.ErrorText></Field.Root>
-        {invalid && <p role="alert">Correct the marked choices.</p>}
+        <ReservedLine message={invalid && "Correct the marked choices."} />
       </section>;
     }}</For>
   </main>;
