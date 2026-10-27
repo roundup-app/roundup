@@ -209,6 +209,7 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
   fireEvent.click(tab("api"));
   await settled();
   const original = tab("api");
+  const saved = original.textContent;
   original.focus();
 
   if (opening === "F2") fireEvent.keyDown(original, { key: "F2" });
@@ -230,17 +231,15 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
   try { press("Escape"); }
   finally { document.removeEventListener("keydown", underlying); }
 
-  expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
-  expect(tab("api").textContent).toBe("api");
+  expect(tab("api").textContent).toBe(saved);
   expect(document.activeElement).toBe(tab("api"));
   expect(tab("api").getAttribute("aria-selected")).toBe("true");
   expect(underlying).not.toHaveBeenCalled();
   expect(sends).not.toHaveBeenCalled();
   const records = () => JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts;
-  await waitFor(() => expect(records()).toHaveLength(1));
+  await waitFor(() => expect(records()).toEqual([expect.objectContaining({ destination: { surface: "header", object: path("api"), recipient: null },
+    value: { name: exact, base: "api" }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" })]));
   const retained = records()[0];
-  expect(retained).toMatchObject({ destination: { surface: "header", object: path("api"), recipient: null },
-    value: { name: exact, base: "api" }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" });
   fireEvent.click(tab("web"));
   await settled();
   fireEvent.click(tab("api"));
@@ -250,9 +249,11 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
   expect(records()).toEqual([retained]);
   expect(sends).not.toHaveBeenCalled();
   view.unmount();
-  await openTabs({ api: [], web: [] }, true);
+  const { app: reopened } = await openTabs({ api: [], web: [] }, true);
+  const restoredSends = vi.spyOn(reopened, "renameProject");
   const reloaded = await edit();
   expect([reloaded.value, reloaded.selectionStart, reloaded.selectionEnd, reloaded.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
+  expect(restoredSends).not.toHaveBeenCalled();
 });
 
 
