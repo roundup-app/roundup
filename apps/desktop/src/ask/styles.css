@@ -187,16 +187,6 @@
   white-space: nowrap;
 }
 
-.ask-choices .app-select-trigger {
-  color: var(--grey);
-  background: none;
-}
-
-.ask-choices .app-select-trigger:hover {
-  color: var(--text);
-  background: none;
-}
-
 .project-overview,
 .overview-list,
 .overview-attention {

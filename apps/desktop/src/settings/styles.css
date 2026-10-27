@@ -57,17 +57,6 @@
   color: var(--grey);
 }
 
-.settings-field input {
-  min-width: 0;
-  width: 100%;
-  min-height: var(--space-5);
-  border: 0;
-  padding: var(--space-1) 0;
-  background: var(--transparent);
-  color: var(--text);
-  font: inherit;
-}
-
 .settings-shortcut {
   display: flex;
   align-items: baseline;
@@ -95,12 +84,6 @@
 .settings-shortcut button {
   color: var(--text);
 }
-
-.settings-field input::placeholder {
-  color: var(--grey);
-  opacity: 1;
-}
-
 
 .project-center-content {
   display: flex;
@@ -172,10 +155,6 @@
   color: var(--grey);
 }
 
-.settings-field input {
-  border-bottom: var(--hairline-width) solid var(--hairline);
-}
-
 .settings-shortcut button[aria-pressed="true"] {
   color: var(--accent);
 }
@@ -187,14 +166,6 @@
 .settings-shortcut span {
   color: inherit;
   font: inherit;
-}
-
-.settings-field input[data-invalid] {
-  color: var(--red);
-}
-
-.settings-content .app-select-trigger {
-  border-bottom: var(--hairline-width) solid var(--hairline);
 }
 
 .settings-recording-mark {
