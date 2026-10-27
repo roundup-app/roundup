@@ -2,7 +2,7 @@ import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
-import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
+import { createOwnerAssignment, createOwnerKeys, createOwnerPicker } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
@@ -368,18 +368,10 @@ export const Todos = (props: {
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
 
-  registerKeys(shelfKeyScope, [{
-    action: CHORDS.find(row => row.keys === "O")!,
+  createOwnerPicker({ todos,
     when: event => !triage.on() || triageTarget(event)?.done === false,
-    capture: (focus) => {
-      const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
-      const id = Number(row?.dataset.todo);
-      const found = row && todos.byId().get(id);
-      const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
-
-      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); } } };
-    },
-  }]);
+    pick: (id, anchor) => { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); },
+  });
 
   createOwnerKeys({ connected, todos, active, assign });
 
