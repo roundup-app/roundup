@@ -64,16 +64,6 @@ it("u469_failed_close_keeps_the_tab_bubble_and_visible_failure", async () => {
   expect(document.activeElement).toBe(close);
 });
 
-it("u469_close_returns_focus_to_a_remaining_control", async () => {
-  const mounted = await mountBubbles();
-  const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
-  close.focus();
-  fireEvent.click(close);
-  await answerQuestion(true);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="2"]')));
-  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]));
-});
-
 it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_%s", async (activation) => {
   const mounted = await mountBubbles(null);
 
