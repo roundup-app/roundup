@@ -334,7 +334,7 @@
 }
 
 /* U448: a Rail Todo is one line; its Drawer holds the body and Home. Blockers and actions stay available. */
-.rail-leaf .shelf-text {
+.rail-leaf[data-leaf="todo"] .shelf-text {
   display: flex;
   align-items: center;
   gap: var(--space-1);

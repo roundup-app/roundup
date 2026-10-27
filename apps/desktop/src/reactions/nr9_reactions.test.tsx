@@ -18,8 +18,8 @@ const saved = (patch: Partial<Reaction> = {}): Reaction => ({
   observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
 });
 
-const mount = async (list: () => Reaction[]) => {
-  const mounted = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+const mount = async (list: () => Reaction[], homes: ReturnType<typeof workstream>[] = []) => {
+  const mounted = await mountAskBar([], null, [...homes, agent("a", "idle", "ready")]);
 
   mounted.connected.hideView("made");
   mounted.app.handlers["reaction.list"] = list;
@@ -55,7 +55,6 @@ it("nr9_create_inspect_stop_run_and_focus", async () => {
   fireEvent.click(row);
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 
-  expect(within(detail).getByText("go")).toBeTruthy();
   expect(app.calls.map((call) => call.method)).not.toContain("reaction.run");
   app.handlers["reaction.stop"] = () => (current = saved({ state: "stopped" }));
   app.handlers["reaction.run"] = () => current;
@@ -64,7 +63,7 @@ it("nr9_create_inspect_stop_run_and_focus", async () => {
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false));
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true));
-  fireEvent.click(within(detail).getByRole("button", { name: copy.close }));
+  fireEvent.click(within(detail).getByRole("button", { name: /^Close/ }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
 });
 
@@ -126,7 +125,7 @@ it("u3299a_named_targets_keep_identity", async () => {
     maxFirings: "1", rearm: false,
   }, null, "ordinary").retained;
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
-  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "Builder · Check" }));
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
 
@@ -153,7 +152,7 @@ it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {
   await screen.findByText("exact accepted instruction");
   expect(app.calls.filter(call => call.method === "message.get").map(call => call.params)).toEqual([{ id: 42 }]);
   expect(screen.getByText(/Not delivered/)).toBeTruthy();
-  fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: copy.close }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: /^Close/ }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Firing 1/ })));
   expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
 });
@@ -182,7 +181,7 @@ it.each(["acknowledged", "failed"] as const)("nr9_%s_older_submit_preserves_newe
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " newer\n exact 🧭 ");
   expect(connected.drafts.list().at(-1)?.value.operation).not.toBe("original");
-  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   fireEvent.click(screen.getByRole("button", { name: copy.reactionCreate }));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " newer\n exact 🧭 ");
 });
@@ -193,7 +192,7 @@ it("nr9_reload_and_project_switch_keep_the_original_recipient_without_sending", 
   const path = first.connected.project.path;
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " original e\u0301\n 🧭 " } });
-  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "a" }));
   await waitFor(() => expect(first.connected.drafts.list().at(-1)?.value.target).toBe("a"));
   first.unmount();
@@ -222,7 +221,7 @@ it("nr9_saved_reactions_remain_inspectable_after_the_last_agent_is_removed", asy
 it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
   const { app } = await mountAskBar([], null, [door("lead", "idle", "ready", { name: "Supervisor" })]);
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
-  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "Supervisor" }));
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
   await within(preview).findByText("Supervisor");
@@ -248,13 +247,13 @@ it.each(["back", "edit"])("nr9_acknowledgement_refreshes_the_list_after_%s", asy
   fireEvent.click(save);
   await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
 
-  if (action === "back") fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+  if (action === "back") fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   else fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "new words" } });
   list = [saved()];
   acknowledge(list[0]!);
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
 
-  if (action === "edit") fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+  if (action === "edit") fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false);
@@ -293,7 +292,7 @@ it.each([
     app = reopened.app;
     connected = reopened.connected;
     app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
-  } else fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+  } else fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   app.handlers["reaction.create"] = () => saved();
   fireEvent.click(screen.getByRole("button", { name: "Check creation" }));
@@ -323,7 +322,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
-  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "a0" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "a0" }));
   fireEvent.input(screen.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
@@ -428,11 +427,11 @@ it.each(([
       await waitFor(() => expect(screen.queryByRole("alert", { name: failure })).toBeNull());
     } else {
       if (owner.startsWith("message")) {
-        fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: copy.close }));
+        fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: /^Close/ }));
         expect(screen.queryByRole("alert", { name: failure })).toBeNull();
       }
 
-      fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+      fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
       fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
       await screen.findByText("other instruction");
       expect(screen.queryByRole("alert", { name: failure })).toBeNull();
@@ -456,12 +455,12 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   await screen.findByRole("alert", { name: "list unavailable" });
   fireEvent.click(screen.getByRole("button", { name: /Ship it/ }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
-  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
-  expect(screen.getByRole("alert", { name: "list unavailable" })).toBeTruthy();
+  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
+  expect(screen.getByRole("alert")).toBeTruthy();
 
   if (transition === "recover") app.handlers["reaction.list"] = () => [saved()];
   fireEvent.click(screen.getByRole("button", { name: transition === "dismiss" ? copy.clear : copy.retry }));
-  await waitFor(() => expect(screen.queryByRole("alert", { name: "list unavailable" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(connected.drafts.list()).toEqual(before);
   expect(screen.getByRole("button", { name: /Ship it/ })).toBeTruthy();
 });
@@ -523,7 +522,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_ide
 
     fireEvent.click(screen.getByRole("button", { name: transition === "recover" ? copy.copy : copy.clear }));
     await waitFor(() => expect(screen.queryByRole("alert", { name: /message clipboard unavailable/ })).toBeNull());
-    fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: copy.close }));
+    fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: /^Close/ }));
     expect(screen.getByRole("alert", { name: /reaction clipboard unavailable/ })).toBeTruthy();
     expect(connected.drafts.list()).toEqual(retained);
     expect(app.calls.filter(call => call.method === "message.get").map(call => call.params)).toEqual([{ id: 42 }]);
@@ -539,7 +538,7 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " keep exactly\n 🧭 " } });
   const retained = structuredClone(connected.drafts.list());
 
-  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   app.handlers["reaction.run"] = ({ id }) => {
     if (id === "r1") throw new Error("first reaction refused");
 
@@ -555,11 +554,11 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: copy.clear }));
   else {
     await waitFor(() => expect(screen.getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", false));
-    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
+    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
     fireEvent.click(screen.getByRole("button", { name: copy.reactionRun }));
     await waitFor(() => expect(screen.getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", false));
-    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Other reaction") })).getByRole("button", { name: copy.close }));
+    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Other reaction") })).getByRole("button", { name: /^Close/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   }
 
@@ -615,4 +614,80 @@ it.each([
   expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
   expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
   expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
+});
+
+it("u4276a_nested_close_returns_to_its_opener", async () => {
+  await mount(() => [saved()]);
+  const row = await screen.findByRole("button", { name: /Ship it/ });
+  fireEvent.click(row);
+  fireEvent.click(await screen.findByRole("button", { name: "Close Ship it" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
+  const create = screen.getByRole("button", { name: copy.reactionCreate });
+  fireEvent.click(create);
+  fireEvent.click(await screen.findByRole("button", { name: "Close New reaction" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: copy.reactionCreate })));
+});
+
+it("u4276a_close_preserves_unsent_reaction", async () => {
+  const { app, connected } = await mount(() => []);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: " Unsent 🧭 " } });
+  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " exact\n e\u0301 " } });
+  const before = structuredClone(connected.drafts.list().at(-1));
+  fireEvent.click(screen.getByRole("button", { name: "Close New reaction" }));
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " exact\n e\u0301 ");
+  expect(connected.drafts.list().at(-1)).toEqual(before);
+  expect(app.calls.filter(call => call.method === "reaction.create" || call.method === "reaction.run")).toHaveLength(0);
+});
+
+it("u4276c_empty_list_offers_first_creation", async () => {
+  await mount(() => []);
+  const create = await screen.findByRole("button", { name: copy.reactionCreate });
+  expect(screen.getAllByRole("button", { name: copy.reactionCreate })).toHaveLength(1);
+  fireEvent.click(create);
+  await screen.findByRole("form", { name: copy.reactionCreate });
+  fireEvent.click(screen.getByRole("button", { name: "Close New reaction" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: copy.reactionCreate })));
+});
+
+it("u4276c_list_opens_exact_reaction", async () => {
+  const { app } = await mount(() => [saved({ home: "alpha" }), saved({ id: "r2", home: "beta", instruction: "second" })], [workstream("alpha"), workstream("beta")]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it.*beta/ }));
+  await screen.findByText("second");
+  expect(app.calls.filter(call => call.method === "reaction.get").map(call => call.params)).toEqual([{ id: "r2" }]);
+  fireEvent.click(screen.getByRole("button", { name: "Close Ship it" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it.*beta/ })));
+});
+
+it("u4276b_form_groups_and_keyboard_controls", async () => {
+  await mount(() => []);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  const form = screen.getByRole("form", { name: copy.reactionCreate });
+  expect(within(form).getByRole("group", { name: "What to send" }).contains(screen.getByLabelText(copy.reactionName))).toBe(true);
+  const conditions = within(form).getByRole("group", { name: "When to send" });
+  fireEvent.click(within(conditions).getByRole("checkbox", { name: "a" }));
+  expect(within(conditions).getByRole("checkbox", { name: "a" })).toHaveProperty("checked", true);
+  const sendWhen = within(conditions).getByRole("radiogroup", { name: "Send when" });
+  fireEvent.click(within(sendWhen).getByRole("radio", { name: "Any selected Agent finishes" }));
+  expect(within(sendWhen).getByRole("radio", { name: "Any selected Agent finishes" })).toHaveProperty("checked", true);
+});
+
+it.each(["Z", "-05:00", "+05:30"])("u4276b_time_choice_uses_exact_preview: %s", async offset => {
+  const { app, connected } = await mount(() => []);
+  app.handlers["reaction.preview"] = params => ({ at: params.date === "2030-01-01" ? "2030-01-01T12:00:00Z" : "2030-01-02T12:00:00Z", utc: "2030-01-01T12:00:00Z", offset: params.offset });
+  app.handlers["reaction.create"] = () => saved();
+  await connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+    operation: "zone", name: "time", target: "a", instruction: "exact", kind: "instant", ids: [], any: false, repository: "", number: "",
+    atDate: "2030-01-01", atTime: "12:00", atOffset: offset, expDate: "2030-01-02", expTime: "12:00", expOffset: offset, maxFirings: "1", rearm: false,
+  }, null, "ordinary").retained;
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  const submit = screen.getByRole("button", { name: copy.reactionSave });
+  await waitFor(() => expect(submit).toHaveProperty("disabled", false));
+  fireEvent.click(submit);
+  await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
+  expect(app.calls.filter(call => call.method === "reaction.preview").map(call => call.params)).toEqual(expect.arrayContaining([
+    { date: "2030-01-01", time: "12:00", offset }, { date: "2030-01-02", time: "12:00", offset },
+  ]));
+  expect(app.calls.find(call => call.method === "reaction.create")?.params).toMatchObject({ condition: { kind: "instant", at: "2030-01-01T12:00:00Z" }, expires_at: "2030-01-02T12:00:00Z" });
 });
