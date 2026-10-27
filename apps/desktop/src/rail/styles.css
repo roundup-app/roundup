@@ -140,9 +140,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The badge stays whole: the spacer gives way first, then the name shrinks to 4ch with an ellipsis. */
+/* The name fills remaining space so a queue badge cannot pull trailing actions inward. */
 .line:has(.queue-badge) .name {
-  flex: 0 1 auto;
+  flex: 1;
   min-width: 4ch;
   overflow: hidden;
   text-overflow: ellipsis;
