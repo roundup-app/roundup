@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { cleanup } from "@solidjs/testing-library";
 import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
@@ -122,6 +122,54 @@ describe("u3010g the frame recorder drives every workload", () => {
       expect(listeners.size).toBe(1);
       dispose();
       expect(listeners.size).toBe(0);
+    });
+  });
+
+  it("u3010d_a_live_switch_records_its_result_after_the_app_update", () => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      const tasks: (() => void)[] = [];
+      let at = 10;
+      let result: "moving" | "settled" = "moving";
+
+      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({}), {
+        afterUpdate: callback => { tasks.push(callback); },
+        read: () => result,
+      });
+
+      change(true);
+      expect(journal.at(-1)?.settlement).toEqual({ status: "pending" });
+      result = "settled";
+      at = 11;
+      tasks.shift()!();
+      expect(journal.at(-1)?.settlement).toEqual({ status: "settled", at_ms: 11 });
+      stop();
+      dispose();
+    });
+  });
+
+  it.each(["superseded", "disposed"] as const)("u3010d_a_pending_switch_cannot_claim_completion_after_it_is_%s", reason => {
+    createRoot(dispose => {
+      const [reduced, change] = createSignal(false);
+      const journal: import("./frames").PreferenceAction[] = [];
+      const tasks: (() => void)[] = [];
+
+      const stop = observePreference(reduced, () => 10, () => "sample", journal, () => ({}), {
+        afterUpdate: callback => { tasks.push(callback); },
+        read: () => "settled",
+      });
+
+      change(true);
+      const entry = journal.at(-1)!;
+
+      if (reason === "superseded") change(false);
+      else stop();
+      tasks.shift()!();
+      expect(entry.settlement).toEqual({ status: reason });
+      expect(reduced()).toBe(reason === "disposed");
+      stop();
+      dispose();
     });
   });
 
