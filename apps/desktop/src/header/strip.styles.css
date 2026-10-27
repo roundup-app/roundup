@@ -219,7 +219,7 @@
   max-block-size: none;
 }
 
-.header-recovery .reserved-content .ink {
+.header-recovery .ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
 }
