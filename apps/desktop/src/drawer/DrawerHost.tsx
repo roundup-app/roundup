@@ -18,6 +18,7 @@ import type { DrawerContent, DrawerState } from "./drawer";
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
+  const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
   const instant = () => props.reducedMotion() || props.drawer.source() === "key";
   const [settling, setSettling] = createSignal(false);
@@ -97,7 +98,24 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
       ref={setPanel}
+      onPointerMove={(event) => {
+        const host = event.currentTarget;
+        const x = event.clientX - host.getBoundingClientRect().left;
+        setEdgeHovered(event.target === host && x >= 0 && x < parseFloat(getComputedStyle(host).borderLeftWidth));
+      }}
+      onPointerLeave={() => setEdgeHovered(false)}
+      onPointerDown={(event) => {
+        const host = event.currentTarget;
+        const x = event.clientX - host.getBoundingClientRect().left;
+
+        // Only the visible border dismisses; a missed content press in the padding keeps its work open.
+        if (event.button !== 0 || event.target !== host || x < 0 || x >= parseFloat(getComputedStyle(host).borderLeftWidth)) return;
+
+        event.preventDefault();
+        props.drawer.close("pointer");
+      }}
       style={{
+        cursor: edgeHovered() ? "pointer" : undefined,
         position: "absolute",
         top: "0",
         right: "0",
