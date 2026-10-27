@@ -199,7 +199,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
-  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
+  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true, localKeys: event => event.target instanceof Element && event.target.closest(".switcher [data-collection-value]") !== null }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
 
@@ -228,7 +228,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
           });
-        }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
+        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
