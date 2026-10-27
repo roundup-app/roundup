@@ -1,16 +1,19 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { captureDir } from "../testing/captures";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const load = async () => {
-  await browser("set", "viewport", "1280", "800");
-  await browser("set", "media", "light");
+  await browser("set", "viewport", captureDir("U522") ? "1512" : "1280", captureDir("U522") ? "950" : "800");
+  await browser("set", "media", captureDir("U522") ? "dark" : "light");
   await browser("open", url("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40"));
   await wait(`document.querySelector('[data-id="tokens"]') && window.__fake`);
 };
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.getBoundingClientRect(); const label = row.querySelector(".name").getBoundingClientRect(); return { x: label.left + 1, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".name").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
@@ -64,6 +67,13 @@ it("u522_conflict_restores_the_row", async () => {
   await mouse("up");
   await wait(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('CONFLICT: cannot move under an agent'))`);
   expect(await order()).toEqual(before);
+  const dir = captureDir("U522");
+
+  if (dir) {
+    mkdirSync(dir, { recursive: true });
+    await browser("screenshot", join(dir, "conflict.png"));
+    writeFileSync(join(dir, "conflict.checks.json"), JSON.stringify(await read("window.__checks()")));
+  }
 }, 90_000);
 
 it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
@@ -143,7 +153,7 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     expect(await moves()).toEqual([]);
   }
 
-  await dragBelow("backend", "agent-31", -24);
+  await dragBelow("backend", "agent-31", -20);
   await wait("Number(document.querySelector('.rail-sortable').dataset.sortableIndex) > 0");
   await mouse("up");
   await settle(1);
