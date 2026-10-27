@@ -1,6 +1,1 @@
-{
-  "exit": 2,
-  "length": 4000,
-  "condition": "Incomplete 220-edit collection at run deadline; candidate still spends substantial synchronous time despite 18 mounted rows. No budget pass.",
-  "collected": 53
-}
+{"exit":2,"length":4000,"condition":"Incomplete 220-edit collection at run deadline; candidate still spends substantial synchronous time despite 18 mounted rows. No budget pass.","collected":53}
