@@ -250,7 +250,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
   else if (change === "selection") connected.rail.select("ops");
   else {
     app.handlers["agent.spawn"] = () => new Promise(() => {});
-    await chooseRailAction(app, "ops", "Add Agent");
+    await chooseRailAction(app, "ops", "Agent");
   }
 
   await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain(stale.dataset.value));

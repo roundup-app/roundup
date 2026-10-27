@@ -171,6 +171,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     const homes = homesToOffer(connected.rail.nodes, todo.home);
+    const order = props.pads.ownedTodos().map(item => item.id);
     const move: MenuEntry = { id: "move", label: copy.move, enabled: homes.length > 0 };
 
     if (homes.length > 0) move.children = homes.map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name,
@@ -179,8 +180,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       ...(todoFailures.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => todoFailures.get(todo.id)?.show(null) }] : []),
       move,
-      { id: "move-up", label: copy.moveUp, run: () => props.pads.reorder.step(todo.id, -1) },
-      { id: "move-down", label: copy.moveDown, run: () => props.pads.reorder.step(todo.id, 1) },
+      { id: "move-up", label: copy.moveUp, enabled: !todo.done && order.indexOf(todo.id) > 0, run: () => props.pads.reorder.step(todo.id, -1) },
+      { id: "move-down", label: copy.moveDown, enabled: !todo.done && order.indexOf(todo.id) < order.length - 1, run: () => props.pads.reorder.step(todo.id, 1) },
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`), () => props.pads.failure.acknowledge(`todo:${todo.id}`), copiedTodos.get(todo.id)),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },

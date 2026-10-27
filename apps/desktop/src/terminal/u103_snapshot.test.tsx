@@ -386,3 +386,34 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(typed(app)).toEqual([]);
   });
 });
+
+it("z3788a_unchanged_output_keeps_the_retained_emulator_on_return", async () => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const spy = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators()("t-a");
+  const terminal = spy.mock.instances[0];
+
+  if (!terminal) throw new Error("xterm was not created");
+  spy.mockRestore();
+  // The host has no layout in jsdom; parsing and the stream owner remain real.
+  const screens = createScreens(connected, () => ({ ...emulator, show: () => ({ cols: 80, rows: 24 }) }));
+  const host = document.createElement("div");
+  const parsed = () => new Promise<void>(resolve => emulator.write(new Uint8Array(), resolve));
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.some(call => call.method === "terminal.snapshot")).toBe(true));
+  await parsed();
+  const output = "retained history\r\n" + Array.from({ length: 40 }, (_, index) => `${index}\r\n`).join("");
+  app.emitOutput("t-a", output);
+  await parsed();
+  const after = app.outputPositions.get("t-a")!;
+  app.handlers["terminal.snapshot"] = () => snapshotOf("current screen only", after);
+  screens.hide("t-a");
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(2));
+  await parsed();
+  expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe("retained history");
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
