@@ -292,3 +292,13 @@ and original fixture ids remain distinguishable in `targets`. Recording a
 halfway row snapshot does not establish a completed live reduced-motion variant:
 retain `variant: "unqualified"` until the complete required sequence is observed.
 No new Mac sequence is requested; #4244 remains open for that qualification.
+
+Isolated dark 1512×950 Chromium preparation retained the derived fixture hash
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The focused reorder observation did not catch moving rows within the unchanged
+400 ms bound; its first rendered reads arrived after the displacement had ended.
+D2/D5/D6 passed; D14 failed during the action and passed at settled reduced motion.
+Retain this as incomplete reader qualification, not a halfway switch or native
+result. Raw observations, setup script and PNGs are under
+`artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
+at 45 seconds; no whole-suite capture pass is claimed.
