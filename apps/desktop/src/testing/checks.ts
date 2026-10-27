@@ -202,7 +202,8 @@ const d2 = (page: Page): Measure =>
     const level = Number(el.getAttribute("aria-level"));
 
     const treePadding = el instanceof HTMLElement && el.matches('.todo-list .todo-row[data-todo][role="treeitem"]') &&
-      Number.isInteger(level) && level > 0
+      Number.isInteger(level) && level > 0 &&
+      (el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--tree-step))` || el.style.getPropertyValue("--todo-depth") === String(level - 1))
       ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
