@@ -1,0 +1,9 @@
+{
+  "base": {
+    "revision": "ecedb0ec5",
+    "observer": "isolated headless Chromium, tree-40, dark 1512x950, shell Bubble, SIXEL followed by text, switch to second shell and return",
+    "result": "fail",
+    "failure": "SIXEL appears but following text is clipped below viewport. Bubble descendant sizing overrides xterm decoration container."
+  },
+  "scope": "Z3788a shell image output rendering; no native or timing claim"
+}
