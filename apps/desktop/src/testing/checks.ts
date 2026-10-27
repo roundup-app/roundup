@@ -203,8 +203,8 @@ const d2 = (page: Page): Measure =>
 
     const treePadding = el instanceof HTMLElement && el.matches('.todo-list .todo-row[data-todo][role="treeitem"]') &&
       Number.isInteger(level) && level > 0 &&
-      el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--space-4))`
-      ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("space-4") ?? "") ?? NaN) : null;
+      (el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--tree-step))` || el.style.getPropertyValue("--todo-depth") === String(level - 1))
+      ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
@@ -650,7 +650,7 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: state glyphs stay fixed across nesting; names retain their tree indent.
+// D12: glyphs and names share a Token indent step at each tree depth.
 // U3727 includes the entry field’s text edge.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
@@ -666,9 +666,9 @@ const d12 = (page: Page): Measure => {
     const own = rows.filter((one) => one.list === list);
 
     const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
-      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
+      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0") : 0;
 
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null));
+    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
 
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
