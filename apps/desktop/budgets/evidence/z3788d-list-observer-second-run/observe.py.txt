@@ -1,5 +1,5 @@
 import os,json,pathlib,subprocess,tempfile,uuid,time,platform,hashlib
-root=pathlib.Path(os.environ.get('Z3788_REPO',pathlib.Path.cwd()));out=root/'apps/desktop/budgets/evidence/z3788d-list-observer';out.mkdir(parents=True,exist_ok=True)
+root=pathlib.Path(os.environ.get('Z3788_REPO',pathlib.Path.cwd()));out=root/'apps/desktop/budgets/evidence/z3788d-list-observer-second-run';out.mkdir(parents=True,exist_ok=True)
 media=root/'artifacts/ux/Z3788d';media.mkdir(parents=True,exist_ok=True)
 session='z3788d-'+uuid.uuid4().hex
 scratch=tempfile.TemporaryDirectory(prefix='z3788d-');temp=pathlib.Path(scratch.name);(temp/'config.json').write_text('{}')
