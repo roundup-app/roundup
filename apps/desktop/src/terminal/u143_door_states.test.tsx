@@ -198,7 +198,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
 
     connected.rail.select("r");
-    await chooseAction(app, "r", "Add Agent");
+    await chooseAction(app, "r", "Agent");
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });

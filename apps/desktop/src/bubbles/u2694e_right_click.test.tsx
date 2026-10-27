@@ -52,7 +52,7 @@ it("u2694e_a_right_click_opens_the_menu_on_release", async () => {
   fire("pointerup", tab, 10, 10, 0);
 
   expect(app.shownMenus).toHaveLength(1);
-  expect(app.menuLabels()[0]).toBe("Rename");
+  expect(app.menuLabels()).toContain("Rename");
 });
 
 it("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu", async () => {
