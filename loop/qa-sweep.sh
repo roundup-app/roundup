@@ -15,7 +15,7 @@ fi
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 out=${QA_SWEEP_OUT:-loop/out/qa}
 port=${QA_SWEEP_PORT:-5199}
-url=${QA_SWEEP_URL:-http://localhost:$port/harness.html?seed=tree-40}
+url=${QA_SWEEP_URL:-http://localhost:$port/harness.html?seed=tree-40&items=1}
 browser_name="l52-$$"
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
