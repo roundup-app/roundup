@@ -820,11 +820,11 @@ export const Todos = (props: {
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
-        const renderChildren = (parent: number | null, trail: readonly boolean[] = []): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{(todo, sibling) => {
+        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{(todo, sibling) => {
             const at = () => tree().findIndex(row => row.todo.id === todo.id);
             const members = () => dependency.groups().get(todo.id) ?? [];
             let registered: HTMLButtonElement | null = null;
-            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail, sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
 
             return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
@@ -884,7 +884,7 @@ export const Todos = (props: {
 
                 return <div {...attrs()} class="todo-dependency" role="presentation" data-structural-motion={dependency.moving()} data-complete={dependency.complete(todo.id)}>
                 {draw(() => groupAttributes(todo.id, row.level))}
-                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id, row.trail)}</div></TreeView.BranchContent>
+                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id, () => row.trail)}</div></TreeView.BranchContent>
                 </div>;
               }} />
             </Show>

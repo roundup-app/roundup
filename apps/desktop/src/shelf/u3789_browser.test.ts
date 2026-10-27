@@ -284,9 +284,9 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
     for (const seed of ["tree-40", "agents-10"]) {
       const video = !base && seed === "tree-40" ? (captureDir("U4335a") ?? captureDir("U4275b")) : null;
 
-      if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await browser("set", "viewport", "1512", "950"); await browser("set", "media", "dark"); }
-
       await load(seed, base);
+
+      if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await browser("set", "viewport", "1512", "950"); await browser("set", "media", "dark"); await wait("window.__fake && document.querySelector('.rail-tree')"); }
       await overview();
 
       if (seed === "tree-40") {
@@ -301,11 +301,20 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
           await rpc('todo.setBlockers', {id:sibling.id,blockers:[parent.id]});
           await rpc('todo.setBlockers', {id:grandchild.id,blockers:[child.id]});
           await rpc('todo.create', {title: 'Grandchild sibling Todo', body: null, blockers:[child.id]});
+          window.__fake.actAs({kind:'agent', id:'tokens', parent:null});
+          const root = await rpc('todo.create', {title:'Rail parent', body:null, blockers:null});
+          const branch = await rpc('todo.create', {title:'Rail child', body:null, blockers:[root.id]});
+          await rpc('todo.create', {title:'Rail sibling', body:null, blockers:[root.id]});
+          await rpc('todo.create', {title:'Rail grandchild', body:null, blockers:[branch.id]});
+          await rpc('todo.create', {title:'Rail grandchild sibling', body:null, blockers:[branch.id]});
+          window.__fake.actAs({kind:'user', id:'you', parent:null});
         })()`);
       }
 
       await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
       await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
+      await browser("eval", "document.querySelector('.rail-row[data-id=tokens] [aria-label$=\"todos\"]')?.click()");
+      await browser("eval", "document.querySelectorAll('.rail-leaf [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
       const stage = base ? "base" : "head";
 
       for (const step of ["rest", "hover", "focus", "selected"]) {
