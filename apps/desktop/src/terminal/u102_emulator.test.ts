@@ -166,10 +166,12 @@ it("z3788a_osc52_copies_once_and_reports_failure", async () => {
   await output();
   expect(app.clipboardWrites).toEqual(["café 世界"]);
   app.clipboardWrite = async () => { throw new Error("pasteboard unavailable"); };
+
   await output();
   expect(screens.failure("t-a")).toContain("pasteboard unavailable");
   expect(screens.failure("t-b")).toBeNull();
   app.clipboardWrite = async text => { app.clipboardWrites.push(text); };
+
   await output();
   expect(app.clipboardWrites).toEqual(["café 世界", "café 世界"]);
   expect(screens.failure("t-a")).toBeNull();

@@ -263,6 +263,24 @@
     "nativeClipboardPass": false,
     "tenAgentRssPass": false,
     "realDaemonRenderedObserver": "incomplete: new Terminal did not reach the mounted xterm state; no pass claimed",
-    "relatedSuite": "interrupted; no full related-suite pass claimed"
+    "relatedSuite": "interrupted; no full related-suite pass claimed",
+    "renderedFakeSeeds": {
+      "seeds": [
+        "tree-40",
+        "agents-10",
+        "conflict"
+      ],
+      "viewport": [
+        1512,
+        950
+      ],
+      "mode": "dark",
+      "screens": 6,
+      "D2": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "realDaemon": "incomplete"
+    },
+    "finalJustReady": "all lines passed except pnpm lint: two missing blank lines in new test; repaired"
   }
 }
