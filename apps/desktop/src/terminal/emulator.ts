@@ -10,6 +10,7 @@ import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -37,6 +38,8 @@ export type Emulator = {
   inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
+  /** OSC 52 copies use the originating Terminal's clipboard failure owner. */
+  onCopy?: ((listener: (text: string) => Promise<void>) => void) | undefined;
   selection(): string;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
@@ -171,6 +174,11 @@ export const createXtermEmulators = (
 
   return (id) => {
     const terminal = new Terminal(xtermOptions);
+    let copy: ((text: string) => Promise<void>) | undefined;
+    terminal.loadAddon(new ClipboardAddon(undefined, {
+      readText: () => "",
+      writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
+    }));
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
@@ -479,6 +487,7 @@ export const createXtermEmulators = (
       onLink: (listener) => {
         linkListener = listener;
       },
+      onCopy: (listener) => { copy = listener; },
       selection: () => terminal.getSelection(),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,

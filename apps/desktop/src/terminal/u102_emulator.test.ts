@@ -175,7 +175,7 @@ it("z3788a_osc52_copies_once_and_reports_failure", async () => {
   expect(screens.failure("t-a")).toBeNull();
   expect(callsTo(app, "terminal.write")).toEqual([]);
   screens.dispose();
-  connected.dispose();
+  connected.stopTerminalScheme();
 });
 
 it("z3788a_osc52_query_does_not_read_clipboard", async () => {
