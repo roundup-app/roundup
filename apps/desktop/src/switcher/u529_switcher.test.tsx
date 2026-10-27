@@ -38,9 +38,12 @@ it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field()));
   const option = (value: string) => document.querySelector<HTMLElement>(`.switcher [role=option][data-value="${value}"]`);
   expect(option("row-19")).toBeNull();
+  expect(option("row-0")?.getAttribute("aria-setsize")).toBe("21");
+  expect(option("row-0")?.getAttribute("aria-posinset")).toBe("2");
   option("row-0")!.focus();
   press("End");
   await waitFor(() => expect(document.activeElement).toBe(option("row-19")));
+  expect(option("row-19")?.getAttribute("aria-posinset")).toBe("21");
   fireEvent.click(option("row-19")!, { metaKey: true });
   field()!.focus();
   type("Destination 019");
