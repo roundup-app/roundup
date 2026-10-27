@@ -289,11 +289,12 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
 
   const navigation = () => <nav class="pane-navigation" aria-label={copy.centreRegion}>
     <div class="pane-identity">
+      <Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={selected()?.status?.kind}>{kind => <KindGlyph kind={kind()} />}</Show></Show>
       <Show when={!props.requested && !requested() && selected()?.kind === "workstream"} fallback={
-        <Show when={props.requested ?? requested()} fallback={<Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={connected.drawer.content() === null ? selected()?.status?.kind : undefined}>{kind => <KindGlyph kind={kind()} />}</Show></Show>}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
+        <Show when={props.requested ?? requested()}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
       }>
 
-          <Tabs.List class="measurement-action" aria-label={selected()?.name} data-flat-bar="">
+          <Tabs.List class="measurement-action" aria-label={selected()?.name}>
             <FlatTab selected={view() === "dashboard"}><Tabs.Trigger ref={dashboardAction} value="dashboard" tabIndex={view() === null ? 0 : undefined}>{copy.measurementTime}</Tabs.Trigger></FlatTab>
             <FlatTab selected={view() === "timeline"}><Tabs.Trigger ref={timelineAction} value="timeline">{copy.timeline}</Tabs.Trigger></FlatTab>
           </Tabs.List>
