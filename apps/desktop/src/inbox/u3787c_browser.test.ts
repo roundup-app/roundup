@@ -45,15 +45,16 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Inbox_mounted_navigation_sele
     expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe(ids.at(-1));
     await lane.browser("press", "Home");
     expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe(ids[0]);
+    await lane.capture("U3787c", `inbox-${seed}-focus`);
     await lane.browser("press", "Meta+a");
-    expect(await lane.evaluate("[...document.querySelectorAll('.inbox [aria-pressed=true]')].map(el=>el.dataset.collectionValue)")).toEqual(ids);
+    expect(await lane.evaluate("[...document.querySelectorAll('.inbox [data-selected=true]')].map(el=>el.dataset.collectionValue)")).toEqual(ids);
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
     expect(await lane.evaluate("document.querySelector('.inbox [aria-expanded=true]') === null")).toBe(true);
     await lane.capture("U3787c", `inbox-${seed}-selected`);
     // A failed unread refresh retains the selected content and exposes an actionable cause.
     await lane.evaluate(`(() => { const app = ${daemon}; app.handlers['todo.unread']=()=>{throw new Error('Comments unavailable. Retry to load comments.');}; app.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.commented',data:{id:1}}); return true; })()`);
     await lane.until("document.querySelector('.inbox [role=alert]')?.textContent.includes('Comments unavailable. Retry to load comments.')");
-    expect(await lane.evaluate("[...document.querySelectorAll('.inbox [aria-pressed=true]')].map(el=>el.dataset.collectionValue)")).toEqual(ids);
+    expect(await lane.evaluate("[...document.querySelectorAll('.inbox [data-selected=true]')].map(el=>el.dataset.collectionValue)")).toEqual(ids);
     await lane.evaluate("document.querySelector('.inbox [role=alert]').scrollIntoView({block: 'nearest'})");
     await lane.capture("U3787c", `inbox-${seed}-failure`);
   } finally { if (dir) await lane.browser("record", "stop"); }

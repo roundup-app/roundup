@@ -9,6 +9,7 @@ import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
+import { CopyButton } from "../ui/CopyButton";
 import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
 import type { AgentRow, RowActions } from "./InboxRow";
@@ -30,6 +31,7 @@ const sectionTitle = (title: string, count: () => number, live = false, ref?: (e
 export const Inbox = () => {
   const { app, events, drawer, rail, reducedMotion } = useConnectedProject();
   const [rows, setRows] = createSignal<readonly UnreadComment[]>([]);
+  const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [openKey, setOpenKey] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal<ReadonlySet<string>>(new Set());
@@ -94,7 +96,6 @@ export const Inbox = () => {
 
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
   }), {
-    onFocus: () => {},
     onActivate: key => {
       const agent = byKey().get(key);
       const comment = rows().find(row => `c:${row.comment.id}` === key);
@@ -103,6 +104,13 @@ export const Inbox = () => {
       else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key");
     },
   });
+
+  const selectedText = () => content.collection().items.filter(row => content.selection.isSelected(row.value)).map(row => {
+    const agent = byKey().get(row.value);
+    const comment = rows().find(each => `c:${each.comment.id}` === row.value);
+
+    return [row.label, agent?.node.status?.label ?? comment?.comment.body].filter(Boolean).join("\n");
+  }).join("\n\n");
 
   const head = (key: string, element: HTMLElement) => {
     heads.set(key, element);
@@ -155,10 +163,12 @@ export const Inbox = () => {
     dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },
   };
 
-  // Escape collapses the open row and returns focus to it before the Drawer's own Escape sees the press.
-  registerKeys({ kind: "layer", element: () => root, active: () => openKey() !== null, modal: false }, [{
+  // The Drawer must not close while a row still owns selection or disclosure.
+  registerKeys({ kind: "layer", element: () => root, active: () => !content.selection.isEmpty() || openKey() !== null, modal: false }, [{
     chords: ["Escape"],
     run: () => {
+      if (!content.selection.isEmpty()) { content.selection.clear(); return; }
+
       const key = openKey();
 
       setOpenKey(null);
@@ -171,15 +181,17 @@ export const Inbox = () => {
     <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} selected={content.selection.isSelected(key)} head={(element) => head(key, element)} />}</Show>;
 
   return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
-    <h2>{copy.inbox}</h2>
-    <ReservedLine message={failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <div class="inbox-title"><h2>{copy.inbox}</h2>
+      <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
+    </div>
+    <ReservedLine message={copyFailure() ?? failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
         {sectionTitle(copy.needsYou, needsCount, true)}
         <ul class="inbox-list">
           <For each={needsKeys()}>{agentRow}</For>
           <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
-            ref={element => head(`c:${row.comment.id}`, element)} aria-pressed={content.selection.isSelected(`c:${row.comment.id}`)}
+            ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
             onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
             <KindGlyph kind="needs-you" />
             <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
