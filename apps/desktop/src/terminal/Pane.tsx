@@ -300,7 +300,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
           </Tabs.List>
       </Show>
     </div>
-    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" disabled={props.backDisabled} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
+    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" aria-disabled={props.backDisabled} title={props.backDisabled ? copy.importPendingBack : undefined} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
   </nav>;
 
   return (

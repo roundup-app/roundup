@@ -111,7 +111,7 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
   const back = within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" });
   fireEvent.click(await panel.findByRole("button", { name: "Import 2" }));
   await waitFor(() => expect(commits()).toHaveLength(1));
-  expect(back).toHaveProperty("disabled", true);
+  expect(back.getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(back);
   fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
   fireEvent.keyDown(back, { key: " ", code: "Space" });
@@ -143,7 +143,7 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
     expect(connected().rail.selected()).toBe("a0");
     expect(panel.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(panel.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
-    expect(back).toHaveProperty("disabled", false);
+    expect(back.getAttribute("aria-disabled")).toBe("false");
     fireEvent.click(back);
     await screen.findByRole("textbox", { name: "Ask" });
     expect(connected().rail.selected()).toBeNull();
@@ -182,7 +182,7 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
         await page.browser("click", ".rail-row[data-id=tokens] .row-state");
         await page.evaluate(`(() => {
           const app = window.__fake.app;
-          app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:('Review changes '+n+' with a long conversation title ').repeat(8),cwd:'src',last_activity_ms:BigInt(Date.now()-60_000)})),excluded:[] });
+          app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:('Review changes '+n+' 会話の変更を確認 with a long conversation title ').repeat(8),cwd:'src',last_activity_ms:BigInt(Date.now()-60_000)})),excluded:[] });
           app.handlers['project.importCommit'] = params => new Promise(resolve => { window.__settleImport = () => resolve({outcomes:params.selections.map(entry => ${outcome === "success" ? "({source:entry.source,workstream:'backend',agent:'tokens',error:null})" : "({source:entry.source,workstream:null,agent:null,error:{code:-32003,message:'The saved conversation changed. Refresh and select the conversation again.',outcome:'failed'}})"})}); });
           window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'import-work'}}));
           return true;
@@ -200,8 +200,11 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
           await page.browser("screenshot", join(output, `${outcome}-${step}.png`));
         };
 
-        expect(await page.evaluate("document.querySelector('.pane-navigation button').disabled")).toBe(side === "head");
+        expect(await page.evaluate("document.querySelector('.pane-navigation button').getAttribute('aria-disabled') === 'true'")).toBe(side === "head");
+        await page.evaluate("document.fonts.ready.then(() => true)");
         await capture("pending");
+        const readBack = () => page.evaluate("(() => {const b=document.querySelector('.pane-navigation button'); const s=getComputedStyle(b);return {ariaDisabled:b.getAttribute('aria-disabled'),nativeDisabled:b.disabled,title:b.title,tabIndex:b.tabIndex,color:s.color,cursor:s.cursor,cjkFont:document.fonts.check('13px \"Noto Sans CJK JP\"')};})()");
+        const restingBack = await readBack();
         // A real coordinate press can target the disabled control without waiting for it to enable.
         const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.pane-navigation button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
         await page.browser("mouse", "move", String(Math.round(box.x)), String(Math.round(box.y)));
@@ -210,6 +213,7 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
 
         if (side === "head") expect(await page.evaluate("!!document.querySelector('.import-panel')")).toBe(true);
 
+        writeFileSync(join(output, `${outcome}-back.json`), JSON.stringify({ resting: restingBack, hovered: await readBack() }) + "\n");
         await capture("attempted-back");
         const discoveries = (await page.calls("project.importDiscover")).length;
         await page.evaluate("(() => {window.__settleImport(); delete window.__settleImport; return true;})()");
