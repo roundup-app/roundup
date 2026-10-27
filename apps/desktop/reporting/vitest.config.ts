@@ -3,5 +3,5 @@ import desktop from "../vite.config";
 
 export default defineConfig({
   ...desktop,
-  test: { ...desktop.test, include: ["reporting/results.fixture.test.ts"] },
+  test: { ...desktop.test, projects: undefined, include: ["reporting/results.fixture.test.ts"] },
 });
