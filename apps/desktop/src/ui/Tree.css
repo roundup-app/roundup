@@ -41,3 +41,42 @@
   color: var(--text);
 }
 
+
+/* U4335a: both trees anchor connections to the same glyph box and Token step. */
+:root {
+  --tree-step: var(--space-5);
+  --tree-origin: calc(var(--row-text-inset) - var(--space-4));
+  --tree-mid: calc(var(--space-6) / 2);
+}
+
+.tree-pass,
+.tree-stem,
+.tree-branch {
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--tree-origin) + var(--level) * var(--tree-step));
+  pointer-events: none;
+}
+
+.tree-pass,
+.tree-stem {
+  width: var(--hairline-width);
+  background-image: var(--dash);
+}
+
+.tree-stem { top: calc(var(--tree-mid) + var(--space-4) / 2 + var(--hairline-width)); }
+
+.tree-branch {
+  width: calc(var(--tree-step) - var(--space-4) / 2);
+  background-image: var(--dash), var(--elbow);
+  background-size: var(--hairline-width) 100%, 100% var(--hairline-width);
+  background-position: 0 0, 0 var(--tree-mid);
+  background-repeat: no-repeat;
+}
+
+.tree-branch[data-last="true"] {
+  background-size: var(--hairline-width) var(--tree-mid), 100% var(--hairline-width);
+}
