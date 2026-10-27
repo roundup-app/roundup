@@ -459,3 +459,77 @@ it.each(["gap", "refused", "unavailable"])("z3788a_catch_up_%s_preserves_snapsho
   screens.dispose();
   connected.stopTerminalScheme();
 });
+
+it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const terminals: Terminal[] = [];
+  const emulators: Emulator[] = [];
+
+  const factory: EmulatorFactory = id => {
+    const spy = vi.spyOn(xtermModule, "Terminal");
+    const emulator = createXtermEmulators()(id);
+    const terminal = spy.mock.instances[0];
+    spy.mockRestore();
+
+    if (!terminal) throw new Error("xterm was not created");
+    terminals.push(terminal);
+    emulators.push(emulator);
+
+    return { ...emulator, show: () => ({ cols: 80, rows: 24 }) };
+  };
+
+  const parsed = () => new Promise<void>(resolve => emulators.at(-1)!.write(new Uint8Array(), resolve));
+  let screens = createScreens(connected, factory);
+  const host = document.createElement("div");
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+  await parsed();
+  const output = Array.from({ length: 100 }, (_, i) => `line ${i}\r\n`).join("") + "\x1b[1;31mwide 世界 " + "wrapped ".repeat(20) + "\x1b[0m";
+  app.emitOutput("t-a", output);
+  await parsed();
+  const { scrollbackStorage } = await import("./scrollback");
+  await vi.waitFor(() => expect(scrollbackStorage("/p", "fixture-t-a").read()?.after).toBe(app.outputPositions.get("t-a")), { timeout: 5000 });
+  const content = (terminal: Terminal) => Array.from({ length: terminal.buffer.active.length }, (_, i) => terminal.buffer.active.getLine(i)?.translateToString(true));
+  const before = content(terminals[0]!);
+  const cursor = { x: terminals[0]!.buffer.active.cursorX, y: terminals[0]!.buffer.active.cursorY };
+  const after = app.outputPositions.get("t-a")!;
+  screens.dispose();
+  app.handlers["terminal.snapshot"] = () => snapshotOf("new screen without history", after + 6);
+  app.handlers["terminal.catchUp"] = () => ({ kind: "contiguous", id: "t-a", incarnation: "fixture-t-a", from: after, after, data: "" });
+  screens = createScreens(connected, factory);
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(terminals).toHaveLength(2));
+  await vi.waitFor(() => expect(content(terminals[1]!)).toEqual(before));
+  expect({ x: terminals[1]!.buffer.active.cursorX, y: terminals[1]!.buffer.active.cursorY }).toEqual(cursor);
+  expect(terminals[1]!.buffer.active.getLine(100)?.getCell(0)?.isBold()).toBeTruthy();
+  expect(terminals[1]!.buffer.active.getLine(100)?.getCell(0)?.getFgColor()).toBe(1);
+  app.emitOutput("t-a", "hidden-tail");
+  await parsed();
+  expect(content(terminals[1]!).join("\n")).toContain("hidden-tail");
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
+
+it.each(["gap", "refused"])("z3788a_saved_scrollback_%s_uses_the_authoritative_screen", async result => {
+  const { scrollbackStorage } = await import("./scrollback");
+  const { createScreens } = await import("./screens");
+  await scrollbackStorage("/p", "fixture-t-a").write({ cols: 80, rows: 24, after: 0, data: "old history" });
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const { factory, made } = recordingEmulators();
+  const screens = createScreens(connected, id => ({ ...factory(id), serialize: () => ({ cols: 80, rows: 24, data: "" }) }));
+  app.handlers["terminal.snapshot"] = () => snapshotOf("current authoritative output", 10);
+  app.handlers["terminal.catchUp"] = () => {
+    if (result === "refused") throw new Error("original Terminal unavailable");
+
+    return { kind: "gap", id: "t-a", incarnation: "fixture-t-a", from: 10, after: 10 };
+  };
+
+  screens.show("t-a", document.createElement("div"));
+  await vi.waitFor(() => expect(made.get("t-a")?.log).toContain("current authoritative output"));
+  expect(made.get("t-a")?.log).not.toContain("old history");
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
