@@ -249,7 +249,7 @@ export function createTodoUndo() {
     feedback: () => {
       const operation = stack().at(-1);
 
-      return operation ? copy.todoDeletedFeedback(operation.kind === "todos" ? operation.receipt.deleted.length : operation.receipts.length, operation.kind === "todos" ? "Todo" : "Pad") : null;
+      return operation ? copy.todoDeletedFeedback(operation.kind === "todos" ? operation.receipt.deleted.length : operation.receipts.length, operation.kind === "todos" ? copy.todo : copy.pad) : null;
     },
     feedbackFailure: () => {
       const problem = failure();
@@ -259,6 +259,7 @@ export function createTodoUndo() {
     available: () => stack().length > 0 && !uncertain() && !padPending().length,
     retryDelete: () => padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => !!uncertain() || padPending().length > 0,
+    ids: () => uncertain() ?? [],
     dismiss: () => setVisible(false),
   };
 }
