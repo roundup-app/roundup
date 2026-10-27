@@ -1,0 +1,22 @@
+{
+  "head": "7854ba46020f9dbd5048af66edfe81fab08c931b",
+  "mergedMain": "ce308a653",
+  "startupBudgetTests": {
+    "exit": 0,
+    "tests": 3
+  },
+  "observer": {
+    "exit": 2,
+    "decisionComplete": false
+  },
+  "mergeLoss": 0,
+  "vocabulary": 0,
+  "whitespace": 0,
+  "webBoundary": 0,
+  "ready": "running: web lanes pass, Rust compilation pending",
+  "repairedAttempts": [
+    "Initial full trace files under artifacts caused spelling diagnostics; full raw traces moved outside the checkout, selected trace events retained. No lint exemption added.",
+    "Removed a misspelled library candidate name from report wording.",
+    "First ready run was paused for measurement, then interrupted during a cold separate-target Rust build; final run uses the main checkout target directory."
+  ]
+}
