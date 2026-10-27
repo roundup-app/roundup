@@ -335,7 +335,7 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <Show when={connected.view()}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
+        <Show when={connected.view() && connected.view() !== "notes"}><button type="button" data-button="quiet" onClick={() => { const current = connected.view();
 
           if (current) connected.hideView(current); }}>{props.viewLabel?.(connected.view()!) ? copy.closeView(props.viewLabel!(connected.view()!)!) : copy.close}</button></Show>
         <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>

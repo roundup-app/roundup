@@ -224,7 +224,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     project,
     entries: () => [...all().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
-    copy: () => JSON.stringify({ project, drafts: records(), memory: [...all()] }, null, 2),
     retry: async () => {
       setProblem(await storage.retry());
 
