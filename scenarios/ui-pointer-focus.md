@@ -2,6 +2,8 @@
 
 Module: `apps/desktop` (webview). Work Issue: #3528. Journey stages: Enter, Understand and Intervene (`.agents/data/journey.md`, heading “What must work”).
 
+Policy amendment for #4382: `scenarios/ui-form-controls.md`, heading “Acceptance”, requires frames and focus rings for shared form controls. That narrow exception supersedes the no-ring and removal clauses below for those controls only; unrelated surfaces and the prohibition on transient pressed backgrounds retain this scenario's acceptance.
+
 **U2770 retired: input modality no longer draws a ring.** Policy: U3528 replaces this scenario in full, including its keyboard-mode state, ring Tokens, ring-presence tests, Stylelint requirement and native ring observation. No keyboard-only ring exception remains.
 
 **U3528 controls never draw focus rings or pressed backgrounds.** Given a fresh App page with the main workspace, when the user starts the App, clicks, presses a modifier alone, uses a registered shortcut, navigates the Rail with arrows, or presses Tab or Shift-Tab, then no control, row, pane, text field or dialog draws a focus outline or focus box-shadow. The design critic judges this look acceptance through D5, D6 and D7 (AGENTS.md rule 10); the browser observer `u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds` is retired as a computed-style test. Policy: it applies to every App-owned surface, including library components, pseudo-elements and the Diff reader's shadow root; lists and trees use only their selection highlight, and text fields keep their caret.
