@@ -63,7 +63,8 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
     expect(await lane.evaluate("document.querySelector('.todo-drawer') === null")).toBe(true);
     await lane.browser("fill", ".import-prompt", "  exact é 🧭 instructions  ");
-    await lane.browser("press", "Meta+a");
+    // Native text selection uses the host browser's chord; the list above owns ⌘A itself.
+    await lane.browser("press", process.platform === "darwin" ? "Meta+a" : "Control+a");
     expect(await lane.evaluate("(() => {const field=document.querySelector('.import-prompt');return field.value.slice(field.selectionStart,field.selectionEnd);})()")).toBe("  exact é 🧭 instructions  ");
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
     await lane.capture("U3787c", `import-${seed}-selected`);
