@@ -50,6 +50,10 @@
   border-color: var(--red);
 }
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
+.app-dialog-form textarea:disabled,
+.import-prompt:disabled,
+.note-form input:disabled,
+.note-form textarea:disabled,
 .app-select-trigger:disabled,
 .app-combobox-input:disabled {
   background: var(--sunken);
@@ -69,4 +73,13 @@
 .app-radio:has(input:focus-visible) .app-radio-mark {
   outline: var(--stroke-width) solid var(--accent);
   outline-offset: var(--stroke-width);
+}
+
+/* Native numeric fields retain their existing pointer feedback and spinbutton semantics. */
+.note-form input {
+  appearance: textfield;
+  cursor: pointer;
+}
+.note-form input:hover {
+  color: var(--text);
 }
