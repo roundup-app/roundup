@@ -3,7 +3,6 @@ import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
 import { createSignal, For } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
-import { placeOf } from "./places";
 import { registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
@@ -21,16 +20,9 @@ const sections = () => [
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
 ];
 
-const inTextField = (target: Element): boolean => target.closest('input, textarea, select, [contenteditable="true"]') !== null;
-
-/** `?` opens Help from the Rail or the pane's frame, never from a text field, a Terminal, a Drawer or the switcher (U54). */
-const opensFrom = (target: EventTarget | null): boolean => {
-  if (!(target instanceof Element) || inTextField(target) || target.closest(".pane-screen")) return false;
-
-  const place = placeOf(target);
-
-  return place === "rail" || place === "pane";
-};
+/** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
+const opensFrom = (target: EventTarget | null): boolean => target instanceof Element
+  && !target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .pane-screen, .xterm, .bubble-body');
 
 /** The panel `?` opens over the centre pane, one line per chord. It holds focus while open; Esc, `?` or a click outside closes it and focus returns to where it was. */
 export const Help = () => {
