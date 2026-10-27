@@ -1,0 +1,286 @@
+{
+  "continuedFrom": "07189f34309cc8f2504e39a7eb78e9b844ca21de",
+  "main": "02dd471273080db813e6dfcc55582dfd2e80b01b",
+  "source": "da27247dfd948b6b3ff02215db587a3cd9cb9281",
+  "authorAgent": "builder-40429733966",
+  "freshNpmCi": true,
+  "freshHeadlessBrowserProfile": true,
+  "viewport": [
+    1512,
+    950
+  ],
+  "probeExit": 0,
+  "checks": 40,
+  "regression": {
+    "tests": 29,
+    "passed": 29
+  },
+  "probeSha256": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
+  "browserClosed": true,
+  "ownedServerStopped": true,
+  "mergedMain": "eb7397cfb921315bc33b37eb4cf69b773bd5257a",
+  "validatedHead": "e488fa4a5b608c695e7ffa931e674df9c7cdb92c",
+  "gates": {
+    "just ready": 0,
+    "loop/rules.sh merge-loss": 0,
+    "loop/rules.sh vocab": 0,
+    "git diff --check": 0,
+    "App source equals origin/main": true
+  },
+  "repairedVerificationAttempts": [
+    {
+      "command": "just ready",
+      "exit": 1,
+      "cause": "Escaped Unicode in the new result left a word fragment for the spelling checker; retain readable Unicode."
+    },
+    {
+      "command": "just ready after main merge",
+      "exit": 1,
+      "cause": "Interrupted lint left a temporary test fixture; removed the run-owned fixture before the complete passing rerun."
+    }
+  ],
+  "fixRun": {
+    "authorAgent": "builder-40432838164",
+    "failedHead": "7dc58c64cd500000f91652a6116db128ca62ecf6",
+    "failedCheck": "https://github.com/roundup-app/roundup/actions/runs/40431297227",
+    "mainWithSameFailures": "eb7397cfb921315bc33b37eb4cf69b773bd5257a",
+    "failedMainCheck": "https://github.com/roundup-app/roundup/actions/runs/40430430021",
+    "appSourceEqualsFailedMain": true,
+    "commonFailedCases": [
+      "src/app/u3560_browser.test.ts > u3560c_copy_preserves_the_source_editor_pad",
+      "src/app/u3560_browser.test.ts > u3560c_paste_edits_only_the_focused_field_pad",
+      "src/app/u472_copy_journey.test.ts > u2892c_backdrops_preserve_layer_key_ownership",
+      "src/ask/dv5_rendered.test.ts > dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project",
+      "src/bubbles/u2742_browser.test.ts > u4011_new_workstream_selection_preserves_newer_focus_other-row",
+      "src/bubbles/u3756_focus.test.ts > u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_body",
+      "src/bubbles/u3756_focus.test.ts > u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_origin",
+      "src/drawer/u3010b_rendered.test.ts > u430_terminal_gets_one_resize_per_slide",
+      "src/drawer/u3010b_rendered.test.ts [ src/drawer/u3010b_rendered.test.ts ]",
+      "src/rail/u522_browser.test.ts > u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement",
+      "src/rail/u522_browser.test.ts > u522_cancel_calls_nothing",
+      "src/rail/u522_browser.test.ts > u522_conflict_restores_the_row",
+      "src/rail/u522_browser.test.ts > u522_edge_scroll_reaches_an_offscreen_row",
+      "src/rail/u522_browser.test.ts > u522_pointer_move_calls_rail_move",
+      "src/terminal/u3016_browser.test.ts > u3016f_real_collection_to_dashboard_survives_reopen",
+      "src/terminal/u514_browser.test.ts > u2680d_editors_keep_native_selection_and_copy_pad (double-click)",
+      "src/terminal/u514_browser.test.ts > u2680d_leaving_an_editor_clears_selection_without_changing_text_pad",
+      "src/terminal/u514_browser.test.ts > u3529a_text_keeps_its_webview_menu_pad",
+      "src/terminal/u514_browser.test.ts > u3529a_text_keeps_its_webview_menu_pad-source",
+      "src/terminal/u59_real_daemon.test.ts > u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once",
+      "src/terminal/u59_real_daemon.test.ts > u59 on the real Daemon > u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean",
+      "src/timeline/u3768_rendered.test.ts > u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app",
+      "src/todos/u3720_real_daemon_owner.test.tsx > u3311_real_daemon_delegate_board",
+      "src/todos/u461_rendered.test.ts > u3789a_real_daemon_rows",
+      "src/todos/u490a_browser.test.ts > u490a an Agent's Todos in the Rail order on the shared Sortable > u490a_cancel_and_noop_original_gap_makes_no_call",
+      "src/todos/u490a_browser.test.ts > u490a an Agent's Todos in the Rail order on the shared Sortable > u490a_pointer_reorders after equal refetch",
+      "src/todos/u490a_browser.test.ts > u490a an Agent's Todos in the Rail order on the shared Sortable > u490a_pointer_reorders after fresh",
+      "src/todos/u490a_browser.test.ts > u490a an Agent's Todos in the Rail order on the shared Sortable > u490a_pointer_reorders after no event",
+      "src/ui/u484_browser.test.ts > u3800a_one_drag_fixture"
+    ],
+    "prOnlyFailedCases": [
+      "src/terminal/u514_browser.test.ts > u3529a_text_keeps_its_webview_menu_rename"
+    ],
+    "mergedMain": "bae255acbcafbc039d33f2c7c70ab478f7107bb6",
+    "mergeHead": "5b30893870927822947378cd810a040c540ceb7c",
+    "regression": {
+      "command": "pnpm --filter desktop exec vitest run src/terminal/u102_emulator.test.ts src/terminal/u103_snapshot.test.tsx src/terminal/u103_webgl_reflow.test.tsx",
+      "tests": 29,
+      "passed": 29,
+      "exit": 0
+    },
+    "prerequisites": [
+      {
+        "module": "terminal",
+        "number": 4339,
+        "url": "https://github.com/roundup-app/roundup/issues/4339",
+        "files": [
+          "u59_real_daemon.test.ts",
+          "u3016_browser.test.ts",
+          "u514_browser.test.ts"
+        ],
+        "scenarios": "U59 U3529b U3016f U2680d U3529a"
+      },
+      {
+        "module": "bubbles",
+        "number": 4340,
+        "url": "https://github.com/roundup-app/roundup/issues/4340",
+        "files": [
+          "u3756_focus.test.ts",
+          "u2742_browser.test.ts"
+        ],
+        "scenarios": "U3756c U4011"
+      },
+      {
+        "module": "app",
+        "number": 4341,
+        "url": "https://github.com/roundup-app/roundup/issues/4341",
+        "files": [
+          "u472_copy_journey.test.ts",
+          "u3560_browser.test.ts"
+        ],
+        "scenarios": "U2892c U3560c"
+      },
+      {
+        "module": "todos",
+        "number": 4342,
+        "url": "https://github.com/roundup-app/roundup/issues/4342",
+        "files": [
+          "u461_rendered.test.ts",
+          "u490a_browser.test.ts",
+          "u3720_real_daemon_owner.test.tsx"
+        ],
+        "scenarios": "U3789a U490a U3311"
+      },
+      {
+        "module": "rail",
+        "number": 4343,
+        "url": "https://github.com/roundup-app/roundup/issues/4343",
+        "files": [
+          "u522_browser.test.ts"
+        ],
+        "scenarios": "U522 U3515c"
+      },
+      {
+        "module": "timeline",
+        "number": 4344,
+        "url": "https://github.com/roundup-app/roundup/issues/4344",
+        "files": [
+          "u3768_rendered.test.ts"
+        ],
+        "scenarios": "U3768h"
+      },
+      {
+        "module": "ui",
+        "number": 4345,
+        "url": "https://github.com/roundup-app/roundup/issues/4345",
+        "files": [
+          "u484_browser.test.ts"
+        ],
+        "scenarios": "U3800a"
+      },
+      {
+        "module": "drawer",
+        "number": 4346,
+        "url": "https://github.com/roundup-app/roundup/issues/4346",
+        "files": [
+          "u3010b_rendered.test.ts"
+        ],
+        "scenarios": "U430"
+      },
+      {
+        "module": "ask",
+        "number": 4347,
+        "url": "https://github.com/roundup-app/roundup/issues/4347",
+        "files": [
+          "dv5_rendered.test.ts"
+        ],
+        "scenarios": "DV5"
+      }
+    ],
+    "disposition": "Keep this evidence-only PR ready with auto-merge armed. Required check remains authoritative. Repair the main failures in the linked module-sized work Issues, merge them, then merge main and run check again. No product source, behavior test, bound or gate is changed here.",
+    "gates": {
+      "pnpm install": 0,
+      "just ready": 0,
+      "pnpm lint:boundaries after evidence edit": 0,
+      "loop/rules.sh merge-loss": 0,
+      "loop/rules.sh vocab": 0,
+      "git diff --check": 0
+    }
+  },
+  "osc52Runtime": {
+    "source": "c695f8acb",
+    "base": "a635310794b15170126fc9d4320e7d830f114cff",
+    "testsPassed": 35,
+    "compatibilityChecksPassed": 40,
+    "productionBuildExit": 0,
+    "gzip": "level 9, each static closure file counted once, mtime 0",
+    "before": {
+      "entry": {
+        "files": [
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/index-CIbrWwza.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1315949,
+        "gzip9": 418326
+      },
+      "terminal": {
+        "files": [
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/index-CIbrWwza.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/emulator-B6m-aV-G.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1839230,
+        "gzip9": 550159
+      },
+      "wasm": []
+    },
+    "after": {
+      "entry": {
+        "files": [
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/index-BUOO4Y3M.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1316035,
+        "gzip9": 418361
+      },
+      "terminal": {
+        "files": [
+          "assets/CopyButton-CWa9Pq59.js",
+          "assets/ReservedLine-BcqKWMtM.js",
+          "assets/copy-C04tRIo7.js",
+          "assets/dist-BNvtSeKL.js",
+          "assets/emulator-Cbl2FitR.js",
+          "assets/floating-ui.dom-vtOd0C_f.js",
+          "assets/index-BUOO4Y3M.js",
+          "assets/layout-CSoaMawy.js",
+          "assets/theme-UYiOvT8c.js"
+        ],
+        "raw": 1844281,
+        "gzip9": 551968
+      },
+      "wasm": []
+    },
+    "entryNoGrowthPassed": false,
+    "strictEntryCeilingPassed": false,
+    "nativeClipboardPass": false,
+    "tenAgentRssPass": false,
+    "realDaemonRenderedObserver": "incomplete: new Terminal did not reach the mounted xterm state; no pass claimed",
+    "relatedSuite": "interrupted; no full related-suite pass claimed",
+    "renderedFakeSeeds": {
+      "seeds": [
+        "tree-40",
+        "agents-10",
+        "conflict"
+      ],
+      "viewport": [
+        1512,
+        950
+      ],
+      "mode": "dark",
+      "screens": 6,
+      "D2": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "realDaemon": "incomplete"
+    },
+    "finalJustReady": "all lines passed except pnpm lint: two missing blank lines in new test; repaired"
+  }
+}
