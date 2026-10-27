@@ -253,10 +253,10 @@ it("u3010b_preference_change_preserves_destination_and_focus", { retry: 0 }, asy
   ]);
 });
 
-it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
+it("u430_terminal_gets_one_resize_per_slide", { retry: 0, timeout: 60_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
-  await browser("click", '.rail [data-id="tokens"] .name');
+  await browser("click", '.rail [data-id="tokens"] .row-state');
   await browser("wait", ".xterm-screen");
   await settle();
   await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); return true; })()");

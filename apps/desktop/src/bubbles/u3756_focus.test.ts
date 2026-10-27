@@ -106,6 +106,8 @@ const newer = async (choice: string) => {
       const app = window.__fake.app;
       const made = await app.rpc('todo.create', {title:'Newer Drawer',body:null,blockers:null});
       window.newTodo = made.id;
+      const home = document.querySelector('.rail-row[data-id=backend] .row-state');
+      if (home) home.click();
       const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
       const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
@@ -140,16 +142,13 @@ for (const choice of ["drawer", "ask", "rail"]) {
 }
 
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id=backend]')`);
-  await browser("focus", ".rail-row[data-id=backend]");
-  await browser("press", "Enter");
+  await fresh("door-stopped");
   await wait(`!!document.querySelector('.pane-action')`);
   await read(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    window.originFocus = document.querySelector('.rail-row[data-id=backend]');
+    window.originFocus = document.querySelector('.rail-row[data-id=first-workstream]');
     window.originFocus.focus();
     document.querySelector('.pane-action').click();
   })()`);
