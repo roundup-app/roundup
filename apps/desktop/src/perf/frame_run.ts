@@ -22,7 +22,7 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
-export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], movement: () => PreferenceAction["movement"] = () => undefined): (() => void) => createRoot(dispose => {
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs"> = () => ({})): (() => void) => createRoot(dispose => {
   let initial = true;
   createComputed(() => {
     const entry: PreferenceAction = { at_ms: now(), reduced: reduced(), phase: phase() };
@@ -30,9 +30,7 @@ export const observePreference = (reduced: Accessor<boolean>, now: () => number,
     // The initial value is setup, not a switch. Sample displacement synchronously
     // with the shared source change, before a later frame can reach its endpoint.
     if (!initial && entry.phase === "sample") {
-      const observed = movement();
-
-      if (observed) entry.movement = observed;
+      Object.assign(entry, displacement());
     }
 
     initial = false;
@@ -342,6 +340,26 @@ const workingGlyphs = (fixture?: Fixture) => [...document.querySelectorAll('.rai
   return box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
 }).length;
 
+/** Read the fixture's current arcs before the shared source cancels their loops; never infer angle from animation time. */
+export const glyphDisplacement = (fixture: Pick<Fixture, "working">): NonNullable<PreferenceAction["glyphs"]> => fixture.working.flatMap(id => {
+  const row = [...document.querySelectorAll<HTMLElement>('.rail-row[data-kind="working"]')].find(row => row.dataset.id === id);
+  const arc = row?.querySelector<SVGPathElement>('.glyph[data-drawing="quarter"] > .kind-mark > .working-arc');
+
+  if (!arc || !arc.isConnected || row?.closest('[hidden], [inert]')) return [];
+  const box = arc.getBoundingClientRect();
+
+  if (box.width <= 0 || box.height <= 0 || box.top < 0 || box.bottom > innerHeight || box.left < 0 || box.right > innerWidth) return [];
+
+  // Only the active transform loop qualifies. An outgoing frozen arc or opacity fade does not.
+  if (!arc.getAnimations().some(animation => animation.playState === "running" && animation.effect instanceof KeyframeEffect && animation.effect.getTiming().iterations === Infinity && animation.effect.getKeyframes().some(frame => frame.transform !== undefined))) return [];
+
+  const transform = getComputedStyle(arc).transform;
+  const matrix = new DOMMatrixReadOnly(transform);
+  const degrees = (Math.atan2(matrix.b, matrix.a) * 180 / Math.PI + 360) % 360;
+
+  return Number.isFinite(degrees) ? [{ target: id, transform, degrees }] : [];
+});
+
 const wallClock: Clock = { sleep };
 
 /**
@@ -645,20 +663,21 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
     let phase: PreferenceAction["phase"] = "warmup";
 
     const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
+      if (workload === "glyphs" && fixture) return { glyphs: glyphDisplacement(fixture) };
       const action = layerActions.at(-1);
 
-      if (!action || action.source !== "trusted-pointer" || action.samples.length === 0) return undefined;
+      if (!action || action.source !== "trusted-pointer" || action.samples.length === 0) return {};
       const element = document.querySelector<HTMLElement>(`.${action.panel}`);
       const distance = action.destination - action.from;
 
-      if (!element || !element.isConnected || element.hidden || Math.abs(distance) < 1) return undefined;
+      if (!element || !element.isConnected || element.hidden || Math.abs(distance) < 1) return {};
       const observed = element.getBoundingClientRect().left;
       const progress = (observed - action.from) / distance;
 
       // A settled, reversed or never-started segment is not a live movement.
-      if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return undefined;
+      if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return {};
 
-      return { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress };
+      return { movement: { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress } };
     });
 
     const controller = new AbortController();
