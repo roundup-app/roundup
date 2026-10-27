@@ -272,6 +272,30 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(journal.flatMap(row => row.action === "reorder" ? [row.targets] : [])).toEqual([[4, 1], [8, 5], [4, 1], [8, 5], [4, 1], [8, 5], [4, 1]]);
   });
 
+  it("u3010g_todo_action_times_bound_the_acknowledged_mutation", async () => {
+    const app = fixtureApp("action-times");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const journal: import("./frames").TodoAction[] = [];
+    const controls = fixtureTodos(app, fixture, { toggleFold: async () => true, reorder: async () => true }, journal);
+    const move = app.handlers["todo.move"]!;
+    let release: () => void = () => {};
+
+    app.handlers["todo.move"] = async params => {
+      await new Promise<void>(resolve => { release = resolve; });
+
+      return move(params);
+    };
+    const started = performance.now();
+    const action = controls.create();
+
+    await vi.advanceTimersByTimeAsync(75);
+    expect(journal[0]).toMatchObject({ action: "insert", at_ms: started, completed_at_ms: null, completed: false });
+    release();
+    expect(await action).toBe(true);
+    expect(journal[0]).toMatchObject({ completed_at_ms: started + 75, completed: true });
+    expect((await app.rpc("todo.get", { id: journal[0]!.targets[0]! })).home).toBe(fixture.home);
+  });
+
   it("u3010g_synthetic_pointer_events_cannot_complete_the_native_reorder_phase", async () => {
     const run = pointerReorder(4);
 
