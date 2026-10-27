@@ -594,8 +594,8 @@ export const App = (props: {
             const undo = drafts(path).todoUndo;
 
             const shown = () => projects.active() === path && undo.visible();
-            const failure = () => shown() && (undo.uncertain() || !connectionOf(path)?.drawer.content()) ? undo.failure() : null;
-            const status = () => shown() && undo.available() ? copy.todoDeletedFeedback : null;
+            const failure = () => shown() ? undo.feedbackFailure() : null;
+            const status = () => shown() && undo.available() ? undo.feedback() : null;
 
             return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
               <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
@@ -633,7 +633,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane viewLabel={id => views.find(([view]) => view === id)?.[1]} navigationHost={navigationHost()} requested={settingsOpen() ? copy.settings : open.settingsView.open() ? (open.settingsView.page() === "import-work" ? copy.importTitle : copy.projectSettings) : null} backRequested={() => { closeAppSettings?.(); open.importing.cancel(); open.settingsView.close(false); }} observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane viewLabel={id => views.find(([view]) => view === id)?.[1]} navigationHost={navigationHost()} requested={settingsOpen() ? copy.settings : open.settingsView.open() ? (open.settingsView.page() === "import-work" ? copy.importTitle : copy.projectSettings) : null} backDisabled={!settingsOpen() && open.settingsView.open() && open.settingsView.page() === "import-work" && open.importing.pending()} backRequested={() => { closeAppSettings?.(); open.importing.cancel(); open.settingsView.close(false); }} observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>

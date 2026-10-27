@@ -25,6 +25,7 @@ const afterUpdate = (callback: () => void) => {
 
   channel.port1.onmessage = () => {
     channel.port1.close();
+    channel.port2.close();
     callback();
   };
 
@@ -145,7 +146,7 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   const edge = root.getBoundingClientRect().right;
   const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
   const opening = element.dataset.open !== "true";
-  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer";
   const entry: LayerAction = { panel, source: "trusted-pointer", target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
   journal.push(entry);
@@ -200,8 +201,10 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   });
 };
 
+type Listen = (type: "click" | "keydown" | "pointerdown", listener: (event: Event) => void) => () => void;
+
 /** Observe the platform's real activation; never send input or take focus from its current owner. */
-const observeActivation = (selector: string, source: "pointer" | "key" | "escape", accept: () => boolean): Promise<boolean> => {
+const observeActivation = (selector: string, source: "pointer" | "hairline" | "key" | "escape", accept: () => boolean, listen: Listen, applied: () => boolean = () => true): Promise<boolean> => {
   const target = document.querySelector(selector);
 
   if (!target) return Promise.resolve(false);
@@ -215,20 +218,27 @@ const observeActivation = (selector: string, source: "pointer" | "key" | "escape
 
     const timer = setTimeout(() => finish(false), CYCLE_MS / 2);
 
-    const clear = makeEventListener(window, source === "escape" ? "keydown" : "click", event => {
+    const clear = listen(source === "escape" ? "keydown" : source === "hairline" ? "pointerdown" : "click", event => {
       if (!event.isTrusted || !(event.target instanceof Node) || !target.contains(event.target)) return;
 
-      if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
+      if (source === "hairline") {
+        if (!(event instanceof MouseEvent) || event.button !== 0 || event.target !== target) return;
+        const x = event.clientX - target.getBoundingClientRect().left;
+
+        const width = parseFloat(getComputedStyle(target).borderLeftWidth);
+
+        if (!Number.isFinite(width) || width <= 0 || x < 0 || x >= width) return;
+      } else if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
 
       if (!accept()) return;
       // Native event dispatch can checkpoint microtasks between listeners. A task observes
       // the existing activation/keyboard owner after propagation, including Solid delegation.
-      afterUpdate(() => finish(target.isConnected));
-    }, { capture: true });
+      afterUpdate(() => finish(target.isConnected && applied()));
+    });
   });
 };
 
-export const domLayers = (journal: LayerAction[]): Layers => {
+export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true })): Layers => {
   let pending: LayerAction | null = null;
 
   const interruptible = () => {
@@ -248,7 +258,7 @@ export const domLayers = (journal: LayerAction[]): Layers => {
 
     journal.push(entry);
 
-    if (!(await observeActivation(target, source, interruptible))) return false;
+    if (!(await observeActivation(target, source, interruptible, listen))) return false;
     entry.at_ms = performance.now();
     entry.observed = element.getBoundingClientRect().left;
     entry.completed = panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed");
@@ -259,10 +269,10 @@ export const domLayers = (journal: LayerAction[]): Layers => {
   };
 
   return {
-    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible),
-    closeDrawer: () => observeActivation(".drawer .close", "pointer", interruptible),
+    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible, listen),
+    closeDrawer: () => observeActivation(".drawer", "hairline", interruptible, listen, () => document.querySelector<HTMLElement>(".drawer")?.dataset.open === "false"),
     escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
-    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible),
+    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible, listen),
     keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
     halfway: async (panel, action) => {
       const completed = await halfDisplacement(panel, action, journal);
