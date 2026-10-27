@@ -1,0 +1,341 @@
+{
+  "head": "2a2b1f0886cf514b16d8f3e2bc3cae67702cb1eb",
+  "base": "ed177715d",
+  "engine": "isolated headless Chromium",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "reduced_motion": "production createReducedMotion / browser matchMedia",
+  "fixture": {
+    "identity": "tree-40-native-v1",
+    "sha256": "40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55"
+  },
+  "preparation": "PR #4407 setup, served through Vite to share one Solid instance; wait for App subscription before fixture RPCs",
+  "sequence": "same existing Todos tab: trusted pointer close/open/close; native Shift+Tab to tab; native Space opens",
+  "scheduling": "unmeasured: target availability and action/focus ownership only",
+  "WKWebView": "unmeasured: no native observation",
+  "results": [
+    {
+      "mode": "reserved",
+      "step": "before",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "reserved",
+      "step": "close",
+      "open": false,
+      "same_target": true,
+      "expanded": "false",
+      "focus": "tree:cl-19:node:n1",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "reserved",
+      "step": "reopen",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "reserved",
+      "step": "close-again",
+      "open": false,
+      "same_target": true,
+      "expanded": "false",
+      "focus": "tree:cl-19:node:n1",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "reserved",
+      "step": "key-open",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "reserved",
+      "trusted_activations": [
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 0,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        }
+      ]
+    },
+    {
+      "mode": "overlay",
+      "step": "before",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "overlay",
+      "step": "close",
+      "open": false,
+      "same_target": true,
+      "expanded": "false",
+      "focus": "tree:cl-19:node:n1",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "overlay",
+      "step": "reopen",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "overlay",
+      "step": "close-again",
+      "open": false,
+      "same_target": true,
+      "expanded": "false",
+      "focus": "tree:cl-19:node:n1",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "overlay",
+      "step": "key-open",
+      "open": true,
+      "same_target": true,
+      "expanded": "true",
+      "focus": "shelf-tab-todos",
+      "selection": [],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "mode": "overlay",
+      "trusted_activations": [
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 1,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        },
+        {
+          "detail": 0,
+          "target": "shelf-tab-todos",
+          "trusted": true,
+          "type": "click"
+        }
+      ]
+    }
+  ],
+  "overlay_setup": "Existing Shelf in overlay mode at the fixed viewport; --centre-min-width set to 1000px for this rendered observer. Fixture data and identity are unchanged.",
+  "visible_failure": "Existing saved-work restoration failure remains fully visible in each capture."
+}
