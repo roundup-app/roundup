@@ -56,7 +56,7 @@
 .note-form textarea:disabled,
 .app-select-trigger:disabled,
 .app-combobox-input:disabled {
-  background: var(--selected);
+  background: var(--sunken);
   border-style: dashed;
   color: var(--disabled);
   cursor: not-allowed;
