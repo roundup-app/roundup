@@ -421,6 +421,32 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(report.invalid).toContain("the workload's actions did not complete");
   });
 
+  it.each(["before", "during"] as const)("u3010g_fixture_loss_stops_actions_and_cannot_pass (%s)", async when => {
+    let working = when === "before" ? 9 : 10;
+    const log: [number, string][] = [];
+    const controls = layers(log);
+
+    controls.escapeDrawer = () => {
+      log.push([Date.now(), "escapeDrawer"]);
+      working = 9;
+
+      return true;
+    };
+
+    const run = everyTwoSeconds(clock, layersCycle(controls), () => working >= 10);
+
+    await vi.advanceTimersByTimeAsync(SAMPLE_MS);
+    const actions = await run;
+    const report = buildReport({
+      workload: "layers", hz: 60, engine: "chromium", timerResolutionMs: 0.1, userAgent: "test",
+      sample: Array(600).fill(16.7), idle: Array(300).fill(16.7), hidden: false, completed: true, actionsDone: actions.completed,
+    });
+
+    expect(actions).toEqual({ performed: 0, completed: false });
+    expect(log.map(([, action]) => action)).toEqual(when === "before" ? [] : ["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]);
+    expect(report).toMatchObject({ verdict: "invalid", exit: 2 });
+  });
+
   it("u3010g_a_setup_that_never_answers_ends_in_an_error_naming_it", async () => {
     const outcome = bounded(new Promise<never>(() => {}), 5_000, "the glyphs setup").catch((failure: Error) => failure.message);
 
