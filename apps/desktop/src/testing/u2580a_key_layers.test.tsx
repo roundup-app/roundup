@@ -130,9 +130,11 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("s", "KeyS", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
     await settle();
 
-    // Select a Workstream before Cmd+T creates a Terminal; its completed RPC is readiness for minimising/restoring it.
-    await browser("click", ".rail-row");
-    await browser("wait", "--fn", "!!document.querySelector('.terminal-new')");
+    // Select the row itself: its centre can contain a quick action on hover.
+    await browser("focus", '.rail-row[data-id="backend"]');
+    await browser("press", "Enter");
+    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected="true"]') && !!document.activeElement.closest('.pane-screen')`);
+    await settle();
     await evaluate(`(() => { window.__bubbleOrigin = document.activeElement; return true; })()`);
     expect(await keyFrame("t", "KeyT", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')", true)).toBe(true);
     await browser("wait", ".bubble .xterm-screen");

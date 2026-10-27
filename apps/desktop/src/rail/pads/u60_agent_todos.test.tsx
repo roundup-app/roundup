@@ -74,7 +74,7 @@ describe("u60 an Agent's Todos under it", () => {
     expect(control(rowOf("docs"))).toBeNull();
   });
 
-  it("u60_expanded_the_pads_come_first_then_the_open_todos_in_id_order", async () => {
+  it("u4275c_expanded_pads_precede_todos_nested_under_their_blockers", async () => {
     await mount(
       TREE,
       [todo(5, { creator: by("a1") }), todo(3, { creator: by("a1"), blockers: [4], blocked: true }), todo(4, { creator: by("a1") })],
@@ -84,7 +84,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     const group = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
 
-    expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
+    expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "4", "3", "5"]);
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 

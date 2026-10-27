@@ -884,7 +884,7 @@ export const Todos = (props: {
 
                 return <div {...attrs()} class="todo-dependency" role="presentation" data-structural-motion={dependency.moving()} data-complete={dependency.complete(todo.id)}>
                 {draw(() => groupAttributes(todo.id, row.level))}
-                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id)}</div></TreeView.BranchContent>
+                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content"><TreeView.BranchIndentGuide />{renderChildren(todo.id)}</div></TreeView.BranchContent>
                 </div>;
               }} />
             </Show>
