@@ -1,0 +1,12 @@
+{
+  "scenario": "U3787g",
+  "base": "2bcba5ed7",
+  "head": "9f0ae2b0d0a54c22fb19b63109bf65ca7b67d0c8",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seed": "tree-40",
+  "observation": "Full cause and recovery visible beside long Unicode Todo titles. Delete retains focus and exact comment draft bytes; recovery does not delete Todo 7. D2/D5/D6 pass on base and head; no passing Check regresses. Isolated headless Chromium with fresh profiles; no native-only observation required."
+}
