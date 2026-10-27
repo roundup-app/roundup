@@ -72,9 +72,10 @@ it("u511a_completion_preserves_expected_focus", async () => {
   await edit("2");
 
   const other = tab("1")!;
+  const input = field()!;
 
   other.focus();
-  fireEvent.blur(field()!);
+  fireEvent.blur(input);
   await waitFor(() => expect(field()).toBeNull());
   expect(document.activeElement).toBe(other);
 });
@@ -413,6 +414,43 @@ const selectedBubbles = async (outcome: "failed" | "unknown" = "failed") => {
 
   return { ...mounted, drafts, destination, a: drafts.list().find(draft => draft.revision === a.revision)!, b, open };
 };
+
+it("u3787c_escape_restores_the_name_selected_terminal_recovery", async () => {
+  const { app, drafts, a, b, open } = await selectedBubbles();
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  const input = field()!;
+  const exact = "  recovery e\u0301 🪁 雪\t  ";
+  fireEvent.input(input, { target: { value: exact } });
+  input.setSelectionRange(3, 8, "backward");
+  fireEvent.select(input);
+  const before = drafts.list();
+  const retained = before.find(draft => draft.value.name === exact)!;
+  const calls = [...app.calls];
+  const writes = vi.spyOn(Storage.prototype, "setItem");
+  const underlying = vi.fn();
+  document.addEventListener("keydown", underlying);
+
+  try { fireEvent.keyDown(input, { key: "Escape" }); }
+  finally { document.removeEventListener("keydown", underlying); }
+
+  fireEvent.blur(input);
+  await waitFor(() => expect(document.activeElement).toBe(tab("2")));
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  expect(underlying).not.toHaveBeenCalled();
+  expect(retained.destination).toEqual(a.destination);
+  expect(retained.selection).toEqual({ start: 3, end: 8, direction: "backward" });
+  open(retained.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([exact, 3, 8, "backward"]);
+  fireEvent.blur(field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  expect(drafts.list()).toEqual(before);
+  expect(drafts.list()).toContainEqual(a);
+  expect(drafts.list()).toContainEqual(b);
+  expect(app.calls).toEqual(calls);
+  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toEqual([]);
+});
 
 it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_bubbles_%s", async outcome => {
   const { app, drafts, a, b, open, connected } = await selectedBubbles(outcome);
