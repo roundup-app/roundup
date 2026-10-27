@@ -1,5 +1,7 @@
 import pathlib,tempfile,shutil,json,subprocess,hashlib
 root=pathlib.Path.cwd();base=root/'apps/desktop/budgets/evidence/z3788d-isolated-list';script=(base/'replay.py.txt').read_text();records=[]
+def archive_hashes():return {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in base.iterdir() if p.is_file()}
+before=archive_hashes()
 for name in ['missing-sample','wrong-identities','missing-presentation','wrong-trace-pair']:
  with tempfile.TemporaryDirectory(prefix='z3788d-replay-') as d:
   archive=pathlib.Path(d)
@@ -20,5 +22,6 @@ for name in ['missing-sample','wrong-identities','missing-presentation','wrong-t
 result=json.loads((base/'replay/result.json').read_text())
 assert result['exit']==1 and len(result['reports'])==3 and not result['failures'] and not result['selectionFailures']
 records.insert(0,{'case':'all archived samples','exit':1,'validated':660,'budgetPass':False})
+assert before==archive_hashes(),'Original archive changed'
 (base/'replay/validation.json').write_text(json.dumps({'replaySha256':hashlib.sha256(script.encode()).hexdigest(),'checks':records,'originalArchivesUnchanged':True},indent=2)+'\n')
 print(json.dumps(records,indent=2))
