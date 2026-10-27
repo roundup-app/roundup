@@ -19,8 +19,8 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
 });
 
 it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
-  ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => ({ seed, view })),
-))("u4277c_requested_$seed $view empty_and_filled", async ({ seed, view }) => {
+  ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => [seed, view] as const),
+))("u4277c_requested_%s_%s_empty_and_filled", async (seed, view) => {
   const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
