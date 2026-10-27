@@ -84,7 +84,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       : event.key === "ArrowDown" ? collection.getNextValue(value)
       : list.search(event);
 
-    const navigation = ["Home", "End", "ArrowUp", "ArrowDown"].includes(event.key);
+    const navigation = event.key === "Home" || event.key === "End" || event.key === "ArrowUp" || event.key === "ArrowDown";
 
     if (!navigation && nextValue === null) return;
     event.preventDefault();
