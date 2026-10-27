@@ -20,8 +20,9 @@ export const TERMINALS: TerminalInfo[] = [
 ];
 
 /** The Pane and its bubbles in one open Project whose Daemon lists `terminals`, with a fake `terminal.open` and `terminal.close`. */
-export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE) => {
+export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE, hostPresent = true) => {
   const app = createFakeApp();
+  const [hasHost, setHostPresent] = createSignal(hostPresent);
   let listed = [...terminals];
 
   app.handlers["rail.tree"] = () => tree;
@@ -67,7 +68,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
-          <ResourceStrip />
+          <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
       </ConnectedProjectContext.Provider>
     );
@@ -77,11 +78,11 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   await waitFor(() => {
     const bubbles = [...document.querySelectorAll<HTMLElement>(".bubble")];
 
-    if (!document.querySelector(".terminal-tabs") || bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
+    if ((hasHost() && !document.querySelector(".terminal-tabs")) || bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
       && !app.outputSubscriptions.some(subscription => subscription.id === bubble.dataset.bubble))) throw new Error("Terminal output subscriptions not attached");
   });
 
-  return { app, connected, emulators, setExit, recover, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
+  return { app, connected, emulators, setExit, recover, setHostPresent, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {
