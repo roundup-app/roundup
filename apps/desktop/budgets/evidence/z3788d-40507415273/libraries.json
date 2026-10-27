@@ -1,0 +1,61 @@
+{
+  "@tanstack/solid-virtual": {
+    "version": "3.13.50",
+    "released": "2026-10-26T12:52:27.719Z",
+    "license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/TanStack/virtual.git",
+      "type": "git",
+      "directory": "packages/solid-virtual"
+    },
+    "dist": {
+      "shasum": "35dae9cc9be6126f38c307ad3c7a22e97e06a040",
+      "tarball": "https://registry.npmjs.org/@tanstack/solid-virtual/-/solid-virtual-3.13.50.tgz",
+      "fileCount": 9,
+      "integrity": "sha512-YfPVWbsOa/u54DjWRYcM7QwbijTsCWf/B1pjhKpjcM/e7O0Szs4eH+k2tfOTfEbqEWUQT4KI8wBcGUALVUTu8Q==",
+      "signatures": [
+        {
+          "sig": "MEUCIQDfON8lITW+g9cpr+leFA0IhCD/qs22B4tQqrJ/vXRxLAIgToIaJuSsQf2wqEXf7wWkMHKSXIawjkluI29RRXtMtkU=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+          "sig": "MEYCIQDrmuOMhNHAgrOcdZs3BajTSP37ictZT1iz797EiqVmKAIhANt67XfXW1UKs5KLLynRg3xj0wmKUaqJsfVwuBRvO6Dq"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@tanstack%2fsolid-virtual@3.13.50",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 24586
+    }
+  },
+  "virtua": {
+    "version": "0.54.0",
+    "released": "2026-10-27T09:43:53.575Z",
+    "license": "MIT",
+    "repository": {
+      "url": "git+https://github.com/inokawa/virtua.git",
+      "type": "git"
+    },
+    "dist": {
+      "shasum": "a12579ce77d7e3ad3b836eeb609521cb6caecb69",
+      "tarball": "https://registry.npmjs.org/virtua/-/virtua-0.54.0.tgz",
+      "fileCount": 96,
+      "integrity": "sha512-8nGGrDhX61MDVeqgyIaWrJqhRm9z2Nqa1WDqt0tk1m+ZWrvLesMP0iL0vL6xNsLCF2jE2ohwY+PqufdbVmRgEw==",
+      "signatures": [
+        {
+          "sig": "MEYCIQCh+25Dr4fPICZ8+eKxACkIOmr8e+St8IzZtD7chapESAIhAL/0VsshD3CdjHOQrvghLTW5kAF4+oVa73SGUoX2mnAr",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+          "sig": "MEQCIGvf6P5ezv72Jf8o4WMnn1jrnKgGgZs+oiP1WUMc8/ocAiBXNTrBgGbwSW+980Aae+NUKRrau2wRDjj2klTHzjhmBw=="
+        }
+      ],
+      "unpackedSize": 2778433
+    }
+  }
+}

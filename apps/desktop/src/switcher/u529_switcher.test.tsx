@@ -19,39 +19,39 @@ const type = (text: string) => fireEvent.input(field()!, { target: { value: text
 it("z3788d_virtual_navigation_preserves_selected_identity", async () => {
   // jsdom has no scroll viewport; supply the browser's scroll metrics and event.
   vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(240);
-  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(1120);
+  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(504);
   vi.spyOn(Element.prototype, "scrollTo").mockImplementation(function (this: Element, options: ScrollToOptions | number) {
     if (typeof options !== "object") return;
     this.scrollTop = options.top ?? 0;
     this.dispatchEvent(new Event("scroll"));
   });
-  const { app, connected } = await mountSwitcher(null, [workstream("ops"), ...Array.from({ length: 40 }, (_, index) => agent(`row-${index}`, "idle", "idle", { parent: "ops",
+  const { app, connected } = await mountSwitcher(null, [workstream("ops"), ...Array.from({ length: 20 }, (_, index) => agent(`row-${index}`, "idle", "idle", { parent: "ops",
     name: `Destination ${String(index).padStart(3, "0")}`, order: index,
   }))], []);
   openSwitcher();
   await waitFor(() => expect(document.activeElement).toBe(field()));
   const option = (value: string) => document.querySelector<HTMLElement>(`.switcher [role=option][data-value="${value}"]`);
-  expect(option("row-39")).toBeNull();
+  expect(option("row-19")).toBeNull();
   option("row-0")!.focus();
   press("End");
-  await waitFor(() => expect(document.activeElement).toBe(option("row-39")));
-  fireEvent.click(option("row-39")!, { metaKey: true });
+  await waitFor(() => expect(document.activeElement).toBe(option("row-19")));
+  fireEvent.click(option("row-19")!, { metaKey: true });
   field()!.focus();
-  type("Destination 039");
-  await waitFor(() => expect(option("row-39")?.getAttribute("aria-selected")).toBe("true"));
-  expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-39")!.id);
+  type("Destination 019");
+  await waitFor(() => expect(option("row-19")?.getAttribute("aria-selected")).toBe("true"));
+  expect(field()!.getAttribute("aria-activedescendant")).toBe(option("row-19")!.id);
   press("Enter", {}, field()!);
-  await waitFor(() => expect(connected.rail.selected()).toBe("row-39"));
+  await waitFor(() => expect(connected.rail.selected()).toBe("row-19"));
   await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
   openSwitcher();
-  await waitFor(() => expect(field()?.value).toBe("Destination 039"));
+  await waitFor(() => expect(field()?.value).toBe("Destination 019"));
   type("");
   const list = document.querySelector<HTMLElement>(".switcher [role=listbox]")!;
   list.scrollTo({ top: 0 });
   await waitFor(() => expect(option("row-0")).not.toBeNull());
-  list.scrollTo({ top: 880 });
-  await waitFor(() => expect(option("row-39")).not.toBeNull());
-  expect(connected.rail.selected()).toBe("row-39");
+  list.scrollTo({ top: 264 });
+  await waitFor(() => expect(option("row-19")).not.toBeNull());
+  expect(connected.rail.selected()).toBe("row-19");
   expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
@@ -180,13 +180,14 @@ it("u2773a_queries_restores_exact_work", async () => {
   const { app, connected } = await mountSwitcher("ann");
   const exact = "  e\u0301 🧭 東京  ";
   openSwitcher();
-  await waitFor(() => expect(field()).not.toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(field()));
   type(exact);
   field()!.setSelectionRange(2, 9, "backward");
   press("Escape", {}, field()!);
   const calls = app.calls.length;
   openSwitcher();
-  await waitFor(() => expect(field()?.value).toBe(exact));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect(field()?.value).toBe(exact);
   await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
@@ -200,7 +201,8 @@ it("u2773a_queries_restores_exact_work", async () => {
   expect(document.activeElement).toBe(origin);
   expect(field()).toBeNull();
   openSwitcher();
-  await waitFor(() => expect(field()?.value).toBe(exact));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect(field()?.value).toBe(exact);
   await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
   expect(reopened.app.calls.length).toBe(reopenedCalls);
 });

@@ -1,0 +1,507 @@
+{
+  "note": "Separate 30-edit diagnostic V8 sample counts, inclusive counts overlap; not presentation timings or summed attribution.",
+  "self": [
+    {
+      "url": "",
+      "function": "(idle)",
+      "samples": 54390
+    },
+    {
+      "url": "",
+      "function": "(program)",
+      "samples": 12391
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/5BJP652B.jsx",
+      "function": "",
+      "samples": 7494
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "assign",
+      "samples": 5407
+    },
+    {
+      "url": "",
+      "function": "(garbage collector)",
+      "samples": 4674
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "cleanNode",
+      "samples": 3131
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/@zag-js_solid.js?v=30f2c101",
+      "function": "get",
+      "samples": 3123
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "splitProps",
+      "samples": 2781
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/@zag-js_solid.js?v=30f2c101",
+      "function": "mergeProps",
+      "samples": 2455
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "readSignal",
+      "samples": 2161
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runTop",
+      "samples": 1434
+    },
+    {
+      "url": "",
+      "function": "cloneNode",
+      "samples": 1173
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "assignProp",
+      "samples": 1106
+    },
+    {
+      "url": "",
+      "function": "setAttribute",
+      "samples": 1042
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/merge-props-CnRCqI0g.js?v=1a8eaabc",
+      "function": "mergeProps",
+      "samples": 1007
+    },
+    {
+      "url": "",
+      "function": "remove",
+      "samples": 960
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "get",
+      "samples": 925
+    },
+    {
+      "url": "",
+      "function": "insertBefore",
+      "samples": 918
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createComputation",
+      "samples": 836
+    },
+    {
+      "url": "",
+      "function": "closest",
+      "samples": 809
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "",
+      "samples": 789
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "keys",
+      "samples": 776
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "has",
+      "samples": 710
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createMemo",
+      "samples": 663
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+focus-trap@1.45.0_patch_hash=acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd/node_modules/@zag-js/focus-trap/dist/focus-trap.mjs?v=1a8eaabc",
+      "function": "",
+      "samples": 574
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "",
+      "samples": 536
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/@zag-js_combobox.js?v=da6b3866",
+      "function": "",
+      "samples": 503
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runUserEffects",
+      "samples": 450
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/RowCollection.ts",
+      "function": "register",
+      "samples": 419
+    },
+    {
+      "url": "",
+      "function": "addEventListener",
+      "samples": 360
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runComputation",
+      "samples": 355
+    },
+    {
+      "url": "",
+      "function": "removeEventListener",
+      "samples": 307
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "addEventListener",
+      "samples": 297
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+      "function": "",
+      "samples": 296
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+      "function": "row",
+      "samples": 289
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "normalizeIncomingArray",
+      "samples": 258
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "",
+      "samples": 251
+    },
+    {
+      "url": "",
+      "function": "",
+      "samples": 209
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_store.js?v=d4709a70",
+      "function": "get",
+      "samples": 200
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ink/KindGlyph.tsx",
+      "function": "",
+      "samples": 196
+    }
+  ],
+  "inclusive": [
+    {
+      "url": "",
+      "function": "(root)",
+      "samples": 121667
+    },
+    {
+      "url": "",
+      "function": "(idle)",
+      "samples": 54390
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+      "function": "",
+      "samples": 48729
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "setter",
+      "samples": 48715
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runUpdates",
+      "samples": 48713
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "writeSignal",
+      "samples": 48713
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "completeUpdates",
+      "samples": 48580
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runTop",
+      "samples": 48077
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "",
+      "samples": 46843
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "",
+      "samples": 33307
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runQueue",
+      "samples": 29204
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "untrack",
+      "samples": 26850
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "updateComputation",
+      "samples": 26250
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runComputation",
+      "samples": 26210
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "assign",
+      "samples": 24395
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createRoot",
+      "samples": 24359
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "updateFn",
+      "samples": 24319
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "mapper",
+      "samples": 24305
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createComponent",
+      "samples": 24262
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/5BJP652B.jsx",
+      "function": "ComboboxItem",
+      "samples": 24147
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createMemo",
+      "samples": 22326
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "provider",
+      "samples": 22145
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/5BJP652B.jsx",
+      "function": "get children",
+      "samples": 21787
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "",
+      "samples": 21244
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/UFYZ7HLU.jsx",
+      "function": "ArkComponent",
+      "samples": 21180
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "createRenderEffect",
+      "samples": 20472
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "runUserEffects",
+      "samples": 19375
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "children",
+      "samples": 18300
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "devComponent",
+      "samples": 15087
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "get",
+      "samples": 14220
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "itemRow",
+      "samples": 13458
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "children",
+      "samples": 13458
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/@zag-js_solid.js?v=30f2c101",
+      "function": "get",
+      "samples": 12797
+    },
+    {
+      "url": "",
+      "function": "(program)",
+      "samples": 12391
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "spread",
+      "samples": 9662
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/5BJP652B.jsx",
+      "function": "",
+      "samples": 9056
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "asChild",
+      "samples": 8419
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "insert",
+      "samples": 6500
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+      "function": "row",
+      "samples": 6081
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "Show",
+      "samples": 5261
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "Show.createMemo.name",
+      "samples": 4681
+    },
+    {
+      "url": "",
+      "function": "(garbage collector)",
+      "samples": 4674
+    },
+    {
+      "url": "http://127.0.0.1:5257/@solid-refresh",
+      "function": "HMRComp",
+      "samples": 4119
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+      "function": "children",
+      "samples": 4027
+    },
+    {
+      "url": "http://127.0.0.1:5257/@solid-refresh",
+      "function": "HMRComp.createMemo.name",
+      "samples": 4026
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ink/KindGlyph.tsx",
+      "function": "_$$component.location",
+      "samples": 3976
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ink/KindGlyph.tsx",
+      "function": "",
+      "samples": 3570
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "cleanNode",
+      "samples": 3320
+    },
+    {
+      "url": "http://127.0.0.1:5257/@solid-refresh",
+      "function": "",
+      "samples": 3171
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "assignProp",
+      "samples": 3160
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "splitProps",
+      "samples": 2781
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/@zag-js_solid.js?v=30f2c101",
+      "function": "mergeProps",
+      "samples": 2719
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "insertExpression",
+      "samples": 2690
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "mergeProps",
+      "samples": 2669
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js.js?v=d4709a70",
+      "function": "readSignal",
+      "samples": 2603
+    },
+    {
+      "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+      "function": "_$mergeProps.class",
+      "samples": 2514
+    },
+    {
+      "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/UFYZ7HLU.jsx",
+      "function": "propsFn",
+      "samples": 2506
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "reconcileArrays",
+      "samples": 1569
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "fn",
+      "samples": 1232
+    },
+    {
+      "url": "http://127.0.0.1:5257/node_modules/.vite/deps/solid-js_web.js?v=d4709a70",
+      "function": "setAttribute",
+      "samples": 1185
+    }
+  ]
+}

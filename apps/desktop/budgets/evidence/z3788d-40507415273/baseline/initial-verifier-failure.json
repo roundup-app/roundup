@@ -1,0 +1,1 @@
+{"exit": 2, "condition": "40 sample 185: original b-only PipelineReporter lookup misses frame 4006; retained verifier now reads b and n metadata steps, with unchanged exact frame/layer-tree/presentation checks.", "source": "origin/main:apps/desktop/budgets/evidence/z3788d-isolated-list/replay.py.txt"}

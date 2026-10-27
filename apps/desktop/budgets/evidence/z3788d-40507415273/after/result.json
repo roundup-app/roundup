@@ -1,0 +1,61 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 15.694,
+      "p95Ms": 17.375,
+      "minMs": 14.201,
+      "maxMs": 30.172,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 3.62,
+      "UpdateLayoutTreeP95Ms": 0.137,
+      "LayoutP95Ms": 0.185,
+      "PrePaintP95Ms": 0.175,
+      "PaintP95Ms": 0.212,
+      "fullTraceSha256": "0fdd5d80cbe5a5e2451a71f1813c74e0e641948155e8266055d8d146a9521922"
+    },
+    {
+      "length": 400,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 47.822,
+      "p95Ms": 50.563,
+      "minMs": 46.083,
+      "maxMs": 61.66,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 3.758,
+      "UpdateLayoutTreeP95Ms": 0.13,
+      "LayoutP95Ms": 0.182,
+      "PrePaintP95Ms": 0.191,
+      "PaintP95Ms": 0.193,
+      "fullTraceSha256": "ad5421ef3923adc8cb58bd5aca966d32649d3f2f6442b323e5575435434f2ded"
+    }
+  ],
+  "failures": [
+    {
+      "length": 4000,
+      "condition": "53 samples, expected 220",
+      "exit": 2,
+      "collectionFailure": {
+        "exit": 2,
+        "length": 4000,
+        "condition": "Incomplete 220-edit collection at run deadline; candidate still spends substantial synchronous time despite 18 mounted rows. No budget pass.",
+        "collected": 53
+      }
+    }
+  ],
+  "selectionFailures": [
+    {
+      "length": 4000,
+      "exit": 2,
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-4401/apps/desktop/budgets/evidence/z3788d-40507415273/after/4000-selection.json'"
+    }
+  ],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}

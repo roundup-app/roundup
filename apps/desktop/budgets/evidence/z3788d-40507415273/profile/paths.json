@@ -1,0 +1,490 @@
+[
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 221,
+    "columnZeroBased": 39,
+    "selfSamples": 0,
+    "inclusiveSamples": 48722
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 123,
+    "columnZeroBased": 27,
+    "selfSamples": 228,
+    "inclusiveSamples": 19676
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "itemRow",
+    "lineZeroBased": 121,
+    "columnZeroBased": 17,
+    "selfSamples": 6,
+    "inclusiveSamples": 13458
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "children",
+    "lineZeroBased": 234,
+    "columnZeroBased": 19,
+    "selfSamples": 0,
+    "inclusiveSamples": 13458
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "asChild",
+    "lineZeroBased": 123,
+    "columnZeroBased": 11,
+    "selfSamples": 0,
+    "inclusiveSamples": 8419
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 146,
+    "columnZeroBased": 18,
+    "selfSamples": 14,
+    "inclusiveSamples": 6095
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "row",
+    "lineZeroBased": 264,
+    "columnZeroBased": 9,
+    "selfSamples": 289,
+    "inclusiveSamples": 6081
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "children",
+    "lineZeroBased": 287,
+    "columnZeroBased": 17,
+    "selfSamples": 69,
+    "inclusiveSamples": 4027
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "_$mergeProps.class",
+    "lineZeroBased": 131,
+    "columnZeroBased": 31,
+    "selfSamples": 9,
+    "inclusiveSamples": 2514
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 112,
+    "columnZeroBased": 37,
+    "selfSamples": 26,
+    "inclusiveSamples": 991
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 112,
+    "columnZeroBased": 62,
+    "selfSamples": 128,
+    "inclusiveSamples": 966
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 125,
+    "columnZeroBased": 9,
+    "selfSamples": 57,
+    "inclusiveSamples": 523
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "get kind",
+    "lineZeroBased": 288,
+    "columnZeroBased": 16,
+    "selfSamples": 184,
+    "inclusiveSamples": 506
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "_$mergeProps",
+    "lineZeroBased": 139,
+    "columnZeroBased": 25,
+    "selfSamples": 49,
+    "inclusiveSamples": 370
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 72,
+    "columnZeroBased": 37,
+    "selfSamples": 0,
+    "inclusiveSamples": 293
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 294,
+    "columnZeroBased": 7,
+    "selfSamples": 1,
+    "inclusiveSamples": 272
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 81,
+    "columnZeroBased": 26,
+    "selfSamples": 3,
+    "inclusiveSamples": 246
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/entries.ts",
+    "function": "matching",
+    "lineZeroBased": 24,
+    "columnZeroBased": 24,
+    "selfSamples": 61,
+    "inclusiveSamples": 242
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "get tabIndex",
+    "lineZeroBased": 133,
+    "columnZeroBased": 16,
+    "selfSamples": 58,
+    "inclusiveSamples": 229
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "get when",
+    "lineZeroBased": 281,
+    "columnZeroBased": 15,
+    "selfSamples": 45,
+    "inclusiveSamples": 209
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 431,
+    "columnZeroBased": 36,
+    "selfSamples": 151,
+    "inclusiveSamples": 184
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/entries.ts",
+    "function": "",
+    "lineZeroBased": 27,
+    "columnZeroBased": 24,
+    "selfSamples": 23,
+    "inclusiveSamples": 169
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 109,
+    "columnZeroBased": 24,
+    "selfSamples": 1,
+    "inclusiveSamples": 157
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "tabStop",
+    "lineZeroBased": 120,
+    "columnZeroBased": 17,
+    "selfSamples": 29,
+    "inclusiveSamples": 142
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 62,
+    "columnZeroBased": 32,
+    "selfSamples": 6,
+    "inclusiveSamples": 114
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 168,
+    "columnZeroBased": 33,
+    "selfSamples": 21,
+    "inclusiveSamples": 95
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 220,
+    "columnZeroBased": 35,
+    "selfSamples": 37,
+    "inclusiveSamples": 84
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 120,
+    "columnZeroBased": 40,
+    "selfSamples": 21,
+    "inclusiveSamples": 82
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "contentRow",
+    "lineZeroBased": 247,
+    "columnZeroBased": 16,
+    "selfSamples": 79,
+    "inclusiveSamples": 79
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 172,
+    "columnZeroBased": 25,
+    "selfSamples": 30,
+    "inclusiveSamples": 74
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 109,
+    "columnZeroBased": 40,
+    "selfSamples": 30,
+    "inclusiveSamples": 47
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "get highlightedValue",
+    "lineZeroBased": 249,
+    "columnZeroBased": 24,
+    "selfSamples": 2,
+    "inclusiveSamples": 46
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "groupBy",
+    "lineZeroBased": 37,
+    "columnZeroBased": 11,
+    "selfSamples": 7,
+    "inclusiveSamples": 44
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 129,
+    "columnZeroBased": 14,
+    "selfSamples": 42,
+    "inclusiveSamples": 42
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "_$mergeProps",
+    "lineZeroBased": 142,
+    "columnZeroBased": 29,
+    "selfSamples": 20,
+    "inclusiveSamples": 39
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "retain",
+    "lineZeroBased": 86,
+    "columnZeroBased": 16,
+    "selfSamples": 6,
+    "inclusiveSamples": 37
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "group",
+    "lineZeroBased": 248,
+    "columnZeroBased": 11,
+    "selfSamples": 37,
+    "inclusiveSamples": 37
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "get items",
+    "lineZeroBased": 244,
+    "columnZeroBased": 13,
+    "selfSamples": 3,
+    "inclusiveSamples": 37
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 39,
+    "columnZeroBased": 27,
+    "selfSamples": 0,
+    "inclusiveSamples": 31
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 116,
+    "columnZeroBased": 43,
+    "selfSamples": 5,
+    "inclusiveSamples": 30
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "current",
+    "lineZeroBased": 39,
+    "columnZeroBased": 17,
+    "selfSamples": 1,
+    "inclusiveSamples": 25
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "isItemDisabled",
+    "lineZeroBased": 17,
+    "columnZeroBased": 16,
+    "selfSamples": 1,
+    "inclusiveSamples": 25
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 81,
+    "columnZeroBased": 30,
+    "selfSamples": 2,
+    "inclusiveSamples": 24
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 140,
+    "columnZeroBased": 19,
+    "selfSamples": 15,
+    "inclusiveSamples": 20
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 51,
+    "columnZeroBased": 37,
+    "selfSamples": 5,
+    "inclusiveSamples": 20
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "itemToValue",
+    "lineZeroBased": 35,
+    "columnZeroBased": 15,
+    "selfSamples": 16,
+    "inclusiveSamples": 16
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 48,
+    "columnZeroBased": 17,
+    "selfSamples": 0,
+    "inclusiveSamples": 12
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "_ListCollection",
+    "lineZeroBased": 23,
+    "columnZeroBased": 13,
+    "selfSamples": 2,
+    "inclusiveSamples": 10
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/entries.ts",
+    "function": "",
+    "lineZeroBased": 33,
+    "columnZeroBased": 9,
+    "selfSamples": 10,
+    "inclusiveSamples": 10
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 123,
+    "columnZeroBased": 41,
+    "selfSamples": 8,
+    "inclusiveSamples": 8
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 33,
+    "columnZeroBased": 31,
+    "selfSamples": 3,
+    "inclusiveSamples": 6
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 40,
+    "columnZeroBased": 37,
+    "selfSamples": 0,
+    "inclusiveSamples": 3
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 296,
+    "columnZeroBased": 23,
+    "selfSamples": 2,
+    "inclusiveSamples": 2
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/entries.ts",
+    "function": "",
+    "lineZeroBased": 33,
+    "columnZeroBased": 42,
+    "selfSamples": 2,
+    "inclusiveSamples": 2
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 39,
+    "columnZeroBased": 44,
+    "selfSamples": 2,
+    "inclusiveSamples": 2
+  },
+  {
+    "url": "http://127.0.0.1:5257/@fs/tmp/roundup-4401/node_modules/.pnpm/@zag-js+collection@1.45.0/node_modules/@zag-js/collection/dist/list-collection.mjs?v=1a8eaabc",
+    "function": "",
+    "lineZeroBased": 137,
+    "columnZeroBased": 42,
+    "selfSamples": 1,
+    "inclusiveSamples": 1
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "",
+    "lineZeroBased": 82,
+    "columnZeroBased": 14,
+    "selfSamples": 1,
+    "inclusiveSamples": 1
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "",
+    "lineZeroBased": 219,
+    "columnZeroBased": 42,
+    "selfSamples": 1,
+    "inclusiveSamples": 1
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "items",
+    "lineZeroBased": 219,
+    "columnZeroBased": 22,
+    "selfSamples": 0,
+    "inclusiveSamples": 1
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/ui/Combobox.tsx",
+    "function": "get each",
+    "lineZeroBased": 231,
+    "columnZeroBased": 17,
+    "selfSamples": 0,
+    "inclusiveSamples": 1
+  },
+  {
+    "url": "http://127.0.0.1:5257/src/switcher/Switcher.tsx",
+    "function": "get when",
+    "lineZeroBased": 300,
+    "columnZeroBased": 15,
+    "selfSamples": 1,
+    "inclusiveSamples": 1
+  }
+]
