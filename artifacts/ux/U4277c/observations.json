@@ -1,25 +1,33 @@
 {
   "scenario": "U4277c",
-  "base": "b466ef9e028560a10cf5d5ff41c32f0a039da79a",
-  "critic_base": "25442fceb57300af346e1aebac07cc122ca12175",
-  "captured_head": "57538f013da503dd701d38a073096620117bd84b",
   "viewport": "1512x950",
   "scheme": "dark",
-  "focused_tests": {
-    "navigation_passed": 17,
-    "import_passed": 20,
-    "existing_import_skips": 3
+  "implementation": {
+    "pr": 4299,
+    "merged": "6c0a5996be68b1b5a8eb1a3080d8b78c288413db",
+    "required_gates": "passed"
   },
-  "capture_tests": {
-    "critic_base_passed": 6,
-    "head_passed": 6
+  "completion_audit": {
+    "baseline": "9e3ee211cd5690722e7eecab7d4a11435e69aca2",
+    "seeds": [
+      "tree-40",
+      "tabs-8"
+    ],
+    "commits": "base/<seed>/commit.txt and head/<seed>/commit.txt",
+    "paired_readings": 26,
+    "paired_check_regressions": [],
+    "rendered_base_passed": 12,
+    "rendered_head_passed": 12,
+    "final_recorder_page_passed": 6,
+    "focused_interactions_passed": 8,
+    "videos": "head/tabs-8/<screen>-{empty,filled}.webm; all six screens, including Import selection and partial failure",
+    "just_ready": "passed (exit 0)",
+    "typecheck": "passed",
+    "merge_loss": "passed",
+    "terminal_frame_work_order": 4313
   },
-  "paired_check_regressions": [],
   "remaining": [
-    "tabs-8 audit",
-    "required CI checks and independent review"
+    "Required gates on audit PR #4329"
   ],
-  "capture_command": "ROUNDUP_CAPTURES=U4277c ROUNDUP_CAPTURE_PHASE=complete-head pnpm --filter desktop exec vitest run src/settings/u3799_rendered.test.ts -t u4277c --retry 0",
-  "broad_related_run": "Interrupted with exit 130 after 12 minutes; not counted as a pass.",
-  "just_ready": "passed (exit 0)"
+  "observer": "apps/desktop/src/settings/u3799_rendered.test.ts"
 }
