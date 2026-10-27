@@ -1,4 +1,6 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
+import { createComputed, createRoot } from "solid-js";
+import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
@@ -6,7 +8,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { prepareFixture } from "./fixture";
 import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
-import type { FrameReport, LayerAction, TodoAction } from "./frames";
+import type { FrameReport, LayerAction, PreferenceAction, TodoAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
@@ -18,6 +20,15 @@ const CYCLES = 30;
 const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
+
+/** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[]): (() => void) => createRoot(dispose => {
+  createComputed(() => {
+    journal.push({ at_ms: now(), reduced: reduced(), phase: phase() });
+  });
+
+  return dispose;
+});
 
 /** The first task after the rendering update that follows the current animation callback. */
 const afterUpdate = (callback: () => void) => {
@@ -503,7 +514,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
-export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
+export const createFrameRun = (app: AppSeam, workload: string, cwd: string, reduced: Accessor<boolean>) => {
   const terminal = reportTerminal(createXtermEmulators());
 
   const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
@@ -551,6 +562,9 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       input.focus();
     }
 
+    const preference: PreferenceAction[] = [];
+    let phase: PreferenceAction["phase"] = "warmup";
+    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference);
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
 
@@ -585,13 +599,20 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
           userAgent: navigator.userAgent,
           entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
-        async () => (await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle)).completed,
+        async () => {
+          phase = "sample";
+          const actions = await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle);
+
+          phase = "after-actions";
+
+          return actions.completed;
+        },
       );
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
       const observer: NonNullable<FrameReport["observer"]> = {
-        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, variant: "unqualified",
+        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, preference, variant: "unqualified",
         native_qualification: "incomplete: trusted layer sequence, both Shelf cases and live preference variants remain unqualified",
       };
 
@@ -602,6 +623,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       await report(observed);
     } finally {
       controller.abort();
+      stopPreference();
     }
   };
 
