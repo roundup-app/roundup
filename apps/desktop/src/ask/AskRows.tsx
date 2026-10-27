@@ -7,6 +7,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
+import { queueFocus } from "../keys/focus";
 import { registerKeys, type KeyScope } from "../keys/registry";
 import { Tip, type TriggerProps } from "../ui/Tip";
 import { Select } from "../ui/Select";
@@ -30,7 +31,7 @@ const focusPane = (): void => {
 
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
-  const { asks, rail } = useConnectedProject();
+  const { asks, rail, hideView } = useConnectedProject();
 
   const parts = createMemo(() => {
     const shown = new Set<string>();
@@ -64,11 +65,14 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   };
 
   return (
+    <section aria-label={copy.askHistory}>
+    <div class="made-heading"><h2 class="overview-heading">{copy.askHistory}</h2><button type="button" data-button="quiet" onClick={() => { hideView("ask-history"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.askHistory)}</button></div>
     <ul class="ask-rows" aria-label={copy.askRows}>
       <For each={parts()}>
         {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
+    </section>
   );
 };
 

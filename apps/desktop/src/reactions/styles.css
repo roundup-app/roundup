@@ -50,6 +50,7 @@
 }
 
 .reaction-back {
+  flex: none;
   align-self: flex-start;
 }
 
@@ -90,6 +91,8 @@
 }
 
 .reaction-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   font: inherit;
@@ -188,6 +191,8 @@ body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="ch
 
 .reaction-head .overview-heading,
 .reaction-head .reaction-title {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-title);
   color: var(--text);
 }
