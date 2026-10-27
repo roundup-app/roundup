@@ -212,22 +212,22 @@ rendered("u137 rendered surfaces", () => {
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40");
 
     const statuses = await page.call<string[]>(`() => {
-      document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--space-4))">Grandchild</div></div>';
+      document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--tree-step))">Grandchild</div></div>';
       const row = document.querySelector('.todo-row');
       const statuses = [window.__checks().D2.status];
-      row.style.paddingInlineStart = '40px';
+      row.style.paddingInlineStart = '56px';
       statuses.push(window.__checks().D2.status);
-      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4))';
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--tree-step))';
       row.setAttribute('aria-level', '2');
       statuses.push(window.__checks().D2.status);
       row.setAttribute('aria-level', '3');
       row.classList.remove('todo-row');
       statuses.push(window.__checks().D2.status);
       row.classList.add('todo-row');
-      row.style.paddingLeft = '41px';
+      row.style.paddingLeft = '57px';
       statuses.push(window.__checks().D2.status);
       row.style.removeProperty('padding-left');
-      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4) + 1px)';
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--tree-step) + 1px)';
       statuses.push(window.__checks().D2.status);
       return statuses;
     }`);
