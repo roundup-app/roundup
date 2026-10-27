@@ -169,7 +169,7 @@ it("x14_harness_output_relay_selects_exact_bytes", async () => {
   } finally {
     try { await browser("close"); } finally { await real.close(); }
   }
-}, 90_000);
+}, 60_000);
 
 it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
   const real = await fixture();

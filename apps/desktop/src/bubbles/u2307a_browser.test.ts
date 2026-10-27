@@ -40,7 +40,7 @@ it("u2307a_browser_an_outside_press_on_the_rail_the_door_terminal_and_the_header
       target,
     ).toBe(true);
   }
-}, 120_000);
+}, 60_000);
 
 it("u2307a_browser_escape_stays_in_the_terminal", async () => {
   await showBubble(page);

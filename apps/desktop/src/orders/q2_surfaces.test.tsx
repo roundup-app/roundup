@@ -124,7 +124,7 @@ describe("U2773 Order forms on real Projects", () => {
 
     expect(calls.flatMap((spy) => spy.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.prompt" || method === "terminal.write"))).toEqual([]);
     vi.restoreAllMocks();
-  }, 120_000);
+  }, 60_000);
 
   it("u2773c_orders_external_change_keeps_original", async () => {
     const app = createServedApp(first.base);
@@ -310,6 +310,6 @@ describe("U2773 Order forms on real Projects", () => {
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn" || method === "terminal.write")).toEqual([]);
     await waitFor(() => expect(within(screen.getByLabelText<HTMLTextAreaElement>("Ask").form!).queryByRole("alert")).toBeNull());
     vi.restoreAllMocks();
-  }, 90_000);
+  }, 60_000);
 
 });
