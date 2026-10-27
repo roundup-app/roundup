@@ -1,6 +1,5 @@
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
-import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
@@ -101,9 +100,7 @@ const PadBody = (props: {
 
   const actionFailure = createFailure();
   const [deleted, setDeleted] = createSignal(false);
-  const [asking, setAsking] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
-  let deleteButton: HTMLButtonElement | undefined;
   let editor: PadEditorHandle | undefined;
   let pendingActor: Actor | null = null;
   let closed = false;
@@ -370,7 +367,9 @@ const PadBody = (props: {
     act(async () => {
       saveAfterPause.clear();
       due = null;
-      await connected.app.rpc("pad.delete", { name });
+      const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }]);
+
+      if (failures.length) throw new Error(failures[0]!.message);
       setDeleted(true);
       actionFailure.clear();
       props.onFailureCleared?.();
@@ -491,20 +490,16 @@ const PadBody = (props: {
           <IconButton
             style={wholeWord}
             aria-label={copy.delete}
-            ref={(button) => (deleteButton = button)}
+            disabled={connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain()}
             onClick={() => {
               actionFailure.clear();
-              setAsking(true);
+              void remove("key");
             }}
           >
             <Icon name="trash" />
           </IconButton>
         </Show>
       </div>
-      <NativeAlert app={connected.app} open={asking()}
-        question={{ title: copy.padDeleteQuestion(name), message: [pad().owner.kind !== "user" ? copy.padDeleteOwnership(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.padDeleteUnsaved : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
-        onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
-        onConfirm={() => { setAsking(false); void remove("key"); }} />
       <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>

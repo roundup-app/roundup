@@ -1,5 +1,4 @@
 import { createFakeApp } from "../testing/fakeApp";
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
@@ -323,7 +322,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
     const [selected, setSelected] = createSignal<readonly number[]>([1, 2]);
 
     const bulk = createBulkDelete({ app: createFakeApp(), selected, targets: () => [{ id: 1, label: "Ship" }, { id: 2, label: "Review" }], context: () => "p", noun: "Todos",
-      replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), remove: async id => id === 2 ? null : failure === null ? new Promise(() => {}) : failure, reload: async () => null });
+      replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), blocked: () => false, remove: async () => failure === null ? new Promise(() => {}) : [{ id: 1, message: failure }], reload: async () => null });
 
     return <bulk.Bar />;
   };
@@ -331,14 +330,10 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   const view = render(() => <Site />);
   const surface = view.container;
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 2" }));
-  await questionDialog();
-  await answerQuestion(true);
   await within(surface).findByRole("alert");
   // Keep one selected item so the bar remains mounted while its failure clears.
-  fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  await questionDialog();
   failure = null;
-  await answerQuestion(true);
+  fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
 });
 
