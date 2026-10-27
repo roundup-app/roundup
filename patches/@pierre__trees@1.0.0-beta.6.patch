@@ -1,0 +1,162 @@
+diff --git a/dist/model/internalTypes.d.ts b/dist/model/internalTypes.d.ts
+index 5b0fdd5a3b483439ae256795f3dad5a32182ab78..be5a9a9d8074eb47ba3f795a54204c11d6953230 100644
+--- a/dist/model/internalTypes.d.ts
++++ b/dist/model/internalTypes.d.ts
+@@ -47,6 +47,8 @@ interface FileTreeViewProps extends Omit<FileTreeRenderOptions, 'initialVisibleR
+   renamingEnabled?: boolean;
+   renderRowDecoration?: FileTreeRowDecorationRenderer;
+   searchBlurBehavior?: FileTreeSearchBlurBehavior;
++  typeahead?: 'name-prefix';
++  rangeSelection?: 'replace' | 'modifier';
+   searchEnabled?: boolean;
+   searchFakeFocus?: boolean;
+   slotHost?: FileTreeSlotHost;
+diff --git a/dist/model/publicTypes.d.ts b/dist/model/publicTypes.d.ts
+index 7c851604626d34fcb838cd0381abfccfcc7728cf..67db89fae8a1fca3a3cc7c5db4b20e97b37de92c 100644
+--- a/dist/model/publicTypes.d.ts
++++ b/dist/model/publicTypes.d.ts
+@@ -172,6 +172,10 @@ type FileTreeOptionSurface = FileTreeRenderOptions & {
+   icons?: FileTreeIcons;
+   onSelectionChange?: FileTreeSelectionChangeListener;
+   renderRowDecoration?: FileTreeRowDecorationRenderer;
++  /** Select a visible name prefix instead of opening search on printable keys. */
++  typeahead?: 'name-prefix';
++  /** Replace the selection for both Shift and Meta-Shift ranges. Default: modifier. */
++  rangeSelection?: 'replace' | 'modifier';
+   search?: boolean;
+   searchFakeFocus?: boolean;
+   searchBlurBehavior?: FileTreeSearchBlurBehavior;
+diff --git a/dist/render/FileTree.js b/dist/render/FileTree.js
+index 305714319d9d988bfc025ecaaca662562a3a0ff7..07c5f0151a356d8d6ff1ef76f7ff0a7cbd7ccfc8 100644
+--- a/dist/render/FileTree.js
++++ b/dist/render/FileTree.js
+@@ -68,6 +68,8 @@ var FileTree = class {
+ 	#searchBlurBehavior;
+ 	#searchEnabled;
+ 	#searchFakeFocus;
++	#typeahead;
++	#rangeSelection;
+ 	#slotHost = new FileTreeManagedSlotHost();
+ 	#density;
+ 	#viewOptions;
+@@ -83,7 +85,7 @@ var FileTree = class {
+ 	#wroteHostItemHeight = false;
+ 	#wroteHostDensityFactor = false;
+ 	constructor(options) {
+-		const { composition, density, fileTreeSearchMode, gitStatus, id, initialSearchQuery, icons, itemHeight, onSearchChange, onSelectionChange, overscan, renderRowDecoration, renaming, search, searchBlurBehavior, searchFakeFocus, stickyFolders, unsafeCSS, initialVisibleRowCount, ...controllerOptions } = options;
++		const { composition, density, fileTreeSearchMode, gitStatus, id, initialSearchQuery, icons, itemHeight, onSearchChange, onSelectionChange, overscan, renderRowDecoration, renaming, search, searchBlurBehavior, searchFakeFocus, typeahead, rangeSelection, stickyFolders, unsafeCSS, initialVisibleRowCount, ...controllerOptions } = options;
+ 		this.#composition = composition;
+ 		this.#id = createClientId(id);
+ 		this.#gitStatusState = resolveFileTreeGitStatusState(gitStatus);
+@@ -95,6 +97,8 @@ var FileTree = class {
+ 		this.#searchBlurBehavior = searchBlurBehavior;
+ 		this.#searchEnabled = search === true;
+ 		this.#searchFakeFocus = searchFakeFocus === true;
++		this.#typeahead = typeahead;
++		this.#rangeSelection = rangeSelection;
+ 		this.#density = resolveFileTreeDensity(density, itemHeight);
+ 		this.#viewOptions = {
+ 			itemHeight: this.#density.itemHeight,
+@@ -314,6 +318,8 @@ var FileTree = class {
+ 			searchBlurBehavior: this.#searchBlurBehavior,
+ 			searchEnabled: this.#searchEnabled,
+ 			searchFakeFocus: this.#searchFakeFocus,
++			typeahead: this.#typeahead,
++			rangeSelection: this.#rangeSelection,
+ 			slotHost: this.#slotHost,
+ 			...this.#getInitialViewOptions()
+ 		};
+@@ -447,7 +453,7 @@ var FileTree = class {
+ 	}
+ };
+ function preloadFileTree(options) {
+-	const { composition, density, fileTreeSearchMode, gitStatus, id, initialSearchQuery, icons, itemHeight, onSearchChange: _onSearchChange, onSelectionChange: _onSelectionChange, overscan, renderRowDecoration, renaming, search, searchBlurBehavior, searchFakeFocus, stickyFolders, unsafeCSS, initialVisibleRowCount, ...controllerOptions } = options;
++	const { composition, density, fileTreeSearchMode, gitStatus, id, initialSearchQuery, icons, itemHeight, onSearchChange: _onSearchChange, onSelectionChange: _onSelectionChange, overscan, renderRowDecoration, renaming, search, searchBlurBehavior, searchFakeFocus, typeahead, rangeSelection, stickyFolders, unsafeCSS, initialVisibleRowCount, ...controllerOptions } = options;
+ 	const resolvedDensity = resolveFileTreeDensity(density, itemHeight);
+ 	const resolvedItemHeight = resolvedDensity.itemHeight;
+ 	const resolvedId = createServerId(id);
+@@ -482,6 +488,8 @@ function preloadFileTree(options) {
+ 		searchBlurBehavior,
+ 		searchEnabled: search === true,
+ 		searchFakeFocus: searchFakeFocus === true,
++		typeahead,
++		rangeSelection,
+ 		stickyFolders,
+ 		initialViewportHeight
+ 	}));
+diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..f84a16363a8f63122c91784863f0531d983de9bd 100644
+--- a/dist/render/FileTreeView.js
++++ b/dist/render/FileTreeView.js
+@@ -1,3 +1,4 @@
++import { ListCollection } from "@zag-js/collection";
+ import { CONTEXT_MENU_SLOT_NAME, CONTEXT_MENU_TRIGGER_TYPE, HEADER_SLOT_NAME } from "../constants.js";
+ import { createFileTreeIconResolver } from "./iconResolver.js";
+ import { FILE_TREE_DEFAULT_ITEM_HEIGHT } from "../model/virtualization.js";
+@@ -517,7 +518,7 @@ function renderRangeChildren(frame, range, hiddenRowPaths) {
+ 	if (range.end < range.start) return [];
+ 	return frame.controller.getVisibleRows(range.start, range.end).filter((row) => !hiddenRowPaths.has(getFileTreeRowPath(row))).map((row, slotIndex) => renderStyledRow(frame, row, range.start + slotIndex));
+ }
+-function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDirectories, directoriesWithGitChanges, icons, instanceId, itemHeight = FILE_TREE_DEFAULT_ITEM_HEIGHT, overscan = 10, renamingEnabled = false, renderRowDecoration, searchBlurBehavior = "close", searchEnabled = false, searchFakeFocus = false, slotHost, stickyFolders = false, initialViewportHeight = 420 }) {
++function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDirectories, directoriesWithGitChanges, icons, instanceId, itemHeight = FILE_TREE_DEFAULT_ITEM_HEIGHT, overscan = 10, renamingEnabled = false, renderRowDecoration, searchBlurBehavior = "close", searchEnabled = false, searchFakeFocus = false, typeahead, rangeSelection = "modifier", slotHost, stickyFolders = false, initialViewportHeight = 420 }) {
+ 	"use no memo";
+ 	const contextMenuAnchorRef = useRef(null);
+ 	const contextMenuTriggerRef = useRef(null);
+@@ -1030,6 +1031,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 			document.addEventListener("touchcancel", handleActiveTouchCancel);
+ 		}, TOUCH_LONG_PRESS_DELAY);
+ 	};
++	const typeaheadState = useRef({ keysSoFar: "", timer: -1 });
++	useEffect(() => () => clearTimeout(typeaheadState.current.timer), []);
+ 	const handleTreeKeyDown = (event) => {
+ 		if (contextMenuState != null) {
+ 			if (event.key === "Escape") {
+@@ -1083,6 +1086,31 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 			event.stopPropagation();
+ 			return;
+ 		}
++		// Composed paths retain the real editable target across shadow roots.
++		const target = event.composedPath()[0];
++		if (typeahead === "name-prefix" && target instanceof HTMLElement && target.closest('input, textarea, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
++		if (typeahead === "name-prefix" && !event.altKey && !event.isComposing && event.keyCode !== 229 && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
++			const rows = controller.getVisibleRows(0, controller.getVisibleCount() - 1);
++			const names = new ListCollection({
++				items: rows,
++				itemToValue: getFileTreeRowPath,
++				itemToString: (row) => row.name
++			});
++			const match = names.search(event.key, {
++				state: typeaheadState.current,
++				currentValue: controller.getFocusedPath()
++			});
++			if (match != null) {
++				controller.selectOnlyPath(match);
++				controller.focusPath(match);
++				domFocusOwnerRef.current = true;
++				setActiveItemPath(match);
++				setControllerRevision((revision) => revision + 1);
++			}
++			event.preventDefault();
++			event.stopPropagation();
++			return;
++		}
+ 		if (searchEnabled && isSearchOpenSeedKey(event)) {
+ 			controller.openSearch(event.key);
+ 			setControllerRevision((revision) => revision + 1);
+@@ -1684,7 +1712,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 		const actionTargetPath = mountedDirectoryPath ?? targetPath;
+ 		switch (plan.selection.kind) {
+ 			case "range":
+-				controller.selectPathRange(actionTargetPath, plan.selection.additive);
++				controller.selectPathRange(actionTargetPath, rangeSelection === "replace" ? false : plan.selection.additive);
+ 				break;
+ 			case "toggle":
+ 				controller.togglePathSelectionFromInput(actionTargetPath);
+@@ -1707,6 +1735,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 		if (plan.revealCanonical) revealCanonicalRowAtStickyOffset(actionTargetPath, { targetOffset: "sticky-parents" });
+ 	}, [
+ 		controller,
++		rangeSelection,
+ 		isSearchOpen,
+ 		layoutSnapshot.visible.endIndex,
+ 		layoutSnapshot.visible.startIndex,

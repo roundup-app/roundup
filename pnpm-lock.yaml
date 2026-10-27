@@ -10,6 +10,8 @@ overrides:
   lodash-es@<4.18: ^4.18.1
   katex@<0.18.2: ^0.18.10
 
+packageExtensionsChecksum: sha256-/TKq0M6kgn9bOMHIUi/nrLAw1ZyI7JHDOtbMvgARDHA=
+
 patchedDependencies:
   '@anthropic-ai/claude-agent-sdk@0.3.309':
     hash: d8707bddf875cf35ec61820522c3ad878c089948abecfdf77fb2d9f315d2fd59
@@ -26,6 +28,9 @@ patchedDependencies:
   '@pierre/diffs@1.6.1':
     hash: 08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974
     path: patches/@pierre__diffs@1.6.1.patch
+  '@pierre/trees@1.0.0-beta.6':
+    hash: 14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6
+    path: patches/@pierre__trees@1.0.0-beta.6.patch
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
     path: patches/@xterm__addon-fit@0.11.0.patch
@@ -126,7 +131,7 @@ importers:
         version: 1.6.1(patch_hash=08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@pierre/trees':
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
+        version: 1.0.0-beta.6(patch_hash=14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
       '@radix-ui/colors':
         specifier: 3.0.0
         version: 3.0.0
@@ -6917,9 +6922,10 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
       shiki: 4.5.0
 
-  '@pierre/trees@1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
+  '@pierre/trees@1.0.0-beta.6(patch_hash=14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
     dependencies:
       '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
+      '@zag-js/collection': 1.45.0
       preact: 11.0.0-beta.0
       preact-render-to-string: 6.6.5(preact@11.0.0-beta.0)
       react: 19.3.0
