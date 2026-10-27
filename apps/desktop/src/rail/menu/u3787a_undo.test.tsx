@@ -26,9 +26,11 @@ it.each(["menu", "key", "unknown", "exited", "pending"])("u3787a_rail_%s_deletes
   let receipt: Removal | null = null;
   let finish: ((value: Removal) => void) | undefined;
   let readable = entry !== "unknown";
-  daemon.handlers["rail.deletion"] = () => { if (!readable) throw new Error("Receipt lookup unavailable. Check deletion to recover.");
+  daemon.handlers["rail.deletion"] = () => {
+    if (!readable) throw new Error("Receipt lookup unavailable. Check deletion to recover.");
 
- return receipt; };
+    return receipt;
+  };
 
   daemon.handlers["rail.remove"] = p => {
     receipt = { removed: [], kept: [], deletion: { project: "original-project", id: p.id, operation: p.operation!, restored: false } };
