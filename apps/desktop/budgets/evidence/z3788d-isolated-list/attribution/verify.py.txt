@@ -1,0 +1,38 @@
+"""Negative rendering-attribution probes, isolated from the original evidence."""
+import hashlib
+import json
+import pathlib
+import subprocess
+import tempfile
+
+base = pathlib.Path.cwd() / 'apps/desktop/budgets/evidence/z3788d-isolated-list'
+original = {str(p.relative_to(base)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in base.rglob('*') if p.is_file()}
+records = []
+for case, replacement in [('missing-layout', 'layouts = []'),
+                          ('wrong-frame', 'frame = "not-the-displayed-frame"')]:
+    with tempfile.TemporaryDirectory(prefix='z3788d-attribution-') as directory:
+        root = pathlib.Path(directory)
+        archive = root / 'apps/desktop/budgets/evidence/z3788d-isolated-list'
+        archive.mkdir(parents=True)
+        for path in base.iterdir():
+            if path.is_file() and path.name != 'attribute.py.txt':
+                (archive / path.name).symlink_to(path)
+        source = (base / 'attribute.py.txt').read_text()
+        if case == 'missing-layout':
+            source = source.replace('            callbacks = [', '            layouts = []\n            callbacks = [')
+        else:
+            source = source.replace('frame = sample["eventTiming"]["frame"]', replacement)
+        script = archive / 'attribute.py.txt'
+        script.write_text(source)
+        run = subprocess.run(['python3', str(script)], cwd=root, capture_output=True, text=True)
+        result = json.loads((archive / 'attribution/result.json').read_text())
+        assert run.returncode == 2 and result['exit'] == 2, (case, run.stderr)
+        assert any('missing rendering evidence' in row['condition'] for row in result['failures']), result
+        records.append({'case': case, 'exit': run.returncode, 'failures': result['failures']})
+assert original == {str(p.relative_to(base)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in base.rglob('*') if p.is_file()}, 'Original evidence changed'
+(base / 'attribution/validation.json').write_text(json.dumps({
+    'attributeSha256': hashlib.sha256((base / 'attribute.py.txt').read_bytes()).hexdigest(),
+    'originalEvidenceUnchanged': True, 'checks': records}, indent=2) + '\n')
+print(json.dumps(records, indent=2))

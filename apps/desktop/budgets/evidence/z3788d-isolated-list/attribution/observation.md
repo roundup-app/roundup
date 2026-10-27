@@ -37,11 +37,20 @@ Expected exit **1**, valid measurements over budget. The command first reruns th
 | Unsupported/missing rendering evidence for the renderer thread/frame | 2 |
 | Unreadable archive/setup failure | 2 |
 
+Negative probes reproduce with:
+
+```sh
+python3 apps/desktop/budgets/evidence/z3788d-isolated-list/attribution/verify.py.txt
+python3 apps/desktop/budgets/evidence/z3788d-isolated-list/replay/verify.py.txt
+```
+
+Both verification commands exit 0 when their invalid cases correctly exit 2. `validation.json` records missing-layout and wrong-frame cases; both fail at sample 40/0 with missing rendering evidence, leaving original evidence unchanged. The existing replay verification separately checks missing samples, wrong identities, missing presentation and wrong trace pairing. Evidence-related Vitest discovery exits 0 with no runtime tests; no new behavior or test retirement is claimed.
+
 There is no external resource requiring cleanup. No failed or missing sample becomes a pass. The derived samples preserve event evidence for every warmup as well as measured edit.
 
 ## Successor requirements
 
-Z3788d orders TanStack Solid Virtual after #3788 and #3742 (both completed). Coordinate with #4391's active Switcher navigation ownership as well. Recollect a paired baseline and implementation using the same observer, host, profile, lists, actions and build settings; archived numbers on this other host are not a paired baseline. The observer must distinguish logical filtered identities from the mounted window after virtualization while still proving that the presented viewport contains the selected result. Keep trusted EventTiming/frame pairing and all failure codes; do not substitute callback duration or two animation frames for presentation. Retain original failed runs.
+Scoped successor [#4401](https://github.com/roundup-app/roundup/issues/4401) owns the measured implementation. Z3788d orders TanStack Solid Virtual after #3788 and #3742 (both completed). Coordinate with #4391's active Switcher navigation ownership as well. Recollect a paired baseline and implementation using the same observer, host, profile, lists, actions and build settings; archived numbers on this other host are not a paired baseline. The observer must distinguish logical filtered identities from the mounted window after virtualization while still proving that the presented viewport contains the selected result. Keep trusted EventTiming/frame pairing and all failure codes; do not substitute callback duration or two animation frames for presentation. Retain original failed runs.
 
 The implementation must achieve below 16 ms p95 at every required length with no regression above 10%, and implement `z3788d_virtual_navigation_preserves_selected_identity`: last matching item by keyboard, filtering while selected, choosing it, returning and scrolling preserve identity, focus, accessible option navigation and exactly one original action. Keep destination/action groups, action eligibility/opening context, input ownership and exact query/caret/draft recovery. Maintain entry/static/lazy/WASM budgets and capture D2/D5/D6 at the specified dark viewport. A virtualizer install alone satisfies none of this.
 

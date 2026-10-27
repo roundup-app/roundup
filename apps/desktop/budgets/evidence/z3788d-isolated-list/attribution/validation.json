@@ -1,0 +1,26 @@
+{
+  "attributeSha256": "99b4d9060137850d4dc39e5be00c1b2c83a4946743f5dd58cf8986ead84f4466",
+  "originalEvidenceUnchanged": true,
+  "checks": [
+    {
+      "case": "missing-layout",
+      "exit": 2,
+      "failures": [
+        {
+          "condition": "40/0: missing rendering evidence",
+          "exit": 2
+        }
+      ]
+    },
+    {
+      "case": "wrong-frame",
+      "exit": 2,
+      "failures": [
+        {
+          "condition": "40/0: missing rendering evidence",
+          "exit": 2
+        }
+      ]
+    }
+  ]
+}
