@@ -820,7 +820,7 @@
   flex: 1 1 0;
   min-width: var(--space-5);
   overflow-x: auto;
-  overscroll-behavior-x: contain;
+  overscroll-behavior: contain;
   scrollbar-width: none;
 }
 .rail-row .row-state { width: var(--space-4); flex: none; }
