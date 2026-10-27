@@ -18,16 +18,19 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
   }, 180_000);
 });
 
-it.skipIf(!captureDir("U4277c")).each(["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"])("u4277c_requested_%s_empty_and_filled", async view => {
+it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
+  ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => ({ seed, view })),
+))("u4277c_requested_$seed_$view_empty_and_filled", async ({ seed, view }) => {
   const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { execFileSync } = await import("node:child_process");
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
-  const dir = join(captureDir("U4277c")!, phase);
+  const dir = join(captureDir("U4277c")!, phase, seed);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "commit.txt"), execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }));
   const lane = await openLane(1512, "dark", "u4277c");
+  const agent = seed === "tabs-8" ? "p2-agent" : "agent-1";
   const origin = await lane.evaluate<string>("location.origin");
 
   const capture = async (name: string) => {
@@ -47,25 +50,45 @@ it.skipIf(!captureDir("U4277c")).each(["ask-history", "made", "resources", "work
     for (const filled of [false, true]) {
         await lane.evaluate("localStorage.clear()");
         await lane.browser("open");
-        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(filled || view === "resources" ? "tree-40" : "empty-project")})); true`);
+        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
         await lane.until("!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
-        await lane.evaluate("window.__fake.app.projects().then(projects => {window.__auditPath = projects.at(-1).path; return true;})");
+        if (seed === "tabs-8") {
+          await lane.until("document.querySelectorAll('.project-tab').length === 8");
+          await lane.browser("focus", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
+          await lane.browser("press", "Enter");
+          await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-input')");
+        }
+        await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; return true;})`);
+        if (seed === "tabs-8" && !filled && view !== "resources") {
+          await lane.evaluate(`(() => {
+            window.__fake.app.handlers['rail.tree'] = () => [];
+            window.__fake.app.handlers['terminal.list'] = () => [];
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
+            return true;
+          })()`);
+          await lane.until("document.querySelectorAll('.rail-row').length === 0 && !document.querySelector('.terminal-tabs')");
+        }
+        if (seed === "tabs-8" && filled && view === "workstreams") {
+          await lane.evaluate("window.__fake.app.rpc('rail.createWorkstream', {name:'Distinct long Workstream 長い名前 '.repeat(12),parent:null})");
+          await lane.until("!!document.querySelector('.rail-row[data-kind=workstream]')");
+        }
         await lane.evaluate(`(() => {
           const app = window.__fake.app;
           app.handlers['ask.list'] = () => [];
           app.handlers['deliverable.list'] = () => [];
-          app.handlers['project.resources'] = () => ({agents: ${filled ? "[{id:'agent-1',memory_bytes:412000000,cpu_percent:18,disk_bytes:2100000000}]" : "[]"},total:{memory_bytes:0,cpu_percent:0,disk_bytes:0}});
+          app.handlers['project.resources'] = () => ({agents: ${filled ? "[{id:'" + agent + "',memory_bytes:412000000,cpu_percent:18,disk_bytes:2100000000}]" : "[]"},total:{memory_bytes:0,cpu_percent:0,disk_bytes:0}});
           app.handlers['project.importDiscover'] = () => ({candidates:${filled ? "Array.from({length:3},(_,i)=>({source:'s'+i,revision:'r'+i,title:('Distinct conversation '+i+' 長い名前 ').repeat(12),cwd:'src',last_activity_ms:1n}))" : "[]"},excluded:[]});
           return true;
         })()`);
 
         if (view === "resources") {
           await command("view:workstreams");
-          await lane.browser("click", '.rail-row[data-id="agent-1"]');
-          await lane.until("document.querySelector('.rail-row[data-id=agent-1]')?.dataset.selected === 'true'");
-          await lane.evaluate("window.__fake.setStatus('agent-1','working','building')");
+          await lane.browser("click", `.rail-row[data-id="${agent}"]`);
+          await lane.until(`document.querySelector('.rail-row[data-id="${agent}"]')?.dataset.selected === 'true'`);
+          if (seed === "tree-40") await lane.evaluate("window.__fake.setStatus('agent-1','working','building')");
         }
 
         if (filled && view === "ask-history") await lane.evaluate(`window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'audit',at:'1',text:'Audit',parts:[{text:'Long authored request '.repeat(20),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
