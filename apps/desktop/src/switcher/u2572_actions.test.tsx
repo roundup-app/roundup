@@ -288,7 +288,7 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   await show();
 
   for (const option of actionRows()) {
-    const row = [...CHORDS, ...LEADER].find((row) => row.what === option.querySelector(".switcher-name")?.textContent)!;
+    const row = [...CHORDS, ...LEADER].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
     const keys = "press" in row ? `${CHORDS[3]!.keys} ${row.keys}` : row.keys;
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
