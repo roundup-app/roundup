@@ -472,7 +472,7 @@ const d8 = (page: Page): Measure => {
 
     if (!hairline) return { border: NOT_MEASURABLE };
 
-    const formFrame = el.matches(':is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]), .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
+    const formFrame = el.matches(':is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]), .app-dialog-form textarea, .import-prompt, .note-form input, .note-form textarea, .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
     const frameColours = formFrame ? ["--form-border", "--accent", "--red", "--disabled"].map(token => parseColour(resolveAt(page, el, `var(${token})`))) : [];
 
     for (const side of ["top", "right", "bottom", "left"]) {
