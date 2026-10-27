@@ -230,7 +230,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
           });
-        }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
+        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
