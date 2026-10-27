@@ -1,7 +1,7 @@
 import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
-import { createSignal, For } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
 import { registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
@@ -10,7 +10,7 @@ const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
 
 const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
-const sections = () => [
+const sections = (projectOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inRail && !row.inTerminals && !row.inShelf) },
   { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: bubbleScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals) },
@@ -18,14 +18,14 @@ const sections = () => [
   { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
-];
+] : [{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.what === copy.captureATodo || row.what === copy.settings) }];
 
 /** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
 const opensFrom = (target: EventTarget | null): boolean => target instanceof Element
   && !target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .pane-screen, .xterm, .bubble-body');
 
 /** The panel `?` opens over the centre pane, one line per chord. It holds focus while open; Esc, `?` or a click outside closes it and focus returns to where it was. */
-export const Help = () => {
+export const Help = (props: { projectOpen?: boolean }) => {
   const [open, setOpen] = createSignal(false);
   let panel: HTMLElement | undefined;
   let returnTo: Element | null = null;
@@ -59,17 +59,17 @@ export const Help = () => {
 
         queueMicrotask(() => focus(() => { if (element.isConnected) element.focus({ preventScroll: true }); }));
       }}>
-        <For each={sections()}>{section => <section class="help-section">
+        <For each={sections(props.projectOpen ?? true)}>{section => <section class="help-section">
           <h2>{section.title}</h2>
           <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{chord.what}</KeyHint></p>}</For>
         </section>}</For>
-        <section class="help-shelf" aria-label={copy.shelfKeys}>
+        <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
         <p><KeyHint keys={copy.previousNextKeys}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
         <p><KeyHint keys={copy.enter}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
         <p><KeyHint keys={copy.rangeKeys}>{copy.selectARangeOfShelfRows}</KeyHint></p>
         <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
-        </section>
+        </section></Show>
         <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner>
     </Dialog.Root>
