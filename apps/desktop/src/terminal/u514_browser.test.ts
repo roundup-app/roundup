@@ -271,6 +271,11 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
   const selector = await editor(kind);
 
   if (gesture === "drag") {
+    // Rename initially selects its full name; collapse it before starting a new pointer selection.
+    await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
+    await browser("press", "Home");
+    await wait(`document.querySelector(${JSON.stringify(selector)}).selectionStart === document.querySelector(${JSON.stringify(selector)}).selectionEnd`);
+
     const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
       const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();

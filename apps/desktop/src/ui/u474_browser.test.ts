@@ -206,7 +206,7 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
   await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
 
   if (seed === "bubbles") {
-    await browser("click", '[data-id="runner"]');
+    await browser("click", '.rail-row[data-id="runner"] .name');
     await browser("wait", "--fn", `document.querySelectorAll('.terminal-tab').length === 3`);
 
     if (selector.includes('bubble-header')) {

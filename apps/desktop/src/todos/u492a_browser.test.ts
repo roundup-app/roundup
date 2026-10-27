@@ -40,6 +40,18 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     // U3787a replaces U491a's confirmation with immediate deletion and Undo.
     const [first, second] = await lane.order();
 
+    // Cancelling the selection leaves every Todo untouched.
+    await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${first}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
+    await lane.browser("focus", `.shelf [data-todo="${second}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${second}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
+    await lane.browser("click", ".shelf-bulk-line button:nth-of-type(2)");
+    await lane.until("!document.querySelector('.shelf-bulk')");
+    expect(await lane.order()).toEqual([first, second, initial[2]]);
+    expect(await lane.calls("todo.delete")).toEqual([]);
+
     await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
     await lane.browser("press", "Meta+Enter");
     await lane.until(`document.querySelector('.shelf [data-todo="${first}"] .todo-row-button').getAttribute('aria-pressed') === 'true'`);
