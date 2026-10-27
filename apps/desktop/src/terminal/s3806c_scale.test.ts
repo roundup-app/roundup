@@ -100,7 +100,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
     return createComponent(Bubble, {
       id: "t-a", screens, name: "Shell", get place() { return place(); },
       origin: { left: 0, top: 0 }, extent: () => ({ width: 1000, height: 800 }),
-      setPlace() {}, readOnly: () => false, close: async () => {}, toggleMinimised() {},
+      setPlace() {}, readOnly: () => false, close: async () => {}, menu() {}, toggleMinimised() {},
     });
   });
 
