@@ -152,8 +152,14 @@ export const connectFakeProject = async (
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
 
-  // This fixture retains no raw log; tests needing contiguous replay supply their own cut.
-  app.handlers["terminal.catchUp"] = ({ id, incarnation }) => ({ kind: "gap", id, incarnation, from: app.outputPositions.get(id) ?? 0, after: app.outputPositions.get(id) ?? 0 });
+  // This fixture retains no raw log; only an unchanged cut can replay without a test-supplied log.
+  app.handlers["terminal.catchUp"] = ({ id, incarnation, after }) => {
+    const end = app.outputPositions.get(id) ?? 0;
+
+    return after === end
+      ? { kind: "contiguous", id, incarnation, from: after, after: end, data: "" }
+      : { kind: "gap", id, incarnation, from: end, after: end };
+  };
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => now, daemonExit);
 
