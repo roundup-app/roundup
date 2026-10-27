@@ -148,7 +148,7 @@ it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_openin
   app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: "ready\n", truncated: false });
   app.handlers["terminal.write"] = () => null;
   const rpc = vi.spyOn(app, "rpc");
-  const run = kind === "keys" ? createKeystrokeRun(app) : createFrameRun(app, "unknown", "/tmp");
+  const run = kind === "keys" ? createKeystrokeRun(app) : createFrameRun(app, "unknown", "/tmp", () => false);
   let opens = 0;
 
   const open = (event: KeyboardEvent) => {

@@ -117,7 +117,7 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
 const placement = async (where: "agent" | "door" | "bubble") => {
   await app();
 
-  if (where === "bubble") await browser("click", ".rail-terminal-new");
+  if (where === "bubble") await browser("click", ".terminal-new");
   else await selectRow(where === "agent" ? "migrate" : "payments");
 
   const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
@@ -224,6 +224,7 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     await selectRow("payments");
     await browser("click", "#shelf-tab-pads");
     await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
+    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
     await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
@@ -270,6 +271,11 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
   const selector = await editor(kind);
 
   if (gesture === "drag") {
+    // Rename initially selects its full name; collapse it before starting a new pointer selection.
+    await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
+    await browser("press", "Home");
+    await wait(`document.querySelector(${JSON.stringify(selector)}).selectionStart === document.querySelector(${JSON.stringify(selector)}).selectionEnd`);
+
     const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
       const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
@@ -317,6 +323,7 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await selectRow("agent-1");
   await browser("click", "#shelf-tab-pads");
   await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
+  await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
@@ -426,7 +433,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
-    if (seed === "bubbles") await browser("click", ".rail-terminal-new");
+    if (seed === "bubbles") await browser("click", ".terminal-new");
     else await selectRow(seed === "tree-40" ? "migrate" : "agent-4");
     await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
     const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";

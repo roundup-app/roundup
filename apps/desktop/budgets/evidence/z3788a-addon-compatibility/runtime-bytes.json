@@ -1,0 +1,92 @@
+{
+  "baseline": "747f838419eae1ce30940beff12814d77d739139",
+  "source": "f937254c3",
+  "environment": {
+    "node": "v22.23.3",
+    "pnpm": "10.14.0",
+    "vite": "8.3.5",
+    "host": "same Linux runner",
+    "compression": "Node gzip level 9; recursive static imports; each emitted JS file counted once"
+  },
+  "before": {
+    "entry": {
+      "files": [
+        "assets/CopyButton-yfc2neVk.js",
+        "assets/ReservedLine-mF1YbxyX.js",
+        "assets/copy-DN6f-LUR.js",
+        "assets/dist-BNvtSeKL.js",
+        "assets/floating-ui.dom-vtOd0C_f.js",
+        "assets/index-B2m2dpBZ.js",
+        "assets/layout-CSoaMawy.js",
+        "assets/theme-Bj7nihmt.js"
+      ],
+      "raw": 1317057,
+      "gzip": 419885
+    },
+    "lazyTerminalStaticClosure": {
+      "files": [
+        "assets/CopyButton-yfc2neVk.js",
+        "assets/ReservedLine-mF1YbxyX.js",
+        "assets/copy-DN6f-LUR.js",
+        "assets/dist-BNvtSeKL.js",
+        "assets/emulator-wpGm6Sak.js",
+        "assets/floating-ui.dom-vtOd0C_f.js",
+        "assets/index-B2m2dpBZ.js",
+        "assets/layout-CSoaMawy.js",
+        "assets/theme-Bj7nihmt.js"
+      ],
+      "raw": 1840338,
+      "gzip": 552161
+    },
+    "incrementalLazyTerminal": {
+      "files": [
+        "assets/emulator-wpGm6Sak.js"
+      ],
+      "raw": 523281,
+      "gzip": 132276
+    },
+    "wasm": []
+  },
+  "after": {
+    "entry": {
+      "files": [
+        "assets/CopyButton-yfc2neVk.js",
+        "assets/ReservedLine-mF1YbxyX.js",
+        "assets/copy-DN6f-LUR.js",
+        "assets/dist-BNvtSeKL.js",
+        "assets/floating-ui.dom-vtOd0C_f.js",
+        "assets/index-BUm8JCW5.js",
+        "assets/layout-CSoaMawy.js",
+        "assets/theme-Bj7nihmt.js"
+      ],
+      "raw": 1316975,
+      "gzip": 419867
+    },
+    "lazyTerminalStaticClosure": {
+      "files": [
+        "assets/CopyButton-yfc2neVk.js",
+        "assets/ReservedLine-mF1YbxyX.js",
+        "assets/copy-DN6f-LUR.js",
+        "assets/dist-BNvtSeKL.js",
+        "assets/emulator-tQHuGlHM.js",
+        "assets/floating-ui.dom-vtOd0C_f.js",
+        "assets/index-BUm8JCW5.js",
+        "assets/layout-CSoaMawy.js",
+        "assets/theme-Bj7nihmt.js"
+      ],
+      "raw": 1845206,
+      "gzip": 554116
+    },
+    "incrementalLazyTerminal": {
+      "files": [
+        "assets/emulator-tQHuGlHM.js"
+      ],
+      "raw": 528231,
+      "gzip": 134249
+    },
+    "wasm": []
+  },
+  "noGrowth": true,
+  "strictCeiling": 409600,
+  "strictCeilingPass": false
+}

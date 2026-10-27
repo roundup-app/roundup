@@ -38,6 +38,9 @@ patchedDependencies:
   '@zag-js/focus-trap@1.45.0':
     hash: acedb71663c13d1a67113e681da3ecc0bb44648b720ee3a60735cce7c39bd3bd
     path: patches/@zag-js__focus-trap@1.45.0.patch
+  '@zag-js/live-region@1.45.0':
+    hash: 420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f
+    path: patches/@zag-js__live-region@1.45.0.patch
   '@zag-js/radio-group@1.45.0':
     hash: 53f8c3e51aae690529ef5790038d99501ac382ae30f7164a5f6534d6eddedb91
     path: patches/@zag-js__radio-group@1.45.0.patch
@@ -148,6 +151,9 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: 2.5.0
         version: 2.5.0
+      '@xterm/addon-clipboard':
+        specifier: 0.2.0
+        version: 0.2.0
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)
@@ -2160,6 +2166,9 @@ packages:
   '@vue/shared@3.5.43':
     resolution: {integrity: sha512-uksS7YGMR5NZyr4JNq0Rp+QyLns0ueaz20KwzIPW9R0LH1Vnt4E+XUM29PNseEbf1www2gOuhuDi5AKOIXag9Q==}
 
+  '@xterm/addon-clipboard@0.2.0':
+    resolution: {integrity: sha512-Dl31BCtBhLaUEECUbEiVcCLvLBbaeGYdT7NofB8OJkGTD3MWgBsaLjXvfGAD4tQNHhm6mbKyYkR7XD8kiZsdNg==}
+
   '@xterm/addon-fit@0.11.0':
     resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
 
@@ -3737,6 +3746,9 @@ packages:
         optional: true
       react:
         optional: true
+
+  js-base64@3.9.5:
+    resolution: {integrity: sha512-u0CFDUca8BbBRkMkF/fDcuoLCx9nTNbXdVtbjVnBqySA9E221u0uYKbACiYGOEk1heY69qM4caeX3OwjSyxevw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -7730,6 +7742,10 @@ snapshots:
 
   '@vue/shared@3.5.43': {}
 
+  '@xterm/addon-clipboard@0.2.0':
+    dependencies:
+      js-base64: 3.9.5
+
   '@xterm/addon-fit@0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)': {}
 
   '@xterm/addon-unicode11@0.9.0': {}
@@ -7852,7 +7868,7 @@ snapshots:
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
       '@zag-js/focus-visible': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/popper': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -7869,7 +7885,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/date-utils': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
@@ -7881,7 +7897,7 @@ snapshots:
       '@zag-js/date-utils': 1.45.0(@internationalized/date@3.12.4)
       '@zag-js/dismissable': 1.45.0
       '@zag-js/dom-query': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/popper': 1.45.0
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
@@ -8009,7 +8025,7 @@ snapshots:
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
-  '@zag-js/live-region@1.45.0': {}
+  '@zag-js/live-region@1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)': {}
 
   '@zag-js/marquee@1.45.0':
     dependencies:
@@ -8233,7 +8249,7 @@ snapshots:
       '@zag-js/core': 1.45.0
       '@zag-js/dom-query': 1.45.0
       '@zag-js/interact-outside': 1.45.0
-      '@zag-js/live-region': 1.45.0
+      '@zag-js/live-region': 1.45.0(patch_hash=420bf7eec3a7b10bb14fb5b3e8e7ae975851d7245721e41c442d152049f5590f)
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
@@ -9711,6 +9727,8 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
       react: 19.3.0
+
+  js-base64@3.9.5: {}
 
   js-tokens@4.0.0: {}
 

@@ -52,14 +52,27 @@ export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer"
 /** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
 export type TodoAction = { action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
 
+/** Changes observed through the same live accessor the App consumes; no second preference source. */
+export type PreferenceAction = {
+  at_ms: number;
+  reduced: boolean;
+  phase: "warmup" | "sample" | "after-actions";
+  /** Visible fixture arcs with a running transform loop, sampled at the live source change. Degrees are displayed rotation, not timeline progress. */
+  glyphs?: { target: string; transform: string; degrees: number }[];
+  /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
+  movement?: { panel: "drawer" | "shelf"; target: string; action_at_ms: number; from: number; destination: number; observed: number; progress: number };
+};
+
 export type FrameReport = {
   probe: "roundup-frame-recorder";
   /** App-driver facts are absent from recorder-only harness runs; they confer no native qualification. */
   observer?: {
     viewport: { width: number; height: number; device_pixel_ratio: number };
     shelf_mode: string;
+    fixture_failures: { at_ms: number; reason: string }[];
     layer_actions: LayerAction[];
     todo_actions?: TodoAction[];
+    preference: PreferenceAction[];
     fixture?: Fixture;
     variant: "unqualified";
     native_qualification: string;

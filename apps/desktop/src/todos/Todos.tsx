@@ -1,9 +1,9 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { deleteTodos } from "./deleteTodos";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
-import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
+import { createOwnerAssignment, createOwnerKeys, createOwnerPicker } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
@@ -37,7 +37,7 @@ import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
-import { TreeView } from "../ui/TreeView";
+import { TreeView, Trunks } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
@@ -201,7 +201,8 @@ export const Todos = (props: {
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    remove: (id) => failureOf(() => deleteTodos(connected.app, [id])),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: connected.drafts.todoUndo.removeTodos,
     reload: async () => {
       await todos.reload();
 
@@ -368,18 +369,10 @@ export const Todos = (props: {
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
 
-  registerKeys(shelfKeyScope, [{
-    action: CHORDS.find(row => row.keys === "O")!,
-    when: event => !triage.on() || triageTarget(event)?.done === false,
-    capture: (focus) => {
-      const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
-      const id = Number(row?.dataset.todo);
-      const found = row && todos.byId().get(id);
-      const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
-
-      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); } } };
-    },
-  }]);
+  createOwnerPicker({ todos,
+    when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
+    pick: (id, anchor) => { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); },
+  });
 
   createOwnerKeys({ connected, todos, active, assign });
 
@@ -721,7 +714,7 @@ export const Todos = (props: {
     },
     {
       chords: chordsFor("T"),
-      when: event => !triage.on() && canTriage(event),
+      when: event => !triage.on() && canTriage(event) && !rowTypeahead(event),
       run: enterTriage,
     },
     {
@@ -820,11 +813,11 @@ export const Todos = (props: {
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
-        const renderChildren = (parent: number | null): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{todo => {
+        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{(todo, sibling) => {
             const at = () => tree().findIndex(row => row.todo.id === todo.id);
             const members = () => dependency.groups().get(todo.id) ?? [];
             let registered: HTMLButtonElement | null = null;
-            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
 
             return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
@@ -857,7 +850,7 @@ export const Todos = (props: {
               onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
               failWith={(show, message) => pickFails.set(todo.id, { show, message })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
-              place={row}
+              place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={members().length > 0 && dependency.expanded(todo.id)} />}
               nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
                 if (row) {
@@ -884,7 +877,7 @@ export const Todos = (props: {
 
                 return <div {...attrs()} class="todo-dependency" role="presentation" data-structural-motion={dependency.moving()} data-complete={dependency.complete(todo.id)}>
                 {draw(() => groupAttributes(todo.id, row.level))}
-                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content"><TreeView.BranchIndentGuide />{renderChildren(todo.id)}</div></TreeView.BranchContent>
+                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id, () => row.trail)}</div></TreeView.BranchContent>
                 </div>;
               }} />
             </Show>

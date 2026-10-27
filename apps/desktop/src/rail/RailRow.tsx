@@ -19,7 +19,7 @@ import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import { agentKindsBelow, isWorkstream } from "./layout";
-import { Trunks } from "./Trunks";
+import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { draftsOf } from "./persist/storage";
@@ -91,6 +91,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       }); }}
       onInput={(event) => edit(event.currentTarget)}
       onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
+      onClick={(event) => event.stopPropagation()}
       onKeyDown={(key) => {
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 
@@ -155,7 +156,7 @@ export const RailRowView = (props: {
     tabIndex: props.tabbable ? 0 : -1,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
     "data-editing": props.editing, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
-    style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
+    style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
       props.onEditing(true);

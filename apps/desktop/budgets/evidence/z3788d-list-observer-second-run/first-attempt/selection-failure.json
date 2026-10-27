@@ -1,0 +1,6 @@
+{
+  "length": 400,
+  "exit": 2,
+  "condition": "CDP Runtime.evaluate timed out observing selection after Enter; browser closed in finally; 4000 not attempted.",
+  "log": "ready 40\ncompleted 40\nready 400\ncompleted 400\nTraceback (most recent call last):\n  File \"/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt\", line 46, in <module>\n    browser('wait','--fn',\"!document.querySelector('.switcher input')\")\n  File \"/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt\", line 9, in browser\n    if p.returncode:raise RuntimeError(p.stdout+p.stderr)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: {\"success\":false,\"data\":null,\"error\":\"CDP command timed out: Runtime.evaluate\"}\n\n"
+}

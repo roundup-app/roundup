@@ -1,3 +1,4 @@
+import { rowTypeahead } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
@@ -177,9 +178,8 @@ export const Pads = (props: {
     targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    remove: (incarnation) => failureOf(async () => { const pad = pads().find(pad => pad.incarnation === incarnation);
-
- if (pad) await connected.app.rpc("pad.delete", { name: pad.name }); }),
+    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
+    remove: (ids) => connected.drafts.todoUndo.removePads(pads().filter(pad => ids.includes(pad.incarnation))),
     reload: async () => {
       await list.reload();
 
@@ -272,6 +272,7 @@ export const Pads = (props: {
 
   registerKeys(shelfKeyScope, [{
     action: CHORDS.find(row => row.keys === "O")!,
+    when: event => !rowTypeahead(event),
     capture: (focus) => {
       const row = focus instanceof HTMLElement && focus.closest(".pad-name") ? focus.closest<HTMLElement>("[data-pad]") : null;
       const name = row?.dataset.pad;

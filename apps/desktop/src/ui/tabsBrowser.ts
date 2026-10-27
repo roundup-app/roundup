@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
@@ -55,7 +56,7 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); await baselineServer?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try { await browser("close"); } finally { await server?.close(); await baselineServer?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 });
 
 export const load = async (query = "", base = false) => {

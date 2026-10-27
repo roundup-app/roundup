@@ -433,7 +433,7 @@
 }
 .todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }
 
-/* U4275: state keeps its own column; nesting belongs between state and name. */
+/* U4335a: glyph and name share the tree depth; notices keep their row target. */
 .shelf-row.todo-row {
   --todo-depth: 0;
   grid-template-rows: var(--space-5);
@@ -441,11 +441,9 @@
   box-sizing: border-box;
 }
 .todo-row .row-head {
-  /* A nested head carries its own depth indent, so it spans the .shelf-text spacer column instead of collapsing into it. */
-  grid-column: 1 / -1;
+  grid-column: 2;
   height: var(--space-5);
   align-items: center;
-  padding-inline-start: calc(var(--todo-depth) * var(--space-4));
   position: relative;
 }
 .todo-row .shelf-title {
@@ -463,26 +461,6 @@
 .todo-row .todo-row-notice:has([role="alert"]) { padding-block-start: var(--space-1); }
 .todo-row [data-group-toggle] { position: absolute; right: 100%; }
 .todo-group-content { position: relative; }
-.todo-group-content [data-part="branch-indent-guide"] {
-  position: absolute;
-  top: 0;
-  bottom: var(--space-4);
-  left: calc(var(--row-text-inset) + var(--depth) * var(--space-4) - var(--space-2));
-  width: var(--hairline-width);
-  background: var(--hairline);
-  pointer-events: none;
-}
-.todo-row[data-level]:not([data-level="1"]) .row-head::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--todo-depth) * var(--space-4) - var(--space-2));
-  width: var(--space-2);
-  height: var(--space-4);
-  bottom: 50%;
-  border-left: var(--hairline-width) solid var(--hairline);
-  border-bottom: var(--hairline-width) solid var(--hairline);
-  pointer-events: none;
-}
 .todo-row-notice .reserved-line[data-overlay="true"] {
   position: relative;
   block-size: auto;
@@ -505,7 +483,11 @@
 .shelf-row.todo-row .shelf-text { min-block-size: 0; }
 .shelf-row.todo-row .todo-row-notice { block-size: auto; }
 .shelf-row.todo-row .shelf-text {
+  column-gap: 0;
   display: grid;
-  grid-template-columns: calc(var(--todo-depth) * var(--space-4)) minmax(0, 1fr);
+  grid-template-columns: 0 minmax(0, 1fr);
 }
-.shelf-row.todo-row .todo-row-notice { grid-column: 2; }
+
+.shelf-row.todo-row {
+  padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
+}

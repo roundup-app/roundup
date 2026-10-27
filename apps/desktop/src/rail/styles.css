@@ -62,7 +62,7 @@
   position: relative;
 }
 
-.rail-root-branch:not(:first-child) {
+.rail-root-branch[data-depth="1"]:not(:first-child) {
   margin-top: var(--space-3);
 }
 
@@ -212,7 +212,7 @@
   position: relative;
   font-family: var(--font-ui);
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
-  --rail-step: calc(var(--space-5) + var(--space-1));
+  --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
   --rail-inset: var(--space-1);
 }
@@ -268,41 +268,6 @@
 /* U2694: the dialog replaces the floating menu; its opaque surface keeps the standard panel shadow. */
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
-
-/* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
-.rail-pass,
-.rail-stem,
-.rail-branch {
-  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
-  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--space-4) + var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
-  pointer-events: none;
-}
-
-.rail-pass,
-.rail-stem {
-  width: var(--hairline-width);
-  background-image: var(--dash);
-}
-
-.rail-stem {
-  top: calc(var(--elbow-y) + var(--space-4) / 2);
-}
-
-.rail-branch {
-  width: calc(var(--rail-step) - var(--space-4) / 2);
-  background-image: var(--dash), var(--elbow);
-  background-size: var(--hairline-width) 100%, 100% var(--hairline-width);
-  background-position: 0 0, 0 var(--elbow-y);
-  background-repeat: no-repeat;
-}
-
-.rail-branch[data-last="true"] {
-  background-size: var(--hairline-width) var(--elbow-y), 100% var(--hairline-width);
-}
 
 /* U405: Pads and Todos hang as leaves on the Agent's trunk, one step under its Glyph; a Todo's Glyph sits on its first line. */
 .rail-leaf {
@@ -369,7 +334,7 @@
 }
 
 /* U448: a Rail Todo is one line; its Drawer holds the body and Home. Blockers and actions stay available. */
-.rail-leaf .shelf-text {
+.rail-leaf[data-leaf="todo"] .shelf-text {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -536,11 +501,6 @@
     padding-right: 0;
   }
 
- .rail-pass,
-  .rail-stem,
-  .rail-branch {
-    left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
-  }
 }
 
 /* U3704: attention stays beside the name rather than in the trailing action group. */
@@ -813,7 +773,7 @@
 .rail-row:focus-within .rail-chevron,
 .rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }
 
-.rail-row[data-worktree="true"] { min-height: calc(var(--space-6) + var(--space-2)); }
+.rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
 .rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }
 
@@ -833,11 +793,11 @@
   align-items: baseline;
 }
 
-/* U4275: disclosure and nesting use space after the fixed state column. */
-.rail-tree .rail-leaf { grid-template-columns: var(--length-zero) minmax(0, 1fr); }
-.rail-row .line::before { content: ""; width: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--rail-gap)); flex: none; }
-.rail-row .row-state { position: absolute; left: var(--space-6); margin-inline-start: 0; }
-.rail-row .rail-chevron { left: var(--space-1); transform: none; }
+/* U4335a: the state and name follow the same depth as the incoming elbow. */
+
+.rail-row .line::before { content: ""; width: var(--space-1); flex: none; }
+.rail-row .row-state { position: static; margin-inline-start: 0; }
+.rail-row .rail-chevron { left: calc(var(--space-1) + var(--tree-depth) * var(--tree-step)); transform: none; }
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
@@ -851,7 +811,7 @@
 }
 .rail-row .row-state { flex: none; }
 
-.rail-leaf[data-leaf="todo"] { padding-inline: 0; }
+.rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }
 .rail-leaf[data-leaf="todo"] .shelf-row {
   padding-inline-start: var(--space-6);
   padding-inline-end: var(--space-4);
@@ -860,10 +820,7 @@
 }
 .rail-leaf[data-leaf="todo"] .shelf-glyph { margin-inline-start: 0; }
 .rail-leaf[data-leaf="todo"] .shelf-text { padding-inline-start: 0; }
-.rail-tree { --rail-step: var(--space-2); }
-.rail-pass,
-.rail-stem,
-.rail-branch {
-  left: calc(var(--row-text-inset) - var(--space-2) + var(--level) * var(--rail-step));
-}
-.rail-branch { width: var(--rail-step); }
+
+.rail-row,
+.rail-fold,
+.rail-leaf { --tree-mid: var(--elbow-y); }

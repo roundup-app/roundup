@@ -15,7 +15,7 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
 
     return {
       title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
-      message: removal ? [goesLine(removal), ...goingNames(removal), staysLine(removal), ...removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason))].filter(Boolean).join("\n") : "",
+      message: removal ? [...(kept?.losses ?? []), goesLine(removal), ...goingNames(removal), staysLine(removal), ...removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason))].filter(Boolean).join("\n") : (kept?.losses ?? []).join("\n"),
       okLabel: kept?.action === "stop" ? copy.stop : copy.remove,
       cancelLabel: copy.keep,
     };

@@ -1,4 +1,6 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
+import { createComputed, createRoot } from "solid-js";
+import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
@@ -6,7 +8,7 @@ import { createXtermEmulators } from "../terminal/emulator";
 import { prepareFixture } from "./fixture";
 import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
-import type { FrameReport, LayerAction, TodoAction } from "./frames";
+import type { FrameReport, LayerAction, PreferenceAction, TodoAction } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
@@ -19,12 +21,32 @@ const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
 
+/** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs"> = () => ({})): (() => void) => createRoot(dispose => {
+  let initial = true;
+  createComputed(() => {
+    const entry: PreferenceAction = { at_ms: now(), reduced: reduced(), phase: phase() };
+
+    // The initial value is setup, not a switch. Sample displacement synchronously
+    // with the shared source change, before a later frame can reach its endpoint.
+    if (!initial && entry.phase === "sample") {
+      Object.assign(entry, displacement());
+    }
+
+    initial = false;
+    journal.push(entry);
+  });
+
+  return dispose;
+});
+
 /** The first task after the rendering update that follows the current animation callback. */
 const afterUpdate = (callback: () => void) => {
   const channel = new MessageChannel();
 
   channel.port1.onmessage = () => {
     channel.port1.close();
+    channel.port2.close();
     callback();
   };
 
@@ -38,13 +60,14 @@ type Clock = { sleep(ms: number): Promise<void> };
  * Runs `cycle` once every `CYCLE_MS`, `CYCLES` times, and answers whether every one completed. A cycle that reports a missing target ends the run
  * at once, so the report stays invalid (U3010g): a target never found is not completed, and is never skipped.
  */
-export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Promise<boolean>): Promise<{ performed: number; completed: boolean }> => {
+export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Promise<boolean>, present: () => boolean = () => true): Promise<{ performed: number; completed: boolean }> => {
   let performed = 0;
 
   for (let index = 0; index < CYCLES; index += 1) {
+    if (!present()) return { performed, completed: false };
     const [done] = await Promise.all([cycle(index), clock.sleep(CYCLE_MS)]);
 
-    if (!done) return { performed, completed: false };
+    if (!done || !present()) return { performed, completed: false };
 
     performed += 1;
   }
@@ -135,8 +158,10 @@ const clickAt = (selector: string): boolean => {
   return true;
 };
 
-/** Reads displayed boxes, as the U3010b rendered observer does; animation progress/time is not displacement. */
-const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[]): Promise<boolean> => {
+type LayerStart = { at_ms: number; left: number; width: number; edge: number; opening: boolean };
+
+/** Reads displayed boxes; animation progress/time is not displacement. */
+const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean | Promise<boolean>, journal: LayerAction[], activation: () => LayerStart | null): Promise<boolean> => {
   const element = document.querySelector<HTMLElement>(`.${panel}`);
   const root = document.querySelector("[data-layout-root]");
 
@@ -145,21 +170,25 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   const edge = root.getBoundingClientRect().right;
   const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
   const opening = element.dataset.open !== "true";
-  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer .close";
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer";
   const entry: LayerAction = { panel, source: "trusted-pointer", target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
   journal.push(entry);
 
-  if (initial.width <= 0 || !(await action())) return false;
-  // Read the displayed start at activation, not when the input phase began waiting.
-  const before = element.getBoundingClientRect();
-  const open = element.dataset.open === "true";
-  const destination = open ? edge - before.width : edge;
+  if (initial.width <= 0) return false;
+  const applied = await action();
+  const before = activation();
+
+  if (!before || before.width <= 0) return false;
+  const destination = before.opening ? before.edge - before.width : before.edge;
   const distance = destination - before.left;
 
-  entry.at_ms = performance.now();
+  entry.at_ms = before.at_ms;
   entry.from = before.left;
   entry.destination = destination;
+  entry.samples.push({ at_ms: before.at_ms, left: before.left });
+
+  if (!applied) return false;
 
   // Read the requested style before the lifetime owner's next-frame animation observation.
   // Otherwise its animation list can still be empty when a first Shelf close starts.
@@ -200,8 +229,10 @@ const halfDisplacement = async (panel: "drawer" | "shelf", action: () => boolean
   });
 };
 
+type Listen = (type: "click" | "keydown" | "pointerdown", listener: (event: Event) => void) => () => void;
+
 /** Observe the platform's real activation; never send input or take focus from its current owner. */
-const observeActivation = (selector: string, source: "pointer" | "key" | "escape", accept: () => boolean): Promise<boolean> => {
+const observeActivation = (selector: string, source: "pointer" | "hairline" | "key" | "escape", accept: () => boolean, listen: Listen, applied: () => boolean = () => true): Promise<boolean> => {
   const target = document.querySelector(selector);
 
   if (!target) return Promise.resolve(false);
@@ -215,27 +246,54 @@ const observeActivation = (selector: string, source: "pointer" | "key" | "escape
 
     const timer = setTimeout(() => finish(false), CYCLE_MS / 2);
 
-    const clear = makeEventListener(window, source === "escape" ? "keydown" : "click", event => {
+    const clear = listen(source === "escape" ? "keydown" : source === "hairline" ? "pointerdown" : "click", event => {
       if (!event.isTrusted || !(event.target instanceof Node) || !target.contains(event.target)) return;
 
-      if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
+      if (source === "hairline") {
+        if (!(event instanceof MouseEvent) || event.button !== 0 || event.target !== target) return;
+        const x = event.clientX - target.getBoundingClientRect().left;
+
+        const width = parseFloat(getComputedStyle(target).borderLeftWidth);
+
+        if (!Number.isFinite(width) || width <= 0 || x < 0 || x >= width) return;
+      } else if (source === "escape" ? !(event instanceof KeyboardEvent) || event.key !== "Escape" : !(event instanceof MouseEvent) || (source === "pointer" ? event.detail <= 0 : event.detail !== 0)) return;
 
       if (!accept()) return;
       // Native event dispatch can checkpoint microtasks between listeners. A task observes
       // the existing activation/keyboard owner after propagation, including Solid delegation.
-      afterUpdate(() => finish(target.isConnected));
-    }, { capture: true });
+      afterUpdate(() => finish(target.isConnected && applied()));
+    });
   });
 };
 
-export const domLayers = (journal: LayerAction[]): Layers => {
+export const domLayers = (journal: LayerAction[], listen: Listen = (type, listener) => makeEventListener(window, type, listener, { capture: true })): Layers => {
   let pending: LayerAction | null = null;
+  let activation: LayerStart | null = null;
 
   const interruptible = () => {
     if (!pending) return true;
     const element = document.querySelector<HTMLElement>(`.${pending.panel}`);
 
     return element !== null && element.isConnected && !element.hidden && Math.abs(element.getBoundingClientRect().left - pending.destination) >= 1;
+  };
+
+  const pointerAction = (panel: "drawer" | "shelf", selector: string, source: "pointer" | "hairline") => {
+    const element = document.querySelector<HTMLElement>(`.${panel}`);
+    const root = document.querySelector<HTMLElement>("[data-layout-root]");
+
+    if (!element || !root) return Promise.resolve(false);
+    let opening = false;
+
+    return observeActivation(selector, source, () => {
+      if (!interruptible()) return false;
+      const box = element.getBoundingClientRect();
+
+      opening = panel === "drawer" ? element.dataset.open !== "true" : root.dataset.shelf !== "open";
+      // Capture before propagation: a post-activation task can already see movement.
+      activation = { at_ms: performance.now(), left: box.left, width: box.width, edge: root.getBoundingClientRect().right, opening };
+
+      return true;
+    }, listen, () => panel === "drawer" ? element.dataset.open === String(opening) : root.dataset.shelf === (opening ? "open" : "closed"));
   };
 
   const keyInterruption = async (panel: "drawer" | "shelf", target: string, source: "key" | "escape", open: boolean) => {
@@ -248,7 +306,7 @@ export const domLayers = (journal: LayerAction[]): Layers => {
 
     journal.push(entry);
 
-    if (!(await observeActivation(target, source, interruptible))) return false;
+    if (!(await observeActivation(target, source, interruptible, listen))) return false;
     entry.at_ms = performance.now();
     entry.observed = element.getBoundingClientRect().left;
     entry.completed = panel === "drawer" ? element.dataset.open === String(open) : root.dataset.shelf === (open ? "open" : "closed");
@@ -259,13 +317,14 @@ export const domLayers = (journal: LayerAction[]): Layers => {
   };
 
   return {
-    openDrawer: () => observeActivation(SHELF_ROW, "pointer", interruptible),
-    closeDrawer: () => observeActivation(".drawer .close", "pointer", interruptible),
+    openDrawer: () => pointerAction("drawer", SHELF_ROW, "pointer"),
+    closeDrawer: () => pointerAction("drawer", ".drawer", "hairline"),
     escapeDrawer: () => keyInterruption("drawer", ".drawer", "escape", false),
-    toggleShelf: () => observeActivation(".shelf-tab[data-selected]", "pointer", interruptible),
+    toggleShelf: () => pointerAction("shelf", ".shelf-tab[data-selected]", "pointer"),
     keyShelf: () => keyInterruption("shelf", ".shelf-tab[data-selected]", "key", true),
     halfway: async (panel, action) => {
-      const completed = await halfDisplacement(panel, action, journal);
+      activation = null;
+      const completed = await halfDisplacement(panel, action, journal, () => activation);
 
       if (completed) pending = journal.at(-1) ?? null;
 
@@ -274,11 +333,32 @@ export const domLayers = (journal: LayerAction[]): Layers => {
   };
 };
 
-const workingGlyphs = () => [...document.querySelectorAll('.rail .glyph[data-drawing="quarter"]')].filter(glyph => {
+const workingGlyphs = (fixture?: Fixture) => [...document.querySelectorAll('.rail-row[data-kind="working"] .glyph[data-drawing="quarter"]')].filter(glyph => {
+  if (fixture && !fixture.working.includes(glyph.closest<HTMLElement>(".rail-row")?.dataset.id ?? "")) return false;
   const box = glyph.getBoundingClientRect();
 
   return box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
 }).length;
+
+/** Read the fixture's current arcs before the shared source cancels their loops; never infer angle from animation time. */
+export const glyphDisplacement = (fixture: Pick<Fixture, "working">): NonNullable<PreferenceAction["glyphs"]> => fixture.working.flatMap(id => {
+  const row = [...document.querySelectorAll<HTMLElement>('.rail-row[data-kind="working"]')].find(row => row.dataset.id === id);
+  const arc = row?.querySelector<SVGPathElement>('.glyph[data-drawing="quarter"] > .kind-mark > .working-arc');
+
+  if (!arc || !arc.isConnected || row?.closest('[hidden], [inert]')) return [];
+  const box = arc.getBoundingClientRect();
+
+  if (box.width <= 0 || box.height <= 0 || box.top < 0 || box.bottom > innerHeight || box.left < 0 || box.right > innerWidth) return [];
+
+  // Only the active transform loop qualifies. An outgoing frozen arc or opacity fade does not.
+  if (!arc.getAnimations().some(animation => animation.playState === "running" && animation.effect instanceof KeyframeEffect && animation.effect.getTiming().iterations === Infinity && animation.effect.getKeyframes().some(frame => frame.transform !== undefined))) return [];
+
+  const transform = getComputedStyle(arc).transform;
+  const matrix = new DOMMatrixReadOnly(transform);
+  const degrees = (Math.atan2(matrix.b, matrix.a) * 180 / Math.PI + 360) % 360;
+
+  return Number.isFinite(degrees) ? [{ target: id, transform, degrees }] : [];
+});
 
 const wallClock: Clock = { sleep };
 
@@ -412,6 +492,24 @@ export const pointerReorder = (id: number): Promise<boolean> => new Promise(reso
   window.addEventListener("keydown", event => { if (event.key === "Escape") finish(false); }, { capture: true, signal: controller.signal });
 });
 
+/** Preparation uses the existing disclosure owners, so nested structural actions reach rendered rows. */
+export const expandFixtureTodos = async (fixture: Pick<Fixture, "todos">): Promise<void> => {
+  for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
+
+  for (const id of new Set(fixture.todos.flatMap(row => row.blockers))) {
+    const control = await appears(() => document.querySelector<HTMLElement>(`.shelf [data-group-toggle="${id}"]`), `the fixture Todo ${id} disclosure`);
+
+    if (control.getAttribute("aria-expanded") === "false") control.click();
+    await appears(() => control.isConnected && control.getAttribute("aria-expanded") === "true" ? true : null, `the expanded fixture Todo ${id}`);
+  }
+
+  await appears(() => fixture.todos.every(({ id }) => {
+    const row = document.querySelector(`.shelf [data-todo="${id}"]`);
+
+    return row && !row.closest('[hidden], [inert], [aria-hidden="true"]');
+  }) ? true : null, "all eight unfolded fixture Todos");
+};
+
 export const domTodos = (app: AppSeam, fixture: Fixture, journal: TodoAction[]): Todos => fixtureTodos(app, fixture, {
   toggleFold: async () => {
     const fold = document.querySelector<HTMLElement>(".shelf-done-line button");
@@ -462,9 +560,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
     }
 
     // Open the existing owner groups through their controls; setup does not replace their state owner.
-    if (fixture) {
-      for (const control of document.querySelectorAll<HTMLElement>('.shelf-groups [aria-expanded="false"] .shelf-group-control')) control.click();
-    }
+    if (fixture) await expandFixtureTodos(fixture);
 
     if (workload === "drag") clickAt('.shelf-groups [aria-expanded="false"] .shelf-group-control');
 
@@ -481,9 +577,9 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
 
   if (workload === "glyphs") {
     if (!fixture) throw new Error("missing native fixture");
-    await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
+    await appears(() => workingGlyphs(fixture) >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
 
-    return glyphsCycle(workingGlyphs);
+    return glyphsCycle(() => workingGlyphs(fixture));
   }
 
   throw new Error(`the workload ${workload} is not layers, todos, drag or glyphs`);
@@ -493,7 +589,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
-export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
+export const createFrameRun = (app: AppSeam, workload: string, cwd: string, reduced: Accessor<boolean>) => {
   const terminal = reportTerminal(createXtermEmulators());
 
   const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
@@ -529,7 +625,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
     if (fixture) {
       for (const control of document.querySelectorAll<HTMLElement>('.rail [aria-expanded="false"] .rail-chevron')) control.click();
-      await appears(() => workingGlyphs() >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
+      await appears(() => workingGlyphs(fixture) >= WORKING_GLYPHS ? true : null, "ten visible working Glyphs");
     }
 
     const cycle = await bounded(prepare(app, workload, layerActions, todoActions, fixture), SETUP_BOUND_MS, `the ${workload} setup`);
@@ -540,6 +636,49 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       if (!bubble || bubble.hidden || bubble.dataset.bubble !== fixture.terminal) throw new Error("the fixture streaming Terminal is not selected and visible");
       input.focus();
     }
+
+    const fixtureFailures: { at_ms: number; reason: string }[] = [];
+
+    const present = () => {
+      if (!fixture) return true;
+      const root = document.querySelector<HTMLElement>("[data-layout-root]");
+      const bubble = input.closest<HTMLElement>(".bubble[data-bubble]");
+      const screen = bubble?.getBoundingClientRect();
+
+      const failures = [
+        ...(innerWidth !== viewport.width || innerHeight !== viewport.height || devicePixelRatio !== viewport.device_pixel_ratio ? ["the viewport changed"] : []),
+        ...(root?.dataset.shelfMode !== shelfMode ? ["the Shelf mode changed"] : []),
+        ...(workingGlyphs(fixture) !== WORKING_GLYPHS ? ["the fixture no longer has ten visible working Glyphs"] : []),
+        ...(!input.isConnected || !bubble || bubble.hidden || bubble.dataset.bubble !== fixture.terminal || !screen || screen.width <= 0 || screen.height <= 0 || screen.bottom <= 0 || screen.top >= innerHeight || screen.right <= 0 || screen.left >= innerWidth ? ["the fixture streaming Terminal is not selected and visible"] : []),
+      ];
+
+      fixtureFailures.push(...failures.map(reason => ({ at_ms: performance.now(), reason })));
+
+      return failures.length === 0;
+    };
+
+    if (!present()) throw new Error(fixtureFailures.map(failure => failure.reason).join("; "));
+
+    const preference: PreferenceAction[] = [];
+    let phase: PreferenceAction["phase"] = "warmup";
+
+    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
+      if (workload === "glyphs" && fixture) return { glyphs: glyphDisplacement(fixture) };
+      const action = layerActions.at(-1);
+
+      if (!action || action.source !== "trusted-pointer" || action.samples.length === 0) return {};
+      const element = document.querySelector<HTMLElement>(`.${action.panel}`);
+      const distance = action.destination - action.from;
+
+      if (!element || !element.isConnected || element.hidden || Math.abs(distance) < 1) return {};
+      const observed = element.getBoundingClientRect().left;
+      const progress = (observed - action.from) / distance;
+
+      // A settled, reversed or never-started segment is not a live movement.
+      if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return {};
+
+      return { movement: { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress } };
+    });
 
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
@@ -575,13 +714,20 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
           userAgent: navigator.userAgent,
           entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
-        async () => (await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle)).completed,
+        async () => {
+          phase = "sample";
+          const actions = await everyTwoSeconds(wallClock, workload === "drag" ? dragCycle : cycle, present);
+
+          phase = "after-actions";
+
+          return actions.completed;
+        },
       );
 
       const result = workload === "drag" ? { ...measured, dragActions } : measured;
 
       const observer: NonNullable<FrameReport["observer"]> = {
-        viewport, shelf_mode: shelfMode, layer_actions: layerActions, todo_actions: todoActions, variant: "unqualified",
+        viewport, shelf_mode: shelfMode, fixture_failures: fixtureFailures, layer_actions: layerActions, todo_actions: todoActions, preference, variant: "unqualified",
         native_qualification: "incomplete: trusted layer sequence, both Shelf cases and live preference variants remain unqualified",
       };
 
@@ -592,6 +738,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
       await report(observed);
     } finally {
       controller.abort();
+      stopPreference();
     }
   };
 

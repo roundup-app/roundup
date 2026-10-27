@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
+import { cleanup } from "@solidjs/testing-library";
+import { mountTodos } from "../todos/testHarness";
+import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { createHomed, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { createHomed, expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -15,7 +19,7 @@ const SAMPLE_MS = 60_000;
 
 beforeEach(() => vi.useFakeTimers());
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
   const press = (name: keyof Layers) => () => {
@@ -73,6 +77,53 @@ const fixtureApp = (prefix: string) => {
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
+  it("u3010d_the_recorder_observes_the_app_preference_without_owning_it", () => {
+    const listeners = new Set<(change: { matches: boolean }) => void>();
+    const journal: import("./frames").PreferenceAction[] = [];
+    let phase: import("./frames").PreferenceAction["phase"] = "warmup";
+    let at = 12;
+
+    const movement = vi.fn(() => ({
+      movement: { panel: "drawer" as const, target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 },
+      glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }],
+    }));
+
+    createRoot(dispose => {
+      const reduced = createReducedMotion(() => ({
+        matches: false,
+        addEventListener: (_type, listener) => { listeners.add(listener); },
+        removeEventListener: (_type, listener) => { listeners.delete(listener); },
+      }));
+
+      const stop = observePreference(reduced, () => at, () => phase, journal, movement);
+
+      expect(listeners.size).toBe(1);
+      expect(movement).not.toHaveBeenCalled();
+      phase = "sample";
+      at = 23;
+
+      for (const listener of listeners) listener({ matches: true });
+      expect(journal).toEqual([
+        { at_ms: 12, reduced: false, phase: "warmup" },
+        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }] },
+      ]);
+      expect(movement).toHaveBeenCalledTimes(1);
+      phase = "after-actions";
+
+      for (const listener of listeners) listener({ matches: false });
+      expect(movement).toHaveBeenCalledTimes(1);
+      expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
+      stop();
+
+      for (const listener of listeners) listener({ matches: true });
+      expect(reduced()).toBe(true);
+      expect(journal).toHaveLength(3);
+      expect(listeners.size).toBe(1);
+      dispose();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
   it("u3010g_an_incompatible_project_is_refused_before_fixture_writes", async () => {
     const app = createFakeApp();
 
@@ -100,6 +151,34 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(other.bytes).toBe(fixture.bytes);
     expect(other.sha256).toBe(fixture.sha256);
     expect(other.rail).not.toEqual(fixture.rail);
+  });
+
+  it.each(["complete", "missing"] as const)("u3010g_setup_requires_the_unfolded_fixture_through_its_existing_controls (%s)", async setup => {
+    vi.useRealTimers();
+    const app = fixtureApp("disclosures");
+    const fixture = await prepareFixture(app, "/temporary", "shell");
+    const rows = await app.rpc("todo.list", null);
+    const mounted = await mountTodos(setup === "missing" ? rows.slice(0, 7) : rows, true, await app.rpc("rail.tree", null));
+
+    try {
+      const target = document.querySelector<HTMLElement>('[data-group-toggle="1"]')!;
+
+      if (target.getAttribute("aria-expanded") === "true") target.click();
+      const callsBefore = mounted.app.calls.length;
+
+      if (setup === "missing") {
+        vi.useFakeTimers();
+        const outcome = expandFixtureTodos(fixture).catch((failure: Error) => failure.message);
+
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(await outcome).toBe("all eight unfolded fixture Todos did not appear within 10000 ms");
+      } else await expandFixtureTodos(fixture);
+
+      expect([1, 2, 5, 6].map(id => document.querySelector(`[data-group-toggle="${id}"]`)?.getAttribute("aria-expanded"))).toEqual(["true", "true", "true", "true"]);
+      expect(mounted.app.calls.slice(callsBefore)).toEqual([]);
+    } finally {
+      mounted.unmount();
+    }
   });
 
   it("u3010g_an_acknowledged_but_unapplied_fixture_write_is_refused", async () => {
@@ -203,7 +282,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(await run).toBe(false);
   });
 
-  it.each(["closeDrawer", "escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
+  it.each(["escapeDrawer", "toggleShelf", "keyShelf"] as const)("u3010g_synthetic_layer_input_cannot_complete_an_observed_action (%s)", async action => {
     const drawer = document.createElement("div");
     const close = document.createElement("button");
 
@@ -233,6 +312,92 @@ describe("u3010g the frame recorder drives every workload", () => {
       tab.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: action === "keyShelf" ? 0 : 1 }));
       await vi.advanceTimersByTimeAsync(1000);
       expect(await outcome).toBe(false);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it.each([
+    { action: "openDrawer", applied: false }, { action: "openDrawer", applied: true },
+    { action: "toggleShelf", applied: false }, { action: "toggleShelf", applied: true },
+  ] as const)("u3010g_a_pointer_activation_requires_its_layer_owner (%j)", async ({ action, applied }) => {
+    vi.useRealTimers();
+    const root = document.createElement("div");
+
+    root.dataset.layoutRoot = "";
+    root.dataset.shelf = "open";
+    root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><div class="row-controls"><button aria-label="Open"></button></div></div></section><button class="shelf-tab" data-selected></button>';
+    document.body.append(root);
+    let activate: (event: Event) => void = () => {};
+
+    const controls = domLayers([], (_type, listener) => {
+      activate = listener;
+
+      return () => {};
+    });
+
+    const target = root.querySelector(action === "openDrawer" ? '[aria-label="Open"]' : '.shelf-tab')!;
+
+    try {
+      const run = controls[action]();
+
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: true }, target: { value: target }, detail: { value: 1 },
+      });
+
+      activate(event);
+
+      if (applied) {
+        if (action === "openDrawer") root.querySelector<HTMLElement>(".drawer")!.dataset.open = "true";
+        else root.dataset.shelf = "closed";
+      }
+
+      expect(await run).toBe(applied);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it.each([
+    { applied: false, trusted: true, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 0.5, completed: true },
+    { applied: true, trusted: false, button: 0, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 2, x: 0.5, completed: false },
+    { applied: true, trusted: true, button: 0, x: 2, completed: false },
+  ])("u3010g_the_drawer_hairline_phase_requires_the_existing_close_owner (%j)", async ({ applied, trusted, button, x, completed }) => {
+    vi.useRealTimers();
+    const root = document.createElement("div");
+    const drawer = document.createElement("aside");
+
+    drawer.className = "drawer";
+    drawer.dataset.open = "true";
+    root.dataset.layoutRoot = "";
+    root.append(drawer);
+    document.body.append(root);
+    const callbacks: ((event: Event) => void)[] = [];
+
+    const run = domLayers([], (_type, handler) => {
+      callbacks.push(handler);
+
+      return () => {};
+    }).closeDrawer();
+
+    try {
+      expect(callbacks).toHaveLength(1);
+
+      // Deliver the native input at the event seam; the existing owner's
+      // subsequent state change determines whether this phase completed.
+      const event: MouseEvent = Object.create(MouseEvent.prototype, {
+        isTrusted: { value: trusted }, target: { value: drawer },
+        button: { value: button }, clientX: { value: x },
+      });
+
+      drawer.style.borderLeft = "1px solid black";
+      callbacks[0]!(event);
+
+      if (applied) drawer.dataset.open = "false";
+
+      expect(await run).toBe(completed);
     } finally {
       root.remove();
     }
@@ -293,6 +458,33 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(performed).toBe(0);
     expect(report).toMatchObject({ verdict: "invalid", exit: 2 });
     expect(report.invalid).toContain("the workload's actions did not complete");
+  });
+
+  it.each(["before", "during"] as const)("u3010g_fixture_loss_stops_actions_and_cannot_pass (%s)", async when => {
+    let working = when === "before" ? 9 : 10;
+    const log: [number, string][] = [];
+    const controls = layers(log);
+
+    controls.escapeDrawer = () => {
+      log.push([Date.now(), "escapeDrawer"]);
+      working = 9;
+
+      return true;
+    };
+
+    const run = everyTwoSeconds(clock, layersCycle(controls), () => working >= 10);
+
+    await vi.advanceTimersByTimeAsync(SAMPLE_MS);
+    const actions = await run;
+
+    const report = buildReport({
+      workload: "layers", hz: 60, engine: "chromium", timerResolutionMs: 0.1, userAgent: "test",
+      sample: Array(600).fill(16.7), idle: Array(300).fill(16.7), hidden: false, completed: true, actionsDone: actions.completed,
+    });
+
+    expect(actions).toEqual({ performed: 0, completed: false });
+    expect(log.map(([, action]) => action)).toEqual(when === "before" ? [] : ["openDrawer", "closeDrawer", "openDrawer", "escapeDrawer"]);
+    expect(report).toMatchObject({ verdict: "invalid", exit: 2 });
   });
 
   it("u3010g_a_setup_that_never_answers_ends_in_an_error_naming_it", async () => {

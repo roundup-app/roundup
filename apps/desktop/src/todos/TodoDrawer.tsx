@@ -75,7 +75,7 @@ export const TodoDrawer = (props: {
   const [deleteRefused, setDeleteRefused] = createSignal(0);
 
   const deletionRefusal = () => !deleteRefused() ? null
-    : drafts.todoUndo.uncertain() ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids())
+    : drafts.todoUndo.uncertain() ? (drafts.todoUndo.ids().length ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids()) : copy.deleteUnconfirmed)
     : drafts.todoUndo.pending() ? copy.todoRestorePending : null;
 
   const [saved, setSaved] = createSignal(0);

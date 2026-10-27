@@ -1,0 +1,66 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 33.967,
+      "p95Ms": 36.602,
+      "minMs": 28.623,
+      "maxMs": 40.27,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 26.779,
+      "UpdateLayoutTreeP95Ms": 17.482,
+      "LayoutP95Ms": 0.724,
+      "PrePaintP95Ms": 0.449,
+      "PaintP95Ms": 1.627,
+      "fullTraceSha256": "bef33f2e66ec0d988c540deab29a5dd830f8079dd8d72ab9981e6f9669aacf0b"
+    },
+    {
+      "length": 400,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 218.304,
+      "p95Ms": 237.075,
+      "minMs": 179.583,
+      "maxMs": 254.728,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 203.804,
+      "UpdateLayoutTreeP95Ms": 150.164,
+      "LayoutP95Ms": 5.119,
+      "PrePaintP95Ms": 2.857,
+      "PaintP95Ms": 4.372,
+      "fullTraceSha256": "29a9c567cbbd895a828c26fb8f14d0f416b006967e94919aa206fe91122df84f"
+    }
+  ],
+  "failures": [
+    {
+      "length": 4000,
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/4000-samples.json'",
+      "exit": 2,
+      "collectionFailure": {
+        "length": 4000,
+        "stage": "populate deterministic Rail nodes through fake seam",
+        "exit": 2,
+        "condition": "CDP Runtime.evaluate timed out; no 4000 sample exists."
+      }
+    }
+  ],
+  "selectionFailures": [
+    {
+      "length": 400,
+      "exit": 2,
+      "condition": "{\"success\":false,\"data\":null,\"error\":\"CDP command timed out: Runtime.evaluate\"}\n"
+    },
+    {
+      "length": 4000,
+      "exit": 2,
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/4000-selection.json'"
+    }
+  ],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}

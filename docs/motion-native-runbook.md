@@ -64,7 +64,8 @@ including their missing viewport and possibly disturbed Glyphs tail. They are
 historical scheduling evidence, with presentation unmeasured.
 
 The Layers driver samples displayed bounding boxes to reverse at the first
-observed crossing of half the remaining displacement to the requested destination.
+observed crossing of half the displacement from the displayed box captured at
+trusted activation to the requested destination.
 It refuses missing targets, absent displacement, a jump directly to the endpoint,
 and movement not observed within the existing 400 ms settling bound. Drawer
 open/close/reopen segments each wait for that observation, then Escape interrupts
@@ -75,12 +76,23 @@ and completion), with trusted pointer/key sources named explicitly. The observer
 never generates those inputs or changes focus. Each activation has the existing
 one-second input bound; geometry retains the 400 ms settling bound. A reversal
 or key interruption arriving after the preceding segment reaches its endpoint
-is refused. The action's start box is read at activation, rather than when the
-input phase began waiting. Missing activation is retained as an incomplete action.
+is refused. The action's start box and timestamp are read in the capture listener before
+the existing layer owner receives the activation, rather than when the input
+phase began waiting or in the task after propagation. Its first journal sample
+retains that box; post-propagation samples cannot move the displacement origin.
+A trusted pointer activation completes only when the existing owner acknowledges
+the requested Drawer or Shelf state. Missing activation is retained as an incomplete action. The Drawer reversal
+observes a trusted primary `pointerdown` on its existing leading hairline,
+not the corner Close button while that button is outside the viewport. The
+observed press must be on the panel itself within its computed border width,
+and the existing Drawer owner must acknowledge `data-open=false` after
+propagation. Content/padding presses and unapplied activations do not qualify.
+The action journal names `.drawer` as that reversal target; no new hit region,
+input generation or focus owner is introduced.
 
 In an eventual qualified Mac Layers sequence, select the first original Todo
 during warmup so its Open control is exposed; this is preparation, not a measured
-open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, pointer-close,
+open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, press the Drawer’s existing leading hairline to close,
 pointer-reopen, then Escape from inside the Drawer. For Shelf, pointer-toggle
 closed/open/closed, then activate its focused tab with Space or Return. Reverse
 on each measured half-displacement, and interrupt the third segment while it is
@@ -97,6 +109,18 @@ visible before sampling, and the selected streaming Terminal must remain visible
 Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
 separately and need not match. Preserve this entire observer overlay unchanged on
 both immutable sources. This is a preparation implementation, not native evidence.
+
+Before sampling Layers or Todos, preparation opens both owner groups and every
+fixture parent through the existing Ark disclosure controls, in dependency order.
+It waits for each parent's expanded acknowledgement and refuses setup unless all
+eight original rows are mounted outside hidden/inert subtrees. Missing controls,
+unapplied disclosure actions or a missing row fail within the existing setup
+bound; setup does not mutate Todos or take focus. Rendered geometry remains a
+separate Chromium observation, never WKWebView timing.
+
+The temporary insertion remains a root in the selected owner group: completed
+nested rows remain under their parent and cannot exercise the global done fold.
+The original depth-three branches stay expanded alongside that structural cycle.
 
 The Todo driver restores the original eight open rows in canonical order before each
 four-action repeat. It deletes only its recorded temporary insertion, preserves
@@ -128,3 +152,122 @@ stream/idle repair: qualify the exact batches and received bytes and stop the lo
 before settled idle. This App change neither qualifies nor changes that producer.
 Keep the existing warmup/sample/idle windows, stream rate, scheduling thresholds,
 pairing, baselines and native permission unchanged.
+
+### Live preference evidence
+
+`observer.preference` records the initial App reduced-motion value and every live
+change, using the same accessor already supplied to all App motion consumers.
+Each entry retains the page's `performance.now()` timestamp and the driver phase
+(`warmup`, `sample`, or `after-actions`). Compare these timestamps with the layer
+samples before attributing a switch to a halfway crossing. `after-actions` means
+the action driver returned; it does not assert that the stream stopped or that
+settled idle was qualified. Recorder cleanup removes only its observation and
+never the App's preference listener.
+
+The page neither changes the OS preference nor supplies a second preference
+owner. This journal alone does not qualify a live reduced-motion variant: a
+switch still needs measured halfway and completed-action evidence for that
+workload. Reports retain `variant: "unqualified"` until that exists. Do not ask
+for a Mac sequence to fill this implementation gap.
+
+### Chromium activation preparation (2026-10-27)
+
+On the isolated U26 App in dark 1512×950, the derived fixture read back forty
+Rail nodes, eight Todos and four Pads, with SHA-256
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The fake App's existing spawn handler was adapted to retain the requested Agent
+name and its signal handler to emit Status changes; this proves no native spawn.
+A headless agent-browser pointer opened original Todo 1 through its existing
+Open control. `domLayers` retained the activation box at left 1512, destination
+952 and first observed halfway crossing at 1174.516845703125, with completion
+true. The activation box precedes the post-propagation samples. This observation
+qualifies that origin/crossing path only: no full interruption sequence, pointer
+reorder, live halfway preference switch or native timing was qualified.
+
+### Displacement at a live source change
+
+During `sample`, a live preference change now retains `movement` when the last
+trusted pointer layer segment is still visibly between its endpoints. It includes
+the panel, actual action target, activation timestamp, origin, destination,
+displayed left edge and signed displacement fraction. The read happens in the
+shared accessor recorder's synchronous computation; it is not a later frame,
+an animation-time percentage or the most recently sampled position. The initial
+preference value, warmup/after-actions changes, missing/unactivated targets and
+settled geometry carry no movement claim.
+
+For a halfway switch, compare `movement.progress` with 0.5 and the segment's raw
+samples. A change observed before halfway or without `movement` does not establish
+the reduced-motion variant. This evidence alone never changes `variant` from
+`unqualified`: completed trusted actions, both Shelf cases, and Todo/Glyph halfway
+switches still require their rendered observer qualification. The page observes
+the existing preference; it generates no OS preference change or input. No Mac
+sequence is requested by this slice.
+
+### Fixture checks at action boundaries
+
+For Layers, Todos and Glyphs, setup and each two-second action boundary now
+require the original ten working Glyph identities to remain visible, the original
+streaming Terminal to remain selected and on screen, and the viewport (including
+device pixel ratio) and Shelf mode to match setup. The driver checks before it
+starts an action and after the action's two-second window, including the last
+window. Loss at either boundary stops subsequent actions and makes scheduling
+invalid (exit 2); `observer.fixture_failures` retains timestamped causes. Earlier
+completed actions remain in their journals. These checks do not observe transient
+changes between boundaries or establish native stream liveness/byte accounting.
+
+The reduced-motion source and report variant remain unchanged: stopping an arc
+through the shared reduced-motion preference keeps its working identity; changing
+an Agent's Kind away from working cannot count toward the fixture's ten Glyphs.
+
+Isolated dark Chromium preparation (2026-10-27) retained the derived fixture and
+all passing Checks at 1512×950. The real `createFrameRun` Glyphs driver then
+observed original `agent-9` become idle during sampling while the measurement
+Door remained working. The additional Door cannot replace a missing fixture
+Glyph. The report retains the fixture-loss cause at 23711 ms and exits 2 with
+incomplete actions. It also retains a frame-clock stall during concurrent local
+validation; this is invalid preparation, not a scheduling or WKWebView timing
+result. The fake App supplied readiness and status only, with no qualified
+64 KiB/s native stream. Raw setup, rendered boxes, Checks and the report remain
+under `artifacts/ux/U3010d/fixture-boundaries/`. The bounded whole-suite capture
+was incomplete; its focused observer completed.
+
+### Nested fixture preparation (#4244)
+
+An isolated dark 1512×950 Chromium run prepared the unchanged
+`tree-40-native-v1` bytes through `prepareFixture`, adapting the harness's existing
+spawn/signal handlers only. It unfolded all eight original rows, then drove two
+`domTodos` repeats with trusted pointer reorders `4 → 1` and `8 → 5`, restoring
+the fixture between repeats. Both groups' insertion, completion, fold and reorder
+journals completed; original owners and blockers remained intact. D2/D5/D6 passed.
+D14 passed setup and the first group’s settled reading; the second group’s
+after-action reading failed. Retain that failure; this is not full Check qualification.
+Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
+`artifacts/ux/U3010d/nested-fixture/`. The broad `just capture U3010d,U3010e,U3010g`
+invocation ended at its 60-second outer bound, so no whole-suite capture pass is
+claimed. This direct action-seam observation qualifies no 60-second sample,
+stream byte accounting, halfway preference variant or WKWebView timing.
+
+### Working-arc displacement at a live source change
+
+For the Glyphs workload, each sample-phase preference change now retains
+`glyphs`: the visible fixture Agent ids, raw computed transform matrices and
+displayed rotation in degrees (0–360). The existing shared accessor recorder
+reads this before the App's effects cancel the loops. Only a connected, visible
+current arc with a running transform animation is included; outgoing frozen
+marks, opacity-only fades, stopped loops and non-fixture Agents cannot supply
+this evidence. An empty array establishes no moving arc. Initial preference,
+warmup and after-actions entries carry no Glyph displacement claim.
+
+The half-turn is 180 degrees of displayed rotation. The raw matrix is retained
+so a rendered observer can check that reading; animation time/progress is never
+used as rotation. A snapshot does not establish a crossing or a completed live
+reduced-motion variant. Keep `variant: "unqualified"` until the complete required
+fixture, actions and measured halfway source switch are demonstrated. No new
+Mac sequence is requested.
+
+Isolated dark Chromium preparation at 1512×950 read all ten derived fixture
+arcs while moving; after emulating reduced motion it read no running transform
+arcs. D2/D5/D6 passed in both readings. Raw matrices, fixture bytes/hash and
+Checks remain under `artifacts/ux/U3010d/glyph-displacement/`, with uncommitted
+screenshots. This checks the geometry read path, not a halfway switch, full scheduling
+run, native stream or WKWebView timing.

@@ -1,4 +1,4 @@
-import { clipboardFailure, readPaste, writeText } from "../app/clipboard";
+import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -489,7 +489,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, (text) => copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -555,13 +555,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const emulatorFor = (id: string): Emulator => holderFor(id).emulator;
 
-  const copy = async (id: string): Promise<void> => {
-    const selection = emulatorFor(id).selection();
+  const copy = async (id: string, text?: string): Promise<void> => {
+    const selection = text ?? emulatorFor(id).selection();
 
-    if (!selection) return;
+    if (!selection && text === undefined) return;
 
     try {
-      await writeText(app, selection);
+      await app.writeClipboardText(selection);
       setFailure(id, "clipboard", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
