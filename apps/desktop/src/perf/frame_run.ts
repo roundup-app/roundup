@@ -22,9 +22,21 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
-export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[]): (() => void) => createRoot(dispose => {
+export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], movement: () => PreferenceAction["movement"] = () => undefined): (() => void) => createRoot(dispose => {
+  let initial = true;
   createComputed(() => {
-    journal.push({ at_ms: now(), reduced: reduced(), phase: phase() });
+    const entry: PreferenceAction = { at_ms: now(), reduced: reduced(), phase: phase() };
+
+    // The initial value is setup, not a switch. Sample displacement synchronously
+    // with the shared source change, before a later frame can reach its endpoint.
+    if (!initial && entry.phase === "sample") {
+      const observed = movement();
+
+      if (observed) entry.movement = observed;
+    }
+
+    initial = false;
+    journal.push(entry);
   });
 
   return dispose;
@@ -591,7 +603,24 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
     const preference: PreferenceAction[] = [];
     let phase: PreferenceAction["phase"] = "warmup";
-    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference);
+
+    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
+      const action = layerActions.at(-1);
+
+      if (!action || action.source !== "trusted-pointer" || action.samples.length === 0) return undefined;
+      const element = document.querySelector<HTMLElement>(`.${action.panel}`);
+      const distance = action.destination - action.from;
+
+      if (!element || !element.isConnected || element.hidden || Math.abs(distance) < 1) return undefined;
+      const observed = element.getBoundingClientRect().left;
+      const progress = (observed - action.from) / distance;
+
+      // A settled, reversed or never-started segment is not a live movement.
+      if (progress <= 0 || progress >= 1 - 1 / Math.abs(distance)) return undefined;
+
+      return { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress };
+    });
+
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
 
