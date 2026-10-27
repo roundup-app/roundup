@@ -5,6 +5,7 @@ import { subscribed } from "../terminal/paneHarness";
 import { bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
+
 afterEach(cleanup);
 
 const open = async (host: boolean) => {
