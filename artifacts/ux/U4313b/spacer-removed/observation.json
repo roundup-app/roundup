@@ -30,5 +30,6 @@
     "just ready": 0,
     "loop/rules.sh merge-loss": 0,
     "git diff --check": 0
-  }
+  },
+  "superseded_by": "../retained-hint/observation.json: restores the reserved hint line required by Issue #4313."
 }
