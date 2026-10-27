@@ -128,11 +128,11 @@ export const Bubbles = (props: {
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
   };
 
-  // U524: the Terminal opened from the Project root stays shown while the selection stays there.
-  const [fromRoot, setFromRoot] = createSignal<string | null>(null);
+  // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
+  const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
 
   const shown = createMemo(() => rail.selected() === null
-    ? rail.terminals().filter((terminal) => terminal.owner === path || terminal.id === fromRoot())
+    ? rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id))
     : shownFor(rail.terminals(), rail.nodes, rail.selected()));
 
   // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
@@ -229,6 +229,13 @@ export const Bubbles = (props: {
     }
 
     const listed = new Set(rail.terminals().map((terminal) => terminal.id));
+    const roots = untrack(fromRoot);
+
+    // An acknowledged opening survives absent lists until a list has actually included it.
+    const retained = roots.filter(root => !root.listed || listed.has(root.id))
+      .map(root => !root.listed && listed.has(root.id) ? { ...root, listed: true } : root);
+
+    if (retained.length !== roots.length || retained.some((root, index) => root !== roots[index])) setFromRoot(retained);
     const prior = untrack(places);
     const kept = Object.fromEntries(Object.entries(prior).filter(([id]) => listed.has(id)));
 
@@ -357,7 +364,7 @@ export const Bubbles = (props: {
       const available = () => current() && rail.selected() === selection;
 
       if (available()) {
-        setFromRoot(selection === null ? opened.terminal_id : null);
+        setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
 
         if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
