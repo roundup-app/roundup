@@ -4,7 +4,7 @@ import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, createUniqueId, For, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -23,7 +23,7 @@ import "./capture.styles.css";
 let optimistic = 0;
 
 /** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
-export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void }) => {
+export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void; onReady?: (show: (() => void) | undefined) => void }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const [open, setOpen] = createSignal(false);
@@ -274,10 +274,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   }
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
-  createEffect(() => registerKeys({ kind: "app" }, [{
+  onMount(() => props.onReady?.(port ? nativeShow : show));
+  onCleanup(() => props.onReady?.(undefined));
+  createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
     action: CHORDS.find(row => row.what === copy.captureATodo)!,
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
-  }]));
+  }]); });
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (
