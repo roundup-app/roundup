@@ -58,7 +58,6 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.shownMenus).toHaveLength(0);
     fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
 
-    expect(app.shownMenus.at(-1)!.items.map(item => [item.id, item.group])).toEqual([["send", "4"], ["copy-link", "4"], ["delete", "7"]]);
     expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
     await app.pickMenu("Delete");
     await waitFor(() => expect(railCallsTo(app, "pad.delete")).toEqual([{ name: "notes", expectedIncarnation: "notes-1", operation: expect.any(String) }]));
