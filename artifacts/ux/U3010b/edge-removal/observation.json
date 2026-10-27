@@ -1,0 +1,38 @@
+{
+  "baseline": "de65440af86a8b7055edcccdac1049b795ba5da2",
+  "main": "02dd471273080db813e6dfcc55582dfd2e80b01b",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seed": "tree-40",
+  "todo": 5,
+  "press": [
+    957,
+    400
+  ],
+  "red": {
+    "trusted": true,
+    "panel": true,
+    "open": false,
+    "sameContent": false
+  },
+  "green": {
+    "trusted": true,
+    "panel": true,
+    "open": true,
+    "sameContent": true
+  },
+  "production_matches_main": [
+    "apps/desktop/src/drawer/DrawerHost.tsx",
+    "apps/desktop/src/styles.css"
+  ],
+  "checks": {
+    "D2": "pass",
+    "D5": "pass",
+    "D6": "pass",
+    "D8": "pass"
+  },
+  "limitation": "The original half-opening pointer reversal is unresolved; no edge dismissal target remains. Issue 4268 stays open. Earlier border reversal reports describe the removed affordance."
+}

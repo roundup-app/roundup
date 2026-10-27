@@ -331,6 +331,16 @@ it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => 
         borderWidth: border.borderLeftWidth, borderColor: border.borderLeftColor,
         pseudoContent: pseudo.content, pseudoBorderWidth: pseudo.borderLeftWidth };
     })()`)));
+    await evaluate(`(async () => {
+      const { RpcError } = await import('/src/app/seam.ts');
+      window.__fake.app.handlers['todo.comment'] = () => { throw new RpcError(-32003, 'Comment refused. Retry when the connection is restored.'); };
+      return true;
+    })()`);
+    await browser("fill", ".drawer .todo-comment-field", "Preserve this exact unsubmitted comment.");
+    await browser("press", "Enter");
+    await browser("wait", "--fn", "document.querySelector('.drawer').textContent.includes('Comment refused.')");
+    await browser("screenshot", join(directory, "todo-5-refused.png"));
+    writeFileSync(join(directory, "todo-5-refused.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
   }
 });
 
