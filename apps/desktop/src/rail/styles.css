@@ -62,7 +62,7 @@
   position: relative;
 }
 
-.rail-root-branch:not(:first-child) {
+.rail-root-branch[data-depth="1"]:not(:first-child) {
   margin-top: var(--space-3);
 }
 
