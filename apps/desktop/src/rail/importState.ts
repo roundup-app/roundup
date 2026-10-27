@@ -341,6 +341,16 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       return persist();
     },
+    selectSources: (sources: string[]) => {
+      const candidates = discovery()?.candidates ?? [];
+      setSelected(new Map(sources.flatMap(source => {
+        const candidate = candidates.find(candidate => candidate.source === source);
+
+        return candidate ? [[source, { revision: candidate.revision, title: candidate.title }] as const] : [];
+      })));
+
+      return persist();
+    },
     confirm: async () => {
       if (starting() || pending() || !verified() || selected().size === 0) return;
       setPending(true);
