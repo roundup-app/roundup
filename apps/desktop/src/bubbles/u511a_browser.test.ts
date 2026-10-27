@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -52,7 +53,7 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try { await browser("close"); } finally { await server?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 }, 90_000);
 
 const edit = async () => {
