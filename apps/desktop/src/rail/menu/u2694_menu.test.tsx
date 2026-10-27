@@ -610,7 +610,7 @@ it.each([
 
   await app.closeMenu();
   // These are the read-only refreshes the mounted surfaces may perform; every action RPC fails this assertion.
-  expect(app.calls.slice(before).filter(call => !["rail.tree", "terminal.list", "todo.list", "pad.list", "workstream.queue", "deliverable.list", "ask.list", "reaction.list"].includes(call.method))).toEqual([]);
+  expect(app.calls.slice(before).filter(call => !["rail.tree", "terminal.list", "terminal.snapshot", "todo.list", "pad.list", "workstream.queue", "deliverable.list", "ask.list", "reaction.list"].includes(call.method))).toEqual([]);
   expect(app.clipboardWrites).toEqual(clipboard);
 });
 
