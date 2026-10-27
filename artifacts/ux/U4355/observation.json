@@ -321,12 +321,17 @@
     {
       "command": "Focused U4355 rendered capture, ROUNDUP_CAPTURES=U4355 and ROUNDUP_BASELINE_ROOT",
       "exit": 0,
-      "result": "1 passed; paired PNGs and videos"
+      "result": "1 passed; paired PNG images and videos"
     },
     {
       "command": "loop/rules.sh delta artifacts/ux/U4355/base artifacts/ux/U4355/head",
       "exit": 0,
       "result": "D1-D14 still-passing on every pair"
+    },
+    {
+      "command": "Final just ready",
+      "exit": 0,
+      "result": "Web and Rust lints, proofs, workflow tests, launch sites, trailers and frozen checks pass."
     }
   ],
   "observer_repairs": [
@@ -334,6 +339,20 @@
       "exit": 1,
       "failure": "New hovered-control reading ran after baseline Back had removed the control.",
       "repair": "Record null for the absent baseline control; rerun passed."
+    }
+  ],
+  "validation_repairs": [
+    {
+      "command": "First just ready",
+      "exit": 1,
+      "failure": "The blanket tooltip lint rejected the native title required for a focusable disabled control.",
+      "repair": "Use the established single-line no-tooltip-bypass exception, citing the design system; targeted lint passes."
+    },
+    {
+      "command": "Second just ready",
+      "exit": 1,
+      "failure": "The spelling gate rejected the plural image abbreviation in the evidence report.",
+      "repair": "Write PNG images instead; product code and tests are unchanged."
     }
   ]
 }
