@@ -252,6 +252,7 @@ export const Rail = () => {
     }
 
     const collection = selection.collection();
+
     const navigation = event.key === "Home" ? collection.firstValue
       : event.key === "End" ? collection.lastValue
       : event.key === "ArrowUp" ? collection.getPreviousValue(id)
@@ -275,6 +276,7 @@ export const Rail = () => {
 
       return;
     }
+
     event.preventDefault(); event.stopPropagation();
     selection.selection.replace(match); anchor = match; focusRow(match);
   };
