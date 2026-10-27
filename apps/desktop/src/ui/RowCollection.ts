@@ -1,5 +1,5 @@
 import { createListCollection, useListSelection } from "@ark-ui/solid/collection";
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createComputed, createSignal, onMount, onCleanup } from "solid-js";
 
 const keys = new WeakMap<Element, (event: KeyboardEvent) => boolean>();
 
@@ -40,12 +40,31 @@ export const createRowCollection = (items: () => { value: string; label: string 
   const rows = new Map<string, HTMLElement>();
 
   let anchor: string | undefined;
+  let pending: { value: string } | undefined;
+
+  createComputed(() => {
+    const visible = collection();
+
+    if (pending && !visible.has(pending.value)) pending = undefined;
+  });
+
+  const complete = (request: typeof pending) => {
+    if (!request || pending !== request || !collection().has(request.value)) return;
+    const row = rows.get(request.value);
+
+    if (!row?.isConnected) return;
+    pending = undefined;
+    row.focus({ preventScroll: true });
+    row.scrollIntoView?.({ block: "nearest" });
+  };
 
   const focusRow = (value: string | null | undefined) => {
-    if (value == null) return;
-    interaction?.onFocus(value);
-    rows.get(value)?.focus({ preventScroll: true });
-    rows.get(value)?.scrollIntoView?.({ block: "nearest" });
+    pending = value == null ? undefined : { value };
+    const request = pending;
+
+    if (!request) return;
+    interaction?.onFocus(request.value);
+    complete(request);
   };
 
   const targetRow = (event: Event) => event.target instanceof Element ? event.target.closest<HTMLElement>("[data-collection-value]") : null;
@@ -114,7 +133,7 @@ export const createRowCollection = (items: () => { value: string; label: string 
 
   const reset = () => { window.clearTimeout(state.timer); state.keysSoFar = ""; };
 
-  onCleanup(reset);
+  onCleanup(() => { pending = undefined; reset(); });
 
   return {
     collection, selection, search, reset, click,
@@ -122,9 +141,20 @@ export const createRowCollection = (items: () => { value: string; label: string 
       row.dataset.collectionValue = value;
       searches.set(row, search);
 
-      if (interaction) { rows.set(value, row); keys.set(row, key); }
+      if (interaction) {
+        rows.set(value, row); keys.set(row, key);
+        const request = pending;
 
-      onCleanup(() => { rows.delete(value); keys.delete(row); searches.delete(row); });
+        if (request?.value === value) {
+          // Solid refs register before insertion; focus only after the row is attached.
+          queueMicrotask(() => complete(request));
+        }
+      }
+
+      onCleanup(() => {
+        if (rows.get(value) === row) rows.delete(value);
+        keys.delete(row); searches.delete(row);
+      });
     },
   };
 };
