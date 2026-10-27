@@ -13,8 +13,9 @@ it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
   const { rail, app, connected } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((id, order) => ({ ...make(`row-${order}`), name: id, order })));
   const selected = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-selected=true]")].map(row => row.querySelector(".name")?.textContent);
   const before = app.calls.length;
+  fireEvent.click(rowOf("Alpha"), { metaKey: true });
   fireEvent.click(rowOf("Beta"), { metaKey: true });
-  await waitFor(() => expect(selected()).toEqual(["Beta"]));
+  await waitFor(() => expect(selected()).toEqual(["Alpha", "Beta"]));
   fireEvent.click(rowOf("Delta"), { shiftKey: true });
   await waitFor(() => expect(selected()).toEqual(["Beta", "Gamma", "Delta"]));
   fireEvent.click(rowOf("Gamma"), { metaKey: true });
@@ -54,7 +55,7 @@ it.each(kinds.flatMap(make => ["F2", "double-click"].map(open => ({ make, open }
 });
 
 it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
-  await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
+  const { rail } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
 
   const press = async (name: string, key: string, expected: string) => {
     rowOf(name).focus();
@@ -70,6 +71,7 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   await press("Delta", "ArrowDown", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "B", "Beta");
   expect(rowOf("Beta").getAttribute("data-selected")).toBe("true");
+  expect(rail.selected()).toBe("row-1");
 });
 
 it("u3787c_agent_pad_inventory_opens_the_owner_disclosure", async () => {
