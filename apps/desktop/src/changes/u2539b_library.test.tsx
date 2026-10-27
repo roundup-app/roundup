@@ -35,3 +35,37 @@ it("u2539b_file_names_announce_status_old_path_and_deleted_action", async () => 
     expect(root?.querySelector('[data-item-path="untracked.ts"]')?.getAttribute("aria-label")).toBe("untracked.ts, Untracked");
   });
 });
+
+// Dependency probes deliberately bypass the App: #4396 owns mounted integration.
+async function mountTree(options: Partial<import("@pierre/trees").FileTreeOptions> = {}) {
+  const { FileTree } = await import("@pierre/trees");
+  const tree = new FileTree({
+    paths: ["folded/echo-hidden.ts", "alpha.ts", "bravo.ts", "delta.ts", "echo.ts"],
+    initialExpandedPaths: [],
+    ...options,
+  });
+  const host = document.createElement("div");
+  document.body.append(host);
+  tree.render({ containerWrapper: host });
+  const root = tree.getFileTreeContainer()?.shadowRoot;
+  if (!root) throw new Error("Pierre did not mount its shadow root");
+  const row = (path: string) => {
+    const element = root.querySelector<HTMLButtonElement>(`[data-item-path="${path}"]`);
+    if (!element) throw new Error(`Missing visible row: ${path}`);
+    return element;
+  };
+  return { tree, root, row, close() { tree.cleanUp(); host.remove(); } };
+}
+
+it("u3787c_vanilla_prefix_selects_a_visible_name_without_search_or_unfolding", async () => {
+  const view = await mountTree({ typeahead: "name-prefix", search: true });
+  try {
+    view.row("alpha.ts").focus();
+    fireEvent.keyDown(view.row("alpha.ts"), { key: "e" });
+    await waitFor(() => expect(view.tree.getFocusedPath()).toBe("echo.ts"));
+    expect(view.tree.getSelectedPaths()).toEqual(["echo.ts"]);
+    expect(view.tree.getVisibleCount()).toBe(5);
+    expect(view.tree.isSearchOpen()).toBe(false);
+    await waitFor(() => expect(view.root.activeElement).toBe(view.row("echo.ts")));
+  } finally { view.close(); }
+});
