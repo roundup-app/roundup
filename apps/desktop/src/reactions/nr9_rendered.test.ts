@@ -415,6 +415,9 @@ esac
       };
     })()`);
     await wait("!!document.querySelector('[data-reaction-opener=create]')");
+    // Reach the requested screen through the App shortcut, beyond the dense Rail.
+    await browser("press", "Meta+/");
+    await wait("document.activeElement?.matches('.ask-input')");
     await tabTo('[data-reaction-opener="create"]');
     await browser("press", "Enter");
     await wait("document.activeElement?.matches('.reaction-back')");

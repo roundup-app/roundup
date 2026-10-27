@@ -28,8 +28,6 @@
 {"file":"apps/desktop/src/app/u3791a_recovery.test.tsx","test":"u3791a_reconnected_project_refetches","identity":"bc4d743a8f91ee18f9a66cfa10b1b1216beb3285acbaf28a99734201fcea4b49"}
 {"file":"apps/desktop/src/app/u3791a_recovery.test.tsx","test":"u3791a_recovery_sends_no_agent_input","identity":"e44fa3f4b78aaa9e9256fb463ad6251a6a4355d77bc7615a858dca2046c6d1c2"}
 {"file":"apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_ask_bar_send_dismiss_once","identity":"23d711b4e1171b26bfd2b93f0a37ef9054532bea8033d15d0dca297daa7dfe51"}
-{"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567a_entries_follow_rail_order_with_door_status","identity":"a97334f368090fb9323b2d32405b49fa34b2049258c7c4be9376e0cd871e4ffb"}
-{"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567a_nothing_needs_you","identity":"bd12ac7082a32e71c94583c382adf7ed603342651328dba0f5ebfd7786b35b73"}
 {"file":"apps/desktop/src/ask/u2567_project_overview.test.tsx","test":"u2567c_the_shortcut_overlay_has_no_overview","identity":"14ef08d1a31927fa8da9538b8b44293d6e04b62c1c2a7cc2bd79ce9736a5bf42"}
 {"file":"apps/desktop/src/ask/u2749_tooltip_anchor.test.tsx","test":"u2749a_project_root_kind_owns_its_tooltip","identity":"02dbde8c58e832c31f3ea815d02e4270b474b2bdf239a1515e182f22e3c2212d"}
 {"file":"apps/desktop/src/ask/u2749_tooltip_anchor.test.tsx","test":"u2749a_project_root_kind_owns_its_tooltip","identity":"8a6201c65c125da56eb982b9618e7d4392e9af53c1dfe65aa9dab0f1265132ed"}
