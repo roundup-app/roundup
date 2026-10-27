@@ -603,6 +603,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
     const preference: PreferenceAction[] = [];
     let phase: PreferenceAction["phase"] = "warmup";
+
     const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, () => {
       const action = layerActions.at(-1);
 
@@ -619,6 +620,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
       return { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress };
     });
+
     const controller = new AbortController();
     const dragActions = { released: 0, cancelled: 0 };
 
