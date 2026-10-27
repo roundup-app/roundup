@@ -34,3 +34,5 @@
  .inbox-item[data-arrived] { animation-name: none; animation-duration: var(--duration-instant); }
  .inbox-item [data-part="content"] { animation-name: none; animation-duration: var(--duration-instant); }
 }
+
+.inbox-row[aria-pressed="true"] { color: var(--accent); }
