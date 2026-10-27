@@ -84,12 +84,12 @@ describe("u427 a Workstream row's icons", () => {
   });
 });
 
-it("u427_a_disabled_plus_calls_nothing", async () => {
+it("u427_an_unavailable_add_is_omitted_and_calls_nothing", async () => {
   const mounted = await mountRail([workstream("g")], [], () => ({code:1}));
 
   fireEvent.contextMenu(rowOf("g"));
-  expect(mounted.app.shownMenus.at(-1)?.items.find(item => item.label === "Add Agent")?.enabled).toBe(false);
-  await chooseAction(mounted.app, "g", "Agent");
+  expect(mounted.app.menuLabels()).not.toContain("Add");
+  await mounted.app.closeMenu();
 
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
 });
