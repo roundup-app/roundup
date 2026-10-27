@@ -312,6 +312,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
 
   fireEvent.click(button);
   await screen.findByText("second: name conflict");
+  await daemon.rpc("pad.setOwner", { name: "first", owner: USER });
   await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
   refuse = false;
   fireEvent.click(button);
@@ -400,8 +401,8 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   const text = "  unfinished é 🧭\n\nlast  ";
   fireEvent.input(field, { target: { value: text } });
   const connected = connections.get("/a")!;
-  await waitFor(() => expect(connected.drafts.list().some(draft => draft.value.source === text)).toBe(true));
   const retained = connected.drafts.list();
+  expect(retained.map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
   const undo = await screen.findByRole("button", { name: "Undo" });
   expect(connected.drafts.list()).toEqual(retained);
