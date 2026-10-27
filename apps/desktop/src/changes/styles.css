@@ -104,12 +104,9 @@
 .diff-selection { margin: 0; color: var(--grey); }
 .diff-header .diff-actions { flex: none; }
 
-
-
 .note-form .app-tabs-trigger[data-selected] { --button-surface: var(--transparent); color: var(--text); }
 .note-form .app-tabs-trigger { color: var(--grey); }
 .note-form .app-tabs-content { padding-inline: 0; }
-
 
 .note-batch .note-path { max-width: calc(var(--space-6) * 12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--font-mono); }
 .note-batch li { padding-inline-end: var(--space-3); }
