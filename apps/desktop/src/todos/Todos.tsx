@@ -182,11 +182,11 @@ export const Todos = (props: {
     return inScope().filter(todo => kept.has(todo.id));
   });
 
-  const selection = createSelection(() => [...listed().filter(todo => {
+  const selection = createSelection(createMemo(() => [...listed().filter(todo => {
     const group = ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
 
     return dependency.visible(todo.id) && group !== undefined && !closedGroups().includes(group.id);
-  }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
+  }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id)), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
