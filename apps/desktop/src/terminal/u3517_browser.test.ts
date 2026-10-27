@@ -41,7 +41,7 @@ it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
   await read("window.__releaseFonts()");
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4')");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write' && call.params.id === 't-agent-4').map(call => atob(call.params.data))")).toEqual(["x"]);
-}, 90_000);
+}, 60_000);
 
 it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   await load("agents-10");
@@ -54,7 +54,7 @@ it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   await browser("set", "viewport", "1412", "950");
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.resize')");
   expect(await sent()).toEqual({ id: "t-agent-3", ...await read<object>("window.__terminals.get('t-agent-3').fit()") });
-}, 90_000);
+}, 60_000);
 
 it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   await load("agents-10");
@@ -76,7 +76,7 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.resize')");
   expect(await selected()).toBe(before);
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
-}, 90_000);
+}, 60_000);
 
 it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
@@ -127,4 +127,4 @@ it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () 
       }
     }
   }
-}, 180_000);
+}, 60_000);

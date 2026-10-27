@@ -51,4 +51,4 @@ it("p3557c_rendered_failure_clears_with_its_deleted_pad", async () => {
   await browser("wait", "--fn", "!document.querySelector('[role=alert]')");
   await capture("dark-failure-cleared");
   expect(JSON.parse(await browser("eval", "!!document.querySelector('[role=alert]')"))).toBe(false);
-}, 180_000);
+}, 60_000);

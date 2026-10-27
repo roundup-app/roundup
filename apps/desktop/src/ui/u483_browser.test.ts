@@ -99,7 +99,7 @@ it("u483_three_level_keyboard_walk", async () => {
   await browser("press", "c");
   await at("Alpha");
   expect(await read<boolean>(`document.querySelector('[data-id=Cedar]').checkVisibility()`)).toBe(false);
-}, 90_000);
+}, 60_000);
 
 it("u483_row_composition", async () => {
   await load();

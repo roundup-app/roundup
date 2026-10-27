@@ -251,7 +251,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await close();
     await real.stop();
   }
-}, 180_000);
+}, 60_000);
 
 
 it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure_lifetime_reactions_rendered", async () => {
@@ -354,7 +354,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
     await server.close();
     await rm(profile, { recursive: true, force: true });
   }
-}, 90_000);
+}, 60_000);
 
 it.each(["all", "any", "pr-checks", "instant"])("u4276b_keyboard_creates_each_condition: %s", async kind => {
   const forge = await mkdtemp(join(tmpdir(), "u4276b-forge-"));

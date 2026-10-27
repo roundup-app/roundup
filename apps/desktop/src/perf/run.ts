@@ -253,6 +253,9 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
 /** The App owns both Terminals; snapshots count raw bytes without draining a never-ending log. */
 type FloodEvidence = { id: string; command: string; opened: boolean; samples: { at_ms: number; bytes: number; state: "visible" | "folded" }[]; bytes: number; bytes_per_second: number; interval_ms: number };
 
+/** A producer is silent only when a full window passes with no new bytes; two samples a few ms apart prove nothing. */
+const SILENCE_WINDOW_MS = 500;
+
 export const startFlood = async (app: Pick<AppSeam, "rpc">, input: HTMLTextAreaElement, retain: (evidence: FloodEvidence) => void = () => {}) => {
   const id = input.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!;
   const evidence: FloodEvidence = { id, command: "/usr/bin/yes roundup-flood", opened: true, samples: [], bytes: 0, bytes_per_second: 0, interval_ms: 0 };
@@ -286,11 +289,11 @@ export const startFlood = async (app: Pick<AppSeam, "rpc">, input: HTMLTextAreaE
 
     if (!bubble) throw new Error("the opened flood Terminal disappeared");
     const at_ms = performance.now();
-    const previous = evidence.samples.at(-1);
-
     evidence.samples.push({ at_ms, bytes: snapshot.after, state: bubble.hidden ? "folded" : "visible" });
 
-    if (previous && snapshot.after <= previous.bytes) throw new Error("the flood Terminal's producer is silent");
+    const window = evidence.samples.findLast(sample => at_ms - sample.at_ms >= SILENCE_WINDOW_MS);
+
+    if (window && snapshot.after <= window.bytes) throw new Error("the flood Terminal's producer is silent");
     const first = evidence.samples[0]!;
 
     evidence.bytes = snapshot.after - first.bytes;

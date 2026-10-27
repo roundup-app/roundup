@@ -359,6 +359,33 @@ it("r20_flood_counts_only_its_opened_terminal_over_the_typing_interval", async (
   await expect(flood.poll()).rejects.toThrow("producer is silent");
 });
 
+it("r20_flood_samples_a_few_ms_apart_are_not_a_silent_producer", async () => {
+  vi.useFakeTimers();
+  const app = createFakeApp();
+  document.body.innerHTML = '<section data-bubble="flood"><textarea></textarea></section>';
+  let offset = 100;
+  let producing = false;
+
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 20, text: producing ? "roundup-flood\n" : "ready\n", truncated: false });
+  app.handlers["terminal.write"] = () => {
+    producing = true;
+
+    return null;
+  };
+
+  app.handlers["terminal.list"] = () => [info("flood")];
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: offset, data: "" });
+  const flood = await startFlood(app, document.querySelector("textarea")!);
+  await flood.sample();
+  await vi.advanceTimersByTimeAsync(1000);
+  offset += 64000;
+  await flood.sample();
+  await vi.advanceTimersByTimeAsync(18);
+  await expect(flood.sample()).resolves.toBeUndefined();
+  await vi.advanceTimersByTimeAsync(1000);
+  await expect(flood.sample()).rejects.toThrow("producer is silent");
+});
+
 it.each(["missing", "exited", "pending", "silent"])("r20_inactive_flood_is_a_named_invalid_observation (%s)", async (kind) => {
   vi.useFakeTimers();
   const app = createFakeApp();

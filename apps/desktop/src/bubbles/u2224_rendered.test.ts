@@ -52,4 +52,4 @@ it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
 
     await shoot(`after-${scheme}`, after);
   }
-}, 120_000);
+}, 60_000);

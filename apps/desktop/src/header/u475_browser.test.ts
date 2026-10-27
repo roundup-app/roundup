@@ -69,7 +69,7 @@ it("u2773a_header_restores_exact_work_browser", async () => {
   await browser("screenshot", "/tmp/header-recovery.png");
   await browser("eval", `window.__u2773Checks = window.__checks()`);
   console.log("U2773 rendered observer", await read<string>("JSON.stringify(window.__u2773Checks)"));
-}, 120_000);
+}, 60_000);
 
 it("u2773a_header_pointer_switch_keeps_caret", async () => {
   await browser("set", "viewport", "1512", "950");
@@ -158,4 +158,4 @@ it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_afte
   await capture("discarded");
   await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Close').click()");
   await browser("wait", "--fn", "!document.querySelector('.header-recovery')");
-}, 90_000);
+}, 60_000);

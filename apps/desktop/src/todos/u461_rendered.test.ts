@@ -46,15 +46,15 @@ run("u461 and u462 isolated rendered observers", () => {
 
     if (baseline) await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "baseline", baseline.resolvedUrls!.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "fake", origin, ...output], { timeout: 300_000, maxBuffer: 2 * 1024 * 1024 });
-  }, 300_000);
+  }, 60_000);
 
   it.runIf(Boolean(captureDir("U461a")))("u461a_reopen_rendered", async () => {
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-fake", server.resolvedUrls.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
-  }, 180_000);
+  }, 60_000);
 
   it.runIf(Boolean(captureDir("U461a")))("u461a_each_surface_reopens_by_pointer_and_space", async () => {
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-surfaces", server.resolvedUrls.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
-  }, 180_000);
+  }, 60_000);
 
   it("u461a_real_daemon_user_and_agent_reopen extends u462_real_daemon_history_and_reads", async () => {
     // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
@@ -63,7 +63,7 @@ run("u461 and u462 isolated rendered observers", () => {
     await real.restart();
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
     await real.model!.assertMatched();
-  }, 300_000);
+  }, 60_000);
 });
 
 
@@ -75,7 +75,7 @@ describe.skipIf(!captureDir("U3728"))("u3728 isolated rendered observer", () => 
 
   it("u3728_drawer_rendered", async () => {
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "u3728", server.resolvedUrls.local[0]!, "", "", "", captureDir("U3728")!], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
-  }, 180_000);
+  }, 60_000);
 });
 
 
@@ -97,7 +97,7 @@ describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
 
   it.each(["light", "dark"])("u461b_fresh_profile_uses_requested_emulation %s", async (scheme) => {
     await driver(`emulation-${scheme}`);
-  }, 120_000);
+  }, 60_000);
 
   it("u461b_capture_requires_observed_emulation", async () => {
     const valid = captureDir("U461b")!;
@@ -115,7 +115,7 @@ describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
       await expect(driver(mode, directory)).rejects.toMatchObject({ code: 1, stderr: expect.stringMatching(/expected.*1512.*950.*True.*observed/s) });
       expect(await readdir(directory)).toEqual([]);
     }
-  }, 300_000);
+  }, 60_000);
 });
 
 
@@ -221,7 +221,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
     await browser("close");
     await server.close();
   }
-}, 90_000);
+}, 60_000);
 
 it("u3789a_real_daemon_rows", async () => {
   const execute = promisify(execFile);
@@ -325,4 +325,4 @@ it("u3789a_real_daemon_rows", async () => {
   } finally {
     try { await browser("close"); } finally { await real.stop(); await rm(profile, { recursive: true, force: true }); }
   }
-}, 240_000);
+}, 60_000);
