@@ -50,4 +50,8 @@ it("u4455_rail_row_has_no_open_button", async () => {
   fireEvent.click(rowOf("a"));
   await settled();
   expect(mounted.rail.selected()).toBe("a");
+  rowOf("g").focus();
+  fireEvent.keyDown(rowOf("g"), { key: "Enter", code: "Enter" });
+  await settled();
+  expect(mounted.rail.selected()).toBe("g");
 });
