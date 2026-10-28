@@ -8,8 +8,11 @@ import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
-export const EmptyRail = (props: { onNew?: () => void }) => (
-  <EmptyState art="circle" {...{ title: copy.emptyRailTitle }} line={copy.emptyRailLine} action={props.onNew ? <button type="button" data-button="primary" onClick={() => props.onNew?.()}>{copy.newAgent}</button> : undefined} chip={props.onNew ? "⌘N" : undefined} />
+export const EmptyRail = (props: { onNew?: () => void; onWorkstream?: () => void; available?: boolean }) => (
+  <EmptyState art="circle" {...{ title: copy.emptyRailTitle }} line={copy.emptyRailLine} actions={props.onWorkstream ? [
+    { label: copy.newWorkstreamTitle, chip: "⇧⌘N", run: () => props.onWorkstream?.() },
+    { label: copy.newAgent, chip: "⌘N", run: () => props.onNew?.() },
+  ] : undefined} available={props.available} action={!props.onWorkstream && props.onNew ? <button type="button" data-button="primary" onClick={() => props.onNew?.()}>{copy.newAgent}</button> : undefined} chip={!props.onWorkstream && props.onNew ? "⌘N" : undefined} />
 );
 
 export const ChooseProject = (props: { app: App; failure: string | null; onOpen: (path: string) => void; onChoose: () => void; onRetry?: (() => void) | undefined }) => {
