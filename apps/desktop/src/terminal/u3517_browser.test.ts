@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -75,7 +76,24 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
 
-const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d"].filter(id => captureDir(id));
+const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4592"].filter(id => captureDir(id));
+
+const replay = [
+  "\x1b[2J\x1b[H\x1b]133;A\x07Selected Terminal 0123456789",
+  "\x1b]133;D;0\x07Regular Example answer -> => != ===",
+  "\x1b[1mRegular Example answer -> => != ===\x1b[0m",
+  "\x1b[3mItalic sample\x1b[0m \x1b[1;3mBold italic\x1b[0m",
+  "Example answer",
+  "\x1b[90m┌────────────┬─────────┐",
+  "│ Example    │ Answer  │",
+  "├────────────┼─────────┤",
+  "│ Typography │ Ready   │",
+  "└────────────┴─────────┘\x1b[0m",
+  "\x1b[2mDim text and borders\x1b[0m",
+  Array.from({ length: 16 }, (_, index) => `\x1b[${index < 8 ? 30 + index : 90 + index - 8}m ANSI ${index} \x1b[0m`).join(""),
+  "Long wrapped output ".repeat(40),
+  "unterminated input",
+].join("\r\n");
 
 for (const state of ["agent", "door", "shell"]) {
   it.skipIf(captureIds.length === 0)(`u3517f_rendered_terminal_reference_${state}`, async () => {
@@ -83,7 +101,20 @@ for (const state of ["agent", "door", "shell"]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, "webgl");
+      await load(seed, base, process.env.U4592_CANDIDATE === "dom" ? "dom" : "webgl");
+      if (process.env.U4592_CANDIDATE) await read(`(async () => {
+        const { xtermOptions } = await import('/src/terminal/emulator.ts');
+        xtermOptions.letterSpacing = 0.95;
+        xtermOptions.fontWeight = 400;
+        xtermOptions.lineHeight = 1.5;
+        xtermOptions.fontWeightBold = 700;
+        if ('${process.env.U4592_CANDIDATE}' === 'light') {
+          const face = new FontFace('Fira Code', 'url(/fonts/fira-code/FiraCode-Light.woff2)', {weight:'300'});
+          document.fonts.add(await face.load());
+          xtermOptions.fontWeight = 300;
+        }
+        if ('${process.env.U4592_CANDIDATE}' === 'smoothing') document.documentElement.style.webkitFontSmoothing = 'antialiased';
+      })()`);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
@@ -98,8 +129,9 @@ for (const state of ["agent", "door", "shell"]) {
 
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
-        const samples = Array.from({ length: 16 }, (_, index) => '\\x1b[' + (index < 8 ? 30 + index : 90 + index - 8) + 'm ANSI ' + index + ' \\x1b[0m').join('');
-        await new Promise(resolve => emulator.write(new TextEncoder().encode('\\x1b[2J\\x1b[H\\x1b]133;A\\x07Selected Terminal 0123456789\\r\\n\\x1b]133;D;0\\x07Regular 日本語 fallback\\r\\n\\x1b[1mBold sample\\x1b[0m \\x1b[3mItalic sample\\x1b[0m \\x1b[1;3mBold italic\\x1b[0m\\r\\n' + '\\x1b[90m┌────────────┬─────────┐\\r\\n│ Check      │ Result  │\\r\\n├────────────┼─────────┤\\r\\n│ Typography │ Ready   │\\r\\n└────────────┴─────────┘\\x1b[0m\\r\\n\\x1b[2mDim text and borders\\x1b[0m\\r\\n' + samples + '\\r\\n' + 'Long wrapped output '.repeat(40) + '\\r\\nunterminated input'), resolve));
+        await new Promise(resolve => emulator.write(new TextEncoder().encode(${JSON.stringify(replay)}), resolve));
+        // xterm schedules painting after its parser callback; the next animation frame drains that render.
+        await new Promise(resolve => requestAnimationFrame(resolve));
         emulator.selectTurn(0, false);
         window.__fake.app.handlers['terminal.resize'] = window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
         emulator.paste('retry');
@@ -112,11 +144,26 @@ for (const state of ["agent", "door", "shell"]) {
         return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, renderer: document.querySelector('${surface} .xterm-screen canvas') ? "webgl" : "dom", fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
       })()`);
 
+      const metadata = await read<Record<string, unknown>>(`(async () => {
+        const host = document.querySelector('${surface}');
+        const canvas = host.querySelector('canvas');
+        const {width, height, x, y} = host.getBoundingClientRect();
+        const style = getComputedStyle(document.documentElement);
+        const { xtermOptions } = await import('/src/terminal/emulator.ts');
+        return { host: {width,height,x,y}, requested: {family:xtermOptions.fontFamily,weight:xtermOptions.fontWeight ?? 400,bold:xtermOptions.fontWeightBold ?? 700,size:xtermOptions.fontSize,tracking:xtermOptions.letterSpacing,lineHeight:xtermOptions.lineHeight}, viewport: {width:innerWidth,height:innerHeight},
+          canvas: canvas ? {width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,cssHeight:canvas.getBoundingClientRect().height} : null,
+          tokens: Object.fromEntries(['--font-terminal','--text-terminal','--line-terminal','--letter-terminal','--weight-terminal'].map(name => [name, style.getPropertyValue(name).trim()])),
+          fontStatus: document.fonts.status, smoothing: style.webkitFontSmoothing };
+      })()`);
+      const record = { ...metrics, ...metadata, commit: base ? execFileSync('git', ['rev-parse','origin/main'], {encoding:'utf8'}).trim() : execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim(),
+        seed, state, candidate: process.env.U4592_CANDIDATE ?? 'selected',
+        streamIdentity: createHash('sha256').update(replay).digest('hex'),
+        claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
       const checks = JSON.stringify(await read("window.__checks()"), null, 2);
       let screenshot: string | undefined;
 
       for (const scenario of captureIds) {
-        const dir = join(captureDir(scenario)!, base ? "base" : "head");
+        const dir = join(captureDir(scenario)!, process.env.U4592_CANDIDATE ? `candidates/${process.env.U4592_CANDIDATE}` : base ? "base" : "head");
 
         mkdirSync(dir, { recursive: true });
         const path = join(dir, `${state}.png`);
@@ -125,7 +172,7 @@ for (const state of ["agent", "door", "shell"]) {
         else { await browser("screenshot", path); screenshot = path; }
 
         writeFileSync(join(dir, `${state}.checks.json`), checks);
-        writeFileSync(join(dir, `${state}.metrics.json`), JSON.stringify(metrics, null, 2));
+        writeFileSync(join(dir, `${state}.metrics.json`), JSON.stringify(record, null, 2));
       }
     }
   }, 60_000);

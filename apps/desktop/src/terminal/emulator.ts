@@ -13,6 +13,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -131,6 +132,8 @@ export const xtermOptions: ITerminalOptions = {
   // xterm needs resolved values rather than CSS var references.
   fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
+  fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
+  fontWeightBold: 700,
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   // WebGL draws box borders across the full cell even with extra line height.
@@ -207,7 +210,7 @@ export const createXtermEmulators = (
 
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
     const ready = document.fonts ? Promise.all(
-      ["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
+      ["normal 300", "normal 400", "normal 700", "italic 300", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
     ).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);
@@ -457,6 +460,7 @@ export const createXtermEmulators = (
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        if (terminal.element) terminal.loadAddon(new LigaturesAddon());
         opened = true;
         dropInlineGround(element, disposers);
 

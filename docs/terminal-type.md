@@ -1,14 +1,14 @@
-# Terminal typography (U4456)
+# Terminal typography (U4592)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified Light (300), regular (400) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
 requests all four style/weight combinations before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
-keeps its existing stack. xterm's normal/bold defaults already select 400/700.
+keeps its existing stack. `--weight-terminal` selects 300 through xterm’s public `fontWeight`; bold remains 700.
 
 ## Metrics
 
@@ -16,8 +16,9 @@ keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.5, unitless |
-| `--letter-terminal` | `letterSpacing` | 0.95 CSS px |
+| `--line-terminal` | `lineHeight` | 1.7, unitless |
+| `--letter-terminal` | `letterSpacing` | 0.5 CSS px |
+| `--weight-terminal` | `fontWeight` | 300 (bold 700) |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
@@ -32,13 +33,32 @@ glyph. The capture records the renderer alongside each measurement; behavioral
 font/input/resize regressions still exercise the DOM fallback. xterm documents
 that [custom glyphs do not apply to DOM rendering](https://xtermjs.org/docs/api/terminal/interfaces/iterminaloptions/#customglyphs).
 
-The critic's requested correction uses lineHeight 1.5 at 11 CSS px to retain
-U3517b's 18–20 CSS px row pitch. xterm multiplies the measured font bounding
-height rather than CSS fontSize: 1.7 yielded 22 CSS px rows, while 1.5 yields
-19 CSS px rows. Letter spacing remains 0.95 CSS px. This calibration supersedes
-the earlier 1.7 setting; it does not lower the pitch or continuous-frame bar.
-The original Solo screenshot is still unavailable, so no sampled-image match
-is claimed.
+U4592 deliberately departs from Solo's weight and tracking. Its controlled Linux
+comparison held 11 CSS px, 400/700, tracking 0.95px, DPR 1 and the replay constant:
+WebGL joined boxes; DOM left visible gaps; host antialiased smoothing left the
+regular-text crop pixel-identical; the upstream Light face produced thinner
+strokes with unchanged bold. Candidate images and metadata live under
+`artifacts/ux/U4592/candidates/`. This is a Builder observation; the independent
+critic judges the paired main/head images. It establishes no WebKit rendering fact.
+
+The selected WebGL path uses the bundled Light face and xterm’s official
+`@xterm/addon-ligatures` fallback ranges for joined programming operators.
+No custom glyph or shader code is added. xterm’s public weight reaches the atlas
+2D context’s font; host smoothing cannot inherit into its detached canvas.
+See [TextureAtlas](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-webgl/src/TextureAtlas.ts)
+and [ligature support](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-ligatures/README.md).
+WebGL refusal and context loss retain DOM fallback and its existing guarantees.
+
+The 1.7 multiplier restores the required 22 CSS px rows at 11px; xterm measures
+font bounding height, so multiplying CSS font size alone would give the wrong pitch.
+Paired observations use the same replay bytes and Dark 1512×950 viewport in
+`artifacts/ux/U4592/{base,head}/`; metadata records commits, font readiness,
+requested weights, display/canvas scale, rectangles, grid counts and stream hash.
+Native appearance and K1–K3 timing remain the owner’s post-merge observations.
+
+## Historical U4456 correction
+
+The following records U4456's earlier 19px calibration, superseded by U4592.
 
 The corrected paired capture uses base `adbf2eb65` and the renderer repair
 `a01194dc0` with the isolated default-preference capture fixture, Chromium on
