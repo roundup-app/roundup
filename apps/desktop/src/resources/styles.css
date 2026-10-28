@@ -112,6 +112,7 @@
   min-inline-size: 0;
   margin: 0;
   padding: 0;
+  margin-inline-start: var(--space-4);
   overflow: hidden;
   color: var(--grey);
   line-height: var(--space-4);

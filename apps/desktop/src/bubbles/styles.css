@@ -174,6 +174,11 @@
   white-space: nowrap;
 }
 
+/* Scrolling tabs leave room for hints even with eight or more Terminals. */
+.terminal-tabs-host:has(.hint) .terminal-tabs {
+  max-inline-size: 50%;
+}
+
 .terminal-tabs-actions {
   display: flex;
   flex: 1 0 auto;
