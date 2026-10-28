@@ -271,6 +271,12 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["agent.spawn"] = ({ parent }) =>
     append(parent, (id, order) => agent(id, "working", "starting", { name: "agent", parent, order, status: statusAt(Date.now(), "working", "starting", 0) }));
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
+  app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
+    changed(Object.assign(find(id), { opening_prompt: prompt }));
+
+    return null;
+  };
+
   app.handlers["rail.rename"] = ({ id, name }) => changed(Object.assign(find(id), { name }));
   app.handlers["rail.startDoor"] = ({ id }) => {
     const node = find(id);

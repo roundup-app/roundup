@@ -251,6 +251,10 @@
   padding: var(--space-2);
 }
 
+.todo-opening {
+  align-self: stretch;
+}
+
 .todo-auto-hint {
   color: var(--grey);
   font-size: var(--text-small);
