@@ -90,15 +90,15 @@ it("u3789a_drag_never_opens", async () => {
 it("u3800a_owned_todo_grip_reorders_once", async () => {
   await load("tree-40");
   await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
-  await wait('document.querySelectorAll(".rail-leaf .sortable-handle").length > 1');
-  const grip = '.rail-leaf [data-todo="1"] .sortable-handle';
+  await wait('document.querySelectorAll(".todos-tab .sortable-handle").length > 1');
+  const grip = '.todos-tab [data-todo="1"] .sortable-handle';
   await browser("eval", "window.__fake.app.calls.length = 0");
   await browser("focus", grip);
   await browser("press", "Space");
   await wait('document.querySelector("[data-dnd-placeholder]")');
   await shot("U3800a", "head", "owned-todo-slot");
   await browser("press", "ArrowDown");
-  await wait('document.querySelector(".rail-leaves").dataset.sortableIndex === "1"');
+  await wait(`document.querySelector('.todos-tab [data-todo="1"]').closest(".todo-list").dataset.sortableIndex === "1"`);
   await browser("press", "Space");
   await wait('!document.querySelector("[data-dnd-placeholder]")');
   expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:5}]);

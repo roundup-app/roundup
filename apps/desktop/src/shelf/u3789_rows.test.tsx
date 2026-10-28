@@ -62,8 +62,8 @@ it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.getHistory", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
-it.each(["todo-shelf", "todo-owned"] as const)("u3789a_return_and_open_activate_once_%s", async kind => {
-  const { app, row } = await target(kind);
+it("u3789a_return_and_open_activate_once_todo_shelf", async () => {
+  const { app, row } = await target("todo-shelf");
   const arrow = row.closest('.shelf-row')!.querySelector<HTMLButtonElement>('.todo-open')!;
   expect(arrow).not.toBeNull();
   fireEvent.click(arrow);

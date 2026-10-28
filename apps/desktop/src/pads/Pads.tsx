@@ -501,7 +501,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 row = element;
                 props.selection.register(pad.incarnation, element);
 
-
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
               }}

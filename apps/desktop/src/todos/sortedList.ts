@@ -306,8 +306,6 @@ export const createSortedList = (source: {
           buttons.delete(id);
           fails.delete(id);
         }
-
-
       },
       handle: el => {
         if (el) handles.set(id, el);

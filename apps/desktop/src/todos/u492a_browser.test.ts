@@ -102,7 +102,6 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
       return made.id;
     })()`);
 
-
     await lane.until(`!!document.querySelector('.shelf [data-todo="${made}"]')`);
     const owner = await lane.evaluate<string>(`document.querySelector('.shelf [data-todo="${made}"]').closest('[data-shelf-group]').dataset.shelfGroup`);
 
@@ -113,7 +112,6 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.until(`document.querySelector('[data-shelf-group="${owner}"]').getAttribute('aria-expanded') === 'true'`);
     await lane.browser("scrollintoview", `.shelf [data-todo="${made}"] .todo-row-button`);
     const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.shelf [data-todo="${made}"] .todo-row-button').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
-
 
     await lane.browser("mouse", "move", String(point.x), String(point.y));
     await lane.browser("mouse", "down", "right");

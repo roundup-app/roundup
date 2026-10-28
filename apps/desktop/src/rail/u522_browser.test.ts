@@ -160,19 +160,21 @@ it("u522_a_press_on_a_button_starts_no_drag", async () => {
   expect(await moves()).toEqual([]);
 }, 90_000);
 
-it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
+it.each(["backend", "auth", "tokens"])("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement_%s", async target => {
   await load();
   await page.resize(1512, 950);
   await page.scheme("dark");
-
   // backend contains auth, which contains tokens. None is a destination for backend.
-  for (const target of ["backend", "auth", "tokens"]) {
-    await dragBelow("backend", target, 40);
-    await mouse("up");
-    await wait("!document.querySelector('[data-dnd-placeholder]')");
-    expect(await moves()).toEqual([]);
-  }
+  await dragBelow("backend", target, 40);
+  await mouse("up");
+  await wait("!document.querySelector('[data-dnd-placeholder]')");
+  expect(await moves()).toEqual([]);
+}, 10_000);
 
+it("u3515c_rail_nesting_moves_beyond_descendants", async () => {
+  await load();
+  await page.resize(1512, 950);
+  await page.scheme("dark");
   const destination = await read<number>(`[...document.querySelectorAll('.rail-row[data-id]')].findIndex(row => row.dataset.id === 'agent-31')`);
 
   expect(destination).toBeGreaterThan(0);
