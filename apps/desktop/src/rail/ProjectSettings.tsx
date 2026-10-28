@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { batch, createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
-import { ImportPanel } from "../importer/ImportPanel";
+import { Deferred } from "../ui/Deferred";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
@@ -37,7 +37,7 @@ export const ProjectSettingsView = () => {
 
   return <>
     <Show when={settingsView.open() && settingsView.page() === "project-settings"}><ProjectSettingsBody onClose={close} /></Show>
-    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><ImportPanel onClose={closeImport} /></Show>
+    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><Deferred load={() => import("../importer/ImportPanel")} label={copy.importTitle}>{module => <module.ImportPanel onClose={closeImport} />}</Deferred></Show>
   </>;
 };
 
