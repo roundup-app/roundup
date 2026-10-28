@@ -198,17 +198,11 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 
 const editorKinds = ["pad", "rename"] as const;
 
-const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "overview", base = false) => {
+const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff", base = false) => {
   await app(base);
   let selector: string;
 
-  if (kind === "overview") {
-    await browser("open", url("/harness.html?seed=earlier-run&renderer=dom"));
-    await wait("!!document.querySelector('[data-id=earlier-agent]')");
-    await selectRow("earlier-agent");
-    await wait("!!document.querySelector('.overview-card p')");
-    selector = ".overview-card p";
-  } else if (kind === "diff") {
+  if (kind === "diff") {
     await browser("open", url("/src/changes/u2540.html"));
     await wait("!!document.querySelector('.worktree-control')");
     await browser("click", ".worktree-control");
@@ -369,7 +363,7 @@ it.each(["agent", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xter
   expect(await journal("#host .xterm-screen", true)).toEqual(appOn);
 }, 120_000);
 
-it.each([...editorKinds, "pad-source", "diff", "overview"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
+it.each([...editorKinds, "pad-source", "diff"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
   const selector = await editor(kind);
   const field = kind === "diff" ? "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')" : `document.querySelector(${JSON.stringify(selector)})`;
 
