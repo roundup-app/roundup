@@ -785,7 +785,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     )
     .unwrap();
     db.execute_batch(daemon::storage::INSTRUCTION_MESSAGES)
-    .unwrap();
+        .unwrap();
     db.pragma_update(None, "user_version", 42).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
