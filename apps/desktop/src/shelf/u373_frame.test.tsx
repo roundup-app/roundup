@@ -5,20 +5,9 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
-import tokenCss from "../tokens.css?raw";
-import appCss from "../styles.css?inline";
-import railCss from "../rail/styles.css?inline";
-import buttonCss from "../buttons.css?inline";
-import inkCss from "../ink/styles.css?inline";
-import rowCss from "../todos/rowButton.styles.css?inline";
-import stripCss from "../header/strip.styles.css?inline";
-import shelfCss from "./styles.css?inline";
-
-let sheet: HTMLStyleElement | undefined;
 
 afterEach(() => {
   if (live) return;
-  sheet?.remove();
   cleanup();
   localStorage.clear();
 });
@@ -44,16 +33,13 @@ const shared = async () => {
 
 const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
-  sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss, stripCss, shelfCss].join("\n");
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  await screen.findByRole("textbox", { name: "Ask" });
+  await waitFor(() => expect(document.querySelector('[aria-label="Ask"]')).not.toBeNull());
 
   if (shelf().hidden) chord();
-  // Readiness must not compute styles across the full tree-40 App.
-  await waitFor(() => screen.getByRole("tablist", { name: "Work items" }));
+  await waitFor(() => expect(shelf().querySelector('[role="tablist"][aria-label="Work items"]')).not.toBeNull());
 
   return controls;
 };
@@ -67,19 +53,19 @@ const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsW
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
   leaderKey("KeyS", init, target);
 
+const counts = () => ["todos", "pads"].map(tab => Number(shelf().querySelector(`#shelf-tab-${tab} .shelf-count`)?.textContent ?? 0));
+
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
 
 describe("u373 and u370 on one mounted App", () => {
   afterAll(() => {
-    sheet?.remove();
     cleanup();
     localStorage.clear();
     live = undefined;
   });
 
   it("u373_counts_follow_the_scope", async () => {
-    const { app } = await shared();
-    const counts = () => ["Todos", "Pads"].map(name => Number(tabNamed(name).querySelector(".shelf-count")?.textContent ?? 0));
+    await shared();
 
     await waitFor(() => expect(counts()).toEqual([7, 4]));
     fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
@@ -88,6 +74,10 @@ describe("u373 and u370 on one mounted App", () => {
     await waitFor(() => expect(counts()).toEqual([3, 4]));
     fireEvent.click(document.querySelector('[data-todo-root]')!);
     await waitFor(() => expect(counts()).toEqual([7, 4]));
+  });
+
+  it("u373_counts_follow_the_terminal_selected_in_the_switcher", async () => {
+    const { app } = await shared();
 
     // The Switcher selects each Terminal's owner, including a Project-root Terminal.
     for (const [workstream, todoCount] of [["payments", 0], [null, 7]] as const) {
@@ -110,7 +100,10 @@ describe("u373 and u370 on one mounted App", () => {
       await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
       await waitFor(() => expect(counts()).toEqual([todoCount, 4]));
     }
+  });
 
+  it("u373_folding_and_closing_keep_the_scope_counts", async () => {
+    await shared();
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(document.querySelector(".pads-tab [data-shelf-group]")).not.toBeNull());
     const group = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="payments"]')!;
