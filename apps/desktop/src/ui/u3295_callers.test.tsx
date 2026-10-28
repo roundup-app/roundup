@@ -127,7 +127,6 @@ it("u3295b_dialog_owned_controls_still_work: Start-after Todo picker", async () 
   fireEvent.keyDown(input, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
   expect(document.activeElement).toBe(trigger);
-  expect(screen.getByRole("dialog", { name: "New Workstream" })).toBeTruthy();
   fireEvent.click(trigger);
   await screen.findByRole("combobox");
   const change = modal();

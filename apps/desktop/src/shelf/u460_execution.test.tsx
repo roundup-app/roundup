@@ -200,7 +200,7 @@ for (const owner of ["todos", "pads"] as const) {
 
     const { app, connected } = fixture;
     const first = owner === "todos" ? 1 : "first";
-    const row = (which: "first" | "second" | "other") => screen.getByRole("button", { name: owner === "todos" ? new RegExp(`#${{ first: 1, second: 2, other: 3 }[which]} `) : which });
+    const row = (which: "first" | "second" | "other") => screen.getByRole("button", { name: owner === "todos" ? new RegExp(`^(Idle|Blocked|Done) #${{ first: 1, second: 2, other: 3 }[which]} `) : which });
     const message = (which: "first" | "second") => owner === "todos" ? `Could not delete same #${which === "first" ? 1 : 2}: denied` : `Could not delete ${which}: denied`;
     const remove = owner === "todos" ? "todo.delete" : "pad.delete";
     const deleteTodo = app.handlers["todo.delete"];
@@ -216,7 +216,7 @@ for (const owner of ["todos", "pads"] as const) {
 
     const draft = connected.drafts.edit({ surface: "todos", object: "3", recipient: "body" }, { text: "  unfinished é 🧭\n\nlast  ", base: "", expected_change: null, title: "todo 3", body: "", done: false, blockers: [] }, { start: 2, end: 9, direction: "forward" }, "ordinary").draft;
     const retained = connected.drafts.list();
-    await screen.findByRole("button", { name: owner === "todos" ? /#1 / : "first" });
+    await screen.findByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #1 / : "first" });
     fireEvent.click(row("first"), { metaKey: true });
     fireEvent.click(row("second"), { metaKey: true });
     await askToDelete(2);
@@ -246,7 +246,7 @@ for (const owner of ["todos", "pads"] as const) {
         app.emit({ actor: USER, name: "pad.deleted", data: { name: "other" } });
       }
 
-      await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /#3 / : "other" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #3 / : "other" })).toBeNull());
       expect(within(screen.getByRole("group", { name: "Work items deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
       expect(connected.drafts.list()).toEqual(retained);
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -267,7 +267,7 @@ for (const owner of ["todos", "pads"] as const) {
         app.emit({ actor: USER, name: "pad.deleted", data: { name: "first" } });
       }
 
-      await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /#1 / : "first" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #1 / : "first" })).toBeNull());
     } else {
       if (action === "deleted") restore();
       row("first").focus();

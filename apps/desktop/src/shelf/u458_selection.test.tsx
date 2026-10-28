@@ -13,7 +13,7 @@ it("u458_pointer_toggle_and_range_follow_visible_order", async () => {
   fireEvent.click(first, { metaKey: true });
   expect(first.getAttribute("aria-pressed")).toBe("true");
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #4 / }), { shiftKey: true });
-  expect(screen.getByText("4 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(4);
   expect(connected.drawer.content()).toBeNull();
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
@@ -26,7 +26,7 @@ it("u458_keyboard_toggle_range_and_bounds", async () => {
   fireEvent.keyDown(first, { key: "Enter", metaKey: true, repeat: true });
   fireEvent.keyDown(first, { key: "ArrowDown", shiftKey: true });
   expect(document.activeElement).toBe(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }));
-  expect(screen.getByText("2 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(2);
 });
 
 
@@ -69,7 +69,7 @@ it("u458_ranges_skip_folded_rows_and_keep_a_toggled_off_anchor", async () => {
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #4 / }), { metaKey: true, shiftKey: true });
-  expect(screen.getByText("3 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(3);
   expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeNull();
   expect(first.getAttribute("aria-pressed")).toBe("true");
 });

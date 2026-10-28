@@ -416,7 +416,7 @@ for (const kind of ["todo", "pad"] as const) {
 
     if (kind === "pad") await showPads();
 
-    const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
+    const row = await screen.findByRole("button", { name: kind === "todo" ? /^(Idle|Blocked|Done) #5 / : "first" });
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });

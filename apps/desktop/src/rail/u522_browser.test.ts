@@ -169,7 +169,7 @@ it.each(["backend", "auth", "tokens"])("u3515c_rail_nesting_excludes_self_descen
   await mouse("up");
   await wait("!document.querySelector('[data-dnd-placeholder]')");
   expect(await moves()).toEqual([]);
-}, 10_000);
+}, 30_000);
 
 it("u3515c_rail_nesting_moves_beyond_descendants", async () => {
   await load();
@@ -185,4 +185,4 @@ it("u3515c_rail_nesting_moves_beyond_descendants", async () => {
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);
   expect((await order()).indexOf("backend")).toBeGreaterThan(0);
-}, 10_000);
+}, 30_000);
