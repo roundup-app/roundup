@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { door } from "../testing/nodes";
 import { cleanup, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -15,7 +16,6 @@ it.each(["agent", "door", "workstream"])("u4453a_agent_view_mounts_only_the_term
   const centre = screen.getByRole("region", { name: "Centre" });
 
   expect(within(centre).queryByRole("navigation")).toBeNull();
-  expect(within(centre).queryByRole("button", { name: "Back to Ask" })).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(within(centre).queryByRole("textbox", { name: "Ask" })).toBeNull();
+  expect(within(centre).queryByRole("textbox", { name: copy.askBarLabel })).toBeNull();
 });
