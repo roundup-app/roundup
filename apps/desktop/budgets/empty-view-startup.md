@@ -88,3 +88,14 @@ Paired headless dark captures at 1512×950 on tree-40 compare the incoming head
 and repair: Pads failure, Import failure and loaded Settings preserve D1–D14
 (`loop/rules.sh delta`, exit 0). Captures remain in
 `artifacts/ux/U3010d/{base,head}/`; they make no native rendering claim.
+
+After merging main `00eb126ac`, immutable merge head
+`42d1d7e4908193c27cd5093a389dfb2926a7fba6` builds with the same Node/pnpm and
+level-9 compression at 396,560 gzip bytes for the hash-verified eager closure
+(1,220,414 raw bytes, 20 JS files). Entry `index-BmlCniZc.js` is 514,707 raw /
+159,868 gzip bytes. The deferred Pads, ImportPanel and NumberInput chunks are
+5,394, 2,939 and 110 gzip bytes respectively. The temporary 400,000-byte
+observer passes with 3,440 bytes spare; the configured guard is unchanged.
+The following repair changes only tests to await the deferred font-size
+control before input and after remounts, preserving the validation, saved
+preferences and unsubmitted-draft assertions.
