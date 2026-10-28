@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import * as xterm from "@xterm/xterm";
+import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { FitAddon } from "@xterm/addon-fit";
 import { createRoot } from "solid-js";
 import tokens from "../tokens.css?inline";
@@ -19,6 +20,10 @@ it("u3517a_font_readiness_preserves_output_and_fits_once_ready", async () => {
   const factory = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const emulator = factory("t-a");
   const real = spy.mock.instances[0]!;
+  vi.spyOn(real, "open").mockImplementation(() => {});
+  // This buffer-only probe closes drawing; the addon requires an opened renderer.
+  vi.spyOn(LigaturesAddon.prototype, "activate").mockImplementation(() => {});
+  vi.spyOn(real, "registerCharacterJoiner").mockReturnValue(0);
   vi.spyOn(real, "focus").mockImplementation(() => {});
   const fit = vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => real.resize(60, 25));
   const { app, connected } = await connectFakeProject([terminal("a")], [info("t-a")]);

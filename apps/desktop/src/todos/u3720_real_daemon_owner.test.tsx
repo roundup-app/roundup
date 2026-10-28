@@ -37,7 +37,7 @@ it("u3720_real_daemon_owner_assign", async () => {
   const evaluate = async (source: string) => (await browser("eval", source)).result;
   const until = (source: string) => browser("wait", "--fn", source);
   const group = (id: string) => `.shelf [data-shelf-group="${id}"]`;
-  const row = (id: number) => `.shelf [data-todo="${id}"] .shelf-title`;
+  const row = (id: number) => `.shelf [data-todo="${id}"] .sortable-handle`;
   const point = (selector: string) => evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({block:'center'}); const b = el.getBoundingClientRect(); return {x: Math.round(b.left + b.width/2), y: Math.round(b.top + b.height/2)}; })()`);
   const app = createServedApp(real.base);
   const me: Actor = { kind: "user", id: "you", parent: null };

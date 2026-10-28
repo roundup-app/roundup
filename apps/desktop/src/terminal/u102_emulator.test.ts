@@ -135,6 +135,7 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   vi.spyOn(terminal, "open").mockImplementation(() => {});
   // This buffer-only probe closes drawing; the addon requires an opened renderer.
   vi.spyOn(LigaturesAddon.prototype, "activate").mockImplementation(() => {});
+  vi.spyOn(terminal, "registerCharacterJoiner").mockReturnValue(0);
   vi.spyOn(terminal, "focus").mockImplementation(() => {});
   let cols = 100;
   vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => terminal.resize(cols, 24));
