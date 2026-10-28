@@ -149,3 +149,39 @@ it.each(["input", "textarea", "editable", "terminal"])("u3787c_vanilla_prefix_le
     expect(view.tree.getFocusedPath()).toBe("alpha.ts");
   } finally { view.close(); }
 });
+
+
+it.each(["q", " "])("u3787i_unmatched_key_and_space_reach_the_app_%s", async key => {
+  const view = await mountTree({ typeahead: "name-prefix", search: true });
+  let received = 0;
+  const receive = () => received++;
+
+  document.body.addEventListener("keydown", receive);
+
+  try {
+    view.row("alpha.ts").focus();
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, composed: true, cancelable: true });
+
+    view.row("alpha.ts").dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(received).toBe(1);
+    expect(view.tree.getSelectedPaths()).toEqual([]);
+    expect(view.tree.getFocusedPath()).toBe("alpha.ts");
+    expect(view.tree.isSearchOpen()).toBe(false);
+  } finally {
+    document.body.removeEventListener("keydown", receive);
+    view.close();
+  }
+});
+
+it("u3787i_space_extends_an_active_name_prefix", async () => {
+  const view = await mountTree({ typeahead: "name-prefix", paths: ["echo.ts", "e two.ts", "two.ts"] });
+
+  try {
+    view.row("echo.ts").focus();
+    fireEvent.keyDown(view.row("echo.ts"), { key: "e" });
+    expect(fireEvent.keyDown(view.row("e two.ts"), { key: " " })).toBe(false);
+    fireEvent.keyDown(view.row("e two.ts"), { key: "t" });
+    expect(view.tree.getSelectedPaths()).toEqual(["e two.ts"]);
+  } finally { view.close(); }
+});
