@@ -152,17 +152,8 @@ impl Daemon {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
         if method == "todo.restore" {
-            let p: contracts::todo::DeletionParams = rpc::params(params.clone())?;
             if conn.actor.kind != ActorKind::User {
                 return Err(RpcError::forbidden("only the user restores deleted Todos"));
-            }
-            for target in self.todos.restore_targets(&conn.actor, &p.operation)? {
-                self.require_owner(&serde_json::to_value(target).map_err(RpcError::internal)?)
-                    .await?;
-            }
-            for target in self.todos.restore_homes(&conn.actor, &p.operation)? {
-                self.require_workstream(&serde_json::to_value(target).map_err(RpcError::internal)?)
-                    .await?;
             }
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
@@ -179,33 +170,6 @@ impl Daemon {
             .modules
             .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        if method == "pad.restore" {
-            let retained: contracts::pad::Deletion = serde_json::from_value(
-                self.pads
-                    .call(
-                        &self.ctx(conn.actor.clone()),
-                        "pad.getDeletion",
-                        params.clone(),
-                    )
-                    .await?,
-            )
-            .map_err(RpcError::internal)?;
-            if !retained.restored {
-                self.require_workstream(
-                    &serde_json::to_value(&retained.pad).map_err(RpcError::internal)?,
-                )
-                .await?;
-                let owner = &retained.pad.owner;
-                if owner.kind == ActorKind::Agent
-                    && !self.rail().await?.iter().any(|node| node.id == owner.id)
-                {
-                    return Err(RpcError::not_found(format!(
-                        "original Pad owner {}",
-                        owner.id
-                    )));
-                }
-            }
-        }
         if matches!(method, "todo.move" | "pad.move") {
             if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
                 return Err(RpcError::forbidden("an Agent may not move a pad"));

@@ -326,7 +326,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |
-| Todo deletion (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`) | same | — |
+| Todo deletion (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_with`) | same | — |
 | RPC error data (`RpcErrorData`) | same | — |
 | Thrown outcome (`outcomeOf`) | same | — |
 
