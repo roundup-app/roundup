@@ -18,7 +18,7 @@ import type { AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 export type RailState = {
-  prepareTerminal?: (() => Promise<TerminalPreparation>) | undefined;
+  prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
