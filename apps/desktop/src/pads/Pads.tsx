@@ -206,6 +206,7 @@ export const Pads = (props: {
   });
 
   let lifted: Pad | undefined;
+
   const reorder = async (ids: string[]) => {
     const source = lifted;
 
@@ -213,9 +214,10 @@ export const Pads = (props: {
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
     const message = await failureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
-    reportItemFailure(source, message, copy.moveDown);
+    reportItemFailure(source, message, copy.movePad(source.name));
     await list.reload();
   };
+
   const [dragging, setDragging] = createSignal(false);
   const [picking, pick] = createSignal<{ id: string; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
   const setPicking = (request: { id: string; anchor: HTMLElement } | null) => { pick(request && { ...request, focus: captureFocus(true) }); };
@@ -542,7 +544,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </button>
             </Show>
             <Show when={!editing()}>
-              <button type="button" data-button="quiet" class="pad-grip" aria-label={copy.movePad(pad.name)} ref={props.parts.handleRef}
+              <button type="button" data-button="quiet" class="pad-grip" data-reorderable aria-label={copy.movePad(pad.name)} ref={props.parts.handleRef}
                 onPointerDown={() => props.onLift(pad)} onKeyDown={() => props.onLift(pad)}><GripVertical class="icon" aria-hidden="true" /></button>
             </Show>
             </div>
