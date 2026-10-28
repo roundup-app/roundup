@@ -79,7 +79,7 @@ it.each([
   try {
     view.row("alpha.ts").focus();
 
-    for (const key of prefix) fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key });
+    for (const key of prefix) expect(fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key })).toBe(false);
     await waitFor(() => expect(view.tree.getFocusedPath()).toBe(path), { timeout: 1000 });
     expect(view.tree.getSelectedPaths()).toEqual([path]);
     expect(view.tree.getVisibleCount()).toBe(6);
@@ -149,7 +149,6 @@ it.each(["input", "textarea", "editable", "terminal"])("u3787c_vanilla_prefix_le
     expect(view.tree.getFocusedPath()).toBe("alpha.ts");
   } finally { view.close(); }
 });
-
 
 it.each(["q", " "])("u3787i_unmatched_key_and_space_reach_the_app_%s", async key => {
   const view = await mountTree({ typeahead: "name-prefix", search: true });
