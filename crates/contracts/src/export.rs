@@ -215,15 +215,6 @@ pub fn types() -> specta::Types {
         .register::<crate::project::ImportCommitParams>()
         .register::<crate::project::ImportOutcome>()
         .register::<crate::project::ImportResult>()
-        .register::<crate::project::Measurements>()
-        .register::<crate::project::Measurement>()
-        .register::<crate::project::MeasurementValue>()
-        .register::<crate::project::Execution>()
-        .register::<crate::project::MeasurementSource>()
-        .register::<crate::project::TimedActivity>()
-        .register::<crate::project::ClockPoint>()
-        .register::<crate::project::ObservedSegment>()
-        .register::<crate::project::TimeState>()
         .register::<crate::workstream::AutoParams>()
         .register::<crate::workstream::StartChoice>()
         .register::<crate::workstream::StartWorkstreamParams>()
@@ -376,10 +367,6 @@ pub fn generate(root: &std::path::Path) -> Result<(), Box<dyn std::error::Error 
     }
     rust.push_str("]\n");
     std::fs::write(root.join("methodTypes.rs"), rust)?;
-    std::fs::write(
-        root.join("agentTime.ts"),
-        crate::common::render_agent_time_typescript(),
-    )?;
     Ok(())
 }
 

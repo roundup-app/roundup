@@ -198,31 +198,11 @@ impl Messages {
             MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone().into())),
             MessageStatus::Pending => {}
         }
-        {
-            let routing = async {
-                // The Status read before the insert may be stale: an `idle` that landed between that read
-                // and the insert found nothing pending and no other will follow. Read it again now that
-                // the Message is stored; an `idle` after this read finds the Message itself.
-                if message.status == MessageStatus::Pending && receiver_status.is_some() {
-                    nudge(&self.inner, &p.to).await;
-                }
-            };
-            // A ready future never blocked its caller. Retain evidence only after the
-            // existing routing operation yields Pending, never pending-Message duration.
-            let mut routing = std::pin::pin!(routing);
-            let mut waiting = None;
-            std::future::poll_fn(|cx| {
-                let poll = routing.as_mut().poll(cx);
-                if poll.is_pending() && waiting.is_none() && ctx.actor.kind == ActorKind::Agent {
-                    waiting = self
-                        .inner
-                        .agents
-                        .observe_coordination(&ctx.actor.id, message.id);
-                }
-                poll
-            })
-            .await;
-            drop(waiting);
+        // The Status read before the insert may be stale: an `idle` that landed between that read
+        // and the insert found nothing pending and no other will follow. Read it again now that
+        // the Message is stored; an `idle` after this read finds the Message itself.
+        if message.status == MessageStatus::Pending && receiver_status.is_some() {
+            nudge(&self.inner, &p.to).await;
         }
         Ok(message)
     }
