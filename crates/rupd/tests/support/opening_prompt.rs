@@ -1,13 +1,8 @@
-//! A4452c: the real clear coordinator, Claude inbox and recorded Terminal bytes.
-#[path = "support/child_run.rs"]
-mod child_run;
-#[path = "support/door_terminals.rs"]
-mod door_terminals;
-#[path = "support/rupd_harness.rs"]
-mod rupd_harness;
-
-use child_run::{BOUND, Run};
-use door_terminals::{idle, recorded_bytes};
+//! A4452c: saved Opening prompts through the existing Door test harness.
+use super::{
+    child_run::{BOUND, Run},
+    door_terminals::{idle, recorded_bytes},
+};
 use serde_json::{Value, json};
 
 async fn door(prompt: Option<&str>) -> Run {

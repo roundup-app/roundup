@@ -3,6 +3,8 @@
 mod child_run;
 #[path = "support/door_terminals.rs"]
 mod door_terminals;
+#[path = "support/opening_prompt.rs"]
+mod opening_prompt;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 use child_run::BOUND;
