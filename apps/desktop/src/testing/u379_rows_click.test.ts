@@ -24,7 +24,7 @@ type Line = { list: string; row: number; line: string; x: number; y: number };
 
 const TAB = `async (list) => {
   const tab = [...document.querySelectorAll('.shelf-tabs [role="tab"]')].find((own) => own.textContent.toLowerCase().startsWith(list));
-  if (tab.getAttribute("aria-selected") !== "true") tab.click();
+  if (tab.getAttribute("aria-expanded") !== "true") tab.click();
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
 }`;
 
@@ -57,6 +57,9 @@ run("u379 where a Shelf row washes, a click acts", () => {
     await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
 
     for (const list of ["todos", "pads"]) {
+      await page.call(TAB, list);
+      await page.until(`() => document.querySelector('.shelf section[aria-label="${list}" i] .shelf-row') !== null`);
+      await page.call(`() => { for (const control of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) control.click(); }`);
       const lines = await page.call<Line[]>(LINES, list);
 
       if (lines.length === 0) throw new Error(`No ${list} row content in the fixture`);

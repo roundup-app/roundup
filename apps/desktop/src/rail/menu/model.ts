@@ -5,8 +5,6 @@ import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
-import { clearingOf } from "../clear";
-import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
 import { judgeRemoval } from "./removal";
@@ -35,7 +33,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -112,26 +110,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
-
-  /** U350: the Workstream whose reason prompt the Rail shows, opened from its row menu or its clear icon. */
-  const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
-
-  /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
-  const isClearable = (node: RailNode) => {
-    if (node.kind !== "workstream") return false;
-
-    const phase = clearingOf(app, events, node.id, storage).phase();
-
-    return phase !== "pending" && (phase === "closed" || clearTarget()?.id !== node.id);
-  };
-
-  /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
-  const requestClear = (node: RailNode) => {
-    if (!isClearable(node)) return;
-
-    setClearTarget(node);
-    clearingOf(app, events, node.id, storage).open();
-  };
 
   const chooseRemove = (scope: "this" | "all" = "this") => {
     const current = state();
@@ -254,7 +232,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return resume(node.id);
     } });
 
-    if (isClearable(node)) items.push({ id: "clear", label: copy.clearMenu, run: () => requestClear(node) });
 
     return [
       ...items,
@@ -270,12 +247,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
-    clearTarget,
-    hideClear: () => setClearTarget(null),
     requestRemove,
     requestStop,
-    requestClear,
-    isClearable,
     isRunning,
     requestResume: (node: RailNode) => void resume(node.id),
     isResumable,

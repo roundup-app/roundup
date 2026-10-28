@@ -149,6 +149,7 @@ export const CONTRACT = {
     "workstream.handoff": "8590b320c7680275",
     "workstream.queue": "a48f459487dcac4c",
     "workstream.queueMove": "f59cd303687c2da5",
+    "workstream.restart": "f5a93ee608761d7a",
     "workstream.rewind": "39dff0d8d5cfe481",
     "workstream.rewindPlan": "52de6ad949ee8ee8",
     "workstream.setAuto": "5e70af924e06d425",

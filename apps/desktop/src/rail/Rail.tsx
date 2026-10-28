@@ -8,7 +8,6 @@ import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -18,7 +17,6 @@ import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
-import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
@@ -35,8 +33,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { ClearPrompt } from "./ClearPrompt";
-import { clearingOf } from "./clear";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
@@ -62,7 +58,7 @@ export const Rail = () => {
   const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
-  const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
+  const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.drafts, (id) => {
     setEditingName(id);
   }, connected.queue, node => {
     const actions = actionsOf(node);
@@ -77,7 +73,7 @@ export const Rail = () => {
       ...(node.kind === "workstream" ? [{ id: "opening-prompt", label: copy.openingPromptMenu, run: () => { setOpeningPrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
-      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
+      ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [
         { id: "add-agent", label: copy.addAgentMenu, enabled: !actions.add.disabled, run: actions.add.run },
         { id: "add-todo", label: copy.todo, enabled: daemonExit() === null, run: () => connected.createIn("todo", node.id) },
         { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
@@ -87,15 +83,6 @@ export const Rail = () => {
     ];
   }, id => copied.get(id));
 
-
-  const clearPrompt = createMemo(() => {
-    const node = menu.clearTarget();
-
-    return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
-  });
-
-  // Keep the anchor mounted while Ark restores focus after the visible target closes.
-  const clearAnchor = createMemo((previous: RailNode | null) => menu.clearTarget() ?? previous, null);
 
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
@@ -112,10 +99,6 @@ export const Rail = () => {
     if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
 
     if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
-      return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
-    }
-
-    if (surface === "rail-clear" && object === clearPrompt()?.id) {
       return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
     }
 
@@ -516,7 +499,6 @@ export const Rail = () => {
         },
       };
 
-      if (menu.isClearable(node)) actions.clear = () => menu.requestClear(node);
 
       return actions;
     }
@@ -881,7 +863,6 @@ export const Rail = () => {
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
-                  <Show when={entry().destination.surface === "rail-clear"}><p>{entry().value.withoutHandoff === true ? copy.clearWithoutHandoff : copy.clearWithHandoff}</p></Show>
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
@@ -901,20 +882,6 @@ export const Rail = () => {
       </Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <Show when={clearAnchor()} keyed>
-        {(node) => {
-          const clearing = clearingOf(app, connected.events, node.id, connected.drafts);
-
-          return <Popover.Root open={clearPrompt()?.id === node.id}
-            onOpenChange={({ open }) => { if (!open) { clearing.keep(); menu.hideClear(); } }}
-            finalFocusEl={() => rowElement(node.id) ?? null}
-            positioning={{ placement: "bottom-start", strategy: "fixed", boundary: () => container() ?? [], getAnchorElement: () => rowElement(node.id) ?? null, fitViewport: true }}>
-            <Show when={clearPrompt()?.id === node.id}><Portal><Popover.Positioner><Popover.Content class="rail-clear" aria-label={copy.clearName(node.name)}>
-              <ClearPrompt node={node} onHide={menu.hideClear} />
-            </Popover.Content></Popover.Positioner></Portal></Show>
-          </Popover.Root>;
-        }}
-      </Show>
       <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={failure.retry()}>{retry => <>
