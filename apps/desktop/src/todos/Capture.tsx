@@ -113,6 +113,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
 
     return owner ? copy.captureFor(owner.name) : copy.unassigned;
   };
+
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
   const ownerCut = createCutTitle(ownerLine);
   const homeCut = createCutTitle(homeLine);
