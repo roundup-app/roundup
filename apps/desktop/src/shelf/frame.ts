@@ -20,7 +20,7 @@ const frameSchema = storageSchema("roundup:shelf", v.object({
 }));
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
-const storageOf = (path: string) => storedValue(`roundup:shelf:${path}`, frameSchema);
+const storageOf = (path: string, surface: string) => storedValue(surface === "shelf" ? `roundup:shelf:${path}` : `roundup:shelf:${path}:${surface}`, frameSchema);
 
 export type ShelfFrame = {
   /** Whether the user has the Shelf open. */
@@ -44,7 +44,7 @@ export type ShelfFrame = {
 };
 
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
-export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void, initialOpen = true): ShelfFrame => {
+export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void, initialOpen = true, surface: Accessor<string> = () => "shelf"): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(initialOpen);
   const [element, setElement] = createSignal<HTMLElement>();
@@ -61,14 +61,14 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     if (at !== null) {
       const value = { open: open(), tab: tab(), maximised: maximised() };
 
-      memory.set(at, value);
-      void storageOf(at).write(value);
+      memory.set(JSON.stringify([at, surface()]), value);
+      void storageOf(at, surface()).write(value);
     }
   };
 
   createComputed(
-    on(path, (at) => {
-      const stored = at === null ? null : memory.get(at) ?? storageOf(at).read();
+    on(() => [path(), surface()] as const, ([at, side]) => {
+      const stored = at === null ? null : memory.get(JSON.stringify([at, side])) ?? storageOf(at, side).read();
       const restored = stored?.open ?? initialOpen;
 
       setMaximised(stored?.maximised ?? false);

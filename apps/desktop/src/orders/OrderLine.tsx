@@ -13,7 +13,7 @@ const OrderDrawer = lazy(() => import("./OrderDrawer").then(module => ({ default
  * the full order in the Drawer. A node with no order (a Terminal) shows no line.
  */
 export const OrderLine = (props: { node: RailNode }) => {
-  const { drawer } = useConnectedProject();
+  const { drawer, project } = useConnectedProject();
   let opened: (() => ReturnType<typeof OrderDrawer>) | undefined;
 
   onCleanup(() => {
@@ -33,7 +33,7 @@ export const OrderLine = (props: { node: RailNode }) => {
           onClick={(event) => {
             const id = props.node.id;
             opened = () => <OrderDrawer id={id} />;
-            drawer.open(opened, activationSource(event));
+            drawer.open(opened, activationSource(event), { kind: "work-order", project: project.path });
           }}
         >
           {orderLine(order())}
