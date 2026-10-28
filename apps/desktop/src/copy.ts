@@ -402,7 +402,6 @@ export const copy = {
   newAgent: "New Agent",
   newAgentWithAPrompt: "New Agent with a prompt",
   newTerminal: "New Terminal",
-  plusTerminal: "+ Terminal",
   terminals: "Terminals",
   closeTerminal: (value1: CopyValue) => `Close ${value1}`,
   switchAgentTerminal: "Switch Agent / Terminal",
