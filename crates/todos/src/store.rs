@@ -33,6 +33,7 @@ impl Store {
         home: &str,
         actor: &Actor,
         removal: &mut contracts::agent::Removal,
+        scope: contracts::agent::RemoveScope,
     ) -> Result<Vec<contracts::EventData>, RpcError> {
         use contracts::EventData;
         use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
@@ -40,7 +41,7 @@ impl Store {
         let before = self.list()?;
         let mut events = Vec::new();
         for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
-            if todo.done {
+            if todo.done || scope == contracts::agent::RemoveScope::All {
                 db.execute("DELETE FROM todos WHERE id = ?", [todo.id])
                     .map_err(RpcError::internal)?;
                 removal.removed.push(RemovedItem {
@@ -63,7 +64,9 @@ impl Store {
         let before_values: HashMap<_, _> =
             before.iter().map(|todo| (todo.id, values(todo))).collect();
         for mut todo in before {
-            if todo.home.as_deref() == Some(home) && todo.done {
+            if todo.home.as_deref() == Some(home)
+                && (todo.done || scope == contracts::agent::RemoveScope::All)
+            {
                 continue;
             }
             todo.blockers = db

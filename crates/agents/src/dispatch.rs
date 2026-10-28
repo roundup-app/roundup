@@ -660,15 +660,28 @@ impl Agents {
     ) -> Result<Value, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::RemoveParams { id, operation } = params(value)?;
+            let contracts::agent::RemoveParams {
+                id,
+                operation,
+                scope,
+            } = params(value)?;
             if operation.is_some() {
                 return Err(RpcError::forbidden(
                     "reversible removal requires the Project Daemon",
                 ));
             }
+            let scope = scope.unwrap_or_default();
             shared.guard_reach(&ctx.actor, &id, false)?;
+            if scope == RemoveScope::All && shared.rail().node(&id)?.kind != NodeKind::Workstream {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "scope all requires a Workstream",
+                ));
+            }
             if shared.rail().node(&id)?.kind == NodeKind::Workstream {
-                let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;
+                let removal = shared
+                    .remove_workstream(ctx.actor.clone(), &id, scope)
+                    .await?;
                 for item in &removal.removed {
                     Self::touch_rail(ctx, &item.id)?;
                 }
