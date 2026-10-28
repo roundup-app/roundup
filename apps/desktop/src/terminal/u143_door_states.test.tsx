@@ -231,7 +231,7 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
       expect(calls(daemon, "agent.spawn")[0]).toMatchObject({ parent: null });
     } else if (row.what === copy.newTerminal) {
       await waitFor(() => expect(document.activeElement?.closest(".bubble")).not.toBeNull());
-      expect(calls(daemon, "terminal.open")).toMatchObject([{ workstream: null }]);
+      await waitFor(() => expect(calls(daemon, "terminal.open")).toMatchObject([{ workstream: null }]));
     } else {
       const input = await screen.findByRole("textbox", { name: copy.askBarLabel });
 

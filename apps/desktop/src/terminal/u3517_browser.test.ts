@@ -344,3 +344,35 @@ it("u4590_visible_shell_waits_for_destination_fonts_before_launch", async () => 
   expect(params.rows).toBeGreaterThan(0);
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
+
+
+it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
+  await load("agents-10");
+  await select("agent-3", "t-agent-3");
+  await read("window.__fake.writeOutput('t-agent-3', 'Existing Terminal stays usable\\r\\n')");
+  await wait("document.querySelector('.pane .xterm-rows')?.textContent.includes('Existing Terminal stays usable')");
+  await read(`(() => {
+    window.__previousInput = document.querySelector('.pane .xterm-helper-textarea');
+    const load = document.fonts.load.bind(document.fonts);
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    document.fonts.load = async (...args) => { await gate; return load(...args); };
+    window.__releaseFonts = () => { document.fonts.load = load; release(); };
+    window.__fake.app.calls.length = 0;
+    document.querySelector('.rail-actions [aria-label="New Agent"]').click();
+  })()`);
+  await wait("document.querySelectorAll('.pane .xterm-screen').length === 2");
+  expect(await read("window.__previousInput.isConnected")).toBe(true);
+  await read("window.__previousInput.focus()");
+  await browser("press", "x");
+  await wait("window.__fake.app.calls.some(call => call.method === 'terminal.write' && call.params.id === 't-agent-3')");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'agent.spawn')")).toEqual([]);
+  const captures = captureDir("U4590");
+  if (captures) {
+    mkdirSync(captures, { recursive: true });
+    await browser("screenshot", join(captures, "agent-preparing-keeps-terminal.png"));
+    writeFileSync(join(captures, "agent-preparing-keeps-terminal.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
+  }
+  await read("window.__releaseFonts()");
+  await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn')");
+}, 60_000);

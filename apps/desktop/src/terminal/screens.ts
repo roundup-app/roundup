@@ -715,11 +715,21 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     let owned = true;
     const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
 
-    signal?.addEventListener("abort", dispose, { once: true });
+    // Include lazy loading, fonts and layout in the same finite preparation budget.
+    const deadline = AbortSignal.timeout(5_000);
+    const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
+    const cancelled = Promise.withResolvers<never>();
+    const abort = () => {
+      dispose();
+      cancelled.reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
+    };
+
+    cancellation.addEventListener("abort", abort, { once: true });
+    if (cancellation.aborted) abort();
 
     try {
       if (!emulator.prepare) throw new Error(appCopy.terminalPreparationUnavailable);
-      const size = await emulator.prepare(host, settled, signal);
+      const size = await Promise.race([emulator.prepare(host, settled, cancellation), cancelled.promise]);
 
       return { size, bind: id => {
         if (!owned) return;
@@ -728,7 +738,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         holderFor(id, emulator);
         owned = false;
       }, dispose };
-    } catch (error) { dispose(); throw error; } finally { signal?.removeEventListener("abort", dispose); }
+    } catch (error) { dispose(); throw error; } finally { cancellation.removeEventListener("abort", abort); }
   };
 
   return {
