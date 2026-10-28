@@ -162,7 +162,7 @@ The coordinator must complete a successful next Attempt with the same key; a
 reopen alone never releases a reservation or repeats a prompt.
 
 `record_restart_prompt` records the exact reserved lifecycle text as one delivered
-`you`/`note`, without calling Deliver/Steer, changing Iteration or rewriting earlier
+`you`/`note`, without calling Deliver/Steer or rewriting earlier
 Thread records. The reservation and Message id commit atomically. A Touch failure
 or injected recording/publication failure can be retried: the existing note and
 user's wrote Touch are reused. Successful recording emits normal `message.sent`
@@ -342,4 +342,4 @@ effects. M1, M4–M10 and Routes are unchanged; `proofs/messages` needs no chang
 
 ### A4452c fresh Door session
 
-`workstream.restart {id, request}` is user-only; retries retain `request`. It reserves A35's immutable Opening prompt before stopping only the Door. The Workstream, children, Todos, Pads and Iteration remain. After matching SessionStart, only the saved Opening prompt is typed verbatim once; without one the session starts idle. Context uses the inbox. Persisted Starting and Typing fences refuse uncertain effects instead of replaying them. An acknowledged prompt is recorded through `record_restart_prompt`; recording retries never type. Plain resume and Rewind type nothing. This extends the A35 reservation without changing M1–M10 or Route, Held and Takeover semantics.
+`workstream.restart {id, request}` is user-only; retries retain `request`. It reserves A35's immutable Opening prompt before stopping only the Door. The Workstream, children, Todos and Pads remain. After matching SessionStart, only the saved Opening prompt is typed verbatim once; without one the session starts idle. Context uses the inbox. Persisted Starting and Typing fences refuse uncertain effects instead of replaying them. An acknowledged prompt is recorded through `record_restart_prompt`; recording retries never type. Plain resume and Rewind type nothing. This extends the A35 reservation without changing M1–M10 or Route, Held and Takeover semantics.

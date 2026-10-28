@@ -109,7 +109,7 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
          "parent":null, "order":0, "status":null, "attempt":null,
          "status_revision":null, "terminal_id":null, "worktree":null,
          "can_resume":false, "channel":null, "work":null, "stray":[],
-         "model":null, "effort":null, "iteration":2},
+         "model":null, "effort":null},
         {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
          "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",

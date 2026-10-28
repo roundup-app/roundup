@@ -296,7 +296,7 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
     assert_eq!(card["title"], "ready");
     assert_eq!(card["blocks"], json!([{"kind": "text", "text": "facts"}]));
     assert_eq!(listed(&fx).await[0]["rewindable"], true);
-    let marks = store(&fx).marks(&fx.ws, 1, 1).unwrap();
+    let marks = store(&fx).marks(&fx.ws, 1).unwrap();
     let mut ids: Vec<_> = marks
         .agents
         .iter()
