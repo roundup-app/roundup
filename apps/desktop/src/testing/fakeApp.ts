@@ -316,9 +316,11 @@ export const createFakeApp = (): FakeApp => {
     answerRemoval: undefined,
     askRemoval: async question => {
       app.removalQuestions.push(question);
+
       if (app.questionFailure) throw app.questionFailure;
       const answer = probeRemovalQuestion(question);
       app.answerRemoval = chosen => questionProbe.answer?.(chosen);
+
       return answer;
     },
     questions: [],

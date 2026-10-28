@@ -147,6 +147,7 @@ export type CapturePort = {
 
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
 export type RemovalAnswer = "this" | "all" | "cancel";
+
 export type RemovalQuestion = { title: string; message: string; thisLabel: string; allLabel: string; cancelLabel: string };
 
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };

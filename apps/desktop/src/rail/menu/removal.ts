@@ -81,6 +81,7 @@ export const staysLine = ({ stays }: Removal) => {
 /** U4461: the extra destruction authorized only by Remove all. */
 export const removeAllLine = ({ stays }: Removal) => {
   const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
+
   return list === "" ? null : copy.removeAllAlsoRemoves(list);
 };
 

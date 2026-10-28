@@ -30,8 +30,10 @@ export const NativeAlert = (props: {
     try {
       const question = { ...props.question };
       let answer: boolean | RemovalAnswer;
+
       if ("thisLabel" in question) {
         const askRemoval = props.app.askRemoval;
+
         if (!askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
         answer = await askRemoval(question);
       } else answer = await props.app.ask(question);
@@ -48,7 +50,7 @@ export const NativeAlert = (props: {
         return;
       }
 
-      if (accepted) await props.onConfirm(typeof answer === "string" ? answer : undefined);
+      if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
       else props.onCancel();
       queueMicrotask(() => focus(() => props.finalFocus()?.focus({ preventScroll: true })));
     } catch (error) {
