@@ -1,3 +1,4 @@
+import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { EmptyState } from "../ink/EmptyState";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -358,9 +359,21 @@ const ProjectOverview = () => {
 
   const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
-  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
+  const heads = new Map<string, HTMLElement>();
+  const entries = () => hasView("workstreams")
+    ? [...workstreams().flatMap(node => [node, ...under(node.id)]), ...attention().filter(node => node.kind !== "workstream" && resolvedWorkstream(rail.nodes, node.id) === null)]
+    : attention();
+  const content = createRowCollection(() => entries().filter(node => {
+    const head = heads.get(node.id);
 
-  return <section class="project-overview" aria-label={copy.projectOverview}>
+    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
+  }).map(node => ({ value: node.id, label: node.name })), { onActivate: id => rail.select(id) });
+  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} selected={content.selection.isSelected(node.id)} head={element => {
+    heads.set(node.id, element); content.register(element, node.id);
+    onCleanup(() => { if (heads.get(node.id) === element) heads.delete(node.id); });
+  }} />;
+
+  return <section class="project-overview" aria-label={copy.projectOverview} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
     <Show when={attention().length > 0} fallback={<EmptyState art="check" {...{ title: emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={emptyWorkstreams() ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
@@ -381,7 +394,7 @@ const ProjectOverview = () => {
   </section>;
 };
 
-const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolean; select: () => void }) => {
+const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolean; select: () => void; selected: boolean; head: (element: HTMLButtonElement) => void }) => {
   const status = () => props.status ? props.node.status : null;
   const [cut, setCut] = createSignal(false);
   let name: HTMLSpanElement | undefined;
@@ -401,7 +414,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
   return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger();
 
-    return <button {...focus} onClick={props.select} type="button" class="overview-entry"
+    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry"
       aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
@@ -477,6 +490,15 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
     }
   };
 
+  const heads = new Map<string, HTMLElement>();
+  const content = createRowCollection(() => records().filter(record => {
+    const head = heads.get(record.id);
+
+    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
+  }).map(record => ({ value: record.id, label: record.title })), {
+    onActivate: id => { const record = records().find(record => record.id === id); if (record) void open(record); },
+  });
+
   const copied = createCopyLabels(() => records().map(record => record.id));
 
   const openMenu = (record: Deliverable, x: number, y: number) => {
@@ -518,15 +540,18 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
     : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
-  return <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+  return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <div class="made-actions"><button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button><Show when={props.onClose}><button type="button" data-button="quiet" onClick={() => props.onClose?.()}>{copy.closeView(copy.deliverables)}</button></Show></div>
       </div>
       <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><EmptyState art="diamond" {...{ title: copy.deliverablesEmpty }} line={copy.emptyMadeLine} /></Show>
-      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
+            heads.set(record.id, element); content.register(element, record.id);
+            onCleanup(() => { if (heads.get(record.id) === element) heads.delete(record.id); });
+          }} data-row-selected={content.selection.isSelected(record.id)} aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">

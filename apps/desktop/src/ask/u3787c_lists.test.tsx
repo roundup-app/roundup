@@ -13,11 +13,11 @@ beforeEach(() => localStorage.clear());
 const names = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"];
 const published = (title: string, at: number): Deliverable => ({
   id: `record-${at}`, project: "original-project", maker: { kind: "agent", id: "maker", parent: null }, maker_name: "Maker", home: "home",
-  title, published_at: 1792713600000, target: { kind: "external", url: `https://example.com/${at}` },
+  title, published_at: 1792713600000, target: { kind: "external", availability: "not-checked", url: `https://example.com/${at}` },
 });
 const inventory = [
   { opening: "Project → Needs you", selector: ".overview-entry", command: null },
-  { opening: "Project menu → Workstreams", selector: ".overview-entry", command: "view:workstreams" },
+  { opening: "Project → requested Workstreams overview", selector: ".overview-entry", command: "view:workstreams" },
   { opening: "Project menu → Made", selector: ".made-open", command: "view:made" },
 ];
 const mount = async (command: string | null, selector: string) => {
@@ -26,11 +26,11 @@ const mount = async (command: string | null, selector: string) => {
   app.handlers["rail.tree"] = () => [workstream("home", { name: "Home", status: null }), ...names.map((name, at) => agent(`node-${at}`, "needs-you", "asks", { name, parent: "home", order: at }))];
   app.handlers["terminal.list"] = () => [];
   app.handlers["deliverable.list"] = () => names.map(published);
-  app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", url: `https://example.com/${id}` });
+  app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
   const { factory } = fakeEmulators();
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => { if (command === "view:workstreams") open.showView("workstreams"); }} />);
   await screen.findByRole("region", { name: "Project overview" });
-  if (command) openProjectPage(command);
+  if (command === "view:made") openProjectPage(command, "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
   const rows = [...document.querySelectorAll<HTMLButtonElement>(selector)];
   // Nested attention rows remain eligible even when their Rail Home is collapsed.
@@ -80,11 +80,20 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(app.openedTargets).toEqual([]);
 });
 
-it.each(["Enter", " ", "click"])("u3787c_Made_activation_resolves_the_original_identity_%s", async key => {
+it.each(["Enter", " "])("u3787c_Made_activation_resolves_the_original_identity_%s", async key => {
   const { app, eligible } = await mount("view:made", ".made-open");
   eligible[2]!.focus();
-  if (key === "click") fireEvent.click(eligible[2]!);
-  else fireEvent.keyDown(eligible[2]!, { key });
+  fireEvent.keyDown(eligible[2]!, { key });
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/record-2" }]));
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "original-project", id: "record-2" }]);
+});
+
+// U2567c retains pointer activation; these exercise the added collection key ownership.
+it.each(["Enter", " "])("u3787c_overview_activation_selects_only_the_original_attention_%s", async key => {
+  const { app, eligible } = await mount(null, ".overview-entry");
+  const before = app.calls.length;
+  eligible[2]!.focus();
+  fireEvent.keyDown(eligible[2]!, { key });
+  await waitFor(() => expect(document.querySelector('.rail-row[data-id="node-2"][data-selected=true]')).not.toBeNull());
+  expect(app.calls.slice(before).some(call => ["agent.spawn", "terminal.write", "ask.send"].includes(call.method))).toBe(false);
 });
