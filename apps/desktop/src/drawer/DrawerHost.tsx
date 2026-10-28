@@ -13,7 +13,7 @@ import type { DrawerContent, DrawerState } from "./drawer";
 
 /**
  * An overlay: absolutely positioned over the Shelf, at the window's right edge. The centre narrows by the
- * Drawer's width with the same transition (U430), so the Drawer covers none of it (GLOSSARY.md, Drawer).
+ * Drawer's width with the same transition (U430), so the Drawer covers none of it.
  */
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
