@@ -1,6 +1,6 @@
 {
   "base": "e9c92247cebb9b6a42dc2e830592556e6aa4fec0",
-  "head": "00744c9f0995bf34a2ca1fc33dc3bfe0e4f645d7",
+  "head": "648db0561223d66e9503847c273d6b33e65c71a6",
   "mode": "dark",
   "viewport": [
     1512,
@@ -147,5 +147,6 @@
     "D8",
     "D10"
   ],
-  "observed": "Regular strokes are thinner, bold stays distinct, operators and boxes join; independent critic verdict is required."
+  "observed": "Regular strokes are thinner, bold stays distinct, operators and boxes join; independent critic verdict is required.",
+  "selection": "Select the replay\u2019s newest Turn after the refused paste, then await xterm\u2019s selection render frame."
 }
