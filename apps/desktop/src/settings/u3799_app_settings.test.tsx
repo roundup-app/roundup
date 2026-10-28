@@ -116,8 +116,6 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
 
   openProjectPage(command);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(rowOf("agent-1"));
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
   // U4453b owns Overview activation: it now closes the requested screen.
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
@@ -129,6 +127,8 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
+  fireEvent.click(rowOf("agent-1"));
+  expect(screen.getByRole("region", { name: heading })).toBe(page);
 
   if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
   else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
