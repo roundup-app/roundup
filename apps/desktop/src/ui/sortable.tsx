@@ -176,6 +176,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let sourceRow: HTMLElement | null = null;
   let slot: HTMLDivElement | null = null;
   let stopTracking: (() => void) | undefined;
+  let restoreSource: (() => void) | undefined;
   let closingSlot: HTMLDivElement | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
@@ -240,10 +241,15 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopTracking?.();
     stopTracking = undefined;
     const ending = slot;
+    const restore = restoreSource;
+
+    restoreSource = undefined;
+
     const remove = () => {
       // OptimisticSorting restores the proxy at dragend in the renderer's next task.
       setTimeout(() => {
         if (original && ProxiedElements.get(original) === ending) ProxiedElements.delete(original);
+        restore?.();
         ending?.remove();
       });
     };
@@ -310,9 +316,18 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
+      const target = isSortable(source) ? source.sortable.target : undefined;
+      const placeholder = slot;
+
+      restoreSource = () => {
+        if (isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
+      };
+
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
+        // Keeping the original hit target at lift prevents the new slot from selecting a neighbour.
+        source.sortable.target = source.index === source.initialIndex ? target : placeholder;
         list?.setAttribute("data-sortable-index", String(source.index));
 
         track(source, event.operation.position);
