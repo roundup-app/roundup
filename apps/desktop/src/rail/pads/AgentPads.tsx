@@ -47,4 +47,3 @@ export const PadsControl = (props: { pads: AgentPads; agent: string }) => {
     </Show>
   );
 };
-
