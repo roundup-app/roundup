@@ -108,6 +108,12 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
   expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]);
 });
 
+it("u4313a_rail_footer_offers_workstream_and_agent", async () => {
+  await mountNavigation(true);
+  const footer = document.querySelector<HTMLElement>(".rail-actions")!;
+  expect(within(footer).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Workstream", "New Agent"]);
+});
+
 it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
   const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
 
