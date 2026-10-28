@@ -80,8 +80,13 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
                 "/condition/ids/0",
             ),
         ] {
+            let caller = if method == "agent.spawn" && selector != "me" {
+                Actor::user()
+            } else {
+                actor.clone()
+            };
             let resolved = daemon
-                .resolve_agent_inputs(&actor, method, params)
+                .resolve_agent_inputs(&caller, method, params)
                 .await
                 .unwrap();
             assert_eq!(
