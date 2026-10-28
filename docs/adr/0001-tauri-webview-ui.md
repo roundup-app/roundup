@@ -1,6 +1,6 @@
 # Tauri 2 webview for the UI
 
-Status: Accepted (evidence: `spikes/tauri-latency/REPORT.md`)
+Status: Accepted (evidence: [retained latency report](../tauri-latency-report.md))
 
 ## Decision
 
