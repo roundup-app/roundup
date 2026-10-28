@@ -285,8 +285,10 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
     return true;
   })()`);
 
-  for (const [selector, count] of [['.shelf [data-todo] .row-controls button[aria-label="Open"]', 1], [".drawer .close", 2]] as const) {
+  for (const [selector, count] of [['.shelf [data-todo] .todo-row-button', 1], [".drawer .close", 2]] as const) {
     await browser("click", selector);
+
+    if (count === 1) await browser("press", "Enter");
     await settle();
     expect(await evaluate("window.__drawerResizes.length")).toBe(count);
   }
@@ -329,7 +331,8 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await settle();
     expect(await evaluate("matchMedia('(prefers-color-scheme: dark)').matches")).toBe(true);
     // Load the Todo's lazy content before measuring a reversal; capture still records the complete measured cycle below.
-    await browser("click", '.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+    await browser("click", '.shelf [data-todo="1"] .todo-row-button');
+    await browser("press", "Enter");
     await settle();
     await browser("click", ".drawer .close");
     await settle();
@@ -342,7 +345,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
       const todo = document.querySelector('.shelf [data-todo="1"]');
       const state = () => ({ closeLeft: drawer.querySelector('.close').getBoundingClientRect().left, closeTranslate: getComputedStyle(drawer.querySelector('.close')).translate, left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
         open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
-        focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('button[aria-label="Open"]'), home: selected?.dataset.id, todo: todo.dataset.todo,
+        focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('.todo-row-button'), home: selected?.dataset.id, todo: todo.dataset.todo,
         sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail .rail-row[data-selected=true]'),
         mode: document.querySelector('.window').dataset.shelfMode });
       const samples = [];
@@ -428,6 +431,20 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
           if (!activated.hit) throw new Error('Pointer missed moving target: ' + selector);
           return activated;
         };
+        // The Open chevron is gone: a trusted Enter on the focused row opens the Drawer.
+        const openByEnter = async selector => {
+          const target = document.querySelector(selector);
+          target.focus();
+          const pressed = new Promise(resolve => {
+            const observed = event => { if (event.key !== 'Enter') return; window.removeEventListener('keydown', observed); resolve({ trusted: event.isTrusted, hit: target.contains(event.target), ...o.state() }); };
+            window.addEventListener('keydown', observed);
+          });
+          for (const eventType of ['keyDown', 'keyUp']) input.send(JSON.stringify({ type: 'input_keyboard', eventType, key: 'Enter', code: 'Enter', text: eventType === 'keyDown' ? '\\r' : '', windowsVirtualKeyCode: 13 }));
+          const activated = await pressed;
+          if (!activated.trusted) throw new Error('Untrusted Enter');
+          o.events.push({ phase: 'enter', t: performance.now(), ...activated });
+          return activated;
+        };
         const halfway = async (from, destination) => {
           while (o.panel.getAnimations().some(animation => animation.playState === 'running')) {
             o.panel.getAnimations({ subtree: true }).forEach(a => { if (a.playbackRate !== o.rate) a.playbackRate = o.rate; });
@@ -443,14 +460,14 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
         };
         try {
           const initial = o.state();
-          await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          await openByEnter('.shelf [data-todo="1"] .todo-row-button');
           await halfway(initial.left, initial.left - initial.width);
           const closed = await activate('.drawer');
           if (closed.open !== 'false') throw new Error('Visible edge press did not dismiss Drawer');
           if (Math.abs(closed.left - (initial.left - initial.width)) < 1) throw new Error('Edge press arrived after opening settled');
           const returning = closed.left;
           await halfway(returning, initial.left);
-          const reopened = await activate('.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+          const reopened = await openByEnter('.shelf [data-todo="1"] .todo-row-button');
           if (Math.abs(reopened.left - initial.left) < 1) throw new Error('Reopen arrived after return settled');
           await frame();
           const escaped = new Promise(resolve => document.addEventListener('keyup', event => { if (event.key === 'Escape') resolve(event.isTrusted); }, { once: true }));
@@ -472,7 +489,8 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
       for (const id of ["D2", "D5", "D6"]) expect(checks[id]?.status).toBe("pass");
       writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks));
-      await browser("click", '.shelf [data-todo="1"] .row-controls button[aria-label="Open"]');
+      await browser("click", '.shelf [data-todo="1"] .todo-row-button');
+      await browser("press", "Enter");
       await settle();
       await browser("screenshot", join(directory, `${name}.png`));
       const openChecks = await evaluate<Record<string, { status: string }>>("window.__checks()");
@@ -515,7 +533,8 @@ it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => 
   await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
   await browser("click", '.shelf [data-todo="5"] .todo-row-button');
   await settle();
-  await browser("click", '.shelf [data-todo="5"] .row-controls button[aria-label="Open"]');
+  await browser("click", '.shelf [data-todo="5"] .todo-row-button');
+  await browser("press", "Enter");
   await settle();
   await evaluate(`(() => {
     const panel = document.querySelector('.drawer');
