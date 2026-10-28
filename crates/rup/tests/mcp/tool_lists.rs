@@ -350,3 +350,23 @@ async fn u3789a_mcp_and_cli_rename_keep_the_guarded_creation() {
         expected
     );
 }
+
+#[tokio::test]
+async fn a32_removed_tools_are_unavailable() {
+    let project = super::start_daemon();
+    let user = super::client_as(&project.socket, contracts::Actor::user()).await;
+    let door = user.request("rail.createWorkstream", serde_json::json!({"name":"team"})).await.unwrap();
+    let before = user.request("rail.tree", ()).await.unwrap();
+    for id in ["ordinary", door["id"].as_str().unwrap()] {
+        let shim = super::spawn_shim(&project.socket, id).await;
+        let tools = shim.client.list_all_tools().await.unwrap();
+        for name in ["workstream_clear", "workstream_handoff"] {
+            assert!(!tools.iter().any(|tool| tool.name == name), "{id}: {name}");
+            let error = shim.client.call_tool(super::CallToolRequestParams::new(name)).await.unwrap_err();
+            let rmcp::service::ServiceError::McpError(error) = error else { panic!("{error:?}") };
+            assert_eq!(error.code.0, -32602);
+            assert_eq!(error.message, format!("no tool named {name}"));
+        }
+        assert_eq!(user.request("rail.tree", ()).await.unwrap(), before);
+    }
+}
