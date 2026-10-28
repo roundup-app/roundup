@@ -198,11 +198,16 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 
 const editorKinds = ["pad", "rename"] as const;
 
-const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff", base = false) => {
+const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "ask", base = false) => {
   await app(base);
   let selector: string;
 
-  if (kind === "diff") {
+  if (kind === "ask") {
+    await browser("click", "[data-todo-root]");
+    selector = 'textarea[aria-label="Ask"]';
+    await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
+    await browser("fill", selector, "Keep this selected draft");
+  } else if (kind === "diff") {
     await browser("open", url("/src/changes/u2540.html"));
     await wait("!!document.querySelector('.worktree-control')");
     await browser("click", ".worktree-control");
@@ -363,7 +368,7 @@ it.each(["agent", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xter
   expect(await journal("#host .xterm-screen", true)).toEqual(appOn);
 }, 120_000);
 
-it.each([...editorKinds, "pad-source", "diff"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
+it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
   const selector = await editor(kind);
   const field = kind === "diff" ? "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')" : `document.querySelector(${JSON.stringify(selector)})`;
 

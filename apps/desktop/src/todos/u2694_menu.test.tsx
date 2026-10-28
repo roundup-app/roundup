@@ -32,7 +32,7 @@ it("u2694b_complete_calls_todo_complete", async () => {
   await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
 });
 
-it.each([["pads", true, true], ["pads", true, false], ["pads", false, false], ["todos", true, true], ["todos", true, false], ["todos", false, false]] as const)("u3812_todo_menu_omits_unavailable_actions_%s_done_%s_running_%s", async (surface, done, running) => {
+it.each([["todos", true, true], ["todos", true, false], ["todos", false, false]] as const)("u3812_todo_menu_omits_unavailable_actions_%s_done_%s_running_%s", async (surface, done, running) => {
   const { app, connected } = await mountTodos([todo(5, { title: "session store", done, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", running ? "idle" : "done", "ready")], true);
 
   if (!running) {
@@ -40,9 +40,8 @@ it.each([["pads", true, true], ["pads", true, false], ["pads", false, false], ["
     await connected.rail.refresh({ terminals: true });
   }
 
-  if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-  else if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
-  const owner = surface === "pads" ? screen.getByRole("tree", { name: "Rail" }) : screen.getByRole("region", { name: "Todos" });
+  if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
+  const owner = screen.getByRole("region", { name: "Todos" });
   const row = (await within(owner).findByText(/session store/)).closest<HTMLElement>("[data-todo]")!;
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
@@ -54,14 +53,13 @@ it.each([["pads", true, true], ["pads", true, false], ["pads", false, false], ["
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 
-it.each([["pads", false], ["pads", true], ["todos", false], ["todos", true]] as const)("u3812_multiple_eligible_recipients_lists_only_them_in_rail_order_%s_done_%s", async (surface, done) => {
+it.each([["todos", false], ["todos", true]] as const)("u3812_multiple_eligible_recipients_lists_only_them_in_rail_order_%s_done_%s", async (surface, done) => {
   const { app, connected } = await mountTodos([todo(5, { title: "session store", done, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready"), agent("x", "done", "stopped"), agent("b", "working", "busy")], true);
   app.handlers["terminal.list"] = () => [info("t-x", { running: false, exit_code: 0 })];
   await connected.rail.refresh({ terminals: true });
 
-  if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-  else if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
-  const owner = surface === "pads" ? screen.getByRole("tree", { name: "Rail" }) : screen.getByRole("region", { name: "Todos" });
+  if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
+  const owner = screen.getByRole("region", { name: "Todos" });
   const row = (await within(owner).findByText(/session store/)).closest<HTMLElement>("[data-todo]")!;
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 

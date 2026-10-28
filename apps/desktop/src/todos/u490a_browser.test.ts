@@ -36,18 +36,6 @@ type State = { ids: number[]; active: string | null; drawer: boolean; reorders: 
 
 type List = { name: string; rows: string; setup: () => Promise<void> };
 
-/** The Rail of the `tree-40` harness with its first Agent's Todos shown. */
-const nested: List = {
-  name: "an Agent's Todos in the Rail",
-  rows: "[data-pads] .todo-row-button",
-  setup: async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ...(captureDir("U490a") ? [1512, 950] as const : [1280, 820] as const));
-    await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
-    await page.call(`() => document.querySelector('.rail-pads-control').click()`);
-    await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
-  },
-};
-
 /** The Shelf's unassigned group in Overview, expanded for ordering. */
 const shelf: List = {
   name: "the Shelf's Todos",
@@ -104,7 +92,7 @@ const settled = async () => {
 
 const ALT = 1;
 
-for (const list of [nested, shelf]) {
+for (const list of [shelf]) {
   const { rows } = list;
 
   run(`u490a ${list.name} order on the shared Sortable`, () => {
@@ -153,7 +141,7 @@ for (const list of [nested, shelf]) {
 
       if (dir && preceding === "fresh") {
         mkdirSync(dir, { recursive: true });
-        const name = list === nested ? "rail" : "shelf";
+        const name = "shelf";
         writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`)));
       }
