@@ -23,7 +23,6 @@ type MenuState = {
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
   removal?: Removal | null | undefined;
   losses?: string[];
-  allLosses?: string[];
 };
 
 const NOT_FOUND = -32001;
@@ -161,15 +160,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
       ]);
 
-      const allLosses = rail.nodes.filter(node => removal?.affectedIds.includes(node.id) && !removal.removedIds.includes(node.id)).flatMap(node => [
-        ...(node.worktree ? [copy.removeAllWorktreeLoss(node.name)] : []),
-        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
-      ]);
-
       if (state()?.node.id !== current.node.id) return;
 
       if (current.node.kind === "workstream" || losses.length) {
-        setState({ ...current, confirming: true, removal, losses, allLosses });
+        setState({ ...current, confirming: true, removal, losses });
 
         return;
       }

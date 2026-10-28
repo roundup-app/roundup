@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe("u361 a Todo row holds a tick box, its title and what it waits on", () => {
   it("u361_a_branch_menu_completes_without_opening_or_reading", async () => {
     const { app } = await mountTodos([todo(3, { title: "ship it" }), todo(4, { title: "later", blocked: true, blockers: [3] })]);
-    const row = await screen.findByRole("button", { name: /#3 ship it/ });
+    const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #3 ship it/ });
 
     fireEvent.contextMenu(row);
     await app.pickMenu("Complete");
@@ -29,7 +29,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     fireEvent.click(box);
 
     expect(callsTo(app, "todo.complete")).toHaveLength(1);
-    expect(within(rowOf(3)).getByRole("button", { name: /todo 3/ })).toBeTruthy();
+    expect(within(rowOf(3)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ todo 3/ })).toBeTruthy();
   });
 
 });

@@ -25,9 +25,10 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
     expect(entry(app, copy.rename)).toMatchObject({ shortcut: "F2" });
     expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⌘⌫" });
+
     open("a");
     expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
   });
@@ -48,7 +49,8 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual([copy.startDoor, copy.openFolder, copy.openInEditor, copy.clearMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.startDoor, copy.openFolder, copy.openInEditor, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
+
   });
 
   it.each([
@@ -82,7 +84,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
   });
 
   it("u4322a_inapplicable_actions_are_absent", async () => {
@@ -212,7 +214,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
     } })),
     { name: "Rail reparent keys: only itself at the current root", run: async () => {
       const { app } = await mountRail([workstream("w")]);
-      const source = rowOf("w");
+      const source = within(rowOf("w")).getByRole("button", { name: "Move w" });
 
       // jsdom lacks these platform APIs; without them the DnD keyboard sensor throws before lifting.
       const animations = Object.getOwnPropertyDescriptor(document, "getAnimations");
@@ -288,7 +290,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           return true;
         })()`);
 
-        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-grip"]]) {
+        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".sortable-handle"]]) {
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
           const group = tab === "pads" ? "unassigned" : "me";
           await lane.until(`!!document.querySelector('.shelf [data-shelf-group="${group}"] ${row}')`);
@@ -296,7 +298,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 
           const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
             const point = element => { const box = element.getBoundingClientRect(); return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }; };
-            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group="${group}"] .shelf-group-head')) };
+            return { from: point(document.querySelector('.shelf ${row}').closest('[data-shelf-row]').querySelector('.sortable-handle')), to: point(document.querySelector('.shelf [data-shelf-group="${group}"] .shelf-group-head')) };
           })()`);
 
           await lane.resetCalls();
@@ -389,7 +391,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 it.each([
   {
     name: "Workstream row",
-    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
     receivers: ["a"],
     mount: async () => {
       const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
@@ -409,7 +411,7 @@ it.each([
   },
   {
     name: "Queued Workstream row",
-    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
     receivers: [],
     mount: async () => {
       const { app, connected } = await mountRail([workstream("first"), workstream("middle", { order: 1 }), workstream("last", { order: 2 })]);

@@ -112,6 +112,8 @@ impl Agents {
                 terminals,
                 clock: Arc::new(now_ms),
                 rail_view: rail_view::State {
+                    #[cfg(feature = "test-support")]
+                    statuses: Default::default(),
                     opened: now_ms(),
                     launcher: launcher.clone(),
                 },
@@ -124,7 +126,6 @@ impl Agents {
                 },
                 events: events::State {
                     observed: Default::default(),
-                    gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
                     tool_calls: Default::default(),
@@ -133,6 +134,7 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 context: None,
+                coordination: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
@@ -197,6 +199,19 @@ impl Agents {
         })
     }
 
+    /// A4452a, A4452d: send `send(agent id, text)` as a Message to the Agent's Claude inbox
+    /// for every text roundup authors; none of it is typed. Call it before the first call is made.
+    #[must_use]
+    pub fn with_coordination<F, Fut>(self, send: F) -> Self
+    where
+        F: Fn(String, String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
+    {
+        self.configure(|shared| {
+            shared.coordination = Some(Arc::new(move |id, text| Box::pin(send(id, text))))
+        })
+    }
+
     /// Stamp Statuses and time Ticks by `clock`, milliseconds since the Unix epoch, instead of
     /// the system's. Call it before the first call is made.
     #[must_use]
@@ -211,15 +226,6 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
-    }
-
-    /// H19: tell `observer`, for each `SessionStart` Signal and star title an Agent's Run folds,
-    /// whether that Observation released the Agent's first prompt to its Steer. It runs under
-    /// the Agents' locks, so it must not call back into them. Call it before the first call is
-    /// made.
-    #[must_use]
-    pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
     }
 
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
@@ -530,6 +536,8 @@ pub(super) mod tests {
             terminals,
             clock,
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -547,7 +555,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -556,6 +563,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
@@ -586,6 +594,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -603,7 +613,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -612,6 +621,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -678,6 +688,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -695,7 +707,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -704,6 +715,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)

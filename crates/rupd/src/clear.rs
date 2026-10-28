@@ -16,7 +16,7 @@ use contracts::workstream::{
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Value, json};
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::oneshot;
 use tokio::time::Instant;
 
 use super::Daemon;
@@ -56,6 +56,7 @@ struct Saved {
     archive: String,
     iteration: u32,
     removed: Vec<Removed>,
+    restarted: Option<String>,
 }
 
 /// How a clear begins.
@@ -124,7 +125,7 @@ impl Clears {
 /// A failed clear and, once the Handoff existed, where a retry goes on.
 struct Failure {
     err: Box<RpcError>,
-    saved: Option<Saved>,
+    saved: Option<Box<Saved>>,
 }
 
 impl From<RpcError> for Failure {
@@ -234,7 +235,7 @@ impl Daemon {
             }
             Err(Failure { err, saved }) => {
                 match saved {
-                    Some(saved) => stages.insert(p.id.clone(), Stage::Interrupted(Box::new(saved))),
+                    Some(saved) => stages.insert(p.id.clone(), Stage::Interrupted(saved)),
                     None => stages.remove(&p.id),
                 };
                 drop(stages);
@@ -277,6 +278,7 @@ impl Daemon {
                     archive: format!("archive-{iteration}"),
                     iteration,
                     removed: Vec::new(),
+                    restarted: None,
                 }
             }
         };
@@ -284,7 +286,7 @@ impl Daemon {
             Ok(()) => Ok(()),
             Err(err) => Err(Failure {
                 err: Box::new(err),
-                saved: Some(saved),
+                saved: Some(Box::new(saved)),
             }),
         }
     }
@@ -350,32 +352,14 @@ impl Daemon {
         }
     }
 
-    /// Steer `id` once it takes a Steer: a Busy refusal, which writes nothing (B6), is tried again
-    /// at `id`'s next Status, so an Agent still in a turn, its first prompt included, is Steered
-    /// when the turn ends.
+    /// A4452d: ask `id` for its Handoff through its Claude inbox; the ask is never typed.
     async fn steer_when_free(
         &self,
         agents: &agents::Agents,
         id: &str,
         text: &str,
     ) -> Result<(), agents::PromptError> {
-        let mut events = self.bus.subscribe();
-        loop {
-            let busy = match agents.prompt(id, text).await {
-                Err(busy @ agents::PromptError::Busy { .. }) => busy,
-                done => return done,
-            };
-            loop {
-                match events.recv().await {
-                    Ok(event) if matches!(&event.data, EventData::AgentStatus(s) if s.id == id) => {
-                        break;
-                    }
-                    Ok(_) => {}
-                    Err(broadcast::error::RecvError::Lagged(_)) => break,
-                    Err(broadcast::error::RecvError::Closed) => return Err(busy),
-                }
-            }
-        }
+        agents.coordinate(id, text.to_owned()).await
     }
 
     /// Everything after the Handoff exists, in the order of A32.
@@ -414,19 +398,22 @@ impl Daemon {
                 .any(|pad| pad.name == saved.archive)
                 .then_some(saved.archive.as_str()),
         );
-        agents.stop_door(Actor::user(), id).await?;
         let next = saved.iteration + 1;
-        let ctx = self.ctx(Actor::user());
-        agents
-            .restart_door(
-                &ctx,
-                id,
-                saved.handoff.clone(),
-                next,
-                self.clears.restart_bound,
-                p.permission_mode,
-            )
-            .await?;
+        if saved.restarted.is_none() {
+            agents.stop_door(Actor::user(), id).await?;
+            let ctx = self.ctx(Actor::user());
+            let node = agents
+                .restart_door(
+                    &ctx,
+                    id,
+                    saved.handoff.clone(),
+                    next,
+                    self.clears.restart_bound,
+                    p.permission_mode,
+                )
+                .await?;
+            saved.restarted = node.attempt;
+        }
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;
         }

@@ -235,9 +235,6 @@
   user-select: text;
 }
 
-.rail-tree .sortable-slot {
-  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, var(--length-zero)) + var(--rail-inset));
-}
 
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
 .rail-tree [role="tree"][aria-disabled="true"] {
@@ -845,3 +842,21 @@
 .rail-row,
 .rail-fold,
 .rail-leaf { --tree-mid: var(--elbow-y); }
+
+.opening-prompt-field [data-part="textarea"] {
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow: auto;
+  resize: none;
+  min-height: calc(var(--space-6) * 5);
+}
+
+.opening-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
+.opening-prompt-dialog [data-part="title"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
+.opening-prompt-dialog .app-dialog-actions { align-items: center; }
+.opening-prompt-dialog .reserved-line { flex: 1; }

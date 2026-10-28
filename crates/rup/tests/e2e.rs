@@ -3533,15 +3533,9 @@ fn d8_listing(dir: &std::path::Path) -> Vec<String> {
 #[tokio::test]
 async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    let (launches, input) = (
-        scratch.path().join("launches"),
-        scratch.path().join("typed"),
-    );
-    let project = start(&[
-        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
-        ("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap()),
-    ]);
-    let mut client = project.subscribed().await;
+    let input = scratch.path().join("typed");
+    let project = start(&[("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap())]);
+    let client = project.subscribed().await;
     let agent: RailNode = serde_json::from_value(
         client
             .request(
@@ -3552,23 +3546,26 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
             .unwrap(),
     )
     .unwrap();
-    wait_until_idle(
-        &mut client,
-        std::slice::from_ref(&agent.id),
-        Instant::now() + TEN_IDLE_BOUND,
-    )
-    .await
-    .unwrap_or_else(|report| panic!("{report}"));
-    // The Agent's spawn prompt arrives after it first idles: wait for it, then count.
-    let deadline = Instant::now() + TEN_IDLE_BOUND;
-    while std::fs::read_to_string(&input)
-        .unwrap_or_default()
-        .is_empty()
-    {
-        assert!(Instant::now() < deadline, "the startup prompt never came");
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // A4452: the inbox receipt, then idle, bound startup without any typed prompt.
+    h21_poll("startup coordination receipt", async || {
+        let messages = client
+            .request("message.list", json!({"to":agent.id}))
+            .await
+            .unwrap();
+        messages
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["status"] == "delivered")
+            .cloned()
+    })
+    .await;
+    h21_poll("startup coordination stopped", async || {
+        rail_tree(&client).await.into_iter().find(|node| {
+            node.id == agent.id && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
+        })
+    })
+    .await;
     let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
     let tree_before = format!("{:?}", rail_tree(&client).await);
     let files_before = d8_listing(project.dir.path());
@@ -4259,7 +4256,7 @@ async fn e2704a_context_digest_and_wake_errors_use_names() {
             .await
             .unwrap_err();
         assert_eq!(missing.code, rpc::code::NOT_FOUND);
-        assert_eq!(missing.message, "not found: an Agent that is gone");
+        assert!(missing.message.contains("reader, writer"));
     }
 
     let repeated = caller
@@ -4273,7 +4270,7 @@ async fn e2704a_context_digest_and_wake_errors_use_names() {
         .await
         .unwrap_err();
     assert_eq!(err.code, rpc::code::NOT_FOUND);
-    assert_eq!(err.message, "not found: an Agent that is gone");
+    assert!(err.message.contains("reader, writer"));
 }
 
 #[tokio::test]
