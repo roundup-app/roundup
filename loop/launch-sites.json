@@ -431,11 +431,6 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rup/tests/common/d9_fixture.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
-    "kind": "reference"
-  },
   "crates/rup/tests/common/served.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
@@ -443,11 +438,6 @@
     "sha256": "725e4546a6720826c6dabbb0537b1ecf64639c603a8e758454942569d3fb0883"
   },
   "crates/rup/tests/resume_work.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/rup/tests/d9.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -813,5 +803,11 @@
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/a32_removed.rs": {
+    "cleanup": "The test aborts its server; clients and the temporary Project are dropped with the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "0f662e999a1d5b5a332a06c336ea7f86e1c220fa3bb26e70437650affb06069f"
   }
 }
