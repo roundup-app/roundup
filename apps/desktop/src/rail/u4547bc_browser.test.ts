@@ -1,0 +1,42 @@
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { openLane, type LaneBrowser } from "../todos/laneBrowser";
+
+let lane: LaneBrowser;
+
+beforeAll(async () => { lane = await openLane(1512, "dark", "u4547bc"); }, 180_000);
+
+afterAll(async () => { await lane?.close(); }, 180_000);
+
+it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
+  await lane.seedTodos([], false, "tree-40");
+  await lane.capture("U4547b", "understand-before");
+  await lane.browser("click", '[aria-label="New Mode"]');
+  await lane.until("document.querySelector('[role=dialog]') !== null");
+  await lane.browser("fill", '[data-part=input]', "Review changes");
+  await lane.browser("fill", '.opening-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
+  await lane.capture("U4547b", "enter");
+  await lane.evaluate("window.__fake.failNext(-32003, 'Mode could not be created. Retry with your saved input.')");
+  await lane.browser("click", 'button[type=submit]');
+  await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Mode could not be created')");
+  await lane.capture("U4547b", "intervene-failure");
+  await lane.browser("click", 'button[type=submit]');
+  await lane.until("!document.querySelector('[role=dialog]')");
+  await lane.until("[...document.querySelectorAll('.rail-tree .section-head')].some(head => head.textContent.includes('MODES'))");
+  await lane.capture("U4547b", "selected-mode");
+  const calls = await lane.calls();
+  expect(calls.filter(call => call.method === "workstream.restart")).toHaveLength(1);
+  const id = await lane.evaluate<string>("window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
+  await lane.browser("focus", '.rail-row[data-id="' + id + '"]');
+  await lane.until(`document.activeElement?.getAttribute('data-id') === ${JSON.stringify(id)}`);
+  await lane.browser("press", "Shift+F10");
+  await lane.until("window.__fake.app.menuLabels().includes('First prompt…')");
+  await lane.evaluate("window.__fake.app.pickMenu('First prompt…')");
+  await lane.until("document.querySelector('.opening-prompt-dialog textarea') !== null");
+  await lane.capture("U4547c", "edit-first-prompt");
+  await lane.browser("fill", '.opening-prompt-field textarea', "  changed prompt\n ");
+  await lane.evaluate("window.__fake.failNext(-32003, 'First prompt could not be saved. Retry with your draft.')");
+  await lane.browser("click", '[data-part=title]');
+  await lane.until("document.querySelector('[role=alert]')?.textContent.includes('First prompt could not be saved')");
+  await lane.capture("U4547c", "intervene-save-failure");
+  expect((await lane.calls()).filter(call => call.method === "workstream.restart")).toHaveLength(1);
+}, 180_000);

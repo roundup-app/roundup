@@ -804,3 +804,8 @@
 .rail-section [data-part="branch-content"] { padding-inline-start: 0; }
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
+
+.opening-prompt-dialog form {
+  display: grid;
+  gap: var(--space-4);
+}
