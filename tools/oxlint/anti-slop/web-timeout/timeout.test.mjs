@@ -14,6 +14,7 @@ const exception = {
 };
 
 const cases = [
+  ["project computed default", 'import { defineProject } from "vitest/config"; const key = "testTimeout"; defineProject({ test: { [key]: 60_001 } });', 1, "60001"],
   ["override registration", 'test.override({ value: 1 })("t3779a_override", () => {}, 60_001);', 1, "60001"],
   ["override builder options are fixtures", 'test.override("value", { timeout: 90_000 }, () => 1)("t3779a_limit", () => {}, 60_000);', 0],
   ["override exact exception", 'test.override({ value: 1 })("t3779a_real_clock", () => {}, 90_000);', 0, null, [exception]],
