@@ -425,10 +425,6 @@ pub struct RailNode {
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
-    /// A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = u32)]
-    pub iteration: Option<u32>,
     /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest
     /// check; absent before the first check and on a Terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -61,7 +61,6 @@ fn sent(id: u32, from: &str, to: &str, body: &str) -> Message {
         status: MessageStatus::Delivered,
         reason: None,
         at: id.into(),
-        iteration: None,
     }
 }
 
