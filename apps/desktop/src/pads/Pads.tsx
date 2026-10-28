@@ -319,6 +319,13 @@ export const Pads = (props: {
     setNaming(true);
   });
 
+  const openField = () => {
+    failure.clear();
+
+    if (!revision) home = scope.home();
+    setNaming(true);
+  };
+
   const isEmpty = createMemo(() => list.loaded() && shown().length === 0);
 
   return (
@@ -331,10 +338,7 @@ export const Pads = (props: {
           class="shelf-add"
           ref={(button) => (plusButton = button)}
           onClick={() => {
-            failure.clear();
-
-            if (!revision) home = scope.home();
-            setNaming(true);
+            openField();
           }}
         >
           <Icon name="plus" />
@@ -349,8 +353,8 @@ export const Pads = (props: {
         <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
 
       </Show></ReservedLine>
-      <Show when={isEmpty() && !naming()}>
-        <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
+      <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
+        <EmptyState art="order" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
       <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={() => null} focus={connected.padsRequest} onFocused={connected.finishPadsRequest}>{group => <PadRows
         selection={selection}

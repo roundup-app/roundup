@@ -348,7 +348,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
           await browser("focus", row);
           await browser("press", "Enter");
-          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('.shelf-scope-name')?.textContent === document.querySelector('${row} .name')?.textContent`);
+          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('[data-shelf-scope] button[aria-label^="add todo to "]')?.getAttribute('aria-label') === 'add todo to ' + document.querySelector('${row} .name')?.textContent`);
         }
 
 
