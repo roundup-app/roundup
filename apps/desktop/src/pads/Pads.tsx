@@ -4,10 +4,8 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
-import { IconButton } from "../ui/IconButton";
 import { NameField, Editable } from "../ui/Editable";
 import { createCutTitle } from "../ui/cutTitle";
-import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
@@ -480,6 +478,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+              { id: "open", label: copy.openDraft, run: () => open("pointer") },
               { id: "assign", label: copy.assign, enabled: ownersToOffer(connected, pad.owner).length > 0, run: () => { if (row) props.onAssign(pad.name, row); } },
               ...(pad.owner.kind === "user" ? [] : [{ id: "make-yours", label: copy.makeYours, run: () => props.onMakeYours(pad.name) }]),
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message), () => props.onItemFailure(pad, null), copied),
@@ -527,7 +526,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
-            <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={event => open(activationSource(event))}><Icon name="right" /></IconButton></span>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>
