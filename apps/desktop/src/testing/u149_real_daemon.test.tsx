@@ -55,6 +55,8 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
+    const group = await screen.findByText("Unassigned", { selector: ".shelf-group-name" });
+    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
     fireEvent.keyDown(row, { key: "Enter" });
 
