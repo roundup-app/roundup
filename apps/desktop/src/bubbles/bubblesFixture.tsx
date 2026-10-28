@@ -78,7 +78,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   await waitFor(() => {
     const bubbles = [...document.querySelectorAll<HTMLElement>(".bubble")];
 
-    if ((hasHost() && !document.querySelector(".terminal-tabs")) || bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
+    if (bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
       && !app.outputSubscriptions.some(subscription => subscription.id === bubble.dataset.bubble))) throw new Error("Terminal output subscriptions not attached");
   });
 
