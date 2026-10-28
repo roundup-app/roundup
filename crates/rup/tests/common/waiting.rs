@@ -71,11 +71,6 @@ pub async fn received(model: &aimock::Model, needle: &str) {
     .await;
 }
 
-/// The Door is asked to hand off once the model's journal holds the Clear prompt.
-pub async fn asked(model: &aimock::Model) {
-    received(model, "workstream_handoff").await;
-}
-
 /// The Door ended the turn that took a prompt holding `needle`. The model's journal proves the prompt
 /// arrived, and an Idle read after that is the turn's end: a Status event is not, because an Idle
 /// can arrive as the next turn begins.

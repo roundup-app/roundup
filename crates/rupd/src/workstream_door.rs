@@ -80,7 +80,6 @@ for line in sys.stdin:
         wake_gate: Default::default(),
         sender: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
-        clears: Default::default(),
         checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
         rewinding: Default::default(),
         restarting: Default::default(),
