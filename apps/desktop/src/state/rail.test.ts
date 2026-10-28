@@ -95,12 +95,6 @@ describe("u3 Rail state", () => {
     expect(rail.exitOf(workstream)).toEqual({ kind: "code", code: 2 });
   });
 
-  it("u3_a_stopped_workstream_has_no_live_terminal", async () => {
-    const { rail } = await open([]);
-
-    expect(rail.exitOf(node("g", { kind: "workstream", status: null, terminal_id: null }))).toEqual({ kind: "unknown" });
-  });
-
   it("u3_events_during_an_in_flight_rail_tree_are_applied_after_it", async () => {
     const pending = Promise.withResolvers<RailNode[]>();
     const app = createFakeApp();

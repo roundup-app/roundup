@@ -641,7 +641,7 @@ export const copy = {
   selected: " selected",
   deleteWord: "Delete ",
   questionMark: "?",
-  agentsMayStillBeWritingDeletingDoesNot: ". Agents may still be writing; deleting does not stop them",
+  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing; deleting does not stop them`,
   refresh: "Refresh",
   colon: ": ",
 

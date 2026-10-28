@@ -120,8 +120,9 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
   const bulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected,
-    targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
+    targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
@@ -147,8 +148,9 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
   const todoBulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected: selectedTodos,
-    targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
+    targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title, owner: todo.owner })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
