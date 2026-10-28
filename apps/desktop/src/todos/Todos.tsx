@@ -53,7 +53,6 @@ import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
-/** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS = ["J K", "A", "X"];
 
@@ -313,9 +312,11 @@ export const Todos = (props: {
       nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) { nestFocus = null;
+      if (message !== null) {
+        nestFocus = null;
 
- return sorted.show(id, message); }
+        return sorted.show(id, message);
+      }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
@@ -898,6 +899,11 @@ export const Todos = (props: {
  if (!active) board.preview(null); }} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
+          inset: (element) => {
+            const styles = getComputedStyle(element);
+
+            return Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2"));
+          },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
