@@ -58,6 +58,7 @@ struct Saved {
     removed: Vec<Removed>,
     /// A4452c: the Workstream's saved opening prompt as the clear began, and how far it got.
     opening: Option<Opening>,
+    restarted: Option<String>,
 }
 
 /// A4452c: the text A35's reservation holds for the restarted Door, typed once.
@@ -65,6 +66,14 @@ struct Saved {
 struct Opening {
     text: String,
     reserved: bool,
+    delivery: OpeningDelivery,
+}
+
+#[derive(Clone)]
+enum OpeningDelivery {
+    Unwritten,
+    Uncertain,
+    Acknowledged,
 }
 
 /// How a clear begins.
@@ -289,7 +298,9 @@ impl Daemon {
                     opening: node.opening_prompt.clone().map(|text| Opening {
                         text,
                         reserved: false,
+                        delivery: OpeningDelivery::Unwritten,
                     }),
+                    restarted: None,
                 }
             }
         };
@@ -419,18 +430,21 @@ impl Daemon {
                 .await?;
             opening.reserved = true;
         }
-        agents.stop_door(Actor::user(), id).await?;
-        let ctx = self.ctx(Actor::user());
-        agents
-            .restart_door(
-                &ctx,
-                id,
-                saved.handoff.clone(),
-                next,
-                self.clears.restart_bound,
-                p.permission_mode,
-            )
-            .await?;
+        if saved.restarted.is_none() {
+            agents.stop_door(Actor::user(), id).await?;
+            let ctx = self.ctx(Actor::user());
+            let node = agents
+                .restart_door(
+                    &ctx,
+                    id,
+                    saved.handoff.clone(),
+                    next,
+                    self.clears.restart_bound,
+                    p.permission_mode,
+                )
+                .await?;
+            saved.restarted = node.attempt;
+        }
         self.type_opening_prompt(agents, id, &key, saved).await?;
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;
@@ -446,30 +460,42 @@ impl Daemon {
         Ok(())
     }
 
-    /// A4452c: after `SessionStart`, type the saved opening prompt once as the user's first
-    /// message, record it (A35) and release the reservation. A retry restarts the session first, so it is typed once per session.
+    /// A4452c: keep the restarted Attempt and its acknowledgement across recording failures;
+    /// retrying a clear must never type the saved text a second time.
     async fn type_opening_prompt(
         &self,
         agents: &agents::Agents,
         id: &str,
         key: &str,
-        saved: &Saved,
+        saved: &mut Saved,
     ) -> Result<(), RpcError> {
-        let (Some(opening), Some(messages)) = (&saved.opening, self.sender.get()) else {
+        let (Some(opening), Some(messages)) = (&mut saved.opening, self.sender.get()) else {
             return Ok(());
         };
-        agents
-            .prompt(id, agents::Steer::User(&opening.text))
-            .await?;
-        let attempt = self
-            .rail()
-            .await?
-            .into_iter()
-            .find(|n| n.id == id)
-            .and_then(|n| n.attempt)
+        let attempt = saved
+            .restarted
+            .as_deref()
             .ok_or_else(|| RpcError::conflict("restarted Door missing"))?;
-        messages.record_restart_prompt(id, key, &attempt).await?;
-        messages.release_restart(id, key, &attempt).await?;
+        match opening.delivery {
+            OpeningDelivery::Unwritten => {
+                // Startup coordination is admitted before a user prompt, but types nothing.
+                agents.first_steer_completion(id, attempt).await?;
+                opening.delivery = OpeningDelivery::Uncertain;
+                agents
+                    .prompt(id, agents::Steer::User(&opening.text))
+                    .await?;
+                opening.delivery = OpeningDelivery::Acknowledged;
+            }
+            OpeningDelivery::Uncertain => {
+                return Err(RpcError::new(
+                    code::UNKNOWN_OUTCOME,
+                    "Opening prompt acceptance is unknown; do not retry the prompt",
+                ));
+            }
+            OpeningDelivery::Acknowledged => {}
+        }
+        messages.record_restart_prompt(id, key, attempt).await?;
+        messages.release_restart(id, key, attempt).await?;
         Ok(())
     }
 

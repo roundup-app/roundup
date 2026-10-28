@@ -184,13 +184,7 @@ async fn a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid() 
     assert_eq!(late.code, rpc::code::CONFLICT);
     // SessionStart can launch the first turn before workstream.cleared is emitted.
     // Read the completed turn instead of awaiting a Working event already consumed above.
-    turn_done(
-        model,
-        &client,
-        &door,
-        "Valid handoff after bad ids",
-    )
-    .await;
+    turn_done(model, &client, &door, "Valid handoff after bad ids").await;
     for entry in model.journal() {
         for message in entry["body"]["messages"].as_array().unwrap() {
             if message["role"] == "user"

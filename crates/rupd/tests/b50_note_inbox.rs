@@ -983,9 +983,8 @@ impl Run {
             .received()
             .into_iter()
             .filter(|entry| {
-                ids.iter().any(|id| {
-                    entry["msg_id"] == format!("00000000-0000-4000-8000-{id:012x}")
-                })
+                ids.iter()
+                    .any(|id| entry["msg_id"] == format!("00000000-0000-4000-8000-{id:012x}"))
             })
             .collect();
         for ((entry, id), name) in received.iter().zip(ids).zip(names) {

@@ -37,6 +37,7 @@ impl Shared {
             {
                 run.first_pending = false;
             }
+            shared.events.observed.notify_waiters();
             if let Some(completion) = completion {
                 completion.send_replace(Some(match result {
                     Ok(()) => FirstSteerCompletion::Submitted,
