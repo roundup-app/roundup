@@ -4,7 +4,7 @@ use objc2::{
     rc::{Allocated, Retained},
     runtime::{AnyClass, AnyObject},
 };
-use objc2_foundation::{NSSize, NSString};
+use objc2_foundation::{NSRange, NSSize, NSString};
 use tauri::{AppHandle, Runtime};
 
 /// Decorate the freshly built Project submenu on the main thread; indices include separators.
@@ -37,8 +37,7 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
     // SAFETY: callers supply a live NSMenu on the process main thread.
     unsafe {
         let count: isize = msg_send![submenu, numberOfItems];
-        let font_class = AnyClass::get(c"NSFont").expect("AppKit is loaded");
-        let font: Retained<AnyObject> = msg_send![font_class, menuFontOfSize: 0.0f64];
+        let font: Retained<AnyObject> = msg_send![submenu, font];
         let dictionary = AnyClass::get(c"NSDictionary").expect("Foundation is loaded");
         let font_key = NSString::from_str("NSFont");
         let fonts: Retained<AnyObject> =
@@ -67,9 +66,11 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
         let style: Retained<AnyObject> = msg_send![styles, new];
         let _: () = msg_send![&*style, setTabStops: &*stops];
         let style_key = NSString::from_str("NSParagraphStyle");
-        let attributes: Retained<AnyObject> =
-            msg_send![dictionary, dictionaryWithObject: &*style, forKey: &*style_key];
-        let strings = AnyClass::get(c"NSAttributedString").expect("Foundation is loaded");
+        let attributes: Retained<AnyObject> = msg_send![&*fonts, mutableCopy];
+        let _: () = msg_send![&*attributes, setObject: &*style, forKey: &*style_key];
+        let strings = AnyClass::get(c"NSMutableAttributedString").expect("Foundation is loaded");
+        let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
+        let color_key = NSString::from_str("NSColor");
         for (index, hint) in hints {
             let Ok(index) = isize::try_from(index) else {
                 continue;
@@ -83,6 +84,16 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
             let attributed: Retained<AnyObject> =
                 msg_send![attributed, initWithString: &*display, attributes: &*attributes];
+            let enabled: bool = msg_send![&*item, isEnabled];
+            let color: Retained<AnyObject> = if enabled {
+                msg_send![colors, secondaryLabelColor]
+            } else {
+                msg_send![colors, disabledControlTextColor]
+            };
+            // Foundation ranges count UTF-16 units, including non-ASCII menu titles.
+            let range = NSRange::new(title.length() + 1, hint.encode_utf16().count());
+            let _: () =
+                msg_send![&*attributed, addAttribute: &*color_key, value: &*color, range: range];
             let _: () = msg_send![&*item, setAttributedTitle: &*attributed];
             // AppKit also assigns the attributed string to title; retain the action’s plain label.
             let _: () = msg_send![&*item, setTitle: &*title];
