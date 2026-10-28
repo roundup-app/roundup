@@ -30,6 +30,8 @@ Errors:
 
 A Clarification order whose question only the user can answer reaches the user only as a native `AskUserQuestion` in the Agent's Terminal (P3); holding the order alone never yields `needs-you`. `rup mcp <id>` offers `agent_set_order`, with `id` filled with its own Agent's id. Test: `o4_`.
 
+**Captured Order** (`CapturedOrder`, `SetOrderParams.captured`): The exact Order (including its absence) read with an editor's original Project and Rail node id. `agent.setOrder` compares it and replaces the Order in one storage transaction at execution: a changed base is `CONFLICT`, a removed id is `NOT_FOUND`, and refusal produces no Touch, Event or Steer. Omission keeps unconditional writes. It grants no authority.
+
 **O5 an order survives.** Given an Agent with an order, when the Daemon reopens (A8, A12), the Agent is Resumed (A22), or it is moved to another Home (`rail.move`), then `rail.tree` shows the same order. A Resume sends no new order Steer. Discard and `rail.remove` drop it with the node. Test: `o5_`.
 
 **O6 the user reads the order of an Agent.** Given a selected running Agent in the App (a Workstream shows no order line, U467), then one line shows the order. For a Work order, the line is Q5's. For a Clarification order, it is `Clarifying:` and the question. The line is cut to one line, and activating it opens the full order in the Drawer under U111's layout rules and Q4's parts.
