@@ -166,17 +166,18 @@
   z-index: 1;
   flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+}
+
+.terminal-tab-list {
+  display: flex;
+  min-width: 0;
   overflow-x: auto;
   overscroll-behavior: contain;
   overflow-y: hidden;
   /* The row keeps its full height: the scrollbar would take part of it and cut every label. Wheel, drag and keyboard focus still scroll. */
   scrollbar-width: none;
   white-space: nowrap;
-}
-
-/* Scrolling tabs leave room for hints even with eight or more Terminals. */
-.terminal-tabs-host:has(.hint) .terminal-tabs {
-  max-inline-size: 50%;
 }
 
 .terminal-tabs-actions {
