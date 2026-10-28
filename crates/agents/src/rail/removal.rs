@@ -62,7 +62,8 @@ impl Placement {
             })
             .collect();
         let mut before = after.clone();
-        let input: &mut dyn std::io::Read = &mut graph.as_ref();
+        let mut input = graph;
+        let input: &mut dyn std::io::Read = &mut input;
         let mut changes = ChangesetIter::start_strm(&input).map_err(sql)?;
         while let Some(item) = changes.next().map_err(sql)? {
             let op = item.op().map_err(sql)?;

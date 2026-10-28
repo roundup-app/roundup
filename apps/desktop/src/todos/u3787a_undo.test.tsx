@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { padHandlers } from "../testing/stores";
 import { padOf, AGENT, openPad } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -602,7 +603,7 @@ it("u4453d_no_undo_controls_native_undo_remains", async () => {
   await remove("/a");
   await shown();
   expect(screen.queryAllByRole("button", { name: /redo/i })).toEqual([]);
-  expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: copy.todoUndo })).toHaveLength(1);
   const root = document.createElement("div");
   root.innerHTML = "<textarea></textarea>";
   document.body.append(root);
