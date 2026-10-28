@@ -15,6 +15,8 @@ pub const CALL_BOUND: Duration = Duration::from_secs(30);
 #[derive(Clone, Debug)]
 pub struct Config {
     pub rupd_bin: PathBuf,
+    pub claude_bin: Option<OsString>,
+    pub search_path: OsString,
     pub socket: PathBuf,
     pub ready_bound: Duration,
     pub call_bound: Duration,
@@ -38,6 +40,8 @@ impl Config {
         check_limit(&socket)?;
         Ok(Self {
             rupd_bin,
+            claude_bin: None,
+            search_path: OsString::new(),
             socket,
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
@@ -73,6 +77,8 @@ impl Config {
             &std::env::temp_dir(),
             std::process::id(),
         )?;
+        config.claude_bin = std::env::var_os("ROUNDUP_CLAUDE_BIN");
+        config.search_path = std::env::var_os("PATH").unwrap_or_default();
         config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);
         Ok(config)
     }
