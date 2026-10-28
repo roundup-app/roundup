@@ -46,6 +46,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const { vi } = await import("vitest");
   const mounted = await mountRail([workstream("w")]);
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+
   try {
     open();
     fireEvent.input(field(), { target: { value: " memory\n😀 " } });
@@ -363,9 +364,9 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   fireEvent.keyDown(field(), { key: "Escape" });
   const revision = connected.drafts.list()[0]!;
   expect(revision.value.text).toBe(" exact\n😀 ");
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(connected.drafts.list()).toHaveLength(1);
   connected.drafts.discard(revision.revision);
-  expect(screen.queryByLabelText("Recovered rail draft")).toBeNull();
+  expect(screen.queryAllByRole("textbox", { hidden: true })).toEqual([]);
   open();
   fireEvent.input(field(), { target: { value: "new work" } });
   fireEvent.keyDown(field(), { key: "Escape" });
