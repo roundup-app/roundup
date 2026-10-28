@@ -70,6 +70,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     await waitFor(() => expect(within(rail).getAllByText("workstream").length).toBeGreaterThan(0));
     await waitFor(() => expect(emulators.made.size).toBe(1), { timeout: 20_000 });
 
+    await waitFor(async () => expect((await app.rpc("terminal.list", null)).length).toBe(1));
     const tree = JSON.stringify(await app.rpc("rail.tree", null));
     const terminals = await app.rpc("terminal.list", null);
 
