@@ -37,10 +37,11 @@
     "initial_exit": 1,
     "cause": "The first run overlapped dependency repair and could not resolve @babel/parser. Full retry running after separate frozen install.",
     "prior_full_exit": 0,
-    "final_retry": "Full aggregate retry running; prior complete aggregate exited 0.",
+    "final_retry": "Full aggregate passes after capture-selection correction; ALL PROOFS CHECK, 36 workflow tests and N7 pass.",
     "capture_retry_exit": 143,
     "remaining_checks_exit": 0,
-    "remaining_checks": "Proofs (ALL PROOFS CHECK), trailers, frozen guards, 36 workflow tests and N7 launch-site test rerun independently after the interrupted aggregate."
+    "remaining_checks": "Proofs (ALL PROOFS CHECK), trailers, frozen guards, 36 workflow tests and N7 launch-site test rerun independently after the interrupted aggregate.",
+    "exit": 0
   },
   "renderer": "Unchanged from origin/main: WebGL with official ligatures 0.10.0, DOM fallback and context-loss behavior retained.",
   "performance": {
