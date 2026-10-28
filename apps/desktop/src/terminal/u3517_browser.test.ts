@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
@@ -7,10 +7,6 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 const load = async (seed: string, base = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  // The baseline server is separate from Vitest's warmed App server.
-  const ready = await fetch(url("/__roundup_ready", base), { signal: AbortSignal.timeout(20_000) });
-
-  expect(ready.status).toBe(204);
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 };
@@ -80,9 +76,9 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
 
 const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d"].filter(id => captureDir(id));
 
-it.skipIf(captureIds.length === 0)("u3517f_rendered_terminal_reference", async () => {
-  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
-    for (const state of ["agent", "door", "shell"]) {
+for (const state of ["agent", "door", "shell"]) {
+  it.skipIf(captureIds.length === 0)(`u3517f_rendered_terminal_reference_${state}`, async () => {
+    for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
       await load(seed, base);
@@ -118,14 +114,21 @@ it.skipIf(captureIds.length === 0)("u3517f_rendered_terminal_reference", async (
         expect(metrics.fonts.every(font => font.status === "loaded")).toBe(true);
       }
 
+      const checks = JSON.stringify(await read("window.__checks()"), null, 2);
+      let screenshot: string | undefined;
+
       for (const scenario of captureIds) {
         const dir = join(captureDir(scenario)!, base ? "base" : "head");
 
         mkdirSync(dir, { recursive: true });
-        await browser("screenshot", join(dir, `${state}.png`));
-        writeFileSync(join(dir, `${state}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+        const path = join(dir, `${state}.png`);
+
+        if (screenshot) copyFileSync(screenshot, path);
+        else { await browser("screenshot", path); screenshot = path; }
+
+        writeFileSync(join(dir, `${state}.checks.json`), checks);
         writeFileSync(join(dir, `${state}.metrics.json`), JSON.stringify(metrics, null, 2));
       }
     }
-  }
-}, 60_000);
+  }, 60_000);
+}

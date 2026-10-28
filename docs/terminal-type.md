@@ -25,6 +25,25 @@ cell measurements, grid counts, loaded faces, local resources and device pixel
 ratio are retained in each capture's `*.metrics.json`, beside the PNG and
 Check readings under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
 
+The paired Linux DOM observer (Chromium, 1512×950, device pixel ratio 1,
+base `42178f366`, implementation `5fd777a26` plus the capture-fixture repair)
+measures:
+
+| Surface | Base cell width × height | Fira cell width × height | Base grid → Fira grid |
+| --- | --- | --- | --- |
+| Agent | 8.4 × 19 CSS px | 7.772 × 22 CSS px | 105×42 → 114×37 |
+| Door | 8.4 × 19 CSS px | 7.772 × 22 CSS px | 105×42 → 114×37 |
+| Shell Bubble | 8.398 × 19 CSS px | 7.767 × 22 CSS px | 83×33 → 90×29 |
+
+All six screens pass every reported design Check, including D2, D5 and D6.
+This is not full U4456 acceptance: xterm multiplies the measured font bounding
+height by `lineHeight`, rather than multiplying `fontSize`. Consequently 11 px
+and 1.7 do not produce the scenario's predicted 18.7 px pitch. U3517b's retained
+18–20 px range conflicts with the prescribed raw settings. No font-size or
+line-height compensation is silently applied; the PR remains a draft pending
+the requested rendering target's resolution. The original Solo screenshot is
+not present to establish the alternative calibration.
+
 `DEFAULT_FONT_SIZE` reads the same size Token for the emulator, App Settings
 and Project zoom reset. Saved absolute sizes stay unchanged; clearing a custom
 family restores Fira Code. Font readiness, settings and zoom retain the existing
