@@ -1,6 +1,12 @@
 //! Transactional Rail removal.
 use super::*;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Placement {
+    before: Vec<RailNode>,
+    after: Vec<RailNode>,
+}
+
 impl Rail {
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
@@ -56,6 +62,7 @@ impl Rail {
         } else {
             None
         };
+        let before = load(&tx)?;
         let out = apply(&tx, removal)?;
         Self::remove_graph(&tx, id, removal)?;
         if let Some((actor, operation)) = retain {
@@ -79,7 +86,7 @@ impl Rail {
             });
             tx.execute("INSERT INTO rail_deletions(operation,actor,node,record,graph,boundary) VALUES(?,?,?,?,?,?)", params![
             operation, serde_json::to_string(actor).map_err(RpcError::internal)?, id,
-            serde_json::to_string(&removal).map_err(RpcError::internal)?, inverse, Self::removal_boundary(&tx)?
+            serde_json::to_string(&removal).map_err(RpcError::internal)?, inverse, serde_json::to_string(&Placement { before, after: load(&tx)? }).map_err(RpcError::internal)?
         ]).map_err(sql)?;
         }
         drop(graph);
@@ -194,10 +201,50 @@ impl Rail {
                 |r| r.get(0),
             )
             .map_err(sql)?;
-        if boundary != Self::removal_boundary(db)? {
+        let placement = serde_json::from_str::<Placement>(&boundary).ok();
+        let current = load(db)?;
+        // Older receipts retain their existing guard; they remain recoverable.
+        if placement.is_none() && boundary != Self::removal_boundary(db)? {
             return Err(RpcError::conflict(
-                "Rail placement changed; resolve the conflict and retry",
+                "Can't undo this removal while its original placement is unavailable. The deletion is retained.",
             ));
+        }
+        let restored_ids: Vec<_> = removal
+            .removed
+            .iter()
+            .filter(|item| matches!(item.kind, contracts::agent::RemovalKind::Agent))
+            .map(|item| item.id.as_str())
+            .chain(std::iter::once(
+                removal
+                    .deletion
+                    .as_ref()
+                    .expect("retained operation")
+                    .id
+                    .as_str(),
+            ))
+            .collect();
+        if let Some(placement) = &placement {
+            for node in placement
+                .before
+                .iter()
+                .filter(|node| restored_ids.contains(&node.id.as_str()))
+            {
+                if let Some(blocker) = current.iter().find(|live| live.id == node.id) {
+                    return Err(RpcError::undo_identity(&blocker.id, &blocker.name));
+                }
+                if let Some(parent) = &node.parent
+                    && !restored_ids.contains(&parent.as_str())
+                    && !current.iter().any(|live| live.id == *parent)
+                {
+                    let name = placement
+                        .before
+                        .iter()
+                        .find(|n| n.id == *parent)
+                        .map(|n| n.name.as_str())
+                        .unwrap_or("Original Home");
+                    return Err(RpcError::undo_parent(parent, name));
+                }
+            }
         }
         let graph: Vec<u8> = db
             .query_row(
@@ -211,16 +258,94 @@ impl Rail {
         let config = rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_TRIGGER;
         let enabled = db.db_config(config).map_err(sql)?;
         db.set_db_config(config, false).map_err(sql)?;
-        let applied = db.apply_strm(&mut graph.as_slice(), None::<fn(&str) -> bool>, |_, _| {
-            ConflictAction::SQLITE_CHANGESET_ABORT
-        });
+        let applied = db.apply_strm(
+            &mut graph.as_slice(),
+            None::<fn(&str) -> bool>,
+            |kind, item| {
+                // A surviving row's newer values win. Inserts never replace an occupied identity.
+                if matches!(
+                    kind,
+                    rusqlite::session::ConflictType::SQLITE_CHANGESET_DATA
+                        | rusqlite::session::ConflictType::SQLITE_CHANGESET_NOTFOUND
+                ) && item
+                    .op()
+                    .is_ok_and(|op| op.code() == rusqlite::hooks::Action::SQLITE_UPDATE)
+                {
+                    ConflictAction::SQLITE_CHANGESET_OMIT
+                } else {
+                    ConflictAction::SQLITE_CHANGESET_ABORT
+                }
+            },
+        );
         let reset = db.set_db_config(config, enabled);
         reset.map_err(sql)?;
-        applied.map_err(|e| {
+        applied.map_err(|_| {
             RpcError::conflict(format!(
-                "Rail graph changed; resolve the conflict and retry: {e}"
+                "Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first."
             ))
         })?;
+        let mut affected = Vec::new();
+        if let Some(placement) = placement {
+            // Restore all surviving placements before inserting retained relationships. Changeset
+            // order updates are bookkeeping and cannot decide whether a user's move wins.
+            for node in &current {
+                db.execute(
+                    "UPDATE nodes SET parent=?,ord=? WHERE id=?",
+                    params![node.parent, node.order, node.id],
+                )
+                .map_err(sql)?;
+            }
+            let mut reconnect: Vec<_> = placement
+                .before
+                .iter()
+                .filter(|node| {
+                    restored_ids.contains(&node.id.as_str())
+                        || placement
+                            .after
+                            .iter()
+                            .find(|n| n.id == node.id)
+                            .is_some_and(|after| {
+                                after.parent != node.parent
+                                    && current.iter().find(|n| n.id == node.id).is_some_and(
+                                        |live| {
+                                            live.parent == after.parent && live.order == after.order
+                                        },
+                                    )
+                            })
+                })
+                .collect();
+            reconnect.sort_by_key(|node| node.order);
+            for node in reconnect {
+                affected.push(node.parent.clone());
+                if let Some(previous) = current.iter().find(|live| live.id == node.id) {
+                    affected.push(previous.parent.clone());
+                }
+                let live = load(db)?;
+                let mut ids = siblings(&live, node.parent.as_deref());
+                ids.retain(|id| id != &node.id);
+                let following = placement
+                    .before
+                    .iter()
+                    .filter(|n| n.parent == node.parent && n.order > node.order)
+                    .filter_map(|n| {
+                        ids.iter()
+                            .position(|id| id == &n.id)
+                            .map(|index| (n.order, index))
+                    })
+                    .min_by_key(|(order, _)| *order);
+                ids.insert(
+                    following.map_or(ids.len(), |(_, index)| index),
+                    node.id.clone(),
+                );
+                place(db, node.parent.as_deref(), &ids)?;
+            }
+        }
+        let nodes = load(db)?;
+        affected.sort();
+        affected.dedup();
+        for parent in affected {
+            place(db, parent.as_deref(), &siblings(&nodes, parent.as_deref()))?;
+        }
         db.execute(
             "UPDATE rail_deletions SET restored=1 WHERE operation=?",
             [&p.operation],

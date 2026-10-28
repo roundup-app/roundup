@@ -161,4 +161,15 @@ pub enum RpcErrorData {
     },
     /// `link.read` names an object of another Project; the Daemon of the link's Project answers it.
     OtherProject,
+    UndoParent {
+        id: String,
+        name: String,
+    },
+    UndoIdentity {
+        id: String,
+        name: String,
+    },
+    UndoPadName {
+        name: String,
+    },
 }

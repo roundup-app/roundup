@@ -162,7 +162,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
       if (state()?.node.id !== current.node.id) return;
 
-      if (current.node.kind === "workstream" || losses.length) {
+      if (losses.length) {
         setState({ ...current, confirming: true, removal, losses });
 
         return;
