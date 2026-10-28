@@ -19,7 +19,7 @@ it.each(["pointer", "keyboard"])("u4453b_rail_menu_opens_progress_without_starti
     await app.pickMenu("Work progress");
     await screen.findByRole("region", { name: "Progress" });
     expect(app.calls.filter(call => call.method === "message.progress").at(-1)?.params).toMatchObject({ id });
-    fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
+    fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
     await waitFor(() => expect(screen.queryByRole("region", { name: "Progress" })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(row));
   }
@@ -33,6 +33,6 @@ it("u4453b_progress_menu_requires_an_agent", async () => {
   for (const id of ["a", "r"]) {
     fireEvent.contextMenu(document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!);
     expect(app.shownMenus.at(-1)?.items.some(item => item.label === "Work progress")).toBe(false);
-    await app.pickMenu(null);
+    await app.closeMenu();
   }
 });
