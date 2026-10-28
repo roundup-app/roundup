@@ -44,7 +44,7 @@ type Row = {
 /** The scoped Rail Switcher actions that reach `rpc`, with the opening Project's object and the arguments its activation captures. */
 const ROWS: Row[] = [
   { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
+    params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
@@ -53,7 +53,7 @@ const ROWS: Row[] = [
       return gate;
     } },
   { owner: "Rail", label: "New Agent with a prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null },
+    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle"));
       app.handlers["agent.spawn"] = handler;

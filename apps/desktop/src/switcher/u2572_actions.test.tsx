@@ -103,9 +103,9 @@ it("u2572b_action_choice_does_not_select_a_highlighted_destination", async () =>
   press("ArrowDown", {}, field()!);
   expect(connected.rail.selected()).toBe("ops");
   await chooseAction("New Agent", "enter");
-  expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
-  ]);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
+    { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+  ]));
 });
 
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: prompted creation %s", async (byAction) => {
@@ -119,7 +119,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   fireEvent.input(prompt, { target: { value: "make this work" } });
   press("Enter", {}, prompt);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: "make this work", parent: "ops", model: null, effort: null },
+    { cwd: "/p", prompt: "make this work", parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
   ]));
 });
 
@@ -130,7 +130,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
   if (byAction) { await show(); await chooseAction("New Terminal", "enter"); }
   else press("t", { metaKey: true, code: "KeyT" });
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("Terminal creation rejected"));
-  expect(app.calls.filter((call) => call.method === "terminal.open").map((call) => call.params)).toEqual([{ workstream: "ops" }]);
+  expect(app.calls.filter((call) => call.method === "terminal.open").map((call) => call.params)).toEqual([{ workstream: "ops", cols: 100, rows: 30 }]);
   expect(connected.rail.selected()).toBe("ops");
 });
 

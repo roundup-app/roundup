@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 type Loader = () => Promise<EmulatorFactory>;
@@ -32,7 +33,7 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
     return {
       prepare: (host, settled, signal) => {
         const waiting = new Promise<Size>((resolve, reject) => run(emulator => {
-          if (!emulator.prepare) { reject(new Error("Terminal destination preparation unavailable"));
+          if (!emulator.prepare) { reject(new Error(appCopy.terminalPreparationUnavailable));
 
  return; }
 

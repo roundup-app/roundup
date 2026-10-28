@@ -718,7 +718,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     signal?.addEventListener("abort", dispose, { once: true });
 
     try {
-      if (!emulator.prepare) throw new Error("Terminal destination preparation unavailable");
+      if (!emulator.prepare) throw new Error(appCopy.terminalPreparationUnavailable);
       const size = await emulator.prepare(host, settled, signal);
 
       return { size, bind: id => {

@@ -94,7 +94,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     setPreparing(true);
     const host = screen();
 
-    if (!host) throw new Error("Terminal destination unavailable");
+    if (!host) throw new Error(copy.terminalDestinationUnavailable);
 
     try {
       const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);

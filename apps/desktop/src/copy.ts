@@ -129,6 +129,9 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  terminalDestinationUnavailable: "Terminal destination unavailable",
+  terminalPreparationUnavailable: "Terminal destination preparation unavailable",
+  terminalPreparationCancelled: "Terminal preparation cancelled",
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
   recentFolders: "Recent folders",
   claudeNotFound: "CLAUDE NOT FOUND, install Claude Code",

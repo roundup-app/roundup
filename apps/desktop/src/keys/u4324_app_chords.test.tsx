@@ -187,7 +187,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: place === "ask" || place === "agent-terminal" ? null : "home" });
   } else if (chord === "terminal") {
     await waitFor(() => expect(calls("terminal.open")).toHaveLength(1));
-    expect(calls("terminal.open")[0]?.params).toEqual({ workstream: "home" });
+    expect(calls("terminal.open")[0]?.params).toEqual({ workstream: "home", cols: 100, rows: 30 });
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   }
   else if (chord === "capture" && native) {

@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
@@ -509,7 +510,7 @@ export const createXtermEmulators = (
         const observer = new ResizeObserver(() => { observed = true; });
         const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); signal?.removeEventListener("abort", abort); };
 
-        const abort = () => { stop(); reject(signal?.reason ?? new Error("Terminal preparation cancelled")); };
+        const abort = () => { stop(); reject(signal?.reason ?? new Error(appCopy.terminalPreparationCancelled)); };
 
         const fit = () => {
           if (disposed || signal?.aborted || !host.isConnected) { abort();
