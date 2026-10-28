@@ -144,7 +144,8 @@ export type ConnectedProject = {
   /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
   padsRequest: Accessor<string | null>;
   padsOwner: Accessor<string | null>;
-  showPadsOf: (agent: string) => void;
+  showPadsOf: (agent: string, tab?: "pads" | "todos") => void;
+  padsTab: Accessor<"pads" | "todos">;
   finishPadsRequest: () => void;
   view: Accessor<string | null>;
   hasView: (view: string) => boolean;
@@ -272,7 +273,7 @@ export const connectProject = async (
   const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
   const finishCreation = () => setCreation(null);
   const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
-  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null } | null>(null);
+  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "pads" | "todos" } | null>(null);
 
   const padsOwner = () => {
     const destination = padsDestination();
@@ -280,8 +281,10 @@ export const connectProject = async (
     return destination?.selection === rail.selected() ? destination.agent : null;
   };
 
-  const showPadsOf = (agent: string) => {
-    setPadsDestination({ agent, selection: rail.selected() });
+  const padsTab = () => padsDestination()?.tab ?? "pads";
+
+  const showPadsOf = (agent: string, tab: "pads" | "todos" = "pads") => {
+    setPadsDestination({ agent, selection: rail.selected(), tab });
     setPadsRequest(agent);
   };
 
@@ -294,7 +297,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

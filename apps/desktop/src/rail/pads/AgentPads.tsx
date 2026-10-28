@@ -42,7 +42,7 @@ export const PadsControl = (props: { pads: AgentPads; agent: string }) => {
         data-pads-control
         {...NO_NATIVE_TITLE}
         aria-label={name()}
-        onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent); }}
+        onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent, props.pads.owned().length > 0 ? "pads" : "todos"); }}
       ><Icon name="diamond" /></IconButton>
     </Show>
   );

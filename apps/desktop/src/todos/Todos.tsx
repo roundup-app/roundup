@@ -103,9 +103,9 @@ export const Todos = (props: {
   const open = shownTodos(connected, todos);
 
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    scope.includes(todo.home, todo.creator, todo.owner)));
+    scope.includes(todo.home, todo.creator, todo.owner) || (todo.owner?.kind === "agent" && todo.owner.id === connected.padsOwner())));
 
-  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
+  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner) || (todo.owner?.kind === "agent" && todo.owner.id === connected.padsOwner())));
 
   const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
@@ -815,7 +815,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={connected.padsRequest} onFocused={connected.finishPadsRequest} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
