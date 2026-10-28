@@ -1,0 +1,16 @@
+{
+  "base": "37e31bfd23e2901965656f95ed62b40cac01d891",
+  "head": "f1c47de9968c4667d3cc8d420b063424e76f84a2",
+  "viewport": {
+    "width": 1512,
+    "height": 950
+  },
+  "scheme": "dark",
+  "observer": "apps/desktop/src/rail/u4547bc_browser.test.ts",
+  "stages": [
+    "Enter",
+    "Understand",
+    "Intervene"
+  ],
+  "checks": "All measured Checks pass; PNGs and WebM remain uncommitted."
+}
