@@ -6,10 +6,10 @@ import { Icon } from "./Icon";
 export const SectionHead = (props: {
   icon: ComponentProps<typeof Icon>["name"];
   label: string;
-  disclosure?: { setOpen(open: boolean): void };
+  disclosure?: { setOpen(open: boolean): void; role?: "treeitem" };
 }) => (
   <Show when={props.disclosure} fallback={<div class="section-head"><Icon name={props.icon} /><span>{props.label}</span></div>}>
-    {(disclosure) => <Collapsible.Trigger class="section-head" data-button="quiet" onKeyDown={event => {
+    {(disclosure) => <Collapsible.Trigger role={disclosure().role} class="section-head" data-button="quiet" onKeyDown={event => {
       event.stopPropagation();
 
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;

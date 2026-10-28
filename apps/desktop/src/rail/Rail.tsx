@@ -779,8 +779,8 @@ export const Rail = () => {
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
-          <Collapsible.Root role="treeitem" aria-label={section.label} aria-expanded={!rail.closedSections().has(section.id)} open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ setOpen: open => rail.setSectionOpen(section.id, open) }} />
+          <Collapsible.Root open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ role: "treeitem", setOpen: open => rail.setSectionOpen(section.id, open) }} />
             <Collapsible.Content role="group">
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
