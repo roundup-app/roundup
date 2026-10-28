@@ -216,7 +216,7 @@
   border: 0;
 }
 
-.visual-drawing .excalidraw {
+.visual-drawing .excalidraw, .visual-drawing .excalidraw.theme--dark {
   --color-surface-lowest: var(--ground);
   --color-surface-low: var(--sunken);
   --color-primary: var(--accent);
@@ -224,6 +224,14 @@
   --default-border-color: var(--hairline);
   --color-on-surface: var(--text);
   --font-family: var(--font-ui);
+}
+
+.visual-drawing .excalidraw.theme--dark {
+  --color-surface-mid: var(--ground);
+  --color-surface-high: var(--surface);
+  --overlay-bg-color: var(--scrim);
+  --scrollbar-thumb: var(--grey);
+  --scrollbar-thumb-hover: var(--text);
 }
 
 /* P2544a: the library owns block interactions; the Pad supplies its gutter and ink. */
