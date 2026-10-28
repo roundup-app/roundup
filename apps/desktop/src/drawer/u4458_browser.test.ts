@@ -75,7 +75,7 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
     await browser("wait", ".shelf .pad-name");
     await browser("focus", ".shelf .pad-name");
-    await evaluate("window.__fake.failNext(-32003, 'disk is full. Free space and try again.')");
+    await evaluate("window.__fake.app.handlers['pad.read'] = () => { throw new Error('disk is full. Free space and try again.'); }");
     await browser("press", "Enter");
     await browser("wait", ".drawer [role=alert]");
     await settle();
