@@ -317,7 +317,7 @@
   position: relative;
 }
 
-/* U3768: the bar and `<done>/<total>` sit above the first group in the quiet secondary type, taking no focus. */
+/* U3768/U4463: scope progress keeps its quiet count when composed into the head. */
 .todo-progress {
   padding-inline: var(--space-2);
   padding-block: var(--space-1);
