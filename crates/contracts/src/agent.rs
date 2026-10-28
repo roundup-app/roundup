@@ -680,6 +680,15 @@ pub struct SetModelParams {
 /// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RunParams {
+    /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub cols: Option<u16>,
+    /// U4590: initial PTY rows; absent keeps the hostless 24-row default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub rows: Option<u16>,
+
     pub id: String,
     pub command: Vec<String>,
     #[serde(default)]

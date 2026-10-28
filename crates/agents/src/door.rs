@@ -113,6 +113,8 @@ impl Agents {
             effort: parked.effort,
             permission_mode,
             engine: None,
+            cols: None,
+            rows: None,
         };
         let node = self
             .start_door_with(ctx, params, Some(handoff), true)
@@ -167,10 +169,13 @@ impl Agents {
             effort,
             permission_mode,
             engine,
+            cols,
+            rows,
         }: StartDoorParams,
         first: Option<String>,
         startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         models::check_engine(engine.as_deref())?;
         models::check_permissions(&ctx.actor, permission_mode)?;
         let _lifecycle = self.shared.door_lifecycle.read().await;
@@ -195,7 +200,13 @@ impl Agents {
                 )?;
             }
             return self
-                .resume_saved(ctx, id, START_DOOR_ACK_BOUND, permission_mode)
+                .resume_saved(
+                    ctx,
+                    id,
+                    START_DOOR_ACK_BOUND,
+                    permission_mode,
+                    (size.cols, size.rows),
+                )
                 .await;
         }
         let attempt = {
@@ -245,6 +256,7 @@ impl Agents {
                 first,
                 startup_context,
                 permission_mode,
+                (size.cols, size.rows),
             )
             .await
         {
