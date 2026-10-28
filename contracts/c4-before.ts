@@ -1,7 +1,7 @@
 // C4: pre-migration type shapes from main 09f5f6611149162c403fe07adf8e757190fb2bf2; frozen independently of the exporter.
 // Todo restoration contracts and Event unions also include main c8c12a4a3 (U3787a).
 // Pad deletion receipts and restoration contracts include U3787a (#3918).
-// RpcErrorData includes `other-project` from U3787f (#4225).
+// RpcErrorData includes `other-project` from U3787f (#4225) and named Undo refusals from U3787a (#4668).
 
 export type Actor = { kind: ActorKind, id: string, parent: string | null, };
 
@@ -21,7 +21,7 @@ export type Kind = "error" | "needs-you" | "blocked" | "working" | "idle" | "don
 
 export type RpcErrorData = { "kind": "events-expired", 
 
-oldest: number, } | { "kind": "other-project", };
+oldest: number, } | { "kind": "other-project", } | { kind: "undo-parent", id: string, name: string } | { kind: "undo-identity", id: string, name: string } | { kind: "undo-pad-name", name: string };
 
 export type Status = { kind: Kind, label: string, 
 
