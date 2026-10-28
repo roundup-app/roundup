@@ -40,6 +40,26 @@ the earlier 1.7 setting; it does not lower the pitch or continuous-frame bar.
 The original Solo screenshot is still unavailable, so no sampled-image match
 is claimed.
 
+The corrected paired capture uses base `adbf2eb65` and the renderer repair
+`a01194dc0` with the isolated default-preference capture fixture, Chromium on
+Linux, dark mode, 1512×950 and DPR 1:
+
+| Surface | Main cell width × height | Head cell width × height | Main grid → head grid |
+| --- | --- | --- | --- |
+| Agent | 8.4 × 19 CSS px | 7 × 19 CSS px | 105×42 → 126×42 |
+| Door | 8.4 × 19 CSS px | 7 × 19 CSS px | 105×42 → 126×42 |
+| Shell Bubble | 8.398 × 19 CSS px | 7 × 19 CSS px | 83×33 → 100×33 |
+
+All three head readings record `renderer: webgl`; main records `dom` after
+snapshot restoration. Each table's verticals and junctions join across rows
+without the earlier gaps. The renderer is disposed before a snapshot resize
+and recreated afterward, retaining the resize safeguard while restoring full-cell
+glyphs. A refused WebGL context still selects DOM and logs its warning.
+All reported design Checks pass on all six captures, including D2, D5 and D6;
+the dense `tree-40` Door and shell show the injected failure text. PNGs,
+Check readings and metrics are under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
+No image is committed.
+
 `DEFAULT_FONT_SIZE` reads the same size Token for the emulator, App Settings
 and Project zoom reset. Saved absolute sizes stay unchanged; clearing a custom
 family restores Fira Code. Font readiness, settings and zoom retain the existing
@@ -88,3 +108,11 @@ observers rather than UI appearance assertions. Their exact lint-baseline
 entries are removed too. No geometry or
 copied-palette test is added. The four obsolete JetBrains font files are removed;
 their notice stays. Performance budgets and CI observers are unchanged.
+
+The mock-only `u103_a_snapshot_resize_of_an_open_webgl_emulator_falls_back_to_the_dom_renderer`
+is retired: it proved only a mock disposal count. The 25 U103 snapshot tests in
+`u103_snapshot.test.tsx` still prove restoration, ordering, recovery and input
+preservation. The U4456 rendered observer records the actual renderer and frame.
+Capture cases clear prior preferences before opening each surface, and hold
+write/resize refusals so an unrelated successful refit cannot erase the intended
+failure feedback before the reading.
