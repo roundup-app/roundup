@@ -49,7 +49,7 @@ export const Bubble = (props: {
   menu(event: MouseEvent): void;
   toggleMinimised(id: string): void;
   /** The rename editor, shown in place of the name. */
-  title?: JSX.Element | undefined;
+  heading?: JSX.Element | undefined;
 }) => {
   const id = props.id;
   let body: HTMLDivElement | undefined;
@@ -219,7 +219,7 @@ export const Bubble = (props: {
                 <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
                 <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
               </span>
-              <Show when={props.title} fallback={<span class="bubble-name">{props.name}</span>}>{props.title}</Show>
+              <Show when={props.heading} fallback={<span class="bubble-name">{props.name}</span>}>{props.heading}</Show>
             </header>
             <div class="bubble-body" ref={mount} /><ReservedLine overlay class={props.screens.failure(id) ? "bubble-failure" : undefined} message={props.screens.failure(id)} />
           </section>

@@ -40,6 +40,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       if (controlHadFocus) queueMicrotask(() => focus(() => {
         const remaining = shown();
         const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
+
         if (nextId !== undefined) document.querySelector<HTMLElement>(`.bubble[data-bubble="${nextId}"] .bubble-header`)?.focus();
       }));
     } catch (thrown) {
