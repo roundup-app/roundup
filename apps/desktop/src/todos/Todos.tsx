@@ -1,3 +1,4 @@
+import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
@@ -235,6 +236,8 @@ export const Todos = (props: {
   let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
 
+  const targets = todoDropTargets(connected, todos, board);
+
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
@@ -242,50 +245,11 @@ export const Todos = (props: {
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
-      target: (id, x, y) => {
-        board.preview(null);
-        const current = todos.byId().get(id)?.home;
-        const rail = document.querySelector(".rail");
-        const clip = rail?.getBoundingClientRect();
-
-        if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
-
-        for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
-
-          if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
-
-          return { element, home };
-        }
-
-        return null;
-      },
+      target: targets.home,
       move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
-      target: (id, x, y) => {
-        const own = todos.byId().get(id);
-
-        for (const element of document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-group]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const group = element.dataset.shelfGroup!;
-          const owner = ownersOnRail(connected).find(each => each.id === group);
-
-          // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
-          if (!owner || !own || sameOwner(owner.actor, own.owner)) return null;
-
-          board.preview({ id, group });
-
-          return { element, attribute: "data-drop-target", owner: owner.actor };
-        }
-
-        return null;
-      },
+      target: targets.owner,
       assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
