@@ -726,7 +726,10 @@ export const Bubbles = (props: {
 
     const id = event.target.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
 
-    if (id !== undefined) lastFocused = id;
+    if (id !== undefined) {
+      lastFocused = id;
+      document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
   };
 
   // Focus landing on a control outside the bubbles (⌘K's Switcher, ⌘/'s Ask bar) minimises every open bubble, so the focused control is never under the top layer, whether or not focus began inside a bubble.
@@ -938,7 +941,9 @@ export const Bubbles = (props: {
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <For each={shownIds()}>{id => <Tab id={id} />}</For>
+          <div class="terminal-tab-list">
+            <For each={shownIds()}>{id => <Tab id={id} />}</For>
+          </div>
           <div class="terminal-tabs-actions">
             <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
