@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -18,7 +19,7 @@ const mount = (seed: SeedName) => {
   return controls;
 };
 
-const rail = () => screen.findByRole("region", { name: "Rail" });
+const rail = () => screen.findByRole("region", { name: copy.rail });
 
 // This suite checks seed wiring; transform the real lazy editor before timing Drawer interactions.
 beforeAll(async () => {
@@ -32,7 +33,7 @@ describe("u26 the harness seeds", () => {
     const { app } = mount("door-stopped");
     const row = (await within(await rail()).findByText("first workstream")).closest(".rail-row")!;
     fireEvent.contextMenu(row);
-    await app.pickMenu("Start supervisor");
+    await app.pickMenu(copy.startDoor);
     await waitFor(() => expect(app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params)).toEqual([{ id: "first-workstream" }]));
   });
 
@@ -77,13 +78,13 @@ describe("u26 the harness seeds", () => {
     const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: "Work items" });
-    showShelfTab("Pads");
+    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
+    showShelfTab(copy.pads);
     const name = (await screen.findAllByText("pad-0"))[0]!;
     fireEvent.click(name);
     fireEvent.keyDown(name.closest("button")!, { key: "Enter" });
 
-    await screen.findByRole("textbox", { name: "Pad body" });
+    await screen.findByRole("textbox", { name: copy.padBody });
     expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
   }, 15_000);
 
