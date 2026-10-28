@@ -27,10 +27,10 @@ it("u2744a_shelf_scope_no_scope_button", async () => {
     expect(document.querySelector(".scope-control")).toBeNull();
     expect(screen.queryByRole("button", { name: /Show (all|only)/ })).toBeNull();
 
-    if (selected) expect(document.querySelector("[data-shelf-scope] .shelf-scope-name")?.textContent).toBe(tree.find(node => node.id === selected)?.name);
+    if (selected) expect(await screen.findByRole("button", { name: `add todo to ${tree.find(node => node.id === selected)?.name}` })).toBeTruthy();
   }
 
   tree[2] = { ...tree[2]!, name: "renamed root" };
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(document.querySelector("[data-shelf-scope] .shelf-scope-name")?.textContent).toBe("renamed root"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to renamed root" })).toBeTruthy());
 });
