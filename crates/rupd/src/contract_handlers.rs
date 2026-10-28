@@ -114,15 +114,6 @@ impl Daemon {
         )
     }
 
-    pub(super) async fn rpc_workstream_clear(
-        &self,
-        conn: &mut Conn,
-        _method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        self.clear(&conn.actor, params).await
-    }
-
     pub(super) async fn rpc_rewind(
         &self,
         conn: &mut Conn,
@@ -132,15 +123,6 @@ impl Daemon {
         let children = self.rewind_children(&conn.actor, method, &params).await?;
         self.rewind_call(&conn.actor, method, params, children)
             .await
-    }
-
-    pub(super) async fn rpc_workstream_handoff(
-        &self,
-        conn: &mut Conn,
-        _method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        self.handoff(&conn.actor, params).await
     }
 
     pub(super) async fn rpc_queue(

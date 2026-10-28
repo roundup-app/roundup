@@ -1,36 +1,33 @@
-//! Q11: plugins survive a real Daemon launch, resume and Workstream Clear.
+//! Q11: plugins survive a real Daemon launch and resume.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
 
-use contracts::EventData;
-use daemon::next;
 use serde_json::{Value, json};
 
-#[path = "common/clear_fixture.rs"]
-#[allow(dead_code)]
-mod clear_fixture;
 #[path = "common/doors.rs"]
 #[allow(dead_code)]
 mod doors;
 #[path = "common/launch_gate.rs"]
 #[allow(dead_code)]
 mod launch_gate;
+#[path = "common/plugin_fixture.rs"]
+#[allow(dead_code)]
+mod plugin_fixture;
 #[path = "common/waiting.rs"]
 #[allow(dead_code)]
 mod waiting;
-use clear_fixture::clear_fixture;
 use doors::child_of;
 use launch_gate::Gate;
+use plugin_fixture::plugin_fixture;
 use waiting::{idle, until};
 
 #[tokio::test]
-async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
+async fn q11_plugins_survive_real_daemon_launch_and_resume() {
     let gate = Gate::new();
     let wrapper = gate.wrapper();
-    // This observer expects a successful restart, so use the loaded-host bound.
-    let (project, mut client, door) =
-        clear_fixture("a32_plugins", &[("ROUNDUP_CLAUDE_BIN", &wrapper)]).await;
+    let (project, client, door) =
+        plugin_fixture("a32_plugins", &[("ROUNDUP_CLAUDE_BIN", &wrapper)]).await;
     let model = project.model.as_ref().unwrap();
     let a = child_of(&client, &door).await;
     until("initial Door and children launched", || {
@@ -79,28 +76,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
         (gate.rows().len() == 5).then_some(())
     })
     .await;
-    let before_clear = gate.rows();
-    assert_eq!(
-        client
-            .request(
-                "workstream.clear",
-                json!({"id": door, "reason": "start a fresh iteration", "without_handoff": true})
-            )
-            .await
-            .unwrap(),
-        json!({"pending": true})
-    );
-    let cleared = next(&mut client, |event| match event {
-        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
-        _ => None,
-    })
-    .await;
-    assert_eq!(cleared.iteration, 2);
-    until("fresh Door launched", || {
-        (gate.rows().len() == 6).then_some(())
-    })
-    .await;
-    let after_clear = gate.rows();
+    let launches = gate.rows();
     let resumes = |row: &Value| {
         row["argv"]
             .as_array()
@@ -108,16 +84,15 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .iter()
             .any(|arg| arg == "--resume")
     };
-    assert!(resumes(&before_clear[3]) && resumes(&before_clear[4]));
-    assert!(!resumes(&after_clear[5]));
-    for row in &after_clear {
+    assert!(resumes(&launches[3]) && resumes(&launches[4]));
+    for row in &launches {
         let argv = row["argv"].as_array().unwrap();
         let paths: Vec<_> = argv
             .windows(2)
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
-        // LC5: the same bundles survive every role's launch, resume and Clear.
+        // LC5: the same bundles survive every role's launch and resume.
         let bundled = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
         let wanted = &bundled;
         assert_eq!(paths.len(), wanted.len());
@@ -140,7 +115,6 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
         ),
         ("resume_1", &["hope:intent"][..]),
         ("resume_2", &["hope:intent", "hunch:fly", "hold:grasp"][..]),
-        ("clear", &["hope:intent"][..]),
     ] {
         for (index, skill) in skills.iter().enumerate() {
             // Match the real result before journal truncation can hide a long resumed conversation.

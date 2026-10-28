@@ -50,7 +50,6 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
 }
 
 pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
-    daemon.clears.me.get_or_init(|| Arc::downgrade(&daemon));
     let stream_pid = stream
         .peer_cred()
         .ok()
