@@ -72,5 +72,5 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     } finally {
       cleanup();
     }
-  });
+  }, false);
 }, 60_000);
