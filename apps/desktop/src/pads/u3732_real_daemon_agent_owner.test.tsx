@@ -53,7 +53,7 @@ it("u3732_real_daemon_agent_owner", async () => {
     await browser("mouse", "move", String(from.x), String(from.y));
     await browser("mouse", "down");
     await browser("mouse", "move", String(from.x), String(from.y - 6));
-    await until(`!!document.querySelector('[data-dnd-placeholder]')`);
+    await until(`!!document.querySelector('.sortable-slot')`);
   };
 
   const drop = async (target: string) => {
@@ -123,7 +123,7 @@ it("u3732_real_daemon_agent_owner", async () => {
     await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);
 
     // By drag, then by `o`, each to the other Agent.
-    await lift(padRow("agent-pad"));
+    await lift('.shelf [data-pad="agent-pad"] .pad-grip');
     await drop(beta.id);
     await owned("pad", "agent-pad", actorOf(beta.id), beta.id);
     await browser("focus", padRow("agent-pad"));
