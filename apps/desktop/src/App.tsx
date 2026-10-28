@@ -440,6 +440,15 @@ export const App = (props: {
 
     if (!frame.open()) frame.toggle("key");
   });
+  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K S` does, on the Pads tab.
+  createEffect(() => {
+    const connected = activeConnection();
+
+    if (!connected || connected instanceof Error || connected.padsRequest() === null) return;
+    frame.setTab(connected.padsTab());
+
+    if (!frame.open()) frame.toggle("key");
+  });
   const widths = createWidths(projects.active);
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
