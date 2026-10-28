@@ -261,7 +261,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       mkdirSync(output, { recursive: true });
       const observed = await page.evaluate<{ checks: unknown }>("({checks:window.__checks(), selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, focused:document.activeElement?.closest('.bubble')?.dataset.bubble, shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), calls:window.__fake.app.calls.filter(c=>c.method==='terminal.open')})");
       writeFileSync(join(output, "root-agent.checks.json"), JSON.stringify(observed.checks, null, 2));
-      writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify(observed, null, 2));
+      writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify({ ...observed, checks: undefined }, null, 2));
       await page.browser("screenshot", join(output, "root-agent.png"));
       if (side === "head") expect(observed).toMatchObject({ selected: "agent-3", calls: [{ method: "terminal.open", params: { workstream: null } }] });
     }
