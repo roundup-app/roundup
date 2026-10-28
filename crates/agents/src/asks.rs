@@ -288,6 +288,7 @@ impl Intake {
     async fn type_part(&self, workstream: &str, text: &str) -> Result<(), RpcError> {
         let deadline = tokio::time::Instant::now() + START_DOOR_ACK_BOUND;
         loop {
+            let observed = self.agents.shared.events.observed.notified();
             match self
                 .agents
                 .shared
@@ -297,7 +298,9 @@ impl Intake {
             {
                 Ok(()) => return Ok(()),
                 Err(PromptError::Busy { .. }) if tokio::time::Instant::now() < deadline => {
-                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    tokio::time::timeout_at(deadline, observed)
+                        .await
+                        .map_err(|_| RpcError::not_accepted("prompt not accepted"))?;
                 }
                 Err(_) => return Err(RpcError::not_accepted("prompt not accepted")),
             }

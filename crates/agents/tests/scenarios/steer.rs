@@ -294,13 +294,7 @@ async fn a4452a_coordination_text_reaches_the_inbox() {
     );
 
     signal(&f, &node.id, "SessionStart").await;
-    for _ in 0..500 {
-        if !f.inbox().is_empty() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    let inbox = f.inbox();
+    let inbox = f.until_inbox(1).await;
     assert_eq!(inbox.len(), 1);
     assert_eq!(inbox[0].0, node.id);
     assert!(inbox[0].1.contains("build it"), "{:?}", inbox[0].1);
