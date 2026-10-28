@@ -7,6 +7,15 @@ use specta::Type;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnParams {
+    /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub cols: Option<u16>,
+    /// U4590: initial PTY rows; absent keeps the hostless 24-row default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub rows: Option<u16>,
+
     /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
     #[serde(
         default,
@@ -82,6 +91,15 @@ pub struct ExtrasAddParams {
 /// A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct StartDoorParams {
+    /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub cols: Option<u16>,
+    /// U4590: initial PTY rows; absent keeps the hostless 24-row default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub rows: Option<u16>,
+
     /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
     #[serde(
         default,

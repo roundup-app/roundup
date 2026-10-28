@@ -315,6 +315,8 @@ impl Intake {
                     .start_door_with(
                         ctx,
                         StartDoorParams {
+                            cols: None,
+                            rows: None,
                             id: workstream.clone(),
                             model: None,
                             effort: None,
@@ -411,6 +413,8 @@ impl Intake {
                             .start_door(
                                 ctx,
                                 StartDoorParams {
+                                    cols: None,
+                                    rows: None,
                                     id: workstream.into(),
                                     model: None,
                                     effort: None,
