@@ -341,7 +341,7 @@ p {
 
 .drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
   width: min(100%, var(--measure));
-  margin-inline: auto;
+  align-self: center;
 }
 
 .drawer[data-maximised="true"] .todo-comments-send {
