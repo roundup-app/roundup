@@ -310,6 +310,8 @@ it.skipIf(!groundOutput)("u4456c_changes_tree_and_diff", async () => {
 it.skipIf(!groundOutput)("u4456c_ask_and_tooltip", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
+    await browser("click", "[data-todo-root]");
+    await wait("!!document.querySelector('.ask-input')?.checkVisibility()");
     await browser("click", ".ask-input");
     await browser("keyboard", "type", "@");
     await wait("!!document.querySelector('.app-mentions')");
