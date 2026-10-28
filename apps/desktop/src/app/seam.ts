@@ -1,3 +1,4 @@
+import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { IdleEvidence } from "../perf/idle";
@@ -8,7 +9,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 export const projectSchema = v.object({ name: v.string(), path: v.string() });
 
 /** U3813: a native command with its captured selected Project. */
-export const projectPageSchema = v.object({ path: v.string(), command: v.picklist(["import-work", "project-settings"]) });
+export const projectPageSchema = v.object({ path: v.string(), command: v.string() });
 
 /** One entry of `projects`, in tab order (S8): `running` is false once that Project's Daemon exited. */
 export const listedProjectSchema = v.object({ name: v.string(), path: v.string(), running: v.boolean() });
@@ -31,6 +32,22 @@ export type Project = v.InferOutput<typeof projectSchema>;
 
 export type DaemonExit = v.InferOutput<typeof daemonExitSchema>;
 
+export const systemAccentSchema = v.nullable(v.tuple([
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
+]));
+
+export type SystemAccent = v.InferOutput<typeof systemAccentSchema>;
+
+/** Native requests are delivered once after the main consumer is ready; links remain opaque. */
+export const nativeOpenSchema = v.variant("kind", [
+  v.object({ kind: v.literal("project"), path: v.string() }),
+  v.object({ kind: v.literal("link"), url: v.string() }),
+]);
+
+export type NativeOpen = v.InferOutput<typeof nativeOpenSchema>;
+
 export type Unsubscribe = () => void;
 
 /** One step of a File drop: `x` and `y` in CSS pixels of the webview; `paths` absolute, empty unless `phase` is `drop`. */
@@ -39,8 +56,8 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 /** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
-/** U2694a: one item of a native menu. `shortcut` is label text only, never an accelerator; `children` makes it a submenu. */
-export type MenuItem = { id: string; label: string; shortcut?: string; enabled: boolean; children?: MenuItem[] };
+/** U2694a: one item of a native menu. Both menus use one-step accelerators and separate sequence hints; adjacent context groups receive native separators. Project groups are create, navigate and views. `children` makes a context submenu. */
+export type MenuItem = { id: string; label: string; shortcut?: string; group?: string; enabled: boolean; children?: MenuItem[] };
 
 /** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
 export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
@@ -71,7 +88,13 @@ export type ProjectCalls = {
 
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
+  "ask_removal",
+  "plugin:capture-panel|control",
+  "system_accent",
+  "native_open",
   "projects",
+  "recent_projects",
+  "claude_binary",
   "record_idle_evidence",
   "select_project_menu",
   "open_project",
@@ -87,21 +110,68 @@ export const SEAM_COMMANDS = [
   "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
+  "plugin:window-bar|native_material",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
 ] as const;
 
+/** U3787f: the panel displays the main window's Capture owner; it stores no drafts. */
+export const captureStateSchema = v.object({
+  session: v.string(), sequence: v.number(), text: v.string(), owner: v.string(), home: v.string(),
+  recovered: v.array(v.object({ revision: v.string(), text: v.string(), status: v.string(), label: v.string() })),
+  retention: v.boolean(), failure: v.nullable(v.string()), mode: v.picklist(["dark", "light"]),
+});
+
+export const captureActionSchema = v.variant("kind", [
+  v.object({ kind: v.literal("ready") }),
+  v.object({ kind: v.literal("edit"), session: v.string(), sequence: v.number(), text: v.string() }),
+  v.object({ kind: v.literal("file"), session: v.string(), sequence: v.number(), text: v.string(), keepOpen: v.boolean() }),
+  v.object({ kind: v.literal("dismiss"), session: v.string() }),
+  v.object({ kind: v.literal("discard"), session: v.string() }),
+  v.object({ kind: v.literal("copy"), session: v.string(), revision: v.string() }),
+  v.object({ kind: v.literal("discard-revision"), session: v.string(), revision: v.string() }),
+  v.object({ kind: v.literal("retry"), session: v.string() }),
+]);
+
+export type CaptureState = v.InferOutput<typeof captureStateSchema>;
+
+export type CaptureAction = v.InferOutput<typeof captureActionSchema>;
+
+export type CapturePort = {
+  configure(press: string | null): Promise<void>;
+  show(): Promise<void>;
+  dismiss(): Promise<void>;
+  publish(snapshot: CaptureState): Promise<void>;
+  act(action: CaptureAction): Promise<void>;
+  onRequested(listener: () => void): Promise<Unsubscribe>;
+  onAction(listener: (action: CaptureAction) => void): Promise<Unsubscribe>;
+  onState(listener: (snapshot: CaptureState) => void): Promise<Unsubscribe>;
+};
+
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
+export type RemovalAnswer = "this" | "all" | "cancel";
+
+export type RemovalQuestion = { title: string; message: string; thisLabel: string; allLabel: string; cancelLabel: string };
+
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
+export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
+
 export type App = {
+  recentProjects(): Promise<string[]>;
+  claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
+  /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
+  onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
+  capture?: CapturePort | undefined;
+  onNativeOpen?: ((listener: (request: NativeOpen) => void) => Promise<Unsubscribe>) | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
   ask(question: NativeQuestion): Promise<boolean>;
+  askRemoval(question: RemovalQuestion): Promise<RemovalAnswer>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
@@ -135,9 +205,9 @@ export type App = {
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   /** Synchronizes native Project-menu availability with the selected tab. */
-  selectProjectMenu(path: string | null): Promise<void>;
+  selectProjectMenu(path: string | null, items?: MenuItem[]): Promise<void>;
   /** Native commands carry the selected Project captured by the host at activation. */
-  onProjectPage(listener: (page: { path: string; command: "import-work" | "project-settings" }) => void): Promise<Unsubscribe>;
+  onProjectPage(listener: (page: { path: string; command: string }) => void): Promise<Unsubscribe>;
   /** Opens the app-wide center settings view; no payload. */
   onAppSettings(listener: () => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
@@ -154,10 +224,10 @@ export const INTERNAL_CODE = -32603;
 export const rpcFailureSchema = v.object({
   code: v.number(),
   message: v.string(),
-  data: v.fallback(v.optional(v.object({
-    kind: v.literal("events-expired"),
-    oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
-  })), undefined),
+  data: v.fallback(v.optional(v.variant("kind", [
+    v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
+    v.object({ kind: v.literal("other-project") }),
+  ])), undefined),
 });
 
 /** A failed call: the Daemon's own `code` and `message`, or INTERNAL when Tauri, a plugin or a malformed answer failed. */
@@ -172,3 +242,27 @@ export class RpcError extends Error {
     this.data = data;
   }
 }
+
+const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010]);
+
+/** Only a typed refusal proves a remote mutation failed; all other throws preserve uncertainty. */
+// U3791b: this is the foreign-throw ingestion seam; even primitives must retain uncertainty.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export const outcomeOf = (thrown: unknown): "failed" | "unknown" =>
+  thrown instanceof RpcError && refusals.has(thrown.code) ? "failed" : "unknown";
+
+
+/** Foreign reads get one additional attempt; no caller can change the retry budget.
+ * Normalize TypeError because p-retry otherwise retries only network TypeErrors.
+ */
+export const retryRead = <T>(read: () => Promise<T>): Promise<T> => pRetry(async () => {
+  try {
+    return await read();
+  } catch (thrown) {
+    if (thrown instanceof TypeError) throw new Error(thrown.message, { cause: thrown });
+
+    if (thrown instanceof Error) throw thrown;
+
+    throw new RpcError(INTERNAL_CODE, String(thrown));
+  }
+}, { retries: 1, minTimeout: 0, maxTimeout: 0 });

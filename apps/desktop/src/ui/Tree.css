@@ -1,6 +1,6 @@
 .app-tree {
   padding: var(--space-1);
-  --tree-row-radius: var(--radius-row);
+  --tree-row-cue: linear-gradient(var(--selected), var(--selected));
 }
 
 .app-tree [data-part="branch-control"],
@@ -24,7 +24,7 @@
 
 .app-tree [data-part="branch-control"]:hover,
 .app-tree [data-part="item"]:hover {
-  background-color: var(--hover);
+  color: var(--text);
 }
 
 [data-scope="tree-view"][data-part="label"] {
@@ -32,21 +32,51 @@
   font: inherit;
 }
 
-.app-tree [data-part="branch-control"][data-selected],
-.app-tree [data-part="item"][data-selected] {
-  background-color: transparent;
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-position: left top;
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
-  border-radius: var(--tree-row-radius);
-}
-
-.app-tree [data-part="branch-control"][data-selected]:hover,
-.app-tree [data-part="item"][data-selected]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+/* U133: pointer focus on a disclosure must not paint a second selected row. */
+.app-tree :is([data-part="branch-control"], [data-part="item"]):is([data-selected], :focus-visible, :has(:focus-visible)) {
+  background-image: var(--tree-row-cue);
 }
 
 .app-tree [data-part="branch"]:hover {
   color: var(--text);
+}
+
+
+/* U4335a: both trees anchor connections to the same glyph box and Token step. */
+:root {
+  --tree-step: var(--space-5);
+  --tree-origin: calc(var(--row-text-inset) - var(--space-4));
+  --tree-mid: calc(var(--space-6) / 2);
+}
+
+.tree-pass,
+.tree-stem,
+.tree-branch {
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 var(--stroke-width), var(--transparent) var(--stroke-width) var(--space-1));
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--tree-origin) + var(--level) * var(--tree-step));
+  pointer-events: none;
+}
+
+.tree-pass,
+.tree-stem {
+  width: var(--hairline-width);
+  background-image: var(--dash);
+}
+
+.tree-stem { top: calc(var(--tree-mid) + var(--space-4) / 2 + var(--hairline-width)); }
+
+.tree-branch {
+  width: calc(var(--tree-step) - var(--space-4) / 2);
+  background-image: var(--dash), var(--elbow);
+  background-size: var(--hairline-width) 100%, 100% var(--hairline-width);
+  background-position: 0 0, 0 var(--tree-mid);
+  background-repeat: no-repeat;
+}
+
+.tree-branch[data-last="true"] {
+  background-size: var(--hairline-width) var(--tree-mid), 100% var(--hairline-width);
 }

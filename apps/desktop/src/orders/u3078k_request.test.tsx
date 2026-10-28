@@ -1,6 +1,6 @@
 import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { mountApp, select } from "../testing/appFixture";
+import { mountApp, select, inspectOrder } from "../testing/appFixture";
 import { screen } from "@solidjs/testing-library";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import type { Reconciliation } from "@contracts/message/Reconciliation";
@@ -37,8 +37,7 @@ const open = async (plans: () => Record<string, Reconciliation>) => {
   });
 
   select("alpha");
-  await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-  fireEvent.click(document.querySelector(".order-line")!);
+  inspectOrder();
 
   return { sent, ...mounted };
 };
@@ -49,15 +48,14 @@ const paramOf = (call: { params: unknown }) => (call.params as { id: string }).i
 const retry = async () => {
   const view = within(await screen.findByRole("region", { name: "Progress" }));
   fireEvent.click(await view.findByRole("button", { name: /Resume unfinished work|Try resuming again/ }));
-  await waitFor(() => expect(view.getByRole("button", { name: /Resume unfinished work|Try resuming again/ })).toBeTruthy());
+  await waitFor(() => expect(view.getByRole("button", { name: /Resume unfinished work|Try resuming again/ }).getAttribute("aria-disabled")).not.toBe("true"));
 };
 
 it("u3078k_a_new_agent_starts_without_the_old_request", async () => {
   const { sent, app } = await open(() => ({ a: seedA.plan, b: seedB.plan }));
   await retry();
   select("beta");
-  await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-  fireEvent.click(document.querySelector(".order-line")!);
+  inspectOrder("b");
   await waitFor(() => expect(app.calls.some((call) => call.method === "message.reconcileWork" && paramOf(call) === "b")).toBe(true));
   await retry();
 

@@ -7,14 +7,27 @@ check base="":
 
 [script('loop/keep-going.sh')]
 check-rust base="":
-    just lint-rust
+    just lint-rust {{quote(base)}}
     just test-rust-since {{quote(base)}}
+
+# The deterministic checks a Builder run's pushes failed on, run before the push and against origin/main: no browser, no test binary, no real process (L23).
+[script('loop/keep-going.sh')]
+ready:
+    just migrations origin/main
+    just lint-web
+    just lint-rust origin/main
+    loop/rules.sh ci-trailers local
+    loop/rules.sh frozen local
+    python3 loop/workflows.test.py
+    python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
 
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
-lint-rust:
+lint-rust base="":
+    python3 tools/file-size/guard.test.py
+    python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
-    just clippy
+    just clippy {{quote(base)}}
     cargo machete crates
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
@@ -23,11 +36,20 @@ lint-rust:
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
+    tools/library-reuse.test.sh
+    tools/library-reuse.sh
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
-clippy:
-    cargo clippy --all-targets -- -D warnings
+# With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a Builder's web-only diff
+# builds no cold Rust before its push (L23).
+clippy base="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{base}}" ] && [ -z "$(python3 loop/affected.py rust {{quote(base)}})" ]; then
+        echo "no Rust crate reaches the diff since {{base}}: clippy skipped"; exit 0
+    fi
+    exec cargo clippy --all-targets -- -D warnings
 
 # The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]
@@ -87,10 +109,15 @@ web-durations run:
     done | loop/web-durations.py > apps/desktop/src/testing/shardDurations.json.new
     mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
 
-# Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
+# Regenerate every contract surface from its declarations and type metadata.
+contracts:
+    cargo run --quiet -p contracts --features export --bin contracts -- contracts/generated
+
+contracts-test:
+    python3 -m unittest discover -s tools/contracts
+
 contracts-fresh:
-    git diff --exit-code -- contracts/generated
-    test -z "$(git ls-files --others --exclude-standard contracts/generated)"
+    python3 tools/contracts/fresh.py
 
 # Runs a script in every pnpm workspace package (apps/*, ext/*), passing it <args>; packages without it are skipped, no packages is a pass.
 packages script *args:
@@ -161,7 +188,9 @@ perf-keystroke *args:
     set -euo pipefail
     [ "${ROUNDUP_ALLOW_WINDOW:-}" = 1 ] || { echo "perf-keystroke opens a window over your screen for about 40 s per run and types into it; set ROUNDUP_ALLOW_WINDOW=1 only when the user asked for the run" >&2; exit 2; }
     dist={{quote(justfile_directory())}}/target/perf-dist
-    VITE_ROUNDUP_PERF=1 pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
+    workload=idle
+    for arg in {{args}}; do [ "$arg" != --flood ] || workload=flood; done
+    VITE_ROUNDUP_PERF=1 VITE_ROUNDUP_PERF_WORKLOAD="$([ "$workload" = flood ] && echo flood || true)" pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
     TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}, app: {windows: [{title: "roundup", alwaysOnTop: true, visibleOnAllWorkspaces: true}]}}') \
         cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
@@ -191,3 +220,35 @@ proofs: proofs-setup
 # L105: the web tests with the captures of the named ids (comma-separated, as on the PR's `Scenarios:` line) written to artifacts/ux/<id>/ (images and videos stay untracked: attach them to the PR with `gh pr edit --attach`); `just check` writes none.
 capture ids:
     ROUNDUP_CAPTURES={{quote(ids)}} just packages test
+
+# R24: six release idle phases in WKWebView; never run this opt-in from Linux/CI.
+perf-idle *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "${ROUNDUP_ALLOW_WINDOW:-}" = 1 ] || { echo "perf-idle opens a native window and requires focus/hide interaction for six phases; set ROUNDUP_ALLOW_WINDOW=1 only for an authorized Mac round" >&2; exit 2; }
+    [ "$(uname -s)" = Darwin ] || { echo "perf-idle unsupported host: $(uname -s); macos required" >&2; exit 2; }
+    rg -q '^\[profile.release\]' Cargo.toml || { echo "perf-idle: release-profile implementation #3807 must land before native calibration (#3777 delivered its specification)" >&2; exit 2; }
+    mkdir -p target
+    build_log=$(mktemp -d target/perf-idle-build.XXXXXX)
+    set +e
+    (
+        set -ex
+        dist={{quote(justfile_directory())}}/target/perf-idle-dist
+        VITE_ROUNDUP_IDLE_PERF=1 pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
+        TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}}') \
+            cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol,desktop/idle-perf --target-dir target/perf-idle-app
+        cargo build --release -p perf --bin perf-idle
+    ) > >(tee "$build_log/stdout") 2> >(tee "$build_log/stderr" >&2)
+    build_status=$?
+    set -e
+    if [ "$build_status" -ne 0 ]; then
+        jq -n --argjson status "$build_status" --arg raw "$build_log" '{exit: 2, build_status: $status, raw: $raw, native_validation: "not measured", memory_status: "provisional", phases: ["10 focused", "10 unfocused", "10 hidden", "1 focused", "1 unfocused", "1 hidden"], error: "release build failed; command and output retained"}' | tee "$build_log/report.json"
+        [ -e target/perf-idle.json ] || cp "$build_log/report.json" target/perf-idle.json
+        exit 2
+    fi
+    ./target/release/perf-idle {{args}}
+
+# B4522: filename-only Git-tree guard and fixtures; no build or dependencies.
+migrations base="":
+    python3 tools/migrations/guard.py {{quote(base)}}
+    python3 tools/migrations/guard.test.py

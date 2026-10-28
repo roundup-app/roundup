@@ -2,7 +2,10 @@ import { caseFold } from "unicode-case-folding";
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
+import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
+import type { DeleteParams } from "@contracts/pad/DeleteParams";
 import type { Pad } from "@contracts/pad/Pad";
+import type { Deletion as TodoDeletion } from "@contracts/todo/Deletion";
 import type { Change } from "@contracts/todo/Change";
 import type { Comment } from "@contracts/todo/Comment";
 import type { Values } from "@contracts/todo/Values";
@@ -81,7 +84,18 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
   return todoMethods(store, announce, actor);
 };
 
-const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
+const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => {
+  const deletions = new Map<string, { author: string; chosen: string; result: TodoDeletion; rows: { todo: Todo; at: number; changes: Change[]; comments: Comment[] }[]; edges: { id: number; blockers: number[] }[] }>();
+
+  const retained = (operation: string) => {
+    const kept = deletions.get(operation);
+
+    if (kept && kept.author !== JSON.stringify(actor())) throw new RpcError(-32002, "deletion belongs to another Actor");
+
+    return kept;
+  };
+
+  return ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
   "todo.listHanded": () => store.todos.flatMap((todo) => {
     const last = store.changes?.get(todo.id)?.findLast(change => change.handed
@@ -202,18 +216,66 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
     return { ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) };
   },
   "todo.refs": ({ id }) => find(store.todos, (todo) => todo.id === id, `todo ${id}`).refs.map((url) => ({ url, state: store.missing?.has(url) ? "missing" : "ok" })),
-  "todo.delete": ({ id }) => {
-    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
-    store.comments?.delete(id);
-    const before = store.todos;
-    store.todos = withBlocked(store.todos.filter((todo) => todo.id !== id).map((todo) => ({ ...todo, blockers: todo.blockers.filter((blocker) => blocker !== id) })));
-    recordChanges(store, before, actor());
-    store.changes?.delete(id);
-    announce({ name: "todo.deleted", data: { id } });
+  "todo.delete": ({ operation, ids }) => {
+    const chosen = JSON.stringify([...new Set(ids)].toSorted((a, b) => a - b));
+    const prior = retained(operation);
 
-    return null;
+    if (prior) {
+      if (prior.chosen !== chosen) throw new RpcError(CONFLICT, "deletion key already names another chosen set");
+
+      return structuredClone(prior.result);
+    }
+
+    const rows = store.todos.flatMap((todo, at) => ids.includes(todo.id) ? [{ todo: structuredClone(todo), at, changes: structuredClone(store.changes?.get(todo.id) ?? []), comments: structuredClone(store.comments?.get(todo.id) ?? []) }] : []);
+    const deleted = rows.map(row => row.todo.id).toSorted((a, b) => a - b);
+    const result: TodoDeletion = { operation, deleted, missing: [...new Set(ids)].filter(id => !deleted.includes(id)).toSorted((a, b) => a - b), state: "deleted" };
+    const edges = store.todos.filter(todo => !deleted.includes(todo.id) && todo.blockers.some(id => deleted.includes(id))).map(todo => ({ id: todo.id, blockers: todo.blockers.filter(id => deleted.includes(id)) }));
+    const before = store.todos;
+    store.todos = withBlocked(store.todos.filter(todo => !deleted.includes(todo.id)).map(todo => ({ ...todo, blockers: todo.blockers.filter(id => !deleted.includes(id)) })));
+    recordChanges(store, before, actor());
+
+    for (const id of deleted) {
+      store.comments?.delete(id);
+      store.changes?.delete(id);
+      announce({ name: "todo.deleted", data: { id } });
+    }
+
+    deletions.set(operation, { author: JSON.stringify(actor()), chosen, result, rows, edges });
+
+    return structuredClone(result);
+  },
+  "todo.deletion": ({ operation }) => structuredClone(retained(operation)?.result ?? null),
+  "todo.restore": ({ operation }) => {
+    const kept = retained(operation);
+
+    if (!kept) throw new RpcError(NOT_FOUND, "deletion not found");
+
+    if (kept.result.state === "restored") return structuredClone(kept.result);
+
+    if (kept.rows.some(row => store.todos.some(todo => todo.id === row.todo.id))) throw new RpcError(CONFLICT, "Todo identity collision");
+    const allIds = [...store.todos.map(todo => todo.id), ...kept.result.deleted];
+
+    if (kept.edges.some(edge => !allIds.includes(edge.id)) || kept.rows.some(row => row.todo.blockers.some(id => !allIds.includes(id)))) throw new RpcError(CONFLICT, "blocker endpoint missing");
+    const before = store.todos;
+    const next = store.todos.map(todo => ({ ...todo, blockers: [...new Set([...todo.blockers, ...(kept.edges.find(edge => edge.id === todo.id)?.blockers ?? [])])].toSorted((a, b) => a - b) }));
+
+    for (const row of kept.rows) next.splice(Math.min(row.at, next.length), 0, structuredClone(row.todo));
+    store.todos = withBlocked(next);
+    recordChanges(store, before, actor());
+
+    for (const row of kept.rows) {
+      store.changes?.set(row.todo.id, structuredClone(row.changes));
+      store.comments?.set(row.todo.id, structuredClone(row.comments));
+    }
+
+    kept.result = { ...kept.result, state: "restored" };
+
+    for (const todo of store.todos.filter(todo => kept.result.deleted.includes(todo.id) || kept.edges.some(edge => edge.id === todo.id))) announce({ name: "todo.restored", data: { ...todo } });
+
+    return structuredClone(kept.result);
   },
 });
+};
 
 const ownsPad = (pad: Pad, actor: Actor) => pad.owner.kind === actor.kind && pad.owner.id === actor.id;
 
@@ -228,57 +290,118 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 };
 
 /** The Pad methods over `store.pads`, with the Provenance history `store.history`; each write also sends `pad.changed`. */
-export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => ({
-  "pad.list": () => store.pads.map((pad) => ({ ...pad })),
-  "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`) }),
-  "pad.create": ({ name, text }) => {
-    if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
+export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => {
+  const request = (p: DeleteParams) => JSON.stringify([p.name, p.operation ?? null, p.expectedIncarnation ?? null]);
+  const project = crypto.randomUUID();
+  const deletions = new Map<string, { receipt: PadDeletion; actor: string; request: string }>();
 
-    if (store.pads.some((pad) => padKey(pad.name) === padKey(name))) throw new RpcError(CONFLICT, `pad ${name} already exists`);
+  const retained = (operation: string) => {
+    const entry = deletions.get(operation);
 
-    const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
-    store.pads = [...store.pads, created];
-    announce({ name: "pad.changed", data: { name } });
+    if (!entry) throw new RpcError(NOT_FOUND, "Pad deletion operation not found");
 
-    return { ...created };
-  },
-  "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
-    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rewrite a pad");
+    if (entry.actor !== JSON.stringify(actor())) throw new RpcError(-32002, "deletion belongs to another Actor");
 
-    if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
+    return entry;
+  };
 
-    if (expectedRevision != null && expectedRevision !== pad.revision) throw new RpcError(CONFLICT, "the pad revision changed");
+  return {
+    "pad.list": () => store.pads.map((pad) => ({ ...pad })),
+    "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`) }),
+    "pad.create": ({ name, text }) => {
+      if (name.trim() === "") throw new RpcError(INVALID_PARAMS, "a Pad needs a name");
 
-    return text === pad.text ? pad : { ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 };
-  }),
-  "pad.rename": ({ name, newName, expectedIncarnation }) => {
-    const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
+      if (store.pads.some((pad) => padKey(pad.name) === padKey(name))) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-    if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rename a pad; Make yours first");
+      const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
+      store.pads = [...store.pads, created];
+      announce({ name: "pad.changed", data: { name } });
 
-    if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
+      return { ...created };
+    },
+    "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
+      if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rewrite a pad");
 
-    if (newName === "" || newName.startsWith(".") || /[/\\\0]/.test(newName) || newName.includes("..")) throw new RpcError(INVALID_PARAMS, "invalid pad name");
+      if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
 
-    if (store.pads.some((entry) => entry.incarnation !== pad.incarnation && padKey(entry.name) === padKey(newName))) throw new RpcError(CONFLICT, "pad exists");
+      if (expectedRevision != null && expectedRevision !== pad.revision) throw new RpcError(CONFLICT, "the pad revision changed");
 
-    if (name === newName) return { ...pad };
+      return text === pad.text ? pad : { ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 };
+    }),
+    "pad.rename": ({ name, newName, expectedIncarnation }) => {
+      const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
 
-    const renamed = changePad(store, announce, name, (entry) => ({ ...entry, name: newName }));
-    announce({ name: "pad.renamed", data: { name: newName, previous_name: name, incarnation: pad.incarnation } });
+      if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rename a pad; Make yours first");
 
-    return renamed;
-  },
-  "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
-  "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
-  "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
-  "pad.delete": ({ name }) => {
-    find(store.pads, (pad) => padKey(pad.name) === padKey(name), `pad ${name}`);
-    store.pads = store.pads.filter((pad) => padKey(pad.name) !== padKey(name));
-    announce({ name: "pad.changed", data: { name } });
+      if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
 
-    return null;
-  },
-  "pad.export": () => null,
-  "provenance.history": () => store.history,
-});
+      if (newName === "" || newName.startsWith(".") || /[/\\\0]/.test(newName) || newName.includes("..")) throw new RpcError(INVALID_PARAMS, "invalid pad name");
+
+      if (store.pads.some((entry) => entry.incarnation !== pad.incarnation && padKey(entry.name) === padKey(newName))) throw new RpcError(CONFLICT, "pad exists");
+
+      if (name === newName) return { ...pad };
+
+      const renamed = changePad(store, announce, name, (entry) => ({ ...entry, name: newName }));
+      announce({ name: "pad.renamed", data: { name: newName, previous_name: name, incarnation: pad.incarnation } });
+
+      return renamed;
+    },
+    "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
+    "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
+    "pad.reorder": ({ name, before, expectedIncarnation }) => {
+      if (actor().kind !== "user") throw new RpcError(-32002, "only the user may reorder pads");
+      const pad = find(store.pads, entry => padKey(entry.name) === padKey(name), `pad ${name}`);
+
+      if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
+      const target = before === null ? null : find(store.pads, entry => padKey(entry.name) === padKey(before), `pad ${before}`);
+
+      if (target && (target === pad || !ownsPad(target, pad.owner))) throw new RpcError(CONFLICT, "reorder needs another pad of the same owner");
+      const order = store.pads.filter(entry => entry !== pad);
+      order.splice(target ? order.indexOf(target) : order.length, 0, pad);
+      store.pads = order;
+      announce({ name: "pad.changed", data: { name } });
+
+      return { ...pad };
+    },
+    "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
+    "pad.delete": (p: DeleteParams) => {
+      if (p.operation != null && (p.operation.length === 0 || p.operation.length > 256)) throw new RpcError(INVALID_PARAMS, "invalid deletion operation");
+
+      if (p.operation && deletions.has(p.operation)) {
+        const entry = retained(p.operation);
+
+        if (entry.request !== request(p)) throw new RpcError(CONFLICT, "deletion operation already used");
+
+        return structuredClone(entry.receipt);
+      }
+
+      const pad = find(store.pads, (pad) => padKey(pad.name) === padKey(p.name), `pad ${p.name}`);
+
+      if (actor().kind !== "user" && !ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may delete this Pad");
+
+      if (p.expectedIncarnation != null && p.expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "Pad creation changed");
+      const receipt: PadDeletion = { project, operation: p.operation ?? crypto.randomUUID(), pad: structuredClone(pad), restored: false };
+      deletions.set(receipt.operation, { receipt, actor: JSON.stringify(actor()), request: request(p) });
+      store.pads = store.pads.filter((item) => item !== pad);
+      announce({ name: "pad.changed", data: { name: pad.name } });
+
+      return structuredClone(receipt);
+    },
+    "pad.getDeletion": ({ operation }) => structuredClone(retained(operation).receipt),
+    "pad.restore": (id) => {
+      if (id.project !== project) throw new RpcError(-32002, "deletion belongs to another Project");
+      const { receipt } = retained(id.operation);
+
+      if (receipt.restored) return structuredClone(receipt);
+
+      if (store.pads.some((pad) => padKey(pad.name) === padKey(receipt.pad.name))) throw new RpcError(CONFLICT, "Pad name is in use");
+      store.pads = [...store.pads, structuredClone(receipt.pad)];
+      receipt.restored = true;
+      announce({ name: "pad.changed", data: { name: receipt.pad.name } });
+
+      return structuredClone(receipt);
+    },
+    "pad.export": () => null,
+    "provenance.history": () => store.history,
+  };
+};

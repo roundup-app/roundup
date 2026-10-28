@@ -1,0 +1,90 @@
+{
+  "base": "eb4a16fdbb61a80ac2d77f52ffeefc49a0e778d4",
+  "head": "56a96a70544c2c89a6e2170a2a655cca2375c1a4",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "deviceScaleFactor": 1,
+  "pairs": [
+    {
+      "name": "agents-10",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "conflict",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "daemon-exits",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "dense-todos",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "failed-completion",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "first-run",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "pads",
+      "regressed": [],
+      "baseFailures": [
+        "D12"
+      ],
+      "headFailures": [
+        "D12"
+      ]
+    },
+    {
+      "name": "selected-todo",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    },
+    {
+      "name": "terminal-rename",
+      "regressed": [],
+      "baseFailures": [
+        "D12"
+      ],
+      "headFailures": [
+        "D12"
+      ]
+    },
+    {
+      "name": "terminal-tab",
+      "regressed": [],
+      "baseFailures": [
+        "D12"
+      ],
+      "headFailures": [
+        "D12"
+      ]
+    },
+    {
+      "name": "tree-40",
+      "regressed": [],
+      "baseFailures": [],
+      "headFailures": []
+    }
+  ]
+}

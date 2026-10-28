@@ -1,7 +1,7 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { OrderDrawer } from "./OrderDrawer";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import type { Order } from "@contracts/agent/Order";
@@ -11,7 +11,7 @@ import type { StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../testing/appFixture";
+import { gate, mountApp, select, inspectOrder } from "../testing/appFixture";
 import { runChecks } from "../testing/checks";
 import { agent, door } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
@@ -33,8 +33,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       ];
     });
     select("alpha");
-    await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-    fireEvent.click(document.querySelector(".order-line")!);
+    inspectOrder();
     await screen.findByLabelText("Full order of alpha");
 
     // the test container and portal roots are outside the app's stylesheet and hold no text of their own
@@ -64,15 +63,13 @@ describe("U2773 Order forms on real Projects", () => {
     second = await startRealDaemon({});
   }, 240_000);
   afterAll(async () => { await first?.stop(); await second?.stop(); });
-  const mount = (app: AppSeam) => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  let current: ReturnType<typeof connectProject> extends Promise<infer T> ? T : never;
+  const mount = (app: AppSeam) => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { current = open; }} />);
 
   const open = async (id: string) => {
-    await waitFor(() => expect(document.querySelector(`[data-id="${id}"]`)?.textContent).toContain("same name"));
+    await waitFor(() => expect(screen.getAllByRole("treeitem").some(row => row.getAttribute("data-id") === id)).toBe(true));
     fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
-    await waitFor(() => expect(document.querySelector(".order-line, .order-overview [aria-label='Edit order']")).not.toBeNull());
-    const line = document.querySelector(".order-line");
-
-    if (line) fireEvent.click(line);
+    current.drawer.open(() => <ConnectedProjectContext.Provider value={current}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
     fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
 
     return screen.getByLabelText<HTMLTextAreaElement>("Ask");
@@ -108,6 +105,7 @@ describe("U2773 Order forms on real Projects", () => {
       ask.focus();
       ask.setSelectionRange(2, 8, "backward");
       fireEvent.select(ask);
+      await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${paths[index]}`)!).drafts.at(-1)).toMatchObject({ value: { ask: values[index] }, selection: { start: 2, end: 8, direction: "backward" } }));
     }
 
     cleanup();
@@ -123,7 +121,7 @@ describe("U2773 Order forms on real Projects", () => {
 
     expect(calls.flatMap((spy) => spy.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.prompt" || method === "terminal.write"))).toEqual([]);
     vi.restoreAllMocks();
-  }, 120_000);
+  }, 60_000);
 
   it("u2773c_orders_external_change_keeps_original", async () => {
     const app = createServedApp(first.base);
@@ -166,18 +164,23 @@ describe("U2773 Order forms on real Projects", () => {
     const app = createServedApp(first.base);
     const original = await app.rpc("agent.spawn", { cwd: first.dir, name: "same name", parent: null, prompt: null, order: full });
     const calls = vi.spyOn(app, "rpc");
+    const copied: string[] = [];
+    app.writeClipboardText = async text => { copied.push(text); };
+
     mount(app);
     const ask = await open(original.id);
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
     await app.rpc("agent.stop", { id: original.id });
     await app.rpc("rail.remove", { id: original.id });
+    // The retained editor now lives in a requested Drawer; closing it exposes its recovery entry.
+    fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Close" }));
     await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
-    await waitFor(() => expect(within(recovery).queryByRole("button", { name: "Copy" })).not.toBeNull());
-    expect(within(recovery).queryByRole("button", { name: "Open" })).toBeNull();
+    fireEvent.click(await within(recovery).findByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(copied.join("\n")).toContain("  unavailable original 🧭\n"));
     calls.mockClear();
     fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
-    expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
+    expect(current.drafts.list().filter(draft => draft.destination.surface === "orders")).toEqual([]);
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn")).toEqual([]);
     vi.restoreAllMocks();
   }, 60_000);
@@ -293,13 +296,13 @@ describe("U2773 Order forms on real Projects", () => {
     const ask = await open(original.id);
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
     fireEvent.input(ask, { target: { value: "  memory through closed Project é 🧭\n" } });
-    await screen.findByRole("alert");
+    await within(ask.form!).findByRole("alert");
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
     await questionDialog();
     await answerQuestion(true);
-    await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await waitFor(() => { if (screen.queryByRole("tab", { name: "first" })) throw new Error("Closed Project remains open"); });
+    fireEvent.click(await screen.findByRole("button", { name: "Choose folder…" }));
     await screen.findByRole("tab", { name: "first" });
     const restored = await open(original.id);
     expect(restored.value).toBe("  memory through closed Project é 🧭\n");
@@ -307,8 +310,8 @@ describe("U2773 Order forms on real Projects", () => {
     calls.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn" || method === "terminal.write")).toEqual([]);
-    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(within(screen.getByLabelText<HTMLTextAreaElement>("Ask").form!).queryByRole("alert")).toBeNull());
     vi.restoreAllMocks();
-  }, 90_000);
+  }, 60_000);
 
 });

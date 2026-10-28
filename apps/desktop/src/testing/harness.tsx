@@ -1,8 +1,13 @@
+import { StorageRecovery } from "../app/StorageRecovery";
+import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createRoot } from "solid-js";
+import { createEffect, createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
+import { captureActions } from "../keys/registry";
 import { App } from "../App";
+import { OrderDrawer } from "../orders/OrderDrawer";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
 import { railStorage } from "../rail/persist/storage";
@@ -28,10 +33,13 @@ declare global {
     __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
     __firstRun?: { cancelNextChoice: () => void };
+    /** The retained Order drawer U4453a left without a goal line; opens it for one Agent. */
+    __openOrder: (id: string) => void;
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
   }
 }
+
 
 window.__question = questionProbe;
 
@@ -43,6 +51,40 @@ if (!root) throw new Error("harness.html has no #root element");
 
 const query = new URLSearchParams(location.search);
 
+// U4086's isolated native boundary fixture uses the official plugin JS adapter and
+// production gate. This browser-only durable map makes no native filesystem claim.
+if (query.has("storage-recovery")) {
+  let cache = new Map<string, unknown>();
+  Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
+    invoke: async (command: string, args: { key: string; value: unknown }) => {
+      if (command === "plugin:resources|close") return;
+
+      if (command === "plugin:store|load") {
+        const bytes = localStorage.getItem("u4086:store");
+        cache = new Map(bytes === null ? [] : JSON.parse(bytes));
+
+        return 1;
+      }
+
+      if (command === "plugin:store|entries") return [...cache];
+
+      if (command === "plugin:store|set") { cache.set(args.key, args.value);
+
+ return; }
+
+      if (command === "plugin:store|save") {
+        if (sessionStorage.getItem("u4086:fail")) throw new Error("disk is full. Free space and retry.");
+        localStorage.setItem("u4086:store", JSON.stringify([...cache]));
+
+        return;
+      }
+
+      throw new Error(`Unexpected isolated store command: ${command}`);
+    },
+  } });
+} else useBrowserStorage(window.localStorage);
+
+
 const mount = (app: AppSeam) => {
   const reducedMotion = createRoot(() => createReducedMotion((media) => window.matchMedia(media)));
 
@@ -51,12 +93,33 @@ const mount = (app: AppSeam) => {
     : createXtermEmulators();
 
   window.__terminals = new Map();
-  render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={(id) => {
-    const emulator = createEmulator(id);
+  const requested = new Set<string>();
+
+  const inspection = (open: import("../state/connectedProject").ConnectedProject) => {
+    createEffect(() => {
+      if (query.get("tabs") === "1") open.showView("terminal-tabs");
+    });
+  };
+
+  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+    if (requested.has(open.project.path)) return;
+    requested.add(open.project.path);
+    inspection(open);
+    window.__openOrder = id => open.drawer.open(() => <ConnectedProjectContext.Provider value={open}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
+
+    for (const view of query.getAll("view")) open.showView(view);
+
+    if (query.get("items") === "1") queueMicrotask(() => {
+      if (document.querySelector('.window[data-shelf="closed"]')) captureActions(document.activeElement).find(action => action.value === "action:leader:S")?.run();
+    });
+  }} createEmulator={(id, copy) => {
+    const emulator = createEmulator(id, copy);
     window.__terminals.set(id, emulator);
 
     return emulator;
-  }} />, root);
+  }} />;
+
+  render(() => query.has("storage-recovery") ? <StorageRecovery>{content()}</StorageRecovery> : content(), root);
 };
 
 window.__checks = () => runChecks();
@@ -92,12 +155,12 @@ if (query.get("daemon") === "1") {
         cwd: `packages/${"deep-folder/".repeat(10)}destination-${index}`,
         last_activity_ms: 1_792_512_000_000n - BigInt(index * 60_000),
       })),
-      excluded: [{ source: "unavailable-conversation", reason: "Source unavailable: folder no longer exists.", title: null, last_activity_ms: 1700000000000n }],
+      excluded: [{ source: "unavailable-conversation", cause: "missingDirectory", reason: "Source unavailable: folder no longer exists.", title: null, last_activity_ms: 1700000000000n }],
     });
     controls.app.handlers["project.importCommit"] = ({ selections }) => ({
       outcomes: selections.map(({ source }, index) => index === 0
         ? { source, workstream: "backend", agent: "migrate", error: null }
-        : { source, workstream: null, agent: null, error: "Source changed. Refresh and retry." }),
+        : { source, workstream: null, agent: null, error: { code: -32003, message: "Source changed. Refresh and retry.", outcome: "failed" } }),
     });
   }
 
@@ -106,7 +169,7 @@ if (query.get("daemon") === "1") {
   const selected = SELECTED.get(seed);
 
   if (selected) {
-    const failure = railStorage(controls.app.opened.project!.path).write({ selected, collapsed: [] });
+    const failure = await railStorage(controls.app.opened.project!.path).write({ selected, collapsed: [] });
 
     if (failure !== null) throw new Error(failure);
   }
@@ -116,4 +179,3 @@ if (query.get("daemon") === "1") {
 
   if (query.get("todos") === "worst") mountTodoWorstCase(controls);
 }
-

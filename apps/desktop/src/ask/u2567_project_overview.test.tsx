@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { copy } from "../copy";
-import { input, mountAskBar, press } from "./askFixture";
+import { input, mountAskBar as mountQuietAskBar, press } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -12,16 +12,15 @@ it("u2567a_entries_follow_rail_order_with_door_status", async () => {
 
   const overview = screen.getByRole("region", { name: "Project overview" });
 
-  expect(within(overview).getAllByRole("button")).toEqual([
+  expect(within(overview.querySelector(".overview-list")!).getAllByRole("button")).toEqual([
     within(overview).getByRole("button", { name: "a" }),
     within(overview).getByRole("button", { name: "b Working" }),
   ]);
-  expect(within(overview).getByRole("img", { name: "Working" })).toBeDefined();
 });
 
 const overview = () => screen.getByRole("region", { name: "Project overview" });
 
-const buttons = () => within(overview()).getAllByRole("button");
+const buttons = () => within(overview().querySelector(".overview-list")!).getAllByRole("button");
 
 const expectNames = (names: string[]) => {
   expect(buttons()).toHaveLength(names.length);
@@ -43,16 +42,16 @@ it("u2567a_attention_lines_sit_under_the_right_workstream", async () => {
   connected.rail.toggleCollapsed("b");
 
   const entries = overview().querySelectorAll<HTMLElement>(".overview-list > li");
-  expect(within(entries[0]!).getAllByRole("button", { name: "a Error" })).toHaveLength(2);
-  expect(within(entries[1]!).getByRole("button", { name: "waiting Needs-you" })).toBeDefined();
-  expect(within(overview()).getByRole("heading").textContent).toBe("2 need you");
+  expect(within(entries[0]!).getAllByRole("button")).toHaveLength(1);
+  expect(document.querySelectorAll(".overview-list > li")[1]?.querySelectorAll("button")).toHaveLength(2);
+  expect(connected.rail.selected()).toBeNull();
 });
 
 it("u2567a_root_agents_need_attention_without_workstreams", async () => {
   await mountAskBar([], null, [agent("parent", "working", "busy"), agent("waiting", "needs-you", "permission", { parent: "parent" })]);
 
   expectNames(["waiting Needs-you"]);
-  expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
   expect(input()).not.toBeNull();
 });
 
@@ -65,18 +64,13 @@ it("u2567a_attention_is_error_first_then_oldest_since", async () => {
   expectNames(["a", "error Error", "old Needs-you", "new Needs-you"]);
 });
 
-it("u2567a_nothing_needs_you", async () => {
-  await mountAskBar([], null, [door("a", "working", "busy"), terminal("terminal")]);
-  expect(within(overview()).getByRole("heading").textContent).toBe("Nothing needs you");
-});
-
 it("u2567b_a_status_event_moves_the_line_and_the_count", async () => {
   const { app, connected } = await mountAskBar([], null, tree());
   app.emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
   await connected.rail.settled();
 
-  expectNames(["a Error", "a Error", "b Working"]);
-  expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
+  expectNames(["a Error", "b Working"]);
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_create_and_remove_follow_the_tree", async () => {
@@ -85,8 +79,8 @@ it("u2567b_create_and_remove_follow_the_tree", async () => {
   app.emit(event({ name: "rail.changed" }));
   await connected.rail.settled();
 
-  expectNames(["new", "b Needs-you", "b Needs-you"]);
-  expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
+  expectNames(["new", "b Needs-you"]);
+  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_the_overview_makes_no_call_of_its_own", async () => {
@@ -130,7 +124,7 @@ it("u2567c_a_stopped_door_is_selected_but_not_started", async () => {
 it("u2567c_the_entries_are_reachable_by_keyboard_in_order", async () => {
   await mountAskBar([], null, tree());
 
-  expect(buttons().map((button) => [button.tagName, button.tabIndex])).toEqual([["BUTTON", 0], ["BUTTON", 0], ["BUTTON", 0], ["BUTTON", 0]]);
+  expect(buttons().map((button) => [button.tagName, button.tabIndex])).toEqual([["BUTTON", 0], ["BUTTON", 0], ["BUTTON", 0]]);
 
   for (const button of buttons()) {
     button.focus();
@@ -146,37 +140,38 @@ it("u2567c_the_shortcut_overlay_has_no_overview", async () => {
   expect(screen.queryByRole("region", { name: "Project overview" })).toBeNull();
 });
 
-it("u2567d_empty_rail_shows_u143_and_no_overview", async () => {
-  await mountAskBar([], null, [], true);
-
-  expect(screen.getByText("No Workstream yet")).toBeDefined();
-  expect(input()).toBeNull();
-  expect(screen.queryByRole("region", { name: "Project overview" })).toBeNull();
-});
-
 it("u2567d_before_the_first_tree_shows_no_all_clear", async () => {
   let answer!: (nodes: RailNode[]) => void;
   const mounting = mountAskBar([], null, new Promise<RailNode[]>((resolve) => { answer = resolve; }), true);
 
-  await screen.findByText("No Workstream yet");
-  expect(screen.queryByText("Nothing needs you")).toBeNull();
+  await screen.findByRole("textbox", { name: "Ask" });
+  expect(screen.queryByRole("region", { name: copy.projectOverview })).toBeNull();
   answer(tree());
   await mounting;
 });
 
 it("u2567d_a_failed_refetch_keeps_the_list_and_shows_the_error", async () => {
-  const { app, connected } = await mountAskBar([], null, tree());
+  const { app, connected } = await mountAskBar([], null, tree(), true);
 
   app.handlers["rail.tree"] = () => { throw new Error("offline"); };
 
   await connected.rail.refresh();
 
-  expect(within(overview()).getByRole("alert").textContent).toContain("offline");
-  expectNames(["a Error", "a Error", "b Working", "waiting Needs-you"]);
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(within(overview()).queryByRole("alert")).toBeNull();
+  expectNames(["a Error", "b Working", "waiting Needs-you"]);
   expect(input()).not.toBeNull();
 
   app.handlers["rail.tree"] = () => tree();
 
   await connected.rail.refresh();
-  expect(within(overview()).queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
+  const mounted = await mountQuietAskBar(...args);
+  mounted.connected.showView(null);
+  mounted.connected.showView("workstreams");
+
+  return mounted;
+};

@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "../copy";
@@ -15,8 +16,8 @@ const loadTrees = () => (library ??= import("@pierre/trees"));
 /** Whether the library has been asked for yet. */
 export const treesLoaded = (): boolean => library !== undefined;
 
-/** U2539b, U2539d: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
-export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]; selected?: string | undefined; onSelect?: (path: string) => void }) => {
+/** U2539b, U2539d, U3787c: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
+export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFocus>; root: string; files: readonly ChangedFile[]; selected?: string | undefined; onSelect?: (path: string) => void }) => {
   const { app } = useConnectedProject();
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
 
@@ -42,6 +43,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
     });
   };
 
+  const initialFocus = props.initialFocus ?? captureFocus();
   onMount(() => {
     let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
     let gone = false;
@@ -59,6 +61,9 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
         initialExpansion: "open",
         itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
         stickyFolders: false,
+        // U3787c: library name-prefix typeahead, and Shift/⌘⇧ ranges that replace the selection.
+        typeahead: "name-prefix",
+        rangeSelection: "replace",
         icons: { set: "minimal", colored: false },
         // The library defines its palette on :host, inside its shadow root.
         // Keep the overrides there too so inheritance cannot restore its defaults.
@@ -71,6 +76,8 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
         },
       });
       tree.render({ containerWrapper: mount });
+
+      if (props.selected) tree.scrollToPath(props.selected);
       // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
       const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
 
@@ -91,7 +98,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
           if (restoreFocus) {
             const selected = [...shadow.querySelectorAll<HTMLElement>("[data-item-path]")].find(row => row.dataset.itemPath === props.selected);
 
-            if (selected) { restoreFocus = false; selected.focus(); }
+            if (selected) { restoreFocus = false; initialFocus(() => selected.focus()); }
           }
 
           mount.style.setProperty("--worktree-rows", String(tree?.getVisibleCount() ?? 0));
@@ -106,11 +113,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
         stopRows = () => { observer.disconnect(); unsubscribe(); };
       }
 
-      if (props.selected) {
-        tree.scrollToPath(props.selected);
-        [...(shadow?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])].find(row => row.dataset.itemPath === props.selected)?.focus();
-      }
-      else shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+      if (!props.selected) initialFocus(() => shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus());
       const scroller = shadow?.querySelector<HTMLElement>("[data-file-tree-virtualized-scroll]");
 
       if (scroller) {

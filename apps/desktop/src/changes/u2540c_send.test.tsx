@@ -1,3 +1,5 @@
+import { renderTabs, path, tab, projectTabs } from "../header/stripFixture";
+import { notesFor } from "./notes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
@@ -44,10 +46,9 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
   fireEvent.click(send);
   await saveNote("added meanwhile");
   resolve(message(1, { to: "a", status: "pending" }));
-  await waitFor(() => expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted"));
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("added meanwhile");
+  await waitFor(() => expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual(["added meanwhile"]));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
-  expect(screen.getByRole("region", { name: "Agent notes" }).textContent).toContain("queued");
+  await screen.findByText(/queued/);
 });
 
 it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
@@ -78,11 +79,13 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   let resolve!: (value: Message) => void;
   let reject!: (error: Error) => void;
   app.handlers["message.send"] = () => new Promise((done, fail) => { resolve = done; reject = fail; });
+  const sending = vi.spyOn(notesFor(app, "/p"), "send");
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  revision B 🐝\n newer  " } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note save remains pending"); });
 
   if (outcome === "acknowledged") resolve(message(1, { to: "a" }));
   else reject(outcome === "failed" ? new RpcError(-32003, "refused A") : new Error("lost reply A"));
@@ -90,29 +93,26 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
 
   if (outcome === "failed") await screen.findByText("refused A");
 
+  await sending.mock.results[0]!.value;
   view.unmount();
   const reopened = await openDiff();
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  revision B 🐝\n newer  ");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("revision A");
+  expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["  revision B 🐝\n newer  "]);
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 
   if (outcome === "acknowledged") {
-    expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+    expect(notesFor(reopened.app, "/p").entries()[0]?.[1].submissions).toEqual([]);
   } else {
-    fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-    const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+    fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+    const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
 
-    expect(recovery.textContent).toContain("revision A");
-    expect(recovery.textContent).toContain("revision B");
-    expect(within(recovery).queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(notesFor(reopened.app, "/p").entries()[0]?.[1].submissions[0]?.notes.map(note => note.text)).toEqual(["  revision A 🐝\n e\u0301  "]);
     fireEvent.click(screen.getByRole("button", { name: "Discard this submission" }));
-    expect(recovery.textContent).not.toContain("revision A");
-    expect(recovery.textContent).toContain("revision B");
+    expect(notesFor(reopened.app, "/p").entries()[0]?.[1].submissions).toEqual([]);
     reopened.view.unmount();
     await openDiff();
-    expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("revision B");
+    expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["  revision B 🐝\n newer  "]);
   }
 });
 
@@ -139,7 +139,9 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
 
 
 it("u2773b_changes_late_failure_stays_with_original_project", async () => {
-  const { renderTabs, path, tab, projectTabs } = await import("../header/stripFixture");
+  const submitted = "submitted A";
+  const newer = "newer A";
+  const other = "Project B exact 🐝";
   const { agent } = await import("../testing/nodes");
   const { WORKTREE, STATE } = await import("./harness");
   const { app } = renderTabs({ api: [agent("a", "working", "building", { worktree: WORKTREE })], web: [agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b" } })] });
@@ -154,31 +156,39 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
   fireEvent.click(tab("api"));
   fireEvent.click(await screen.findByText("a", { selector: ".name" }));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+  await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
-  await saveNote("submitted A");
+  await saveNote(submitted);
   const original = app.of(path("api"));
   let refuse!: (error: Error) => void;
   original.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
   await waitFor(() => expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer A" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
+  await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
-  await saveNote("Project B exact 🐝");
+  await saveNote(other);
   refuse(new RpcError(-32003, "original Project refused"));
   fireEvent.click(tab("api"));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/a" }));
+
+  await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByText("original Project refused");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("newer A");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted A");
+  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(newer);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(tab("web"));
-  fireEvent.click(await screen.findByRole("button", { name: "roundup/b" }));
-  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("Project B exact 🐝");
+
+  await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
+  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit note 1" }));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(other);
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 });
@@ -198,8 +208,10 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
 
   app.handlers["message.send"] = params => { body = params.body; throw new Error("lost accepted reply"); };
 
+  const sending = vi.spyOn(notesFor(app, "/p"), "send");
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
   await screen.findByRole("button", { name: "Check Message history" });
+  await sending.mock.results[0]!.value;
   view.unmount();
   write?.mockRestore();
   const reopened = await openDiff();
@@ -209,13 +221,19 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   // reconcile persists its settlement before returning; wait for that emitted boundary, not the request count.
   await waitFor(() => expect(retained.mock.calls.some(([key]) => key === "roundup:drafts:/p")).toBe(true));
   expect(screen.getByRole("button", { name: /Send notes to/ }).hasAttribute("disabled")).toBe(true);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("exact possibly accepted note");
+  expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["exact possibly accepted note"]);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
 it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
+  const older = "older connection revision A";
+  const newer = "new connection revision B 🐝";
   const first = await openDiff();
-  await saveNote("older connection revision A");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: older } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Edit note 1" });
+  await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   let refuse!: (error: Error) => void;
   first.app.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
   fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
@@ -223,19 +241,19 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   first.view.unmount();
   const next = await openDiff("/p", first.connected.drafts);
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "new connection revision B 🐝" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   refuse(new RpcError(-32003, "original connection refused"));
   await screen.findByText("original connection refused");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  expect(recovery.textContent).toContain("older connection revision A");
-  expect(recovery.textContent).toContain("new connection revision B 🐝");
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
+  expect(recovery.textContent).toContain(older);
+  expect(recovery.textContent).toContain(newer);
   next.view.unmount();
   await openDiff("/p", first.connected.drafts);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
 });
 
 it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit"])("p3557c_failure_lifetime_note_batch: %s", async action => {
@@ -266,7 +284,7 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   }
 
-  expect(screen.queryByText("recipient refused; edit or retry notes") !== null).toBe(action.startsWith("other") || action === "cancel edit");
+  await waitFor(() => expect(Boolean(notesFor(app, "/p").failure("a"))).toBe(action.startsWith("other") || action === "cancel edit"));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   const list = screen.getByRole("list", { name: "Notes" });
   expect(list.textContent).toContain(action === "other save" ? "  acknowledged replacement 🐝  " : action === "other remove" ? exact : "  unrelated 🐝\n exact  ");
@@ -312,7 +330,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   }
 
-  expect(screen.getByRole("alert").textContent).toContain("storage refused a write");
+  await waitFor(() => expect(notesFor(app, "/p").problem()).not.toBeNull());
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  in memory e\u0301\n🐝  ");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
   write.mockRestore();
@@ -333,11 +351,14 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
   await screen.findByText("current refusal; retry");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Discard this submission" })[selected === "same" ? 1 : 0]!);
+  await waitFor(() => expect(notesFor(app, "/p").entries().find(([id]) => id === "a")?.[1].submissions).toHaveLength(1));
+
+  if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");

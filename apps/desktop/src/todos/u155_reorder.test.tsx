@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { node } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { beforeOf } from "./beforeOf";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
@@ -27,23 +28,6 @@ describe("u155 reorder a Todo row", () => {
     refetch(mounted);
     await waitFor(() => expect(ids()).toEqual([2, 1, 3]));
     expect(document.activeElement).toBe(buttonOf(1));
-  });
-
-  it("u155_a_row_offers_only_the_moves_that_have_a_sibling", async () => {
-    await three();
-    await screen.findByText(/todo 3/);
-
-    const arrows = (id: number) => ["Move up", "Move down"].filter((name) => {
-      const arrow = document.querySelector<HTMLElement>(`[data-id="${id}"] [aria-label="${name}"]`);
-
-      return arrow !== null && getComputedStyle(arrow).visibility !== "hidden";
-    });
-
-    expect([1, 2, 3].map(arrows)).toEqual([["Move down"], ["Move up", "Move down"], ["Move up"]]);
-    cleanup();
-    await mountTodos([todo(1)]);
-    await screen.findByText(/todo 1/);
-    expect(arrows(1)).toEqual([]);
   });
 
   it("u155_alt_down_on_the_last_row_and_alt_up_on_the_first_call_nothing", async () => {
@@ -95,14 +79,45 @@ describe("u155 reorder a Todo row", () => {
     expect(ids()).toEqual([1, 2, 3]);
   });
 
-  it("u155_the_row_button_says_how_it_moves_and_shows_nothing_new_at_rest", async () => {
-    await three();
 
-    await screen.findByText(/todo 3/);
-    expect(buttonOf(1).getAttribute("aria-description")).toBe("Alt+Up or Alt+Down moves it");
-    expect(buttonOf(1).textContent?.trim()).toBe("todo 1");
-  });
 });
+
+for (const unchangedEvent of [false, true]) {
+  it(`u4231_unchanged_key_acknowledgement_keeps_order_and_focus Shelf event=${unchangedEvent}`, async () => {
+    const initial = [1, 2, 3].map(id => todo(id));
+    const mounted = await mountTodos(initial, false);
+
+    const selector = "[data-shelf-row] .todo-row-button";
+    const rows = () => [...document.querySelectorAll<HTMLButtonElement>(selector)];
+    const order = () => rows().map(row => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
+    await waitFor(() => expect(order()).toEqual([1, 2, 3]));
+    let read = false;
+    mounted.app.handlers["todo.list"] = () => { read = true;
+
+ return mounted.store.todos; };
+
+    mounted.app.handlers["todo.reorder"] = ({ id }) => {
+      if (unchangedEvent) refetch(mounted);
+
+      return { ...mounted.store.todos.find(todo => todo.id === id)! };
+    };
+
+    const focused = rows()[0]!;
+    focused.focus();
+    fireEvent.keyDown(focused, { key: "ArrowDown", altKey: true });
+    // The post-acknowledgement read is the authoritative boundary even when T11 emits nothing.
+    await waitFor(() => expect(read).toBe(true));
+    await mounted.todos.reload();
+    expect(order()).toEqual([1, 2, 3]);
+    expect(document.activeElement).toBe(focused);
+    expect(screen.queryByRole("alert")).toBeNull();
+    mounted.store.todos = [initial[2]!, initial[0]!, initial[1]!];
+    refetch(mounted);
+    await waitFor(() => expect(order()).toEqual([3, 1, 2]));
+    expect(document.activeElement).toBe(focused);
+    expect(callsTo(mounted.app, "todo.reorder")).toEqual([{ method: "todo.reorder", params: { id: 1, before: 3 } }]);
+  });
+}
 
 describe("u155 where a moved row goes", () => {
   const all = [1, 2, 3, 4, 5].map((id) => todo(id));

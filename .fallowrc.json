@@ -5,7 +5,9 @@
   "entry": [
     "contracts/**/*.ts",
     "apps/*/harness.html",
-    "docs/u478-contrast-observer.test.mjs"
+    "apps/desktop/observers/U3010c/layout.js",
+    "docs/u478-contrast-observer.test.mjs",
+    "vendor/tauri-plugin-global-shortcut-2.4.1/api-iife.js"
   ],
   "ignorePatterns": [
     "tools/oxlint/anti-slop/**",

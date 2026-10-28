@@ -6,9 +6,6 @@ Webview only: no App command, no Daemon method, no `contracts/` file and no Toke
 
 **U396 each Kind has its own Glyph shape; solid shapes are Ink.** Rule: a Glyph is drawn on one 16 px box with a 12 px live area and one 1.75 px stroke, in `currentColor`; the two urgent Kinds are solid masses and the other four are strokes, so urgency is read from weight before colour. Given a Rail with every Kind (seed `agents-10`, U26), light and dark for non-capture observers (captures and critic Check readings use dark only, U3725), at 1280 by 820 and 1280 by 800, when a test reads the rendered tree and computed style, then:
 
-Definition (relocated): **Ink**:
-Colour, never weight, used only for `error` (red) and `needs-you` (amber).
-
 > Overturned by U401: the six shapes are replaced by the ring-fill Glyphs; its geometry, aria and call-site clauses stay.
 
 - **Six shapes.** `KindGlyph` renders one inline `svg` per Kind, `glyphOf(kind).shape` and `data-shape` on the `.glyph` span holding: `error` `square-x` (a solid rounded square with a cut-out `x`, red); `needs-you` `disc-bang` (a solid disc with a cut-out `!`, amber); `blocked` `bars` (two stroked vertical bars, grey); `working` `arc` (an open three-quarter ring with a round cap, accent); `idle` `dot` (a 4 px solid dot, grey); `done` `check` (a stroked check, grey). No two Kinds share a `data-shape`, so `needs-you` (solid, amber) and `working` (open, accent) differ in silhouette at 16 px and in a greyscale capture, not by tone alone (D4). The cut-outs are `fill-rule: evenodd` holes, so no extra colour is drawn. Test: `u396_every_kind_has_its_own_shape`.

@@ -14,7 +14,7 @@ new_repo() {
   git config user.name t
   mkdir loop crates contracts
   cp "$script" loop/rules.sh
-  printf '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | Session, bot, process, parent agent |\n' >GLOSSARY.md
+  printf '| Code term | User label | Avoid |\n|---|---|---|\n| Agent | Agent | session, bot, process |\n| Lead | Lead | parent agent |\n| Run | Run | — |\n' >GLOSSARY.md
   echo 'pub fn ok() {}' >crates/a.rs
   git add -A
   git commit -qm base
@@ -60,10 +60,8 @@ new_repo; echo 'export type SessionId = string;' >contracts/a.ts; commit x
 expect fail "L3 vocab: TS export" rules vocab
 new_repo; rm GLOSSARY.md; echo 'pub fn session_id() {}' >crates/b.rs; commit x
 expect fail "L3 vocab: missing GLOSSARY.md fails loudly" rules vocab
-for data in '| Code term | User label |' '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | |' '| Code term | User label | Avoid |\n| --- | --- | --- |\n| Agent | Agent | — |'; do
-  new_repo; printf '%b\n' "$data" >GLOSSARY.md; commit x
-  expect fail "L3 vocab: absent or empty Avoid data fails loudly: $data" rules vocab
-done
+new_repo; printf '| Code term | User label | Avoid |\n|---|---|---|\n| Agent | Agent | — |\n' >GLOSSARY.md; echo 'pub fn session_id() {}' >crates/b.rs; commit x
+expect fail "L3 vocab: a table with no Avoid data fails loudly" rules vocab
 
 # L95
 words() { loop/rules.sh architect-words; }
@@ -238,6 +236,8 @@ base = git('rev-parse', 'main')
 pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'user': {'type': d.get('user_type', 'User')}, 'body': d.get('body')}
 if '/pulls/' in route:
     out = [pr]
+elif '/issues/' in route:
+    out = [{'body': d.get('issues', {}).get(route.rsplit('/', 1)[1])}]
 else:
     print('unexpected gh route: '+route, file=sys.stderr)
     sys.exit(1)
@@ -379,14 +379,19 @@ closes_pr() { # <body> <changed file>
   gate_repo; git reset -q --hard main; mkdir -p "$(dirname "$2")"; echo x >"$2"; commit change 'Author-Agent: builder'
   gate_set --arg body "$1" '.body=$body'
 }
-closes_pr 'Closes #1' scenarios/a.md
-expect_exit 1 'a scenario-only PR with Closes #1 in the body fails' loop/rules.sh scenario-closes 12
+closes_pr 'Closes #1' scenarios/a.md; gate_set '.issues={"1":"Key: X\nMode: implement\n"}'
+expect_exit 1 'a scenario-only PR with Closes #1 of an implement Issue fails' loop/rules.sh scenario-closes 12
 expect pass 'the failure names Refs: #N' gate_error_contains 'use Refs: #N' loop/rules.sh scenario-closes 12
+gate_set '.issues={"1":"Key: X\nMode: specify\n"}'
+expect_exit 0 'a scenario-only PR with Closes #1 of a specify Issue passes' loop/rules.sh scenario-closes 12
+closes_pr 'Closes #1 and fixes #2' scenarios/a.md; gate_set '.issues={"1":"Mode: specify","2":"Mode: implement"}'
+expect_exit 1 'a scenario-only PR closing a specify and an implement Issue fails' loop/rules.sh scenario-closes 12
 closes_pr 'Refs: #1' scenarios/a.md
 expect_exit 0 'a scenario-only PR with Refs: #1 passes' loop/rules.sh scenario-closes 12
 closes_pr 'Closes #1' crates/b.rs
 expect_exit 0 'a code PR with Closes #1 passes' loop/rules.sh scenario-closes 12
 closes_pr 'Refs: #1' scenarios/a.md; echo y >>scenarios/a.md; commit 'fixes #1' 'Author-Agent: builder'
+gate_set '.issues={"1":"Mode: implement"}'
 expect_exit 1 'a scenario-only PR with Fixes #1 in a commit message fails' loop/rules.sh scenario-closes 12
 
 # L46 empty-diff: a head with no net change against main merges nothing, unless its body closes an Issue.

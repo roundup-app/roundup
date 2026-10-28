@@ -1,0 +1,24 @@
+diff --git a/dist/radio-group.machine.js b/dist/radio-group.machine.js
+index 1852a913ae044c09e74dc746920aa0022db5eaef..5a51816d5ae7ab513afe931fe3b53112123f0044 100644
+--- a/dist/radio-group.machine.js
++++ b/dist/radio-group.machine.js
+@@ -157,6 +157,7 @@ var machine = (0, import_core.createMachine)({
+         context.set("activeValue", event.value);
+       },
+       setFocused({ context, event }) {
++        if (event.value == null) context.set("activeValue", null);
+         context.set("focusedValue", event.value);
+         const focusVisibleValue = event.value != null && event.focusVisible ? event.value : null;
+         context.set("focusVisibleValue", focusVisibleValue);
+diff --git a/dist/radio-group.machine.mjs b/dist/radio-group.machine.mjs
+index bd6ee8d52fcb262eb53e441a10c401b1803765ff..224f4e712944fd3426a4aabc318381a81cf65c8d 100644
+--- a/dist/radio-group.machine.mjs
++++ b/dist/radio-group.machine.mjs
+@@ -123,6 +123,7 @@ var machine = createMachine({
+         context.set("activeValue", event.value);
+       },
+       setFocused({ context, event }) {
++        if (event.value == null) context.set("activeValue", null);
+         context.set("focusedValue", event.value);
+         const focusVisibleValue = event.value != null && event.focusVisible ? event.value : null;
+         context.set("focusVisibleValue", focusVisibleValue);

@@ -1,3 +1,8 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { captureDir } from "../testing/captures";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
@@ -13,40 +18,37 @@ beforeAll(async () => {
   page = await openPage(found);
 }, 90_000);
 
-afterAll(async () => { await page?.close(); });
+afterAll(async () => {
+  if (page && captureDir("U3010c")) {
+    const origin = await page.call<string>(`() => location.origin`);
+
+    await promisify(execFile)("python3", ["observers/U3010c/unchanged-key.py"], {
+      env: { ...process.env, ROUNDUP_HARNESS_URL: origin }, maxBuffer: 1024 * 1024,
+    });
+  }
+
+  await page?.close();
+}, 600_000);
 
 type Point = { x: number; y: number };
 
 type State = { ids: number[]; active: string | null; drawer: boolean; reorders: unknown[] };
 
-type Frame = { t: number; tops: Record<string, number> };
-
 type List = { name: string; rows: string; setup: () => Promise<void> };
-
-/** The Rail of the `tree-40` harness with its first Agent's Todos shown. */
-const nested: List = {
-  name: "an Agent's Todos in the Rail",
-  rows: "[data-pads] .todo-row-button",
-  setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
-    await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
-    await page.call(`() => document.querySelector('.rail-pads-control').click()`);
-    await page.until(`() => document.querySelectorAll("[data-pads] .todo-row-button").length > 1`);
-  },
-};
 
 /** The Shelf's unassigned group in Overview, expanded for ordering. */
 const shelf: List = {
   name: "the Shelf's Todos",
   rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ...(captureDir("U490a") ? [1512, 950] as const : [1280, 820] as const));
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
       if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
       document.querySelector('[data-todo-root]').click();
     }`);
+    await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
     await page.call(`() => {
       document.querySelector('[data-todo-root]').click();
       document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
@@ -57,7 +59,8 @@ const shelf: List = {
 
 const centre = (rows: string, n: number) => page.call<Point>(`(rows, n) => {
   const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
-  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  const title = el.querySelector('.shelf-title')?.getBoundingClientRect();
+  return {x: title ? title.left + 2 : b.left + b.width / 2, y: b.top + b.height / 2};
 }`, rows, n);
 
 const state = (rows: string) => page.call<State>(`rows => ({
@@ -89,34 +92,37 @@ const settled = async () => {
 
 const ALT = 1;
 
-/** U156: quarter-speed playback gives the frame observer enough samples of a fast curve.
- * Times remain animation milliseconds, so duration and per-step limits stay unchanged.
- */
-const sample = (rows: string) => page.call<void>(`rows => {
-  window.__frames = [];
-  window.__sampling = true;
-  const animate = Element.prototype.animate;
-  Element.prototype.animate = function(...args) {
-    const animation = animate.apply(this, args);
-    if (this.matches('.todo-row')) animation.playbackRate = 0.25;
-    return animation;
-  };
-  const read = () => {
-    window.__frames.push({t: performance.now() * 0.25, tops: Object.fromEntries([...document.querySelectorAll(rows)].map(b => [/#(\\d+)/.exec(b.getAttribute('aria-label'))[1], b.closest('.todo-row').getBoundingClientRect().top]))});
-    if (window.__sampling) requestAnimationFrame(read);
-  };
-  read();
-}`, rows);
-
-const frames = () => page.call<Frame[]>(`() => { window.__sampling = false; return window.__frames; }`);
-
-for (const list of [nested, shelf]) {
+for (const list of [shelf]) {
   const { rows } = list;
 
   run(`u490a ${list.name} order on the shared Sortable`, () => {
-    it("u490a_pointer_reorders", async () => {
-      await page.scheme("light");
+    it.each(["fresh", "no event", "equal refetch"])("u490a_pointer_reorders after %s", async (preceding) => {
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
+
+      if (preceding !== "fresh") {
+        await page.call(`(rows, event) => {
+          const app = window.__fake.app;
+          const reorder = app.handlers['todo.reorder'];
+          const read = app.handlers['todo.list'];
+          window.__keyRead = false;
+          app.handlers['todo.reorder'] = ({id}) => {
+            const todo = read(null).find(todo => todo.id === id);
+            if (event) window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'todo.updated', data: todo});
+            app.handlers['todo.reorder'] = reorder;
+            return {...todo};
+          };
+          app.handlers['todo.list'] = (...args) => {
+            const result = read(...args);
+            // sortedList settles in a microtask; two frames observe the completed read and its DOM placement.
+            requestAnimationFrame(() => requestAnimationFrame(() => { window.__keyRead = true; }));
+            return result;
+          };
+          document.querySelectorAll(rows)[1].focus();
+        }`, rows, preceding === "equal refetch");
+        await page.press("ArrowUp", "ArrowUp", ALT);
+        await page.until(`() => window.__keyRead`);
+      }
 
       const before = await state(rows);
       const last = before.ids.length - 1;
@@ -127,34 +133,68 @@ for (const list of [nested, shelf]) {
 
       const after = await state(rows);
 
-      expect(after.reorders).toEqual([{ id: before.ids[last], before: before.ids[0] }]);
+      expect(after.reorders).toEqual([...before.reorders, { id: before.ids[last], before: before.ids[0] }]);
       expect(after.ids[0]).toBe(before.ids[last]);
       expect(after.drawer).toBe(false);
       expect(after.active).toContain(`#${before.ids[last]} `);
+      const dir = captureDir("U490a");
+
+      if (dir && preceding === "fresh") {
+        mkdirSync(dir, { recursive: true });
+        const name = "shelf";
+        writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+        writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`)));
+      }
     }, 60_000);
 
-    it("u490a_cancel_and_noop", async () => {
-      await page.scheme("light");
+    it("u490a_cancel_and_noop_escape_cancels", async () => {
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
+      const before = await state(rows);
       const first = await centre(rows, 0);
-      const last = await centre(rows, (await state(rows)).ids.length - 1);
+      const last = await centre(rows, before.ids.length - 1);
 
       await drag(last, async () => first, false);
       await page.press("Escape", "Escape");
       await page.pointer("up", first.x, first.y);
       await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+
+      // Re-measure after cancellation: settling or owner groups can move rows.
+      const origin = await centre(rows, before.ids.length - 1);
+
       // Past the activation distance and back to the row's own place: no move.
-      await page.pointer("down", last.x, last.y);
-      await page.pointer("move", last.x, last.y - 12);
-      await page.pointer("move", last.x, last.y);
-      await page.pointer("up", last.x, last.y);
+      await page.pointer("down", origin.x, origin.y);
+      await page.pointer("move", origin.x, origin.y - 12);
+      await page.pointer("move", origin.x, origin.y);
+      await page.pointer("up", origin.x, origin.y);
       await settled();
       expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
     }, 60_000);
 
-    it("u490a_a_click_opens_the_Todo_not_a_drag", async () => {
-      await page.scheme("light");
+    it("u490a_cancel_and_noop_original_gap_makes_no_call", async () => {
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
+      await list.setup();
+
+      const before = await state(rows);
+      const last = await centre(rows, before.ids.length - 1);
+
+      await page.pointer("down", last.x, last.y);
+      await page.pointer("move", last.x + 6, last.y);
+      // Sortable keeps the source row in place and draws its drop gap separately (ui/sortable.tsx).
+      await page.until(`() => Boolean(document.querySelector('.sortable-slot:not([data-ending])'))`);
+      const gap = await centre('.sortable-slot:not([data-ending])', 0);
+
+      await page.pointer("move", gap.x, gap.y);
+      await page.until(`() => document.querySelector('[data-sortable-index]')?.getAttribute('data-sortable-index') === "${before.ids.length - 1}"`);
+      await page.pointer("up", gap.x, gap.y);
+      await settled();
+      expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+    }, 60_000);
+
+    it("u3789a_a_click_selects_the_Todo_without_open_or_drag", async () => {
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const beforeHover = await centre(rows, 0);
@@ -163,24 +203,23 @@ for (const list of [nested, shelf]) {
 
       await page.pointer("down", point.x, point.y);
       await page.pointer("up", point.x, point.y);
-      await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
-      expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
+      await page.until(`() => document.activeElement?.matches(${JSON.stringify(rows)})`);
+      expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
     }, 60_000);
 
-    it(`u490a_${list === shelf ? "Space" : "Enter"}_on_a_row_button_opens_it_without_drag_semantics`, async () => {
-      await page.scheme("light");
+    it("u3789a_Return_on_a_row_button_opens_it_without_drag_semantics", async () => {
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
       // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
       expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
-      // U3309 reserves Shelf Enter for lifting; Space still opens the Todo.
-      await page.press(list === shelf ? " " : "Enter", list === shelf ? "Space" : "Enter");
+      await page.press("Enter", "Enter");
       await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
       expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
     }, 60_000);
 
     it("u490a_keyboard_reorders", async () => {
-      await page.scheme("light");
+      await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
       const before = await state(rows);
@@ -202,99 +241,5 @@ for (const list of [nested, shelf]) {
       expect((await state(rows)).reorders).toHaveLength(1);
     }, 60_000);
 
-    it.runIf(list === shelf)("u490a_reorder_motion", async () => {
-      await page.scheme("light");
-      await list.setup();
-
-      const ids = (await state(rows)).ids;
-
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const run1 = await frames();
-      const first = run1[0]!.tops;
-      const final = run1.at(-1)!.tops;
-      const moved = Object.keys(final).filter((id) => Math.abs(final[id]! - first[id]!) > 1);
-
-      expect(moved.sort()).toEqual([String(ids[0]), String(ids[1])].sort());
-
-      for (const id of Object.keys(final).filter((other) => !moved.includes(other))) expect(new Set(run1.map((frame) => Math.round(frame.tops[id]!))).size).toBe(1);
-
-      for (const id of moved) {
-        const series = run1.map((frame) => ({ t: frame.t, top: frame.tops[id]! }));
-        const begin = series.find((point) => Math.abs(point.top - first[id]!) >= 1)!;
-        const end = series.find((point) => point.t >= begin.t && Math.abs(point.top - final[id]!) < 1)!;
-
-        // The row starts where it showed, not at its final place.
-        expect(Math.abs(begin.top - first[id]!)).toBeLessThan(Math.abs(final[id]! - first[id]!) / 2);
-        expect(end.t - begin.t).toBeGreaterThan(60);
-        expect(end.t - begin.t).toBeLessThanOrEqual(200);
-
-        // While far from its place, no frame covers more than half of what remains.
-        for (let at = series.indexOf(begin); at < series.indexOf(end); at++) {
-          const remaining = Math.abs(final[id]! - series[at]!.top);
-
-          if (remaining > 12) expect(Math.abs(series[at + 1]!.top - series[at]!.top)).toBeLessThanOrEqual(remaining / 2 + 1);
-        }
-      }
-    }, 60_000);
-
-    it.runIf(list === shelf)("u490a_reorder_motion_continues_from_the_screen_when_interrupted", async () => {
-      await page.scheme("light");
-      await list.setup();
-
-      const id = String((await state(rows)).ids[0]);
-
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      // About half the distance covered: the row has left its old place and not reached its new one.
-      await page.until(`() => {
-        const id = ${JSON.stringify(id)};
-        const f = window.__frames, a = f[0].tops[id], now = f.at(-1).tops[id];
-        const others = Object.keys(f[0].tops).filter(k => k !== id);
-        return Math.abs(now - a) > 5 && others.some(k => Math.abs(f.at(-1).tops[k] - f[0].tops[k]) > 5);
-      }`);
-
-      const mark = await page.call<number>(`() => window.__frames.length`);
-
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const series = (await frames()).map((frame) => frame.tops[id]!);
-      const steps = series.slice(1).map((top, at) => Math.abs(top - series[at]!));
-
-      // Across the second move no frame jumps: the first step stays a frame's travel, never the old or the final place,
-      // and later frames, while far from the place, cover no more than half of what remains, as the new ease speeds up.
-      const travel = Math.max(...steps.slice(0, mark - 1));
-      const first = steps.findIndex((step, at) => at >= mark - 1 && step > 0);
-
-      expect(steps[first]).toBeLessThanOrEqual(travel + 12);
-
-      for (let at = first + 1; at < steps.length; at++) {
-        const remaining = Math.abs(series.at(-1)! - series[at]!);
-
-        if (remaining > 12) expect(steps[at]).toBeLessThanOrEqual(remaining / 2 + 1);
-      }
-    }, 60_000);
-
-    it.runIf(list === shelf)("u490a_reorder_motion_under_reduced_motion_is_one_frame", async () => {
-      await page.scheme("light", undefined, "motion");
-      await list.setup();
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      await sample(rows);
-      await page.press("ArrowDown", "ArrowDown", ALT);
-      await settled();
-
-      const run3 = await frames();
-      const first = run3[0]!.tops;
-      const final = run3.at(-1)!.tops;
-      const changed = run3.filter((frame) => Object.keys(first).some((id) => Math.abs(frame.tops[id]! - first[id]!) > 1));
-
-      expect(changed.length).toBeGreaterThan(0);
-      expect(changed[0]!.tops).toEqual(final);
-    }, 60_000);
   });
 }

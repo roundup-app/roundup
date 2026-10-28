@@ -10,6 +10,9 @@ export type Stay = { name: string; reason: string };
 
 /** A34's judgement of a Workstream, from the same facts: what goes, and what stays at the Project root. */
 export type Removal = {
+  /** Removed Agents and non-Agent containers, for irreversible-loss detection only. */
+  removedIds: string[];
+  affectedIds: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
 };
@@ -25,10 +28,15 @@ const unlanded = (state: WorktreeState): string | null =>
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
   const [todos, pads] = await Promise.all([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
-  const removal: Removal = { goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
+  const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
   const staying = new Set<string>();
 
-  for (const node of below(nodes, id).filter((each) => each.kind === "agent")) {
+  for (const node of below(nodes, id)) {
+    if (node.kind !== "agent") {
+      removal.removedIds.push(node.id);
+      continue;
+    }
+
     const reason = !FINISHED.has(node.status?.kind ?? "")
       ? copy.running
       : node.worktree === null
@@ -37,6 +45,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
     if (reason === null) {
       removal.goes.agents.push(node.name);
+      removal.removedIds.push(node.id);
     } else {
       removal.stays.agents.push({ name: node.name, reason });
       staying.add(node.id);
@@ -67,6 +76,13 @@ export const staysLine = ({ stays }: Removal) => {
   const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
 
   return list === "" ? null : copy.staysAtTheProjectRoot(list);
+};
+
+/** U4461: the extra destruction authorized only by Remove all. */
+export const removeAllLine = ({ stays }: Removal) => {
+  const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
+
+  return list === "" ? null : copy.removeAllAlsoRemoves(list);
 };
 
 /** U367: the names of the Agents that go, one line each, then `+ <n> more`. */

@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
@@ -42,6 +42,7 @@ const focusableEmulator = (): EmulatorFactory => () => {
 const open = async () => {
   const app = createFakeApp();
   app.opened.project = { name: "p", path: "/p" };
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: "w" })),
@@ -133,8 +134,7 @@ describe("u54 keyboard help", () => {
     const panel = help();
 
     expect(panel).not.toBeNull();
-    await waitFor(() => expect(document.activeElement).toBe(panel));
-
+    expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
@@ -155,19 +155,19 @@ describe("u54 keyboard help", () => {
 
   });
 
-  it("u54_question_mark_in_a_terminal_a_text_field_or_nowhere_opens_nothing", async () => {
+  it("u54_question_mark_in_a_terminal_or_text_field_opens_nothing", async () => {
     await open();
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
 
     expect(question(document.querySelector(".pane-screen textarea")!)).toBe(false);
-    expect(question(document.body)).toBe(false);
+    // U4324b now proves body/first-run Help; U4324a supersedes the old nowhere exclusion.
     expect(help()).toBeNull();
   });
 
   it("u54_while_open_the_listed_chords_do_nothing_and_the_rail_does_not_reorder", async () => {
     const app = await open();
-    const calls = app.calls.length;
+    const calls = [...app.calls];
 
     rowOf("a").focus();
     question(rowOf("a"));
@@ -175,18 +175,18 @@ describe("u54 keyboard help", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(help()));
     expect(await boundPresses(document.activeElement!)).toEqual([]);
-    expect(app.calls.length).toBe(calls);
+    expect(app.calls).toEqual(calls);
     expect(help()).not.toBeNull();
   });
 
   it("u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview", async () => {
     await open();
     fireEvent.click(rowOf("a"));
-    await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="New Agent"]')).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
-    const outsideTerminal = document.querySelector(".terminal-new")!;
+    const outsideTerminal = document.querySelector('.rail-actions [aria-label="New Agent"]')!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
@@ -206,7 +206,7 @@ describe("u54 keyboard help", () => {
     }
 
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
-    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
   });
 
 });

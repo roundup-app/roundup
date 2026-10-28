@@ -4,17 +4,17 @@
   top: var(--space-5);
   left: 50%;
   z-index: var(--layer-dialog);
-  width: min(480px, calc(100% - var(--space-5)));
+  width: min(var(--switcher-width), calc(100% - var(--space-5)));
   transform: translateX(-50%);
   padding: var(--space-2);
   background-color: var(--ground);
   border-radius: var(--radius-row);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
 }
 
 .switcher-mark {
-  width: 16px;
-  height: 16px;
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .switcher-name {
@@ -55,4 +55,28 @@
 
 .switcher-recovery p {
   margin: 0;
+}
+
+/* Recovery keeps its full cause and its actions visible on dense results. */
+.switcher .reserved-line:not([data-empty]) {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.switcher .reserved-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.switcher .ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-1);
+  align-items: baseline;
+}
+
+.switcher .reserved-actions {
+  justify-self: end;
 }

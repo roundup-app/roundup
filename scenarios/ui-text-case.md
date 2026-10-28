@@ -7,7 +7,7 @@ Webview only: no App command, no Daemon method, no `contracts/` file and no Toke
 **U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
 
 - **Sentence case.** Each starts with a capital and no later word is capitalised, so `Take control`, `Send`, `Answer`, `No checkpoint yet`, `Full log`, `Clarifying: What is this Workstream for?`. A word after a colon follows the same rule as a first word.
-- **User labels.** A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`. U471 maps Door, Shelf and Handoff to supervisor, work items and summary.
+- **User labels.** A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`. U471 gives Door no role label, and maps Shelf and Handoff to work items and summary.
 - **Exempt.** Section heads stay in spaced capitals (#1097). A name, id, path, code and any text the user or an Agent wrote stays as written: a Workstream named `workstream` shows lower case on its Rail row, and an Agent's Status label (`asks: keep v1 routes?`) is shown as the Agent wrote it. Terminal text and Agents' output are outside this scenario.
 - **The add.** The Rail's add reads `+ Workstream` (U391) and the word `new` is gone from it; its `aria-label` is `Add Workstream`. The empty centre's button (U143) reads `New Workstream`, sentence case, since the add's `+` is what drops `new`. Slicing: quotes of `+ Workstream` in other scenarios change in this PR, while `scenarios/workstream.md` keeps `new Workstream` and `no Workstream yet` until the PR that changes that label in code; the difference is planned, not a mismatch.
 - **Docs.** `docs/design-system.md` states the rule under "Text case" with Check D15, and `docs/wireframes.md` no longer says lower-case words are click targets. Every scenario that quotes a label is changed to the label's new case in the PR that changes the label in code, and a scenario text still quoting an old label fails `u471_previous_copy_assertions_are_preserved_no_scenario_quotes_a_lower_case_label`.
@@ -41,44 +41,22 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 
 **U471 surface catalogues separate code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
 
-Definition (relocated): **App copy catalogue** (`copy`):
-The single collection of App-authored labels and parameterised prose, separate from code terms and authored values.
-
-| Code term | User label in App prose |
-| --- | --- |
-| Door | supervisor |
-| Shelf | work items |
-| Handoff | summary |
-
-| Existing action label | User label |
-| --- | --- |
-| Start Door | Start supervisor |
-| Retry Door | Retry supervisor |
-| Clear without Handoff | Clear without a summary |
-| Clear (prompt submit) | Clear and keep a summary |
-
-Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
-
-Definition (relocated): **User label**:
-App-authored words describing an action or content. A label may differ from its code term; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content stay as written. Other domain terms keep their current user spelling until explicitly mapped.
-
-Definition (relocated): **Code term**:
-The name used by identifiers, types and RPC methods. Rule 6 applies to public code names.
-
 - **Language policy (policy).** `GLOSSARY.md` distinguishes code terms, used by identifiers and RPC methods, from user labels, used by the App. A user label describes the action or content and may differ from its code term. AGENTS.md's first paragraph states that distinction. Existing code names and wire values remain unchanged. The glossary records the mappings below; other domain terms keep their current user spelling until an explicit user-label mapping replaces it. The distinction does not relax rule 6 for public code names.
 - **Catalogue.** `u471_every_app_authored_string_comes_from_the_catalogue` asserts that all App-authored visible text and accessible names, including errors, statuses, hints, tooltips, placeholders, section heads and generated prose, come from surface-owned copy modules and one shared copy module under `apps/desktop/src`. Components and helpers consume their own surface’s entries or parameterised formatters; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content pass through unchanged. Wire enums, CSS classes and test expectations are not UI copy. The test scans production sources, reports each uncatalogued literal with file and line, and covers JSX text, UI attributes and strings passed through helpers, not only imports.
-- **Labels.** `u471_action_labels_describe_the_existing_action` renders and activates every old/new pair below, asserting the new visible and accessible names and the same command, arguments and state transitions. All production occurrences, accessible-name queries and affected scenario quotes change together. No control, status, failure text or accessible name disappears during extraction.
+- **Labels.** `u471_action_labels_describe_the_existing_action` renders and activates every old/new pair below, querying roles and catalogue entries and asserting the same command, arguments and state transitions. Exact-copy assertions are retired under rule 10; rendered wording is policy observed by the design critic. All production occurrences, accessible-name queries and affected scenario quotes change together. No control, status, failure text or accessible name disappears during extraction.
 
 | Existing label | User label | Existing action retained |
 |---|---|---|
-| Start Door | Start supervisor | Start the selected Workstream's Door |
-| Retry Door | Retry supervisor | Retry its failed start |
+| Start Door | Start | Start the selected Workstream's Door |
+| Retry Door | Retry | Retry its failed start |
 | Clear without Handoff | Clear without summary | Existing failure fallback, without writing a Handoff |
 | Clear (clear prompt submit only) | Clear with summary | Normal Clear, writing the Handoff first |
 
-Centre exception (U143, policy): the Workstream Door centre uses `Start` / `Retry`; the table's `Start supervisor` / `Retry supervisor` remain the Rail labels. This is a surface-specific action-label exception, not a change to code terms or the glossary mapping. The centre's state copy follows U143's four meanings and one-supervisor limit. Once this amendment is on main, #2679 updates only the centre queries in `u471_action_labels_describe_the_existing_action_retry_supervisor` (`apps/desktop/src/copy.test.ts`) to role and catalogue name, preserving its two `rail.startDoor {id: "w"}` calls, original failure message, selection and no-create assertions. Exact centre-label assertions are retired as word proofs; Rail-label and catalogue provenance coverage remain.
+Door labels (policy): both the centre and Rail use `Start` / `Retry`. Door has no user-facing role name: name the selected Workstream or omit the subject. U143's four state meanings and one-Door limit remain. `u471_action_labels_describe_the_existing_action_retry_supervisor` (`apps/desktop/src/copy.test.ts`) keeps its two `rail.startDoor {id: "w"}` calls, original failure message, selection and no-create assertions; the implementation may rename this observer without duplicating it. Catalogue provenance coverage remains.
 
-The glossary maps Door to supervisor, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
+The glossary maps Door to `none`, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences remain untouched.
+
+**App copy catalogue** (`copy`): The collection of App-authored labels and parameterised prose, separate from code terms and authored values. Door has no role label; Shelf is work items and Handoff is summary. Start Door is Start, Retry Door is Retry, Clear without Handoff is Clear without a summary, Clear (prompt submit) is Clear and keep a summary. Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
 
 **U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, at 1512×950 in light for behavior and dark for the design critic, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then start/retry (`u471_action_labels_describe_the_existing_action_retry_supervisor`, `copy.test.ts`; `u9_actions`), normal clear and injected failed clear (`rail/u350_clear.test.tsx`) hold; the browser journey `u472_copy_preserves_journey_actions_and_failure_text` is retired as a repeat of those. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. The design critic judges those Checks in dark only (AGENTS.md rule 10, U3725): D2, D5, D6 and D15 (`docs/design-system.md`, **The checks**) hold, and no previously passing Check regresses; those Vitest tests are the kept proof. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
 
@@ -131,3 +109,33 @@ Implementation observer commands (one row per failure):
 | `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
 
 These are future implementation observers, not claims that tests exist on main. Specification acceptance (policy): these headings define catalogue ownership, exact mappings, exemptions, regression observers and Checks; a checked dependent implementation Issue owns their delivery. The specification PR closes its specification Issue and leaves the dependent implementation Issue open.
+
+## Door wording without a role label
+
+**Door copy names the Workstream or the action (U471 policy amendment).** Given a selected Workstream whose Door is starting, never started, failed or stopped, or an Ask, Clear, recovery or Todos Auto surface referring to it, when the App renders its own copy or builds a native menu, then:
+
+- **Wording (policy).** No App-authored visible or accessible text calls the Door a supervisor, Door, coordinator, lead or another role. Name the Workstream, preserving its authored name exactly, or omit the subject. A stopped centre reads `<workstream> stopped` beside `Start`; a pending start reads `Starting <workstream>…`; the Auto hint reads `Hand out unassigned Todos`. Start and Retry apply in Rail menus too. Other statuses keep U143's distinct meanings and exit details. User/Agent text, names, paths, code, Adapter labels and Terminal output remain unchanged, even when they contain a role word.
+- **Glossary (policy).** In the implementation PR, change Door's user label to `none`, Start Door to `Start`, Retry Door to `Retry`, and every other glossary row using supervisor. Keep Door identifiers, RPC methods and wire values unchanged. This specification defines the mapping; the glossary changes atomically with callers under the Contract recipe.
+- **Audit (policy).** Audit the root catalogue, all surface copy modules, their callers, and native menu producers/consumers. The implementing PR lists every changed key with its old/new authored value and every affected scenario quote. `crates/desktop/src/menu.rs` and `crates/native/src/menu.rs` have no supervisor string on main; inspect catalogue-supplied menu titles too. Update changed scenario quotes with the code, including the Rail Start query in `scenarios/ui-rail.md`; preserve the actions those queries prove. This bounded wording repair does not wait for surface extraction or implement the wider catalogue migration.
+- **One cheap guard.** Planned `u471_no_supervisor_in_app_copy` in `apps/desktop/src/copy.test.ts` rejects complete words `supervisor` and `supervisors`, case-insensitively, in authored catalogue literals and formatter branches, including surface modules and App-authored native-menu titles. It scans authored portions, never supplied runtime values; code keys, comments and wire values are exempt. It runs without a browser, Daemon or vendor process. Reuse the installed Babel visitor/catalogue seam for TypeScript; use existing native-menu title seams for their authored text. No custom parser, new translation system or exact-copy expectations. Include this check in the existing copy suite; no second guard duplicates it and no baseline exempts supervisor.
+- **Behaviour.** Keep `u471_action_labels_describe_the_existing_action_retry_supervisor` in `apps/desktop/src/copy.test.ts` as the start/retry proof. The existing `u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once`, `u143_a_pending_start_reads_starting_and_cannot_be_activated_again` and `u143_a_failed_start_reads_did_not_start_with_the_message_and_retry` in `apps/desktop/src/terminal/u143_door_states.test.tsx` retain their call-count, selected-id, disabled-repeat and original failure/exit-detail assertions. Query roles with catalogue entries; remove exact App-copy expectations in any edited test file, naming the kept behavioural proof for each cut. Do not add tests that assert catalogue values against copied literals. Keep normal/fallback Clear and unfinished-work identity/preservation proofs; only their wording changes.
+- **Rendered observer (policy).** Enter and Intervene are the affected first-journey stages. At 1512×950 in dark, inspect `door-stopped`, a pending/failed start, Todos Auto, and the densest `tree-40` failure state with the isolated headless harness. Use `just capture U471` and keep captures under `artifacts/ux/U471/`, uncommitted. The critic checks the required wording, unchanged authored names and visible original failure details. Moves: D15; D2, D5 and D6 remain passing (the numbered Checks above cite `docs/design-system.md`, **The checks**). No previously passing Check regresses. This observer makes no native-Mac or real-Claude claim.
+
+Audit inventory on main (policy; re-audit at implementation head):
+
+| Copy owner | Keys containing supervisor |
+|---|---|
+| `apps/desktop/src/copy.ts` | `doorsMayUse`, `askingTheDoor`, `retryDoor`, `startDoor`, `startingDoor`, `doorDidNotStart`, `doorNotStarted`, `doorStopped`, `doorStoppedWithExit`, `theDoorDidNotStartInTimeRetry`, `askQueued`, `theDoorIsWritingTheHandoff`, `theDoorWritesAHandoffKeepsWhatYou`, `todoAutoHint`, `todoAutoHandling` |
+| `apps/desktop/src/copy/rail.ts` | `railDraftTaskAction` (send branch) |
+
+Applicable Gates: P1 (does the change force an Agent instead of the Workstream entry point?), P3 (does copy add an interruption?), P9 (does wording start an Agent without an action?) and P11 (does it lose input, retarget it or hide failure?). Each answer must be no. Observers: the kept start/retry and U143 tests above, plus U472's Clear and unfinished-input observers. No behavior or authority expansion is authorized.
+
+Implementation commands (one row per failure):
+
+| Command | Failure | Exit |
+|---|---|---|
+| `pnpm --filter desktop exec vitest run src/copy.test.ts` | Authored supervisor vocabulary returns | 1 |
+| `pnpm --filter desktop exec vitest run src/copy.test.ts src/terminal/u143_door_states.test.tsx` | Start/retry, selected identity, repeat prevention or failure/exit preservation regresses | 1 |
+| `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
+
+Specification acceptance (policy): the Door mapping, audit inventory, guard boundary, behaviour observers and rendered Checks above are defined, and checked implementation Issue #4581 is natively blocked by this specification Issue. The specification PR closes #4532; implementation remains open. These requirements supersede earlier Door-to-supervisor wording only; Shelf/Handoff, recovery, catalogue ownership and other U471 clauses remain binding.

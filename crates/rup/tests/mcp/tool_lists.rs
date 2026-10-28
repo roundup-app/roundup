@@ -43,6 +43,8 @@ pub const TOOL_METHODS: [&str; 88] = [
     "pad.appendSection",
     "pad.setOwner",
     "pad.delete",
+    "pad.getDeletion",
+    "pad.restore",
     "pad.export",
     "pad.setStorage",
     // B12
@@ -80,8 +82,6 @@ pub const TOOL_METHODS: [&str; 88] = [
     "agent.land",
     "agent.worktreeState",
     "project.get",
-    "project.measurements",
-    "project.measurementSummary",
     "project.setWorktrees",
     "provenance.history",
     "provenance.touched",
@@ -117,7 +117,11 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 65] = [
+pub const NO_TOOL: [&str; 79] = [
+    // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
+    "pad.reorder",
+    // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
+    "ask_removal",
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -147,9 +151,18 @@ pub const NO_TOOL: [&str; 65] = [
     "todo.refs",
     // T25: only the Daemon hands a Todo.
     "todo.hand",
+    // U3787a: only the original user reconciles or restores a Rail removal.
+    "rail.deletion",
+    "rail.restore",
+    "todo.restore",
+    "todo.deletion",
     "message.drop",
     "terminal.list",
     "terminal.snapshot",
+    // Z3788a: only the App replays raw bytes into its retained emulator; Agents read plain text.
+    "terminal.catchUp",
+    // R20: only the App's opt-in keystroke probe records timing; Agents cannot enable or read it.
+    "terminal.measure",
     // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
     "terminal.output",
     "terminal.outputStop",
@@ -187,9 +200,15 @@ pub const NO_TOOL: [&str; 65] = [
     "workstream.clear",
     "close_project",
     "projects",
+    // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
+    "recent_projects",
+    "claude_binary",
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U3787f: only the user opens and controls the native Capture presentation.
+    "system_accent", // App appearance preference, no Agent tool.
+    "plugin:capture-panel|control",
     // U3560a: only the user writes the native pasteboard.
     "plugin:clipboard-manager|write_text",
     // U2694a: the native menu of the user's right-click
@@ -202,6 +221,10 @@ pub const NO_TOOL: [&str; 65] = [
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
     "plugin:window-bar|zoom_window",
+    // U134: the user's native window appearance, which an Agent cannot change.
+    "plugin:window-bar|native_material",
+    // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
+    "native_open",
     "rpc",
     "subscribe",
     "terminal_output",
@@ -248,6 +271,11 @@ pub fn seam_commands() -> Vec<String> {
         quoted_after("crates/desktop/src/window.rs", "generate_handler![")
             .into_iter()
             .map(|command| format!("plugin:window-bar|{command}")),
+    );
+    registered.extend(
+        quoted_after("crates/native/src/capture.rs", "generate_handler![")
+            .into_iter()
+            .map(|command| format!("plugin:capture-panel|{command}")),
     );
     // The maintained clipboard plugin registers its own commands. The web adapter observer probes this command.
     registered.push("plugin:clipboard-manager|write_text".into());

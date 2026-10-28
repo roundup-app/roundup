@@ -1,18 +1,20 @@
+import type { CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, Show } from "solid-js";
 import { copy } from "../copy";
+import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER, pressOf, shortcutLabel } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
 
 /** Ark's existing key registry owns recording as a modal layer, ahead of App shortcuts. */
-export const ShortcutSetting = (props: { onFailure: (message: string | null) => void }) => {
+export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFailure: (message: string | null) => void }) => {
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   const caption = createUniqueId();
   const value = createUniqueId();
   let button: HTMLButtonElement | undefined;
-  const save = (press: string, key = "") => { setFailure(null); props.onFailure(saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
+  const save = async (press: string, key = "") => { setFailure(null); props.onFailure(await saveAppSettings({ quickAdd: press, quickAddKey: key }, props.capture)); setRecording(false); };
 
   const take = (event: KeyboardEvent) => {
     if (!event.metaKey && !event.ctrlKey) return setFailure(copy.shortcutModifier);
@@ -36,10 +38,10 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
 
   return <>
     <div class="settings-field">
-      <span id={caption}>{copy.quickAddTodo}</span>
+      <span id={caption} class="settings-field-caption">{copy.quickAddTodo}</span>
       <div class="settings-shortcut">
-      <button ref={button} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
-        <span id={value}>{recording() ? copy.recordShortcut : shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}</span>
+      <button ref={button} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
+        <span id={value}><Show when={recording()} fallback={<KeyChip keys={shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)} />}><span class="settings-recording-mark" aria-hidden="true">{copy.recordingMark}</span> {copy.recordShortcut}</Show></span>
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
       </div>

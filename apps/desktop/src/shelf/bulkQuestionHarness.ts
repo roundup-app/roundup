@@ -10,9 +10,12 @@ export const questionDialog = async () => {
 };
 
 export const askToDelete = async (count: number) => {
-  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
+  if (count === 1 && screen.queryByRole("button", { name: "Delete 1" }) === null) {
+    const row = screen.getAllByRole("button", { pressed: true }).find(row => row.matches(".todo-row-button, .pad-name"))!;
+    row.focus();
+    fireEvent.keyDown(row, { key: "Backspace" });
+  } else fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
 
-  return questionDialog();
 };
 
 export const answerQuestion = async (accepted: boolean): Promise<void> => {
@@ -20,7 +23,8 @@ export const answerQuestion = async (accepted: boolean): Promise<void> => {
   await Promise.resolve();
 };
 
-export const confirmDeletion = async () => { await questionDialog(); await answerQuestion(true); };
+/** U3787a deletion dispatches at activation; join its rendered readback. */
+export const confirmDeletion = async () => { await questionClosed(); };
 
 export const questionClosed = (): Promise<void> => waitFor(() => { expect(questionProbe.shown).toBeNull(); expect(document.querySelector('[data-deletion-pending="true"]')).toBeNull(); });
 

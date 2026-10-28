@@ -1,6 +1,6 @@
 /* U391: the footer's height (U44); no row reserves scroll room for it now that it sits below the list. The Terminal tabs' row (U2340d) is the same height. */
 :root {
-  --rail-actions-height: 40px;
+  --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
 
 /* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
@@ -8,19 +8,20 @@
   display: flex;
   flex: none;
   align-items: stretch;
+  justify-content: space-between;
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
   padding-inline: var(--space-4);
-  border-top-width: 1px;
+  border-top-width: var(--hairline-width);
   border-top-style: solid;
   border-top-color: var(--hairline);
 }
 
-.rail-actions > button {
-  flex: 1;
+.rail-actions button {
+  flex: none;
   justify-content: flex-start;
-  min-height: 28px;
+  min-height: calc(var(--space-5) + var(--space-1));
   --button-lead: 0;
   --button-inline: 0;
 }
@@ -35,11 +36,9 @@
 /* The tree's row is a flex line with its own inset; a Rail row is the indent column and the line. */
 .rail-tree .app-tree {
   padding: 0;
-  /* The selected row is a full-bleed band: its 2 px bar and trailing edge stay square. */
-  --tree-row-radius: 0;
 }
 
-.rail-tree .app-tree .rail-row {
+.rail-tree .rail-row {
   display: grid;
   grid-template-columns: var(--indent) minmax(0, 1fr);
   gap: 0;
@@ -47,8 +46,8 @@
   padding-right: var(--space-4);
 }
 
-.rail-row > :not(.rail-pass, .rail-branch, .rail-stem),
-.rail-fold > :not(.rail-pass, .rail-branch, .rail-stem) {
+.rail-row :is(.line, .reserved-line),
+.rail-fold button {
   grid-column: 2;
 }
 
@@ -59,61 +58,28 @@
   min-height: var(--space-6);
 }
 
-/* U426: an Agent row's hidden actions sit out of flow, take no room and stay out of the Tab order; near the row they claim space before the name can reach them. The line stays one row high. */
-.rail-row .row-icons {
-  position: absolute;
-  top: 50%;
-  right: var(--space-4);
-  transform: translateY(-50%);
-  display: flex;
-  flex: none;
-  gap: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.rail-row[data-near="true"] .row-icons,
-.rail-row:hover .row-icons,
-.rail-row:focus-within .row-icons {
-  position: static;
-  transform: none;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* U3744: a queued Workstream's badge is its state, so at rest the actions leave the flow and the name keeps their room; near the row they return. */
-[data-part="branch-control"].rail-row:has(.queue-badge):not([data-near="true"], :hover, :focus-within) .row-icons {
-  position: absolute;
-  transform: translateY(-50%);
-}
-
-/* U3704: a Workstream row carries states after its name, so its actions keep their room at rest, hidden and out of the Tab order: a name is cut in the same place and a state keeps its x. */
-[data-part="branch-control"].rail-row .row-icons {
-  position: static;
-  transform: none;
-}
-
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
 .rail-row {
   position: relative;
 }
 
-[role="tree"] > [data-part="branch"]:not(:first-child) {
+.rail-root-branch[data-depth="1"]:not(:first-child) {
   margin-top: var(--space-3);
 }
 
-[role="tree"] > [data-part="branch"]:not(:first-child) > .rail-row::before {
+.rail-root-divider::before {
   content: "";
   position: absolute;
   top: calc(var(--space-3) / -2);
   right: 0;
   left: 0;
-  height: 1px;
+  height: var(--hairline-width);
   background-color: var(--hairline);
   pointer-events: none;
 }
 
-.rail-row .line {
+.rail-row .line,
+.rail-fold button {
   min-width: 0;
   min-height: inherit;
   display: flex;
@@ -138,20 +104,23 @@
   font-weight: 600;
 }
 
-/* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
-.rail-row .line > .rail-chevron {
+/* U131: reserve the same leading columns on branches and leaves. */
+.rail-row .row-state,
+.rail-fold .glyph {
+  margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
+}
+
+/* Keep disclosure clear of the reserved Kind column and its title. */
+.rail-row .rail-chevron {
+  position: absolute;
+  transform: translateX(calc(-1 * var(--space-3)));
   width: var(--space-4);
   min-width: var(--space-4);
 }
 
-/* U3704: a Workstream's Status sits after its chevron in the column its Agents' Status takes, one --rail-step in from the chevron. */
-.rail-row .line > .rail-chevron + .glyph {
-  margin-left: calc(var(--rail-step) - var(--space-4) - var(--rail-gap));
-}
-
 /* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
-.rail-row .line > .ink-count,
-.rail-row .line > .folded-agents {
+.rail-row .ink-count,
+.rail-row .folded-agents {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -160,34 +129,34 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rail-row .line > .ink-count {
+.rail-row .ink-count {
   color: var(--amber);
 }
 
 /* U3744: a queued Workstream's place is state, so it stays visible beside the name and never wraps; the actions keep the trailing edge (U112). */
-.rail-row .line > .queue-badge {
+.rail-row .queue-badge {
   flex: none;
   white-space: nowrap;
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 
-/* The badge stays whole: the spacer gives way first, then the name shrinks to 4ch with an ellipsis. */
-.rail-row .line:has(> .queue-badge) > .name {
-  flex: 0 1 auto;
+/* The name fills remaining space so a queue badge cannot pull trailing actions inward. */
+.line:has(.queue-badge) .name {
+  flex: 1;
   min-width: 4ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rail-row .line:has(> .queue-badge) > .fill {
+.line:has(.queue-badge) .fill {
   flex: 1 1 0;
   min-width: 0;
 }
 
 /* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
-.rail-row .line > .fill {
+.rail-row .fill {
   flex: 1 1 0;
   min-width: 0;
 }
@@ -204,7 +173,7 @@
   box-sizing: border-box;
   padding: var(--space-1);
   border: 0;
-  background: transparent;
+  background: var(--transparent);
   color: inherit;
   font: inherit;
 }
@@ -218,7 +187,7 @@
   box-sizing: border-box;
   display: block;
   width: 100%;
-  min-height: 24px;
+  min-height: var(--space-5);
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   font: inherit;
   color: var(--text);
@@ -244,14 +213,14 @@
   position: relative;
   font-family: var(--font-ui);
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
-  --rail-step: calc(var(--space-5) + var(--space-1));
-  /* The leading gap that keeps every glyph clear of the selected row's 2 px bar. */
+  --rail-step: var(--tree-step);
+  /* The leading gap keeps every glyph clear of the tree's connecting lines. */
   --rail-inset: var(--space-1);
 }
 
 /* U391: the failure line sits directly above the footer, outside the list. */
-.rail > .ink {
-  flex: none;
+.rail-command-notice .ink {
+  flex: 1;
   background: var(--sunken);
 }
 
@@ -266,17 +235,8 @@
   user-select: text;
 }
 
-.rail-row[data-lifted="true"] {
-  opacity: 0.4;
-}
-
-.drop-line {
-  position: absolute;
-  left: calc(var(--space-4) + var(--depth) * var(--rail-step) + var(--rail-inset));
-  right: 0;
-  height: 2px;
-  background: var(--grey);
-  pointer-events: none;
+.rail-tree .sortable-slot {
+  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, var(--length-zero)) + var(--rail-inset));
 }
 
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
@@ -289,19 +249,19 @@
   z-index: var(--layer-menu);
   display: flex;
   flex-direction: column;
-  min-width: 132px;
-  max-width: 252px;
+  min-width: var(--rail-menu-min-width);
+  max-width: var(--rail-menu-max-width);
   padding: var(--space-1);
   font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-row);
 }
 
 .rail-menu button {
-  min-height: 28px;
+  min-height: calc(var(--space-5) + var(--space-1));
   --button-inline: var(--space-2);
   --button-radius: var(--radius-row);
 }
@@ -310,41 +270,6 @@
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
 
-/* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
-.rail-pass,
-.rail-stem,
-.rail-branch {
-  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 2px, transparent 2px 4px);
-  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 2px, transparent 2px 4px);
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--space-4) + var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
-  pointer-events: none;
-}
-
-.rail-pass,
-.rail-stem {
-  width: 1px;
-  background-image: var(--dash);
-}
-
-.rail-stem {
-  top: calc(var(--elbow-y) + var(--space-4) / 2);
-}
-
-.rail-branch {
-  width: calc(var(--rail-step) - var(--space-4) / 2);
-  background-image: var(--dash), var(--elbow);
-  background-size: 1px 100%, 100% 1px;
-  background-position: 0 0, 0 var(--elbow-y);
-  background-repeat: no-repeat;
-}
-
-.rail-branch[data-last="true"] {
-  background-size: 1px var(--elbow-y), 100% 1px;
-}
-
 /* U405: Pads and Todos hang as leaves on the Agent's trunk, one step under its Glyph; a Todo's Glyph sits on its first line. */
 .rail-leaf {
   position: relative;
@@ -352,7 +277,7 @@
   grid-template-columns: var(--indent) minmax(0, 1fr);
 }
 
-.rail-leaf > :not(.rail-pass, .rail-branch) {
+.rail-leaf :is(.shelf-row, .rail-pad, .sortable-slot) {
   grid-column: 2;
 }
 
@@ -378,13 +303,17 @@
 }
 
 /* U405: a Pad leaf's name is --grey, set on the name so the button kind keeps its own colour rules. */
-.rail-leaf .rail-pad > span {
+.rail-pad span {
   color: var(--grey);
 }
 
 /* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
-.rail-row .line > :is(.ink-count, .rail-pads-control, .folded-agents) {
+.line :is(.ink-count, .folded-agents) {
   margin-right: var(--space-1);
+}
+
+.rail-pads-control :is(.ink-count, .folded-agents) {
+  margin-right: 0;
 }
 
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
@@ -396,7 +325,7 @@
   font-size: var(--text-caption);
 }
 
-.rail-fold > button {
+.rail-fold button {
   min-height: var(--space-6);
 }
 
@@ -406,7 +335,7 @@
 }
 
 /* U448: a Rail Todo is one line; its Drawer holds the body and Home. Blockers and actions stay available. */
-.rail-leaf .shelf-text {
+.rail-leaf[data-leaf="todo"] .shelf-text {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -414,11 +343,11 @@
 }
 
 /* U461a: a rejected toggle keeps its message below the Rail Todo's controls. */
-.rail-leaf .shelf-text:has(> [role="alert"]) {
+.rail-leaf .shelf-text:has(  [role="alert"]) {
   flex-wrap: wrap;
 }
 
-.rail-leaf .shelf-text > [role="alert"] {
+.rail-leaf [role="alert"] {
   flex-basis: 100%;
   order: 1;
 }
@@ -452,17 +381,12 @@
   display: none;
 }
 
-.rail-leaf .row-head > :not(.todo-row-button) {
+.rail-leaf [data-group-toggle] {
   flex: none;
 }
 
 /* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
 .rail-row .door-action-label {
-  display: none;
-}
-
-/* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
-.rail-row[data-near="true"] .line > .rail-pads-control {
   display: none;
 }
 
@@ -472,8 +396,8 @@
   container-name: rail;
 }
 
-@container rail (width <= 252px) {
-  .rail > .rail-scroll:not(.rail-actions) {
+@container rail (width <= env(--query-rail-actions)) {
+ .rail .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
     scrollbar-width: none;
     overflow-x: clip;
@@ -481,33 +405,35 @@
 }
 
 .rail-clear {
+  box-sizing: border-box;
   padding: var(--space-3);
   border: 0;
   width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
-  max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-width: min(var(--shelf-width), var(--available-width));
 }
 
-/* OverlayScrollbars makes its viewport relative; the placed prompt must stay fixed. */
-.rail-clear > .clear-prompt {
-  max-height: calc(100vh - 2 * var(--space-4) - 2 * var(--space-3));
+/* Keep long reasons and failures reachable inside Ark’s available viewport. */
+.rail-clear .clear-prompt {
+  max-height: calc(var(--available-height) - 2 * var(--space-3));
   overflow: auto;
   overscroll-behavior: contain;
 }
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
+  position: relative;
   display: flex;
   align-items: center;
   flex: none;
   gap: 0;
 }
 
-@container rail (width < 220px) {
-  .rail-row[data-near="true"] .door-action {
+@container rail (width < env(--query-rail-compact)) {
+ .rail-row[data-near="true"] .door-action {
     display: none;
   }
 
-  .rail-row .line {
+ .rail-row .line {
     --rail-gap: var(--space-1);
   }
 }
@@ -515,22 +441,6 @@
 /* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
 [data-part="branch-control"].rail-row .row-icons {
   gap: var(--space-1);
-}
-
-/* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
-@container rail (width <= 360px) {
-  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
-    position: absolute;
-    right: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
-    opacity: 1;
-    pointer-events: auto;
-    --button-surface: var(--sunken);
-  }
 }
 
 .rail-add {
@@ -545,15 +455,10 @@
   --button-inline: 0;
 }
 
-/* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
+/* U362: a Todo drop destination keeps one placement wash. */
 .rail-row[data-todo-drop],
 .rail-row[data-todo-drop]:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-.rail-row[data-todo-drop][data-selected="true"],
-.rail-row[data-todo-drop][data-selected="true"]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
 }
 
 /* U466: backgrounds span the Rail; each content row owns its inset. */
@@ -570,7 +475,7 @@
   justify-content: center;
 }
 
-.rail .glyph svg {
+.rail .kind-mark {
   width: var(--space-3);
   height: var(--space-3);
 }
@@ -579,44 +484,33 @@
   font-size: var(--text-row);
 }
 
-/* U466: the leaf owns the wash so nesting cannot inset its selection bar. */
+/* U466: the leaf owns the wash so nesting cannot inset its selected ground. */
 .rail-leaf:hover,
 .rail-fold:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
+  color: var(--text);
 }
 
-.rail-leaf:has([data-selected="true"]) {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
+.rail-leaf:has([data-selected="true"], :focus-visible):not(:has([data-dnd-dragging])) {
+  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
-.rail-leaf:has([data-selected="true"]):hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.rail .rail-leaf .shelf-row:is(:hover, [data-selected="true"]) {
+.rail-leaf .shelf-row:is([data-selected="true"], [data-lifted="true"], :has(:focus-visible)):not([data-dnd-dragging]) {
   background-image: none;
 }
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
-@container rail (width < 220px) {
-  .rail-tree .app-tree .rail-row,
-  .rail-fold,
-  .rail-leaf {
+@container rail (width < env(--query-rail-compact)) {
+ .rail-tree .rail-row,
+ .rail-fold,
+ .rail-leaf {
     padding-left: 0;
     padding-right: 0;
   }
 
-  .rail-pass,
-  .rail-stem,
-  .rail-branch {
-    left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
-  }
 }
 
 /* U3704: attention stays beside the name rather than in the trailing action group. */
-.todo-project-root > .ink-count {
+.todo-project-root .ink-count {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -657,7 +551,7 @@
   font: inherit;
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: var(--hairline-width) solid var(--hairline);
   resize: none;
   white-space: pre;
   overflow: hidden;
@@ -685,32 +579,11 @@
 /* U520: the tree's name is for a screen reader; the section head speaks to the eye. */
 .rail-label {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* U348: while files are dragged, a Rail row takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
-.rail-row[data-drop] {
-  position: relative;
-}
-
-.rail-row[data-drop]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--accent);
-  pointer-events: none;
-}
-
-.rail-row[data-drop="hover"] {
-  background: var(--hover);
-}
-
-.rail-tree [data-dnd-dragging] {
-  border-radius: var(--tree-row-radius);
 }
 
 /* U2556c: reserve actions so hover and selection never move Worktree state. */
@@ -724,10 +597,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rail-row[data-selected="true"] .worktree-chip {
-  color: var(--text);
-}
-
 .rail-row .row-name-state {
   display: flex;
   flex: 1 1 0;
@@ -736,7 +605,7 @@
   gap: var(--space-2);
   container-type: inline-size;
 }
-.rail-row .row-name-state .name {
+.row-name-state .name {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
@@ -751,40 +620,38 @@
   white-space: nowrap;
 }
 /* Drop optional detail before squeezing the Agent's readable name. */
-@container rail (width <= 360px) {
-  .worktree-chip[data-state="pr"] {
+@container rail (width <= env(--query-rail-detail)) {
+ .worktree-chip[data-state="pr"] {
     display: none;
   }
 }
-@container (width < 12rem) {
-  .worktree-stale,
+@container (width < env(--query-name-compact)) {
+ .worktree-stale,
   .worktree-chip[data-state="ahead"] {
     display: none;
   }
 }
-@container (width < 6rem) {
-  .worktree-chips {
+@container (width < env(--query-name-minimal)) {
+ .worktree-chips {
     display: none;
   }
 }
-.worktree-chip[data-stale="true"],
-.rail-row[data-selected="true"] .worktree-chip[data-stale="true"] {
+.worktree-chip[data-stale="true"] {
   color: var(--grey);
 }
 .rail-row:has(.row-name-state) .row-icons {
-  position: static;
   transform: none;
 }
 .rail-row:has(.row-name-state) .line {
   gap: var(--space-1);
 }
-.rail-row:has(.row-name-state) .line > :first-child {
+.rail-row:has(.row-name-state) :first-child {
   margin-right: calc(var(--rail-gap) - var(--space-1));
 }
-.rail-row:has(.row-name-state) .line > .fill {
+.rail-row:has(.row-name-state) .fill {
   display: none;
 }
-.rail-row .row-name-state + .row-tail {
+.row-name-state+.row-tail {
   margin-left: var(--space-4);
 }
 
@@ -814,9 +681,9 @@
   color: var(--accent);
 }
 
-.rail-recovery summary:active {
+.rail-recovery summary[data-pressed="true"] {
   color: var(--text);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 .rail-recovery textarea {
@@ -835,13 +702,6 @@
   overflow-wrap: anywhere;
 }
 
-/* The edited name owns the row until editing ends. */
-.rail-row[data-editing="true"] .row-tail,
-.rail-row[data-editing="true"] .rail-pads-control,
-.rail-row[data-editing="true"] .fill {
-  display: none;
-}
-
 .rail-row[data-editing="true"] input {
   width: 100%;
 }
@@ -852,7 +712,7 @@
   padding: var(--space-3);
 }
 
-.rail-retention > button {
+.rail-retention button {
   justify-self: start;
 }
 
@@ -869,12 +729,12 @@
   display: none;
 }
 
-.rail-recovery details[open] > summary > svg,
-.rail-recovery[open] > summary > svg {
+.rail-recovery-detail[open] svg,
+.rail-recovery[open] svg {
   transform: rotate(90deg);
 }
 
-.rail-recovery summary > svg {
+.rail-recovery svg {
   flex: none;
 }
 
@@ -883,7 +743,7 @@
   margin-block: var(--space-3);
 }
 
-.rail-recovery details > p {
+.rail-recovery p {
   margin-bottom: var(--space-2);
 }
 
@@ -901,13 +761,87 @@
   position: relative;
 }
 
-.rail > .reserved-line[data-overlay="true"] {
+.rail-command-notice[data-overlay="true"] {
   padding-inline: var(--space-4);
   background: var(--sunken);
   bottom: var(--rail-actions-height);
 }
 
-.rail > .rail-scroll {
+.rail .rail-scroll {
   padding-bottom: var(--line);
   scroll-padding-bottom: var(--line);
 }
+
+.rail-row .name { flex: 1; }
+.rail-row .row-state { width: var(--space-4); flex: none; }
+.rail-row .row-controls { flex: none; }
+.rail-row .rail-chevron { opacity: 0; pointer-events: none; }
+.rail-row:focus-within .rail-chevron,
+.rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }
+
+.rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
+.rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
+.rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }
+
+.rail-command-notice:not([data-overlay]) {
+  block-size: auto;
+  max-block-size: none;
+  padding-inline: var(--space-4);
+}
+
+.rail-command-notice .ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.rail-command-notice .reserved-content {
+  align-items: baseline;
+}
+
+/* U4335a: the state and name follow the same depth as the incoming elbow. */
+
+.rail-row .line::before { content: ""; width: var(--space-1); flex: none; }
+.rail-row .row-state { position: static; margin-inline-start: 0; }
+.rail-row .rail-chevron { left: calc(var(--space-1) + var(--tree-depth) * var(--tree-step)); transform: none; }
+.rail-row .row-icons {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  position: absolute;
+  inset-inline-end: calc(100% + var(--rail-gap));
+  background: var(--sunken);
+  opacity: 0;
+  pointer-events: none;
+}
+.rail-row .row-icons::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 100%;
+  width: var(--space-4);
+  background: inherit;
+  mask-image: linear-gradient(to right, var(--transparent), var(--text));
+  pointer-events: none;
+}
+.rail-row:is(:hover, :focus-within, [data-selected="true"]:not([data-multiple="true"])) .row-icons {
+  opacity: 1;
+  pointer-events: auto;
+}
+.rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
+.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
+.rail-row .row-state { flex: none; }
+
+.rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }
+.rail-leaf[data-leaf="todo"] .shelf-row {
+  padding-inline-start: var(--space-6);
+  padding-inline-end: var(--space-4);
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+.rail-leaf[data-leaf="todo"] .shelf-glyph { margin-inline-start: 0; }
+.rail-leaf[data-leaf="todo"] .shelf-text { padding-inline-start: 0; }
+
+.rail-row,
+.rail-fold,
+.rail-leaf { --tree-mid: var(--elbow-y); }

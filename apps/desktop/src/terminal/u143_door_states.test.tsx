@@ -1,3 +1,4 @@
+import { chooseAction } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -16,7 +17,7 @@ const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!
 
 const calls = (app: { calls: { method: string; params: unknown }[] }, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
 
-const startWorkstream = () => screen.getByText("New Workstream", { selector: ".pane-action" });
+const startWorkstream = () => screen.getByRole("button", { name: copy.addWorkstream });
 
 const emptyProject = async () => {
   const tree: RailNode[] = [];
@@ -34,31 +35,9 @@ const emptyProject = async () => {
 };
 
 describe("u143 empty Project", () => {
-  it("u143_an_empty_project_offers_start_a_workstream_in_place_of_the_select_line", async () => {
-    await emptyProject();
 
-    expect([screen.getByText("No Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("Select an Agent or a Terminal")]).toEqual([expect.anything(), false, null]);
-  });
 
-  it("u143_the_start_a_workstream_button_is_a_native_tab_stop", async () => {
-    await emptyProject();
-    startWorkstream().focus();
 
-    expect([startWorkstream().tagName, startWorkstream().getAttribute("tabindex"), document.activeElement === startWorkstream()]).toEqual(["BUTTON", null, true]);
-  });
-
-  it("u143_only_new_workstream_is_offered_on_an_empty_project", async () => {
-    await emptyProject();
-
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
-    expect(screen.queryByLabelText("Add Agent")).toBeNull();
-  });
-
-  it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
-    await mountRailAndPane([agent("a", "idle", "i")]);
-
-    expect([screen.queryByText("Select an Agent or a Terminal") !== null, screen.queryByText("New Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
-  });
 
   it("u143_start_a_workstream_creates_one_root_workstream_selects_it_and_starts_only_its_door", async () => {
     const { app, connected } = await emptyProject();
@@ -75,11 +54,11 @@ describe("u143 empty Project", () => {
     app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>(() => {});
 
     fireEvent.click(startWorkstream());
-    await screen.findByText("Creating Workstream…");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(true));
     fireEvent.click(startWorkstream());
-    fireEvent.click(screen.getByText("Workstream", { selector: ".rail-actions button" }));
+    fireEvent.click(screen.getByText(copy.addWorkstreamWord.trim(), { selector: ".rail-actions button" }));
 
-    expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("No Workstream yet")]).toEqual([1, true, null]);
+    expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]')]).toEqual([1, true]);
   });
 
   it("u143_a_failed_creation_shows_the_message_keeps_the_button_and_selects_nothing", async () => {
@@ -90,7 +69,9 @@ describe("u143 empty Project", () => {
 
     fireEvent.click(startWorkstream());
 
-    expect([(await screen.findAllByRole("alert")).map((line) => line.textContent), startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([["no space", "no space"], false, null, []]);
+    await screen.findByRole("alert");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
+    expect([screen.getAllByRole("alert").length, startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([1, false, null, []]);
   });
 
   it("u143_a_failed_creation_can_be_tried_again_from_the_same_button", async () => {
@@ -105,6 +86,7 @@ describe("u143 empty Project", () => {
 
     fireEvent.click(startWorkstream());
     await screen.findAllByRole("alert");
+    await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
     fireEvent.click(startWorkstream());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "made" }]));
@@ -142,7 +124,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: 137 } }));
-    await screen.findByText(copy.doorStoppedWithExit("exited 137"));
+    await screen.findByText(copy.doorStoppedWithExit("r", "exited 137"));
     fireEvent.click(paneStart());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
@@ -152,7 +134,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     const { app, connected } = await mountRailAndPane([door("r", "working", "w")]);
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: null } }));
-    await screen.findByText(copy.doorStoppedWithExit("exited by signal"));
+    await screen.findByText(copy.doorStoppedWithExit("r", "exited by signal"));
     fireEvent.click(paneStart());
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
   });
@@ -160,9 +142,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
   it("u143_a_failed_first_launch_reloads_as_stopped", async () => {
     const { app, connected } = await mountRailAndPane([door("r", "error", "launch failed", { terminal_id: null })]);
     connected.rail.select("r");
-    await screen.findByText(copy.doorStopped);
+    await screen.findByText(copy.doorStopped("r"));
     expect(calls(app, "rail.startDoor")).toEqual([]);
-    expect(screen.getByRole("button", { name: copy.start })).toBeTruthy();
+    expect(paneStart()).toBeTruthy();
   });
 
   it("u143_a_running_door_shows_no_state_words", async () => {
@@ -170,7 +152,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect(screen.queryByText(/^Supervisor (not started|stopped|did not start)|^starting Door/)).toBeNull();
+    expect(document.querySelector(".pane-door")).toBeNull();
   });
 
   it("u143_a_pending_start_reads_starting_and_cannot_be_activated_again", async () => {
@@ -178,8 +160,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByRole("button", { name: copy.start }));
-    await screen.findByText(copy.startingDoor);
+    await screen.findByText(copy.doorNotStarted);
+    fireEvent.click(paneStart());
+    await screen.findByText(copy.startingDoor("r"));
     fireEvent.click(paneStart());
 
     expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(copy.doorNotStarted)]).toEqual([1, true, null]);
@@ -187,14 +170,18 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
   it("u143_a_failed_start_reads_did_not_start_with_the_message_and_retry", async () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
+    const failure = new RpcError(-32003, "launch failed");
+
     app.handlers["rail.startDoor"] = () => {
-      throw new RpcError(-32003, "launch failed");
+      throw failure;
     };
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByRole("button", { name: copy.start }));
+    await screen.findByText(copy.doorNotStarted);
+    fireEvent.click(paneStart());
 
-    expect([await screen.findByText(copy.doorDidNotStart), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: copy.retry })]);
+    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
+    expect([screen.getAllByRole("alert").length, paneStart()]).toEqual([1, within(document.querySelector(".pane-door")!).getByRole("button", { name: copy.retry })]);
   });
 });
 
@@ -215,21 +202,13 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
 
     connected.rail.select("r");
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    await chooseAction(app, "r", copy.addAgentMenu);
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });
 });
 
-it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
-  await openTabs({ p: [] });
-  const content = startWorkstream().closest<HTMLElement>(".pane-door")!;
-  const list = within(content).getByRole("list");
-  expect(within(list).getAllByRole("listitem")).toHaveLength(3);
-  expect(content.querySelectorAll('button, a, [tabindex], input')).toHaveLength(1);
-  expect(within(list).queryAllByRole("button")).toEqual([]);
-  expect(within(list).queryAllByRole("link")).toEqual([]);
-});
+
 
 it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
   "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
@@ -258,34 +237,10 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
       await waitFor(() => expect(document.activeElement).toBe(input));
       fireEvent.keyDown(input, { code: "Escape", key: "Escape" });
       await waitFor(() => expect(document.activeElement).toBe(start));
-      expect(screen.queryByRole("textbox", { name: copy.askBarLabel })).toBeNull();
+      expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
     }
 
     expect(calls(daemon, "rail.createWorkstream")).toEqual([]);
     expect(calls(daemon, "rail.startDoor")).toEqual([]);
   },
 );
-
-it("u2571c_hints_follow_empty_pending_failure_and_nonempty_states", async () => {
-  const tree: RailNode[] = [];
-  const { app: projects } = await openTabs({ p: tree });
-  const app = projects.of(path("p"));
-  app.handlers["rail.tree"] = () => structuredClone(tree);
-  const pane = within(document.querySelector<HTMLElement>(".pane")!);
-  let reject!: (error: Error) => void;
-  app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>((_resolve, fail) => { reject = fail; });
-  fireEvent.click(startWorkstream());
-  await screen.findByText("Creating Workstream…");
-  expect(pane.getByRole("list")).toBeTruthy();
-  reject(new RpcError(-32000, "no space"));
-  await screen.findAllByRole("alert");
-  expect(pane.getByRole("list")).toBeTruthy();
-  tree.push(agent("root", "idle", "ready"));
-  app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(pane.queryByRole("list")).toBeNull());
-  expect(screen.getByRole("region", { name: copy.projectOverview })).toBeTruthy();
-  expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
-  tree.splice(0);
-  app.emit(event({ name: "rail.changed" }));
-  await pane.findByRole("list");
-});

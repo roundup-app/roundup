@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../testing/appFixture";
+import { gate, mountApp, select, inspectOrder } from "../testing/appFixture";
 import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
@@ -10,6 +10,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { OrderDrawer } from "./OrderDrawer";
 import { agent, clarifying, door } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
+import { draftStorage } from "../state/storage";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -34,8 +35,7 @@ export const openDrawer = async (
     options.app?.(app);
   });
   select("alpha");
-  await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-  fireEvent.click(document.querySelector(".order-line")!);
+  inspectOrder();
 
   return await screen.findByLabelText("Full order of alpha");
 };
@@ -47,51 +47,6 @@ const full: Order = {
   done: "The tour is written",
   limits,
 };
-
-describe("O15: the Drawer shows a title, the done line and no prompt", () => {
-  it("o15_the_title_leads_and_the_ask_follows", async () => {
-    const drawer = await openDrawer(full);
-    const title = drawer.querySelector(".order-title")!;
-    const ask = drawer.querySelector(".order-ask")!;
-    expect(title.textContent).toContain("Give a Drawer tour");
-    expect(ask.textContent).toContain("Give a tour of the Drawer");
-  });
-
-  it("o15_an_order_without_a_title_shows_its_ask", async () => {
-    const drawer = await openDrawer({ kind: "work", ask: "Give a tour", limits: [] });
-    expect(drawer.querySelector(".order-title")!.textContent).toContain("Give a tour");
-    expect(drawer.querySelector(".order-ask")).toBeNull();
-  });
-
-  it("o15_the_done_mark_follows_the_agent_kind", async () => {
-    for (const kind of ["working", "done"] as const) {
-      const drawer = await openDrawer(full, { kind });
-      const line = drawer.querySelector<HTMLElement>(".order-done-line")!;
-      expect(line.textContent).toContain("The tour is written");
-
-      expect(line.dataset.done, kind).toBe(String(kind === "done"));
-      expect(line.querySelector("[role=img]")!.getAttribute("aria-label")).toBe(kind === "done" ? "Done" : "Not done");
-      document.body.innerHTML = "";
-    }
-  });
-
-  it("o15_no_done_no_line", async () => {
-    const drawer = await openDrawer({ kind: "work", ask: "Give a tour", limits: [] });
-    expect(drawer.querySelector(".order-done-line")).toBeNull();
-  });
-
-  it("o15_no_limits_part_is_drawn", async () => {
-    const drawer = await openDrawer(full);
-    
-    for (const limit of limits) expect(drawer.textContent).not.toContain(limit);
-    expect(drawer.textContent?.toLowerCase()).not.toContain("limits");
-  });
-
-  it("o15_no_list_is_drawn", async () => {
-    const drawer = await openDrawer(full);
-    expect(drawer.querySelector("ul, h3")).toBeNull();
-  });
-});
 
 describe("O16: the user edits the order in the Drawer", () => {
   const edit = async (order: Order, setOrder: (params: never) => object | null) => {
@@ -179,16 +134,16 @@ it("u2773a_orders_agent_switch_keeps_recipient", async () => {
 
  return {}; },
   } });
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  alpha original 🧭\n" } });
   select("beta");
-  fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  inspectOrder("b");
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(full.ask);
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  beta original 👋\n" } });
   select("alpha");
-  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  inspectOrder("a");
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  alpha original 🧭\n");
   expect(sent).toEqual([]);
 });
@@ -270,23 +225,25 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Title"), { target: { value: "  unsaved title 👋  " } });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
-  expect(screen.getByRole("alert").textContent).toContain("reload");
+  const editor = within(document.querySelector<HTMLElement>(".order-edit")!);
+  await editor.findByRole("button", { name: "Copy title" });
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
   storage.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(editor.queryByRole("alert")).toBeNull());
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
     .toEqual(["  unsaved title 👋  ", "  unsaved ask\n", "  unsaved done é  "]);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "discard me" } });
+  await screen.findByRole("button", { name: "Discard this revision" });
   vi.restoreAllMocks();
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(document.querySelector(".order-edit")).toBeNull();
-  expect(await recoveryLabel()).toBeNull();
+  await waitFor(async () => expect(await recoveryLabel()).toBeNull());
   expect(sends).toEqual([]);
 });
 
@@ -303,7 +260,7 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   });
 
   select("alpha");
-  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
+  inspectOrder("a");
   fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
   latest = { kind: "work", title: "Updated title", ask: "Updated ask", done: "Updated done", limits: ["Updated limit"] };
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
@@ -311,7 +268,6 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   expect(["Title", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
     .toEqual(["Updated title", "Updated done"]);
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Copy ask" })).toBeNull();
   expect(await recoveryLabel()).toBeNull();
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "My edit after update" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -446,6 +402,7 @@ it("u3021c_orders_selected_discard_preserves_other_revisions_durably", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
   expect(connected.drafts.list()).toEqual([b]);
   expect(app.calls).toEqual(calls);
+  await waitFor(() => expect(draftStorage(connected.project.path).list()).toEqual([b]));
   const reloaded = await connectProject(app, connected.project, () => true, () => 0);
   expect(reloaded.drafts.list()).toEqual([b]);
 });

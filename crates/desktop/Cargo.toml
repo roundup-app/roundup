@@ -10,7 +10,7 @@ name = "roundup"
 path = "src/main.rs"
 
 [features]
-idle-perf = []
+idle-perf = ["native/idle-perf"]
 # Makes a release build load the files embedded from frontendDist instead of the dev server.
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -19,12 +19,19 @@ base64.workspace = true
 contracts = { path = "../contracts" }
 dirs = "7"
 getrandom = "0.3"
+log = "0.4"
+tauri-plugin-log = "=2.10.1"
+native = { path = "../native" }
 rpc = { path = "../rpc" }
 serde.workspace = true
 serde_json.workspace = true
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
+tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
+time = "0.3.55"
+which = "8.0.6"
 tokio = { workspace = true, features = ["process", "io-util"] }
 
 [[test]]
@@ -35,20 +42,16 @@ harness = false
 tauri-build = "2"
 
 [dev-dependencies]
+tauri-plugin-global-shortcut = "=2.4.1"
+native = { path = "../native", features = ["idle-perf"] }
 rupd = { path = "../rupd" }
 tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 
-[target.'cfg(target_vendor = "apple")'.dependencies]
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["block2"] }
-block2 = "0.6"
+[lints]
+workspace = true
 
-# Objective-C calls are confined to `webkit_rate.rs` and the measurement-only `idle_macos.rs`.
-[lints.rust]
-unsafe_code = "deny"
-unused = { level = "deny", priority = -1 }
-
-[lints.clippy]
-all = { level = "deny", priority = -1 }
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-deep-link = "=2.6.2"
+tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }

@@ -1,8 +1,10 @@
+import { StorageRecovery } from "./app/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
+import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
-import { createTauriApp } from "./app/tauri";
+import { createTauriApp, followMaterial } from "./app/tauri";
 import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
@@ -15,6 +17,10 @@ const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");
 
 const tauri = createTauriApp();
+
+if (!new URLSearchParams(location.search).has("capture")) {
+  void followMaterial(document.documentElement).catch(error => console.error(error));
+}
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 
@@ -29,18 +35,23 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
 
       const workload = import.meta.env.VITE_ROUNDUP_PERF_WORKLOAD;
 
-      if (workload) {
+      if (workload && workload !== "flood") {
         const { createFrameRun } = await import("./perf/frame_run");
 
-        return createFrameRun(tauri.forProject(measured.path), workload, measured.path);
+        return createFrameRun(tauri.forProject(measured.path), workload, measured.path, reducedMotion);
       }
 
-      return createKeystrokeRun(tauri.forProject(measured.path));
+      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle");
     })
   : null;
 
 const app = keystrokes?.traced(tauri) ?? tauri;
 
-render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />, root);
+// The panel never initializes storage, opens Projects or mounts another App.
+if (new URLSearchParams(location.search).has("capture") && tauri.capture) {
+  render(() => <CapturePanel port={tauri.capture!} />, root);
+} else render(() => <StorageRecovery>
+  <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />
+</StorageRecovery>, root);
 
 void keystrokes?.start();

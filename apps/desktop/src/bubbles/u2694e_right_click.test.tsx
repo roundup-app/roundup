@@ -1,9 +1,10 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
-import { node, workstream, info } from "../testing/nodes";
+import { agent, node, workstream, info } from "../testing/nodes";
+import { message } from "../testing/centreFixture";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -41,9 +42,9 @@ const rightPress = (tab: Element, moveTo: number) => {
   return menu;
 };
 
-it("u2694e_a_right_click_opens_the_menu_on_release", async () => {
+it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_click_opens_the_menu_on_release: %s", async (selector) => {
   const { app } = await mountBubbles();
-  const tab = document.querySelector(".terminal-tab-pair")!;
+  const tab = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
 
   fire("pointerdown", tab, 10, 10, 2);
   const menu = fire("contextmenu", tab, 10, 10, 2);
@@ -52,16 +53,59 @@ it("u2694e_a_right_click_opens_the_menu_on_release", async () => {
   fire("pointerup", tab, 10, 10, 0);
 
   expect(app.shownMenus).toHaveLength(1);
-  expect(app.menuLabels()[0]).toBe("Rename");
+  expect(app.menuLabels()).toContain("Rename");
 });
 
-it("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu", async () => {
+it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu: %s", async (selector) => {
   const { app } = await mountBubbles();
-  const tab = document.querySelector(".terminal-tab-pair")!;
+  const tab = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
 
   rightPress(tab, 30);
 
   expect(app.shownMenus).toHaveLength(0);
+});
+
+it.each(["Terminal tab", "Terminal Bubble"])("u4409a_each_surface_projects_ordered_nonempty_groups: %s", async (surface) => {
+  const { app } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+  const selector = surface === "Terminal tab" ? ".terminal-tab-pair" : ".bubble:not([hidden]) .bubble-header";
+  const target = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
+  const before = app.calls.length;
+
+  fireEvent.contextMenu(target);
+
+  expect(app.shownMenus).toHaveLength(1);
+  const items = app.shownMenus[0]!.items;
+  expect(items.map(item => [item.id, item.group])).toEqual([["send", "4"], ["copy-link", "4"], ["rename", "5"], ["close", "7"]]);
+  expect(items[0]!.children?.map(item => item.id)).toEqual(["send:a"]);
+  await app.closeMenu();
+  expect(app.calls.slice(before).filter(call => !["terminal.resize", "terminal.snapshot"].includes(call.method))).toEqual([]);
+  expect(app.clipboardWrites).toEqual([]);
+});
+
+it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its_terminal_once: %s", async (choice) => {
+  const { app } = await mountBubbles("w", [info("other", { owner: "w", title: "Other" }), info("shell", { owner: "w", title: "Shell" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+  app.handlers["message.send"] = params => message(99, { to: params.to, body: params.body });
+  const header = await waitFor(() => document.querySelector('.bubble[data-bubble="shell"]:not([hidden]) .bubble-header') ?? Promise.reject(new Error("No Bubble bar")));
+
+  fireEvent.contextMenu(header);
+  await app.pickMenu(choice === "Send" ? "a" : choice);
+
+  if (choice === "Send") {
+    expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([{ to: "a", kind: "note", body: "roundup://terminal/shell?project=project-0000000000000000\nrup link read roundup://terminal/shell?project=project-0000000000000000", replyTo: null }]);
+  } else if (choice === "Copy link") {
+    expect(app.clipboardWrites).toEqual(["roundup://terminal/shell?project=project-0000000000000000"]);
+  } else if (choice === "Rename") {
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Terminal name" });
+    expect(input.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("shell");
+    expect(input.value).toBe("Shell");
+    fireEvent.keyDown(input, { key: "Escape" });
+  } else {
+    await questionDialog();
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
+    await answerQuestion(true);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]));
+    expect(document.querySelector('.terminal-tab-pair[data-bubble="other"]')).not.toBeNull();
+  }
 });
 
 const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
@@ -192,7 +236,7 @@ it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
   fireEvent.click(row("runner"));
   const tab = await screen.findByRole("button", { name: "cargo test" });
   fireEvent.click(tab);
-  fireEvent.click(await screen.findByRole("button", { name: "Minimise" }));
+  fireEvent.click(screen.getByRole("button", { name: "Minimise" }));
   const before = pane();
   expect(before.some(([, hidden]) => hidden)).toBe(true);
   gesture(row("first-workstream"), true, true);

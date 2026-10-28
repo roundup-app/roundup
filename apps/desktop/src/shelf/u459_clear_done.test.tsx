@@ -1,10 +1,7 @@
-import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { SCOPE_ROW } from "../testing/nodes";
-import { RpcError } from "../app/seam";
 import { confirmDeletion, questionClosed, stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
@@ -15,45 +12,33 @@ it("u459_clear_done_targets_only_the_scoped_done_set", async () => {
   const { app, connected } = await mountTodos([todo(1, { done: true, home: SCOPE_ROW }), todo(2, { done: true, home: SCOPE_ROW }), todo(3, { done: true }), todo(4, { home: SCOPE_ROW })]);
   connected.rail.select("scope-row");
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
-  expect((await questionDialog()).title).toBe("Delete 2 done Todos?");
-  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
+  await questionClosed();
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
 });
 
-it("u459_clear_done_confirms_once_and_cancels_without_calls", async () => {
-  const { app } = await mountTodos([todo(1, { done: true }), todo(2, { done: true })]);
-  const clear = await screen.findByRole("button", { name: "Clear done" });
-  clear.focus();
-  fireEvent.click(clear);
-  await questionDialog();
-  await answerQuestion(false);
-  await waitFor(() => expect(document.activeElement).toBe(clear));
-  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
-  expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();
-});
 
 it("u459_clear_done_success_removes_only_done_rows", async () => {
   const { app } = await mountTodos([todo(1, { done: true }), todo(2, { done: true }), todo(3)]);
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
   await confirmDeletion();
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Clear done" })).toBeNull());
   await questionClosed();
-  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }]);
+  expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
   expect(screen.getByRole("button", { name: /#3 / })).toBeTruthy();
 });
 
 it("u459_failed_done_rows_are_visible_and_selected", async () => {
   const { app, store } = await mountTodos([todo(1, { done: true }), todo(2, { done: true })]);
   app.handlers["todo.delete"] = (params) => {
-    if (params.id === 2) throw new RpcError(-32001, "denied");
-    store.todos = store.todos.filter((row) => row.id !== params.id);
 
-    return null;
+    store.todos = store.todos.filter((row) => row.id !== params.ids[0]);
+
+    return { operation: params.operation, deleted: [1], missing: [2], state: "deleted" };
   };
 
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
   await confirmDeletion();
-  await screen.findByText("Could not delete todo 2 #2: denied");
+  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Refresh to check again.");
   await questionClosed();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByText("1 selected")).toBeTruthy();
+  expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
 });

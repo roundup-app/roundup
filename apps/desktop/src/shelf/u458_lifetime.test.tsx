@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo } from "../todos/testHarness";
 import { USER } from "../testing/nodes";
@@ -12,7 +12,6 @@ it("u458_selection_survives_refetch_by_identity", async () => {
   app.emit({ actor: USER, name: "todo.updated", data: store.todos[1]! });
   const changed = await screen.findByRole("button", { name: /#2 changed/ });
   expect(changed.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByText("1 selected")).toBeTruthy();
 });
 
 it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
@@ -20,18 +19,18 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   fireEvent.click(screen.getByRole("button", { name: /#1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "1 done" }));
-  expect(screen.queryByText("1 selected")).toBeNull();
+  expect(screen.getByRole("button", { name: /#1 /, hidden: true }).getAttribute("aria-pressed")).toBe("false");
   fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
   connected.rail.select("scope-row");
-  await waitFor(() => expect(screen.queryByText("1 selected")).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: /#2 /, pressed: true })).toBeNull());
 });
 
 it("u458_tick_blocker_and_drag_keep_their_actions", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2), todo(3, { blockers: [1, 2], blocked: true })]);
   fireEvent.click(await screen.findByRole("button", { name: /#3 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Open blocker todo 2" }), { metaKey: true });
+  fireEvent.keyDown(screen.getByRole("button", { name: /#2 / }), { key: "Enter" });
   expect(connected.drawer.content()).not.toBeNull();
-  expect(screen.getByText("1 selected")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /#3 / }).getAttribute("aria-pressed")).toBe("true");
   fireEvent.click(screen.getByRole("checkbox", { name: "Complete todo 3" }), { metaKey: true });
   expect(app.calls.filter((call) => call.method === "todo.complete").map((call) => call.params)).toEqual([{ id: 3 }]);
 });

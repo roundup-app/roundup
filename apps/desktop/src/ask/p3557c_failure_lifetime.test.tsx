@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
@@ -99,4 +100,21 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(line()).toBeNull());
   expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+});
+
+it("u4277c_empty_made_keeps_refresh_and_distinguishes_read_failure", async () => {
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
+  const made = await screen.findByRole("region", { name: "Made" });
+  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  expect(within(made).queryAllByRole("listitem")).toHaveLength(0);
+  expect(within(made).getByRole("group", { name: copy.deliverablesEmpty })).toBeTruthy();
+  app.handlers["deliverable.list"] = () => { throw new RpcError(-32003, "Publication list unavailable"); };
+
+  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(within(made).getByRole("alert")).toBeTruthy());
+  app.handlers["deliverable.list"] = () => [published(1)];
+  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(within(made).getAllByRole("listitem")).toHaveLength(1));
+  expect(app.calls.filter(call => ["deliverable.resolve", "ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });

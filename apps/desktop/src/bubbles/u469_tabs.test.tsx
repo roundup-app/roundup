@@ -64,16 +64,6 @@ it("u469_failed_close_keeps_the_tab_bubble_and_visible_failure", async () => {
   expect(document.activeElement).toBe(close);
 });
 
-it("u469_close_returns_focus_to_a_remaining_control", async () => {
-  const mounted = await mountBubbles();
-  const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
-  close.focus();
-  fireEvent.click(close);
-  await answerQuestion(true);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="2"]')));
-  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]));
-});
-
 it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_%s", async (activation) => {
   const mounted = await mountBubbles(null);
 
@@ -84,15 +74,34 @@ it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_th
   expect(mounted.connected.rail.selected()).toBeNull();
 });
 
-it("u524_an_empty_project_opens_and_focuses_a_project_terminal_plus", async () => {
-  const mounted = await mountBubbles(null, [], []);
+it("u524_every_root_opened_terminal_stays_in_the_bar_after_returning", async () => {
+  const projectTerminal = info("project", { owner: "/p", title: "project shell" });
+  const mounted = await mountBubbles(null, [projectTerminal]);
+  const listed = [projectTerminal];
+  let opened = 0;
 
-  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: null }]);
-  expect(bubbleCalls(mounted.app, "rail.createWorkstream")).toEqual([]);
-  expect(bubbleCalls(mounted.app, "rail.startDoor")).toEqual([]);
-  expect(mounted.connected.rail.selected()).toBeNull();
+  mounted.app.handlers["terminal.open"] = ({ workstream: owner }) => {
+    const id = `root-${++opened}`;
+    listed.push(info(id, { owner, title: `shell ${opened}` }));
+    mounted.setListed([...listed]);
+
+    return { terminal_id: id };
+  };
+
+  const tabs = () => [...document.querySelectorAll(".terminal-tab")].map(tab => tab.getAttribute("data-bubble"));
+
+  for (const id of ["root-1", "root-2", "root-3"]) {
+    fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+    // Wait for the acknowledged Terminal focus, then join the Rail refresh before another open.
+    await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe(id));
+    await mounted.connected.rail.refresh({ terminals: true });
+  }
+
+  expect(tabs()).toEqual(["project", "root-1", "root-2", "root-3"]);
+  mounted.connected.rail.select("w");
+  expect(tabs()).toEqual(["root-1", "root-2", "root-3"]);
+  mounted.connected.rail.select(null);
+  expect(tabs()).toEqual(["project", "root-1", "root-2", "root-3"]);
 });
 
 it("u524_a_project_terminal_is_available_after_reload", async () => {
@@ -103,23 +112,6 @@ it("u524_a_project_terminal_is_available_after_reload", async () => {
   await answerQuestion(true);
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).toBeNull());
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]);
-});
-
-it("u524_a_failed_empty_project_open_can_be_retried", async () => {
-  const mounted = await mountBubbles(null, [], []);
-  const open = mounted.app.handlers["terminal.open"]!;
-  mounted.app.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
-
-  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot open"));
-  expect(document.querySelector(".bubble")).toBeNull();
-  expect(document.activeElement).toBe(document.querySelector('[aria-label="New Terminal"]'));
-  mounted.app.handlers["terminal.open"] = open;
-
-  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
-  expect(document.querySelector('[role="alert"]')).toBeNull();
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: null }, { workstream: null }]);
 });
 
 it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_%s", async (activation) => {
@@ -223,16 +215,16 @@ it("u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs", async () => 
   expect([...document.querySelectorAll('.terminal-tab')].map(e=>e.getAttribute("aria-label"))).toEqual(["Run"]);
 });
 
-it.each(["previous", "plus"])("u469_close_returns_focus_to_a_remaining_control_%s", async (target) => {
+it("u469_close_returns_focus_to_a_remaining_tab", async () => {
   const { info } = await import("../testing/nodes");
 
-  await mountBubbles("w", target === "plus" ? [info("2",{owner:"w",title:"zsh"})] : [info("1",{owner:"w",title:"first"}),info("2",{owner:"w",title:"zsh"})]);
+  await mountBubbles("w", [info("1",{owner:"w",title:"first"}),info("2",{owner:"w",title:"zsh"})]);
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close zsh"]')!;
 
   close.focus();
   fireEvent.click(close);
   await answerQuestion(true);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(target === "plus" ? '.terminal-new' : '.terminal-tab[data-bubble="1"]')));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="1"]')));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
 });
 

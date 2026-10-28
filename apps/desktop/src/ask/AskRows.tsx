@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { AskPart } from "@contracts/ask/AskPart";
@@ -7,6 +8,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
+import { queueFocus } from "../keys/focus";
 import { registerKeys, type KeyScope } from "../keys/registry";
 import { Tip, type TriggerProps } from "../ui/Tip";
 import { Select } from "../ui/Select";
@@ -30,9 +32,20 @@ const focusPane = (): void => {
 
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
-  const { asks, rail } = useConnectedProject();
+  const { asks, rail, hideView } = useConnectedProject();
 
-  const parts = createMemo(() => asks.entries().flatMap((entry) => entry.parts.map((part, index) => ({ entry, part, index }))));
+  const parts = createMemo(() => {
+    const shown = new Set<string>();
+
+    return asks.entries().flatMap(entry => entry.parts.map((part, index) => {
+      const id = workstreamOf(part);
+      const live = part.state === "typed" && id !== null && !shown.has(id);
+
+      if (live) shown.add(id!);
+
+      return { entry, part, index, live };
+    }));
+  });
 
   const nameOf = (id: string): string => rail.nodes.find((node) => node.id === id)?.name ?? id;
 
@@ -53,15 +66,20 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   };
 
   return (
-    <ul class="ask-rows" aria-label={copy.askRows}>
+    <section class="ask-history" aria-label={copy.askHistory}>
+    <div class="made-heading"><h2 class="overview-heading">{copy.askHistory}</h2><button type="button" data-button="quiet" onClick={() => { hideView("ask-history"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.askHistory)}</button></div>
+    <Show when={parts().length === 0 && asks.loadState() === "loading"}><ReservedLine class="ask-history-status" status={copy.askHistoryLoading} /></Show>
+    <Show when={parts().length === 0 && asks.loadState() === "ready"}><EmptyState art="messages" {...{ title: copy.askHistoryEmpty }} line={copy.emptyAskLine} /></Show>
+    <ul class="ask-rows" aria-label={copy.askRows} aria-busy={asks.loadState() === "loading"}>
       <For each={parts()}>
-        {({ entry, part, index }) => <AskRow keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
+        {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
+    </section>
   );
 };
 
-const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;
@@ -105,7 +123,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
   };
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
-  const status = () => (props.part.state === "typed" ? node()?.status ?? null : null);
+  const status = () => (props.live && props.part.state === "typed" ? node()?.status ?? null : null);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
   const failure = () => asks.partFailure(props.entry.key, props.index);

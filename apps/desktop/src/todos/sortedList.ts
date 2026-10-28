@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -23,6 +24,7 @@ export const createSortedList = (source: {
   all: Accessor<readonly Todo[]>;
   call: (params: { id: number; before: number | null }) => Promise<string | null>;
   reducedMotion: Accessor<boolean>;
+  reload: () => Promise<void>;
   /** U362: only the Shelf's rows can be dropped on a Rail Home. */
   home?: {
     target: (id: number, x: number, y: number) => HomeTarget | null;
@@ -40,10 +42,13 @@ export const createSortedList = (source: {
   const positions = new Map<number, { top: number; left: number }>();
   const animations = new Map<number, Animation>();
   let savedFocus: number | undefined;
+  let savedPermission = captureFocus();
+  let requestedFocus = captureFocus();
   let scroll: { element: HTMLElement; top: number; left: number } | null = null;
   onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
-  const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement } | null>(null);
+  let instantOrder: symbol | null = null;
+  const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
   const positionOf = (el: HTMLElement) => {
@@ -54,6 +59,7 @@ export const createSortedList = (source: {
   };
 
   const measure = () => {
+    savedPermission = captureFocus();
     savedFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
     const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
 
@@ -68,6 +74,9 @@ export const createSortedList = (source: {
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
+    const instant = instantOrder !== null;
+    instantOrder = null;
+
     if (scroll) {
       scroll.element.scrollTop = scroll.top;
       scroll.element.scrollLeft = scroll.left;
@@ -90,7 +99,7 @@ export const createSortedList = (source: {
 
       positions.set(id, position);
 
-      if (was === undefined || source.reducedMotion() || !("animate" in el)) continue;
+      if (was === undefined || instant || source.reducedMotion() || !("animate" in el)) continue;
       const x = was.left - position.left;
       const y = was.top - position.top;
 
@@ -107,8 +116,8 @@ export const createSortedList = (source: {
       animations.delete(id);
     }
 
-    if (refocus !== null) buttons.get(refocus)?.focus({ preventScroll: true });
-    else if (savedFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(savedFocus)?.focus({ preventScroll: true });
+    if (refocus !== null) requestedFocus(() => buttons.get(refocus!)?.focus({ preventScroll: true }));
+    else if (savedFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) savedPermission(() => buttons.get(savedFocus!)?.focus({ preventScroll: true }));
     savedFocus = undefined;
 
     refocus = null;
@@ -138,24 +147,43 @@ export const createSortedList = (source: {
       if (document.activeElement === document.body || document.activeElement === null) {
         const row = ids.includes(request.id) ? buttons.get(request.id) ?? document.querySelector<HTMLElement>(`[data-todo="${request.id}"] .row-head button`) : request.element;
 
-        row?.focus();
+        request.focus(() => {
+          row?.focus();
 
-        // A folded owner group keeps its moved row hidden; its disclosure keeps focus reachable.
-        if (document.activeElement === document.body) request.element.querySelector<HTMLElement>('[data-part="branch-control"]')?.focus();
+          // A folded owner group keeps its moved row hidden; its disclosure keeps focus reachable.
+          if (document.activeElement === document.body) request.element.querySelector<HTMLElement>('[data-part="branch-control"]')?.focus();
+        });
       }
     });
   });
 
   /** One `todo.reorder` putting `id` at index `to` of this list. */
-  const move = async (id: number, to: number, ids = source.ids()) => {
+  const move = async (id: number, to: number, ids = source.ids(), key: symbol | null = null) => {
+    const focus = requestedFocus;
     const message = await source.call({ id, before: beforeOf(source.all(), ids, id, to) });
 
     fails.get(id)?.(message);
 
+    if (message === null && key !== null) {
+      // T11 can succeed without an event. Read the order before releasing the key so a delayed real move still settles instantly.
+      await source.reload();
+
+      if (instantOrder === key) {
+        instantOrder = null;
+        refocus = null;
+      }
+    }
+
     if (message !== null) {
       refocus = null;
-      buttons.get(id)?.focus();
+      instantOrder = null;
+      focus(() => buttons.get(id)?.focus());
     }
+  };
+
+  const stop = () => {
+    animations.forEach(animation => animation.cancel());
+    animations.clear();
   };
 
   const step = (id: number, by: -1 | 1, ids = source.ids()) => {
@@ -163,15 +191,25 @@ export const createSortedList = (source: {
 
     if (to < 0 || to >= ids.length) return;
 
+    // M1: a key interrupts the displayed projection now; its acknowledged order never starts another slide.
+    stop();
+    const key = Symbol();
+
+    instantOrder = key;
     measure();
+    requestedFocus = captureFocus();
     refocus = id;
-    void move(id, to, ids);
+    void move(id, to, ids, key);
   };
 
   return {
+    stop,
+    step,
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
+      instantOrder = null;
       measure();
+      requestedFocus = captureFocus();
       refocus = id;
 
       const message = await source.call({ id, before });
@@ -191,7 +229,9 @@ export const createSortedList = (source: {
       const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
+      instantOrder = null;
       measure();
+      requestedFocus = captureFocus();
       refocus = Number(moved);
       void move(refocus, next.indexOf(moved), before.map(Number));
     },
@@ -200,32 +240,33 @@ export const createSortedList = (source: {
       attribute: "data-todo-drop",
       target: (id: string, x: number, y: number): HomeTarget | OwnerTarget | null => source.home?.target(Number(id), x, y) ?? source.owner?.target(Number(id), x, y) ?? null,
       onDropOutside: (id: string, target: HomeTarget | OwnerTarget) => {
+        const focus = captureFocus();
         const todo = Number(id);
 
         if ("owner" in target) {
           const owner = target.owner;
 
-          setMovedFocus({ id: todo, arrived: (moved) => sameOwner(moved.owner, owner), element: target.element });
+          setMovedFocus({ id: todo, arrived: (moved) => sameOwner(moved.owner, owner), element: target.element, focus });
           void source.owner!.assign(todo, owner).then((message) => {
             fails.get(todo)?.(message);
 
             if (message !== null) {
               setMovedFocus(null);
-              buttons.get(todo)?.focus();
+              focus(() => buttons.get(todo)?.focus());
             }
           });
 
           return;
         }
 
-        setMovedFocus({ id: todo, arrived: (moved) => moved.home === target.home, element: target.element });
+        setMovedFocus({ id: todo, arrived: (moved) => moved.home === target.home, element: target.element, focus });
         void source.home!.move(todo, target.home).then((message) => {
           fails.get(todo)?.(message);
 
           if (message !== null) setMovedFocus(null);
 
           // A refetch can remove the focused row before the RPC resolves.
-          if (document.activeElement === document.body || document.activeElement === null) target.element.focus();
+          if (document.activeElement === document.body || document.activeElement === null) focus(() => target.element.focus());
         });
       },
     } : undefined,

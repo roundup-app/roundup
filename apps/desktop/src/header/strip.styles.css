@@ -25,9 +25,9 @@
   overscroll-behavior: contain;
   scrollbar-width: none;
   /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
-  --cut-start: 0px;
-  --cut-end: 0px;
-  mask-image: linear-gradient(to right, transparent, var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), transparent);
+  --cut-start: var(--length-zero);
+  --cut-end: var(--length-zero);
+  mask-image: linear-gradient(to right, var(--transparent), var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), var(--transparent));
 }
 
 .tablist::-webkit-scrollbar {
@@ -51,7 +51,7 @@
   min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule) + var(--space-3) + var(--space-1));
 }
 
-.tab-name-button > .unread-dot {
+.tab-name-button .unread-dot {
   align-self: center;
 }
 
@@ -118,7 +118,7 @@
   font: inherit;
   line-height: inherit;
   color: var(--text);
-  background: transparent;
+  background: var(--transparent);
   border: 0;
 }
 
@@ -173,7 +173,7 @@
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
   /* D8: the one border width, named once for the tab boxes and the edges; the bar's own rule sits at its bottom edge (flat-tab.styles.css). */
-  --rule: 1px;
+  --rule: var(--hairline-width);
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;
@@ -184,7 +184,7 @@
 }
 
 .traffic-lights { grid-column: 1; height: 100%; }
-.window-bar > .strip { grid-column: 2; overflow: clip; }
+.window-bar .strip { grid-column: 2; overflow: clip; }
 .window-title {
   justify-self: center;
   max-width: 100%;
@@ -213,6 +213,17 @@
   white-space: normal;
 }
 
+/* Recovery is requested: expand its failure so the cause and retry stay readable. */
+.header-recovery .reserved-line:not([data-empty="true"]) {
+  block-size: auto;
+  max-block-size: none;
+}
+
+.header-recovery .ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .tab-actions {
   display: flex;
   flex: none;
@@ -238,7 +249,7 @@
 
 /* The native request's failure replaces the originating strip until retry or cancel. */
 .strip { position: relative; }
-.strip > .native-alert-failure {
+.strip .native-alert-failure {
   position: absolute;
   inset: 0;
   z-index: 1;

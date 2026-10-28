@@ -37,21 +37,7 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         1,
     )?;
-    let project = Submenu::with_id(app, "project-menu", "Project", true)?;
-    project.append(&MenuItem::with_id(
-        app,
-        "import-work",
-        "Import Claude Code Work…",
-        false,
-        None::<&str>,
-    )?)?;
-    project.append(&MenuItem::with_id(
-        app,
-        "project-settings",
-        "Project Settings…",
-        false,
-        None::<&str>,
-    )?)?;
+    let project = Submenu::with_id(app, "project-menu", "Project", false)?;
     menu.insert(&project, 1)?;
     Ok(menu)
 }
@@ -59,9 +45,30 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
-            eprintln!("desktop: could not open Settings: {error}");
+            crate::diagnostics::failure("open Settings", &error);
         }
-    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings") {
+    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
+        || event.id().0.starts_with("view:")
+        || event.id().0.starts_with("action:")
+    {
+        let enabled = app
+            .menu()
+            .and_then(|menu| menu.get("project-menu"))
+            .and_then(|item| match item {
+                MenuItemKind::Submenu(project) => project.get(event.id().0.as_str()),
+                _ => None,
+            })
+            .and_then(|item| {
+                if let MenuItemKind::MenuItem(item) = item {
+                    item.is_enabled().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(false);
+        if !enabled {
+            return;
+        }
         let selected = app.state::<ProjectMenu>();
         let path = selected.0.lock().expect("Project menu lock");
         if let Some(path) = path.as_ref()
@@ -70,7 +77,7 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
                 serde_json::json!({ "path": path, "command": event.id().0 }),
             )
         {
-            eprintln!("desktop: could not open Project page: {error}");
+            crate::diagnostics::failure("open Project page", &error);
         }
     } else {
         app.state::<Choice>().chosen(event);
@@ -85,16 +92,63 @@ pub struct ProjectMenu(Mutex<Option<String>>);
 pub fn select_project_menu<R: Runtime>(
     app: AppHandle<R>,
     path: Option<String>,
+    items: Option<Vec<Item>>,
 ) -> Result<(), RpcError> {
     let menu = app.menu().ok_or_else(|| internal("No application menu"))?;
     let Some(MenuItemKind::Submenu(project)) = menu.get("project-menu") else {
         return Err(internal("No Project menu"));
     };
-    for id in ["import-work", "project-settings"] {
-        let Some(MenuItemKind::MenuItem(item)) = project.get(id) else {
-            return Err(internal("No Project command"));
-        };
-        item.set_enabled(path.is_some()).map_err(internal)?;
+    for item in project.items().map_err(internal)? {
+        project.remove(&item).map_err(internal)?;
+    }
+    project.set_enabled(path.is_some()).map_err(internal)?;
+    if path.is_some() {
+        let items = items.unwrap_or_default();
+        // Keep native separators between nonempty groups, including when availability changes.
+        let mut separated = false;
+        let mut hints = Vec::new();
+        for group in ["create", "navigate", "views"] {
+            let entries: Vec<_> = items
+                .iter()
+                .filter(|item| item.enabled && item.group.as_deref().unwrap_or("navigate") == group)
+                .collect();
+            if entries.is_empty() {
+                continue;
+            }
+            if separated {
+                project
+                    .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
+                    .map_err(internal)?;
+            }
+            for item in entries {
+                let (entry, hint) =
+                    project_kind(&app, item, |app, id, label, enabled, accelerator| {
+                        MenuItem::with_id(app, id, label, enabled, accelerator)
+                    })
+                    .map_err(internal)?;
+                let index = project.items().map_err(internal)?.len();
+                project.append(&entry).map_err(internal)?;
+                if let Some(hint) = hint {
+                    hints.push((index, hint));
+                }
+            }
+            separated = true;
+        }
+        if separated {
+            project
+                .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
+                .map_err(internal)?;
+        }
+        for (id, label) in [
+            ("import-work", "Import Claude Code work…"),
+            ("project-settings", "Open Project settings…"),
+        ] {
+            project
+                .append(&MenuItem::with_id(&app, id, label, true, None::<&str>).map_err(internal)?)
+                .map_err(internal)?;
+        }
+        #[cfg(target_vendor = "apple")]
+        native::project_menu_hints(&app, hints).map_err(internal)?;
     }
     *app.state::<ProjectMenu>()
         .0
@@ -103,12 +157,13 @@ pub fn select_project_menu<R: Runtime>(
     Ok(())
 }
 
-/// One item of the webview's menu model. `shortcut` is text appended to the label, never an accelerator.
+/// Native menus share one-step accelerators, sequence hints and group metadata.
 #[derive(Deserialize)]
 pub struct Item {
     id: String,
     label: String,
     shortcut: Option<String>,
+    group: Option<String>,
     enabled: bool,
     children: Option<Vec<Item>>,
 }
@@ -125,37 +180,99 @@ impl Choice {
     }
 }
 
-fn text(item: &Item) -> String {
-    match &item.shortcut {
-        Some(chord) => format!("{}\t{chord}", item.label),
-        None => item.label.clone(),
-    }
+fn applicable(item: &Item) -> bool {
+    item.enabled
+        && item
+            .children
+            .as_ref()
+            .is_none_or(|children| children.iter().any(applicable))
 }
 
 fn append<R: Runtime>(app: &AppHandle<R>, into: &Menu<R>, items: &[Item]) -> tauri::Result<()> {
-    for item in items {
-        into.append(&kind(app, item)?)?;
+    let mut group = None;
+    for item in items.iter().filter(|item| applicable(item)) {
+        if group.is_some() && group != Some(&item.group) {
+            into.append(&tauri::menu::PredefinedMenuItem::separator(app)?)?;
+        }
+        group = Some(&item.group);
+        into.append(&kind(app, item, |app, id, label, enabled, accelerator| {
+            MenuItem::with_id(app, id, label, enabled, accelerator)
+        })?)?;
     }
     Ok(())
 }
 
-fn kind<R: Runtime>(app: &AppHandle<R>, item: &Item) -> tauri::Result<MenuItemKind<R>> {
+fn kind<R: Runtime>(
+    app: &AppHandle<R>,
+    item: &Item,
+    build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
+) -> tauri::Result<MenuItemKind<R>> {
     match &item.children {
         Some(children) => {
             let sub = Submenu::new(app, &item.label, item.enabled)?;
-            for child in children {
-                sub.append(&kind(app, child)?)?;
+            for child in children.iter().filter(|child| applicable(child)) {
+                sub.append(&kind(app, child, build)?)?;
             }
             Ok(MenuItemKind::Submenu(sub))
         }
-        None => Ok(MenuItemKind::MenuItem(MenuItem::with_id(
-            app,
-            item.id.clone(),
-            text(item),
-            item.enabled,
-            None::<&str>,
-        )?)),
+        None => project_kind(app, item, build).map(|(entry, _)| entry),
     }
+}
+
+// The constructor is the platform boundary: observers can inspect the actual arguments supplied to Tauri.
+fn project_kind<R: Runtime>(
+    app: &AppHandle<R>,
+    item: &Item,
+    build: impl FnOnce(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>>,
+) -> tauri::Result<(MenuItemKind<R>, Option<String>)> {
+    let (accelerator, hint) = match item.shortcut.as_deref() {
+        Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
+        Some(shortcut) => (
+            Some(
+                shortcut
+                    .replace('⌃', "Ctrl+")
+                    .replace('⌥', "Alt+")
+                    .replace('⇧', "Shift+")
+                    .replace('⌘', "Super+")
+                    .replace('⏎', "Enter")
+                    .replace('⌫', "Backspace")
+                    .replace('⌦', "Delete")
+                    .replace('↑', "ArrowUp")
+                    .replace('↓', "ArrowDown")
+                    .replace('←', "ArrowLeft")
+                    .replace('→', "ArrowRight"),
+            ),
+            None,
+        ),
+        None => (None, None),
+    };
+    let entry = build(
+        app,
+        &item.id,
+        &item.label,
+        item.enabled,
+        accelerator.as_deref(),
+    )?;
+    Ok((MenuItemKind::MenuItem(entry), hint))
+}
+
+#[cfg(any(target_vendor = "apple", test))]
+fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
+    items
+        .iter()
+        .filter(|item| item.enabled)
+        .flat_map(|item| {
+            if let Some(children) = &item.children {
+                return sequence_hints(children);
+            }
+            item.shortcut
+                .as_ref()
+                .filter(|shortcut| shortcut.starts_with("⌘K "))
+                .map(|shortcut| (item.label.clone(), shortcut.clone()))
+                .into_iter()
+                .collect()
+        })
+        .collect()
 }
 
 fn internal(error: impl ToString) -> RpcError {
@@ -178,9 +295,15 @@ pub async fn show_context_menu<R: Runtime>(
     let (shown, closed) = oneshot::channel();
     let target = window.as_ref().window();
     let popped = target.clone();
+    #[cfg(target_vendor = "apple")]
+    let hints = sequence_hints(&items);
     target
         .run_on_main_thread(move || {
-            let _ = shown.send(popped.popup_menu_at(&menu, LogicalPosition::new(x, y)));
+            #[cfg(target_vendor = "apple")]
+            let result = native::context_menu(&popped, &menu, LogicalPosition::new(x, y), hints);
+            #[cfg(not(target_vendor = "apple"))]
+            let result = popped.popup_menu_at(&menu, LogicalPosition::new(x, y));
+            let _ = shown.send(result);
         })
         .map_err(internal)?;
     closed.await.map_err(internal)?.map_err(internal)?;
@@ -203,6 +326,16 @@ mod tests {
             id: id.to_owned(),
             label: label.to_owned(),
             shortcut: shortcut.map(str::to_owned),
+            group: Some(
+                if id.starts_with("view:") {
+                    "views"
+                } else if id.starts_with("action:chord:") && id != "action:chord:⌘/" {
+                    "create"
+                } else {
+                    "navigate"
+                }
+                .to_owned(),
+            ),
             enabled: true,
             children,
         }
@@ -215,54 +348,114 @@ mod tests {
         }
     }
 
-    /// U2694a: the host builds each item with no accelerator; a chord is label text only, so no `NSMenu` key equivalent fires from the menu bar.
     #[test]
-    fn u2694a_no_item_carries_an_accelerator() {
+    fn u4322b_items_carry_native_accelerators() {
         let app = mock_app();
-        let rename =
-            plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
-        let copy = plain(kind(app.handle(), &item("copy", "Copy Link", None, None)).unwrap());
-
-        assert_eq!(rename.text().unwrap(), "Rename\tF2");
-        assert_eq!(copy.text().unwrap(), "Copy Link");
+        for (chord, accelerator) in [
+            (Some("F2"), Some("F2")),
+            (Some("⌘⌫"), Some("Super+Backspace")),
+            (None, None),
+        ] {
+            let built = kind(
+                app.handle(),
+                &item("action", "Rename", chord, None),
+                |app, id, label, enabled, supplied| {
+                    assert_eq!(supplied, accelerator);
+                    MenuItem::with_id(app, id, label, enabled, supplied)
+                },
+            )
+            .unwrap();
+            let leaf = plain(built);
+            assert_eq!(leaf.text().unwrap(), "Rename");
+            assert_eq!(leaf.id().0, "action");
+        }
     }
 
-    /// U2694a: a `children` list is a submenu, each child an item with its own id and enabled state.
     #[test]
-    fn u2694a_children_build_a_submenu() {
+    fn u4322b_native_groups_and_submenus_reach_the_menu() {
         let app = mock_app();
-        let mut gone = item("send:x", "x", None, None);
-        gone.enabled = false;
-        let built = kind(
+        let menu = Menu::new(app.handle()).unwrap();
+        let mut rename = item("rename", "Rename", Some("F2"), None);
+        rename.group = Some("edit".into());
+        let mut remove = item("remove", "Remove", Some("⌘⌫"), None);
+        remove.group = Some("remove".into());
+        let mut hidden = item("hidden", "Hidden", None, None);
+        hidden.enabled = false;
+        hidden.group = Some("omitted".into());
+        append(
             app.handle(),
-            &item(
-                "send",
-                "Send to Agent",
-                None,
-                Some(vec![item("send:a", "a", None, None), gone]),
-            ),
+            &menu,
+            &[
+                rename,
+                hidden,
+                item("empty", "Empty", None, Some(vec![])),
+                remove,
+                item(
+                    "add",
+                    "Add",
+                    None,
+                    Some(vec![
+                        item("child", "Pad", None, None),
+                        Item {
+                            enabled: false,
+                            ..item("unavailable-child", "Unavailable", None, None)
+                        },
+                    ]),
+                ),
+            ],
         )
         .unwrap();
-        let MenuItemKind::Submenu(sub) = built else {
-            panic!("expected a submenu")
+        let built = menu.items().unwrap();
+        assert_eq!(built.len(), 5);
+        assert_eq!(plain(built[0].clone()).id().0, "rename");
+        assert!(matches!(built[1], MenuItemKind::Predefined(_)));
+        assert_eq!(plain(built[2].clone()).id().0, "remove");
+        assert!(matches!(built[3], MenuItemKind::Predefined(_)));
+        let MenuItemKind::Submenu(sub) = &built[4] else {
+            panic!("submenu missing")
         };
-        let children: Vec<_> = sub.items().unwrap().into_iter().map(plain).collect();
-
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.text().unwrap())
-                .collect::<Vec<_>>(),
-            ["a", "x"]
-        );
-        assert_eq!(
-            children
-                .iter()
-                .map(|child| child.is_enabled().unwrap())
-                .collect::<Vec<_>>(),
-            [true, false]
-        );
+        assert_eq!(sub.items().unwrap().len(), 1);
+        assert_eq!(plain(sub.items().unwrap()[0].clone()).id().0, "child");
     }
+
+    #[test]
+    fn u4322b_sequences_remain_hints() {
+        let app = mock_app();
+        let action = item("close", "Close", Some("⌘K W"), None);
+        let (entry, hint) = project_kind(
+            app.handle(),
+            &action,
+            |app, id, label, enabled, accelerator| {
+                assert_eq!(accelerator, None);
+                MenuItem::with_id(app, id, label, enabled, accelerator)
+            },
+        )
+        .unwrap();
+        assert_eq!(plain(entry).text().unwrap(), "Close");
+        assert_eq!(hint.as_deref(), Some("⌘K W"));
+        assert_eq!(sequence_hints(&[action]), [("Close".into(), "⌘K W".into())]);
+    }
+
+    #[test]
+    fn u4322b_popup_accelerators_stay_in_the_popup() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let popup = Menu::new(app.handle()).unwrap();
+        append(
+            app.handle(),
+            &popup,
+            &[item("popup-rename", "Rename", Some("F2"), None)],
+        )
+        .unwrap();
+        assert!(popup.get("popup-rename").is_some());
+        assert!(app.menu().unwrap().get("popup-rename").is_none());
+        drop(popup);
+        assert!(app.menu().unwrap().get("popup-rename").is_none());
+    }
+
     #[test]
     fn s_u3813_project_menu_tracks_the_selected_project() {
         use std::sync::Arc;
@@ -283,14 +476,6 @@ mod tests {
                 _ => None,
             })
             .expect("Project menu");
-        let items: Vec<_> = project.items().unwrap().into_iter().map(plain).collect();
-        assert_eq!(
-            items
-                .iter()
-                .map(|item| item.text().unwrap())
-                .collect::<Vec<_>>(),
-            ["Import Claude Code Work…", "Project Settings…"]
-        );
         let received = Arc::new(Mutex::new(Vec::new()));
         let observed = Arc::clone(&received);
         app.listen("open-project-page", move |event| {
@@ -300,10 +485,13 @@ mod tests {
                 .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap())
         });
         for path in [None, Some("/A"), Some("/B"), None] {
-            select_project_menu(app.handle().clone(), path.map(str::to_owned)).unwrap();
+            select_project_menu(app.handle().clone(), path.map(str::to_owned), None).unwrap();
             let before = received.lock().unwrap().len();
-            for item in &items {
-                assert_eq!(item.is_enabled().unwrap(), path.is_some());
+            let items = project.items().unwrap();
+            assert_eq!(items.len(), if path.is_some() { 2 } else { 0 });
+            assert_eq!(project.is_enabled().unwrap(), path.is_some());
+            for item in items.into_iter().map(plain) {
+                assert!(item.is_enabled().unwrap());
                 app_chosen(
                     app.handle(),
                     &MenuEvent {
@@ -324,5 +512,191 @@ mod tests {
                 assert_eq!(replies.len(), before);
             }
         }
+    }
+    #[test]
+    fn u4278a_native_separators_split_action_groups() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        select_project_menu(
+            app.handle().clone(),
+            Some("/A".to_owned()),
+            Some(vec![
+                item("action:chord:⇧⌘T", "Capture a Todo", Some("⇧⌘T"), None),
+                item("action:chord:⌘/", "Focus Ask", Some("⌘/"), None),
+                item("action:leader:A", "Assign Todo", Some("⌘K A"), None),
+                item("action:leader:S", "Open work items", Some("⌘K S"), None),
+                item("view:notes", "Recover notes", None, None),
+                item("action:leader:C", "Review changes", Some("⌘K C"), None),
+                item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
+                item("action:chord:⌘T", "New Terminal", Some("⌘T"), None),
+                item("action:leader:T", "Capture a Todo", Some("⌘K T"), None),
+                item(
+                    "action:chord:⇧⌘N",
+                    "New Agent with a prompt",
+                    Some("⇧⌘N"),
+                    None,
+                ),
+                item("action:leader:P", "Switch Project", Some("⌘K P"), None),
+                item(
+                    "action:leader:J",
+                    "Jump to what needs you",
+                    Some("⌘K J"),
+                    None,
+                ),
+                item("action:leader:I", "Open the Inbox", Some("⌘K I"), None),
+                item("action:future", "A newly registered action", None, None),
+                item("view:workstreams", "Open Workstreams", None, None),
+            ]),
+        )
+        .unwrap();
+        let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap()
+        else {
+            panic!("Project submenu");
+        };
+        let ids: Vec<_> = project
+            .items()
+            .unwrap()
+            .into_iter()
+            .map(|entry| match entry {
+                MenuItemKind::MenuItem(entry) => entry.id().0.clone(),
+                MenuItemKind::Predefined(_) => "separator".to_owned(),
+                _ => panic!("Unexpected submenu"),
+            })
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "action:chord:⇧⌘T",
+                "action:chord:⌘N",
+                "action:chord:⌘T",
+                "action:chord:⇧⌘N",
+                "separator",
+                "action:chord:⌘/",
+                "action:leader:A",
+                "action:leader:S",
+                "action:leader:C",
+                "action:leader:T",
+                "action:leader:P",
+                "action:leader:J",
+                "action:leader:I",
+                "action:future",
+                "separator",
+                "view:notes",
+                "view:workstreams",
+                "separator",
+                "import-work",
+                "project-settings",
+            ]
+        );
+    }
+
+    #[test]
+    fn u4278b_one_step_items_carry_native_accelerators() {
+        let app = mock_app();
+        for (chord, expected) in [
+            ("⌘N", "Super+N"),
+            ("⌘T", "Super+T"),
+            ("⇧⌘T", "Shift+Super+T"),
+            ("⌃⇧Y", "Ctrl+Shift+Y"),
+            ("⌘/", "Super+/"),
+            ("⌥⏎", "Alt+Enter"),
+            ("⌃↑", "Ctrl+ArrowUp"),
+        ] {
+            let source = item(
+                &format!("action:chord:{chord}"),
+                "Run action",
+                Some(chord),
+                None,
+            );
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, Some(expected));
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint, None);
+        }
+    }
+
+    #[test]
+    fn u4278b_leader_hints_register_no_accelerator() {
+        let app = mock_app();
+        for key in ["P", "J", "I", "C", "A", "S"] {
+            let shortcut = format!("⌘K {key}");
+            let source = item(
+                &format!("action:leader:{key}"),
+                "Run action",
+                Some(&shortcut),
+                None,
+            );
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, None);
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint.as_deref(), Some(shortcut.as_str()));
+        }
+    }
+
+    #[test]
+    fn u2539b_native_menu_projects_the_task_chords() {
+        use std::sync::Arc;
+        use tauri::Listener;
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&received);
+        app.listen("open-project-page", move |event| {
+            observed
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
+        });
+        for path in ["/A", "/B"] {
+            let mut unavailable = item("action:leader:A", "Assign Todo", Some("⌘K A"), None);
+            unavailable.enabled = false;
+            select_project_menu(
+                app.handle().clone(),
+                Some(path.to_owned()),
+                Some(vec![
+                    item("action:leader:C", "Review changes", Some("⌘K C"), None),
+                    unavailable,
+                ]),
+            )
+            .unwrap();
+            let menu = app.menu().unwrap();
+            let MenuItemKind::Submenu(project) = menu.get("project-menu").unwrap() else {
+                panic!("Project submenu");
+            };
+            let changes = plain(project.get("action:leader:C").unwrap());
+            assert_eq!(changes.text().unwrap(), "Review changes");
+            for id in ["action:leader:C", "action:leader:A"] {
+                app_chosen(app.handle(), &MenuEvent { id: id.into() });
+            }
+        }
+        assert_eq!(
+            *received.lock().unwrap(),
+            vec![
+                serde_json::json!({"path": "/A", "command": "action:leader:C"}),
+                serde_json::json!({"path": "/B", "command": "action:leader:C"}),
+            ]
+        );
     }
 }

@@ -51,7 +51,7 @@ it("u2580a_instant_actions_release_slide_and_fit_once", async () => {
 const load = async (reduced = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "light", ...(reduced ? ["reduced-motion"] : []));
-  const url = `${rig.server.resolvedUrls.local[0]}harness.html?seed=tree-40`;
+  const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`;
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
   await evaluate(`(() => { localStorage.clear(); return true; })()`);
@@ -67,7 +67,7 @@ const load = async (reduced = false) => {
 // Native Enter/Space clicks are observed by the click listener installed before the real key.
 const activate = async (selector: string, key: "Enter" | "Space", expression = `({
   open: document.querySelector('.drawer').dataset.open === 'true',
-  content: !!document.querySelector('.drawer > :not(.close)'),
+  content: !!document.querySelector('.drawer > :not(.drawer-controls)'),
   focus: document.querySelector('.drawer .close') === document.activeElement,
   returned: document.activeElement === window.__layerOrigin
 })`) => {
@@ -75,7 +75,7 @@ const activate = async (selector: string, key: "Enter" | "Space", expression = `
     const button = document.querySelector(${JSON.stringify(selector)});
     button.focus();
     window.__layerFrame = null;
-    button.addEventListener('click', () => requestAnimationFrame(() => {
+    button.addEventListener(button.matches('.todo-row-button') ? 'keydown' : 'click', () => requestAnimationFrame(() => {
       window.__layerFrame = ${expression};
     }), {once: true});
     window.__layerOrigin ??= button;
@@ -100,20 +100,14 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
   for (const reduced of [false]) {
     await load(reduced);
 
-    // U3309 reserves Enter for lifting; its Board test proves that path. Space opens the detail.
-    const opened = await activate('.shelf [data-todo] .todo-row-button', "Space");
+    // Enter on the row opens the detail; row selection alone opens none.
+    const opened = await activate('.shelf [data-todo] .todo-row-button', "Enter");
     expect(opened).toMatchObject({ open: true, content: true, focus: true });
     await browser("wait", "--fn", "!!document.querySelector('.todo-detail')");
     const closed = await activate('.drawer .close', "Space");
     expect(closed).toMatchObject({ open: false, content: false, returned: true });
     await settle();
 
-    for (const key of ["Enter", "Space"] as const) {
-      expect(await activate('#shelf-tab-todos', key, "document.querySelector('.shelf').hidden")).toBe(true);
-      await settle();
-      expect(await activate('#shelf-tab-todos', key, "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
-      await settle();
-    }
 
     await evaluate(`(() => { window.__layerOrigin = document.querySelector('.rail-row'); window.__layerOrigin.focus(); return true; })()`);
     await leader();
@@ -136,9 +130,11 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("s", "KeyS", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
     await settle();
 
-    // Select a Workstream before Cmd+T creates a Terminal; its completed RPC is readiness for minimising/restoring it.
-    await browser("click", ".rail-row");
-    await browser("wait", "--fn", "!!document.querySelector('.terminal-new')");
+    // Select the row itself: its centre can contain a quick action on hover.
+    await browser("focus", '.rail-row[data-id="backend"]');
+    await browser("press", "Enter");
+    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected="true"]') && !!document.activeElement.closest('.pane-screen')`);
+    await settle();
     await evaluate(`(() => { window.__bubbleOrigin = document.activeElement; return true; })()`);
     expect(await keyFrame("t", "KeyT", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')", true)).toBe(true);
     await browser("wait", ".bubble .xterm-screen");
@@ -163,12 +159,12 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     const observed = await evaluate(`(async () => {
       const button = document.querySelector('.shelf [data-todo] .todo-row-button');
       button.focus();
-      button.dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
+      button.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}));
       // Interrupt before the pointer slide has completed, in the next browser frame.
       await new Promise(resolve => requestAnimationFrame(resolve));
       document.querySelector('.drawer .close').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true}));
       return await new Promise(resolve => requestAnimationFrame(() => resolve({
-        content: !!document.querySelector('.drawer > :not(.close)'),
+        content: !!document.querySelector('.drawer > :not(.drawer-controls)'),
         returned: document.activeElement === button
       })));
     })()`);
@@ -180,7 +176,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     for (const key of ["Escape", "Enter", "Space"] as const) {
       const interrupted = await evaluate(`(async () => {
         const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-        const click = (selector) => document.querySelector(selector).dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
+        const click = (selector) => document.querySelector(selector).dispatchEvent(selector === '.drawer .close' ? new MouseEvent('click', {bubbles: true, detail: 1}) : new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}));
         const button = document.querySelector('.shelf [data-todo] .todo-row-button');
         button.focus();
         click('.shelf [data-todo] .todo-row-button');
@@ -195,7 +191,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
         close.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key === "Space" ? " " : key)}, code: ${JSON.stringify(key)}, bubbles: true}));
         if (${JSON.stringify(key)} !== 'Escape') close.click();
         return await new Promise(resolve => requestAnimationFrame(() => resolve({
-          content: !!document.querySelector('.drawer > :not(.close)'),
+          content: !!document.querySelector('.drawer > :not(.drawer-controls)'),
           returned: document.activeElement === button
         })));
       })()`);
@@ -205,7 +201,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     }
 
     await settle();
-    expect(await activate('.shelf [data-todo] .todo-row-button', "Space")).toMatchObject({ open: true, focus: true });
+    expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, focus: true });
     await browser("wait", ".todo-detail");
     await evaluate(`(() => { document.querySelector('.drawer').dispatchEvent(new TransitionEvent('transitionend', {propertyName: 'transform'})); return true; })()`);
     expect(await evaluate("!!document.querySelector('.todo-detail')")).toBe(true);
@@ -215,7 +211,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
       return await new Promise(resolve => requestAnimationFrame(() => resolve(!!document.querySelector('.todo-detail'))));
     })()`)).toBe(!reduced);
     // The returned trigger can reopen while the pointer exit is still in flight.
-    expect(await activate('.shelf [data-todo] .todo-row-button', "Space")).toMatchObject({ open: true, content: true, focus: true });
+    expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, content: true, focus: true });
     await browser("wait", ".todo-detail");
     await evaluate(`(() => { document.querySelector('.drawer').dispatchEvent(new TransitionEvent('transitionend', {propertyName: 'transform'})); return true; })()`);
     await settle();

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { showEverythingInApp } from "./showEverything";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { bundledRenderers, useRenderers } from "../pads/visualKinds";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -55,7 +55,11 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
-    fireEvent.click(await screen.findByText("sketch", {}, { timeout: 20_000 }));
+    const group = await screen.findByText("Unassigned", { selector: ".shelf-group-name" });
+
+    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
+    const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
+    fireEvent.keyDown(row, { key: "Enter" });
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
     await waitFor(() => expect(document.querySelectorAll(".visual-block").length).toBe(2));

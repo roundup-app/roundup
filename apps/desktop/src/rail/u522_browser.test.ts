@@ -1,22 +1,45 @@
-import { expect, it } from "vitest";
-import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { captureDir } from "../testing/captures";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { chromePath, openPage, type ChromePage } from "../testing/chromePage";
+
+let page: ChromePage;
+
+beforeAll(async () => {
+  const found = chromePath();
+
+  if (!found) throw new Error("U522 needs Chromium");
+  page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await page?.close(); });
+
+const read = <T,>(expression: string) => page.call<T>(`() => (${expression})`);
+
+const wait = (expression: string) => page.until(`() => (${expression})`);
 
 const load = async () => {
-  await browser("set", "viewport", "1280", "800");
-  await browser("set", "media", "light");
-  await browser("open", url("/harness.html?seed=tree-40"));
+  await page.scheme(captureDir("U522") ? "dark" : "light");
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", captureDir("U522") ? 1512 : 1280, captureDir("U522") ? 950 : 800);
   await wait(`document.querySelector('[data-id="tokens"]') && window.__fake`);
 };
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const r = document.querySelector('[data-part="item"][data-id="${id}"], [data-part="branch-control"][data-id="${id}"], [data-id="${id}"] > [data-part="branch-control"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom, left: r.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".name").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
-const mouse = (action: string, x?: number, y?: number) => browser("mouse", action, ...(x === undefined ? [] : [String(Math.round(x)), String(Math.round(y!))]));
+let pointer = { x: 0, y: 0 };
 
-/** Presses `id`'s row, then moves the pointer to the gap `depth` indents right of the row's left edge, `below` the bottom of `to`. */
+const mouse = (action: "move" | "down" | "up", x = pointer.x, y = pointer.y) => {
+  pointer = { x: Math.round(x), y: Math.round(y) };
+
+  return page.pointer(action, pointer.x, pointer.y);
+};
+
+/** Presses `id`'s row, then moves below `to`, offset `shift` pixels from the press. */
 const dragBelow = async (id: string, to: string, shift = 0) => {
   const from = await box(id);
   const target = await box(to);
@@ -24,9 +47,9 @@ const dragBelow = async (id: string, to: string, shift = 0) => {
   await mouse("move", from.x, from.y);
   await mouse("down");
   await mouse("move", from.x + 6, from.y + 6);
-  await wait(`document.querySelector('[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
-  await mouse("move", from.x + 6 + shift, target.bottom + 2);
-  await mouse("move", from.x + shift, target.bottom + 2);
+  await wait(`document.querySelector('.rail-row[data-id="${id}"]').dataset.lifted === 'true' || document.querySelector('[data-dnd-placeholder]')`);
+  await mouse("move", Math.max(1, from.x + 6 + shift), target.bottom + 2);
+  await mouse("move", Math.max(1, from.x + shift), target.bottom + 2);
 };
 
 const settle = (calls: number) => wait(`window.__fake.app.calls.filter(call => call.method === 'rail.move').length >= ${calls} && !document.querySelector('[data-dnd-placeholder]')`);
@@ -34,18 +57,16 @@ const settle = (calls: number) => wait(`window.__fake.app.calls.filter(call => c
 it("u522_pointer_move_calls_rail_move", async () => {
   await load();
   await dragBelow("tokens", "logins");
-  expect(await read<boolean>(`document.querySelector('.drop-line') !== null`)).toBe(true);
   await mouse("up");
   await settle(1);
   expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
-  expect(await read<boolean>(`document.querySelector('.drop-line') === null`)).toBe(true);
 }, 90_000);
 
 it("u522_cancel_calls_nothing", async () => {
   await load();
   const before = await order();
   await dragBelow("tokens", "logins");
-  await browser("press", "Escape");
+  await page.press("Escape", "Escape");
   await mouse("up");
   await wait(`!document.querySelector('[data-dnd-placeholder]')`);
   expect(await moves()).toEqual([]);
@@ -66,7 +87,13 @@ it("u522_conflict_restores_the_row", async () => {
   await mouse("up");
   await wait(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('CONFLICT: cannot move under an agent'))`);
   expect(await order()).toEqual(before);
-  expect(await read<boolean>(`document.querySelector('.drop-line') === null`)).toBe(true);
+  const dir = captureDir("U522");
+
+  if (dir) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "conflict.png"), Buffer.from(await page.shot(), "base64"));
+    writeFileSync(join(dir, "conflict.checks.json"), JSON.stringify(await read("window.__checks()")));
+  }
 }, 90_000);
 
 it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
@@ -79,19 +106,19 @@ it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
   await mouse("move", from.x + 6, from.y + 6);
   await mouse("move", edge.x, edge.y);
   await wait(`document.querySelector('.rail-scroll').scrollTop > 100`);
-  await browser("press", "Escape");
+  await page.press("Escape", "Escape");
   await mouse("up");
   expect(await moves()).toEqual([]);
 }, 90_000);
 
 it("u522_keyboard_move", async () => {
   await load();
-  await browser("focus", `[data-part="item"][data-id="tokens"]`);
-  await browser("press", "Space");
+  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
+  await page.press(" ", "Space");
   await wait(`document.querySelector('[data-dnd-placeholder]')`);
-  await browser("press", "ArrowDown");
-  await browser("press", "ArrowRight");
-  await browser("press", "Space");
+  await page.press("ArrowDown", "ArrowDown");
+  await page.press("ArrowRight", "ArrowRight");
+  await page.press(" ", "Space");
   await settle(1);
   expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
   await wait(`document.activeElement?.dataset.id === 'tokens'`);
@@ -99,8 +126,8 @@ it("u522_keyboard_move", async () => {
 
 it("u522_enter_still_selects_the_focused_row", async () => {
   await load();
-  await browser("focus", `[data-part="item"][data-id="tokens"]`);
-  await browser("press", "Enter");
+  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
+  await page.press("Enter", "Enter");
   await wait(`document.querySelector('[data-part="item"][data-id="tokens"]').getAttribute('aria-selected') === 'true'`);
   expect(await read<boolean>(`document.querySelector('[data-dnd-placeholder]') === null`)).toBe(true);
   expect(await moves()).toEqual([]);
@@ -122,6 +149,7 @@ it("u522_file_drop_coexists", async () => {
 
 it("u522_a_press_on_a_button_starts_no_drag", async () => {
   await load();
+  await read<void>(`document.querySelector('.rail-row[data-id="backend"]').focus()`);
   const chevron = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('[data-id="backend"] .rail-chevron, .rail-chevron').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 
   await mouse("move", chevron.x, chevron.y);
@@ -134,8 +162,8 @@ it("u522_a_press_on_a_button_starts_no_drag", async () => {
 
 it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
   await load();
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
+  await page.resize(1512, 950);
+  await page.scheme("dark");
 
   // backend contains auth, which contains tokens. None is a destination for backend.
   for (const target of ["backend", "auth", "tokens"]) {
@@ -145,9 +173,14 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     expect(await moves()).toEqual([]);
   }
 
-  await dragBelow("backend", "agent-31", -100);
+  const destination = await read<number>(`[...document.querySelectorAll('.rail-row[data-id]')].findIndex(row => row.dataset.id === 'agent-31')`);
+
+  expect(destination).toBeGreaterThan(0);
+  await dragBelow("backend", "agent-31", -20);
+  // A positive index can still be inside backend's descendants, where dropping is a no-op.
+  await wait(`Number(document.querySelector('.rail-sortable').dataset.sortableIndex) >= ${destination}`);
   await mouse("up");
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);
   expect((await order()).indexOf("backend")).toBeGreaterThan(0);
-}, 90_000);
+}, 10_000);

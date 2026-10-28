@@ -93,7 +93,7 @@ jobs:
     needs: task
     if: needs.task.outputs.pr != ''
     runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_PRS || '[]'), fromJSON(needs.task.outputs.pr || '0')) && format('["self-hosted","boxd","roundup-fix-{0}-{1}-{2}"]', needs.task.outputs.pr, github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
-    timeout-minutes: 120
+    timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: read
@@ -152,9 +152,10 @@ jobs:
       - id: engine
         if: steps.resolve.outputs.resolved != 'true' && steps.restore.outputs.restored != 'true'
         name: Run Claude Code, then Codex
-        # L23: inside the job's two hours, so `keep` runs after the longest run. A conflict run gets 15 minutes
-        # (`CONFLICT_MINUTES` in `loop/builder.py`); the cut-off fails the step like any failed run.
-        timeout-minutes: ${{ needs.task.outputs.cause == 'conflict' && 15 || 105 }}
+        # L23: a backstop for `deadline.py`, which ends the engine at 25 minutes; inside the job's hour, so `keep` runs after
+        # it. A conflict run gets 15 minutes (`CONFLICT_MINUTES` in `loop/builder.py`); the cut-off fails the step like any
+        # failed run.
+        timeout-minutes: ${{ needs.task.outputs.cause == 'conflict' && 15 || 35 }}
         env:
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
           CODEX_ONLY: ${{ vars.CODEX_ONLY }}
@@ -221,8 +222,15 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      # L34: the hour's closed-Issue cache `build.yml` saves, so this job's queue read fetches what changed, not every page.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.closed-issues.json
+          key: closed-issues-restore
+          restore-keys: closed-issues-
       - env:
           GH_TOKEN: ${{ github.token }}
+          ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
           PR: ${{ needs.task.outputs.pr }}
           CAUSE: ${{ needs.task.outputs.cause }}
           RAN: ${{ needs.fix-run.outputs.ran || 'false' }}

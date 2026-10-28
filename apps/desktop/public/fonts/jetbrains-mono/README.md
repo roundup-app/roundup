@@ -1,3 +1,7 @@
+Historical notice for the retired JetBrains Mono v2.304 bundle.
+U4456 replaces its font files with the adjacent Fira Code bundle.
+OFL.txt is retained as the original licence notice.
+
 JetBrains Mono v2.304, unmodified upstream WOFF2 faces, OFL-1.1.
 Source: https://github.com/JetBrains/JetBrainsMono/tree/v2.304/fonts/webfonts
 Release: https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304 (2023-01-14).

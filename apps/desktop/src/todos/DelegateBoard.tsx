@@ -7,7 +7,7 @@ import { DisplayClockContext } from "../state/clock";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
-import { copy } from "../copy";
+import { clockTime, copy } from "../copy";
 
 /** U3308/U3311: the shared display clock and authoritative Todo facts also drive drag previews. */
 export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<readonly Todo[]>) => {
@@ -35,7 +35,9 @@ export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<rea
       const minutes = open.reduce((total, todo) => total + (todo.estimate_minutes ?? 0), 0);
       const missing = open.filter(todo => todo.estimate_minutes === null).length;
       const date = new Date(now() + minutes * 60_000);
-      const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+      const time = clockTime.format(date);
+
       const line = minutes === 0 ? copy.todoFreeNow : copy.todoBusyUntil(time);
 
       if (open.length > 0 && missing === open.length) return copy.todoNoEstimates;
@@ -60,7 +62,7 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   }));
 
   return <Show when={current()}>{node => <div class="todo-auto">
-    <Switch checked={node().auto ?? false} onCheckedChange={async auto => {
+    <Switch description={copy.todoAutoHint} checked={node().auto ?? false} onCheckedChange={async auto => {
       if (pending()) return;
       const id = node().id;
       setPending(true);
@@ -69,7 +71,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       if (current()?.id === id) setFailure(message);
       setPending(false);
     }}>{copy.todoAuto}</Switch>
-    <span class="todo-auto-hint">{copy.todoAutoHint}</span>
     <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };

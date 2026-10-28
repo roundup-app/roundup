@@ -3,7 +3,6 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
@@ -11,14 +10,17 @@ use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
 
 pub(crate) struct Store {
-    db: Connection,
+    pub(super) db: Connection,
 }
 
 impl Store {
     pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut db = Connection::open(path)?;
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
-        db.pragma_update(None, "journal_mode", "WAL")?;
+        // The Daemon initializes Project WAL; repeating the pragma eagerly loads its whole schema.
+        if path.file_name().is_none_or(|name| name != "project.db") {
+            db.pragma_update(None, "journal_mode", "WAL")?;
+        }
         db.pragma_update(None, "foreign_keys", true)?;
         crate::schema::open(&mut db, path)?;
         Ok(Self { db })
@@ -31,6 +33,7 @@ impl Store {
         home: &str,
         actor: &Actor,
         removal: &mut contracts::agent::Removal,
+        scope: contracts::agent::RemoveScope,
     ) -> Result<Vec<contracts::EventData>, RpcError> {
         use contracts::EventData;
         use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
@@ -38,7 +41,7 @@ impl Store {
         let before = self.list()?;
         let mut events = Vec::new();
         for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
-            if todo.done {
+            if todo.done || scope == contracts::agent::RemoveScope::All {
                 db.execute("DELETE FROM todos WHERE id = ?", [todo.id])
                     .map_err(RpcError::internal)?;
                 removal.removed.push(RemovedItem {
@@ -61,7 +64,9 @@ impl Store {
         let before_values: HashMap<_, _> =
             before.iter().map(|todo| (todo.id, values(todo))).collect();
         for mut todo in before {
-            if todo.home.as_deref() == Some(home) && todo.done {
+            if todo.home.as_deref() == Some(home)
+                && (todo.done || scope == contracts::agent::RemoveScope::All)
+            {
                 continue;
             }
             todo.blockers = db
@@ -429,28 +434,6 @@ impl Store {
         self.get(id)
     }
 
-    /// Blockers pointing at `id` go with it (foreign keys cascade).
-    pub(crate) fn delete(&self, id: u32, after_touch: i64, actor: &Actor) -> Result<(), RpcError> {
-        self.get(id)?;
-        let affected: Vec<_> = self
-            .list()?
-            .into_iter()
-            .filter(|todo| todo.blockers.contains(&id))
-            .collect();
-        let tx = self
-            .db
-            .unchecked_transaction()
-            .map_err(RpcError::internal)?;
-        self.db
-            .execute("DELETE FROM todos WHERE id = ?1", [id])
-            .map_err(RpcError::internal)?;
-        for todo in affected {
-            self.record_change(todo.id, Some(values(&todo)), after_touch, actor)?;
-        }
-        tx.commit().map_err(RpcError::internal)?;
-        Ok(())
-    }
-
     /// T20: appends a line to the thread. It is no Change: no field of the Todo moves.
     pub(crate) fn add_comment(&self, id: u32, author: &Actor, body: &str) -> Result<(), RpcError> {
         self.get(id)?;
@@ -578,7 +561,7 @@ impl Store {
         Ok(())
     }
 
-    fn record_change(
+    pub(super) fn record_change(
         &self,
         id: u32,
         before: Option<Values>,
@@ -702,7 +685,7 @@ fn comment_of((id, author, body, created_at, read): CommentRow) -> Result<Commen
     })
 }
 
-fn values(todo: &Todo) -> Values {
+pub(super) fn values(todo: &Todo) -> Values {
     Values {
         title: todo.title.clone(),
         body: todo.body.clone(),
@@ -721,14 +704,9 @@ fn parse_creator(text: &str) -> serde_json::Result<Actor> {
     serde_json::from_str(text)
 }
 
-fn now_ms() -> i64 {
-    i64::try_from(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis(),
-    )
-    .unwrap_or(i64::MAX)
+pub(super) fn now_ms() -> i64 {
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 impl super::Todos {

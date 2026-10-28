@@ -25,10 +25,17 @@ const field = async (kind: string, initial = "alpha bravo charlie") => {
 
   if (kind === "pad") {
     await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
-    await browser("click", '[data-id="payments"] .name');
-    await browser("click", "#shelf-tab-pads");
+    await browser("focus", '.rail-row[data-id="payments"]');
+    await browser("press", "Enter");
+    await wait("document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'payments'");
+    await read("(() => {const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
+    await wait("document.querySelector('.pads-tab')?.checkVisibility()");
+    await wait("!!document.querySelector('.pads-tab [data-incarnation=fixture-3] .pad-name')");
+    await read("document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
-    await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').click()");
+    await browser("click", '.pads-tab [data-incarnation="fixture-3"] .pad-name');
+    await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
+    await browser("press", "Enter");
     await wait(`document.querySelector('.ProseMirror[contenteditable=true]')?.textContent === ${JSON.stringify(initial)}`);
 
     return ".ProseMirror[contenteditable=true]";
@@ -115,12 +122,17 @@ it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_copy_preserves_th
 
   if (kind !== "pad") await browser("fill", selector, "original 雪 🐈");
   else await browser("click", selector);
+  const original = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
   await browser("clipboard", "write", "");
   await browser("press", "Control+A");
   await browser("press", "Control+C");
   const selected = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
-  expect(selected).toBe("original 雪 🐈");
+  expect(selected).toBe(original);
+
+  // The independent clipboard observer is outside Ask’s focus trap.
+  if (kind === "ask") await browser("press", "Escape");
+
   await read("(() => { const field = document.createElement('textarea'); field.id='copy-observer'; document.body.append(field); field.focus(); })()");
   await browser("press", "Control+V");
-  expect(await read("document.querySelector('#copy-observer').value")).toBe("original 雪 🐈");
+  expect(await read("document.querySelector('#copy-observer').value")).toBe(original);
 }, 60_000);

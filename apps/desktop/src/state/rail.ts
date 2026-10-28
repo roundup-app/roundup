@@ -1,3 +1,5 @@
+import { captureFocus } from "../keys/focus";
+import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "../copy";
 import { batch, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
@@ -15,6 +17,7 @@ import type { AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 export type RailState = {
+  commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
@@ -30,10 +33,10 @@ export type RailState = {
   createWorkstream(): Promise<void>;
   /** True from the click until the new Workstream has appeared and its Door launch has begun. */
   workstreamCreating(): boolean;
-  /** The message of the last failed `rail.createWorkstream`, until the next attempt or click. */
-  workstreamFailure(): string | null;
   clearWorkstreamFailure(): void;
   selected(): string | null;
+  /** One initial Terminal focus permission, captured on creation, selection or an explicit supervisor start. */
+  terminalFocus(): ReturnType<typeof captureFocus>;
   restored(): boolean;
   collapsed(): ReadonlySet<string>;
   toggleCollapsed(id: string): void;
@@ -58,21 +61,26 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
+  const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id));
+
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const [selected, setSelected] = createSignal<string | null>(null);
+  const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
   const [failure, setFailure] = createSignal<string | null>(null);
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
-  const [workstreamFailure, setWorkstreamFailure] = createSignal<string | null>(null);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
+  let workstreamFocus = captureFocus();
+  let selectionRevision = 0;
+  let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   let firstTree = true;
 
-  const save = () => setStorageFailure(storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
+  const save = async () => setStorageFailure(await storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
 
   const reveal = (id: string | null) => {
     if (id === null) return;
@@ -86,8 +94,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
 
-  const select = (id: string | null): void => {
+  const select = (id: string | null, focus = captureFocus(true)): void => {
+    selectionRevision++;
     batch(() => {
+      setTerminalFocus(() => focus);
       setRestored(false);
       setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
       reveal(selected());
@@ -109,6 +119,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         if (failed && (hasLiveTerminal(node) || (node.attempt !== null && BigInt(node.attempt) > BigInt(failed.attempt ?? "0")))) {
           setDoors(node.id, "failure", null);
+          commandFailure.acknowledge(node.id);
         }
       }
 
@@ -137,9 +148,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
-      select(wanted);
+
+      if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
+
       setWorkstreamCreating(false);
-      void startDoor(wanted);
+      void startDoor(wanted, false);
     }
   };
 
@@ -208,12 +221,18 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     return Promise.race([app.rpc("rail.startDoor", { id }), expiry]).finally(() => clearTimeout(timer));
   };
 
-  const startDoor = async (id: string): Promise<void> => {
+  const startDoor = async (id: string, focus = true): Promise<void> => {
     if (doors[id]?.pending) return;
+
+    if (focus && selected() === id) batch(() => {
+      setTerminalFocus(() => captureFocus(true));
+      setRestored(false);
+    });
     setDoors(id, { pending: true, observedLive: false, failure: null });
 
     try {
       await boundedStart(id);
+      commandFailure.acknowledge(id);
       fetching(fetchTree);
       await latest;
     } catch (error) {
@@ -224,6 +243,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
         setDoors(id, "failure", { message: error.message, attempt: node.attempt });
+        commandFailure.show(error.message, id, "pane");
       }
     } finally {
       setDoors(id, "pending", false);
@@ -232,15 +252,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const createWorkstream = async (): Promise<void> => {
     if (workstreamCreating()) return;
+    workstreamFocus = captureFocus(true);
+    workstreamSelection = selectionRevision;
     setWorkstreamCreating(true);
-    setWorkstreamFailure(null);
 
     try {
       wantedWorkstream = (await app.rpc("rail.createWorkstream", { name: defaultWorkstreamName(model.tree), parent: null })).id;
+      commandFailure.acknowledge(null);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      setWorkstreamFailure(error.message);
+      commandFailure.show(error.message, null, "pane");
       setWorkstreamCreating(false);
 
       return;
@@ -255,6 +277,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   });
 
   return {
+    commandFailure,
     terminals,
     terminalExit: (id) => {
       if (!(id in model.exited)) return null;
@@ -268,8 +291,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     startDoor,
     createWorkstream,
     workstreamCreating,
-    workstreamFailure,
-    clearWorkstreamFailure: () => setWorkstreamFailure(null),
+    clearWorkstreamFailure: () => commandFailure.acknowledge(null),
     get nodes() {
       return model.tree;
     },
@@ -289,6 +311,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       await latest;
     },
     selected,
+    terminalFocus,
     restored,
     collapsed,
     storageFailure,
@@ -313,4 +336,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       } while (latest !== seen);
     },
   };
+};
+
+
+/** U4523: current ownership is a Rail fact; historical names keep using nameOf. */
+export const currentOwner = (rail: Pick<RailState, "nodes" | "exitOf">, actor: Actor | null | undefined) => {
+  const node = actor?.kind === "agent" ? rail.nodes.find(node => node.id === actor.id) : undefined;
+
+  return node ? { id: node.id, name: node.name, live: node.terminal_id !== null && rail.exitOf(node) === null } : undefined;
 };

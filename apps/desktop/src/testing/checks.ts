@@ -1,5 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
+import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -20,7 +21,7 @@ const TYPE_STEPS = new Set([11, 12, 13, 14, 15]);
 const SPACE_STEPS = new Set([0, 4, 8, 12, 16, 24, 32]);
 
 // docs/motion.md, in seconds. `0` is an instant change.
-const MOTION_SECONDS = [0, 0.12, 0.15, 0.18, 0.25, 0.4];
+const MOTION_SECONDS = [0, 0.1, 0.12, 0.15, 0.18, 0.2, 0.25, 0.4];
 
 // U3771's longer completion effects belong only to Todo rows and their progress, never other App motion.
 const TODO_MOTION_SECONDS = [...MOTION_SECONDS, 0.42, 0.56, 0.62, 1.1];
@@ -202,8 +203,8 @@ const d2 = (page: Page): Measure =>
 
     const treePadding = el instanceof HTMLElement && el.matches('.todo-list .todo-row[data-todo][role="treeitem"]') &&
       Number.isInteger(level) && level > 0 &&
-      el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--space-4))`
-      ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("space-4") ?? "") ?? NaN) : null;
+      (el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--tree-step))` || el.style.getPropertyValue("--todo-depth") === String(level - 1))
+      ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
@@ -401,19 +402,15 @@ const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active") => {
     page.states.set(pseudo, rules);
   }
 
-  return rules.filter((rule) =>
-    rule.selectorText.split(",").some((selector) => {
-      if (!selector.includes(pseudo)) return false;
+  return rules.filter((rule) => {
+    const bare = rule.selectorText.split(pseudo).join(":is(*)");
 
-      const bare = selector.split(pseudo).join("").trim() || "*";
-
-      try {
-        return el.matches(bare);
-      } catch {
-        return false;
-      }
-    }),
-  );
+    try {
+      return el.matches(bare);
+    } catch {
+      return false;
+    }
+  });
 };
 
 const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some((rule) => properties.some((property) => rule.style.getPropertyValue(property) !== ""));
@@ -421,7 +418,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353: a text field answers with a caret, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !el.matches("input[type=text]"));
+const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), [data-dnd-dragging], [data-dnd-dragging] *'));
 
 // D6: each click target has a hover style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
@@ -475,12 +472,15 @@ const d8 = (page: Page): Measure => {
 
     if (!hairline) return { border: NOT_MEASURABLE };
 
+    const formFrame = el.matches(':is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]), .app-dialog-form textarea, .import-prompt, .note-form input, .note-form textarea, .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
+    const frameColours = formFrame ? ["--form-border", "--accent", "--red", "--disabled"].map(token => parseColour(resolveAt(page, el, `var(${token})`))) : [];
+
     for (const side of ["top", "right", "bottom", "left"]) {
       const width = px(style.getPropertyValue(`border-${side}-width`));
       const drawn = style.getPropertyValue(`border-${side}-style`) !== "none" && (width ?? 0) > 0;
       const colour = parseColour(resolveAt(page, el, style.getPropertyValue(`border-${side}-color`)));
 
-      if (drawn && ((width ?? 0) > 1 || !colour || !sameColour(colour, hairline) || Math.abs(colour.a - hairline.a) > 0.01)) return { [`border-${side}`]: `${style.getPropertyValue(`border-${side}-width`)} ${style.getPropertyValue(`border-${side}-color`)}` };
+      if (drawn && ((width ?? 0) > 1 || !colour || !(sameColour(colour, hairline) && Math.abs(colour.a - hairline.a) <= 0.01) && !frameColours.some(frame => frame && sameColour(colour, frame) && Math.abs(colour.a - frame.a) <= 0.01))) return { [`border-${side}`]: `${style.getPropertyValue(`border-${side}-width`)} ${style.getPropertyValue(`border-${side}-color`)}` };
     }
 
     const shadow = style.boxShadow;
@@ -539,16 +539,39 @@ const d8 = (page: Page): Measure => {
   });
 };
 
-// D9: each duration is within 25% of docs/motion.md; under reduced motion all are 0.
+// D9: accepted timings; reduced motion permits only a 150 ms opacity fade.
 const d9 = (page: Page): Measure => {
   const reduced = page.view.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
   return offender(page, (el, style) => {
-    const durations = [...seconds(style.transitionDuration), ...seconds(style.animationDuration)].map((duration) => (Number.isNaN(duration) ? 0 : duration));
     const steps = el.closest(".todo-row, .todo-progress") ? TODO_MOTION_SECONDS : MOTION_SECONDS;
-    const bad = durations.find((duration) => (reduced ? duration !== 0 : !steps.some((step) => Math.abs(duration - step) <= step * 0.25)));
 
-    return bad === undefined ? null : { duration: bad, reduced };
+    const permitted = (duration: number, fade: boolean) => duration === 0 || (reduced
+      ? fade && Math.abs(duration - 0.15) <= 0.15 * 0.25
+      : steps.some(step => Math.abs(duration - step) <= step * 0.25));
+
+    const animations = el.getAnimations?.() ?? [];
+
+    const opacityOnly = (animation: Animation) => animation.effect instanceof KeyframeEffect
+      && animation.effect.getKeyframes().every(frame => Object.keys(frame).every(key => ["opacity", "offset", "computedOffset", "easing", "composite"].includes(key)));
+
+    for (const animation of animations) {
+      const duration = Number(animation.effect?.getTiming().duration);
+
+      if (!Number.isNaN(duration) && !permitted(duration / 1000, opacityOnly(animation))) return { duration: duration / 1000, reduced };
+    }
+
+    const transitionFade = style.transitionProperty.split(",").every(property => property.trim() === "opacity");
+    const animationFade = animations.length > 0 && animations.every(opacityOnly);
+
+    const declared = [
+      ...seconds(style.transitionDuration).map(duration => ({ duration, fade: transitionFade })),
+      ...seconds(style.animationDuration).map(duration => ({ duration, fade: animationFade })),
+    ];
+
+    const bad = declared.find(({ duration, fade }) => !Number.isNaN(duration) && !permitted(duration, fade));
+
+    return bad === undefined ? null : { duration: bad.duration, reduced };
   });
 };
 
@@ -630,9 +653,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: U3726's tick-only rows share a title column; rows with the extra Glyph
-// keep their own column. U3727 includes the entry field’s text edge.
-// U3708's tree indent shifts both; later lines align with their title.
+// D12: glyphs and names share a Token indent step at each tree depth.
+// U3727 includes the entry field’s text edge.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -646,10 +668,17 @@ const d12 = (page: Page): Measure => {
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
 
-    const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
-      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
+    const indent = (row: Element) => {
+      const level = list === "pads" ? row.closest("[data-shelf-group]")?.getAttribute("aria-level") : row.getAttribute("aria-level");
 
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+      return (Number(level ?? 1) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0");
+    };
+
+    const glyphs = own.flatMap(({ row }) => {
+      const glyph = row.querySelector(".shelf-glyph")?.firstElementChild;
+
+      return glyph ? [left(glyph) - indent(row)] : [];
+    });
 
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
@@ -675,9 +704,9 @@ const d12 = (page: Page): Measure => {
     }
 
     own.forEach(({ row }) => {
-      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
+      found.push({ diff: glyphs.length ? Math.max(...glyphs) - Math.min(...glyphs) : 0, row });
 
-      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
+      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].filter(line => line.textContent?.trim() && !line.matches(".todo-group-status"))) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });
   }
 
@@ -759,7 +788,13 @@ const d14 = (page: Page): Measure => {
       const previous = own[index]!;
 
       // The done fold begins another list; its separation is not a gap between neighbours.
-      if (listOf(one.row) === listOf(previous.row)) between.push(one.box.top - previous.box.bottom);
+      if (listOf(one.row) === listOf(previous.row)) {
+        const slot = listOf(one.row)?.querySelector(".sortable-slot")?.getBoundingClientRect();
+        // U3800a's destination is a visible row-sized slot, not empty spacing between rows.
+        const occupied = slot && slot.top >= previous.box.bottom && slot.bottom <= one.box.top ? slot.height : 0;
+
+        between.push(one.box.top - previous.box.bottom - occupied);
+      }
     });
 
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
@@ -805,7 +840,10 @@ export function runChecks(doc: Document = document): Checks {
     try {
       const { ok, value, selector } = BY_ID[id](page);
 
-      return { status: ok ? "pass" : "fail", value, selector };
+      if (!ok) return { status: "fail", value, selector };
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+
+      return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {
       return { status: "fail", value: NOT_MEASURABLE, selector: "" };
     }

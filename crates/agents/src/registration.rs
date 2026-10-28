@@ -1,5 +1,30 @@
 use super::*;
 
+impl Slot {
+    pub(super) fn attempt(&self) -> &str {
+        match self {
+            Self::Starting { attempt, .. }
+            | Self::Resuming { attempt, .. }
+            | Self::ResumeCleanup { attempt, .. } => attempt,
+            Self::Running(run) => &run.attempt,
+            Self::Closing => "",
+        }
+    }
+    pub(super) fn closing(&self) -> bool {
+        matches!(self, Self::Closing | Self::ResumeCleanup { .. })
+            || matches!(self, Self::Running(run) if run.closing)
+    }
+
+    /// The node's name is final: no prompt renames it.
+    pub(super) fn settle_name(&mut self) {
+        match self {
+            Self::Running(run) => run.named = true,
+            Self::Starting { named, .. } => *named = true,
+            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
+        }
+    }
+}
+
 impl Shared {
     /// Swap `id` from `Starting` to `Running` (the Run `build` makes, told whether a
     /// `rail.rename` already settled its name) and apply every Signal parked for it, in arrival
@@ -342,7 +367,6 @@ pub(super) fn save_signal_conversation(
         return Ok(());
     };
     rail.save_conversation(id, &conversation_id, &run.cwd)?;
-    rail.observe_measurement_owner(id, &conversation_id, &run.cwd, &run.attempt);
     Ok(())
 }
 

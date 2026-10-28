@@ -12,6 +12,8 @@ Source: the owner's pick of 2026-10-22: restyle the existing Inbox Drawer in the
 
 Each row leads with the Rail's `KindGlyph` of its Agent's Kind and the Agent's name. The empty Inbox keeps `Nothing waits for you`. Tests: `u3770a_sections_hold_their_agents_in_order_with_counts` (its Needs you order is `attentionOrder`'s, the overview line's), `u3770a_unread_comment_rows_keep_u3742_behaviour`. Moves: D2, D5, D6.
 
+**Inbox**: The time-ordered Drawer of Messages to the user.
+
 **U3770b a row opens to the last steps and one next step.** Given U3770a's rows, when the user activates a row by pointer, `Enter` or `Space`, then it expands in place (one row open at a time, the others unchanged) to show the Agent's latest real step (U456's formatted step, without a clock that ticks) and the one action that fits its state, and `aria-expanded` is set on the row:
 
 - Kind `error`: `Retry`.

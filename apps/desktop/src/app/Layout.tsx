@@ -1,3 +1,4 @@
+import { createMaximiseSlide } from "../ui/slideLifetime";
 import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
 import X from "lucide-solid/icons/x";
@@ -15,7 +16,7 @@ import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void };
+export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -28,9 +29,12 @@ export const Layout = (props: {
    * header/ consumes that context's List and Trigger without creating another Root.
    */
   tabs?: JSX.HTMLAttributes<HTMLDivElement>;
+  busy?: boolean;
   rail: JSX.Element;
+  railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
+  shelfTabs?: JSX.Element;
   shelfPlacement?: ShelfPlacement;
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
@@ -106,45 +110,34 @@ export const Layout = (props: {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
     setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
   }, { defer: true }));
-  let maximiseSlide: Animation | undefined;
+  createEffect(() => { if (placement().sliding === false) setShelfSliding(false); });
+  onCleanup(() => placement().onSettle());
+  const maximiseSlide = createMaximiseSlide(() => windowElement?.querySelector<HTMLElement>(".shelf") ?? undefined, () => placement().open && !placement().reducedMotion);
 
   const maximised = createMemo(() => placement().maximised === true);
 
   createEffect(on(maximised, (expanded) => {
     const shelf = windowElement?.querySelector<HTMLElement>(".shelf");
-    const offset = shelf && maximiseSlide && (maximiseSlide.playState === "running" || maximiseSlide.playState === "paused") ? new DOMMatrixReadOnly(getComputedStyle(shelf).transform).m41 : 0;
-    maximiseSlide?.cancel();
+    const offset = maximiseSlide.offset();
+    maximiseSlide.cancel();
 
     if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
     const style = getComputedStyle(windowElement);
     const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.getBoundingClientRect().width ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
-    const duration = style.getPropertyValue("--duration-drawer").trim();
-    maximiseSlide = shelf.animate([
-      { transform: `translateX(${offset + (expanded ? displacement : -displacement)}px)` },
-      { transform: "translateX(0)" },
-    ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
-    const slide = maximiseSlide;
-
-    const settled = () => {
-      if (maximiseSlide === slide && placement().open) setShelfSliding(false);
-    };
-
-    void slide.finished.then(settled, settled);
+    maximiseSlide.start(offset + (expanded ? displacement : -displacement), () => setShelfSliding(false));
   }, { defer: true }));
-  createEffect(() => { if (!placement().open || placement().reducedMotion) maximiseSlide?.cancel(); });
   createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
-  onCleanup(() => maximiseSlide?.cancel());
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
-    <div class="columns" style={{ "grid-area": "1 / 1" }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
+    <div class="columns" style={{ "grid-area": "1 / 1" }}>
+      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section {...binding("centre")} class="centre" data-layout-panel="centre" aria-label={copy.centreRegion}>
+      <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -162,10 +155,9 @@ export const Layout = (props: {
       data-animated={placement().animated}
       hidden={!placement().rendered}
       inert={!placement().open}
-      onTransitionEnd={(event) => {
-        if (event.target === event.currentTarget && event.propertyName === "transform") { placement().onSettle(); setShelfSliding(false); }
-      }}
+      ref={element => placement().attach?.(element)}
     >
+      {props.shelfTabs}
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>
           <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={shelfFocus() ? CHORDS.find(row => row.keys === "M") : undefined} onClick={event => placement().onMaximise?.(activationSource(event))}>

@@ -18,7 +18,7 @@ afterAll(async () => { await page?.close(); });
 
 run("u3010e the recorder in the Chromium harness", () => {
   it("u3010e_the_chromium_harness_produces_a_valid_scheduling_report", async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 820);
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.window'))`);
 
     const report = await page.call<FrameReport>(`async () => {
@@ -36,6 +36,7 @@ run("u3010e the recorder in the Chromium harness", () => {
     expect(report.stages.scheduling.status).toBe("measured");
     expect(report.stages.update.status).toBe("measured");
     expect(report.stages.presentation.status).toBe("unmeasured");
-    expect(report).toMatchObject({ engine: "chromium", exit: 2 });
+    expect(report.engine).toBe("chromium");
+    expect(report.exit).toBe(report.stages.scheduling.meets_thresholds ? 0 : 1);
   }, 30_000);
 });

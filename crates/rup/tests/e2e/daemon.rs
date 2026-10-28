@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 use contracts::agent::{RailNode, SignalParams, SpawnParams, StatusEvent};
@@ -11,6 +12,10 @@ use serde_json::{Value, json};
 
 #[path = "../../../rupd/tests/support/rupd_harness.rs"]
 pub(crate) mod rupd_harness;
+
+#[allow(dead_code)]
+#[path = "../../../rupd/tests/support/store_migrations.rs"]
+pub mod storage;
 
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);
@@ -50,12 +55,21 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
         "{} is not built; run `cargo build -p rupd`",
         rupd.display()
     );
+    let sidecar = data.path().join("sidecar");
+    let bundled = Command::new("bash")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/sidecar/bundle.sh"))
+        .arg(&sidecar)
+        .arg("--local-node")
+        .status()
+        .unwrap();
+    assert!(bundled.success(), "fixture sidecar is complete");
     // Borrow both folders: a startup panic reaps the harness Daemon before these owners drop.
     let mut daemon = rupd_harness::start(&rupd, dir.path(), true, |command| {
         command
             .current_dir(dir.path())
             .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
             .env("ROUNDUP_RUP_BIN", &rup)
+            .env("ROUNDUP_SIDECAR_DIR", &sidecar)
             .env(
                 "ROUNDUP_CLAUDE_BIN",
                 Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),

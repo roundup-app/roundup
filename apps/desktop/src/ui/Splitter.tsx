@@ -4,11 +4,14 @@ import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, typ
 import type { Side } from "../resize/widths";
 import "./Splitter.css";
 
-/** Binds U507's host from an edge, leaving grid and absolute panel styles with Layout. */
+/** Z3742b capability exception (Issues #3742/#4094): Ark 5.39.3 with patched
+ * Zag 1.45 forces Shift to 10%, returns percent sizes and supplies flex styles.
+ * Keep the pixel/grid host adapter; Ark owns resizing, bounds and cancellation. */
 export function Splitter(props: { side: Side; class?: string; disabled?: boolean; hidden?: boolean; onDragging?: (dragging: boolean) => void }) {
   let edge!: HTMLDivElement;
   let pointerResize = false;
   let previewed = false;
+  let releaseHold: (() => void) | undefined;
   const id = createUniqueId();
   const [host, setHost] = createSignal<HTMLElement>();
   const [extent, setExtent] = createSignal(1);
@@ -99,7 +102,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     for (const panel of root.querySelectorAll<HTMLElement>("[data-layout-panel]")) observer.observe(panel);
     onCleanup(() => observer.disconnect());
   });
-  onCleanup(() => props.onDragging?.(false));
+  onCleanup(() => { releaseHold?.(); props.onDragging?.(false); });
 
   const reset = () => {
     if (props.disabled || props.hidden || api().dragging) return;
@@ -119,15 +122,47 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
     // The Terminal refits once the hold ends, so the hold is the pointer's, not the machine's moment-to-moment state.
     if (event.button === 0 && !props.disabled && !props.hidden) {
+      releaseHold?.();
+
+      const cancel = (event: Event) => {
+        // Zag maps pointercancel to POINTER_UP. Keep that commit path out of cancellation.
+        if (event.type === "pointercancel") event.stopPropagation();
+
+        const cancelResize = () => {
+          // Ark exposes Escape cancellation only through its key handler. Call it directly:
+          // no DOM event is dispatched, and Zag restores size and releases its own capture.
+          const handler = trigger().onKeyDown;
+          const key = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+          Object.defineProperty(key, "currentTarget", { value: edge });
+          Object.defineProperty(key, "target", { value: edge });
+          // SAFETY: the targets are the mounted resize edge assigned above.
+          const normalized = key as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
+
+          if (handler) {
+            if (0 in handler) handler[0](handler[1], normalized);
+            else handler(normalized);
+          }
+        };
+
+        // POINTER_DOWN enters Zag on a microtask; cancel after that entry if blur came first.
+        if (api().dragging) cancelResize();
+        else queueMicrotask(cancelResize);
+        release();
+      };
+
       const release = () => {
         window.removeEventListener("pointerup", release, true);
-        window.removeEventListener("pointercancel", release, true);
+        window.removeEventListener("pointercancel", cancel, true);
+        window.removeEventListener("blur", cancel);
+        releaseHold = undefined;
         props.onDragging?.(false);
       };
 
+      releaseHold = release;
       props.onDragging?.(true);
       window.addEventListener("pointerup", release, true);
-      window.addEventListener("pointercancel", release, true);
+      window.addEventListener("pointercancel", cancel, true);
+      window.addEventListener("blur", cancel);
     }
 
     const handler = trigger().onPointerDown;
@@ -149,11 +184,27 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
  return; }
 
-    setStep(event.shiftKey ? 64 : 16);
+    const shiftArrow = event.shiftKey && /^Arrow(?:Left|Right|Up|Down)$/.test(event.key);
+    const reverseBoundary = props.side.direction === -1 && boundaryKeys.includes(event.key);
+
+    setStep(shiftArrow ? 64 : 16);
+
+    const handler = trigger().onKeyDown;
+
+    // Ordinary keys go straight to Ark; only its unsupported modifier/boundary
+    // cases need an adapted event (capability record on #3742 and #4094).
+    if (!shiftArrow && !reverseBoundary) {
+      if (handler) {
+        if (0 in handler) handler[0](handler[1], event);
+        else handler(event);
+      }
+
+      return;
+    }
 
     // Ark's Shift delta is hard-coded to 10%; normalize the modifier while its
     // own key map, limits, direction and keyboard state still perform the action.
-    const key = props.side.direction === -1 && boundaryKeys.includes(event.key)
+    const key = reverseBoundary
       ? boundaryKeys.find((value) => value !== event.key) ?? event.key
       : event.key;
 
@@ -166,7 +217,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     Object.defineProperties(adapted, { target: { value: event.target }, currentTarget: { value: event.currentTarget } });
     // SAFETY: the normalized event retains the original element targets above.
     const normalized = adapted as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
-    const handler = trigger().onKeyDown;
 
     if (handler) {
       if (0 in handler) handler[0](handler[1], normalized);

@@ -476,7 +476,11 @@ impl Daemon {
             );
             self.as_user("pad.append", json!({"name": name, "text": section}))
                 .await?;
-            self.as_user("todo.delete", json!({"id": todo.id})).await?;
+            self.as_user(
+                "todo.delete",
+                json!({"operation": format!("delete-{}", todo.id), "ids": [todo.id]}),
+            )
+            .await?;
         }
         for pad in pads {
             let section = format!(
@@ -487,7 +491,11 @@ impl Daemon {
                 .await?;
             self.pads.delete(
                 &self.ctx(Actor::user()),
-                contracts::pad::PadName { name: pad.name },
+                contracts::pad::DeleteParams {
+                    name: pad.name,
+                    operation: None,
+                    expected_incarnation: Some(pad.incarnation),
+                },
                 pads::PadDeletion::Cleanup,
             )?;
         }

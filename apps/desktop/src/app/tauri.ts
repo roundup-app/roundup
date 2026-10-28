@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { projectPageSchema } from "./seam";
+import { claudeBinarySchema, nativeOpenSchema, systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -10,7 +10,7 @@ import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
-import type { App, OutputMessage } from "./seam";
+import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -83,9 +83,62 @@ export const createTauriApp = (): App => {
   // The live subscription of each Terminal: a replaced or released one is no longer the current, so its late messages and its late stop are inert.
   const selections = new Map<string, object>();
 
+  type CaptureRequest =
+    | { kind: "configure"; chord: string | null }
+    | { kind: "show" | "dismiss" }
+    | { kind: "publish"; snapshot: CaptureState }
+    | { kind: "act"; action: CaptureAction };
+
+  const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
+
   const app: App = {
+    onNativeOpen: listener => guarded(async () => {
+      let active = true;
+      const channel = new Channel<unknown>(message => { if (active) listener(v.parse(nativeOpenSchema, message)); });
+      await command<void>("native_open", { channel });
+
+      return () => { active = false; };
+    }),
+    onSystemAccent: listener => guarded(async () => {
+      if (!/mac/i.test(navigator.platform)) {
+        listener(null);
+
+        return () => {};
+      }
+
+      let changed = false;
+
+      const release = await listen("system-accent", event => {
+        changed = true;
+        listener(v.parse(systemAccentSchema, event.payload));
+      });
+
+      try {
+        const initial = await parsedCommand(systemAccentSchema, "system_accent", {});
+
+        if (!changed) listener(initial);
+
+        return release;
+      } catch (error) {
+        release();
+        throw error;
+      }
+    }),
+    capture: /mac/i.test(navigator.platform) ? {
+      configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
+      show: () => captureControl({ kind: "show" }),
+      dismiss: () => captureControl({ kind: "dismiss" }),
+      publish: snapshot => captureControl({ kind: "publish", snapshot }),
+      act: action => captureControl({ kind: "act", action }),
+      onRequested: listener => guarded(() => listen("capture-requested", listener)),
+      onAction: listener => guarded(() => listen("capture-action", event => listener(v.parse(captureActionSchema, event.payload)))),
+      onState: listener => guarded(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload)))),
+    } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
+    askRemoval: question => parsedCommand(v.picklist(["this", "all", "cancel"]), "ask_removal", { question }),
     ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
+    recentProjects: () => parsedCommand(v.array(v.string()), "recent_projects", {}),
+    claudeBinary: () => parsedCommand(v.nullable(claudeBinarySchema), "claude_binary", {}),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
     closeProject: async (path) => {
@@ -109,7 +162,7 @@ export const createTauriApp = (): App => {
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
-    selectProjectMenu: (path) => command("select_project_menu", { path }),
+    selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
     onProjectPage: (listener) => guarded(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
     onAppSettings: (listener) => guarded(() => listen("open-app-settings", listener)),
     onDaemonExited: (listener) =>
@@ -165,4 +218,27 @@ export const createTauriApp = (): App => {
   };
 
   return app;
+};
+
+/** Reveal material only after the native window confirms it; a missing capability stays opaque. */
+export const followMaterial = async (root: HTMLElement): Promise<() => void> => {
+  const apply = (enabled: boolean) => root.toggleAttribute("data-native-material", enabled);
+  let changed = false;
+
+  const release = await listen("native-material", event => {
+    changed = true;
+    apply(v.parse(v.boolean(), event.payload));
+  });
+
+  try {
+    const initial = v.parse(v.boolean(), await invoke("plugin:window-bar|native_material"));
+
+    if (!changed) apply(initial);
+  } catch (error) {
+    release();
+    root.removeAttribute("data-native-material");
+    throw error;
+  }
+
+  return () => { release(); root.removeAttribute("data-native-material"); };
 };

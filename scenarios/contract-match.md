@@ -11,12 +11,6 @@ Contract change (the Contract recipe of `.agents/builder.md`). `GLOSSARY.md` gai
 - **Changes with the contract.** Adding a method to a copy of the list, or changing a params type, changes the fingerprint; reordering the list does not. Asserted in `a38_fingerprint_follows_the_methods_and_types`.
 - **Cold start.** Computing it is not on the start path beyond one hash of a list already in memory; rule 7's 300 ms holds (`just perf`).
 
-Definition (relocated): **Contract fingerprint**:
-A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
-
-Definition (relocated): **Contract methods** (`daemon.methods`):
-The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
-
 **S11 the App says when the Daemon is not the one it was built with.** Uses `daemon.ping` and, only on a fingerprint mismatch, `daemon.methods` (A38) through the App seam's method pass-through; no new App seam command and no Token. Where it lives: one notice in the open Project's window, shown once per connect. Given a Project whose webview holds `contract.ts` and whose Daemon reports its own, then:
 - **Same.** Equal fingerprints show nothing, fetch no method names, and the Project opens as today. Asserted in `s11_equal_contracts_show_no_notice`.
 - **Older.** When the webview's `methods` hold a name the Daemon's do not (and not the reverse), the notice reads that the Daemon is older than the App, and that quitting and running `just app` again rebuilds it. It shows at connect, after one method-name fetch and before feature calls, and once only. Asserted in `s11_an_older_daemon_is_named_before_any_call`.

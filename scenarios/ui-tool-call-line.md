@@ -10,15 +10,14 @@ Contract policy (AGENTS.md rule 4): carry the call through `rail.tree` and its e
 
 **U3780a the Daemon reports each Agent's current or last tool call.** Given an Agent running through the real Daemon with a fake `claude` that emits `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (shapes in `spikes/hooks-state/REPORT.md`), then, for that Agent:
 
-Definition (relocated): **Tool call**:
-An Agent's current or last use of a tool, folded by the Adapter from the `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (U3780a): the tool, a one-line summary, the arguments, the result, a state (`running`, `done`, `failed`), the start and the duration, each text cut to a bound. `RailNode.tool_call` carries it and the event `agent.toolCall` announces a change. The Project overview shows it as one line that folds open (U3780b, U3780c). Not a Retry: roundup never re-runs one.
-
 - **Start.** `PreToolUse` sets the call: its tool name, a one-line summary, its arguments, state `running` and its start time. The summary is the command for `Bash`, the file path for `Read`, `Edit` and `Write`, the pattern or query for `Grep`, `Glob`, `WebSearch` and `WebFetch`; a tool with none of these shows its name alone, with nothing invented. A path under the Project's root is sent relative to it. Test: `u3780a_pre_tool_use_starts_the_call_with_tool_summary_and_arguments`.
 - **Finish.** The `PostToolUse` with the same `tool_use_id` sets the state `done`, the result and the duration (its `duration_ms`, else the time between the two Signals); `PostToolUseFailure` sets `failed` with the error text as the result. A Signal for another `tool_use_id` never finishes the call. A later `PreToolUse` replaces the call whole; the call stays after the turn ends, with its final state and duration. Test: `u3780a_post_tool_use_finishes_only_its_own_call`.
 - **Bounded.** The arguments and the result are each cut to 4096 bytes at a character boundary, and a cut one ends with the mark `… (cut, N bytes more)`; the one-line summary is cut to 200 characters. A payload of 5 MB reaches the wire as at most 4096 bytes of each. Terminal escape sequences are removed from every field. Test: `u3780a_long_arguments_and_results_are_cut_with_a_mark`.
 - **Attribution.** A call belongs to the Agent whose Signal carried it; a Door's and a child's calls never cross (as U454 says). Test: `u3780a_calls_stay_with_their_agent`.
 
 Observer: Rust Adapter tests and a real-Daemon integration test that probe the wire response after each Signal; contract serialization is checked by the generated-contract check.
+
+**Tool call**: An Agent's current or last use of a tool, folded by the Adapter from the `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (U3780a): the tool, a one-line summary, the arguments, the result, a state (`running`, `done`, `failed`), the start and the duration, each text cut to a bound. `RailNode.tool_call` carries it and the event `agent.toolCall` announces a change. The Project overview shows it as one line that folds open (U3780b, U3780c). Not a Retry: roundup never re-runs one.
 
 **U3780b each Agent line under a Workstream shows the call in one line.** Given U2567a's overview and a Workstream with Agents that have a call, then each Agent's line, beneath its Workstream's entry and in Rail order, shows on one line the call in the manner of AffectUI's Tool Call Card: the tool name, the summary (cut with an ellipsis and readable in full in `title`), the state word (`Running`, `Done`, `Failed`) and the time. An Agent with no call yet shows its name alone, as today. The text holds no raw id or internal term, and shows paths relative to the Project (the intent of #3299, which this scenario states itself until that Issue's scenarios land). Then:
 
@@ -34,6 +33,8 @@ Observer: Rust Adapter tests and a real-Daemon integration test that probe the w
 - **Not the select action.** Opening the fold selects nothing, starts nothing and calls no RPC method of its own: U2567c's "selection starts nothing" and "nothing is taken over" hold, and activating the Agent's name still selects it as U2567c says. The fold reads only data the tree already carries. Test: `u3780c_the_fold_calls_nothing_and_selects_nothing`.
 - **Reduced motion.** With `prefers-reduced-motion: reduce` the fold opens and closes at once; otherwise it uses the existing motion Tokens and presets of `docs/motion.md`. Test: `u3780c_reduced_motion_folds_at_once` (media query stubbed; assert no transition is set).
 - **Text.** The arguments and result are plain text, never run as markup; a long one scrolls inside the region, which is capped in height, and the page does not widen. Test: `u3780c_payload_text_is_inert`.
+
+**Collapsible**: An expandable App region with a named trigger; closing it retains its content.
 
 **U3780d states and worst case.** Then:
 

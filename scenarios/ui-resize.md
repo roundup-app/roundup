@@ -18,9 +18,6 @@ Engineering calls, each made here so the implementation run asks nothing:
 
 **U389 the Rail's width is the user's.** Narrows U23 (the Rail's `20%`, never under 252 nor over 320 px, and "the terminal is never under 690px": the `minmax(690px, 1fr)` track at `apps/desktop/src/styles.css:97` becomes `minmax(388px, 1fr)`), U24 ("the Rail stays at 252px" under 942 px), U85 and U172's density clause (the Rail "stays 252 px wide"), which become the Tokens above. Given an open Project on `tree-40` and `agents-10`, then:
 
-Definition (relocated): **Resize edge**:
-The 1 px `--hairline` `role="separator"` line between two regions, the Rail and the centre pane or the Shelf and the centre pane, that the user drags or keys to change a width (U389, U390). Not a button.
-
 - **Default.** With nothing stored, the Rail is 288 px wide at 1280 by 800, wider than the 252 px it was.
 - **Edge.** A separator named `Resize Rail` sits on the Rail's trailing edge, with the attributes above; `aria-valuenow` is the Rail's width in px.
 - **Drag.** Dragging the Edge from x 288 to x 360 makes the Rail's `getBoundingClientRect().width` 360 and the pane's right edge unchanged; dragging past 480 stops at 480, and dragging under 252 stops at 252. During the drag the Terminal receives no `terminal.resize`; after `pointerup` it receives one when its fitted size changed.

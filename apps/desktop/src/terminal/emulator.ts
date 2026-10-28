@@ -1,15 +1,18 @@
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
-import { appSettings, appDark, followAppAppearance } from "../settings/preferences";
+import { appSettings, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
+import { SerializeAddon } from "@xterm/addon-serialize";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { ImageAddon } from "@xterm/addon-image";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -29,10 +32,16 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** Live output event arrival, before buffering or snapshot recovery; snapshots never call it. */
+  outputArrived?: ((bytes: Uint8Array) => void) | undefined;
+  /** K1's optional probe: Screens calls this when the queue releases an input batch for encoding. */
+  inputEncoding?: ((bytes: readonly number[]) => void) | undefined;
   /** K1's optional probe: Screens calls this after encoding its input batch, before dispatch. */
-  inputEncoded?: (() => void) | undefined;
+  inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
+  /** Parsed output only, at the grid SerializeAddon requires for restoration. */
+  serialize?(): Size & { data: string };
   selection(): string;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
@@ -45,6 +54,8 @@ export type Emulator = {
   focus(): void;
   /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
+  /** Reports a fit caused by loaded faces or xterm's scale/cell-metric redraw, without sending input. */
+  onResize?: ((listener: (size: Size) => void) => void) | undefined;
   /** Whether the view sits at the newest line; false once the user has scrolled up. */
   isAtBottom(): boolean;
   /** Fires whenever the view's scroll position changes. */
@@ -55,7 +66,8 @@ export type Emulator = {
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
-export type EmulatorFactory = (id: string) => Emulator;
+/** OSC 52 copies use the originating Terminal's clipboard failure owner. */
+export type EmulatorFactory = (id: string, copy?: (text: string) => Promise<void>) => Emulator;
 
 /** Loads the WebGL renderer, or leaves the DOM renderer and says so once through `warn`. Returns whether WebGL is in use. */
 export const attachRenderer = (
@@ -121,10 +133,12 @@ export const xtermOptions: ITerminalOptions = {
   fontSize: DEFAULT_FONT_SIZE,
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
-    return terminalThemeFor(appDark());
+    return terminalThemeFor();
   },
 };
 
@@ -132,8 +146,10 @@ export const xtermOptions: ITerminalOptions = {
 export type EchoProbe = {
   /** xterm's `onData` fired: the key became bytes to send. */
   input(id: string): void;
-  encoded(id: string): void;
-  /** Output bytes reached the emulator, before they are parsed. */
+  frame?(text: string, id: string): string;
+  encoding(id: string, bytes: readonly number[]): void;
+  encoded(id: string, bytes: readonly number[]): void;
+  /** Live output reached the subscription, before buffering or parsing. */
   arrived(bytes: Uint8Array, id: string): void;
   written(bytes: Uint8Array, id: string): void;
   rendered(id: string): void;
@@ -161,12 +177,28 @@ export const createXtermEmulators = (
 ): EmulatorFactory => {
   let webglDenied = false;
 
-  return (id) => {
+  return (id, copy) => {
     const terminal = new Terminal(xtermOptions);
+    const serializer = new SerializeAddon();
+    terminal.loadAddon(serializer);
+    terminal.loadAddon(new ClipboardAddon(undefined, {
+      readText: () => "",
+      writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
+    }));
+    // Bound each Terminal's decoded cache and decoder workspace, including idle Agents.
+    terminal.loadAddon(new ImageAddon({
+      storageLimit: 1,
+      pixelLimit: 262_144,
+      sixelSizeLimit: 1_048_576,
+      iipSizeLimit: 1_048_576,
+      enableSizeReports: false,
+    }));
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
     const element = document.createElement("div");
+    let resized: (size: Size) => void = () => {};
+
     let opened = false;
     let disposed = false;
     let focusOnShow = true;
@@ -204,6 +236,8 @@ export const createXtermEmulators = (
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
       probe?.rendered(id);
+
+      refit();
     });
     terminal.onScroll(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -262,7 +296,7 @@ export const createXtermEmulators = (
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 
     const followScheme = () => {
-      terminal.options.theme = terminalThemeFor(appDark());
+      terminal.options.theme = terminalThemeFor();
     };
 
     const contrast = window.matchMedia?.("(prefers-contrast: more)");
@@ -287,12 +321,47 @@ export const createXtermEmulators = (
       fontViewport = null;
     };
 
-    const size = (): Size => {
-      if (!fontsReady || disposed) return { cols: terminal.cols, rows: terminal.rows };
+    const rowWidth = (row: number, cols: number): number => {
+      const buffer = terminal.buffer.active;
+      const last = buffer.getLine(row)?.getCell(cols - 1);
+      const next = buffer.getLine(row + 1);
 
+      // xterm pads the last cell when a wide glyph wraps; that padding is not a selected character.
+      return next?.isWrapped && next.getCell(0)?.getWidth() === 2 && last?.getCode() === 0 ? cols - 1 : cols;
+    };
+
+    const size = (): Size => {
+      if (!fontsReady || disposed || element.closest("[hidden]")) return { cols: terminal.cols, rows: terminal.rows };
+
+      const previous = { cols: terminal.cols, rows: terminal.rows };
+      const proposed = fitter.proposeDimensions();
+      const changing = proposed && (proposed.cols !== previous.cols || proposed.rows !== previous.rows);
+
+      if (changing) prepareFontChange();
+
+      // xterm clears selection on resize. Its markers follow reflow, so retain endpoints in their
+      // logical lines rather than anchoring them to physical rows that a new column count replaces.
+      const endpoint = (x: number, y: number) => {
+        const buffer = terminal.buffer.active;
+        let first = y;
+
+        while (first > 0 && buffer.getLine(first)?.isWrapped) first -= 1;
+
+        const marker = terminal.registerMarker(first - buffer.baseY - buffer.cursorY);
+
+        let offset = x;
+
+        for (let row = first; row < y; row += 1) offset += rowWidth(row, previous.cols);
+
+        return { marker, offset };
+      };
+
+      const selection = changing ? terminal.getSelectionPosition() : undefined;
+      const start = selection ? endpoint(selection.start.x, selection.start.y) : null;
+      const end = selection ? endpoint(selection.end.x, selection.end.y) : null;
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
-      // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
+      // Fitting changed metrics must rewrap unfinished output instead of truncating the cursor line.
       if (fontChanged) terminal.options.reflowCursorLine = true;
 
       try {
@@ -306,6 +375,25 @@ export const createXtermEmulators = (
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
         fontChanged = false;
+
+        if (start?.marker && end?.marker && !start.marker.isDisposed && !end.marker.isDisposed) {
+          const position = (line: number, offset: number) => {
+            while (terminal.buffer.active.getLine(line + 1)?.isWrapped && offset >= rowWidth(line, terminal.cols)) {
+              offset -= rowWidth(line, terminal.cols);
+              line += 1;
+            }
+
+            return { line, col: offset };
+          };
+
+          const from = position(start.marker.line, start.offset);
+          const to = position(end.marker.line, end.offset);
+
+          terminal.select(from.col, from.line, (to.line - from.line) * terminal.cols + to.col - from.col);
+        }
+
+        start?.marker?.dispose();
+        end?.marker?.dispose();
       }
 
       if (fontViewport !== null) {
@@ -314,7 +402,20 @@ export const createXtermEmulators = (
         else restoreFontViewport();
       }
 
-      return { cols: terminal.cols, rows: terminal.rows };
+      const fitted = { cols: terminal.cols, rows: terminal.rows };
+
+      if (fitted.cols !== previous.cols || fitted.rows !== previous.rows) resized(fitted);
+
+      return fitted;
+    };
+
+    // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
+    const refit = () => {
+      if (!opened || disposed || !fontsReady || !element.parentElement || element.closest("[hidden]")) return;
+
+      const proposed = fitter.proposeDimensions();
+
+      if (proposed && (proposed.cols !== terminal.cols || proposed.rows !== terminal.rows)) size();
     };
 
     const prepareFontChange = () => {
@@ -343,29 +444,29 @@ export const createXtermEmulators = (
       return dispose;
     });
 
+    const loadRenderer = () => {
+      if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
+        loadedWebgl = createWebgl();
+
+        return loadedWebgl;
+      }, console.warn, () => probe?.renderer(false, id));
+
+      probe?.renderer(!webglDenied, id);
+    };
+
     const open = () => {
       if (!opened) {
         terminal.open(element);
         opened = true;
         dropInlineGround(element, disposers);
 
-        if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-          loadedWebgl = createWebgl();
-
-          return loadedWebgl;
-        }, console.warn, () => probe?.renderer(false, id));
-
-        probe?.renderer(!webglDenied, id);
+        loadRenderer();
       }
-
-      if (focusOnShow) terminal.focus();
     };
 
     return {
       ready,
       write: (bytes, parsed) => {
-        probe?.arrived(bytes, id);
-
         terminal.write(bytes, () => {
           probe?.written(bytes, id);
           parsed?.();
@@ -378,6 +479,9 @@ export const createXtermEmulators = (
         }
 
         terminal.resize(cols, rows);
+
+        // Recreate after the snapshot resize so the old renderer never reads the reflowing buffer.
+        if (opened && !loadedWebgl) loadRenderer();
       },
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
@@ -387,17 +491,24 @@ export const createXtermEmulators = (
         terminal.options.fontSize = size;
       },
       reset: () => terminal.write("\x1bc"),
-      inputEncoded: probe ? () => probe.encoded(id) : undefined,
+      outputArrived: probe ? (bytes) => probe.arrived(bytes, id) : undefined,
+      inputEncoding: probe ? (bytes) => probe.encoding(id, bytes) : undefined,
+      inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => {
         terminal.onData((text) => {
+          refit();
           probe?.input(id);
-          listener(encoder.encode(text));
+          listener(encoder.encode(probe?.frame?.(text, id) ?? text));
         });
-        terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
+        terminal.onBinary((text) => {
+          refit();
+          listener(Uint8Array.from(text, (char) => char.charCodeAt(0)));
+        });
       },
       onLink: (listener) => {
         linkListener = listener;
       },
+      serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: serializer.serialize({ scrollback: SCROLLBACK_LINES }) }),
       selection: () => terminal.getSelection(),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
@@ -409,9 +520,14 @@ export const createXtermEmulators = (
 
         open();
 
-        return size();
+        const fitted = size();
+
+        if (focusOnShow) terminal.focus();
+
+        return fitted;
       },
       fit: size,
+      onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
       isAtBottom: () => terminal.buffer.active.viewportY === terminal.buffer.active.baseY,
       onScroll: (listener) => terminal.onScroll(() => listener()),

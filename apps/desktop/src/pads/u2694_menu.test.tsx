@@ -1,5 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openShelf, padOf } from "./padsFixture";
@@ -13,8 +11,7 @@ it("u2694a_each_object_builds_its_items_pad", async () => {
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual(["Send to Agent", "Copy Link", "Delete"]);
+  expect(app.shownMenus.at(-1)!.items.map(item => [item.id, item.group])).toEqual([["open", "0"], ["copy-link", "4"], ["delete", "7"]]);
   await app.pickMenu("Delete");
-  expect((await questionDialog()).message).toContain("notes");
-  expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "notes", expectedIncarnation: "fixture-notes", operation: expect.any(String) }]));
 });

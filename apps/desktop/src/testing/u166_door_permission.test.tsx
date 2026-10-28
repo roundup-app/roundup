@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -35,7 +35,6 @@ const settle = async (prompt: string) => {
   const startDoor = async () => {
     const id = (await workstreams()).at(-1)!.id;
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
     // SessionStart can read idle before the initial prompt begins. Wait for this
     // Door's fixture reply, then its Stop, before another Workstream can affect it.
     await waitFor(async () => {
@@ -69,8 +68,6 @@ const settle = async (prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
-  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
-  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
 
@@ -78,7 +75,7 @@ const settle = async (prompt: string) => {
   // The Door's native prompt waits in its own Terminal: no roundup form appears, and selecting the row leaves the other Workstream as it was.
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   fireEvent.click(rail.querySelector<HTMLElement>(`[data-id="${first?.id}"] .name`)!);
-  await waitFor(() => expect(rail.querySelector("[data-selected=true]")?.getAttribute("data-id")).toBe(first?.id));
+  await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(first?.id));
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   expect((await workstreams()).find((room) => room.id === second?.id)?.status?.kind).toBe(otherBefore);
   expect(await messages()).toContainEqual([prompt, "delivered"]);

@@ -74,12 +74,6 @@ pub struct Launcher {
     /// Filesystem observer for isolated import tests; absent from production builds.
     #[cfg(any(test, feature = "test-support"))]
     pub import_observer: Option<ImportObserver>,
-    // One active discovery reader per Project, shared by worker clones. A newer scan
-    // invalidates the older reader at its next record boundary (U3037d).
-    pub(super) discovery: (
-        Arc<std::sync::atomic::AtomicU64>,
-        Arc<tokio::sync::Mutex<()>>,
-    ),
     /// The `rup` the hooks run, by absolute path: a hook's PATH is not ours to trust.
     rup: PathBuf,
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
@@ -167,14 +161,15 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            #[cfg(not(any(test, feature = "test-support")))]
             sidecar: None,
+            #[cfg(any(test, feature = "test-support"))]
+            sidecar: Some(Sidecar {
+                dir: Path::new(env!("CARGO_MANIFEST_DIR")).join("sidecar"),
+            }),
             listings: Arc::new(tokio::sync::watch::channel(0).0),
             #[cfg(any(test, feature = "test-support"))]
             import_observer: None,
-            discovery: (
-                Arc::new(std::sync::atomic::AtomicU64::new(0)),
-                Arc::new(tokio::sync::Mutex::new(())),
-            ),
             bin: bin.into(),
             claude_json,
             rup,
@@ -399,7 +394,9 @@ impl Launcher {
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &carried, &project);
-        let plain = carried.get("outputStyle").is_none();
+        if carried.get("outputStyle").is_none() {
+            carried["outputStyle"] = json!("hold:Plain");
+        }
         replace_file(&settings, &{
             let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried)?;
             if role == Role::Door && mcp {
@@ -463,7 +460,7 @@ impl Launcher {
             }
         }
         let brief_file = brief_path(&dir, id);
-        let mut brief = brief::text(role, mcp, plain);
+        let mut brief = brief::text(role, mcp);
         if missing_intent {
             brief = brief::without_intent(&brief);
         }

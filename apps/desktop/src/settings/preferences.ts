@@ -1,10 +1,12 @@
 import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
-import { storedValue } from "../state/storage";
+import { gray, grayDark } from "@radix-ui/colors";
+import { interpolate, wcagContrast } from "culori";
+import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
-import type { AppSeam } from "../app/seam";
+import type { App, CapturePort, AppSeam } from "../app/seam";
 
-const schema = v.object({
+const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
   engine: v.fallback(v.string(), ""),
   model: v.fallback(v.string(), ""),
@@ -15,13 +17,13 @@ const schema = v.object({
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
-});
+}));
 
 type Preferences = v.InferOutput<typeof schema>;
 
-const storage = () => storedValue("roundup:app-settings", schema);
-
 const [revision, changed] = createSignal(0);
+
+const storage = () => storedValue("roundup:app-settings", schema, () => changed(value => value + 1));
 
 /** One app-wide record; each untrusted field defaults independently. A revision notifies all open Project tabs. */
 export const appSettings = (): Preferences => {
@@ -31,12 +33,30 @@ export const appSettings = (): Preferences => {
 };
 
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
-export const saveAppSettings = (patch: Partial<Preferences>): string | null => {
-  const failure = storage().write({ ...appSettings(), ...patch });
+let saving: Promise<unknown> = Promise.resolve();
 
-  if (failure === null) changed(value => value + 1);
+export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePort): Promise<string | null> => {
+  const captured = structuredClone(patch);
 
-  return failure;
+  const pending = saving.then(async () => {
+    const before = appSettings();
+    const replacement = captured.quickAdd !== undefined && captured.quickAdd !== before.quickAdd;
+
+    try {
+      if (replacement && capture) await capture.configure(captured.quickAdd!);
+      const failure = await storage().write({ ...before, ...captured });
+
+      if (failure && replacement && capture) await capture.configure(before.quickAdd);
+
+      return failure;
+    } catch (error) {
+      return String(error);
+    }
+  });
+
+  saving = pending;
+
+  return pending;
 };
 
 /** Own the root's explicit scheme for this App lifetime. System continues using the native media query. */
@@ -113,4 +133,57 @@ export const followAppAppearance = (changed: () => void): (() => void) => {
   query?.addEventListener("change", follow);
 
   return () => { dispose(); query?.removeEventListener("change", follow); };
+};
+
+/** Keep native preference delivery outside Agent state; unavailable delivery restores the Token fallback. */
+export const applySystemAccent = (app: Pick<App, "onSystemAccent">) => {
+  const root = document.documentElement;
+  let active = true;
+  let release: (() => void) | undefined;
+
+  const clear = () => {
+    delete root.dataset.systemAccent;
+    root.style.removeProperty("--system-accent-channels");
+    root.style.removeProperty("--system-accent-light-channels");
+    root.style.removeProperty("--system-accent-dark-channels");
+  };
+
+  void app.onSystemAccent(accent => {
+    if (!active) return;
+
+    if (accent === null) {
+      clear();
+
+      return;
+    }
+
+    const colour = { mode: "rgb" as const, r: accent[0], g: accent[1], b: accent[2] };
+
+    // Keep the closest native tone that clears every neutral state and the fill's label.
+    // A small margin also covers fractional-channel rounding in the webview.
+    for (const [scheme, scale, pole] of [["light", gray, 0], ["dark", grayDark, 1]] as const) {
+      const mix = interpolate([colour, { mode: "rgb", r: pole, g: pole, b: pole }], "rgb");
+      let low = 0;
+      let high = 1;
+
+      const readable = (amount: number) => [scale.gray1, scale.gray2, scale.gray3, scale.gray4, scale.gray5]
+        .every(ground => wcagContrast(mix(amount), ground) >= 4.7);
+
+      if (!readable(0)) {
+        for (let step = 0; step < 20; step++) {
+          const middle = (low + high) / 2;
+
+          if (readable(middle)) high = middle;
+          else low = middle;
+        }
+      } else high = 0;
+
+      const toned = mix(high);
+      root.style.setProperty(`--system-accent-${scheme}-channels`, [toned.r, toned.g, toned.b].map(channel => channel * 255).join(" "));
+    }
+
+    root.style.setProperty("--system-accent-channels", accent.map(channel => channel * 255).join(" "));
+    root.dataset.systemAccent = "true";
+  }).then(stop => { if (active) release = stop; else stop(); }, () => { if (active) clear(); });
+  onCleanup(() => { active = false; release?.(); clear(); });
 };

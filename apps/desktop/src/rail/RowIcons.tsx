@@ -3,16 +3,7 @@ import { copy } from "../copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
-import { ownKeys } from "./rows";
-
-/** U426: what a Workstream row or an Agent row can do from its icons; an absent member is an icon the row does not carry. */
-export type RowActions = {
-  folder: () => void;
-  editor: () => void;
-} & (
-  | { kind: "workstream"; add: { disabled: boolean; shortcut?: boolean; run: () => void }; clear?: () => void }
-  | { kind: "agent"; stop?: () => void; resume?: () => void }
-);
+import { ownKeys, type RowActions } from "./rows";
 
 const RowIcon = (props: { name: "plus" | "clear" | "stop" | "play" | "folder" | "editor"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
@@ -50,7 +41,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
     </Show>
     {props.children}
     <Show when={props.actions.kind === "workstream" ? props.actions.clear : undefined}>
-      {(clear) => <RowIcon name="clear" label={copy.clearWorkstream} onClick={clear()} />}
+      {(clear) => <RowIcon name="clear" label={copy.clearMenu} onClick={clear()} />}
     </Show>
     <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="stop" label={copy.stop} onClick={stop()} />}</Show>
     <Show when={props.actions.kind === "agent" ? props.actions.resume : undefined}>{(resume) => <RowIcon name="play" label={copy.resume} onClick={resume()} />}</Show>

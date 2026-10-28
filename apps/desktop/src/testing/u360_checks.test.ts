@@ -12,7 +12,7 @@ const list = (name: string, count: number, top: number) => {
     return `<div class="shelf-row" data-box="${box(0, y, 160, 32)}">
         <span class="shelf-glyph"><span data-box="${box(0, y, 16, 24)}">g</span></span>
         <div class="shelf-text">
-          <div class="row-head"><button><span class="shelf-title" data-box="${box(24, y, 100, 16)}">title</span></button></div>
+          <div class="row-head" data-box="${box(24, y, 100, 16)}"><button><span class="shelf-title" data-box="${box(24, y, 100, 16)}">title</span></button></div>
           <p class="shelf-meta" data-box="${box(24, y + 24, 100, 16)}">meta</p>
         </div>
       </div>`;
@@ -52,6 +52,38 @@ describe("u360 D12 left edges", () => {
     two();
 
     expect(runChecks().D12).toMatchObject({ status: "pass", value: 0 });
+  });
+
+  it.each([[0, true], [3, true], [0, false], [3, false]] as const)("u360_d12_reports_residual_pad_offset_%i_with_glyph_%s", (offset, glyph) => {
+    page(list("pads", 2, 0));
+    document.documentElement.style.setProperty("--tree-step", "24px");
+    const rows = document.querySelectorAll(".shelf-row");
+
+    for (const [index, row] of [...rows].entries()) {
+      const group = document.createElement("div");
+
+      group.setAttribute("data-shelf-group", `group-${index}`);
+      group.setAttribute("role", "treeitem");
+      group.setAttribute("aria-level", String(index + 1));
+      row.replaceWith(group);
+      group.append(row);
+
+      if (!glyph) row.querySelector(".shelf-glyph")!.replaceChildren();
+
+      if (index === 0) continue;
+
+      for (const element of row.querySelectorAll("[data-box]")) {
+        const [left, ...rest] = element.getAttribute("data-box")!.split(",").map(Number);
+
+        element.setAttribute("data-box", [left! + 24 + offset, ...rest].join(","));
+      }
+    }
+
+    try {
+      expect(runChecks().D12).toMatchObject({ status: offset === 0 ? "pass" : "fail", value: offset });
+    } finally {
+      document.documentElement.style.removeProperty("--tree-step");
+    }
   });
 
   it("u3727_d12_measures_the_entry_text_with_tick_only_titles", () => {

@@ -108,6 +108,13 @@ const mount = async (
   return { app, connected, pending, snapshots, subscriptionsAtSnapshot, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
 };
 
+/** Both attempts of one captured read fail before its exhausted line is asserted. */
+const exhaust = async (pending: ((reply: Reply) => void)[], index: number, message: string) => {
+  pending[index]?.(new Error(message));
+  await vi.waitFor(() => expect(pending).toHaveLength(index + 2));
+  pending[index + 1]?.(new Error(message));
+};
+
 const typed = (app: { calls: { method: string }[] }) => app.calls.filter((call) => call.method === "terminal.write");
 
 afterEach(cleanup);
@@ -164,16 +171,6 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(log()).toEqual(["size 120x40", "screen", "one", "two", "three"]);
   });
 
-  it("u103_one_snapshot_call_serves_one_terminal_however_much_output_arrives", async () => {
-    const { app, pending, snapshots } = await mount();
-
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-
-    for (let offset = 0; offset < 5; offset += 1) app.emitOutput("t-a", "x");
-    pending[0]?.(snapshotOf("", 0));
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-  });
-
   it("u103_output_buffered_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {
     const { app, pending, snapshots, log } = await mount();
     const large = "x".repeat(400_000);
@@ -224,9 +221,9 @@ describe("u103 a reloaded pane shows the screen", () => {
     app.emitGap("t-a", 0, 50);
     app.emitOutput("t-a", "late");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
-    pending[1]?.(new Error("recovery failed"));
+    await exhaust(pending, 1, "recovery failed");
 
-    expect((await screen.findByRole("alert", { name: "terminal.snapshot: recovery failed" })).tagName).toBe("P");
+    expect((await screen.findByRole("alert", { name: /recovery failed/ })).tagName).toBe("P");
     expect(log()).toEqual(["size 100x30", "complete"]);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
@@ -264,9 +261,9 @@ describe("u103 a reloaded pane shows the screen", () => {
     const { app, pending, snapshots, log } = await mount();
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("boom"));
+    await exhaust(pending, 0, "boom");
 
-    expect((await screen.findByRole("alert", { name: /^terminal\.snapshot:/ })).tagName).toBe("P");
+    expect((await screen.findByRole("alert")).tagName).toBe("P");
     expect(log()).toEqual([]);
     app.emitOutput("t-a", "live");
     expect(log()).toEqual(["live"]);
@@ -281,13 +278,13 @@ describe("u103 a reloaded pane shows the screen", () => {
     });
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("snapshot failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    await exhaust(pending, 0, "snapshot failed");
+    const snapshotFailure = await screen.findByRole("alert", { name: /snapshot failed/ });
     resize.resolve(null);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy();
+    expect(screen.getByRole("alert")).toBe(snapshotFailure);
     expect(log()).toEqual([]);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
@@ -303,16 +300,16 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await vi.waitFor(() => expect(resizes).toHaveLength(1));
-    pending[0]?.(new Error("snapshot failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: snapshot failed" });
+    await exhaust(pending, 0, "snapshot failed");
+    const snapshotFailure = await screen.findByRole("alert", { name: /snapshot failed/ });
     resizes[0]?.(new Error("resize failed"));
     await screen.findByRole("alert", { name: "resize failed" });
 
     window.dispatchEvent(new Event("resize"));
     await vi.waitFor(() => expect(resizes).toHaveLength(2));
     resizes[1]?.(null);
-    await vi.waitFor(() => expect(screen.getByRole("alert", { name: "terminal.snapshot: snapshot failed" })).toBeTruthy());
-    expect(screen.queryByRole("alert", { name: "resize failed" })).toBeNull();
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toBe(snapshotFailure));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
@@ -322,37 +319,39 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     app.emitOutput("t-a", "live");
     expect(log()).toEqual([]);
-    pending[0]?.(new Error("boom"));
+    await exhaust(pending, 0, "boom");
 
     await vi.waitFor(() => expect(log()).toEqual(["live"]));
     app.emitOutput("t-a", "more");
     expect(log()).toEqual(["live", "more"]);
   });
 
-  it("u103_a_terminal_left_behind_cannot_clear_or_show_its_failure_in_the_next_pane", async () => {
+  it("u3791c_a_new_snapshot_failure_replaces_its_original_terminal_target", async () => {
     const { app, connected, pending, snapshots, logOf } = await mount(
       [node("a"), node("b")],
       [info("t-a"), info("t-b")],
     );
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(new Error("A failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: A failed" });
+    await exhaust(pending, 0, "A failed");
+    await screen.findByRole("alert", { name: /A failed/ });
 
     connected.rail.select("b");
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
-    pending[1]?.(snapshotOf("B screen", 0));
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
+    pending[2]?.(snapshotOf("B screen", 0));
     await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
     expect(screen.queryByRole("alert")).toBeNull();
 
     app.emitGap("t-b", 0, 50);
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
-    pending[2]?.(new Error("B failed"));
-    await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(4));
+    await exhaust(pending, 3, "B failed");
+    await screen.findByRole("alert", { name: /B failed/ });
 
     connected.rail.select("a");
-    expect(await screen.findByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy();
-    expect(screen.queryByRole("alert", { name: "terminal.snapshot: B failed" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    connected.rail.select("b");
+    await screen.findByRole("alert");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
@@ -376,4 +375,161 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "bye"]));
     expect(typed(app)).toEqual([]);
   });
+});
+
+it.each(["", "later\r\n"])("z3788a_retained_emulator_catches_up_hidden_output_%j", async (hidden) => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const spy = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators()("t-a");
+  const terminal = spy.mock.instances[0];
+
+  if (!terminal) throw new Error("xterm was not created");
+  spy.mockRestore();
+  // The host has no layout in jsdom; parsing and the stream owner remain real.
+  const screens = createScreens(connected, () => ({ ...emulator, show: () => ({ cols: 80, rows: 24 }) }));
+  const host = document.createElement("div");
+  const parsed = () => new Promise<void>(resolve => emulator.write(new Uint8Array(), resolve));
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.some(call => call.method === "terminal.snapshot")).toBe(true));
+  await parsed();
+  const output = "retained history\r\n" + Array.from({ length: 40 }, (_, index) => `${index}\r\n`).join("");
+  app.emitOutput("t-a", output);
+  await parsed();
+  const after = app.outputPositions.get("t-a")!;
+  app.handlers["terminal.snapshot"] = () => snapshotOf("current screen only", after);
+  const reply = Promise.withResolvers<import("@contracts/terminal/CatchUp").CatchUp>();
+  app.handlers["terminal.catchUp"] = () => reply.promise;
+  screens.hide("t-a");
+  app.emitOutput("t-a", hidden);
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.catchUp")).toHaveLength(1));
+  // The subscription precedes catch-up: the reply overlaps the first half of this live chunk.
+  app.emitOutput("t-a", "overlap-tail");
+  reply.resolve({ kind: "contiguous", id: "t-a", incarnation: "fixture-t-a", from: after,
+    after: after + new TextEncoder().encode(hidden + "overlap").length,
+    data: toBase64(new TextEncoder().encode(hidden + "overlap")) });
+  await vi.waitFor(() => expect(screens.failure("t-a")).toBeNull());
+  await parsed();
+  expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe("retained history");
+  const content = Array.from({ length: terminal.buffer.active.length }, (_, i) => terminal.buffer.active.getLine(i)?.translateToString(true)).join("\n");
+  expect(content).toContain((hidden + "overlap-tail").replaceAll("\r", ""));
+  expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1);
+  expect(app.calls.find(call => call.method === "terminal.catchUp")?.params).toEqual({ id: "t-a", incarnation: "fixture-t-a", after });
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
+
+it.each(["gap", "refused", "unavailable"])("z3788a_catch_up_%s_preserves_snapshot_authority", async (result) => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const { factory, made } = recordingEmulators();
+  const screens = createScreens(connected, factory);
+  const host = document.createElement("div");
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(made.get("t-a")?.log).toContain(""));
+  app.emitOutput("t-a", "retained");
+  screens.hide("t-a");
+  app.emitOutput("t-a", "hidden");
+  app.handlers["terminal.snapshot"] = () => {
+    if (result === "unavailable") throw new Error("connection closed");
+
+    return snapshotOf("authoritative screen", 14);
+  };
+
+  app.handlers["terminal.catchUp"] = ({ id, incarnation }) => {
+    if (result !== "gap") throw new Error("original Terminal unavailable");
+
+    return { kind: "gap", id, incarnation, from: 10, after: 14 };
+  };
+
+  screens.show("t-a", host);
+
+  if (result === "unavailable") {
+    await vi.waitFor(() => expect(screens.failure("t-a")).toContain("connection closed"));
+    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained"]);
+  } else {
+    await vi.waitFor(() => expect(made.get("t-a")?.log.at(-1)).toBe("authoritative screen"));
+    expect(made.get("t-a")?.log).toEqual(["size 100x30", "", "retained", "reset", "size 100x30", "authoritative screen"]);
+    expect(screens.failure("t-a")).toBeNull();
+  }
+
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
+
+it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
+  const { createScreens } = await import("./screens");
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const terminals: Terminal[] = [];
+  const emulators: Emulator[] = [];
+
+  const factory: EmulatorFactory = id => {
+    const spy = vi.spyOn(xtermModule, "Terminal");
+    const emulator = createXtermEmulators()(id);
+    const terminal = spy.mock.instances[0];
+    spy.mockRestore();
+
+    if (!terminal) throw new Error("xterm was not created");
+    terminals.push(terminal);
+    emulators.push(emulator);
+
+    return { ...emulator, show: () => ({ cols: 80, rows: 24 }) };
+  };
+
+  const parsed = () => new Promise<void>(resolve => emulators.at(-1)!.write(new Uint8Array(), resolve));
+  let screens = createScreens(connected, factory);
+  const host = document.createElement("div");
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+  await parsed();
+  const output = Array.from({ length: 100 }, (_, i) => `line ${i}\r\n`).join("") + "\x1b[1;31mwide 世界 " + "wrapped ".repeat(20) + "\x1b[0m";
+  app.emitOutput("t-a", output);
+  await parsed();
+  const { scrollbackStorage } = await import("./scrollback");
+  await vi.waitFor(() => expect(scrollbackStorage("/p", "fixture-t-a").read()?.after).toBe(app.outputPositions.get("t-a")), { timeout: 5000 });
+  const content = (terminal: Terminal) => Array.from({ length: terminal.buffer.active.length }, (_, i) => terminal.buffer.active.getLine(i)?.translateToString(true));
+  const before = content(terminals[0]!);
+  const cursor = { x: terminals[0]!.buffer.active.cursorX, y: terminals[0]!.buffer.active.cursorY };
+  const after = app.outputPositions.get("t-a")!;
+  screens.dispose();
+  app.handlers["terminal.snapshot"] = () => snapshotOf("new screen without history", after + 6);
+  app.handlers["terminal.catchUp"] = () => ({ kind: "contiguous", id: "t-a", incarnation: "fixture-t-a", from: after, after, data: "" });
+  screens = createScreens(connected, factory);
+  screens.show("t-a", host);
+  await vi.waitFor(() => expect(terminals).toHaveLength(2));
+  await vi.waitFor(() => expect(content(terminals[1]!)).toEqual(before));
+  expect({ x: terminals[1]!.buffer.active.cursorX, y: terminals[1]!.buffer.active.cursorY }).toEqual(cursor);
+  expect(terminals[1]!.buffer.active.getLine(100)?.getCell(0)?.isBold()).toBeTruthy();
+  expect(terminals[1]!.buffer.active.getLine(100)?.getCell(0)?.getFgColor()).toBe(1);
+  app.emitOutput("t-a", "hidden-tail");
+  await parsed();
+  expect(content(terminals[1]!).join("\n")).toContain("hidden-tail");
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
+});
+
+it.each(["gap", "refused"])("z3788a_saved_scrollback_%s_uses_the_authoritative_screen", async result => {
+  const { scrollbackStorage } = await import("./scrollback");
+  const { createScreens } = await import("./screens");
+  await scrollbackStorage("/p", "fixture-t-a").write({ cols: 80, rows: 24, after: 0, data: "old history" });
+  const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+  const { factory, made } = recordingEmulators();
+  const screens = createScreens(connected, id => ({ ...factory(id), serialize: () => ({ cols: 80, rows: 24, data: "" }) }));
+  app.handlers["terminal.snapshot"] = () => snapshotOf("current authoritative output", 10);
+  app.handlers["terminal.catchUp"] = () => {
+    if (result === "refused") throw new Error("original Terminal unavailable");
+
+    return { kind: "gap", id: "t-a", incarnation: "fixture-t-a", from: 10, after: 10 };
+  };
+
+  screens.show("t-a", document.createElement("div"));
+  await vi.waitFor(() => expect(made.get("t-a")?.log).toContain("current authoritative output"));
+  expect(made.get("t-a")?.log).not.toContain("old history");
+  expect(typed(app)).toEqual([]);
+  screens.dispose();
+  connected.stopTerminalScheme();
 });

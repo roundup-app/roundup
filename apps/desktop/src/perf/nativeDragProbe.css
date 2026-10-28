@@ -29,10 +29,10 @@
   margin-block: var(--space-3);
 }
 
-.native-probe-rows > div {
+.native-probe-rows div {
   min-height: var(--space-6);
   box-sizing: border-box;
-  border-block: 1px solid transparent;
+  border-block: var(--hairline-width) solid var(--transparent);
 }
 
 .native-probe-rows [data-probe-child] {
@@ -40,11 +40,11 @@
 }
 
 .native-probe-rows [data-probe-dragging] {
-  border-block: 1px solid var(--accent);
+  border-block: var(--hairline-width) solid var(--accent);
 }
 
 .native-probe-rows [data-probe-target] {
-  border-block: 1px dashed var(--accent);
+  border-block: var(--hairline-width) dashed var(--accent);
 }
 
 .native-drag-probe dd {

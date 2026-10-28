@@ -1,4 +1,5 @@
 import { writeText } from "../app/clipboard";
+import { createCopyFeedback } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
@@ -29,9 +30,11 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     if (finished) return;
     finished = true;
 
-    if (field && refocus) props.onEdit(field);
+    if (field) props.onEdit(field);
     props.onDone(saved, refocus);
   };
+
+  onCleanup(() => { if (!finished && field) props.onEdit(field); });
 
   registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
@@ -47,13 +50,23 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
-    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false)} />;
+    onBlur={event => {
+      // Keep the tab geometry until Ark receives the destination tab's click; selection closes this editor.
+      if (event.relatedTarget instanceof Element && event.relatedTarget.closest('[role="tab"]')) {
+        finished = true;
+
+        return;
+      }
+
+      finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false);
+    }} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
+  suppressed?: boolean;
   closeFocus?: boolean;
   /** Opens only this Project's retained revision with its captured base; absent/foreign,
    * pending and legacy records stay copy/discard-only. Opening never sends or reads.
@@ -70,7 +83,7 @@ export const ProjectTab = (props: {
   const [editing, setEditing] = createSignal<{ width: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
-  const mark = () => markOf(props.tab);
+  const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
   const authority = useContext(ProjectDraftsContext);
   const drafts = authority?.(props.tab.path);
@@ -100,6 +113,11 @@ export const ProjectTab = (props: {
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
 
+  const nativeCopy = createCopyFeedback();
+  const nameCopy = createCopyFeedback();
+  createEffect(on(createMemo(() => props.tab.path), nativeCopy.reset));
+  createEffect(on(createMemo(() => shown()?.revision), nameCopy.reset));
+
   const copyName = async () => {
     const draft = shown();
 
@@ -108,8 +126,9 @@ export const ProjectTab = (props: {
 
     if (!parsed.success) return;
 
-    try { await writeText(props.app!, parsed.output.name); failCopy(null); }
-    catch (error) { failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); }
+    await nameCopy.run(() => writeText(props.app!, parsed.output.name), () => failCopy(null), error => {
+      failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) });
+    });
   };
 
   let base: string | undefined;
@@ -166,14 +185,13 @@ export const ProjectTab = (props: {
             const copied = shown();
             const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
 
-            try { await writeText(props.app!, JSON.stringify(details, null, 2)); failCopy(null); }
-            catch (error) { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); }
+            await nativeCopy.run(() => writeText(app, JSON.stringify(details, null, 2)), () => failCopy(null), error => { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); });
           } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
           { id: "close", label: copy.close, run: () => props.onClose() },
         ], x, y));
       }}>
-      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
+      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
         setEditing(null);
 
         if (refocus) button?.focus();
@@ -187,14 +205,15 @@ export const ProjectTab = (props: {
         if (saved !== null) {
           const submitted = revision;
           const failure = copyFailure();
+          const expected = base;
 
-          if (submitted && !drafts?.submit(submitted)) {
+          if (submitted && !(await drafts?.submit(submitted))) {
             recover(true);
 
             return;
           }
 
-          void props.onRename(saved, base).then(outcome => {
+          void props.onRename(saved, expected).then(outcome => {
             if (submitted) drafts?.settle(submitted, outcome.status);
 
             if (outcome.status === "acknowledged" && copyFailure() === failure) failCopy(null);
@@ -211,7 +230,7 @@ export const ProjectTab = (props: {
                     props.onMark();
                   }
                 }}>
-                <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <span class="tab-name" onDblClick={() => edit()}><Show when={nativeCopy.copied()} fallback={<><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></>}>{copy.copied}</Show></span>
                 <Show when={props.tab.unseen}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
@@ -239,7 +258,7 @@ export const ProjectTab = (props: {
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
         </>}</Show>
         <div class="draft-actions">
-        <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyProjectName}</button>
+        <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{nameCopy.copied() ? copy.copied : copy.copyProjectName}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button>
         </>}</Show>
           <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button></Show>

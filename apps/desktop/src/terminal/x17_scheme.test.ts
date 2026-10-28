@@ -2,18 +2,20 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
-import { darkTerminalTheme, lightTerminalTheme } from "./theme";
+import { terminalThemeFor } from "./theme";
 
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); delete document.documentElement.dataset.mode; });
 
 const scheme = (dark: boolean) => {
+  // jsdom does not evaluate prefers-color-scheme; the explicit selector resolves the same Tokens.
+  document.documentElement.dataset.mode = dark ? "dark" : "light";
   let change: () => void = () => {};
 
   const query = { matches: dark, addEventListener: (_: string, listener: () => void) => { change = listener; }, removeEventListener: () => { change = () => {}; } };
 
   vi.stubGlobal("matchMedia", () => query);
 
-  return { switchTo: (next: boolean) => { query.matches = next; change(); } };
+  return { switchTo: (next: boolean) => { query.matches = next; document.documentElement.dataset.mode = next ? "dark" : "light"; change(); } };
 };
 
 const schemeCalls = (app: ReturnType<typeof createFakeApp>) => app.calls.filter((call) => call.method === "terminal.scheme").map((call) => call.params);
@@ -22,12 +24,15 @@ it("x17_connecting_tells_the_daemon_the_scheme_and_each_switch_tells_it_again", 
   const window = scheme(false);
   const app = createFakeApp();
 
+  const light = terminalThemeFor();
+
   await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
   window.switchTo(true);
+  const dark = terminalThemeFor();
 
   expect(schemeCalls(app)).toEqual([
-    { scheme: "light", background: lightTerminalTheme.background, foreground: lightTerminalTheme.foreground },
-    { scheme: "dark", background: darkTerminalTheme.background, foreground: darkTerminalTheme.foreground },
+    { scheme: "light", background: light.background, foreground: light.foreground },
+    { scheme: "dark", background: dark.background, foreground: dark.foreground },
   ]);
 });
 
@@ -51,4 +56,29 @@ it("x17_ending_the_connection_stops_following_the_window", async () => {
   window.switchTo(true);
 
   expect(schemeCalls(app)).toHaveLength(1);
+});
+
+
+it("u3791c_rejected_actions_reach_their_owner_scheme", async () => {
+  const window = scheme(false);
+  const app = createFakeApp();
+  let refused = true;
+
+
+  app.handlers["terminal.scheme"] = () => {
+    if (refused) throw new Error("scheme unavailable");
+
+    return null;
+  };
+
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+  expect(schemeCalls(app)).toHaveLength(1);
+  expect(connected.terminalScheme.failure()).not.toBeNull();
+  refused = false;
+  await connected.terminalScheme.retry();
+  expect(connected.terminalScheme.failure()).toBeNull();
+  expect(schemeCalls(app)).toHaveLength(2);
+  connected.stopTerminalScheme();
+  window.switchTo(true);
+  expect(schemeCalls(app)).toHaveLength(2);
 });

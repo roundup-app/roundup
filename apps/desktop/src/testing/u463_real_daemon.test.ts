@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { captureDir } from "./captures";
 import { chromePath } from "./chromePage";
 import { startRealDaemon, startWorktreeProject } from "./realDaemonFixture";
@@ -54,7 +54,10 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   return { real, browser, wait, activate, app: createServedApp(real.base), close: async () => {
     try { await browser("close"); } finally {
       await real.stop();
-      await rm(profile, { recursive: true, force: true });
+      await rm(profile, { recursive: true, force: true }).catch(error => {
+        // Chromium cache helpers may finish after close; as in chromePage, leave only this temporary profile to the OS.
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+      });
     }
   } };
 };
@@ -70,7 +73,7 @@ const width = 1280;
     const { real, browser, wait, activate, app } = fixture;
 
     try {
-      await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
       await wait(`document.body.textContent.includes('Open a folder to start')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
@@ -85,15 +88,19 @@ const width = 1280;
       })()`);
 
       await activate('[aria-label="Centre"] button');
-      await wait(`document.body.textContent.includes('New Workstream')`);
+      await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      await activate(".pane-action");
+      await activate('[aria-label="Add Workstream"]');
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
-      await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('.rail-row[data-kind="idle"]')`);
+      await wait(`!!document.querySelector('.pane-screen textarea')`);
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
+      await wait(`(async () => {
+        const response = await fetch('/__daemon/rpc', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method:'rail.tree',params:null})});
+        return (await response.json()).result?.some(node => node.id === '${workstream.id}' && node.status?.kind === 'idle');
+      })()`);
       const rendered = (await browser("eval", `({id: document.querySelector('.rail-row[data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
 
       expect(rendered.id).toBe(workstream.id);
@@ -133,7 +140,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
   const { real, browser, wait, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
     await browser("set", "viewport", String(width), "800");
     await wait(`document.body.textContent.includes('Open a folder to start')`);
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
@@ -146,7 +153,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`document.body.textContent.includes('Open a folder to start')`);
     await activate('[aria-label="Centre"] button');
-    await wait(`!!document.querySelector('.pane-action')`);
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
   } finally { await fixture.close(); }
@@ -157,9 +164,9 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
   const { real, browser, wait, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", String(width), "800");
-    await wait(`!!document.querySelector('.pane-action')`);
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
@@ -224,13 +231,13 @@ it("u2773g_journey_retains_unfinished_work", async () => {
   })()`);
 
   try {
-    await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("document.body.textContent.includes('Open a folder to start')");
     await activate('[aria-label="Centre"] button');
-    await wait("!!document.querySelector('.pane-action')");
-    await activate(".pane-action");
+    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
+    await activate('[aria-label="Add Workstream"]');
     const door = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
     await wait("[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('Reviewed result'))");
     expect(await evaluate("document.querySelector('.project-tab').dataset.path")).toBe(real.dir);
@@ -251,7 +258,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await app.rpc("rail.rename", { id: door.id, name: "renamed original" });
     await wait("document.querySelector('.rail-row .name')?.textContent === 'renamed original'");
     // The opt-in first-run chooser is intentionally empty on every load; reopen the selected Project through its normal harness route.
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.rail-row')");
     await openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe(ask);
@@ -282,7 +289,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await writeFile(join(current.worktree!.path, "result.txt"), "changed result\n");
     expect(await app.rpc("agent.changedFiles", { id: door.id })).toEqual({ files: [{ path: "result.txt", status: "modified", line: 1 }] });
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -305,9 +312,9 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await press("Close");
     await wait("!document.querySelector('.note-batch [role=alert]')");
     await browser("open", "about:blank");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(current.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -327,7 +334,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
       for (const state of ["dense", "dense&retention"]) {
         await browser("open", `${real.base}/src/changes/u2540.html?${state}`);
         await wait("!!document.querySelector('.worktree-control')");
-        await press("roundup/agent-1");
+        await browser("click", ".worktree-control");
         await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
         await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
         await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -360,7 +367,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await evaluate(`document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(node.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
     await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
     await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
@@ -372,7 +379,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
 
   try {
     await writeFile(join(node.worktree!.path, "result.txt"), "changed result\nsecond line\n");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await form();
@@ -384,7 +391,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
       if (navigation === "reload") await browser("reload");
       else {
         await browser("open", "about:blank");
-        await browser("open", `${real.base}/harness.html?daemon=1`);
+        await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       }
 
       await form();
@@ -407,7 +414,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     await mkdir(bucket, { recursive: true });
     await writeFile(join(bucket, "00000001-1111-4111-8111-111111111111.jsonl"), stamped);
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("!!document.querySelector('.todo-project-root')");
@@ -422,7 +429,35 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     expect([child.terminal_id, child.attempt, child.status_revision, child.can_resume]).toEqual([null, null, null, true]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
-    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Start supervisor')`);
+    await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
+
+    const rightClick = async (id: string) => {
+      const point = (await browser("eval", `(() => { const box = document.querySelector('.rail-row[data-id="${id}"]').getBoundingClientRect(); return {x:box.x + box.width / 2,y:box.y + box.height / 2}; })()`)).result;
+      await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+      await browser("mouse", "down", "right");
+      await browser("mouse", "up", "right");
+    };
+
+    const choose = async (id: string, action: string) => {
+      await browser("eval", "window.__importMenu.shown = null");
+      await rightClick(id);
+      await wait(`window.__importMenu.shown?.some(item => item.id === '${action}' && item.enabled !== false)`);
+      await browser("eval", `window.__importMenu.answer('${action}')`);
+    };
+
+    // Imported rows already report idle. Wait for the new Attempt and Terminal so
+    // that status cannot acknowledge a resume/start which has not completed yet.
+    const idle = async (id: string) => vi.waitFor(async () => {
+      const node = (await app.rpc("rail.tree", null)).find((row) => row.id === id);
+
+      expect(node?.attempt).toBe("1");
+      expect(node?.terminal_id).toBeTruthy();
+      expect(node?.status?.kind).toBe("idle");
+    }, { timeout: 30_000 });
+
+    await rightClick(parent.id);
+    await wait("window.__importMenu.shown?.some(item => item.id === 'start' && item.enabled !== false)");
+    await browser("eval", "window.__importMenu.answer(null)");
 
     const captures = captureDir("U3037d") ?? captureDir("U2875d");
 
@@ -434,25 +469,25 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     // A fresh page cannot reuse the old connection after a Daemon restart.
     await browser("open", "about:blank");
     await real.restart();
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
     await activate(`.rail-row[data-id="${child.id}"] .name`);
-    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Resume')`);
-    await browser("find", "role", "button", "click", "--name", "Resume", "--exact");
-    await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"][data-kind="idle"]')`);
+    await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
+    await choose(child.id, "resume");
+    await idle(child.id);
     const resumed = (await app.rpc("rail.tree", null)).find((node) => node.id === child.id)!;
 
     expect(resumed.attempt).toBe("1");
     expect(resumed.terminal_id).not.toBeNull();
     expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(resumed.terminal_id);
-    await browser("find", "role", "button", "click", "--name", "Start supervisor", "--exact");
-    await wait(`!!document.querySelector('.rail-row[data-id="${parent.id}"][data-kind="idle"]')`);
+    await choose(parent.id, "start");
+    await idle(parent.id);
     expect((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id)?.terminal_id).not.toBeNull();
 
     if (captures) {
       await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
-      await browser("open", `${real.base}/harness.html?seed=import-candidates`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=import-candidates`);
       await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
       await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await wait("document.querySelectorAll('.import-check').length === 10");
@@ -471,7 +506,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await activate(".import-list li:nth-child(2) .import-check");
       await wait("document.querySelector('.import-confirm')?.textContent.includes('2')");
       await activate(".import-confirm");
-      await wait("document.querySelector('.import-error')?.textContent.includes('Copy refused')");
+      await wait("document.querySelector('.import-candidate [role=alert]')?.textContent.includes('The saved conversation changed')");
       expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.length")).result).toBe(2);
       expect((await browser("eval", "document.querySelectorAll('.import-check[data-state=checked]').length")).result).toBe(1);
       await capture("partial-failure");

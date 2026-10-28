@@ -8,14 +8,13 @@ use std::time::Duration;
 
 use rpc::{Client, RpcError};
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, ChildStderr, ChildStdin, Command};
-use tokio::time::{sleep, timeout};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
+use tokio::time::timeout;
 
 use crate::config::Config;
 
 const STDERR_LINES_KEPT: usize = 20;
-const PING_RETRY: Duration = Duration::from_millis(25);
 /// A grandchild that inherited the Daemon's stderr can hold the pipe open after the Daemon is gone.
 const STDERR_DRAIN_BOUND: Duration = Duration::from_secs(1);
 
@@ -42,7 +41,9 @@ impl Drop for OwnedSocket {
         match std::fs::remove_file(&self.0) {
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => eprintln!("desktop: could not remove {}: {err}", self.0.display()),
+            Err(err) => {
+                log::warn!(target: "roundup::shell", "remove Daemon socket: IO {:?}", err.kind())
+            }
         }
     }
 }
@@ -77,6 +78,7 @@ pub async fn start(
     command
         .arg(project)
         .arg("--attached")
+        .arg("--notify-bound")
         .env("RUPD_SOCKET", socket);
     if let Some(dir) = data_dir {
         command.env("ROUNDUP_DATA_DIR", dir);
@@ -84,12 +86,15 @@ pub async fn start(
     let mut child = command
         .kill_on_drop(true)
         .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| {
+            log::warn!(target: "roundup::shell", "start Project Daemon: IO {:?}", err.kind());
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
     let stdin = child.stdin.take().expect("stdin was requested piped");
+    let stdout = child.stdout.take().expect("stdout was requested piped");
     let stderr = child.stderr.take().expect("stderr was requested piped");
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
@@ -100,13 +105,14 @@ pub async fn start(
             Ok(status) => format!("exited before it answered ({})", describe(status)),
             Err(err) => format!("could not be waited on: {err}"),
         },
-        ready = timeout(config.ready_bound, ping_until_answered(socket)) => match ready {
-            Ok(client) => return Ok(Started { client, stdin, child, socket: owned_socket }),
+        ready = timeout(config.ready_bound, connect_after_bound(stdout, socket)) => match ready {
+            Ok(Ok(client)) => return Ok(Started { client, stdin, child, socket: owned_socket }),
+            Ok(Err(failure)) => failure,
             Err(_) => format!("did not answer daemon.ping within {:?}", config.ready_bound),
         },
     };
     if let Err(err) = child.kill().await {
-        eprintln!("desktop: could not stop the Daemon that failed to start: {err}");
+        log::warn!(target: "roundup::shell", "stop refused Daemon: IO {:?}", err.kind());
     }
     // The drain ends when the pipe closes; if it does not, the tail is as complete as it will get.
     let _ = timeout(STDERR_DRAIN_BOUND, drain).await;
@@ -122,7 +128,7 @@ pub fn watch_exit(mut child: Child, on_exit: impl FnOnce(Option<i32>) + Send + '
         match child.wait().await {
             Ok(status) => on_exit(status.code()),
             Err(err) => {
-                eprintln!("desktop: lost track of the Daemon: {err}");
+                log::warn!(target: "roundup::shell", "wait for Daemon exit: IO {:?}", err.kind());
                 on_exit(None);
             }
         }
@@ -136,15 +142,25 @@ fn describe(status: ExitStatus) -> String {
     )
 }
 
-async fn ping_until_answered(socket: &Path) -> Client {
-    loop {
-        if let Ok(client) = Client::connect(socket).await
-            && client.request("daemon.ping", Value::Null).await.is_ok()
-        {
-            return client;
-        }
-        sleep(PING_RETRY).await;
+/// STARTUP.md's notification permits a connection attempt; only ping proves readiness.
+async fn connect_after_bound(mut stdout: ChildStdout, socket: &Path) -> Result<Client, String> {
+    let mut signal = [0; 11];
+    stdout
+        .read_exact(&mut signal)
+        .await
+        .map_err(|err| format!("could not read bound notification: {err}"))?;
+    if &signal != b"rupd-bound\n" {
+        return Err("sent an invalid bound notification".to_owned());
     }
+    drop(stdout);
+    let client = Client::connect(socket)
+        .await
+        .map_err(|err| format!("could not connect after bound notification: {err}"))?;
+    client
+        .request("daemon.ping", Value::Null)
+        .await
+        .map_err(|err| format!("did not answer daemon.ping after bound notification: {err}"))?;
+    Ok(client)
 }
 
 async fn drain(stderr: ChildStderr, tail: StderrTail) {
@@ -156,13 +172,36 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
             Ok(0) => return,
             Ok(_) => {
                 let line = String::from_utf8_lossy(&bytes).trim_end().to_owned();
-                eprintln!("{line}");
                 tail.push(line);
             }
             Err(err) => {
-                eprintln!("desktop: stopped reading the Daemon's stderr: {err}");
+                log::warn!(target: "roundup::shell", "read Daemon stderr: IO {:?}", err.kind());
                 return;
             }
         }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::path::Path;
+
+    // Keep attempted launches at the audited Daemon owner, using only the caller's temp folder.
+    pub(crate) fn refuse_missing_executable(
+        app: &tauri::AppHandle<tauri::test::MockRuntime>,
+        dir: &Path,
+        data: &Path,
+    ) {
+        let project = dir.join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = crate::Config::locate(
+            Some(data.join("missing-rupd").into_os_string()),
+            std::path::Path::new("/unused/roundup"),
+            dir,
+            std::process::id(),
+        )
+        .unwrap();
+        let state = crate::AppState::new(config);
+        assert!(tauri::async_runtime::block_on(state.open_project(app, &project)).is_err());
     }
 }

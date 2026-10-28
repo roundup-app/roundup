@@ -1,4 +1,3 @@
-.reactions,
 .reaction-list,
 .reaction-form,
 .reaction-detail,
@@ -19,7 +18,7 @@
 
 .reaction-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
@@ -34,8 +33,13 @@
 }
 
 .reaction-row {
+  display: flex;
+  align-items: baseline;
   justify-content: flex-start;
   gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) 0;
+  text-align: start;
 }
 
 .reaction-row .reaction-name {
@@ -50,7 +54,11 @@
 }
 
 .reaction-back {
-  align-self: flex-start;
+  flex: 0 1 auto;
+  max-width: 50%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: end;
 }
 
 .reaction-instruction,
@@ -63,8 +71,7 @@
   white-space: pre-wrap;
 }
 
-.reaction-state,
-.reaction-empty {
+.reaction-state {
   color: var(--grey);
 }
 
@@ -90,6 +97,8 @@
 }
 
 .reaction-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   font: inherit;
@@ -100,35 +109,9 @@
   font-size: var(--text-caption);
 }
 
-.reaction-field input,
-.reaction-field textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--space-6);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: inherit;
-  background: var(--hover);
-  border: 0;
-  border-radius: 0;
-}
-
 .reaction-field textarea {
   resize: none;
   field-sizing: content;
-}
-
-.reaction-field input:hover {
-  cursor: text;
-}
-
-.reaction-field input:active {
-  color: var(--text);
-}
-
-.reaction-field input::placeholder,
-.reaction-field textarea::placeholder {
-  color: var(--grey);
 }
 
 .reaction-when,
@@ -144,33 +127,97 @@
 
 .reaction-form .app-checkbox {
   min-height: var(--space-5);
-  padding-inline: var(--space-2);
-}
-
-.reaction-form .app-select-trigger {
-  border-radius: 0;
-  color: var(--grey);
-}
-
-.reaction-form .app-select-trigger:hover,
-.reaction-form .app-select-trigger[data-state="open"] {
-  color: var(--text);
-  background-color: var(--ground);
-}
-
-body:has(.reaction-form) .app-select-list {
-}
-
-body:has(.reaction-form) .app-select-item {
-  color: var(--grey);
-  border-radius: 0;
-}
-
-body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="checked"]) {
-  color: var(--text);
-  background-color: transparent;
+  padding-inline: 0;
 }
 
 .reactions {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: min(100%, var(--ask-width));
+  align-self: center;
+  gap: var(--space-3);
+  padding-block: var(--space-3) var(--line);
+}
+
+.reaction-head .overview-heading,
+.reaction-head .reaction-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-title);
+  color: var(--text);
+  padding: 0;
+}
+
+.reaction-form,
+.reaction-detail {
+  gap: var(--space-4);
+}
+
+.reaction-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.reaction-legend {
+  padding: 0 0 var(--space-3);
+  color: var(--text);
+  font-size: var(--text-body);
+}
+
+.reaction-time-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.reaction-time-fields .app-select-label {
+  display: block;
+}
+
+.reaction-agents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-3);
+}
+
+.reaction-form .app-checkbox-label {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+
+
+.reaction-list {
+  gap: var(--space-2);
+}
+
+.reaction-when {
+  gap: var(--space-3);
+  position: relative;
+  padding-bottom: var(--line);
+}
+
+.reaction-preview .reaction-legend {
+  margin: 0;
+  padding: 0;
+  font-weight: inherit;
+}
+
+.reaction-detail {
+  position: relative;
+  padding-bottom: var(--line);
+}
+
+.reaction-form [data-scope="select"][data-part="root"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }

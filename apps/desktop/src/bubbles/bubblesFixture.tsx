@@ -1,5 +1,6 @@
-import { render } from "@solidjs/testing-library";
-import { createSignal, Show } from "solid-js";
+import { render, waitFor } from "@solidjs/testing-library";
+import { vi } from "vitest";
+import { createSignal, onCleanup, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createFakeApp } from "../testing/fakeApp";
@@ -20,8 +21,9 @@ export const TERMINALS: TerminalInfo[] = [
 ];
 
 /** The Pane and its bubbles in one open Project whose Daemon lists `terminals`, with a fake `terminal.open` and `terminal.close`. */
-export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE) => {
+export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE, hostPresent = true) => {
   const app = createFakeApp();
+  const [hasHost, setHostPresent] = createSignal(hostPresent);
   let listed = [...terminals];
 
   app.handlers["rail.tree"] = () => tree;
@@ -46,6 +48,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, exit);
+  connected.showView("terminal-tabs");
   const emulators = fakeEmulators();
 
   if (selected !== null) connected.rail.select(selected);
@@ -58,6 +61,18 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   };
 
   const rendered = render(() => {
+    // jsdom has no layout. Give the Bubble layer its historical 800×600 test pane;
+    // scenarios supplying their own measured bar keep their own layout adapter.
+    if (!vi.isMockFunction(Element.prototype.getBoundingClientRect)) {
+      const original = Element.prototype.getBoundingClientRect;
+
+      const boxes = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+        return this.matches(".bubbles, .centre-stack") ? new DOMRect(0, 0, 800, 600) : original.call(this);
+      });
+
+      onCleanup(() => boxes.mockRestore());
+    }
+
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
@@ -66,13 +81,21 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
-          <ResourceStrip />
+          <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
       </ConnectedProjectContext.Provider>
     );
   });
 
-  return { app, connected, emulators, setExit, recover, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
+  // Output emitted by a test before selectOutput attaches would be lost by the fake transport.
+  await waitFor(() => {
+    const bubbles = [...document.querySelectorAll<HTMLElement>(".bubble")];
+
+    if ((hasHost() && !document.querySelector(".terminal-tabs")) || bubbles.some(bubble => listed.some(terminal => terminal.id === bubble.dataset.bubble && terminal.running)
+      && !app.outputSubscriptions.some(subscription => subscription.id === bubble.dataset.bubble))) throw new Error("Terminal output subscriptions not attached");
+  });
+
+  return { app, connected, emulators, setExit, recover, setHostPresent, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {

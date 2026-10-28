@@ -1,261 +1,348 @@
-# roundup terms
+# roundup
 
-roundup supervises coding Agents in each open Project from a macOS App.
+roundup supervises coding Agents in each open Project from a macOS App. Each row names one term: the Code term identifiers, types and RPC methods use (with its code spellings), the User label the App's own words use (`same` = the term itself, `none` = code only) and the Avoid words that no public name may contain outside `crates/agents/src/claude_code/` (`AGENTS.md` rule 6; `—` = none). Definitions live in the scenario that introduces each term; `docs/adr/` holds decisions.
 
-Names and App labels use this table (`AGENTS.md` rule 6). Avoid entries govern public names; the only vendor exemption is `crates/agents/src/claude_code/`. Definitions and behavior belong to the introducing scenarios.
+### Code terms and user labels
 
 | Code term | User label | Avoid |
-| --- | --- | --- |
-| Code term | Code term | — |
-| User label | User label | — |
-| App copy catalogue (`copy`) | App copy catalogue | — |
-| Project | Project | — |
-| Project name base (`base`, `ProjectsState.base`) | Project name base | — |
-| Project data | Project data | — |
-| Engine (`engine`, `ModelList.engines`) | Engine | — |
-| Permission mode (`PermissionMode`, `permissionMode` on launch calls) | Permission mode | — |
-| Agent | Agent | bot, worker; and _session_ for an Agent. |
-| Terminal | Terminal | process, console |
-| Terminal incarnation (`TerminalInfo.incarnation`) | Terminal incarnation | — |
-| Shell mark | Shell mark | shell integration (as a name; it is the means) |
+|---|---|---|
+| Code term | same | — |
+| User label | same | — |
+| App copy catalogue (`copy`) | same | — |
+| Start Door | Start | — |
+| Retry Door | Retry | — |
+| Clear without Handoff | Clear without a summary | — |
+| Clear (prompt submit) | Clear and keep a summary | — |
+
+### Project and its nodes
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Project | same | — |
+| Project name base (`base`, `ProjectsState.base`) | same | — |
+| Project data | same | — |
+| Engine (`engine`, `ModelList.engines`) | same | — |
+| Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
+| Agent | same | bot, worker; and session for an Agent. |
+| Terminal | same | process, console |
+| Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
+| Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
+| Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
+| Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
 | ReservedLine | none | — |
-| Terminal owner (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | Terminal owner | — |
-| Cached rows (`Connection::with_cached_rows`) | Cached rows | — |
-| Bubble | Bubble | overlay, popup |
-| Pull | Pull | summon, fling |
-| Run | Run | — |
-| Show request (`terminal.show`, event `terminal.shown`) | Show request | — |
-| Snapshot | Snapshot | — |
-| Workstream | Workstream | room, folder |
-| Auto (`auto`, `AutoParams`, `workstream.setAuto`) | Auto | — |
-| Start choice | Start choice | — |
-| Queue | Queue | — |
-| Workstream cap | Workstream cap | — |
-| Running | Running | — |
-| Clear | Clear | — |
+| Terminal owner (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
+| Cached rows (`Connection::with_cached_rows`) | same | — |
+| Bubble | same | overlay, popup |
+| Pull | same | summon, fling |
+| Run | same | — |
+| Show request (`terminal.show`, event `terminal.shown`) | same | — |
+| Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
+| Snapshot | same | — |
+| Workstream | same | room, folder |
+| Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
+| Start choice | same | — |
+| Queue | same | — |
+| Workstream cap | same | — |
+| Running | same | — |
+| Clear | same | — |
 | Handoff | summary | — |
-| Iteration | Iteration | — |
-| Home | Home | — |
-| Contract methods (`daemon.methods`) | Contract methods | — |
-| Contract fingerprint | Contract fingerprint | — |
-| Door | supervisor | meta-agent, parent agent, lead |
-| Subagent | Subagent | child agent, sub-agent, meta-agent, parent agent |
-| Digest | Digest | — |
-| Wake request (`agent.wake`) | Wake request | — |
+| Iteration | same | — |
+| Home | same | — |
+| Contract methods (`daemon.methods`) | same | — |
+| Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
+| Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
+| Contract fingerprint | same | — |
+| Door | none | meta-agent, parent agent, lead |
+| Subagent | same | child agent, sub-agent, meta-agent, parent agent |
+| Digest | same | — |
+| Wake request (`agent.wake`) | same | — |
 | Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`) | Reaction | — |
+| Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
-| Firing (a Reaction's `firings`) | Firing | — |
-| Observation (Reaction) (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | Observation | — |
-| Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | none | — |
-| Mark | Mark | — |
-| Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | Rewind | roll back |
-| Checkpoint | Checkpoint | — |
-| Block | Block | — |
-| Rollup | Rollup | — |
-| Attempt | Attempt | — |
-| Status revision | Status revision | — |
-| Finish count (`Status.finished`); `finished` | Finish count | — |
-| Unseen (`unseen`, `UnseenState`); `unseen`, user label: Unread result | Unread result | — |
-| Resume (`ResumeParams`, `ResumeMode`) | Resume | — |
-| YOLO (`yolo`) | YOLO | — |
-| Conversation overview (`ConversationOverview`, `RailNode.overview`) | Conversation overview | — |
-| Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | Import | — |
-| Vendor listing sidecar (`import.list`, `ImportList`, `ImportListed`, `ImportLive`) | Vendor listing sidecar | — |
-| Conversation card (`ConversationCard`, `ConversationOverview.card`) | Conversation card | — |
-| Worktree | Worktree | — |
-| Prepared directory | Prepared directory | — |
-| Worktree state | Worktree state | — |
-| Changed file | Changed file | — |
-| File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | File comparison | — |
-| Base | Base | — |
-| Resource use | Resource use | — |
-| Landing | Landing | — |
-| Discard | Discard | — |
-| App | App | — |
-| App seam | App seam | — |
-| App Settings | App Settings | — |
-| File drop | File drop | — |
-| Message image | Message image | — |
-| Window bar | Window bar | — |
-| Project tab | Project tab | — |
-| Tab mark | Tab mark | — |
-| Rail (`Rail::name`, `Agents::rail_name`, `rail.tree`, `rail.list`) | Rail | — |
-| Hint line | Hint line | — |
+| Firing (a Reaction's `firings`) | same | — |
+| Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
+| Mark | same | — |
+| Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | same | roll back |
+| Checkpoint | same | — |
+| Block | same | — |
+| Rollup | same | — |
+| Attempt | same | — |
+| Status revision | same | — |
+| Finish count (`Status.finished`, `finished`) | same | — |
+| Unseen (`unseen`, `UnseenState`) | Unread result | — |
+| Resume (`ResumeParams`, `ResumeMode`) | same | — |
+| YOLO (`yolo`) | same | — |
+| Conversation overview (`ConversationOverview`, `RailNode.overview`) | same | — |
+| Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | same | — |
+| Vendor listing sidecar (`import.list`, `ImportList`, `ImportListed`, `ImportLive`) | same | — |
+| Conversation card (`ConversationCard`, `ConversationOverview.card`) | same | — |
+| Worktree | same | — |
+| Prepared directory | same | — |
+| Worktree state | same | — |
+| Changed file | same | — |
+| File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
+| Base | same | — |
+| Resource use | same | — |
+| Landing | same | — |
+| Discard | same | — |
+
+### The App
+
+| Code term | User label | Avoid |
+|---|---|---|
+| App | same | — |
+| App seam | same | — |
+| App Settings | same | — |
+| File drop | same | — |
+| Message image | same | — |
+| Window bar | same | — |
+| Project tab | same | — |
+| Tab mark | same | — |
+| Rail (`Rail::name`, `Agents::rail_name`, `rail.tree`, `rail.list`) | same | — |
+| Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
+| Remove this (`agent::RemoveScope::This`) | Remove this | — |
+| Remove all (`agent::RemoveScope::All`) | Remove all | — |
+| Hint line | same | — |
 | Shelf | work items | — |
-| Scrim | Scrim | — |
-| Resize edge | Resize edge | — |
-| Inbox | Inbox | — |
-| Drawer | Drawer | — |
-| Switcher | Switcher | — |
-| Help | Help | — |
-| Todo | Todo | task, ticket |
-| Reopen (`todo.reopen`, `todo_reopen`) | Reopen | — |
-| Owner (`owner`) | Owner | assignee |
-| Estimate (`estimate_minutes`) | Estimate | — |
-| Delegate Board | Delegate Board | — |
-| Busy until | free now; busy until <HH:MM> | — |
-| Comment (`todo.comment`, `todo_comment`) | Comment | — |
-| Ref (`todo.addRef`, `todo.removeRef`, `todo.refs`, `refs`) | Ref | — |
-| Sketch | Sketch | — |
-| Drawing | Drawing | — |
-| Pad source (`PadSource`, `source`) | Pad source | — |
-| Pad incarnation (`incarnation`, `expectedIncarnation`, `expected_incarnation`) | Pad incarnation | — |
-| Pad source state (`PadSourceState`, `source_state`) | Pad source state | — |
-| Pad deletion (`PadDeletion`) | Pad deletion | — |
-| Pad | Pad | scratchpad |
-| Editor | Editor | — |
-| Attachment | Attachment | — |
-| Attachment file | Attachment file | upload, temp image |
-| Clipboard write (`writeClipboardText`) | Clipboard write | — |
-| Pasted image | Pasted image | — |
-| Paste placeholder | Paste placeholder | — |
-| Quote | Quote | — |
-| setWindowTitle | setWindowTitle | — |
-| dragWindow | dragWindow | — |
-| zoomWindow | zoomWindow | — |
-| windowOperations | windowOperations | — |
-| windowTitleHandler | windowTitleHandler | — |
-| window-bar | window-bar | — |
-| Status | Status | — |
-| Kind | Kind | — |
-| Glyph | Glyph | — |
-| Ink | Ink | — |
-| Chip | Chip | — |
-| Live line | Live line | — |
-| Adapter | Adapter | — |
-| Observation (Adapter) | Observation | — |
-| Signal | Signal | notification |
-| Steer (`PromptError`) | Steer | inject, nudge |
-| First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | First Steer completion | — |
-| Interrupt | Interrupt | cancel, abort |
-| Toast | Toast | — |
-| Work order | Work order | — |
-| Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | Instruction | — |
-| Instruction delivery (`InstructionDelivery`, `InstructionState`) | Instruction delivery | — |
-| Done condition | Done condition | — |
-| Captured Order (`CapturedOrder`, `SetOrderParams.captured`) | Captured Order | — |
-| Order title | Order title | — |
-| Spawn prompt | Spawn prompt | — |
-| Clarification order | Clarification order | — |
-| Skill | Skill | — |
-| Brief | Brief | — |
-| Context | Context | — |
-| Channel | Channel | — |
-| Claude inbox | Claude inbox | — |
-| Mcp | Mcp | — |
-| Tool call | Tool call | — |
-| Stray | Stray | — |
-| Shim | Shim | — |
-| Model | Model | — |
-| Effort | Effort | — |
-| Role | Role | — |
-| Usage | Usage | — |
-| Evaluator | Evaluator | — |
-| Thread | Thread | chat, main agent |
-| Message | Message | — |
-| In-flight record (`message_flight`) | In-flight record | — |
-| Restart reservation | Restart reservation | — |
-| Retirement reservation | Retirement reservation | — |
-| Route | Route | — |
-| Draft (`draftStorage`) | Draft | — |
-| Reason | Reason | — |
-| Card | Card | popup |
-| Markdown | Markdown | — |
-| Actor | Actor | — |
-| Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | Output stream | — |
-| Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | Terminal scheme | — |
-| RPC output intake (`Client::take_output`, `OutputFrame`) | RPC output intake | — |
-| Event log | Event log | — |
-| Rail rename (`rail.renamed`, `RailRenamed`) | Rail rename | — |
-| Event number (`seq`) | Event number | — |
-| Event head (`head`) | Event head | — |
-| Output log | Output log | — |
-| Read cursor (`reader`) | Read cursor | — |
-| Reach (`Agents::guard_reach`) | Reach | — |
-| project.requested | project.requested | — |
-| Touch | Touch | — |
-| Provenance | Provenance | — |
-| Daemon | Daemon | — |
-| Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | Idle evidence | — |
-| Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | Daemon recovery | — |
-| RPC error data (`RpcErrorData`) | none | — |
-| Link (`link.read`) | Link | — |
-| Context menu (`show_context_menu`) | Context menu | — |
-| openTarget | openTarget | — |
-| open_in_editor | open_in_editor | — |
-| Extension | Extension | — |
-| Hook | Hook | — |
-| Token | Token | — |
-| Text selection Token (`--text-selection`, `--text-selection-ink`) | Text selection Token | — |
-| Section head | Section head | — |
-| Signifier | Signifier | — |
-| Button kind | Button kind | — |
-| Check | Check | — |
-| Held-out screen | Held-out screen | — |
-| Work Issue | Work Issue | — |
-| Builder | Builder | — |
-| Design critic | Design critic | — |
-| Screen | Screen | — |
-| Code PR | Code PR | — |
-| Ready PR | Ready PR | — |
-| Build file | Build file | — |
-| Loop machinery | Loop machinery | — |
-| Capture | Capture | — |
-| History (`History`) | History | — |
-| Get History (`todo.getHistory`) | Get History | — |
-| Values (`Values`) | Values | — |
-| Captured Change (`expected_change`) | Captured Change | — |
-| Change (`Change`) | Change | — |
-| Handed (`Handed`, `todo.listHanded`, `TodosState.handed`) | Handed | — |
-| Hand-off (`todo.hand`, `HandParams`) | Hand-off | — |
-| Read History (`todo.readHistory`, `ReadHistoryParams`) | Read History | — |
-| Tick box (`TickBox`) | Tick box | — |
-| Dialog | Dialog | — |
-| AlertDialog | AlertDialog | — |
-| Menu | Menu | — |
-| Tooltip | Tooltip | — |
-| Tabs | Tabs | — |
-| IconButton | IconButton | — |
-| TreeView | TreeView | — |
-| Sortable | Sortable | — |
-| Sortable drop | Sortable drop | — |
-| KeyScope | KeyScope | — |
-| registerKeys | registerKeys | — |
-| chordsFor | chordsFor | — |
-| Leader | Leader | — |
-| Ask (`ask::Ask`, `Asks`, `SendParams`, `PickParams`) | Ask | — |
-| Ask submission (`AskSubmission`, `submission`) | Ask submission | — |
-| Ask outcome (`AskOutcome`) | Ask outcome | — |
-| Ask part (`AskPart`, `ask::State`) | Ask part | — |
-| Placement (`Placement`, `Destination`, `Target`) | Placement | — |
-| Placement request (`placement::Request`, `EarlierAsk`) | Placement request | — |
-| Placement call (`PlacementCall`, `Agents::placement_call`) | Placement call | — |
+| Scrim | same | — |
+| Resize edge | same | — |
+| Inbox | same | — |
+| Drawer | same | — |
+| Switcher | same | — |
+| Help | same | — |
+| Todo | same | task, ticket |
+| Reopen (`todo.reopen`, `todo_reopen`) | same | — |
+| Owner (`owner`) | same | assignee |
+| Estimate (`estimate_minutes`) | same | — |
+| Delegate Board | same | — |
+| Busy until | "free now", "busy until <HH:MM>" | — |
+| Comment (`todo.comment`, `todo_comment`) | same | — |
+| Ref (`todo.addRef`, `todo.removeRef`, `todo.refs`, `refs`) | same | — |
+| Sketch | same | — |
+| Drawing | same | — |
+| Pad source (`PadSource`, `source`) | same | — |
+| Pad incarnation (`incarnation`, `expectedIncarnation`, `expected_incarnation`) | same | — |
+| Pad rename (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`) | same | — |
+| Pad source state (`PadSourceState`, `source_state`) | same | — |
+| Pad deletion (`PadDeletion`) | same | — |
+| Pad | same | scratchpad |
+| Editor | same | — |
+| Attachment | same | — |
+| Attachment file | same | upload, temp image |
+| Clipboard write (`writeClipboardText`) | same | — |
+| Pasted image | same | — |
+| Paste placeholder | same | — |
+| Quote | same | — |
+| setWindowTitle | none | — |
+| dragWindow | none | — |
+| zoomWindow | none | — |
+| windowOperations | none | — |
+| windowTitleHandler | none | — |
+| window-bar | none | — |
+
+### Status
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Status | same | — |
+| Kind | same | — |
+| Glyph | same | — |
+| Ink | same | — |
+| Chip | same | — |
+| Live line | same | — |
+
+### Agents at work
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Adapter | same | — |
+| Signal | same | notification |
+| Steer (`PromptError`) | same | inject, nudge |
+| First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
+| Interrupt | same | cancel, abort |
+| Toast | same | — |
+| Work order | same | — |
+| Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
+| Instruction delivery (`InstructionDelivery`, `InstructionState`) | same | — |
+| Done condition | same | — |
+| Captured Order (`CapturedOrder`, `SetOrderParams.captured`) | same | — |
+| Order title | same | — |
+| Spawn prompt | same | — |
+| Clarification order | same | — |
+| Skill | same | — |
+| Brief | same | — |
+| Context | same | — |
+| Channel | same | — |
+| Opening prompt | same | — |
+| Claude inbox | same | — |
+| Mcp | same | — |
+| Tool call | same | — |
+| Stray | same | — |
+| Shim | same | — |
+| Model | same | — |
+| Effort | same | — |
+| Role | same | — |
+| Usage | same | — |
+| Evaluator | same | — |
+
+### Messages and Cards
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Thread | same | chat, main agent |
+| Message | same | — |
+| In-flight record (`message_flight`) | same | — |
+| Restart reservation | same | — |
+| Retirement reservation | same | — |
+| Route | same | — |
+| Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
+| Draft (`draftStorage`) | same | — |
+| Reason | same | — |
+| Card | same | popup |
+| Markdown | same | — |
+| Actor | same | — |
+| Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
+| Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
+| RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
+| Event log | same | — |
+| Rail rename (`rail.renamed`, `RailRenamed`) | same | — |
+| Event number (`seq`) | same | — |
+| Event head (`head`) | same | — |
+| Output log | same | — |
+| Read cursor (`reader`) | same | — |
+| Reach (`Agents::guard_reach`) | same | — |
+| project.requested | none | — |
+| Touch | same | — |
+| Provenance | same | — |
+
+### Daemon and Extensions
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Daemon | same | — |
+| Link (`link.read`) | same | — |
+| Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
+| openTarget | none | — |
+| open_in_editor | none | — |
+| Extension | same | — |
+| Hook | same | — |
+
+### Design system
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Token | same | — |
+| Text selection Token (`--text-selection`, `--text-selection-ink`) | same | — |
+| Section head | same | — |
+| Signifier | same | — |
+| Button kind | same | — |
+| Check | same | — |
+| Held-out screen | same | — |
+
+### The loop
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Work Issue | same | — |
+| Builder | same | — |
+| Design critic | same | — |
+| Screen | same | — |
+| Code PR | same | — |
+| Ready PR | same | — |
+| Build file | same | — |
+| Loop machinery | same | — |
+| Capture | same | — |
+
+### Todo history
+
+| Code term | User label | Avoid |
+|---|---|---|
+| History (`History`) | same | — |
+| Get History (`todo.getHistory`) | same | — |
+| Values (`Values`) | same | — |
+| Captured Change (`expected_change`) | same | — |
+| Change (`Change`) | same | — |
+| Handed (`Handed`, `todo.listHanded`, `TodosState.handed`) | same | — |
+| Hand-off (`todo.hand`, `HandParams`) | same | — |
+| Read History (`todo.readHistory`, `ReadHistoryParams`) | same | — |
+| Tick box (`TickBox`) | same | — |
+
+### App component layer
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Dialog | same | — |
+| AlertDialog | none | — |
+| Menu | same | — |
+| Tooltip | same | — |
+| Tabs | same | — |
+| IconButton | none | — |
+| TreeView | none | — |
+| Sortable | same | — |
+| Sortable drop | same | — |
+
+### Keyboard registration
+
+| Code term | User label | Avoid |
+|---|---|---|
+| KeyScope | none | — |
+| registerKeys | none | — |
+| chordsFor | none | — |
+| Leader | same | — |
+
+### Ask placement
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Ask (`ask::Ask`, `Asks`, `SendParams`, `PickParams`) | same | — |
+| Ask submission (`AskSubmission`, `submission`) | same | — |
+| Ask outcome (`AskOutcome`) | same | — |
+| Ask part (`AskPart`, `ask::State`) | same | — |
+| Placement (`Placement`, `Destination`, `Target`) | same | — |
+| Placement request (`placement::Request`, `EarlierAsk`) | same | — |
+| Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
-| Publication target (`PublicationTarget`) | Publication target | — |
-| Published target (`PublishedTarget`, `ExternalAvailability`) | Published target | — |
-| Resolution (`Resolution`, `UnavailableCause`) | Resolution | — |
-| Measurement (`project.measurements`) | Measurement | — |
-| Timed activity (`TimedActivity`) | Timed activity | — |
-| Startup (`TimedActivity::Startup`) | Startup | — |
-| Idle phase (`TimedActivity::Idle`) | Idle phase | — |
-| Clock point (`ClockPoint`) | Clock point | — |
-| Observed segment (`ObservedSegment`) | Observed segment | — |
-| Time state (`TimeState`) | Time state | — |
-| Measurement wait (`MeasurementWait`) | Measurement wait | — |
-| Result report (`ResultReport`, `ReportParams`, `message.report`) | Result report | — |
-| Result acceptance (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`) | Result acceptance | — |
-| Result check (`ResultCheck`, `ResultObservation`, `message.verifyResult`) | Result check | — |
-| Continuation (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`) | Continuation | — |
-| Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | Result resolution | — |
-| Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | Progress | — |
-| Measurement summary (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`) | Measurement summary | — |
-| Measurement contributor (`MeasurementContributor`) | Measurement contributor | — |
-| Measurement time (`MeasurementTime`) | Measurement time | — |
-| Collapsible | Collapsible | — |
-| Project menu (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`) | Project menu | — |
-| Agent time rule (`Kind::counts_time`, generated `countsTime`) | Agent time rule | — |
-| Exit button (`ExitButton`) | Exit button | — |
-| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`) | Native question | — |
-| Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | Shared floating surface | — |
-| Pad rename (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`) | Pad rename | — |
+| Publication target (`PublicationTarget`) | same | — |
+| Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
+| Resolution (`Resolution`, `UnavailableCause`) | same | — |
+| Result report (`ResultReport`, `ReportParams`, `message.report`) | same | — |
+| Result acceptance (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`) | same | — |
+| Result check (`ResultCheck`, `ResultObservation`, `message.verifyResult`) | same | — |
+| Continuation (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`) | same | — |
+| Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | same | — |
+| Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | same | — |
+| Collapsible | same | — |
+| Project menu (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
+| Exit button (`ExitButton`) | same | — |
+| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `App.askRemoval`, `ask_removal`, `removal_alert`) | same | — |
+| Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | same | — |
+| Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
+| Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
+| Import disposition (`ImportDisposition`, `outcome`) | same | — |
+| Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
+| Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
+| Native integration (`native`, `Preferences`, `Missing`) | same | — |
+| Todo deletion (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`) | same | — |
+| RPC error data (`RpcErrorData`) | same | — |
+| Thrown outcome (`outcomeOf`) | same | — |
+
+### Pad restoration
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Storage recovery (`StorageRecovery`, `storageRecovery`, `retainedStorage`) | same | — |
+| Capture panel (`CapturePanel`, `CapturePanelState`, `register_capture`) | same | — |
+| Capture presentation (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin) | same | — |
+| System accent (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`) | same | — |
+| Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
+| Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
+| Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
+| Pad order (`pad.reorder`, `pad::ReorderParams`) | same | — |
+
+### First-run facts
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
+| Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |

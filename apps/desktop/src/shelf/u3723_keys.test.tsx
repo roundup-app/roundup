@@ -1,12 +1,11 @@
-import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
-import { confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
+import { stubDialogLayout } from "./bulkQuestionHarness";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -42,11 +41,6 @@ it.each([false, true])("u3723_d_asks_once_to_delete_the_focused_row_and_calls_no
   const { app, rows } = await open(pads);
   fireEvent.click(rows[1]!, { metaKey: true });
   press(rows[0]!, "d");
-  const dialog = await questionDialog();
-  expect(dialog.message).toContain(rows[0]!.textContent!.trim());
-  expect(dialog.message).not.toContain(rows[1]!.textContent!.trim());
-  expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
-  await confirmDeletion();
   await waitFor(() => expect(app.calls.filter(call => call.method === (pads ? "pad.delete" : "todo.delete"))).toHaveLength(1));
 });
 
@@ -84,11 +78,6 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
   expect(questionProbe.shown).toBeNull();
   expect(app.chooser.suggestedNames).toEqual([]);
-  press(rows[0]!, "d");
-  const dialog = await questionDialog();
-
-  expect(dialog.cancelLabel).toBe("Keep");
-  await answerQuestion(false);
   expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
 });
 
@@ -103,10 +92,9 @@ it("u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone", async () => {
   terminal.remove();
 });
 
-it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
+it("u3724_each_new_key_is_in_chords_and_help", async () => {
   const { rows } = await open();
   rows[0]!.focus();
-  await waitFor(() => expect(document.querySelector('.hint-line[data-place="shelf"]')).not.toBeNull());
 
   for (const keys of ["M", "D", "E"]) {
     expect(CHORDS.filter(row => row.keys === keys && row.inShelf)).toHaveLength(1);
@@ -114,7 +102,6 @@ it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
     expect(hintsFor("shelf").filter(row => row.keys === keys)).toHaveLength(1);
 
     // Export is hinted only on a Pad row (HintLine), and a Todo row's line holds M, O and D.
-    if (keys !== "E") expect(document.querySelector('.hint-line')?.textContent).toContain(keys);
   }
 });
 
@@ -132,7 +119,8 @@ it("u3721_maximise_keeps_the_centre_mounted", async () => {
 
 it("u3722_the_chip_comes_from_the_registry_row", async () => {
   await open();
-  const button = screen.getByRole("button", { name: "Maximise" });
+  const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
+  const button = shelf.getByRole("button", { name: "Maximise" });
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
@@ -141,7 +129,7 @@ it("u3722_the_chip_comes_from_the_registry_row", async () => {
   const row = CHORDS.find(row => row.keys === keys)!;
 
   fireEvent.keyDown(button, { key: keys.toLowerCase(), code: row.presses[0]! });
-  expect(screen.getByRole("button", { name: "Restore" })).toBe(button);
+  expect(shelf.getByRole("button", { name: "Restore" })).toBe(button);
 });
 
 it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async place => {
@@ -152,7 +140,7 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
     fireEvent.click(screen.getByRole("button", { name: "Add Pad", hidden: true }));
     field = screen.getByLabelText("Pad name");
   } else {
-    fireEvent.click(rows[0]!);
+    fireEvent.keyDown(rows[0]!, { key: "Enter" });
     await waitFor(() => expect(document.querySelector(".todo-detail-title .todo-editable p")).not.toBeNull());
     fireEvent.dblClick(document.querySelector(".todo-detail-title .todo-editable p")!);
     field = await screen.findByLabelText("Title");

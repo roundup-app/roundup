@@ -1,19 +1,28 @@
-import "./Checkbox.css";
+import "./Field.css";
 import "./Switch.css";
+import { trackFocusVisible } from "@zag-js/focus-visible";
 import { Switch as ArkSwitch } from "@ark-ui/solid/switch";
-import type { JSX } from "solid-js";
+import { createSignal, createUniqueId, onCleanup, onMount, Show, type JSX } from "solid-js";
 
 /** A labelled switch over Ark; the caller supplies the acknowledged value. */
-export const Switch = (props: { class?: string; checked: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => (
-  <ArkSwitch.Root class={`app-checkbox app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled}
-    onCheckedChange={(details) => props.onCheckedChange(details.checked)}>
-    <ArkSwitch.Control class="app-checkbox-box" />
-    <ArkSwitch.Label class="app-checkbox-label">{props.children}</ArkSwitch.Label>
-    <ArkSwitch.HiddenInput onClick={(event) => {
-      const input = event.currentTarget;
+export const Switch = (props: { class?: string; checked: boolean; disabled?: boolean; invalid?: boolean; description?: string; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => {
+  const descriptionId = createUniqueId();
+  const [keyboardFocus, setKeyboardFocus] = createSignal(false);
 
-      // Native clicks toggle before Ark notifies the caller; keep the input on the acknowledged value too.
-      queueMicrotask(() => { input.checked = props.checked; });
-    }} asChild={(input) => <input {...input()} role="switch" aria-checked={props.checked} style="" />} />
-  </ArkSwitch.Root>
-);
+  onMount(() => onCleanup(trackFocusVisible({ onChange: details => setKeyboardFocus(details.isFocusVisible) })));
+
+  return (
+    <ArkSwitch.Root data-keyboard-focus={keyboardFocus() ? "" : undefined} class={`app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
+      onCheckedChange={(details) => props.onCheckedChange(details.checked)}>
+      <ArkSwitch.Control class="app-switch-track"><ArkSwitch.Thumb class="app-switch-thumb" /></ArkSwitch.Control>
+      <ArkSwitch.Label class="app-switch-label">{props.children}</ArkSwitch.Label>
+      <Show when={props.description}><span id={descriptionId} hidden>{props.description}</span></Show>
+      <ArkSwitch.HiddenInput onClick={(event) => {
+        const input = event.currentTarget;
+
+        // Native clicks toggle before Ark notifies the caller; keep the input on the acknowledged value too.
+        queueMicrotask(() => { input.checked = props.checked; });
+      }} asChild={(input) => <input {...input()} role="switch" aria-describedby={props.description ? descriptionId : undefined} aria-checked={props.checked} style="" />} />
+    </ArkSwitch.Root>
+  );
+};

@@ -1,6 +1,10 @@
 /* U3764: the settings view covers the centre only, on Tokens; the Rail and the Shelf stay beside it. */
-.settings-view {
+/* The scrollbar host is relative by default; Settings must still cover its centre. */
+.settings-center .settings-view {
   position: absolute;
+}
+
+.settings-view {
   inset: 0;
   z-index: 1;
   display: flex;
@@ -31,7 +35,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--hairline);
+  border-top: var(--hairline-width) solid var(--hairline);
 }
 
 .settings-group-name {
@@ -47,21 +51,9 @@
   min-width: 0;
 }
 
-.settings-field > span,
-.settings-field > label > span {
+.settings-field-caption {
   font-size: var(--text-caption);
   color: var(--grey);
-}
-
-.settings-field input {
-  min-width: 0;
-  width: 100%;
-  min-height: var(--space-5);
-  border: 0;
-  padding: var(--space-1) 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
 }
 
 .settings-shortcut {
@@ -77,28 +69,19 @@
 }
 
 /* Keep each value and its disclosure in one readable field column. */
-.settings-group > .app-select,
-.settings-group > .settings-field {
-  width: min(100%, var(--shelf-width));
+.settings-group .app-select,
+.settings-group .settings-field {
+  width: min(100%, var(--centre-min-width));
 }
 
-.settings-field > label {
+.settings-field label {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.settings-shortcut > button {
+.settings-shortcut button {
   color: var(--text);
-}
-
-.settings-field input::placeholder {
-  color: var(--grey);
-  opacity: 1;
-}
-
-.settings-group > .settings-font {
-  width: min(100%, var(--centre-min-width));
 }
 
 .project-center-content {
@@ -108,7 +91,7 @@
   min-height: 0;
 }
 
-.project-center-content > .pane {
+.project-center-content .pane {
   flex: 1;
   height: auto;
   min-height: 0;
@@ -120,4 +103,69 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+.centre-frame { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.centre-frame .settings-center { flex: 1; height: auto; min-height: 0; }
+.settings-sections {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.settings-sections .app-tabs-list {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.settings-sections .app-tabs-trigger {
+  text-align: start;
+  justify-content: start;
+  color: var(--grey);
+}
+
+.settings-sections .app-tabs-trigger[data-selected] {
+  --button-surface: var(--transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-content {
+  width: 100%;
+  max-width: var(--measure);
+  min-width: 0;
+}
+
+.settings-content .app-tabs-content {
+  padding: 0;
+}
+
+.settings-content .settings-group {
+  border: 0;
+  padding: var(--space-1) 0 0;
+  gap: var(--space-5);
+}
+
+.settings-field [data-part="label"] {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.settings-shortcut button[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.settings-shortcut button[aria-invalid="true"] {
+  color: var(--red);
+}
+
+.settings-shortcut span {
+  color: inherit;
+  font: inherit;
+}
+
+.settings-recording-mark {
+  color: var(--red);
 }

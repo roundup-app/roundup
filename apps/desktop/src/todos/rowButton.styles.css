@@ -12,7 +12,7 @@
   font-size: var(--text-body);
 }
 
-.shelf :is(.todo-row-button .shelf-title, .todo-inset .entry-field) {
+.todo-row-button .shelf-title, .todo-inset .entry-field {
   font-weight: 400;
 }
 
@@ -65,10 +65,10 @@
 .todo-tick:not(:checked)::after {
   content: "";
   position: absolute;
-  top: calc(var(--space-1) + 1px);
-  bottom: calc(var(--space-1) + 1px);
-  left: 1px;
-  right: calc(var(--space-2) + 1px);
+  top: calc(var(--space-1) + var(--hairline-width));
+  bottom: calc(var(--space-1) + var(--hairline-width));
+  left: var(--hairline-width);
+  right: calc(var(--space-2) + var(--hairline-width));
   border-radius: var(--space-1);
   background-color: var(--sunken);
 }
@@ -103,14 +103,14 @@
   stroke-dashoffset: 1;
 }
 
-.todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
+.todo-tick-mark[data-checked="true"] path { stroke-dashoffset: 0; }
 
 /* U3769: a separate decorative layer strikes each wrapped line without painting behind the readable title (D5). */
 .todo-row .shelf-title { position: relative; }
 .todo-row .todo-strike { position: absolute; inset: 0; pointer-events: none; }
 .todo-row .todo-strike::after {
   content: attr(data-title);
-  color: transparent;
+  color: var(--transparent);
   background-image: linear-gradient(var(--grey), var(--grey));
   background-repeat: no-repeat;
   background-position: left var(--strike-offset);
@@ -129,44 +129,50 @@
 @keyframes todo-strike-grow { from { background-size: 0 var(--strike-thickness); } to { background-size: 100% var(--strike-thickness); } }
 @keyframes todo-strike-clear { from { background-size: 100% var(--strike-thickness); } to { background-size: 0 var(--strike-thickness); } }
 
-.todo-row[data-motion="play"] .todo-tick::before {
-  animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-row[data-motion="play"] .todo-tick::before {
+    animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+  }
 }
 
-.todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
-  animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-tick-mark[data-motion="play"][data-checked="true"] path {
+    animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+  }
 }
 
-.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark {
+.todo-tick-mark[data-motion="play"][data-checked="false"] {
   stroke: var(--text);
 }
 
-.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
-  animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-tick-mark[data-motion="play"][data-checked="false"] path {
+    animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
+  }
 }
 
-.todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
-  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
+    animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+  }
 }
 
-.todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
-  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .todo-strike::after { animation-name: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+ .todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
+    animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+  }
 }
 
 .todo-tick:disabled { cursor: default; }
 /* Hover and press show through the ring's ink, never a fill. */
 .todo-tick:hover:not(:disabled) { color: var(--text); }
-.todo-tick:active:not(:disabled) {
+.todo-tick[data-pressed="true"]:not(:disabled) {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 .todo-tick:hover:not(:disabled)::before { background-color: currentColor; }
 
-.shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
+.shelf-row.todo-inset:has( .shelf-head) .shelf-glyph {
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: start;
@@ -175,19 +181,19 @@
   height: var(--space-5);
 }
 
-.shelf-row.todo-inset > .shelf-text {
+.shelf-row.todo-inset .shelf-text {
   grid-column: 2;
   grid-row: 1;
 }
 
 /* DOM order is row, tick box, blockers; drawing order keeps the Glyph first. */
-.shelf-row.todo-inset > .shelf-head {
+.shelf-row.todo-inset .shelf-head {
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
 }
 
-.shelf-row.todo-inset:has(> .shelf-head) > .shelf-text {
+.shelf-row.todo-inset:has( .shelf-head) .shelf-text {
   grid-row: 2;
 }
 
@@ -198,7 +204,7 @@
   align-items: center;
 }
 
-.todo-inset :is([data-todo-waits], [data-todo-also-waits]) > span:first-child {
+:is([data-todo-waits], [data-todo-also-waits]) span:first-child {
   flex: none;
   white-space: pre;
 }
@@ -212,7 +218,7 @@
   white-space: nowrap;
 }
 
-.todo-inset .todo-blockers > span { flex: none; white-space: pre; }
+.todo-blockers span { flex: none; white-space: pre; }
 .todo-inset .todo-blocker:last-child:not(:first-child) { flex-shrink: 0; max-width: 50%; }
 
 .todo-inset .todo-blocker {
@@ -224,34 +230,8 @@
   white-space: nowrap;
 }
 
-/* Keep the selection wash uniform under a line that clips across inline controls. */
-.shelf-row.todo-inset[data-selected="true"] {
-  background-image: linear-gradient(var(--selected), var(--selected));
-  background-size: auto;
-}
-
-.shelf-row.todo-inset[data-selected="true"]::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: calc(var(--space-1) / 2);
-  background-color: var(--accent);
-  pointer-events: none;
-}
-
 .todo-row .row-head { min-width: 0; display: flex; align-items: start; }
-.todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
-
-/* Keep the Menu trigger connected while Ark returns focus from its portal. */
-.todo-row .row-head > [data-button="row-action"] {
-  position: relative;
-  z-index: 1;
-  display: none;
-}
-.todo-row[data-actions-open="true"] .row-head > [data-button="row-action"] {
-  display: inline-flex;
-}
+.todo-row .todo-row-button { flex: 1; min-width: 0; }
 
 .todo-tooltip {
   box-sizing: border-box;
@@ -259,11 +239,6 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
-
-.todo-row [data-dnd-dragging] .todo-row-actions, .todo-row[data-dnd-dragging] .todo-row-actions { display: none !important; }
-.todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
-.todo-row:hover .todo-row-actions,
-.todo-row:focus-within .todo-row-actions { display: flex; }
 
 /* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
 .owner-picker {
@@ -274,9 +249,20 @@
   z-index: var(--layer-menu);
 }
 
-/* Glyph-only Todo rows share the external-blocker title column (D12). */
-.shelf-row.todo-inset {
-  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+/* U131: reserve tick and blocker slots even when absent; the row's padding
+   and column gap are included in the shared title inset. */
+.shelf-row:is(.todo-inset, .pad-inset) {
+  grid-template-columns: calc(var(--row-text-inset) - 2 * var(--space-2)) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+
+.todo-inset .shelf-glyph {
+  margin-inline-start: var(--space-2);
+  justify-content: flex-end;
+}
+
+.pad-inset .shelf-glyph {
+  justify-content: flex-end;
 }
 
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
@@ -287,9 +273,9 @@
 .todo-row[role="treeitem"]:hover {
   color: var(--text);
 }
-.todo-row[role="treeitem"]:active {
+.todo-row[role="treeitem"][data-pressed="true"]:not([data-dnd-dragging]) {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 /* U53: retain the done rows through a reversible 150 ms fold. The existing
@@ -312,26 +298,26 @@
 }
 
 @starting-style {
-  .todo-done-fold[data-open="true"] {
+ .todo-done-fold[data-open="true"] {
     grid-template-rows: 0fr;
   }
 }
 
 .todo-done-fold[data-reduced-motion="true"] {
   transition-property: grid-template-rows;
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
   transition-timing-function: var(--easing-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-done-fold { transition: none; }
+ .todo-done-fold { transition: none; }
 }
 
 .todo-row-notice {
   position: relative;
 }
 
-/* U3768: the bar and `<done>/<total>` sit above the first group in the quiet secondary type, taking no focus. */
+/* U3768/U4463: scope progress keeps its quiet count when composed into the head. */
 .todo-progress {
   padding-inline: var(--space-2);
   padding-block: var(--space-1);
@@ -349,51 +335,159 @@
 /* U3770: the count rolls in when a finish replaces it; a mounted count carries no animation. */
 @keyframes todo-count-roll { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: none; } }
 
-.app-progress[data-motion="play"] .todo-progress-count {
-  animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .todo-progress-count { animation-name: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+ .app-progress[data-motion="play"] .todo-progress-count {
+    animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
+  }
 }
 
 /* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
 .todo-list .todo-dependency { cursor: auto; margin-block: 0; }
-.todo-list .todo-dependency > [data-part="branch-content"] { padding-inline-start: 0; }
-.todo-list .todo-dependency > [data-part="branch-content"] {
+.todo-dependency [data-part="branch-content"] { padding-inline-start: 0; }
+.todo-dependency [data-part="branch-content"] {
   display: grid;
   grid-template-rows: 1fr;
   transition-property: grid-template-rows;
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
   transition-timing-function: var(--easing-out);
 }
-.todo-list .todo-dependency[data-structural-motion="true"] > [data-part="branch-content"] {
+.todo-dependency[data-structural-motion="true"] [data-part="branch-content"] {
   transition: grid-template-rows var(--duration-todo) var(--easing-out);
 }
-.todo-list .todo-dependency > [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
+.todo-dependency [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
 .todo-group-content { min-height: 0; overflow: hidden; }
-@media (prefers-reduced-motion: reduce) {
-  .todo-list .todo-dependency > [data-part="branch-content"] { transition-duration: 0s !important; }
-}
-.todo-row .row-head > [data-group-toggle] {
+
+.todo-row [data-group-toggle] {
   position: absolute;
+  z-index: 1;
   width: var(--space-4);
   min-width: var(--space-4);
-  transform: translateX(calc(-1 * (var(--space-5) + var(--space-4))));
+  transform: translateX(calc(-1 * var(--row-text-inset)));
 }
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
 .todo-now { color: var(--accent); font-size: var(--text-small); }
 
-.todo-list [role="tree"] > .todo-dependency:not(:first-child) { margin-top: 0; }
+.todo-list .todo-dependency[data-depth="1"]:not(:first-child) { margin-top: 0; }
 
-.shelf .todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
+.todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
 .todo-row-button .todo-now { flex: none; }
 .todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
 
-.todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
-  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
+    animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+  }
 }
-.todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
-  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+@media (prefers-reduced-motion: no-preference) {
+ .todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
+    animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+  }
+}
+
+.row-controls {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  opacity: 0;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+:is(.shelf-row, .rail-row, .rail-leaf):focus-within .row-controls,
+:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head)[data-selected="true"] .row-controls { opacity: 1; pointer-events: auto; }
+.todo-row [data-group-toggle] { opacity: 0; pointer-events: none; }
+.todo-row:focus-within [data-group-toggle],
+.todo-row[data-selected="true"] [data-group-toggle] { opacity: 1; pointer-events: auto; }
+.row-name-editor { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.row-name-editor input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--transparent);
+}
+
+.row-secondary { opacity: 0; pointer-events: none; }
+:is(.shelf-row, .rail-row):focus-within .row-secondary,
+:is(.shelf-row, .rail-row)[data-selected="true"] .row-secondary { opacity: 1; }
+
+/* Parent-row failures reserve their owned-items control while exposing recovery. */
+.row-control-slot { display: inline-flex; }
+.row-control-slot[inert] { opacity: 0; pointer-events: none; }
+
+/* Creation feedback stays beside its field; retained revisions wrap below it. */
+.todo-draft-recovery .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+.todo-draft-recovery .reserved-content { flex-wrap: wrap; }
+.todo-draft-recovery .reserved-status { flex-basis: 100%; }
+.todo-draft-recovery .reserved-actions {
+  flex-wrap: wrap;
+  max-inline-size: 100%;
+}
+.todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }
+
+/* U4335a: glyph and name share the tree depth; notices keep their row target. */
+.shelf-row.todo-row {
+  --todo-depth: 0;
+  grid-template-rows: var(--space-5);
+  min-height: var(--space-6);
+  box-sizing: border-box;
+}
+.todo-row .row-head {
+  grid-column: 2;
+  height: var(--space-5);
+  align-items: center;
+  position: relative;
+}
+.todo-row .shelf-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-row .todo-row-button {
+  height: var(--space-5);
+  overflow: hidden;
+}
+.todo-row .shelf-text:empty { display: none; }
+.todo-row-notice { grid-column: 1 / -1; }
+.todo-row .todo-row-notice:has([role="alert"]) { padding-block-start: var(--space-1); }
+.todo-row [data-group-toggle] { position: absolute; right: 100%; }
+.todo-group-content { position: relative; }
+.todo-row-notice .reserved-line[data-overlay="true"] {
+  position: relative;
+  block-size: auto;
+  max-block-size: none;
+}
+.todo-row-notice .reserved-line[data-empty="true"] { display: none; }
+.todo-row-notice :is(.ink, .reserved-status) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Keep aggregate progress available to assistive technology without a detail row. */
+.todo-row .todo-group-status {
+  position: absolute;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.shelf-row.todo-row .shelf-text { min-block-size: 0; }
+.shelf-row.todo-row .todo-row-notice { block-size: auto; }
+.shelf-row.todo-row .shelf-text {
+  column-gap: 0;
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.shelf-row.todo-row {
+  padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
 }

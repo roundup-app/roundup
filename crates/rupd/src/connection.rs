@@ -38,7 +38,6 @@ impl Frame {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
-    daemon.agents.observe_measurements();
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -123,7 +122,13 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                 || m.starts_with("reaction.")
                 || matches!(
                     m,
-                    "message.progress"
+                    "todo.delete"
+                        | "todo.deletion"
+                        | "todo.restore"
+                        | "rail.remove"
+                        | "rail.deletion"
+                        | "rail.restore"
+                        | "message.progress"
                         | "message.report"
                         | "message.acceptResult"
                         | "message.verifyResult"

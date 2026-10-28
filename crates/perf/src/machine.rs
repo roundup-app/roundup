@@ -195,3 +195,32 @@ pub fn select(
         machine: machine.clone(),
     })
 }
+
+/// Stored calibration takes precedence; supported Builders without it compare a same-job pair.
+#[derive(Debug)]
+pub enum Comparison {
+    Stored(Class),
+    Paired(Class),
+}
+
+pub fn comparison(
+    machine: &Machine,
+    provenance: &Provenance,
+    budgets: &crate::budget::Budgets,
+) -> Result<Comparison, String> {
+    let key = classify(machine)?;
+    let selected = select(machine, provenance, |metric, key| {
+        budgets
+            .get(metric)
+            .is_some_and(|b| b.baseline.contains_key(key))
+    });
+    match selected {
+        Ok(class) => Ok(Comparison::Stored(class)),
+        Err(error) if key == BOXD => Err(error),
+        Err(_) => Ok(Comparison::Paired(Class {
+            key: key.into(),
+            provenance: provenance.get(key).cloned().unwrap_or_default(),
+            machine: machine.clone(),
+        })),
+    }
+}

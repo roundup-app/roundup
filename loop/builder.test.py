@@ -111,7 +111,7 @@ class GitHub:
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
                         patch.object(builder.orders, 'queued', return_value=self.queued),
-                        patch.object(builder.orders, 'read_orders', return_value=[dict(issue=1, slug='U1')])]
+                        patch.object(builder.orders, 'list_issues', return_value=[dict(number=1, title='t', html_url='', state='open', labels=[], user=dict(login='saadshahd'), body='Key: U1\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nScenarios: U83\nPriority: 2\n')])]
         for p in self.patches:
             p.start()
         return self
@@ -494,6 +494,14 @@ class Pick(unittest.TestCase):
             builder.pick(5)
         self.assertEqual(sent, [3])
         self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
+
+    def test_l23_a_pick_that_hits_the_rate_limit_waits_for_the_reset_and_runs_once_more(self):
+        limited = subprocess.CalledProcessError(1, ['gh'], stderr='gh: API rate limit exceeded for installation ID 1. (HTTP 403)')
+        with patch.object(builder, 'pick', side_effect=[limited, None]) as pick, patch.object(builder, 'slot_count', return_value=5), \
+                patch.object(builder.orders, 'rate_wait', return_value=1) as wait, patch.object(builder.orders.time, 'sleep'):
+            builder.main(['pick'])
+        self.assertEqual(pick.call_count, 2)
+        self.assertEqual(wait.call_args.args[1], builder.orders.RESET_WAIT_CAP)
 
     def test_l23_a_failed_review_rerun_still_prints_the_build_matrix(self):
         rows = [dict(issue=31, slug='U31', state='ready')]
@@ -890,20 +898,20 @@ class Keep(unittest.TestCase):
         draft = ('pr', 'create', '--draft', '--base', 'main', '--head', 'build/U1', '--title', 'U1: Hide archived Agents',
                  '--body', body)
         revoke = ('api', '-X', 'DELETE', '/installation/token')
-        # (commits beyond main, whether the run pushed them, Issue, open PRs from the branch, whether the Issue is
-        # still ready): whether `keep` takes a fresh token, its writes.
+        # (commits, pushed, Issue, open PRs, still ready, an uncommitted file): whether `keep` takes a token, its writes.
         cases = (((1, False, 1, [], True), True, [draft, revoke]),
                  ((2, False, 1, [dict(number=9)], True), True, [revoke]),
                  ((1, False, 1, [], False), True, [revoke]),
                  ((1, False, None, [], True), True, [revoke]),
                  ((1, True, 1, [], True), True, [draft, revoke]),
                  ((1, True, 1, [dict(number=9)], True), False, []),
-                 ((1, True, None, [], True), False, []),
-                 ((0, False, 1, [], True), False, []))
-        for (commits, pushed, issue, prs, queued), minted, writes in cases:
+                 ((0, False, 1, [], True), False, []),
+                 ((0, False, 1, [], True, 'edit'), True, [draft, revoke]))
+        for (commits, pushed, issue, prs, queued, *dirty), minted, writes in cases:
             with self.subTest(commits=commits, pushed=pushed, issue=issue, prs=prs, queued=queued), \
                     tempfile.TemporaryDirectory() as path:
                 git = branch(path, commits, pushed)
+                [Path(f'{path}/work/{name}').write_text('x') for name in dirty]
                 with GitHub(prs=prs, queued=queued) as github, chdir(f'{path}/work'), \
                         patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                         patch.object(builder, 'app_token', return_value='fresh') as token, \
@@ -911,7 +919,7 @@ class Keep(unittest.TestCase):
                     builder.keep('build/U1', issue, 'https://run/1')
                 kept = subprocess.run(['git', '--git-dir', f'{path}/github.git', 'rev-parse', '--verify', '--quiet',
                                        'refs/heads/build/U1'], capture_output=True, text=True).stdout.strip()
-                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0)
+                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0 or bool(dirty))
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
 
@@ -1403,17 +1411,6 @@ class Critic(unittest.TestCase):
             self.assertTrue(any('state=error' in w and 'context=critic' in w for w in github.writes))
             self.assertTrue(github.flagged())
             self.assertEqual(github.fixes(), [])
-
-    def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
-        text = (ROOT / 'loop/fixtures/a461af1f-reject.md').read_text()
-        self.assertIn('\nCRITIC: reject\n', text)
-        findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
-        self.assertTrue(findings)
-
-    def test_l103_replay_of_an_accepted_pr_approves(self):
-        text = (ROOT / 'loop/fixtures/ac17033a-approve.md').read_text()
-        self.assertIn('\nCRITIC: approve\n', text)
-        self.assertNotIn('CRITIC: reject', text)
 
     def test_l103_critic_failure_sets_the_status_failure(self):
         answer = json.dumps(dict(verdict='reject', findings=f'{FINDING}\nCRITIC: approve'))

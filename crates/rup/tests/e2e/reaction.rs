@@ -6,6 +6,7 @@ use contracts::reaction::Reaction;
 use rpc::code;
 use serde_json::{Value, json};
 
+use super::daemon::storage::{PROJECT_V36, legacy_reaction};
 use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
 
@@ -921,25 +922,9 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         drop(s.user);
         s.project.crash();
         {
-            let db = project_db(&s.project);
-            // Recreate the pre-upgrade database with the accepted row's original bytes and ids.
-            db.execute_batch("ALTER TABLE reaction_firings RENAME TO accepted_firings;")
-                .unwrap();
-            db.execute_batch(super::REACTION_FIRINGS_V1).unwrap();
-            db.execute_batch(
-                "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
-                DROP TABLE accepted_firings;
-                DROP TABLE continuation_actions; DROP TABLE continuation_decisions;
-                DROP TABLE message_result_facts; DROP TABLE message_results;
-                ALTER TABLE changes DROP COLUMN changed_at;
-                ALTER TABLE changes DROP COLUMN actor;
-                ALTER TABLE changes DROP COLUMN handed; ALTER TABLE todos DROP COLUMN estimate_minutes;
-                DROP TABLE workstream_queue;
-                ALTER TABLE settings DROP COLUMN workstream_cap; ALTER TABLE nodes DROP COLUMN auto; ALTER TABLE nodes DROP COLUMN finished;
-                PRAGMA user_version = 23;",
-            )
-            .unwrap();
+            legacy_reaction(&s.project.data_dir().join("project.db"), PROJECT_V36[18]);
             if !manual_first {
+                let db = project_db(&s.project);
                 // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
                 db.execute(
                     "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",

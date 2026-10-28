@@ -24,9 +24,11 @@ impl Daemon {
         dir: &Path,
         configure: impl FnOnce(agents::Agents) -> agents::Agents,
     ) -> Result<Self, OpenError> {
+        let begun = std::time::Instant::now();
         std::fs::create_dir_all(dir)?;
-        storage::open(dir)?;
-        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::open(dir)?));
+        let db = storage::open(dir)?;
+        let storage_at = begun.elapsed();
+        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer())
@@ -38,6 +40,7 @@ impl Daemon {
         let context_todos = Arc::clone(&todos);
         let context_bus = bus.clone();
         let context_touches = Arc::clone(&touches);
+        let base_at = begun.elapsed();
         let agents = Arc::new(
             configure(agents::Agents::open(
                 project,
@@ -63,6 +66,7 @@ impl Daemon {
             .with_steer_effect(steer_effect_observer())
             .with_resume_effect(resume_effect_observer()),
         );
+        let agents_at = begun.elapsed();
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
         let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
@@ -107,6 +111,7 @@ impl Daemon {
                 Arc::clone(&todos),
             ))),
         };
+        let services_at = begun.elapsed();
         daemon.register(todos);
         daemon.register(pads);
         daemon.register(checkpoints);
@@ -136,6 +141,19 @@ impl Daemon {
         daemon.register(agents);
         daemon.register(terminals);
         daemon.start_pushes();
+        let messages_at = begun.elapsed();
+        // R3696c: the retained open total cannot distinguish image IO from store initialization.
+        // Emit once, after the measured work, into perf's existing startup log.
+        eprintln!(
+            "startup: stores {}",
+            serde_json::json!({
+                "storage_ms": storage_at.as_secs_f64() * 1e3,
+                "base_ms": (base_at - storage_at).as_secs_f64() * 1e3,
+                "agents_ms": (agents_at - base_at).as_secs_f64() * 1e3,
+                "services_ms": (services_at - agents_at).as_secs_f64() * 1e3,
+                "messages_ms": (messages_at - services_at).as_secs_f64() * 1e3,
+            })
+        );
         Ok(daemon)
     }
 

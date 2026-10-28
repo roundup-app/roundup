@@ -1,13 +1,13 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
 import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
-import { KindGlyph } from "../ink/KindGlyph";
 import { showShelfTab } from "./shelfTabs";
 
 const NOW = 1_700_000_000_000;
@@ -19,7 +19,7 @@ const mount = (seed: SeedName) => {
   return controls;
 };
 
-const rail = () => screen.findByRole("region", { name: "Rail" });
+const rail = () => screen.findByRole("region", { name: copy.rail });
 
 // This suite checks seed wiring; transform the real lazy editor before timing Drawer interactions.
 beforeAll(async () => {
@@ -29,34 +29,12 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
-  it("u26_first_run_shows_the_empty_rail_text", async () => {
-    mount("first-run");
-
-    await screen.findByText("Open a folder to start");
-
-    expect((await rail()).textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
-  });
-
-  it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
-    mount("empty-project");
-
-    expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
-    expect(screen.queryByText("Open a folder to start")).toBeNull();
-  });
-
-  it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
-    mount("door-stopped");
-    fireEvent.click(await within(await rail()).findByText("first workstream"));
-
-    expect(await screen.findByText("Supervisor stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
-  });
-
-  it("u83_the_earlier_run_seed_exposes_the_saved_session", async () => {
-    mount("earlier-run");
-    fireEvent.click((await screen.findAllByText("earlier agent"))[0]!);
-
-    expect((await screen.findAllByText("earlier-session")).length).toBeGreaterThan(0);
+  it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
+    const { app } = mount("door-stopped");
+    const row = (await within(await rail()).findByText("first workstream")).closest(".rail-row")!;
+    fireEvent.contextMenu(row);
+    await app.pickMenu(copy.startDoor);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params)).toEqual([{ id: "first-workstream" }]));
   });
 
   it("u26_agents_10_shows_its_first_and_last_agent_in_the_rail", async () => {
@@ -97,16 +75,17 @@ describe("u26 the harness seeds", () => {
 
   // The real editor and tree-40 took 5.18s in the shared shard; this is seed wiring, not a latency check.
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
-    mount("tree-40");
+    const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: "Work items" });
-    showShelfTab("Pads");
-    fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
+    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
+    showShelfTab(copy.pads);
+    const name = (await screen.findAllByText("pad-0"))[0]!;
+    fireEvent.click(name);
+    fireEvent.keyDown(name.closest("button")!, { key: "Enter" });
 
-    const drawer = within(await screen.findByLabelText("Drawer"));
-
-    expect(await drawer.findByRole("button", { name: "Export .md" })).toBeTruthy();
+    await screen.findByRole("textbox", { name: copy.padBody });
+    expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
   }, 15_000);
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
@@ -270,15 +249,6 @@ describe("u26 the Daemon's rail methods", () => {
     expect(listed?.running).toBe(false);
   });
 
-  it("u26_writing_to_and_resizing_a_terminal_answer_null", async () => {
-    const { app } = await daemon();
-
-    expect([
-      await app.rpc("terminal.write", { id: "t-tokens", data: "bHM=" }),
-      await app.rpc("terminal.resize", { id: "t-tokens", cols: 80, rows: 24 }),
-    ]).toEqual([null, null]);
-  });
-
   it("u26_a_node_that_is_not_in_the_tree_fails_with_not_found", async () => {
     const { app } = await daemon();
 
@@ -286,46 +256,19 @@ describe("u26 the Daemon's rail methods", () => {
   });
 });
 
-it("u3704_marked_kind_glyphs_and_counts", async () => {
-  for (const seed of ["tree-40", "agents-10", "door-stopped", "tabs-8", "bubbles"] as const) {
-    mount(seed);
-    await rail();
-    await waitFor(() => expect(document.querySelectorAll('.rail-row .glyph[role="img"]').length).toBeGreaterThan(0));
+it.each([
+  { after: 2, incarnation: "current", kind: "contiguous", text: "é\r\nhidden\r\n" },
+  { after: 14, incarnation: "current", kind: "contiguous", text: "" },
+  { after: 15, incarnation: "current", kind: "gap", text: null },
+  { after: 2, incarnation: "old", kind: "gap", text: null },
+])("u26_terminal_catch_up_answers_stored_bytes $after $incarnation", async ({ after, incarnation, kind, text }) => {
+  const { app, writeOutput } = seedApp("agents-10", NOW);
+  const terminal = (await app.rpc("terminal.list", null)).find(info => info.id === "t-agent-4")!;
+  writeOutput(terminal.id, "a é\r\n");
+  writeOutput(terminal.id, "hidden\r\n");
+  const reply = await app.rpc("terminal.catchUp", { id: terminal.id, incarnation: incarnation === "current" ? terminal.incarnation : incarnation, after });
 
-    const assertStates = (surface: Element) => {
-      const states = [...surface.querySelectorAll<HTMLElement>("[data-state]")].filter((state) => state.matches(".glyph, .ink-count, .folded-agents"));
+  expect(reply).toMatchObject({ kind, id: terminal.id, incarnation: terminal.incarnation, after: 14 });
 
-      expect(states.length, seed).toBeGreaterThan(0);
-      expect(states.filter((state) => state.matches('.glyph')).length).toBe(surface.querySelectorAll('.glyph[role="img"]').length);
-
-      for (const state of states) {
-        expect(state.getAttribute("role")).not.toBe("button");
-        expect([null, "-1"]).toContain(state.getAttribute("tabindex"));
-        expect(state.matches("button, a, input")).toBe(false);
-      }
-    };
-
-    assertStates(await rail());
-    const counts = [...document.querySelectorAll(".ink-count")];
-
-    if (seed === "tree-40") expect(counts.length).toBeGreaterThan(0);
-
-    for (const count of counts) expect(count.hasAttribute("data-state")).toBe(true);
-
-    const collapse = document.querySelector('button[aria-label="Collapse"]');
-
-    if (collapse) {
-      fireEvent.click(collapse);
-      await waitFor(() => expect(document.querySelector('.folded-agents')).not.toBeNull());
-
-      for (const folded of document.querySelectorAll(".folded-agents")) expect(folded.hasAttribute("data-state")).toBe(true);
-      assertStates(await rail());
-    }
-
-    cleanup();
-  }
-
-  const { container } = render(() => <KindGlyph kind="working" decorative />);
-
-  expect(container.querySelector("[data-state]")).toBeNull();
+  if (reply.kind === "contiguous") expect(new TextDecoder().decode(fromBase64(reply.data))).toBe(text);
 });

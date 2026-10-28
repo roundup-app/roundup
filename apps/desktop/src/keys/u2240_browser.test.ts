@@ -33,7 +33,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
 }, 90_000);
 
 afterAll(async () => {
@@ -45,8 +45,8 @@ const wait = async (expression: string) => browser("wait", "--fn", expression);
 const FAILURE = "Leader observer rejected send: complete failure remains visible";
 
 it("u2240_the_panel_keeps_focus_and_the_failure", async () => {
-  await browser("set", "viewport", "1280", "800");
-  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("set", "viewport", "1512", "950");
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("click", ".rail-row");
   await wait(`!!document.querySelector('.pane-screen')`);
@@ -57,9 +57,9 @@ it("u2240_the_panel_keeps_focus_and_the_failure", async () => {
   await wait(`document.querySelector('p.ink[role=alert]')?.textContent.includes(${JSON.stringify(FAILURE)})`);
   await read(`window.__focus = document.activeElement`);
   await browser("press", "Meta+k");
-  await wait(`!!document.querySelector('.leader')`);
+  await wait(`!!document.querySelector('.hint-line.leader')`);
   expect(await read(`document.activeElement === window.__focus`)).toBe(true);
   await browser("press", "Escape");
-  await wait(`!document.querySelector('.leader')`);
+  await wait(`!document.querySelector('.hint-line.leader')`);
   expect(await read(`document.querySelector('p.ink[role=alert]').textContent.includes(${JSON.stringify(FAILURE)})`)).toBe(true);
 }, 60_000);

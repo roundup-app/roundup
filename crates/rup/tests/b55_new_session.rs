@@ -208,10 +208,28 @@ async fn b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it() 
 }
 
 #[tokio::test]
-async fn b55_a_restart_and_start_door_still_holds_no_word() {
+async fn b55_thirty_idle_edges_and_a_restart_of_the_new_session_type_none_of_it() {
     let mut w = Fresh::start().await;
     w.ask(true).await;
     w.clear("Build the login page.").await;
+    w.assert_fresh_launch();
+    for _ in 0..30 {
+        let attempt = rail_tree(&w.client)
+            .await
+            .into_iter()
+            .find(|n| n.id == w.door)
+            .unwrap()
+            .attempt;
+        w.client
+            .request(
+                "agent.signal",
+                json!({"id": w.door, "attempt": attempt, "payload": {"hook_event_name": "Stop"}}),
+            )
+            .await
+            .unwrap();
+    }
+    w.settled().await;
+    w.word_free();
     let claude = w.gate.wrapper();
     let home = w.project.dir.path().join("home");
     w.project.restart(&[
@@ -238,32 +256,6 @@ async fn b55_pending_messages_of_the_old_iteration_are_not_replayed() {
     let mut w = Fresh::start().await;
     w.ask(false).await;
     w.clear("Build the login page.").await;
-    w.word_free();
-    w.model().assert_matched();
-}
-
-#[tokio::test]
-async fn b55_thirty_idle_edges_of_the_new_session_type_none_of_it() {
-    let mut w = Fresh::start().await;
-    w.ask(true).await;
-    w.clear("Build the login page.").await;
-    w.assert_fresh_launch();
-    for _ in 0..30 {
-        let attempt = rail_tree(&w.client)
-            .await
-            .into_iter()
-            .find(|n| n.id == w.door)
-            .unwrap()
-            .attempt;
-        w.client
-            .request(
-                "agent.signal",
-                json!({"id": w.door, "attempt": attempt, "payload": {"hook_event_name": "Stop"}}),
-            )
-            .await
-            .unwrap();
-    }
-    w.settled().await;
     w.word_free();
     w.model().assert_matched();
 }

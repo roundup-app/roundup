@@ -23,12 +23,20 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
         .collect();
 
     let expected = [
+        // U3787f allows only opening, reading, writing and explicitly saving the native store.
+        "store:allow-load",
+        "store:allow-entries",
+        "store:allow-set",
+        "store:allow-save",
+        "core:resources:allow-close",
         // U3560a grants native writes only.
         "clipboard-manager:allow-write-text",
         "dialog:allow-open",
         "dialog:allow-save",
         "dialog:allow-message",
         "core:window:allow-set-badge-count",
+        "capture-panel:allow-control",
+        "window-bar:allow-native-material",
         "window-bar:allow-set-window-title",
         "window-bar:allow-drag-window",
         "window-bar:allow-zoom-window",

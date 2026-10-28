@@ -1,3 +1,4 @@
+import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
 import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
@@ -179,6 +180,8 @@ const dispatch = (event: KeyboardEvent): void => {
       return;
     }
   }
+
+  if (modal && layer?.scope.kind === "layer" && event.target instanceof Node && layer.scope.element()?.contains(event.target) && rowKey(event)) return;
 
   if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible)) event.stopImmediatePropagation();
 };

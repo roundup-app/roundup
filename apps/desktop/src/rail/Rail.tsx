@@ -1,35 +1,39 @@
-import { writeText } from "../app/clipboard";
+import { EmptyRail } from "../app/FirstRun";
+import { createRowCollection } from "../ui/RowCollection";
+import { outcomeOf } from "../app/seam";
+import { captureFocus } from "../keys/focus";
+import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { createItemFailure } from "./itemFailure";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
+import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
+import { CHORDS, LEADER } from "../keys/chords";
+import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
+import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
+import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
-import { Trunks } from "./Trunks";
+import { Trunks } from "../ui/TreeView";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
-import type { RowActions } from "./RowIcons";
+import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
@@ -48,14 +52,30 @@ export const Rail = () => {
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
-  const failure = createItemFailure((id) => rail.nodes.some((node) => node.id === id));
+  const failure = rail.commandFailure;
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
+  const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
+
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
-    rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  }, connected.queue);
+    setEditingName(id);
+  }, connected.queue, node => {
+    const actions = actionsOf(node);
+
+    return [
+      { id: "folder", label: copy.openFolder, run: actions.folder },
+      { id: "editor", label: copy.openInEditor, run: actions.editor },
+      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
+        { id: "add-agent", label: copy.addAgentMenu, enabled: !actions.add.disabled, run: actions.add.run },
+        { id: "add-todo", label: copy.todo, enabled: daemonExit() === null, run: () => connected.createIn("todo", node.id) },
+        { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
+        { id: "add-terminal", label: copy.addTerminalMenu, enabled: daemonExit() === null, run: () => connected.createIn("terminal", node.id) },
+      ] },
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
+    ];
+  }, id => copied.get(id));
 
 
   const clearPrompt = createMemo(() => {
@@ -64,7 +84,10 @@ export const Rail = () => {
     return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
   });
 
-  const [wanted, setWanted] = createSignal<string | null>(null);
+  // Keep the anchor mounted while Ark restores focus after the visible target closes.
+  const clearAnchor = createMemo((previous: RailNode | null) => menu.clearTarget() ?? previous, null);
+
+  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
   const [editingName, setEditingName] = createSignal<string | null>(null);
@@ -78,7 +101,7 @@ export const Rail = () => {
 
     if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
 
-    if (surface === "rail-name" && object === editingName()) {
+    if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
       return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
     }
 
@@ -128,6 +151,8 @@ export const Rail = () => {
   };
 
   const openCompose = () => {
+    captureFocus(true);
+
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
   };
@@ -177,38 +202,91 @@ export const Rail = () => {
   /** The focusable element of the row `id`: its item, or the control of its branch. */
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.closest<HTMLElement>(ROW) ?? container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"] [data-part="branch-control"]`) ?? undefined;
 
-  let clearElement: HTMLDivElement | undefined;
+  const openRow = (id: string) => {
+    const node = rail.nodes.find(each => each.id === id);
 
-  /** U350: the prompt stays within the Rail, so its ground never runs into the centre pane's ground and reads as cut off. */
-  const placeClear = () => {
-    const node = clearPrompt();
-    const row = node ? rowElement(node.id)?.getBoundingClientRect() : undefined;
-    const rail = container()?.getBoundingClientRect();
+    const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
+      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(rail.nodes, each.id).includes(id)) : undefined;
 
-    if (!row || !rail || !clearElement) return;
-
-    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
-
-    // The box is content-box: its width leaves out its own padding, which equals the inset kept on each side.
-    clearElement.style.maxWidth = `${Math.max(0, rail.width - 4 * inset)}px`;
-
-    const box = clearElement.getBoundingClientRect();
-    const top = row.bottom + box.height <= window.innerHeight - inset ? row.bottom : row.top - box.height;
-
-    clearElement.style.left = `${Math.max(rail.left + inset, Math.min(row.left, rail.right - box.width - inset))}px`;
-    clearElement.style.top = `${Math.max(inset, Math.min(top, window.innerHeight - box.height - inset))}px`;
+    rail.select(attention?.id ?? id);
+    queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
   };
 
-  onMount(() => {
-    window.addEventListener("resize", placeClear);
-    document.addEventListener("scroll", placeClear, true);
-    onCleanup(() => {
-      window.removeEventListener("resize", placeClear);
-      document.removeEventListener("scroll", placeClear, true);
-    });
-  });
-
   const focusRow = (id: string) => rowElement(id)?.focus();
+
+  const selection = createRowCollection(() => nodeRows().filter(row => {
+    const element = rowElement(row.node.id);
+
+    return element && !element.closest("[hidden], [inert], [aria-disabled=true]");
+  }).map(row => ({ value: row.node.id, label: row.node.name })));
+
+  let anchor: string | undefined;
+  createEffect(on(rail.selected, id => {
+    selection.selection.setSelectedValues(id === null ? [] : [id]);
+    anchor = id ?? undefined;
+  }));
+
+  const range = (id: string) => selection.selection.setSelectedValues(anchor === undefined || !selection.collection().has(anchor)
+    ? [id] : selection.collection().getValueRange(anchor, id));
+
+  const selectClick = (event: MouseEvent) => {
+    if (event.ctrlKey) return;
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>(".rail-row") : null;
+    const id = row?.dataset.id;
+
+    if (id === undefined || event.target instanceof Element && event.target.closest("button,input") || !event.metaKey && !event.shiftKey) return;
+    event.preventDefault(); event.stopPropagation();
+
+    if (!selection.collection().has(id)) return;
+
+    if (event.shiftKey) range(id);
+    else { selection.selection.toggle(id); anchor = id; }
+
+    row?.focus();
+  };
+
+  const selectKey = (event: KeyboardEvent) => {
+    const id = focusedRowId(event);
+
+    if (id === undefined || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
+
+    if (event.metaKey && event.key.toLowerCase() === "a") {
+      event.preventDefault(); event.stopPropagation();
+      selection.selection.setSelectedValues(selection.collection().getValues());
+
+      return;
+    }
+
+    const collection = selection.collection();
+
+    const navigation = event.key === "Home" ? collection.firstValue
+      : event.key === "End" ? collection.lastValue
+      : event.key === "ArrowUp" ? collection.getPreviousValue(id)
+      : event.key === "ArrowDown" ? collection.getNextValue(id) : undefined;
+
+    if (!event.metaKey && navigation !== undefined) {
+      event.preventDefault(); event.stopPropagation();
+
+      if (navigation !== null) focusRow(navigation);
+
+      return;
+    }
+
+    if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
+    const match = selection.search(event);
+
+    if (match === null) {
+      if (!event.metaKey && event.key.length === 1 && event.key !== " ") {
+        event.preventDefault(); event.stopPropagation();
+      }
+
+      return;
+    }
+
+    event.preventDefault(); event.stopPropagation();
+    selection.selection.replace(match); anchor = match; rail.select(match); focusRow(match);
+  };
+
 
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
   const tabbableId = createMemo(() => {
@@ -243,7 +321,6 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      rail.select(node.id);
       void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
@@ -260,8 +337,6 @@ export const Rail = () => {
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
-  const [drop, setDrop] = createSignal<{ depth: number; top: number } | null>(null);
-
   /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
   let pointerPressed = false;
   let pointerAt: { x: number; y: number } | null = null;
@@ -275,8 +350,10 @@ export const Rail = () => {
       (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
   };
 
-  onMount(() => {
+  createEffect(() => {
     const tree = container();
+
+    if (!tree) return;
 
     if (tree) {
       // --rail-step is a calc(), so a probe resolves it to pixels once.
@@ -311,38 +388,29 @@ export const Rail = () => {
 
       if (id === undefined) return;
 
-      rail.select(id);
+      openRow(id);
     };
 
     window.addEventListener("pointerdown", press, { capture: true });
     window.addEventListener("pointermove", follow, { capture: true });
-    container()?.addEventListener("keydown", lift, { capture: true });
+    tree.addEventListener("keydown", lift, { capture: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
-      container()?.removeEventListener("keydown", lift, { capture: true });
+      tree.removeEventListener("keydown", lift, { capture: true });
     });
   });
 
-  /** Where the drop line sits: at the top of the room the library opened for the dragged row, once it has moved there. */
   const placeDrop = (next: { depth: number } | null) => {
-    if (next === null) {
-      const back = liftedRow;
+    if (next !== null) return;
+    const back = liftedRow;
 
-      liftedRow = null;
-      setDrop(null);
+    liftedRow = null;
 
-      if (back !== null) requestAnimationFrame(() => focusRow(back));
-
-      return;
+    if (back !== null) {
+      const focus = captureFocus();
+      requestAnimationFrame(() => focus(() => focusRow(back)));
     }
-
-    queueMicrotask(() => {
-      const base = container()?.getBoundingClientRect();
-      const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
-
-      setDrop(base && room ? { depth: next.depth, top: room.top - base.top } : null);
-    });
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
@@ -376,11 +444,12 @@ export const Rail = () => {
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
+      const focus = captureFocus(true);
       const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
       const spawned = await app.rpc("agent.spawn", params);
 
-      setWanted(spawned.id);
+      setWanted({ id: spawned.id, focus });
 
       if (composing()) endCompose();
     });
@@ -435,7 +504,7 @@ export const Rail = () => {
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const submitPrompt = (prompt: string | null) => {
+  const submitPrompt = async (prompt: string | null) => {
     const snapshot = task() ?? keepDraft(draft());
 
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -448,11 +517,12 @@ export const Rail = () => {
       return;
     }
 
-    const revision = retained.submit(snapshot.revision);
+    const revision = (await retained.submit(snapshot.revision));
 
     if (!revision) return;
     const original = rail.nodes.find((node) => node.id === originalParent);
     const door = prompt !== null && action === "note" ? snapshot.destination.recipient ?? original?.id ?? null : null;
+    const focus = captureFocus(true);
     const slow = setTimeout(() => setAsking(true), 500);
     guarded(async () => {
       let spawned: string | null = null;
@@ -467,11 +537,11 @@ export const Rail = () => {
         retained.settle(revision.revision, "acknowledged");
 
         if (latest) {
-          if (spawned !== null) setWanted(spawned);
+          if (spawned !== null) setWanted({ id: spawned, focus });
           endCompose();
         }
       } catch (error) {
-        retained.settle(revision.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        retained.settle(revision.revision, outcomeOf(error));
         throw error;
       } finally {
         clearTimeout(slow);
@@ -484,13 +554,36 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
-      failure.clear();
-      rail.clearWorkstreamFailure();
+      if (!failure.retry()) {
+        failure.clear();
+        rail.clearWorkstreamFailure();
+      }
+
       rail.clearStorageFailure();
     };
 
     document.addEventListener("click", clear, true);
     onCleanup(() => document.removeEventListener("click", clear, true));
+  });
+
+  // U4453b: leader `A` and the Overview row both return to Ask.
+  const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
+
+  const backToAsk = () => {
+    if (!isAskReturnAllowed()) return;
+    connected.importing.cancel();
+    connected.settingsView.close(false);
+    connected.showView(null);
+    rail.select(null);
+  };
+
+  createEffect(() => {
+    if (rail.selected() === null && !connected.settingsView.open()) return;
+
+    registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
+      available: isAskReturnAllowed,
+      invoke: backToAsk,
+    }) }]);
   });
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
@@ -515,10 +608,10 @@ export const Rail = () => {
   );
 
   createEffect(() => {
-    const id = wanted();
+    const request = wanted();
 
-    if (id !== null && rail.nodes.some((node) => node.id === id)) {
-      rail.select(id);
+    if (request !== null && rail.nodes.some((node) => node.id === request.id)) {
+      request.focus(() => rail.select(request.id));
       setWanted(null);
     }
   });
@@ -530,10 +623,10 @@ export const Rail = () => {
       data-button="quiet"
       data-todo-root
       aria-pressed={rail.selected() === null}
-      aria-label={copy.overviewLabel(attention())}
+      aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={backToAsk}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
@@ -542,17 +635,20 @@ export const Rail = () => {
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>
-      <Show when={attention() > 0}>
+      <Show when={attention() > 0 && rail.selected() !== null && connected.drawer.content() === null}>
         <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
           <KindGlyph kind="needs-you" decorative /> {attention()}
         </span>
       </Show>
     </button>
+    <Show when={rail.nodes.length === 0 && rail.failure() === null}><EmptyRail onNew={() => { if (canSpawn()) spawnAgent(); }} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
       ref={(element) => {
         setContainer(element);
+        element.addEventListener("click", selectClick, true);
+        element.addEventListener("keydown", selectKey, true);
         let contextClick = false;
         element.addEventListener("pointerdown", (event) => {
           contextClick = event.button === 0 && event.ctrlKey;
@@ -575,12 +671,12 @@ export const Rail = () => {
       }}
       collection={collection()}
       expandedValue={expanded()}
-      selectedValue={rail.selected() === null ? [] : [rail.selected()!]}
+      selectedValue={selection.selection.selectedValues()}
       expandOnClick={false}
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) rail.select(id);
+        if (id !== undefined) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -639,24 +735,32 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
-                          exit={rail.exitOf(view().node)}
-                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
-                          selected={rail.selected() === view().node.id}
+                          actions={actionsOf(view().node)}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
+                          copyWith={feedback => {
+                            const id = view().node.id;
+                            copied.set(id, feedback);
+
+                            return () => { if (copied.get(id) === feedback) copied.delete(id); };
+                          }}
+                          editing={editingName() === view().node.id}
+                          selected={selection.selection.isSelected(view().node.id)}
+                          multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onFailure={(message) => failure.show(message, view().node.id)}
+                          onFailure={(message) => {
+                            const id = view().node.id;
+                            failure.show(message, id, "rail", () => setEditingName(id));
+                          }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
                             failure.acknowledge(view().node.id);
                           }}
-                          onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
-                          doorPending={rail.doorPending(view().node.id)}
-                          doorFailure={rail.doorFailure(view().node.id)}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
-                          actions={actionsOf(view().node)}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>
@@ -673,7 +777,7 @@ export const Rail = () => {
                             aria-level={view().depth + 1}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
-                            <KindGlyph kind="done" decorative /> {view().count}{copy.doneCount}</button>
+                            <KindGlyph kind="done" decorative /><span class="rail-fold-name">{view().count}{copy.doneCount}</span></button>
                         </div>
                       )}
                     </Show>
@@ -684,9 +788,6 @@ export const Rail = () => {
           )}
         </For>
       </TreeView.Tree>
-      <Show when={drop()}>
-        {(line) => <div class="drop-line" aria-hidden="true" style={{ top: `${line().top}px`, "--depth": line().depth }} />}
-      </Show>
       </Sortable.Root>
     </TreeView.Root>
     </div>
@@ -709,7 +810,7 @@ export const Rail = () => {
               };
 
               return (
-                <details>
+                <details class="rail-recovery-detail">
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
@@ -719,7 +820,7 @@ export const Rail = () => {
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
-                  <button data-button="quiet" onClick={() => { void attempt(() => writeText(connected.app, text())); }}>{copy.railDraftCopy}</button>
+                  <CopyButton app={connected.app} identity={entry().revision} text={text()} onFailure={error => failure.show(error.message)}>{copy.railDraftCopy}</CopyButton>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
                     retained.discard(entry().revision);
@@ -734,29 +835,26 @@ export const Rail = () => {
         </details>
       </Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <Show when={clearPrompt() !== null}>
-        <Portal>
-          <Show when={clearPrompt()}>
-            {(node) => (
-              <div
-                ref={(element) => {
-                  clearElement = element;
-                  const observer = new ResizeObserver(placeClear);
+      <Show when={clearAnchor()} keyed>
+        {(node) => {
+          const clearing = clearingOf(app, connected.events, node.id, connected.drafts);
 
-                  observer.observe(element);
-                  queueMicrotask(placeClear);
-                  onCleanup(() => { observer.disconnect(); clearElement = undefined; });
-                }}
-                class="rail-menu rail-clear" role="dialog" aria-label={copy.clearName(node().name)}
-              >
-                <ClearPrompt node={node()} onHide={menu.hideClear} />
-              </div>
-            )}
-          </Show>
-        </Portal>
+          return <Popover.Root open={clearPrompt()?.id === node.id}
+            onOpenChange={({ open }) => { if (!open) { clearing.keep(); menu.hideClear(); } }}
+            finalFocusEl={() => rowElement(node.id) ?? null}
+            positioning={{ placement: "bottom-start", strategy: "fixed", boundary: () => container() ?? [], getAnchorElement: () => rowElement(node.id) ?? null, fitViewport: true }}>
+            <Show when={clearPrompt()?.id === node.id}><Portal><Popover.Positioner><Popover.Content class="rail-clear" aria-label={copy.clearName(node.name)}>
+              <ClearPrompt node={node} onHide={menu.hideClear} />
+            </Popover.Content></Popover.Positioner></Portal></Show>
+          </Popover.Root>;
+        }}
       </Show>
-      <ReservedLine overlay message={failure.message() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+        <Show when={failure.retry()}>{retry => <>
+          <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
+          <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
+        </>}</Show>
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>
       <div class="rail-actions">
@@ -768,7 +866,8 @@ export const Rail = () => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" />{copy.addWorkstreamWord}</button>
+          <Icon name="messages" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
   );

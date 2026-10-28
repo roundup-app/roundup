@@ -184,109 +184,6 @@ async fn a32_message_list_spans_iterations() {
 }
 
 #[tokio::test]
-async fn a32_iteration_advances_once() {
-    tokio::time::timeout(Duration::from_secs(60), async {
-        let (project, mut client, door) = clear_fixture("a32_iteration", &[]).await;
-        let model = project.model.as_ref().unwrap();
-        let before = rail_tree(&client).await;
-        assert_eq!(
-            before
-                .iter()
-                .find(|node| node.id == door)
-                .unwrap()
-                .iteration,
-            Some(1)
-        );
-        assert!(
-            before
-                .iter()
-                .filter(|node| node.id != door)
-                .all(|node| node.iteration.is_none())
-        );
-        client
-            .request(
-                "workstream.clear",
-                json!({"id": door, "reason": "advance iteration"}),
-            )
-            .await
-            .unwrap();
-        received(model, "advance iteration").await;
-        let actor = project.client().await;
-        actor
-            .request(
-                "daemon.identify",
-                contracts::IdentifyParams {
-                    actor: contracts::Actor {
-                        kind: contracts::ActorKind::Agent,
-                        id: door.clone(),
-                        parent: None,
-                    },
-                },
-            )
-            .await
-            .unwrap();
-        actor
-            .request(
-                "workstream.handoff",
-                json!({"id": door, "summary": "Iteration advanced", "keep_todos": [], "keep_pads": []}),
-            )
-            .await
-            .unwrap();
-        let cleared = next(&mut client, |event| match event {
-            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
-            _ => None,
-        })
-        .await;
-        assert_eq!((cleared.id.as_str(), cleared.iteration), (door.as_str(), 2));
-        assert_eq!(
-            rail_tree(&client)
-                .await
-                .iter()
-                .find(|node| node.id == door)
-                .unwrap()
-                .iteration,
-            Some(2)
-        );
-        turn_done(model, &client, &door, "Iteration advanced").await;
-        client
-            .request(
-                "workstream.clear",
-                json!({"id": door, "reason": "advance again"}),
-            )
-            .await
-            .unwrap();
-        received(model, "advance again").await;
-        let journal = model.journal();
-        for expected in ["advance iteration", "Iteration advanced", "advance again"] {
-            assert!(
-                journal.iter().any(|entry| entry["body"]["tools"].is_array()
-                    && entry["body"]["messages"]
-                        .as_array()
-                        .is_some_and(|messages| messages.iter().any(|message| message["role"]
-                            == "user"
-                            && message["content"]
-                                .as_str()
-                                .is_some_and(|text| text.contains(expected)
-                                    && (expected == "Iteration advanced" || text.contains("workstream_handoff")))))),
-                "real Claude did not receive {expected}: {journal:#?}"
-            );
-        }
-        assert_eq!(
-            rail_tree(&client)
-                .await
-                .iter()
-                .find(|node| node.id == door)
-                .unwrap()
-                .iteration,
-            Some(2)
-        );
-        model.assert_matched();
-    })
-    .await
-    .expect("Iteration observer did not complete");
-}
-
-#[tokio::test]
 async fn a32_without_handoff_archives_everything() {
     let (project, mut client, door) = clear_fixture(
         "a32_without_handoff",
@@ -426,12 +323,19 @@ async fn a32_without_handoff_archives_everything() {
 }
 
 #[tokio::test]
-async fn a32_the_door_restarts_fresh_from_the_handoff() {
+async fn a32_the_door_restarts_fresh_from_the_handoff_and_the_iteration_advances_once() {
     tokio::time::timeout(Duration::from_secs(60), async {
         let (project, mut client, door) = clear_fixture("a32_fresh_handoff", &[]).await;
         let model = project.model.as_ref().unwrap();
         let before = rail_tree(&client).await;
         let first = before.iter().find(|node| node.id == door).unwrap();
+        assert_eq!(first.iteration, Some(1));
+        assert!(
+            before
+                .iter()
+                .filter(|node| node.id != door)
+                .all(|node| node.iteration.is_none())
+        );
         client
             .request(
                 "workstream.clear",
@@ -523,6 +427,24 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
                 messages.iter().any(|message| message["role"] == "user"
                     && message["content"].as_str().is_some_and(|text|
                         text.contains("bloat") && text.contains("workstream_handoff"))))));
+        // A second Clear asks again and leaves the Iteration at 2 until its Handoff.
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "advance again"}),
+            )
+            .await
+            .unwrap();
+        received(model, "advance again").await;
+        assert_eq!(
+            rail_tree(&client)
+                .await
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(2)
+        );
         model.assert_matched();
     })
     .await

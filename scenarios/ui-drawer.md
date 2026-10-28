@@ -1,14 +1,11 @@
 # UI: a Drawer never moves the layout (U111)
 
-Module: `apps/desktop` (the webview). Ids: U111, U388, U409, U430, U431, U432, U433.
+Module: `apps/desktop` (the webview). Ids: U111, U388, U409, U430, U431, U432, U433, U4458.
 
 Reported by the user (screenshot): opening a Pad opened the Drawer far wider than usual, the terminal was pushed off the left edge and the Rail was covered; `Close` did not bring the layout back. This breaks U24 ("a Drawer never covers the Rail") and U5 ("the terminal pane's size never changes") as the user sees them, and no test noticed.
 
 **U111 opening and closing a Drawer leaves the layout where it was.** Given an open Project and any Drawer (a Todo, a Pad, or one opened by `⌘K`), when it opens and then closes, by `Close`, Esc (U28) or a new selection (U64), then the Rail, the Shelf and the terminal pane are at the same horizontal position they had before it opened, and the panel that holds them cannot be scrolled sideways at all, by the user, by a script or by the browser moving focus into the off-screen Drawer. One thing is observable without a display: every `focus()` that U40 makes into or out of the Drawer is called with `{preventScroll: true}`. Narrowing U40 and U5: `u40_drawer_focus` and `u5_drawer` keep their clauses and gain these.
 A closed Agent has no order Drawer trigger: U83 and O6 show its order inline, without opening a Drawer (`u83_a_closed_agent_shows_available_parts_without_a_terminal_or_a_drawer`). Running Agents keep O6’s trigger and this scenario’s Drawer rules.
-
-Definition (relocated): **Inbox**:
-The time-ordered Drawer of Messages to the user.
 
 Law: Opening or closing a Drawer never moves the Rail, the terminal or the Shelf. Check: u111_
 
@@ -57,7 +54,13 @@ Scope: `apps/desktop/src/pads/` and the fixtures that carry `scribe`. Moves D6.
 - **Perf.** Keystroke-to-render stays under 16 ms p95 with a Drawer open (rule 7; `docs/perf.md:9`). Asserted by `just perf-keystroke` on the user's Mac, run only when the user asks (`docs/perf.md:60`).
 - **Kept.** The Rail and the Shelf's place do not move (U111); the Shelf stays under the Drawer (U409); Help and the switcher float over the Drawer (U51, U54). Only Tokens are used (rule 8).
 
-Definition (relocated): **Drawer**:
-A panel that slides in from the right over the Shelf (a Todo, a Pad, later the Inbox); the centre narrows to end where it begins (U430), so it covers none of the centre.
-
 Observer: `u430_` in `apps/desktop/src/drawer/`. Moves D2, D5, D6 and D8. Scope: webview only, `apps/desktop/src/drawer/`, `app/Layout.tsx` and the layout rules of `styles.css`.
+
+**U4458 an open Drawer can be maximised like the Shelf.** Found by the user's report #4458 (an open Pad: "it's crazy and too annoying that I can't maximise the pad itself meanwhile I can maximise the pads view"). Narrows U430 (the Drawer's width) and U3721 (one maximise mechanism for the Shelf and every Drawer); adds no contract, RPC method or Token. Given an open Project and a Pad, a Todo or a Work order Drawer open (they share `DrawerHost`), at 1280 by 820, then:
+- **Control.** The Drawer's head has an icon button named `Maximise` (`copy.maximise`), which flips to `Restore` (`copy.restore`) while maximised, in the Shelf's place and form (`app/Layout.tsx`, U3721), and the plain key `M` with focus inside the Drawer does the same. `M` typed in a field of the Drawer is text and maximises nothing (U27). Asserted in `u4458_maximise_button_and_m_toggle_a_pad_and_a_todo_drawer`.
+- **Width.** Maximised, the Drawer's left edge meets the Rail's right edge and its right edge meets the window's: the width of the maximised Shelf (U3721), `calc(100% - var(--rail-width))`. The Rail keeps its width and stays operable; the centre and the Shelf stay mounted and are hidden, not unmounted, and Tab cannot enter them (U3721, U4279b). Restore returns the width U430 gives. Resizing is inert while maximised. Judged by the design critic from the capture at Rail edge to window edge (rule 10); the state is asserted in `u4458_maximised_drawer_hides_the_centre_without_unmounting_it`.
+- **One mechanism.** The maximised state, its stored shape and its CSS are the Shelf's: `shelf/frame.ts` keeps one record per side surface, and the `data-shelf-maximised` rules of `shelf/styles.css` are generalised to the Drawer, not copied. A `DrawerContent` names its kind (`pad`, `todo` or `work-order`) when it opens; a new Drawer kind gets the control with no further code. Asserted in `u4458_every_drawer_kind_gets_the_control`.
+- **Kept per surface.** The state is kept per kind and per Project beside U370's, as the Shelf's is: closing a maximised Pad and opening another Pad opens maximised, restored without animation; a Todo Drawer is unaffected and stays at U430's width until it is maximised. A Project that never maximised a kind opens it at U430's width. Asserted in `u4458_the_state_is_kept_per_kind_and_project`.
+- **Kept.** Esc and `Close` still close (U28) and focus follows U40 with `{preventScroll: true}` (U111); closing a maximised Drawer returns the Rail, the Shelf and the centre to where they were (U111); the Shelf's own maximised state is unchanged by a Drawer's; motion follows U5's slide and respects reduced motion; Help and the switcher float over it (U51, U54). Only Tokens are used (rule 8).
+
+Observer: `u4458_` in `apps/desktop/src/drawer/`. `just capture U4458` at 1280 by 820, dark, with a Pad and a Todo Drawer normal and maximised, `window.__checks()` read, and the densest seed (`tree-40`). Moves D2, D5, D6 and D8. Scope: `apps/desktop/src/drawer/`, `shelf/frame.ts`, `shelf/styles.css`, `app/Layout.tsx`, the `.drawer` rules of `styles.css`, and the callers that open a Drawer (`pads/`, `todos/`).

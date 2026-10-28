@@ -1,118 +1,28 @@
 use super::*;
-use crate::tests::ask;
-
 use std::path::PathBuf;
 use std::time::Duration;
 
-fn import_daemon(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
-    crate::tests::daemon_with_launcher(project, &project.join(".roundup"), launcher)
-}
+mod fixtures;
+use fixtures::import_git;
+pub(super) use fixtures::{import_daemon, import_fixture, import_rpc, import_source};
 
-fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> PathBuf {
-    let cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
-    let bucket: String = cwd
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let dir = config.join("projects").join(bucket);
-    std::fs::create_dir_all(&dir).unwrap();
-    let id = format!("{number:08}-1111-4111-8111-111111111111");
-    let file = dir.join(format!("{id}.jsonl"));
-    let record = json!({"type":"user", "cwd":cwd, "sessionId":id, "timestamp":timestamp});
-    std::fs::write(&file, format!("{record}\n")).unwrap();
-    file
-}
-
-async fn import_rpc(daemon: &Daemon, method: &str, params: Value) -> Value {
-    ask(
-        daemon,
-        &json!({"jsonrpc":"2.0", "id":1, "method":method,"params":params}).to_string(),
-    )
-    .await
-}
-
-fn import_git(project: &Path, args: &[&str]) -> String {
-    let output = std::process::Command::new("git")
-        .arg("-C")
-        .arg(project)
-        .args(args)
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "{output:?}");
-    String::from_utf8(output.stdout).unwrap()
-}
-
-async fn import_fixture(
-    mode: u8,
-) -> (
-    tempfile::TempDir,
-    agents::claude_code::Launcher,
-    Daemon,
-    PathBuf,
-    Value,
-) {
-    use std::os::unix::fs::PermissionsExt;
-    let root = tempfile::tempdir().unwrap();
-    let project = root.path().join("project");
-    std::fs::create_dir(&project).unwrap();
-    import_git(&project, &["init", "-b", "main"]);
-    import_git(
-        &project,
-        &[
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=test@example.com",
-            "commit",
-            "--allow-empty",
-            "-m",
-            "base",
-        ],
-    );
-    let config = root.path().join("config");
-    let at = time::OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Rfc3339)
-        .unwrap();
-    let original = import_source(&config, &project, 1, &at);
-    let bin = root.path().join("fake-claude");
-    std::fs::write(
-        &bin,
-        format!(
-            "#!/bin/sh\necho launched >> '{}'\nexit 1\n",
-            root.path().join("launches").display()
-        ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let launcher = agents::claude_code::Launcher::new(
-        bin.to_string_lossy(),
-        config.join(".claude.json"),
-        "rup".into(),
-        None,
-    );
-    let daemon = import_daemon(&project, launcher.clone());
-    let setting = import_rpc(&daemon, "project.setWorktrees", json!({"on":mode != 0})).await;
-    assert!(setting.get("error").is_none(), "{setting}");
-    if mode == 2 {
-        let prepared = project.join("prepared");
-        import_git(
-            &project,
-            &["worktree", "add", "--detach", prepared.to_str().unwrap()],
-        );
-        let setting = import_rpc(
-            &daemon,
-            "project.setPrepared",
-            json!({"enrolled":[prepared], "readiness":"true", "timeout_ms":1000}),
+fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
+    let data = project.join(".roundup");
+    Daemon::open_stores(project, &data, |_| {
+        let bus = Bus::new();
+        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
+        agents::Agents::open_in(
+            project,
+            &data,
+            bus,
+            terminals,
+            launcher,
+            agents::worktree::Git::from_env(),
         )
-        .await;
-        assert!(setting.get("error").is_none(), "{setting}");
-    }
-    let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
-    let candidates = found["result"]["candidates"].as_array().unwrap();
-    assert_eq!(candidates.len(), 1, "{found}");
-    let selection = json!({"source":candidates[0]["source"], "revision":candidates[0]["revision"]});
-    (root, launcher, daemon, original, selection)
+        .unwrap()
+        .with_clock(|| 1_793_036_800_000)
+    })
+    .unwrap()
 }
 
 async fn import_resources(daemon: &Daemon, root: &Path) -> Value {
@@ -226,14 +136,17 @@ async fn u3126b_first_import_requires_its_original() {
         .await;
         let outcome = &refused["result"]["outcomes"][0];
         assert!(
-            outcome["error"]
+            outcome["error"]["message"]
                 .as_str()
                 .unwrap()
                 .contains("changed since preview"),
             "{refused}"
         );
         assert!(
-            outcome["error"].as_str().unwrap().contains("Refresh"),
+            outcome["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("Refresh"),
             "{refused}"
         );
         assert!(outcome["workstream"].is_null());
@@ -304,7 +217,7 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     assert_eq!(outcome["error"], Value::Null);
     assert_eq!(
         opened.lock().unwrap().as_slice(),
-        &[selected.clone(), selected.clone()]
+        std::slice::from_ref(&selected)
     );
     assert!(!opened.lock().unwrap().contains(&unrelated));
     let replay = import_rpc(
@@ -384,7 +297,7 @@ async fn refused_import_revision(change: &str) {
         let metadata = std::fs::metadata(&path).unwrap();
         let text = std::fs::read_to_string(&path)
             .unwrap()
-            .replace("\"user\"", "\"edit\"");
+            .replace("Imported work", "Replaced work");
         let mut file = tempfile::NamedTempFile::new_in(path.parent().unwrap()).unwrap();
         file.write_all(text.as_bytes()).unwrap();
         file.as_file()
@@ -414,7 +327,9 @@ async fn refused_import_revision(change: &str) {
         json!({"selections":[selection]}),
     )
     .await;
-    let error = refused["result"]["outcomes"][0]["error"].as_str().unwrap();
+    let error = refused["result"]["outcomes"][0]["error"]["message"]
+        .as_str()
+        .unwrap();
     assert!(
         error.contains("changed since preview") && error.contains("Refresh"),
         "{refused}"
@@ -549,7 +464,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
     )
     .await;
     assert!(
-        refused["result"]["outcomes"][0]["error"]
+        refused["result"]["outcomes"][0]["error"]["message"]
             .as_str()
             .unwrap()
             .contains("changed since preview")
@@ -564,87 +479,11 @@ async fn u3037b_commit_reads_only_selected_contents() {
         json!({"selections":[selection]}),
     )
     .await;
-    assert!(refused["result"]["outcomes"][0]["error"].is_string());
+    assert_eq!(
+        refused["result"]["outcomes"][0]["error"]["code"],
+        rpc::code::CONFLICT
+    );
     assert!(opened.lock().unwrap().is_empty());
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn u3037d_retries_bound_discovery_work() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let root = tempfile::tempdir().unwrap();
-    let config = root.path().join("config");
-    import_source(&config, root.path(), 1, "2026-10-20T12:00:00Z");
-    let opens = Arc::new(AtomicUsize::new(0));
-    let workers = Arc::new(AtomicUsize::new(0));
-    let peak = Arc::new(AtomicUsize::new(0));
-    let active_workers = workers.clone();
-    let peak_workers = peak.clone();
-    let (entered, waiting) = tokio::sync::oneshot::channel();
-    let entered = std::sync::Mutex::new(Some(entered));
-    let (release, gate) = std::sync::mpsc::channel();
-    let gate = std::sync::Mutex::new(gate);
-    let observed = opens.clone();
-    let requests = AtomicUsize::new(0);
-    let (requested, registered) = tokio::sync::oneshot::channel();
-    let requested = std::sync::Mutex::new(Some(requested));
-    let mut launcher = agents::claude_code::Launcher::new(
-        "must-not-launch",
-        config.join(".claude.json"),
-        "rup".into(),
-        None,
-    );
-    launcher.import_observer = Some(Arc::new(move |_, phase, _bytes| {
-        if phase == "request" {
-            if requests.fetch_add(1, Ordering::SeqCst) == 1 {
-                requested.lock().unwrap().take().unwrap().send(()).unwrap();
-            }
-        } else if phase == "worker" {
-            peak_workers.fetch_max(
-                active_workers.fetch_add(1, Ordering::SeqCst) + 1,
-                Ordering::SeqCst,
-            );
-        } else if phase == "finished" {
-            active_workers.fetch_sub(1, Ordering::SeqCst);
-        } else if phase == "open" {
-            observed.fetch_add(1, Ordering::SeqCst);
-        } else if phase == "record"
-            && let Some(entered) = entered.lock().unwrap().take()
-        {
-            entered.send(()).unwrap();
-            gate.lock()
-                .unwrap()
-                .recv_timeout(Duration::from_secs(5))
-                .unwrap();
-        }
-    }));
-    let daemon = Arc::new(import_daemon(root.path(), launcher));
-    let first = daemon.clone();
-    let first = tokio::spawn(async move {
-        import_rpc(&first, "project.importDiscover", json!({"period":"day"})).await
-    });
-    waiting.await.unwrap();
-    let second = daemon.clone();
-    let second = tokio::spawn(async move {
-        import_rpc(&second, "project.importDiscover", json!({"period":"month"})).await
-    });
-    registered.await.unwrap();
-    // Ping still works while the filesystem reader waits; synchronous discovery used to block it.
-    assert!(
-        import_rpc(&daemon, "daemon.ping", Value::Null)
-            .await
-            .get("result")
-            .is_some()
-    );
-    assert_eq!(opens.load(Ordering::SeqCst), 1);
-    assert_eq!(workers.load(Ordering::SeqCst), 1);
-    release.send(()).unwrap();
-    let first = first.await.unwrap();
-    let second = second.await.unwrap();
-    assert!(first.get("error").is_some(), "{first}");
-    assert!(second.get("result").is_some(), "{second}");
-    assert_eq!(opens.load(Ordering::SeqCst), 2);
-    assert_eq!(peak.load(Ordering::SeqCst), 1);
-    assert_eq!(workers.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]
@@ -671,6 +510,7 @@ async fn large_storage_discovery(owner_storage: bool) {
     let project = project.canonicalize().unwrap();
     let unrelated = unrelated.canonicalize().unwrap();
     let now = time::OffsetDateTime::now_utc();
+    let file_clock = SystemTime::now();
     let mut total = 0u64;
     let file_count = if owner_storage { 153 } else { 1260 };
     let total_size = if owner_storage {
@@ -740,8 +580,7 @@ async fn large_storage_discovery(owner_storage: bool) {
         writer
             .get_ref()
             .set_modified(
-                SystemTime::now()
-                    - Duration::from_secs(if i < 630 { age as u64 * 86400 } else { 0 }),
+                file_clock - Duration::from_secs(if i < 630 { age as u64 * 86400 } else { 0 }),
             )
             .unwrap();
         assert_eq!(std::fs::metadata(path).unwrap().len(), size);
@@ -858,4 +697,272 @@ async fn large_storage_discovery(owner_storage: bool) {
         json!([])
     );
     service.abort();
+}
+
+#[tokio::test]
+async fn u3791b_import_preserves_rpc_code_and_uncertainty() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    std::fs::create_dir(&project).unwrap();
+    let config = root.path().join("config");
+    let at = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let path = import_source(&config, &project, 1, &at);
+    let mut launcher = agents::claude_code::Launcher::new(
+        "unused-claude",
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    );
+    let armed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let active = armed.clone();
+    launcher.import_observer = Some(Arc::new(move |_, phase, _| {
+        if phase == "open" && active.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            std::fs::remove_file(&path).unwrap();
+        }
+    }));
+    let daemon = import_daemon(&project, launcher);
+    let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"day"})).await;
+    let source = &found["result"]["candidates"][0]["source"];
+    let revision = &found["result"]["candidates"][0]["revision"];
+    assert!(revision.is_string(), "{found}");
+    armed.store(true, std::sync::atomic::Ordering::SeqCst);
+    let reply = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[{"source":source,"revision":revision}]}),
+    )
+    .await;
+    let outcome = &reply["result"]["outcomes"][0];
+    assert_eq!(&outcome["source"], source);
+    assert_eq!(outcome["error"]["code"], rpc::code::INTERNAL);
+    assert_eq!(outcome["error"]["outcome"], "unknown");
+    assert!(
+        outcome["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("projects")
+    );
+    assert!(outcome["workstream"].is_null());
+    assert!(outcome["agent"].is_null());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn u4251c_sdk_lookup_continues_the_selected_conversation() {
+    for moved_is_live in [false, true] {
+        use crate::vendor_list_tests::{executable, package, real_node};
+        use notify::Watcher;
+        let (root, _launcher, daemon, _, seed) = import_fixture(0).await;
+        let seeded = import_rpc(
+            &daemon,
+            "project.importCommit",
+            json!({"selections":[seed]}),
+        )
+        .await;
+        let listing_agent = seeded["result"]["outcomes"][0]["agent"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let project = root.path().join("project");
+        let config = root.path().join("config");
+        let (long, [moved, deleted, hashed], originals) =
+            fixtures::journey_sources(root.path(), &project, &config);
+        let live = if moved_is_live {
+            moved.clone()
+        } else {
+            hashed.clone()
+        };
+        let effective = if moved_is_live {
+            project.clone()
+        } else {
+            long.clone()
+        };
+        let journal = root.path().join("continued");
+        let (events, mut changes) = tokio::sync::mpsc::unbounded_channel();
+        let observed = journal.clone();
+        let mut watcher =
+            notify::recommended_watcher(move |event: Result<notify::Event, notify::Error>| {
+                if event
+                    .as_ref()
+                    .is_ok_and(|event| event.paths.contains(&observed))
+                {
+                    let _ = events.send(event);
+                }
+            })
+            .unwrap();
+        watcher
+            .watch(root.path(), notify::RecursiveMode::NonRecursive)
+            .unwrap();
+        let cli = root.path().join("fake-claude");
+        executable(
+            &cli,
+            &format!(
+                r#"#!/bin/sh
+if [ "$1" = agents ]; then printf '%s' '[{{"sessionId":"{live}","pid":424242,"cwd":"{}"}}]'; exit 0; fi
+if [ "$1" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi
+printf 'launch %s\n' "$*" >> '{}'
+pwd >> '{}'
+while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
+"#,
+                effective.display(),
+                journal.display(),
+                journal.display(),
+                journal.display()
+            ),
+        );
+        let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+        drop(daemon);
+        let rup = root.path().join("rup");
+        executable(&rup, "#!/bin/sh\nexit 0\n");
+        let launcher = agents::claude_code::Launcher::new(
+            cli.to_string_lossy(),
+            config.join(".claude.json"),
+            rup,
+            None,
+        )
+        .with_sidecar(package);
+        for (path, bytes) in &originals {
+            let source = path.file_stem().unwrap().to_str().unwrap();
+            assert_eq!(
+                launcher.record_conversation(&project, source).unwrap(),
+                *bytes
+            );
+        }
+        let daemon = std::sync::Arc::new(import_daemon(&project, launcher.clone()));
+        let ctx = daemon.ctx(Actor {
+            kind: ActorKind::Agent,
+            id: listing_agent.clone(),
+            parent: None,
+        });
+        let listed = daemon.modules["import"]
+            .call(&ctx, "import.list", json!({"period":"month"}))
+            .await
+            .unwrap();
+        let picks = listed["candidates"].as_array().unwrap();
+        assert_eq!(picks.len(), 3, "{listed}");
+        for source in [&moved, &deleted, &hashed] {
+            assert_eq!(picks.iter().filter(|p| p["source"] == *source).count(), 1);
+        }
+        let params = json!({"agent":listing_agent,"selections":picks.iter().map(|p| json!({"source":p["source"],"revision":p["revision"]})).collect::<Vec<_>>()});
+        let mut commit = {
+            let daemon = daemon.clone();
+            let params = params.clone();
+            tokio::spawn(async move { import_rpc(&daemon, "project.importCommit", params).await })
+        };
+        let ack = async {
+            loop {
+                let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+                if let Some(node) = tree["result"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|n| n["attempt"].is_string() && journal.exists())
+                {
+                    let reply = import_rpc(&daemon,"agent.signal",json!({"id":node["id"],"attempt":node["attempt"],"payload":{"hook_event_name":"SessionStart","source":"resume","session_id":live}})).await;
+                    assert!(
+                        reply["error"].is_null(),
+                        "{reply}; node={node}; tree={tree}"
+                    );
+                    break;
+                }
+                if commit.is_finished() {
+                    panic!(
+                        "commit ended before live acknowledgement: {:?}",
+                        (&mut commit).await
+                    );
+                }
+                changes.recv().await.unwrap().unwrap();
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(30), ack)
+            .await
+            .unwrap();
+        let reply = commit.await.unwrap();
+        let outcomes = reply["result"]["outcomes"].as_array().unwrap();
+        assert_eq!(outcomes.len(), 3, "{reply}");
+        for outcome in outcomes {
+            assert!(outcome["error"].is_null(), "{reply}");
+        }
+        for field in ["agent", "workstream"] {
+            assert_eq!(
+                outcomes
+                    .iter()
+                    .map(|o| o[field].as_str().unwrap())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len(),
+                3
+            );
+        }
+        for (path, bytes) in &originals {
+            assert_eq!(&std::fs::read(path).unwrap(), bytes);
+        }
+        let imported = outcomes.iter().find(|p| p["source"] == live).unwrap()["agent"]
+            .as_str()
+            .unwrap();
+        let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+        for outcome in outcomes.iter().filter(|p| p["source"] != live) {
+            let node = tree["result"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == outcome["agent"])
+                .unwrap();
+            assert_eq!(node["can_resume"], true);
+            assert!(node["attempt"].is_null());
+            assert!(node["overview"]["id"].is_string());
+        }
+        let prompt = {
+            let daemon = daemon.clone();
+            let id = imported.to_owned();
+            tokio::spawn(async move {
+                import_rpc(
+                    &daemon,
+                    "agent.prompt",
+                    json!({"id":id,"text":"continue the imported work"}),
+                )
+                .await
+            })
+        };
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                if std::fs::read_to_string(&journal)
+                    .unwrap_or_default()
+                    .contains("continue the imported work")
+                {
+                    break;
+                }
+                changes.recv().await.unwrap().unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        let submitted = import_rpc(&daemon,"agent.signal",json!({"id":imported,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt":"continue the imported work"}})).await;
+        assert!(submitted["error"].is_null(), "{submitted}");
+        let prompt = prompt.await.unwrap();
+        assert!(prompt["error"].is_null(), "{prompt}");
+        let launches = std::fs::read_to_string(&journal).unwrap();
+        assert!(launches.contains(&format!("--resume {live}")), "{launches}");
+        assert!(
+            launches
+                .lines()
+                .any(|line| line == effective.to_str().unwrap()),
+            "{launches}"
+        );
+        assert_eq!(
+            launches
+                .lines()
+                .filter(|line| line.starts_with("launch "))
+                .count(),
+            1
+        );
+        let replay = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+        assert_eq!(replay["result"], reply["result"]);
+        import_rpc(&daemon, "agent.stop", json!({"id":imported})).await;
+        drop(daemon);
+        let daemon = import_daemon(&project, launcher);
+        let replay = import_rpc(&daemon, "project.importCommit", params).await;
+        assert_eq!(replay["result"], reply["result"]);
+        assert_eq!(std::fs::read_to_string(&journal).unwrap(), launches);
+    }
 }

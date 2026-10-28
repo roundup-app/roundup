@@ -1,31 +1,48 @@
+import { currentOwner } from "../state/rail";
+import { appDark } from "../settings/preferences";
+import { outcomeOf } from "../app/seam";
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
-import { CHORDS, chordsOf, leaderChord } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
-import { registerKeys } from "../keys/registry";
+import { modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
-import { failureOf, outcomeOf } from "./failureOf";
+import { failureOf } from "./failureOf";
 import { useTodoList } from "./todoList";
 import "./capture.styles.css";
 
 let optimistic = 0;
 
 /** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
-export const Capture = (props: { onFile: (() => void) | undefined }) => {
+export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void; onReady?: (show: (() => void) | undefined) => void }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const [open, setOpen] = createSignal(false);
+  const [nativeOpen, setNativeOpen] = createSignal(false);
+  const port = connected.app.capture;
+  const identity = createUniqueId();
+  let shows = 0;
+  const [session, setSession] = createSignal(identity);
+  const [sequence, setSequence] = createSignal(0);
   const { drafts } = connected;
   const destination = { surface: "capture", object: "todo-capture", recipient: null };
-  drafts.validate("capture", v.object({ text: v.string() }));
+
+  const targetSchema = v.object({
+    targetCaptured: v.optional(v.boolean()), targetOwner: v.optional(v.nullable(v.string())),
+    targetOwnerName: v.optional(v.nullable(v.string())), targetHome: v.optional(v.nullable(v.string())), targetHomeName: v.optional(v.nullable(v.string())),
+  });
+
+  drafts.validate("capture", v.object({ text: v.string(), ...targetSchema.entries }));
   drafts.registerRecovery("capture", () => "available");
 
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
@@ -43,7 +60,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     return value.success ? value.output : "";
   };
 
-  const setText = (text: string) => drafts.edit(destination, { text }, input
+  const setText = (text: string) => drafts.edit(destination, { text, targetCaptured: nativeSession || current()?.value.targetCaptured === true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, input
     ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null, "ordinary");
 
   const recovered = () => records().filter(draft => draft.revision !== current()?.revision && draft.status !== "pending");
@@ -55,7 +72,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   };
 
   createEffect(() => {
-    if (open()) onCleanup(drafts.editor(destination));
+    if (open() || nativeOpen()) onCleanup(drafts.editor(destination));
   });
   /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
   let stranded: { title: string; id: number } | null = null;
@@ -65,7 +82,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   let panel: HTMLElement | undefined;
 
   /** U3740: what the selection gives a new Todo, read when the line shows and when `⏎` files, so the two agree. */
-  const target = () => {
+  const selectedTarget = () => {
     const nodes = connected.rail.nodes;
     const node = nodes.find(each => each.id === connected.rail.selected());
     const home = node ? resolvedWorkstream(nodes, node.id) : null;
@@ -75,7 +92,28 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     return { owner, ownerName: owner ? node!.name : null, home: homeName === null ? null : home, homeName };
   };
 
-  const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
+  let nativeSession = false;
+  let capturedTarget: ReturnType<typeof selectedTarget> | undefined;
+
+  const target = () => {
+    const retained = v.safeParse(targetSchema, current()?.value);
+
+    if (text() !== "" && retained.success && retained.output.targetCaptured) {
+      const value = retained.output;
+      const owner: Actor | null = value.targetOwner ? { kind: "agent", id: value.targetOwner, parent: null } : null;
+
+      return { owner, ownerName: value.targetOwnerName ?? null, home: value.targetHome ?? null, homeName: value.targetHomeName ?? null };
+    }
+
+    return capturedTarget ?? selectedTarget();
+  };
+
+  const ownerLine = () => {
+    const owner = currentOwner(connected.rail, target().owner);
+
+    return owner ? copy.captureFor(owner.name) : copy.unassigned;
+  };
+
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
   const ownerCut = createCutTitle(ownerLine);
   const homeCut = createCutTitle(homeLine);
@@ -83,12 +121,22 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   const show = () => {
     if (open()) return;
 
+    nativeSession = false;
+    capturedTarget = undefined;
     returnTo = document.activeElement;
     setOpen(true);
   };
 
   const close = () => {
     setOpen(false);
+
+    if (nativeOpen()) {
+      setNativeOpen(false);
+      props.onNativeOpen?.(false);
+      void port?.dismiss().catch(error => setFailure(String(error)));
+
+      return;
+    }
 
     if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
   };
@@ -102,14 +150,14 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     close();
   };
 
-  const file = (keepOpen: boolean) => {
+  const file = async (keepOpen: boolean) => {
     const draft = text();
     const title = draft.trim();
     const revision = current();
 
-    if (title === "" || !revision || !drafts.submit(revision.revision)) return;
-
     const { owner, home } = target();
+
+    if (title === "" || !revision || !(await drafts.submit(revision.revision))) return;
     const retry = stranded?.title === title && home !== null ? stranded : null;
 
     stranded = null;
@@ -118,9 +166,11 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     props.onFile?.();
 
-    setText("");
+    if (records().at(-1)?.revision === revision.revision) {
+      setText("");
 
-    if (!keepOpen) close();
+      if (!keepOpen) close();
+    }
 
     void (async () => {
       let made = false;
@@ -145,9 +195,10 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
-        hide();
+
+        if (!current()) hide();
       } catch (error) {
-        hide();
+        if (!current()) hide();
 
         if (made || retry) void todos.reload();
 
@@ -162,13 +213,82 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
         }
 
         setFailure(error.message);
-        show();
+
+        if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
+        else show();
       }
     })();
   };
 
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
-  createEffect(() => registerKeys({ kind: "app" }, [{ chords: chordsOf(CHORDS.find(row => row.what === copy.captureATodo)), run: show }]));
+  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+
+  const nativeShow = () => {
+    if (nativeOpen() || open() || modalOpen()) return;
+    setSession(`${identity}:${++shows}`);
+    setSequence(0);
+    nativeSession = true;
+    capturedTarget = selectedTarget();
+    setNativeOpen(true);
+    props.onNativeOpen?.(true);
+    void port?.show().then(publish).catch(error => { setFailure(String(error)); setNativeOpen(false); props.onNativeOpen?.(false); show(); });
+  };
+
+  if (port) {
+    let stopped = false;
+    const stops: (() => void)[] = [];
+    const own = (subscription: Promise<() => void>) => void subscription.then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => setFailure(String(error)));
+    own(port.onRequested(nativeShow));
+    own(port.onAction(action => {
+      if (!nativeOpen()) return;
+
+      if (action.kind === "ready") {
+        void publish();
+
+        return;
+      }
+
+      if (action.session !== session()) return;
+
+      if (action.kind === "edit" || action.kind === "file") {
+        if (action.sequence < sequence()) return;
+        setSequence(action.sequence);
+        setText(action.text);
+      }
+
+      if (action.kind === "copy" || action.kind === "discard-revision") {
+        const draft = recovered().find(draft => draft.revision === action.revision);
+
+        if (!draft) return;
+
+        if (action.kind === "discard-revision") drafts.discard(draft.revision);
+        else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
+      }
+
+      if (action.kind === "file") void file(action.keepOpen);
+      else if (action.kind === "discard") discard();
+      else if (action.kind === "dismiss") close();
+      else if (action.kind === "retry") void drafts.retry();
+    }));
+    createEffect(() => { if (nativeOpen()) void publish()?.catch(error => setFailure(String(error))); });
+    onCleanup(() => {
+      stopped = true;
+
+      for (const stop of stops) stop();
+
+      if (untrack(nativeOpen)) { void port.dismiss(); props.onNativeOpen?.(false); }
+    });
+  }
+
+  registerKeys({ kind: "leader" }, [{
+    action: LEADER.find(row => row.keys === "T")!,
+    capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
+  }]);
+  onMount(() => props.onReady?.(port ? nativeShow : show));
+  onCleanup(() => props.onReady?.(undefined));
+  createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
+  }]); });
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (
@@ -188,7 +308,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             value={text()}
             ref={(element) => {
               input = element;
-              queueMicrotask(() => {
+              queueFocus(() => {
                 if (!element.isConnected) return;
 
                 element.focus({ preventScroll: true });
@@ -219,7 +339,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
-            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => { setFailure(cause ? copy.copyDraftFailure(cause) : null); }); }}>{copy.copy}</button>
+            <CopyButton app={connected.app} identity={draft.revision} text={String(draft.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>

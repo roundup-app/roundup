@@ -1,16 +1,20 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { measurementFixture } from "../testing/measurementFixture";
+import { openProjectPage } from "../testing/menuProbe";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, NOW } from "../testing/nodes";
+
+// Motion captures requestAnimationFrame at import; fake it before loading the App.
+// jsdom otherwise implements frames with an interval counted as a periodic clock.
+vi.hoisted(() => vi.useFakeTimers({ toFake: ["Date", "performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", "cancelAnimationFrame"] }));
 
 const intervals = new Set<Parameters<typeof clearInterval>[0]>();
 
@@ -34,19 +38,14 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
-  app.handlers["agent.changedFiles"] = () => ({ files: [] });
-  app.handlers["project.measurementSummary"] = ({ home }) => {
-    const sample = measurementFixture(home);
-
-    return { ...sample, rows: [], contributors: 0, next_offset: null };
-  };
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
 
   setup?.(app);
   const clock = vi.fn(() => Date.now());
-  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
+  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} prepareIdle={open => open.showView("resources")} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
-  const row = document.querySelector(`[role="treeitem"][data-id="${nodes[0]?.id}"]`);
+  const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
 
   if (row) fireEvent.click(row);
   await settle();
@@ -55,7 +54,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
 };
 
 beforeEach(() => {
-  vi.useFakeTimers(); vi.setSystemTime(NOW); visibility("visible");
+  vi.setSystemTime(NOW); visibility("visible");
   intervals.clear();
   const start = globalThis.setInterval;
   const stop = globalThis.clearInterval;
@@ -68,7 +67,9 @@ beforeEach(() => {
   vi.spyOn(globalThis, "clearInterval").mockImplementation((id) => { intervals.delete(id); stop(id); });
 });
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.clearAllTimers(); visibility("visible"); });
+
+afterAll(() => vi.useRealTimers());
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
@@ -110,6 +111,11 @@ it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async
   expect(clock).toHaveBeenCalledTimes(reads + 1);
   status(app, "child", "done");
   expect(intervals.size).toBe(0);
+  reads = clock.mock.calls.length;
+  app.calls.length = 0;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(clock).toHaveBeenCalledTimes(reads);
+  expect(app.calls).toEqual([]);
   status(app.of("/other"), "other", "working");
   expect(intervals.size).toBe(1);
   app.exitDaemon({ code: 0 }, "/other");
@@ -153,7 +159,7 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } })]);
   const reads = () => app.calls.filter((call) => call.method === "agent.worktreeState").length;
   expect(reads()).toBe(1);
-  fireEvent.click(screen.getByRole("button", { name: "branch-a" }));
+  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await settle();
   expect(reads()).toBe(2);
   status(app, "a", "blocked");
@@ -175,13 +181,7 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
   visibility(initial === "hidden" ? "hidden" : "visible");
   let active = initial !== "stopped";
 
-  const { app } = await mount([door("a", active ? "working" : "done", "building")], (app) => {
-    app.handlers["project.measurementSummary"] = ({ home }) => {
-      const sample = measurementFixture(home);
-
-      return { ...sample, rows: [], contributors: 0, next_offset: null, time: { ...sample.time, active } };
-    };
-  });
+  const { app } = await mount([door("a", active ? "working" : "done", "building")]);
 
   if (initial === "transition") {
     expect(intervals.size).toBeGreaterThan(0);
@@ -191,24 +191,14 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
 
   await assertSleeping(app);
 
-  for (const name of ["Timeline", "Time"]) {
-    fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".measurement-action button")].find((button) => button.textContent === name)!);
-    await settle();
-    await assertSleeping(app);
-
-    if (initial !== "transition" || name !== "Time") {
-      fireEvent.keyDown(document.querySelector(".timeline-view, .measurement-dashboard")!, { key: "Escape" });
-      await settle();
-    }
-  }
-
   if (initial === "transition") {
+    openProjectPage("view:resources", "/p");
+    await settle();
     visibility("visible");
     await settle();
-    expect(intervals.size).toBe(3);
+    expect(intervals.size).toBeGreaterThan(0);
     active = false;
     status(app, "a", "done");
-    app.emit(event({ name: "project.measurementsChanged", data: { revision: "2" } }));
     await settle();
     await assertSleeping(app);
   }

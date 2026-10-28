@@ -10,7 +10,9 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 
 | Webview calls (Tauri command) | Arguments | Result |
 |---|---|---|
-| `select_project_menu` | `{path: string or null}` | `null`; the webview synchronizes its selected Project whenever tabs change; native Project commands stay present and disabled for null (U3813). Starts no Daemon and sends no prompt. |
+| `show_context_menu` | `{items: MenuItem[], x: number, y: number}` | Chosen selectable leaf id, or `null` on dismissal. Coordinates are window CSS pixels. `MenuItem` holds `id`, plain `label`, `enabled`, optional `shortcut`, `group` and recursive `children`. The shared webview projection omits unavailable leaves/empty submenus and orders applicable groups; each adjacent distinct `group` becomes one native separator, without a fake action id. Single-step chords use native accelerators; sequences use separate native hints. Only a leaf dispatches its captured webview callback, once; popup items never enter the installed application menu (U4322a/b). |
+| `select_project_menu` | `{path: string or null, items?: MenuItem[]}` | `null`; items project the shortcut registry labels, chords and availability plus requested surfaces; native activation emits the selected path and command id. The webview rechecks the captured action against the active Project. The webview synchronizes its selected Project whenever tabs change; the Project title is disabled for null (U4278a). `MenuItem.group?: "create" \| "navigate" \| "views"` supplies each projected item’s group and preserves its webview order; omitted groups default to navigate for existing callers; `shortcut` supplies a native one-step accelerator or a separate sequence hint in the Project menu (U4278b), and context menus share both facilities (U4322b). Starts no Daemon and sends no prompt. |
+| `plugin:window-bar\|native_material` | none | `boolean`; whether native material is currently applied (U134); the `native-material` event reports later changes (U135) |
 | `projects` | none | `[{name, path, running}]`, the open Projects in tab order (S8) |
 | `open_project` | `{path}` (absolute) | `{name, path}`; the Project joins the end of `projects` (S8) |
 | `close_project` | `{path}` | `null`; the Project's Daemon ends (S8) |
@@ -30,14 +32,7 @@ Every command fails with `{code, message}`, using the codes in `rpc::code`; an e
 
 **S1 open a Project.** Given the App started as `roundup <project>`, or a webview call `open_project {path}`, then the App starts `rupd <path> --attached` (D1). It puts `RUPD_SOCKET` in that Daemon's environment, set to a socket path unique to this App run and under the 104-byte limit; Terminals inherit it, so hooks and MCP servers find this Daemon and no other. The App waits until `daemon.ping` answers, for at most a bound it names, then returns `{name: <basename>, path}`; afterwards `projects` lists it. The Daemon is `ROUNDUP_RUPD_BIN`, else the `rupd` beside the App's executable. A path that is not a directory is `INVALID_PARAMS` naming it. A Daemon that exits or stays silent past the bound is `INTERNAL`, and the message carries the last lines of its stderr. A second `open_project` for a path whose Daemon runs returns it and starts nothing (S8; S5 covers a Project whose Daemon has exited). The App grants the webview exactly these permissions and nothing else: `dialog:allow-open`, `dialog:allow-save`, `core:window:allow-set-badge-count`, `window-bar:allow-set-window-title`, `window-bar:allow-drag-window`, `window-bar:allow-zoom-window`, `core:event:allow-listen` and `core:event:allow-unlisten`. The last two are what let it hear `daemon-exited`. A release build (`just app-release`, W1) loads the webview's built files instead of the dev server; it is not bundled, signed or notarized.
 
-Definition (relocated): **App seam**:
-The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
-
-Definition (relocated): **App**:
-The macOS window; it starts a Daemon for each open Project and hosts the webview, a client of that Daemon like any other.
-
-Definition (relocated): **Project**:
-A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
+**Project**: A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
 **S2 calls and events.** Given an open Project, when the webview calls `rpc {method: "daemon.ping", params: null}`, then it gets `{pong: true}`. A call that fails in the Daemon (`todo.get {id: 99}`) fails with the same `{code, message}`. After `subscribe`, an event the Daemon emits (`todo.created`) arrives on the channel, and several arrive in order. Before any Project is open, `rpc` and `subscribe` fail at once with `CONFLICT` saying no Project is open; they never wait.
 

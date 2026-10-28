@@ -1,6 +1,21 @@
 use super::*;
 
+impl Observation {
+    /// The word a log line names this Observation by; a Signal by its vendor event.
+    fn name(&self) -> &str {
+        match self {
+            Self::Signal(payload) => claude_code::event_name(payload),
+            Self::Title(_) => "title",
+            Self::Tick => "tick",
+            Self::Stopped => "stop",
+            Self::Exit { .. } => "exit",
+        }
+    }
+}
+
 pub(super) struct State {
+    /// Wake lifecycle observers even when an acknowledgement leaves Status unchanged.
+    pub(super) observed: Arc<tokio::sync::Notify>,
     /// H19: a test's observer of each gate decision; absent in production.
     pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
@@ -10,6 +25,13 @@ pub(super) struct State {
     pub(super) inbox: Arc<InboxState>,
     /// U3780a: the current or last tool call of each Agent.
     pub(super) tool_calls: Mutex<HashMap<String, claude_code::toolcall::Tracked>>,
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        // Receiver shutdown holds only the notification, so Project teardown must wake it.
+        self.observed.notify_waiters();
+    }
 }
 
 /// B50, B51: told the Message ids an Agent's transcript records as received from another session.
@@ -233,6 +255,7 @@ impl Shared {
                         && let Some(rail) = rail.as_deref_mut()
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
+                        self.events.observed.notify_waiters();
                         if let Some(status) =
                             run.adapter.fail(format!("cannot save conversation: {err}"))
                         {
@@ -309,24 +332,14 @@ impl Shared {
         observation: Observation,
         first_prompt: Option<Option<String>>,
     ) -> Result<Applied, RpcError> {
+        // The caller holds `runs`: a woken observer reads the completed fold after unlock.
+        self.events.observed.notify_waiters();
         let exited = matches!(observation, Observation::Exit { .. });
-        if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            self.timing
-                .lock()
-                .expect("measurement timing lock")
-                .end_attempt(id, &run.attempt);
-        }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            if !run.session_started {
-                self.timing
-                    .lock()
-                    .expect("measurement timing lock")
-                    .acknowledge_attempt(id, &run.attempt);
-            }
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
@@ -452,12 +465,6 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
-            if !run.ended {
-                self.timing
-                    .lock()
-                    .expect("measurement timing lock")
-                    .observe_status(&event, run.session_started);
-            }
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));
         }

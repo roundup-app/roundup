@@ -10,11 +10,37 @@ function unwrap(node) {
   return node ? unwrapArrayExpression(node) : node;
 }
 
+// Const binds the object identity, not its properties. Reject writes through local aliases.
+function changedObject(source, binding, seen = new Set()) {
+  if (!binding || seen.has(binding)) return false;
+  seen.add(binding);
+  return binding.references.some(ref => {
+    let node = ref.identifier;
+    while (node.parent?.type === "MemberExpression" && node.parent.object === node) node = node.parent;
+    const parent = node.parent;
+    if ((parent?.type === "AssignmentExpression" && parent.left === node) ||
+        parent?.type === "UpdateExpression" || (parent?.type === "UnaryExpression" && parent.operator === "delete")) return true;
+    if (parent?.type === "VariableDeclarator" && parent.init === node && parent.id.type === "Identifier") {
+      return changedObject(source, resolveVariable(source, parent.id), seen);
+    }
+    // Calling a method can mutate `this`; passing the object to unknown code can mutate it too.
+    if (parent?.type !== "CallExpression") return false;
+    if (parent.callee === node) return true;
+    if (!parent.arguments.includes(node)) return false;
+    let callee = parent.callee;
+    while (callee.type === "MemberExpression") callee = callee.object;
+    if (callee.type === "Identifier" && resolveVariable(source, callee) === binding) return true;
+    return !registration(source, parent.callee) && !isConfig(source, parent) && !isConfigDefinition(source, parent.callee);
+  });
+}
+
 function initializer(source, node) {
   const binding = resolveVariable(source, node);
   if (!binding || binding.references.some(ref => ref.isWrite() && !ref.init)) return null;
   const def = binding.defs.find(def => def.type === "Variable" && def.node.parent.kind === "const");
-  return def?.node.init ?? null;
+  const init = def?.node.init;
+  if (init?.type === "ObjectExpression" && changedObject(source, binding)) return null;
+  return init ?? null;
 }
 
 function value(source, node, seen = new Set()) {
@@ -87,19 +113,43 @@ function registration(source, node, seen = new Set()) {
   return null;
 }
 
+// Both Vite and Vitest expose defineConfig as an identity helper; it does not mutate options.
+function isConfigDefinition(source, node, seen = new Set()) {
+  node = unwrap(node);
+  if (!node || seen.has(node)) return false;
+  seen = new Set(seen).add(node);
+  const property = member(node);
+  const identifier = property?.object ?? node;
+  if (identifier.type !== "Identifier") return false;
+  const binding = resolveVariable(source, identifier);
+  if (!binding) return !property && identifier.name === "defineConfig";
+  for (const def of binding.defs) {
+    if (def.type !== "ImportBinding" || !["vite", "vitest/config"].includes(def.parent?.source.value)) continue;
+    if (property) return def.node.type === "ImportNamespaceSpecifier" && property.name === "defineConfig";
+    return (def.node.imported?.name ?? def.node.imported?.value) === "defineConfig";
+  }
+  return !property && isConfigDefinition(source, initializer(source, node), seen);
+}
+
 function objectProperty(source, node, name, seen = new Set()) {
   node = unwrap(node);
-  if (!node || seen.has(node)) return undefined;
+  if (!node) return undefined;
+  if (seen.has(node)) return node;
   seen = new Set(seen).add(node);
-  if (node.type === "Identifier") return objectProperty(source, initializer(source, node), name, seen);
-  if (node.type !== "ObjectExpression") return undefined;
+  if (node.type === "Identifier") {
+    const init = initializer(source, node);
+    return init ? objectProperty(source, init, name, seen) : node;
+  }
+  if (node.type !== "ObjectExpression") return node;
   let result;
   for (const property of node.properties) {
     if (property.type === "SpreadElement") {
       const spread = resolved(source, property.argument);
       result = spread?.type === "ObjectExpression" ? objectProperty(source, spread, name, seen) ?? result : property.argument;
-    } else if ((property.computed ? value(source, property.key) : property.key.name ?? property.key.value) === name) {
-      result = property.value;
+    } else {
+      const key = property.computed ? value(source, property.key) : property.key.name ?? property.key.value;
+      if (key === name) result = property.value;
+      else if (key === null) result = property.key;
     }
   }
   return result;
@@ -150,7 +200,7 @@ export const boundedTestTimeoutRule = defineRule({
     const exceptions = context.options[0]?.exceptions ?? [];
     const calls = [];
     const configs = [];
-    const defaults = [];
+    const defaults = new Set();
 
     function check(node, title, maximum) {
       const actual = value(source, node);
@@ -161,6 +211,11 @@ export const boundedTestTimeoutRule = defineRule({
 
     return {
       CallExpression(node) {
+        if (isConfigDefinition(source, node.callee)) {
+          const options = objectProperty(source, node.arguments[0], "test");
+          const configured = objectProperty(source, options, "testTimeout");
+          if (configured) defaults.add(configured);
+        }
         const kind = registration(source, node.callee);
         const method = member(node.callee);
         const builder = method && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(method.name);
@@ -172,7 +227,7 @@ export const boundedTestTimeoutRule = defineRule({
       },
       Property(node) {
         if ((node.key.name ?? node.key.value) !== "testTimeout") return;
-        defaults.push(node.value);
+        defaults.add(node.value);
       },
       "Program:exit"(program) {
         for (const entry of exceptions) {

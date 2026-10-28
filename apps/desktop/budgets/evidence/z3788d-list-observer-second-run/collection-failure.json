@@ -1,0 +1,7 @@
+{
+  "length": 4000,
+  "stage": "populate deterministic Rail nodes through fake seam",
+  "exit": 2,
+  "condition": "CDP Runtime.evaluate timed out; no 4000 sample exists.",
+  "log": "ready 40\ncompleted 40\nready 400\ncompleted 400\nTraceback (most recent call last):\n  File \"/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt\", line 22, in <module>\n    ev(f'''window.__list=Array.from({{length:{length}}},(_,i)=>({{id:'row-'+String(i).padStart(4,'0'),name:'row-'+String(i).padStart(4,'0')+(i%2?'-beta':'-alpha'),kind:'workstream',parent:null,order:i,status:{{kind:'done',label:'finished',since:0,finished:'0'}},attempt:null,status_revision:null,terminal_id:null,worktree:null,can_resume:false,yolo:false,channel:null,stray:[],model:null,effort:null,work:{{kind:'clarification',question:'What next?'}}}}));window.__fake.app.handlers['rail.tree']=()=>window.__list;window.__fake.emit({{actor:{{kind:'user',id:'you',parent:null}},name:'rail.changed'}})''')\n  File \"/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt\", line 13, in ev\n    def ev(s):return browser('eval',s)['result']\n                     ^^^^^^^^^^^^^^^^^\n  File \"/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/observe.py.txt\", line 9, in browser\n    if p.returncode:raise RuntimeError(p.stdout+p.stderr)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: {\"success\":false,\"data\":null,\"error\":\"CDP command timed out: Runtime.evaluate\"}\n\n"
+}

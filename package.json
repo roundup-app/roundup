@@ -17,6 +17,7 @@
     "lint:cycles": "node tools/lint/cycles.mjs ."
   },
   "devDependencies": {
+    "@actions/expressions": "^0.3.61",
     "@anthropic-ai/claude-code": "2.1.300",
     "@ast-grep/cli": "0.51.0",
     "@copilotkit/aimock": "1.45.1",
@@ -27,7 +28,8 @@
     "oxlint": "1.86.0",
     "stylelint": "17.16.0",
     "stylelint-declaration-strict-value": "1.12.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "yaml": "^2.9.1"
   },
   "pnpm": {
     "patchedDependencies": {
@@ -37,7 +39,22 @@
       "@ark-ui/solid@5.39.3": "patches/@ark-ui__solid@5.39.3.patch",
       "@copilotkit/aimock@1.45.1": "patches/@copilotkit__aimock@1.45.1.patch",
       "@xterm/addon-fit@0.11.0": "patches/@xterm__addon-fit@0.11.0.patch",
-      "overlayscrollbars@2.17.0": "patches/overlayscrollbars@2.17.0.patch"
+      "overlayscrollbars@2.17.0": "patches/overlayscrollbars@2.17.0.patch",
+      "@zag-js/radio-group@1.45.0": "patches/@zag-js__radio-group@1.45.0.patch",
+      "@zag-js/focus-trap@1.45.0": "patches/@zag-js__focus-trap@1.45.0.patch",
+      "@zag-js/dialog@1.45.0": "patches/@zag-js__dialog@1.45.0.patch",
+      "@pierre/diffs@1.6.1": "patches/@pierre__diffs@1.6.1.patch",
+      "@xterm/xterm@6.0.0": "patches/@xterm__xterm@6.0.0.patch",
+      "@anthropic-ai/claude-agent-sdk@0.3.309": "patches/@anthropic-ai__claude-agent-sdk@0.3.309.patch",
+      "@zag-js/live-region@1.45.0": "patches/@zag-js__live-region@1.45.0.patch",
+      "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch"
+    },
+    "packageExtensions": {
+      "@pierre/trees@1.0.0-beta.6": {
+        "dependencies": {
+          "@zag-js/collection": "1.45.0"
+        }
+      }
     }
   }
 }

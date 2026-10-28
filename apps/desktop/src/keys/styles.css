@@ -13,12 +13,14 @@
   white-space: nowrap;
 }
 .key-hint-label { min-width: 0; }
-.help-line, .help-shelf > p {
+.help-line, .help-shelf p {
   padding-bottom: var(--space-1);
 }
 .help .key-hint {
   display: grid;
-  grid-template-columns: calc(var(--space-6) * 4) 1fr;
+  grid-template-columns: calc(var(--space-6) * 4) minmax(0, 1fr);
+  align-items: start;
+  white-space: normal;
   gap: var(--space-1);
 }
 .key-chip {
@@ -40,7 +42,7 @@
   color: var(--text);
   background: var(--key-chip-fill);
 }
-.help-line, .help-shelf, .leader-line { color: var(--grey); }
+.help-line, .help-shelf { color: var(--grey); }
 
 .help h2 {
   margin: 0 0 var(--space-1);
@@ -55,10 +57,3 @@
   gap: var(--space-3) var(--space-6);
 }
 .help-section, .help-shelf { min-width: 0; }
-.leader-line { flex: 0 0 auto; }
-.leader .reserved-status {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-4);
-}

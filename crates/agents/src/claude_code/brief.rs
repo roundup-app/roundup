@@ -108,7 +108,18 @@ const TOOLS: &[(&str, &str)] = &[
         "add text at the end of the section under a Markdown heading of any Pad",
     ),
     ("pad_setOwner", "give a Pad to another Actor"),
-    ("pad_delete", "delete a Pad you no longer need"),
+    (
+        "pad_delete",
+        "delete a Pad you no longer need; supply an operation and expectedIncarnation to reconcile an unknown reply",
+    ),
+    (
+        "pad_getDeletion",
+        "read your retained deletion operation on its original Project before retrying an unknown deletion",
+    ),
+    (
+        "pad_restore",
+        "restore your deletion operation in its original Project once, keeping its original Pad creation",
+    ),
     (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
@@ -249,14 +260,6 @@ const TOOLS: &[(&str, &str)] = &[
         "see the Routes: whom each Agent's questions go to",
     ),
     ("project_get", "read the Project's settings"),
-    (
-        "project_measurements",
-        "read retained measurements and collection coverage",
-    ),
-    (
-        "project_measurementSummary",
-        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
-    ),
     (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
@@ -405,30 +408,6 @@ Never read from 0 again; every answer is capped, and says `truncated` when more 
 
 ";
 
-/// Q1: `hold/output-styles/plain.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d
-/// (plugin `hold` 0.0.9), vendored byte for byte.
-const HOLD_PLAIN: &str = include_str!("../../assets/hold-plain.md");
-
-/// Q1: the text that puts every generated text into `HOLD_PLAIN`'s style.
-const PLAIN_RULE: &str = "\
-## Output style
-
-Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. \
-Write every Work order, Message to `you`, `AskUserQuestion` question, Digest and Pad reply in the output style below. \
-Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
-
-";
-
-/// LC3: Plain's rules without the worker's vendored body; Project instructions stay in force.
-const DOOR_PLAIN: &str = "\
-## Output style
-
-Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
-Keep prose to a few short lines and put rows in a table. \
-Where the Project's `CLAUDE.md` asks for something else, follow it.
-
-";
-
 /// LC4: what a scout is told.
 const SCOUT: &str = "\
 ## Your role
@@ -460,7 +439,7 @@ const REDUCE_RULE: &str = "\
 ## Reduce and show
 
 Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, \
-and lay it out as `show-me` does. Both skills follow. \
+and lay it out as `show-me` does. Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\". Both skills follow. \
 When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
@@ -504,9 +483,8 @@ fn command(name: &str) -> String {
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3). `mcp` is whether the
 /// roundup MCP server is launched (M2219); with it off the Brief names `rup` commands instead.
-/// `plain` delivers hold:Plain only when the user has no output style (LC2).
-pub fn text(role: Role, mcp: bool, plain: bool) -> String {
-    let brief = with_tools(role, mcp, plain);
+pub fn text(role: Role, mcp: bool) -> String {
+    let brief = with_tools(role, mcp);
     if mcp {
         return brief;
     }
@@ -528,7 +506,7 @@ pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
         .filter(|name| !matches!(*name, "agent_run" | "terminal_spawn" | "terminal_open"))
 }
 
-fn with_tools(role: Role, mcp: bool, plain: bool) -> String {
+fn with_tools(role: Role, mcp: bool) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = match (mcp, role) {
         (true, Role::Door) => {
@@ -584,16 +562,6 @@ fn with_tools(role: Role, mcp: bool, plain: bool) -> String {
     }
     text.push('\n');
     text.push_str(TERMINAL_HABIT);
-    if plain {
-        match role {
-            Role::Door | Role::Scout => text.push_str(DOOR_PLAIN),
-            Role::Agent => {
-                text.push_str(PLAIN_RULE);
-                text.push_str(HOLD_PLAIN);
-                text.push('\n');
-            }
-        }
-    }
     text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
     text.push_str(REDUCE);
@@ -617,7 +585,7 @@ mod tests {
 
     #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {
-        let brief = text(Role::Door, true, true);
+        let brief = text(Role::Door, true);
         assert!(
             brief.contains("`prompt`")
                 && brief.contains("`order`")

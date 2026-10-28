@@ -1,0 +1,11 @@
+{
+  "name": "@xterm/headless",
+  "version": "6.0.0",
+  "description": "A headless terminal component that runs in Node.js",
+  "published": "2025-12-22T13:50:15.183Z",
+  "repository": {
+    "url": "git+https://github.com/xtermjs/xterm.js.git",
+    "type": "git"
+  },
+  "integrity": "sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw=="
+}

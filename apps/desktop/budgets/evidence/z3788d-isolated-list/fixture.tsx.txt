@@ -1,0 +1,28 @@
+import { render } from "solid-js/web";
+import { ConnectedProjectContext, connectProject } from "./src/state/connectedProject";
+import { createFakeApp } from "./src/testing/fakeApp";
+import { workstream } from "./src/testing/nodes";
+import { useBrowserStorage } from "./src/state/storage";
+import { Leader } from "./src/keys/Leader";
+import { Switcher } from "./src/switcher/Switcher";
+import "./src/tokens.css";
+import "./src/styles.css";
+import "./src/scrollbar.css";
+
+useBrowserStorage(localStorage);
+const length = Number(new URLSearchParams(location.search).get("length"));
+const app = createFakeApp();
+app.handlers["rail.tree"] = () => Array.from({ length }, (_, i) => workstream(
+  "row-" + String(i).padStart(4, "0"),
+  { name: "row-" + String(i).padStart(4, "0") + (i % 2 ? "-beta" : "-alpha"), order: i },
+));
+const connected = await connectProject(app, { name: "measurement", path: "/z3788d" }, () => false, () => 0);
+window.__observer = { app, connected };
+render(() => <ConnectedProjectContext.Provider value={connected}>
+  <Leader /><main class="window"><div class="centre-stack">
+    <button autofocus>Open destinations with Cmd+K, K</button>
+    <div class="pane-screen"><textarea aria-label="Selection focus target" /></div>
+    <Switcher onOpen={() => {}} onFailure={message => { window.__failure = message; }} />
+  </div></main>
+</ConnectedProjectContext.Provider>, document.getElementById("root")!);
+window.__ready = true;

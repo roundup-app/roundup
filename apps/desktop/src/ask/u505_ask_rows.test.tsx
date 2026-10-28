@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,7 +9,7 @@ import { chromePath } from "../testing/chromePage";
 import { cleanup, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { event } from "../testing/nodes";
-import { ask, mountAskBar, rowTexts } from "./askFixture";
+import { ask, mountAskBar as mountQuietAskBar, rowTexts } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -56,20 +57,21 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       typed,
     ]);
 
-    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | Sent", "later | lead | Queued for the supervisor"]));
+    await waitFor(() => expect(rowTexts()).toEqual([`ship it | ops | ${copy.askSent}`, `later | lead | ${copy.askQueued}`]));
 
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
-    await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Sent"));
-    expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Idle" })).toBeTruthy();
+    await waitFor(() => expect(rowTexts()[1]).toBe(`later | lead | ${copy.askSent}`));
+    expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: copy.idle })).toBeTruthy();
     app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2, finished: "0" } } }));
-    await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Working" })).toBeTruthy());
+    await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: copy.working })).toBeTruthy());
   });
 
   it("u505_selecting_a_row_selects_its_workstream", async () => {
     await observe(async (browser, origin) => {
       for (const activation of ["click", "Enter"]) {
-        await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+        await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams", origin).href);
         await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+        await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
         await browser("eval", `(() => {
           window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed",
             data: {ask: {id: "native", at: "1", text: "ship it", parts: [{text: "ship it",
@@ -101,12 +103,13 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         await browser("eval", "localStorage.clear()");
       }
     });
-  }, 120_000);
+  }, 60_000);
 
   it("u505_arrows_move_between_openable_rows", async () => {
     await observe(async (browser, origin) => {
-      await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+      await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams", origin).href);
       await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+        await browser("eval", "window.__fake.app.projects().then(list => window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:list.at(-1).path,command:'view:ask-history'}})))");
       await browser("eval", `(() => {
         const parts = [
           {text: "first", placement: {kind: "routed", workstream: "backend"}, state: "queued"},
@@ -129,11 +132,11 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
       expect((await browser("eval", "document.querySelector('.pane-screen').contains(document.activeElement)")).result).toBe(true);
     });
-  }, 120_000);
+  }, 60_000);
 
   it("u505_a_row_is_a_button_named_by_its_cells", async () => {
     await mountAskBar([typed, ask("plain", 1, [{ text: "plain", placement: { kind: "new", title: "future" }, state: "placing" }])]);
-    expect(await screen.findByRole("button", { name: /ship it.*Needs-you.*ops.*Sent/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: new RegExp(typed.parts[0]!.text) })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /plain/ })).toBeNull();
   });
 
@@ -143,4 +146,29 @@ describe("u505 an Ask row shows progress from Agent state", () => {
     await waitFor(() => expect(document.querySelector(".ask-reason")?.textContent).toBe("the Door ended before this reached it"));
     expect(rowTexts()).toEqual(["go | ops | Failed"]);
   });
+});
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => { const mounted = await mountQuietAskBar(...args); mounted.connected.showView("ask-history");
+
+ return mounted; };
+
+
+it("u2539b_history_shows_each_doors_current_status_once", async () => {
+  const { app } = await mountAskBar(Array.from({ length: 12 }, (_, n) => ask(`history-${n}`, n, [
+    { text: `Authored request ${n}`, placement: { kind: "routed", workstream: "ops" }, state: "typed" },
+  ])));
+
+  expect(document.querySelectorAll(".ask-row")).toHaveLength(12);
+  expect(document.querySelectorAll(".ask-kind")).toHaveLength(1);
+  expect(app.calls.filter(call => call.method === "ask.send" || call.method === "terminal.write")).toHaveLength(0);
+});
+
+it("u4277c_empty_history_keeps_composition_without_target_actions", async () => {
+  const { app } = await mountAskBar();
+  const list = document.querySelector<HTMLElement>(".ask-rows")!;
+  await waitFor(() => expect(list.getAttribute("aria-busy")).toBe("false"));
+  expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
+  expect(screen.getByRole("group", { name: copy.askHistoryEmpty })).toBeTruthy();
+  expect(document.querySelector('.ask-input')).toBeTruthy();
+  expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });

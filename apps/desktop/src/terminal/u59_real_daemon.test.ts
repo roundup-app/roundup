@@ -5,6 +5,7 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { journal } from "./mouseJournalHarness";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
+import { createServedApp } from "../testing/realSeam";
 
 /** U59's observer: ten Agents on the real `rupd` and a real Chromium; the selected Terminal passes D1, D6, D7 and D10. */
 
@@ -34,7 +35,7 @@ run("u59 on the real Daemon", () => {
   /** A cold dev server may reload the page once it has bundled its dependencies, or a loaded runner may stall it, so the page is loaded again when the rail has not come up. */
   const openHarness = async () => {
     for (let attempt = 1; ; attempt += 1) {
-      await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
+      await page.load(`${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1280, 800);
 
       try {
         await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`, 20_000);
@@ -49,14 +50,20 @@ run("u59 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
   it("u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean", async () => {
-    await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+    const app = createServedApp(real.base);
+    const home = await app.rpc("rail.createWorkstream", { name: "Ten Agents", parent: null });
+    let selected = home.id;
 
     for (let count = 1; count <= 10; count += 1) {
-      await page.until(`() => [...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent")?.getAttribute("aria-disabled") !== "true" && Boolean([...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent"))`);
-      await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.getAttribute("aria-label") === "Add Agent").click()`);
-      await page.until(`() => document.querySelectorAll('.rail [role="treeitem"]:not([data-button])').length >= ${count + 1}`);
+      selected = (await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name: `Agent ${count}` })).id;
     }
+
+    await openHarness();
+    await page.until(`() => Boolean(document.querySelector('.rail-row[data-id="${selected}"]'))`);
+    await page.call(`id => document.querySelector('.rail-row[data-id="' + id + '"]').focus()`, selected);
+    await page.until(`() => document.activeElement?.matches('.rail-row[data-id="${selected}"]')`);
+    await page.press("Enter", "Enter");
+    await page.until(`() => document.querySelector('.rail-row[data-id="${selected}"]')?.dataset.selected === 'true'`);
 
     await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
 
@@ -92,7 +99,7 @@ run("u59 on the real Daemon", () => {
     };
 
     try {
-      await page.load(`${selectionDaemon.base}/harness.html?daemon=1`, 1512, 950);
+      await page.load(`${selectionDaemon.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1512, 950);
       await until("!!document.querySelector('.terminal-new')");
       await click(".terminal-new");
       await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
@@ -135,7 +142,7 @@ it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () =
     const expected = await journal("#host .xterm-screen", true);
     const bytes = expected.bytes.flat();
     expect(bytes.length).toBeGreaterThan(0);
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('.terminal-new')");
     await browser("click", ".terminal-new");
     await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");

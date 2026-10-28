@@ -10,7 +10,7 @@ import { rowOf } from "../rail/railFixture";
 import { workstream } from "../testing/nodes";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -21,12 +21,12 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("region").map(item => item.getAttribute("aria-label"))).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
-  expect(screen.getAllByRole("region", { name: "Settings" })).toHaveLength(1);
+  expect(screen.getByRole("region", { name: "Settings" })).toBe(view);
 });
 
 it("u3800_close_returns_the_center_and_focus", async () => {
@@ -53,8 +53,11 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
-  fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo ⇧⌘T" }));
-  expect(screen.getByRole("button", { name: "Quick add a Todo Press a shortcut" })).toBeTruthy();
+  const settings = within(await screen.findByRole("region", { name: "Settings" }));
+  fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
+  const recorder = await settings.findByRole("button", { name: /^Quick add a Todo/ });
+  fireEvent.click(recorder);
+  expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
   fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
@@ -73,8 +76,6 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
-    expect(screen.queryByRole("button", { name: "Import Claude Code work" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Project settings" })).toBeNull();
 
     for (const [command, heading] of [["import-work", "Import Claude Code work"], ["project-settings", "Project settings"]] as const) {
       openProjectPage(command);
@@ -98,6 +99,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   const { app } = seedApp("tree-40", Date.now());
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findAllByRole("treeitem");
+  await showEverythingInApp();
   app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
@@ -114,20 +116,19 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
 
   openProjectPage(command);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(rowOf("agent-1"));
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(overview);
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  await showEverythingInApp();
+  // U4453b owns Overview activation: it now closes the requested screen.
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
+  fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
   await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
-  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
+  fireEvent.click(rowOf("agent-1"));
+  expect(screen.getByRole("region", { name: heading })).toBe(page);
 
   if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
   else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
@@ -179,7 +180,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
   expect(app.of(path("api")).calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 
-it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_previous_center_and_focus_missing_element_%s", async command => {
+it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the_previous_center_and_focus_missing_element_%s", async command => {
   await openTabs({ api: [workstream("w")] });
   const opener = document.createElement("button");
   document.body.append(opener);
@@ -187,7 +188,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_close_restores_the_
   openProjectPage(command);
   const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code work" : "Project settings" });
   opener.remove();
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview, Project root/ })));
 });
 
@@ -197,15 +198,15 @@ it("u3814_switching_settings_pages_keeps_the_original_return_destination", async
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  const appPage = await screen.findByRole("region", { name: "Settings" });
   openProjectPage("import-work");
-  expect(await screen.findByRole("region", { name: "Import Claude Code work" })).toBeTruthy();
-  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
+  const imported = await screen.findByRole("region", { name: "Import Claude Code work" });
+  expect(appPage.isConnected).toBe(false);
   openProjectPage("project-settings");
   const page = await screen.findByRole("region", { name: "Project settings" });
-  fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
-  expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull();
+  expect(imported.isConnected).toBe(false);
 });
 
 it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", async () => {
@@ -224,7 +225,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.capture("U3814", "import-page");
     await lane.browser("click", ".import-check");
     await lane.evaluate(`(() => {
-      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.' }] });
+      window.__fake.app.handlers['project.importCommit'] = () => ({ outcomes: [{ source: 's0', workstream: null, agent: null, error: { code: -32003, message: 'Import could not copy this conversation because storage is unavailable. Free disk space, then retry Import.', outcome: 'failed' } }] });
       return true;
     })()`);
     await lane.browser("click", ".import-confirm");
@@ -258,7 +259,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
 
     for (const seed of ["agents-10", "tree-40", "first-run"]) {
       await lane.evaluate("localStorage.clear()");
-      await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
+      await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
       await lane.until("!!document.querySelector('.window')");
 
       if (seed !== "first-run") {
@@ -290,4 +291,48 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
   } finally {
     try { await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
-}, 180_000);
+}, 60_000);
+
+it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s", async project => {
+  const { seedApp } = await import("../testing/seeds");
+  render(() => <App app={project ? seedApp("tree-40", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+
+  if (project) await screen.findAllByRole("treeitem");
+  else await screen.findByRole("button", { name: /Choose/ });
+  window.dispatchEvent(new Event("open-app-settings"));
+  const view = await screen.findByRole("region", { name: "Settings" });
+
+  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+    fireEvent.click(within(view).getByRole("tab", { name }));
+    await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
+  }
+
+  const appearance = within(view).getByRole("tab", { name: "Appearance" });
+  appearance.focus();
+  await Promise.resolve();
+  fireEvent.keyDown(appearance, { key: "ArrowUp" });
+  await waitFor(() => expect(document.activeElement).toBe(within(view).getByRole("tab", { name: "Shortcuts" })));
+  await waitFor(() => expect(document.activeElement?.getAttribute("aria-selected")).toBe("true"));
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+  await waitFor(() => expect(document.activeElement).toBe(appearance));
+  await waitFor(() => expect(appearance.getAttribute("aria-selected")).toBe("true"));
+  const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
+  const mode = within(panel).getByRole("combobox", { name: "Mode" });
+  mode.focus();
+  await waitFor(() => expect(within(view).getByRole("tabpanel").contains(mode)).toBe(true));
+  expect(document.activeElement).toBe(mode);
+});
+
+it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {
+  const { appSettings, saveAppSettings } = await import("./preferences");
+  await saveAppSettings({ fontSize: 17 });
+  render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
+  await screen.findByRole("button", { name: /Choose/ });
+  window.dispatchEvent(new Event("open-app-settings"));
+  fireEvent.click(await screen.findByRole("tab", { name: "Terminal" }));
+  fireEvent.input(await screen.findByRole("spinbutton", { name: "Font size" }), { target: { value: " 300 " } });
+  fireEvent.click(screen.getByRole("tab", { name: "Agents" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe(" 300 ");
+  expect(appSettings().fontSize).toBe(17);
+});

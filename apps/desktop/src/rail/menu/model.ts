@@ -1,8 +1,9 @@
+import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { RpcError } from "../../app/seam";
+import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
@@ -20,12 +21,12 @@ type MenuState = {
   action: "stop" | "remove";
   removed?: (() => void) | undefined;
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
-  removal?: Removal | null;
+  removal?: Removal | null | undefined;
+  losses?: string[];
+  allLosses?: string[];
 };
 
 const NOT_FOUND = -32001;
-
-const UNKNOWN_OUTCOME = -32004;
 
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
@@ -35,7 +36,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -95,17 +96,16 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       await rail.refresh();
       acknowledge(id);
     } catch (error) {
-      if (!(error instanceof RpcError)) {
-        if (error instanceof Error) onFailure(error.message, id);
-        else throw error;
-      } else if (error.code === UNKNOWN_OUTCOME) {
+      if (!(error instanceof Error)) throw error;
+
+      if (outcomeOf(error) === "unknown") {
         await rail.refresh({ terminals: true });
 
         if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
       } else {
         onFailure(error.message, id);
 
-        if (error.code === NOT_FOUND) await rail.refresh();
+        if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
       }
     } finally {
       resuming.delete(id);
@@ -134,41 +134,53 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     clearingOf(app, events, node.id, storage).open();
   };
 
-  const chooseRemove = () => {
+  const chooseRemove = (scope: "this" | "all" = "this") => {
     const current = state();
 
     if (!current) return;
 
-    if (current.node.kind === "workstream") {
-      if (!current.confirming) void confirmWorkstream(current);
-      else if (current.removal) return remove(current);
-
-      return;
-    }
-
-    if (!current.confirming) {
-      setState({ ...current, confirming: true });
-
-      return;
-    }
-
-    return remove(current);
+    if (current.confirming) return remove(current, scope);
+    void judge(current);
   };
 
-  const remove = (current: MenuState) =>
+  const remove = (current: MenuState, scope: "this" | "all") =>
     attempt(async () => {
-      await app.rpc("rail.remove", { id: current.node.id });
+      await app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id });
       current.removed?.();
     }, current.node.id);
 
-  /** U367: a Workstream always asks, after reading the facts A34 judges. */
-  const confirmWorkstream = async (current: MenuState) => {
+  const judge = async (current: MenuState) => {
     setState({ ...current, confirming: true, removal: null });
 
     try {
-      const removal = await judgeRemoval(app, rail.nodes, current.node.id);
+      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
+      const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
-      if (state()?.node.id === current.node.id) setState({ ...current, confirming: true, removal });
+      const losses = chosen.flatMap(node => [
+        ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
+        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+      ]);
+
+      const allLosses = rail.nodes.filter(node => removal?.affectedIds.includes(node.id) && !removal.removedIds.includes(node.id)).flatMap(node => [
+        ...(node.worktree ? [copy.removeAllWorktreeLoss(node.name)] : []),
+        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+      ]);
+
+      if (state()?.node.id !== current.node.id) return;
+
+      if (current.node.kind === "workstream" || losses.length) {
+        setState({ ...current, confirming: true, removal, losses, allLosses });
+
+        return;
+      }
+
+      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name);
+      close();
+
+      if (removed) {
+        current.removed?.();
+        acknowledge(current.node.id);
+      } else if (storage.todoUndo.failure()) onFailure(storage.todoUndo.failure()!, current.node.id);
     } catch (error) {
       close();
 
@@ -177,10 +189,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
-  const requestRemove = (node: RailNode, exit: ExitState | null, removed: () => void) => {
-    if (state()?.confirming) return;
-    setState({ node, exit, confirming: false, action: "remove", removed });
+  /** Menu and key capture the same row before consequence judgement. */
+  const requestRemove = (node: RailNode, exit: ExitState | null, removed?: () => void) => {
+    if (state()?.confirming || storage.todoUndo.pending() || storage.todoUndo.uncertain()) return;
+    setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
     chooseRemove();
   };
 
@@ -201,11 +213,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
-    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => {
-      if (state()?.confirming) return;
-    setState({ node, exit, confirming: false, action: "remove", removed });
-      chooseRemove();
-    } };
+    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
 
     const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
 
@@ -229,11 +237,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
         ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
         ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
+        ...extra(node),
         remove,
       ];
     }
 
-    if (node.kind === "workstream" && node.attempt === null) return [remove];
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), remove];
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
@@ -255,7 +264,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
-      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id)),
+      ...extra(node),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id), feedback(node.id)),
       remove,
     ];
   };

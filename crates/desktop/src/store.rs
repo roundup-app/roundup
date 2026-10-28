@@ -15,6 +15,8 @@ struct Saved {
     #[serde(default)]
     open: Vec<String>,
     #[serde(default)]
+    recent: Vec<String>,
+    #[serde(default)]
     names: BTreeMap<String, String>,
 }
 
@@ -48,6 +50,26 @@ impl Store {
 
     pub fn open_paths(&self) -> Vec<String> {
         self.with(|saved| saved.open.clone())
+    }
+
+    pub fn recent_projects(&self) -> Vec<String> {
+        self.with(|saved| {
+            saved
+                .recent
+                .iter()
+                .filter(|path| Path::new(path).is_dir())
+                .take(5)
+                .cloned()
+                .collect()
+        })
+    }
+
+    pub fn record_recent(&self, path: &str) {
+        self.with(|saved| {
+            saved.recent.retain(|entry| entry != path);
+            saved.recent.insert(0, path.to_owned());
+            saved.recent.truncate(5);
+        });
     }
 
     pub fn name(&self, path: &str) -> Option<String> {
@@ -108,12 +130,12 @@ impl Store {
         };
         match std::fs::read(dir.join(FILE)) {
             Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|err| {
-                eprintln!("desktop: ignoring an unreadable {FILE}: {err}");
+                log::warn!(target: "roundup::shell", "restore Project store: JSON {:?} at {}:{}; using recoverable memory", err.classify(), err.line(), err.column());
                 Saved::default()
             }),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Saved::default(),
             Err(err) => {
-                eprintln!("desktop: could not read {FILE}: {err}");
+                log::warn!(target: "roundup::shell", "read Project store: IO {:?}; using recoverable memory", err.kind());
                 Saved::default()
             }
         }
@@ -128,6 +150,50 @@ fn write(dir: &Path, saved: &Saved) {
         std::fs::rename(temporary, dir.join(FILE))
     });
     if let Err(err) = result {
-        eprintln!("desktop: could not save {FILE}: {err}");
+        log::warn!(target: "roundup::shell", "save Project store: IO {:?}; changes remain in memory", err.kind());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn s6_recent_paths_are_distinct_bounded_ordered_and_persisted() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(Some(dir.path().join("data")));
+        let paths: Vec<_> = (0..7)
+            .map(|n| {
+                let path = dir.path().join(n.to_string());
+                std::fs::create_dir(&path).unwrap();
+                path.display().to_string()
+            })
+            .collect();
+        for path in &paths {
+            store.record_recent(path);
+        }
+        store.record_recent(&paths[3]);
+        let restored = Store::new(Some(dir.path().join("data")));
+        assert_eq!(
+            restored.recent_projects(),
+            vec![
+                paths[3].clone(),
+                paths[6].clone(),
+                paths[5].clone(),
+                paths[4].clone(),
+                paths[2].clone()
+            ]
+        );
+    }
+
+    #[test]
+    fn s6_recent_paths_omit_folders_that_no_longer_exist() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("project");
+        std::fs::create_dir(&folder).unwrap();
+        let store = Store::new(Some(dir.path().join("data")));
+        store.record_recent(&folder.display().to_string());
+        std::fs::remove_dir(folder).unwrap();
+        assert!(store.recent_projects().is_empty());
     }
 }
