@@ -133,9 +133,15 @@ export const Bubbles = (props: {
   // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
   const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
 
-  const shown = createMemo(() => rail.selected() === null
-    ? rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id))
-    : shownFor(rail.terminals(), rail.nodes, rail.selected()));
+  const [openedHere, setOpenedHere] = createSignal<readonly string[]>([]);
+  createEffect(on(() => rail.selected(), () => setOpenedHere([]), { defer: true }));
+
+  const shown = createMemo(() => {
+    if (rail.selected() === null) return rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id));
+    const eligible = shownFor(rail.terminals(), rail.nodes, rail.selected());
+
+    return [...eligible, ...rail.terminals().filter(terminal => openedHere().includes(terminal.id) && !eligible.some(shown => shown.id === terminal.id))];
+  });
 
   // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
   createEffect(() => {
@@ -394,6 +400,7 @@ export const Bubbles = (props: {
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
 
+        if (selection !== null && workstream === null) setOpenedHere(prior => [...prior, opened.terminal_id]);
         if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
