@@ -182,6 +182,18 @@ impl Fixture {
             .collect()
     }
 
+    /// A4452a: wait for `count` Messages in the Claude inbox log and return them.
+    pub async fn until_inbox(&self, count: usize) -> Vec<(String, String)> {
+        for _ in 0..500 {
+            let inbox = self.inbox();
+            if inbox.len() >= count {
+                return inbox;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        panic!("inbox holds {:?}, wanted {count}", self.inbox());
+    }
+
     pub async fn call(&self, method: &str, params: Value) -> Result<Value, RpcError> {
         self.agents.call(&self.ctx(), method, params).await
     }
