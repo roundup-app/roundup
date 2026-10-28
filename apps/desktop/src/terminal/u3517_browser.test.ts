@@ -153,7 +153,7 @@ for (const state of ["agent", "door", "shell"]) {
           fontStatus: document.fonts.status, smoothing: style.webkitFontSmoothing };
       })()`);
 
-      const record = { ...metrics, ...metadata, commit: base ? execFileSync('git', ['rev-parse','origin/main'], {encoding:'utf8'}).trim() : execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim(),
+      const record = { ...metrics, ...metadata, commit: execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8', cwd: base ? process.env.U500_BASE_ROOT : process.cwd()}).trim(),
         seed, state, candidate: 'selected',
         streamIdentity: createHash('sha256').update(replay).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
@@ -174,7 +174,7 @@ for (const state of ["agent", "door", "shell"]) {
         writeFileSync(join(dir, `${state}.metrics.json`), JSON.stringify(record, null, 2));
       }
     }
-  }, 60_000);
+  }, 120_000);
 }
 
 
