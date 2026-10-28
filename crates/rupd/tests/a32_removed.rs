@@ -3,6 +3,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio::net::UnixListener;
 
+// SQLite shared-memory locks are volatile; database and WAL bytes hold Project state.
 fn stored(path: &std::path::Path) -> Vec<(String, Vec<u8>)> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(path).unwrap() {
@@ -34,10 +35,17 @@ async fn a32_removed_methods_are_unknown_and_change_nothing() {
         .await
         .unwrap();
     let id = door["id"].as_str().unwrap();
-    user.request("todo.create", json!({"title":"retain","home":id}))
+    let todo = user
+        .request("todo.create", json!({"title":"retain"}))
+        .await
+        .unwrap();
+    user.request("todo.move", json!({"id":todo["id"],"home":id}))
         .await
         .unwrap();
     user.request("pad.create", json!({"name":"retain","text":"exact text"}))
+        .await
+        .unwrap();
+    user.request("pad.move", json!({"name":"retain","home":id}))
         .await
         .unwrap();
     let sender = rpc::Client::connect(&socket).await.unwrap();

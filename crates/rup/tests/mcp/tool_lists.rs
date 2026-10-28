@@ -356,7 +356,10 @@ async fn a32_removed_tools_are_unavailable() {
         .request("rail.createWorkstream", serde_json::json!({"name":"team"}))
         .await
         .unwrap();
-    let before = user.request("rail.tree", ()).await.unwrap();
+    let mut before = Vec::new();
+    for method in ["rail.tree", "todo.list", "pad.list", "message.list"] {
+        before.push(user.request(method, ()).await.unwrap());
+    }
     for id in ["ordinary", door["id"].as_str().unwrap()] {
         let shim = super::spawn_shim(&project.socket, id).await;
         let tools = shim.client.list_all_tools().await.unwrap();
@@ -373,6 +376,15 @@ async fn a32_removed_tools_are_unavailable() {
             assert_eq!(error.code.0, -32602);
             assert_eq!(error.message, format!("no tool named {name}"));
         }
-        assert_eq!(user.request("rail.tree", ()).await.unwrap(), before);
+        for (method, expected) in ["rail.tree", "todo.list", "pad.list", "message.list"]
+            .into_iter()
+            .zip(&before)
+        {
+            assert_eq!(
+                &user.request(method, ()).await.unwrap(),
+                expected,
+                "{method}"
+            );
+        }
     }
 }
