@@ -113,7 +113,13 @@ fn offer(
 ) -> Offered {
     Offered {
         method,
-        tool: Tool::new(method.replace('.', "_"), description, schema),
+        tool: Tool::new(
+            method.replace('.', "_"),
+            format!(
+                "{description} Agent references accept `me` (you), an exact case-sensitive Rail name, `name:<Rail name>` for collisions, or a canonical id. Owner fields also accept explicit Actors; omitted/null Todo owners remain Unassigned."
+            ),
+            schema,
+        ),
         takes_params,
         own_id: false,
         own_reader: false,

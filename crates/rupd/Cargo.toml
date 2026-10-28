@@ -5,7 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [features]
-test-support = ["dep:async-trait"]
+test-support = ["agents/test-support", "dep:async-trait"]
 
 [dependencies]
 async-trait = { workspace = true, optional = true }
