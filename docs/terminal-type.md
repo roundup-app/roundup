@@ -473,3 +473,8 @@ for xterm's selection render frame. Pasting clears selection even when the
 Daemon refuses input; selecting before that failure left no painted selection.
 The refreshed six paired/continuity cases pass with the selected first line
 visible, preserving the same replay bytes, sizes and Check delta.
+
+Final `just ready` exits 0 after the selection correction, including lints,
+Token/type checks, proofs, trailer/frozen guards, workflow tests and N7. An
+intermediate aggregate was interrupted (143) during proof setup; both the
+standalone remaining guards and the final complete aggregate pass.
