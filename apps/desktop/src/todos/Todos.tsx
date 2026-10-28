@@ -276,10 +276,8 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => {
-        const target = nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle") : rowButtonOf(id);
-        target?.focus({ preventScroll: true });
-      });
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => (nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle")
+        : rowButtonOf(id))?.focus({ preventScroll: true }));
     });
   });
 
@@ -317,7 +315,9 @@ export const Todos = (props: {
       nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) { nestFocus = null; return sorted.show(id, message); }
+      if (message !== null) { nestFocus = null;
+
+ return sorted.show(id, message); }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));

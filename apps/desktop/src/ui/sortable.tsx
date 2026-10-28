@@ -198,8 +198,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const targetDepth = rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === target))?.depth ?? 0;
     const step = Number.parseFloat(styles.getPropertyValue("--tree-step")) || local.tree?.indent || 0;
     const content = target.querySelector<HTMLElement>(".line");
+
     const inset = content ? content.getBoundingClientRect().left - box.left
       : styles.getPropertyValue("--todo-depth").trim() ? Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2")) : 0;
+
     const indent = inset + (depth - targetDepth) * step;
     const parent = slot.parentElement;
 
