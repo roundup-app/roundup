@@ -24,7 +24,7 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual(["Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy link", "Rename", "Clear…", "Add", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Start YOLO", "Stop", "Open folder", "Open in editor", "Send to Agent", "Copy link", "Rename", "Clear…", "Opening prompt…", "Add", "Remove"]);
     expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
@@ -86,7 +86,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual(["Start supervisor", "Open folder", "Open in editor", "Clear…", "Add", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Start supervisor", "Open folder", "Open in editor", "Clear…", "Opening prompt…", "Add", "Remove"]);
   });
 
   it.each([
@@ -120,7 +120,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual([...(!running ? ["Start supervisor"] : []), ...actions, "Open folder", "Open in editor", "Copy link", "Rename", "Clear…", "Add", "Remove"]);
+    expect(app.menuLabels()).toEqual([...(!running ? ["Start supervisor"] : []), ...actions, "Open folder", "Open in editor", "Copy link", "Rename", "Clear…", "Opening prompt…", "Add", "Remove"]);
   });
 
   it("u4322a_inapplicable_actions_are_absent", async () => {
@@ -445,7 +445,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 it.each([
   {
     name: "Workstream row",
-    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
     receivers: ["a"],
     mount: async () => {
       const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
@@ -465,7 +465,7 @@ it.each([
   },
   {
     name: "Queued Workstream row",
-    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
     receivers: [],
     mount: async () => {
       const { app, connected } = await mountRail([workstream("first"), workstream("middle", { order: 1 }), workstream("last", { order: 2 })]);

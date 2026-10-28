@@ -4,9 +4,6 @@ import type { OwnerGroup } from "../shelf/scope";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { useConnectedProject } from "../state/connectedProject";
 import { DisplayClockContext } from "../state/clock";
-import * as v from "valibot";
-import { outcomeOf } from "../app/seam";
-import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
@@ -56,15 +53,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.home()));
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
-  const { drafts } = connected;
-  drafts.validate("opening-prompt", v.strictObject({ text: v.string() }));
-  drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
-  const destination = () => ({ surface: "opening-prompt", object: current()?.id ?? "", recipient: null });
-  const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === current()?.id).at(-1);
-  const text = () => String(draft()?.value.text ?? current()?.opening_prompt ?? "");
-  createEffect(() => {
-    if (current()) onCleanup(drafts.editor(destination()));
-  });
   createEffect(on(() => current()?.id, () => setFailure(null)));
   onCleanup(connected.events.subscribe(event => {
     if (event.name === "workstream.updated") {
@@ -84,37 +72,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       setPending(false);
     }}>{copy.todoAuto}</Switch>
     <span class="todo-auto-hint">{copy.todoAutoHint}</span>
-    <Field.Root class="todo-opening">
-      <Field.Label>{copy.openingPrompt}</Field.Label>
-      <Field.Textarea value={text()} placeholder={copy.openingPromptHint} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
-        drafts.edit(destination(), { text: event.currentTarget.value }, null, "ordinary");
-      }} onBlur={async () => {
-        const id = node().id;
-        const revision = draft();
-
-        if (!revision || revision.value.text === (node().opening_prompt ?? "")) return;
-
-        const submitted = await drafts.submit(revision.revision);
-
-        if (!submitted) return;
-
-        try {
-          const prompt = String(submitted.draft.value.text);
-
-          await connected.app.rpc("workstream.setOpeningPrompt", prompt.trim() === "" ? { id } : { id, prompt });
-          await connected.rail.refresh();
-          await drafts.settle(revision.revision, "acknowledged");
-
-          if (current()?.id === id) setFailure(null);
-        } catch (error) {
-          await drafts.settle(revision.revision, outcomeOf(error));
-
-          if (!(error instanceof Error)) throw error;
-
-          if (current()?.id === id) setFailure(error.message);
-        }
-      }} />
-    </Field.Root>
     <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };
