@@ -100,8 +100,8 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
   await app.rpc("todo.move", { id: dependent.id, home: other.id });
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await openShelf("Todos");
-  await selectRow(new RegExp(`#${first.id} `));
-  await selectRow(new RegExp(`#${second.id} `));
+  await selectRow(new RegExp(`^(Idle|Blocked|Done) #${first.id} `));
+  await selectRow(new RegExp(`^(Idle|Blocked|Done) #${second.id} `));
   await deleteSelected(2);
   await waitFor(async () => {
     const rows = await app.rpc("todo.list", null);
@@ -156,8 +156,8 @@ it("u460_refused_transaction_preserves_t6_across_homes", async () => {
 
   render(() => <App app={failedApp} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await openShelf("Todos");
-  await selectRow(new RegExp(`#${first.id} `));
-  await selectRow(new RegExp(`#${second.id} `));
+  await selectRow(new RegExp(`^(Idle|Blocked|Done) #${first.id} `));
+  await selectRow(new RegExp(`^(Idle|Blocked|Done) #${second.id} `));
   await deleteSelected(2);
   await screen.findByText(/partial two .*injected unavailable connection/);
   const rows = await app.rpc("todo.list", null);
@@ -174,7 +174,7 @@ it("u460_deleted_rows_stay_absent_after_reopening_the_project", async () => {
   expect((await app.rpc("pad.list", null)).some((pad) => pad.name.startsWith("bulk-pad-"))).toBe(false);
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await openShelf("Todos");
-  const row = await screen.findByRole("button", { name: /partial two/ });
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ partial two/ });
   expect(row.getAttribute("aria-pressed")).toBe("false");
   expect([screen.queryByRole("group", { name: "Work items deletion" })]).toEqual([null]);
 }, 60_000);

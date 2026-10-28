@@ -11,8 +11,8 @@ afterEach(cleanup);
 stubDialogLayout();
 
 const pickTwo = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
+  fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
 };
 
 it("u460_each_confirmed_target_is_called_once", async () => {
@@ -45,8 +45,8 @@ it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
   await askToDelete(2);
   await screen.findByText("Could not delete same #2: The chosen Todo is no longer available. Refresh to check again.");
   expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
-  expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();
-  expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull();
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("u460_lost_response_refetches_before_retry", async () => {
@@ -57,7 +57,7 @@ it("u460_lost_response_refetches_before_retry", async () => {
   await pickTwo();
   await askToDelete(2);
   await questionClosed();
-  expect(screen.queryByRole("button", { name: /#1 |#2 / })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) (?:#1 |#2 )/ })).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
@@ -68,7 +68,7 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   await askToDelete(2);
   store.todos.push(todo(3));
   app.emit({ actor: USER, name: "todo.created", data: todo(3) });
-  await screen.findByRole("button", { name: /#3 / });
+  await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #3 / });
   connected.rail.select("scope-row");
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
@@ -77,7 +77,7 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
 it("u460_backspace_is_local_and_repeat_safe", async () => {
   const { app } = await mountTodos([todo(1), todo(2)]);
   await pickTwo();
-  const row = screen.getByRole("button", { name: /#1 / });
+  const row = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   row.focus();
   fireEvent.keyDown(row, { key: "Backspace", repeat: true });
   fireEvent.keyDown(row, { key: "Backspace", metaKey: true });
@@ -144,9 +144,9 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   await new Promise((resolve) => setTimeout(resolve, 40));
   expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   fresh.resolve([todo(2)]);
-  await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull());
   await questionClosed();
-  expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", async () => {
@@ -156,7 +156,7 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   await pickTwo();
   await askToDelete(2);
   await screen.findByText("Could not delete todo 1 #1: denied");
-  fireEvent.keyDown(screen.getByRole("button", { name: /#1 / }), { key: "Enter" });
+  fireEvent.keyDown(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
   expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(false);
 });
 
@@ -165,11 +165,11 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   const id = nested ? 3 : 2;
   const next = nested ? 5 : 3;
   const { app } = await mountTodos(initial);
-  const row = await screen.findByRole("button", { name: new RegExp(`#${id} `) });
+  const row = await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked|Done) #${id} `) });
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   await questionClosed();
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: new RegExp(`#${next} `) })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: new RegExp(`^(Idle|Blocked|Done) #${next} `) })));
   fireEvent.keyDown(document.activeElement!, { key: "d", code: "KeyD" });
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [id] }, { operation: expect.any(String), ids: [next] }]);

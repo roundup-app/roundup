@@ -209,7 +209,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
     } })),
     { name: "Rail reparent keys: only itself at the current root", run: async () => {
       const { app } = await mountRail([workstream("w")]);
-      const source = rowOf("w");
+      const source = within(rowOf("w")).getByRole("button", { name: "Move w" });
 
       // jsdom lacks these platform APIs; without them the DnD keyboard sensor throws before lifting.
       const animations = Object.getOwnPropertyDescriptor(document, "getAnimations");
@@ -291,7 +291,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 
           const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
             const point = element => { const box = element.getBoundingClientRect(); return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }; };
-            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group=me] .shelf-group-head')) };
+            return { from: point(document.querySelector('.shelf ${row}').closest('[data-shelf-row]').querySelector('.sortable-handle')), to: point(document.querySelector('.shelf [data-shelf-group=me] .shelf-group-head')) };
           })()`);
 
           await lane.resetCalls();

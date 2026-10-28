@@ -193,7 +193,7 @@ export const RailRowView = (props: {
       <span class="row-tail">
         <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
         <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot"><PadsControl pads={pads} agent={props.row.node.id} /></span></span></Show>
-        <Show when={props.draggable}><Sortable.Handle label={`Move ${props.row.node.name}`} ref={props.handleRef} /></Show>
+        <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
   </div>;
