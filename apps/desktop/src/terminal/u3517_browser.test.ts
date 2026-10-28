@@ -368,11 +368,13 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.write' && call.params.id === 't-agent-3')");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'agent.spawn')")).toEqual([]);
   const captures = captureDir("U4590");
+
   if (captures) {
     mkdirSync(captures, { recursive: true });
     await browser("screenshot", join(captures, "agent-preparing-keeps-terminal.png"));
     writeFileSync(join(captures, "agent-preparing-keeps-terminal.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
   }
+
   await read("window.__releaseFonts()");
   await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn')");
 }, 60_000);

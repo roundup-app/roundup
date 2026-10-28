@@ -9,14 +9,17 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it("u4590_unready_destination_fails_and_releases_only_its_preparation", async () => {
   const { connected } = await connectFakeProject([]);
   const { factory, made } = fakeEmulators();
+
   const { screens, dispose } = createRoot(dispose => ({
     dispose,
     screens: createScreens(connected, (id, copy) => {
       const emulator = factory(id, copy);
       emulator.prepare = () => new Promise(() => {});
+
       return emulator;
     }),
   }));
+
   const existing = screens.emulatorFor("existing");
   const deadline = new AbortController();
   vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
