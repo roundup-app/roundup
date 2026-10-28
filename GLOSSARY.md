@@ -315,7 +315,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Collapsible | same | — |
 | Project menu (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
 | Exit button (`ExitButton`) | same | — |
-| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`) | same | — |
+| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `App.askRemoval`, `ask_removal`, `removal_alert`) | same | — |
 | Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | same | — |
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
