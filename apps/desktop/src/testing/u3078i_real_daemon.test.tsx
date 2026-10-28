@@ -51,6 +51,7 @@ const interrupted = async (mode: "replace" | "document") => {
       return found;
     }, { timeout: 30_000 });
 
+    await waitFor(() => expect(connected).toBeDefined());
     fireEvent.click(row);
     // U4453a removes the ordinary goal entry point; retained recovery still renders this component.
     connected!.drawer.open(() => <ConnectedProjectContext.Provider value={connected!}><OrderDrawer id={worker.id} /></ConnectedProjectContext.Provider>, "key");

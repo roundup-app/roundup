@@ -18,7 +18,7 @@ it.each(["agent", "door", "workstream"])("u4453a_agent_view_mounts_only_the_term
   const centre = screen.getByRole("region", { name: "Centre" });
   const id = kind === "agent" ? "t-a0" : kind === "door" ? "t-running" : "t-home";
 
-  expect(centre.contains(emulators.get(id)!.host)).toBe(true);
+  expect(centre.contains(emulators.made.get(id)!.host)).toBe(true);
 
   expect(within(centre).queryByRole("navigation")).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
