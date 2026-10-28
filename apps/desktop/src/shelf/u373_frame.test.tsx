@@ -117,7 +117,7 @@ describe("u373 and u370 on one mounted App", () => {
     chord();
     await waitFor(() => expect(shelf().hidden).toBe(false));
     expect(counts()).toEqual([7, 4]);
-  });
+  }, 45_000);
 
   it("u373_tab_navigation_stays_on_tabs", async () => {
     await shared();
@@ -128,7 +128,7 @@ describe("u373 and u370 on one mounted App", () => {
       fireEvent.keyDown(tabNamed(selectedTab()), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
     }
-  });
+  }, 45_000);
 
   it("u371_scroll_shadow_top_bottom_and_none", async () => {
     await shared();

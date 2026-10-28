@@ -11,10 +11,12 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
 import { PadDrawer } from "../pads/PadDrawer";
-import { Pads } from "../pads/Pads";
+import { Deferred } from "../ui/Deferred";
+
 import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
+const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
 
 /**
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
