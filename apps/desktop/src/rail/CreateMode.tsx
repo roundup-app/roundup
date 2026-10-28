@@ -28,14 +28,14 @@ export const CreateMode = (props: { onClose: () => void }) => {
     if (!revision) return;
     setBusy(true);
     let submitted = revision.revision;
+    const saved = value();
 
     try {
       if (!await drafts.submit(submitted)) return;
-      const saved = value();
 
       if (saved.id === null) {
         saved.id = (await app.rpc("rail.createWorkstream", { name: saved.name.trim(), parent: null })).id;
-        const checkpoint = drafts.edit(destination, saved, null, "ordinary");
+        const checkpoint = drafts.edit(destination, saved, null, "ordinary", revision.revision);
         await checkpoint.retained;
         await drafts.settle(submitted, "acknowledged");
         submitted = checkpoint.draft.revision;

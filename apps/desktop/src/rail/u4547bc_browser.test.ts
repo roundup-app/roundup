@@ -1,3 +1,6 @@
+import { mkdirSync, copyFileSync } from "node:fs";
+import { join } from "node:path";
+import { captureDir } from "../testing/captures";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 
@@ -8,6 +11,14 @@ beforeAll(async () => { lane = await openLane(1512, "dark", "u4547bc"); }, 180_0
 afterAll(async () => { await lane?.close(); }, 180_000);
 
 it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
+  const recording = captureDir("U4547b");
+
+  if (recording) {
+    mkdirSync(recording, { recursive: true });
+    await lane.browser("record", "restart", join(recording, "create-and-edit-mode.webm"));
+  }
+
+  await lane.browser("set", "media", "dark");
   await lane.seedTodos([], false, "tree-40");
   await lane.capture("U4547b", "understand-before");
   await lane.browser("click", '[aria-label="New Mode"]');
@@ -23,6 +34,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.until("!document.querySelector('[role=dialog]')");
   await lane.until("[...document.querySelectorAll('.rail-tree .section-head')].some(head => head.textContent.includes('MODES'))");
   await lane.capture("U4547b", "selected-mode");
+
   const calls = await lane.calls();
   expect(calls.filter(call => call.method === "workstream.restart")).toHaveLength(1);
   const id = await lane.evaluate<string>("window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
@@ -38,5 +50,13 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("click", '[data-part=title]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('First prompt could not be saved')");
   await lane.capture("U4547c", "intervene-save-failure");
+
+  if (recording) {
+    await lane.browser("record", "stop");
+    const editing = captureDir("U4547c");
+
+    if (editing) copyFileSync(join(recording, "create-and-edit-mode.webm"), join(editing, "create-and-edit-mode.webm"));
+  }
+
   expect((await lane.calls()).filter(call => call.method === "workstream.restart")).toHaveLength(1);
 }, 180_000);
