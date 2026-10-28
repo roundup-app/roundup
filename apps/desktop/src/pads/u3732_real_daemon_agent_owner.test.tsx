@@ -86,9 +86,10 @@ it("u3732_real_daemon_agent_owner", async () => {
   };
 
   try {
+    const workstream = await app.rpc("rail.createWorkstream", { name: "Owner Home", parent: null });
     const agents = [];
 
-    for (const name of ["Owner alpha", "Owner beta"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name }));
+    for (const name of ["Owner alpha", "Owner beta"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: workstream.id, name }));
     // SAFETY: the loop above spawned exactly two Agents.
     const [alpha, beta] = agents as [typeof agents[number], typeof agents[number]];
 
@@ -106,33 +107,35 @@ it("u3732_real_daemon_agent_owner", async () => {
     await evaluate("(() => { document.querySelector('#shelf-tab-pads').click(); return true; })()");
     await add("Add Pad", "Pad name", "agent-pad");
     await until(`!!document.querySelector('${padRow("agent-pad")}')`);
-    await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);
+    await owned("pad", "agent-pad", actorOf(alpha.id), `${workstream.id}:${alpha.id}`);
     await capture("dark-pads-by-owner");
 
     await browser("reload");
     await browser("wait", "#shelf-tab-pads");
     await browser("focus", "#shelf-tab-pads");
-    await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);
+    await owned("pad", "agent-pad", actorOf(alpha.id), `${workstream.id}:${alpha.id}`);
 
     // An existing destination Pad keeps beta nonempty; U3789c retires empty drag targets.
     await app.rpc("pad.create", {name:"beta destination",text:null});
     await app.rpc("pad.setOwner", {name:"beta destination",owner:actorOf(beta.id)});
+    await app.rpc("pad.move", {name:"beta destination",home:workstream.id});
     // Overview keeps the source visible after it leaves the first Agent.
     await browser("click", "[data-todo-root]");
-    await until(`!!document.querySelector('${group(beta.id)}') || !!document.querySelector('${group(alpha.id)}')`);
-    await owned("pad", "agent-pad", actorOf(alpha.id), alpha.id);
+    await until(`!!document.querySelector('${group(`${workstream.id}:${beta.id}`)}')`);
+    await owned("pad", "agent-pad", actorOf(alpha.id), `${workstream.id}:${alpha.id}`);
 
     // By drag, then by `o`, each to the other Agent.
     await lift('.shelf [data-pad="agent-pad"] .pad-grip');
-    await drop(beta.id);
-    await owned("pad", "agent-pad", actorOf(beta.id), beta.id);
+    await drop(`${workstream.id}:${beta.id}`);
+    await owned("pad", "agent-pad", actorOf(beta.id), `${workstream.id}:${beta.id}`);
     await browser("focus", padRow("agent-pad"));
     await browser("press", "o");
     await browser("wait", "[role=menu]");
     await browser("press", "ArrowDown");
     await browser("press", "Enter");
     await until(`document.activeElement.closest('[data-pad]')?.dataset.pad === 'agent-pad'`);
-    await owned("pad", "agent-pad", { kind: "user", id: "you", parent: null }, "unassigned");
+    await owned("pad", "agent-pad", { kind: "user", id: "you", parent: null }, workstream.id);
+    expect((await app.rpc("pad.list", null)).find(pad => pad.name === "agent-pad")?.home).toBe(workstream.id);
   } catch (error) {
     console.error(await evaluate("JSON.stringify({text:document.body.innerText, active:document.activeElement.outerHTML})").catch(() => "browser unavailable"));
     throw error;
@@ -234,7 +237,7 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
     if (recording) await browser("record", "stop");
 
     if (captureDir("U4457")) {
-      await browser("open", `${real.base}/harness.html?seed=tree-40`);
+      await browser("open", `${real.base}/harness.html?seed=tree-40&view=workstreams&items=1&tabs=1`);
       await browser("wait", "[data-todo-root]");
       const todoControl = '[data-id="tokens"] [data-pads-control]';
       const todoGroup = '[data-shelf-group="unassigned"]';
