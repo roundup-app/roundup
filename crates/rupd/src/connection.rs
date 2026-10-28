@@ -38,7 +38,6 @@ impl Frame {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
-    daemon.agents.observe_measurements();
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);

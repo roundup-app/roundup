@@ -3,19 +3,15 @@
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
 mod closed;
-mod measurement;
 mod owner_reads;
 mod settings;
 use owner_reads::OwnerReads;
 mod queue;
 mod removal;
 mod view;
-pub use measurement::MeasurementWait;
-pub(crate) use measurement::Timing;
 use view::load_nodes;
 
 use std::path::Path;
-use std::sync::Arc;
 
 use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, Worktree};
 use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
@@ -29,9 +25,6 @@ pub struct Rail {
     owner_reads: OwnerReads,
     db: Connection,
     tree_capacity: std::cell::Cell<usize>,
-    measurement_observing: Arc<tokio::sync::Semaphore>,
-    measurement_revision: Option<String>,
-    measurement_failure: Option<String>,
 }
 
 pub(super) struct ClosedPreparation {
@@ -59,9 +52,6 @@ impl Rail {
             owner_reads: OwnerReads::open(path),
             db,
             tree_capacity: Default::default(),
-            measurement_observing: Arc::new(tokio::sync::Semaphore::new(1)),
-            measurement_revision: None,
-            measurement_failure: None,
         })
     }
 
