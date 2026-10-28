@@ -1,17 +1,18 @@
 import { createUniqueId, For, Show, type JSX } from "solid-js";
-import strolling from "./doodles/strolling.svg?no-inline";
-import running from "./doodles/running.svg?no-inline";
-import readingSide from "./doodles/reading-side.svg?no-inline";
-import laying from "./doodles/laying.svg?no-inline";
-import unboxing from "./doodles/unboxing.svg?no-inline";
-import meditating from "./doodles/meditating.svg?no-inline";
-import sittingReading from "./doodles/sitting-reading.svg?no-inline";
-import loving from "./doodles/loving.svg?no-inline";
-import reading from "./doodles/reading.svg?no-inline";
-import clumsy from "./doodles/clumsy.svg?no-inline";
-import plant from "./doodles/plant.svg?no-inline";
 
-const scenes = { strolling, running, "reading-side": readingSide, laying, unboxing, meditating, "sitting-reading": sittingReading, loving, reading, clumsy, plant };
+const scenes = {
+  "strolling": new URL("./doodles/strolling.svg?no-inline", import.meta.url).href,
+  "running": new URL("./doodles/running.svg?no-inline", import.meta.url).href,
+  "reading-side": new URL("./doodles/reading-side.svg?no-inline", import.meta.url).href,
+  "laying": new URL("./doodles/laying.svg?no-inline", import.meta.url).href,
+  "unboxing": new URL("./doodles/unboxing.svg?no-inline", import.meta.url).href,
+  "meditating": new URL("./doodles/meditating.svg?no-inline", import.meta.url).href,
+  "sitting-reading": new URL("./doodles/sitting-reading.svg?no-inline", import.meta.url).href,
+  "loving": new URL("./doodles/loving.svg?no-inline", import.meta.url).href,
+  "reading": new URL("./doodles/reading.svg?no-inline", import.meta.url).href,
+  "clumsy": new URL("./doodles/clumsy.svg?no-inline", import.meta.url).href,
+  "plant": new URL("./doodles/plant.svg?no-inline", import.meta.url).href,
+};
 
 /** U4464: one named empty view; the owning surface supplies its next action. */
 export const EmptyState = (props: { art: keyof typeof scenes; title: string; line: string; action?: JSX.Element; chip?: string | undefined; actions?: readonly { label: string; chip: string; run: () => void }[] | undefined; available?: boolean | undefined }) => {
