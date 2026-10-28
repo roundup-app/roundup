@@ -134,7 +134,6 @@ for (const state of ["agent", "door", "shell"]) {
 
 const groundOutput = captureDir("U4456c");
 
-const groundCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 const groundCapture = async (base: boolean, seed: string, scheme: string, step: string) => {
   const dir = join(groundOutput!, base ? "base" : "head");
@@ -163,7 +162,7 @@ const groundCapture = async (base: boolean, seed: string, scheme: string, step: 
   mkdirSync(dir, { recursive: true });
   await browser("screenshot", join(dir, `${name}.png`));
   writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
-  writeFileSync(join(dir, `${name}.colours.json`), JSON.stringify({ commit: base ? process.env.U4456_BASE_SHA : groundCommit, seed, scheme, step, readings }, null, 2));
+  writeFileSync(join(dir, `${name}.colours.json`), JSON.stringify({ commit: base ? process.env.U4456_BASE_SHA : execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed, scheme, step, readings }, null, 2));
 };
 
 const groundLoad = async (seed: string, base: boolean, scheme: string) => {
