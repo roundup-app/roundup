@@ -46,7 +46,7 @@ const pick = async (label: string, value: string) => {
 
 const commit = async (label: string, text: string, valid = true) => {
   await section("Terminal");
-  const field = screen.getByRole(label === "Font size" ? "spinbutton" : "textbox", { name: label });
+  const field = await screen.findByRole(label === "Font size" ? "spinbutton" : "textbox", { name: label });
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
@@ -108,7 +108,7 @@ it("u3806_a_change_survives_a_reload", async () => {
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   await section("Terminal");
   expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Font family" }).value).toBe("Menlo");
-  expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Font size" }).value).toBe("16");
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("16");
 });
 
 it("u3806_an_invalid_field_falls_back_alone", async () => {
@@ -116,7 +116,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
   await mount();
   expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT" });
   await section("Terminal");
-  expect(Number(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Font size" }).value)).toBeLessThan(22);
+  expect(Number((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value)).toBeLessThan(22);
   cleanup();
   localStorage.setItem("roundup:app-settings", "not JSON");
   await mount();
@@ -154,6 +154,6 @@ it("u3806_unsubmitted_fields_survive_close_and_reload_without_applying", async (
   cleanup();
   await mount();
   await section("Terminal");
-  expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Font size" }).value).toBe("too big");
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("too big");
   expect(appSettings().fontSize).toBe(17);
 });
