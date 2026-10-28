@@ -137,7 +137,7 @@ const groundCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf
 
 const groundCapture = async (base: boolean, seed: string, scheme: string, step: string) => {
   const dir = join(groundOutput!, base ? "base" : "head");
-  const name = `${scheme}-${seed}-${step}`;
+  const name = `${scheme}${process.env.U4456_CONTRAST ? "-contrast" : ""}-${seed}-${step}`;
   const readings = await read(`(() => {
     const roots = [document];
     const surfaces = [];
@@ -181,13 +181,25 @@ for (const scheme of ["system", "explicit"]) {
       for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
         await groundLoad(seed, base, scheme);
         await groundCapture(base, seed, scheme, "rest");
+        if (seed === "empty-project") {
+          const id = await read<string>("window.__fake.app.rpc('rail.createWorkstream', {name:'Empty work',parent:null}).then(node => node.id)");
+          await wait(`!!document.querySelector('.rail-row[data-id="${id}"]')`);
+          await browser("click", `.rail-row[data-id="${id}"]`);
+          await groundCapture(base, seed, scheme, "empty-workstream");
+        }
+        if (seed === "door-stopped") {
+          await browser("click", '.rail-row[data-id="first-workstream"]');
+          await groundCapture(base, seed, scheme, "stopped-door");
+        }
         if (seed === "agents-10" || seed === "tree-40") {
-          await select(seed === "agents-10" ? "agent-3" : "payments", seed === "agents-10" ? "t-agent-3" : "t-payments");
+          await select(seed === "agents-10" ? "agent-4" : "payments", seed === "agents-10" ? "t-agent-4" : "t-payments");
           await groundCapture(base, seed, scheme, "pane-prompt");
           await read(`(() => {
-            window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
-            window.__terminals.get('${seed === "agents-10" ? "t-agent-3" : "t-payments"}').paste('retry');
+            window.__fake.app.handlers['terminal.resize'] = window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
+            window.__terminals.get('${seed === "agents-10" ? "t-agent-4" : "t-payments"}').paste('retry');
           })()`);
+          await browser("set", "viewport", "1412", "950");
+          await browser("set", "viewport", "1512", "950");
           await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.')");
           await groundCapture(base, seed, scheme, "failure");
         }
@@ -198,7 +210,7 @@ for (const scheme of ["system", "explicit"]) {
 
 for (const [surface, seed, command, selector] of [
   ["settings", "tree-40", "settings", ".settings-view"],
-  ["inbox", "tree-40", "view:inbox", ".inbox"],
+  ["inbox", "tree-40", "inbox", ".inbox"],
   ["reactions", "tree-40", "view:reactions", ".reactions"],
   ["resources", "resources", "view:resources", ".resource-inspection"],
   ["import", "import-candidates", "import-work", ".import-panel"],
@@ -207,7 +219,10 @@ for (const [surface, seed, command, selector] of [
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       await groundLoad(seed!, base, "system");
       if (surface === "resources") await read("document.querySelector('.rail-row[data-id=worktree-agent]').click()");
-      await read(command === "settings" ? "window.dispatchEvent(new Event('open-app-settings'))" : `window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command}'}}))`);
+      if (surface === "inbox") {
+        await browser("press", "Meta+k");
+        await browser("press", "i");
+      } else await read(command === "settings" ? "window.dispatchEvent(new Event('open-app-settings'))" : `window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command}'}}))`);
       await wait(`!!document.querySelector('${selector}')`);
       await groundCapture(base, seed!, "system", surface!);
       if (surface === "settings") {
@@ -217,3 +232,80 @@ for (const [surface, seed, command, selector] of [
     }
   }, 120_000);
 }
+
+
+it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => {
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    await groundLoad("tree-40", base, "system");
+    await browser("click", "[data-todo-root]");
+    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click()");
+    await wait("!!document.querySelector('.shelf')");
+    await read("for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
+    await groundCapture(base, "tree-40", "system", "shelf");
+    await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
+    await browser("press", "Enter");
+    await wait("!!document.querySelector('.drawer[data-open=true]')");
+    await groundCapture(base, "tree-40", "system", "todo-drawer");
+    await browser("press", "Escape");
+    await browser("click", "#shelf-tab-pads");
+    const text = 'Diagram\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n';
+    await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text })})`);
+    await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
+    await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await browser("press", "Enter");
+    await wait("!!document.querySelector('.visual-mermaid svg') && !!document.querySelector('.visual-drawing .excalidraw')");
+    await groundCapture(base, "tree-40", "system", "pad-diagram-drawing");
+    await browser("scrollintoview", ".visual-drawing .excalidraw");
+    await groundCapture(base, "tree-40", "system", "drawing-chrome");
+  }
+}, 120_000);
+
+it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    await groundLoad("tree-40", base, "system");
+    await browser("click", "[data-todo-root]");
+    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
+    await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
+    await browser("press", "o");
+    await wait("!!document.querySelector('[role=menu]')");
+    await groundCapture(base, "tree-40", "system", "owner-menu");
+    await read("[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.includes('New Workstream')).click()");
+    await wait("!!document.querySelector('.new-workstream')");
+    await groundCapture(base, "tree-40", "system", "dialog");
+    await read("[...document.querySelectorAll('.new-workstream label')].find(label => label.textContent.includes('Start after another Todo')).click()");
+    await browser("click", ".app-dialog-pick");
+    await wait("!!document.querySelector('.todo-blocker-menu [role=combobox]')");
+    await groundCapture(base, "tree-40", "system", "picker");
+  }
+}, 120_000);
+
+it.skipIf(!groundOutput)("u4456c_changes_tree_and_diff", async () => {
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    await browser("set", "media", "dark");
+    await browser("open", url('/src/changes/u2540.html?dense', base));
+    await wait("!!window.__fake && !!document.querySelector('.worktree-control')");
+    await browser("click", ".worktree-control");
+    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+    await groundCapture(base, "changes-fixture", "system", "changes-tree");
+    await read("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await browser("find", "role", "button", "click", "--name", "View diff", "--exact");
+    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
+    await groundCapture(base, "changes-fixture", "system", "diff");
+  }
+}, 120_000);
+
+it.skipIf(!groundOutput)("u4456c_ask_and_tooltip", async () => {
+  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+    await groundLoad("tree-40", base, "system");
+    await browser("click", ".ask-input");
+    await browser("keyboard", "type", "@");
+    await wait("!!document.querySelector('.app-mentions')");
+    await groundCapture(base, "tree-40", "system", "ask-mentions");
+    await browser("press", "Escape");
+    await browser("hover", ".terminal-new");
+    await wait("!!document.querySelector('[role=tooltip]')");
+    await groundCapture(base, "tree-40", "system", "tooltip");
+  }
+}, 120_000);
