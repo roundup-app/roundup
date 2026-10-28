@@ -169,6 +169,8 @@ describe("U2773 Order forms on real Projects", () => {
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
     await app.rpc("agent.stop", { id: original.id });
     await app.rpc("rail.remove", { id: original.id });
+    // The retained editor now lives in a requested Drawer; closing it exposes its recovery entry.
+    current.drawer.close();
     await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
     await waitFor(() => expect(within(recovery).queryByRole("button", { name: "Copy" })).not.toBeNull());

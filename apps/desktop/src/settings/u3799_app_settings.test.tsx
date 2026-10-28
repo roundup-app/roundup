@@ -117,8 +117,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(rowOf("agent-1"));
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(overview);
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
+  // U4453b owns Overview activation: it now closes the requested screen.
   await showEverythingInApp();
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
