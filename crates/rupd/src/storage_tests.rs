@@ -508,7 +508,7 @@ async fn n16_all_stores_share_one_project_database() {
         .unwrap();
     retention
         .execute_batch(include_str!(
-            "../migrations/project/0032-coordination-instructions.sql"
+            "../migrations/project/0033-coordination-instructions.sql"
         ))
         .unwrap();
     expected.extend(
