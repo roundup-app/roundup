@@ -6,7 +6,7 @@ fn is_agent(node: &RailNode) -> bool {
     node.kind == NodeKind::Agent || (node.kind == NodeKind::Workstream && node.attempt.is_some())
 }
 
-fn select(nodes: &[RailNode], actor: &Actor, text: &str) -> Result<String, RpcError> {
+fn select(nodes: &[RailNode], actor: &Actor, last_id: i64, text: &str) -> Result<String, RpcError> {
     let explicit = text.strip_prefix("name:");
     if explicit.is_none() {
         if text == "me" {
@@ -22,7 +22,11 @@ fn select(nodes: &[RailNode], actor: &Actor, text: &str) -> Result<String, RpcEr
         if actor.kind == ActorKind::Agent && text == actor.id {
             return Ok(actor.id.clone());
         }
-        if nodes.iter().any(|n| n.id == text) {
+        if nodes.iter().any(|n| n.id == text)
+            || text
+                .parse::<i64>()
+                .is_ok_and(|id| id > 0 && id <= last_id && id.to_string() == text)
+        {
             return Ok(text.to_owned());
         }
     }
@@ -78,6 +82,7 @@ fn select(nodes: &[RailNode], actor: &Actor, text: &str) -> Result<String, RpcEr
 fn string(
     nodes: &[RailNode],
     actor: &Actor,
+    last_id: i64,
     value: &mut Value,
     user: bool,
 ) -> Result<(), RpcError> {
@@ -85,14 +90,19 @@ fn string(
         if user && text == "you" {
             return Ok(());
         }
-        *value = Value::String(select(nodes, actor, text)?);
+        *value = Value::String(select(nodes, actor, last_id, text)?);
     }
     Ok(())
 }
 
-fn owner(nodes: &[RailNode], actor: &Actor, value: &mut Value) -> Result<(), RpcError> {
+fn owner(
+    nodes: &[RailNode],
+    actor: &Actor,
+    last_id: i64,
+    value: &mut Value,
+) -> Result<(), RpcError> {
     if value.is_string() {
-        let id = select(nodes, actor, value.as_str().unwrap())?;
+        let id = select(nodes, actor, last_id, value.as_str().unwrap())?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
         // Explicit Actors retain opaque stored identities, including retired owners.
@@ -101,7 +111,7 @@ fn owner(nodes: &[RailNode], actor: &Actor, value: &mut Value) -> Result<(), Rpc
         }) {
             return Ok(());
         }
-        string(nodes, actor, &mut value["id"], false)?;
+        string(nodes, actor, last_id, &mut value["id"], false)?;
     }
     Ok(())
 }
@@ -113,16 +123,22 @@ impl Daemon {
         method: &str,
         mut params: Value,
     ) -> Result<Value, RpcError> {
+        if method == "agent.wake" {
+            wake::parse_request(params.clone())?;
+        }
         // Provenance also filters historical user/Extension Actors and retired Agent identities.
         if method == "provenance.touched"
             && let Some(id) = params["actor_id"].as_str()
             && id != "me"
             && !id.starts_with("name:")
-            && !self
-                .touches
-                .touched(id)
-                .map_err(RpcError::internal)?
-                .is_empty()
+            && (id == actor.id
+                || id == "you"
+                || id.starts_with("ext:")
+                || !self
+                    .touches
+                    .touched(id)
+                    .map_err(RpcError::internal)?
+                    .is_empty())
         {
             return Ok(params);
         }
@@ -175,12 +191,27 @@ impl Daemon {
             return Ok(params);
         }
         let nodes = self.rail().await?;
+        let last_id = self.agents.rail_last_id()?;
+        // Retained removal receipts keep their authority and key-conflict precedence.
+        if method == "rail.remove"
+            && let Some(operation) = params["operation"].as_str()
+        {
+            if actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden("only the user retains a Rail removal"));
+            }
+            if self.agents.rail_deletion(actor, operation)?.is_some()
+                && let Some(id) = params["id"].as_str()
+                && select(&nodes, actor, last_id, id).is_err_and(|e| e.code == code::NOT_FOUND)
+            {
+                return Err(RpcError::conflict("removal key already names another node"));
+            }
+        }
         if has_owner && let Some(value) = params.get_mut("owner") {
-            owner(&nodes, actor, value)?;
+            owner(&nodes, actor, last_id, value)?;
         }
         for (field, user) in fields {
             if let Some(value) = params.get_mut(field) {
-                string(&nodes, actor, value, user)?;
+                string(&nodes, actor, last_id, value, user)?;
             }
         }
         let list = if method == "agent.wake" {
@@ -192,7 +223,7 @@ impl Daemon {
         };
         if let Some(Value::Array(ids)) = list {
             for id in ids {
-                string(&nodes, actor, id, false)?;
+                string(&nodes, actor, last_id, id, false)?;
             }
         }
         Ok(params)
