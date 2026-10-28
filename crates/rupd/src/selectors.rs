@@ -137,9 +137,12 @@ impl Daemon {
             fields.push(("id", false, false));
         }
         match method {
-            "agent.spawn" if actor.kind != ActorKind::Agent => {
-                fields.push(("parent", true, false))
+            "agent.spawn" if actor.kind == ActorKind::Agent => {
+                if let Some(parent) = params.get_mut("parent") {
+                    *parent = json!(actor.id);
+                }
             }
+            "agent.spawn" => fields.push(("parent", true, false)),
             "rail.move" => {
                 fields.push(("id", true, false));
                 fields.push(("parent", true, false));
