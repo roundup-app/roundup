@@ -37,60 +37,66 @@ it("u426_menu_actions_run_without_selecting", async () => {
   expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
 }, 60_000);
 
-it("u350_rendered_workstream_actions_have_no_clear", async () => {
+it.each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_workstream_actions_have_no_clear_%s", async seed => {
   const directory = captureDir("U350");
+
   const capture = async (step: string) => {
     if (!directory) return;
     mkdirSync(directory, { recursive: true });
     await browser("screenshot", join(directory, `${step}.png`));
     writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`)) + "\n");
   };
+
   if (directory) {
     mkdirSync(directory, { recursive: true });
-    await browser("record", "start", join(directory, "intervene.webm"));
+    await browser("record", "start", join(directory, `${seed}-intervene.webm`));
   }
+
   try {
-    for (const seed of ["tree-40", "agents-10", "door-stopped", "conflict"]) {
-      await browser("set", "media", "dark");
-      await browser("set", "viewport", "1512", "950");
-      await browser("open", url(`/harness.html?seed=${seed}`));
-      await wait(`document.querySelector('.rail-row')`);
-      const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
-      const selector = `.rail-row[data-id="${id}"]`;
-      await browser("click", selector + " .row-state");
-      await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
-      await browser("focus", selector);
-      await wait(`document.activeElement.matches('${selector}')`);
-      await browser("press", "Shift+F10");
-      await wait(`window.__fake.app.shownMenus.length > 0`);
-      expect(await read(`window.__fake.app.menuLabels().some(label => /clear/i.test(label))`)).toBe(false);
-      await read(`window.__fake.app.closeMenu()`);
-      if (seed === "tree-40" || seed === "door-stopped") {
-        await rightClick(selector);
-        await wait(`window.__fake.app.menuLabels().includes('Opening prompt…')`);
-        await read(`window.__fake.app.pickMenu('Opening prompt…')`);
-        await wait(`document.querySelector('.opening-prompt-dialog')`);
-        await capture(`${seed}-opening-prompt`);
-        await browser("press", "Escape");
-        await wait(`!document.querySelector('.opening-prompt-dialog')`);
-      }
-      if (seed === "tree-40") {
-        await read(`window.__fake.app.openFailure = new Error('Folder unavailable; try again')`);
-        await rightClick(selector);
-        await read(`window.__fake.app.pickMenu('Open folder')`);
-        await wait(`document.body.textContent.includes('Folder unavailable; try again')`);
-        await capture("tree-40-failure");
-      }
-      const agent = await read<string | null>(`document.querySelector('.rail-row:not(:has(.rail-chevron))')?.dataset.id ?? null`);
-      if (agent) {
-        await browser("click", `.rail-row[data-id="${agent}"] .row-state`);
-        await wait(`document.querySelector('.rail-row[data-id="${agent}"]').dataset.selected === 'true'`);
-        await wait(`window.__fake.app.calls.some(call => call.method === 'terminal.snapshot')`);
-      }
-      await capture(`${seed}-terminal`);
-      expect(await read(`window.__fake.app.calls.filter(call => call.method === 'workstream.clear')`)).toEqual([]);
+    await browser("set", "media", "dark");
+    await browser("set", "viewport", "1512", "950");
+    await browser("open", url(`/harness.html?seed=${seed}`));
+    await wait(`document.querySelector('.rail-row')`);
+    const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
+    const selector = `.rail-row[data-id="${id}"]`;
+    await browser("click", selector + " .row-state");
+    await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
+    await browser("focus", selector);
+    await wait(`document.activeElement.matches('${selector}')`);
+    await browser("press", "Shift+F10");
+    await wait(`window.__fake.app.shownMenus.length > 0`);
+    expect(await read(`window.__fake.app.menuLabels().some(label => /clear/i.test(label))`)).toBe(false);
+    await read(`window.__fake.app.closeMenu()`);
+
+    if (seed === "tree-40" || seed === "door-stopped") {
+      await rightClick(selector);
+      await wait(`window.__fake.app.menuLabels().includes('Opening prompt…')`);
+      await read(`window.__fake.app.pickMenu('Opening prompt…')`);
+      await wait(`document.querySelector('.opening-prompt-dialog')`);
+      await capture(`${seed}-opening-prompt`);
+      await browser("press", "Escape");
+      await wait(`!document.querySelector('.opening-prompt-dialog')`);
     }
+
+    if (seed === "tree-40") {
+      await read(`window.__fake.app.openFailure = new Error('Folder unavailable; try again')`);
+      await rightClick(selector);
+      await read(`window.__fake.app.pickMenu('Open folder')`);
+      await wait(`document.body.textContent.includes('Folder unavailable; try again')`);
+      await capture("tree-40-failure");
+    }
+
+    const agent = await read<string | null>(`document.querySelector('.rail-row:not(:has(.rail-chevron))')?.dataset.id ?? null`);
+
+    if (agent) {
+      await browser("click", `.rail-row[data-id="${agent}"] .row-state`);
+      await wait(`document.querySelector('.rail-row[data-id="${agent}"]').dataset.selected === 'true'`);
+      await wait(`window.__fake.app.calls.some(call => call.method === 'terminal.snapshot')`);
+    }
+
+    await capture(`${seed}-terminal`);
+    expect(await read(`window.__fake.app.calls.filter(call => call.method === 'workstream.clear')`)).toEqual([]);
   } finally {
     if (directory) await browser("record", "stop");
   }
-}, 120_000);
+}, 60_000);
