@@ -27,7 +27,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -496,9 +496,14 @@ const afterFirstLoad = (app: FakeApp, action: () => void) => {
 /** A fake App on a Daemon holding the named seed; `now` is the clock the Statuses are measured from. */
 export const seedApp = (name: SeedName, now: number): Controls => {
   const app = createFakeApp();
+
+  if (name === "first-run-five") app.recentProjects = async () => ["/repos/roundup", "/repos/payments-api", "/repos/notes", "/repos/site", "/repos/tools"];
+
+  if (name === "first-run-missing-binary") app.claudeBinary = async () => null;
+
   const tree = (name === "tree-40" || name === "import-candidates") ? nestedTree(now) : cyclingAgents(now, 10, () => null);
 
-  const nodes = name === "first-run" || name === "empty-project"
+  const nodes = name.startsWith("first-run") || name === "empty-project"
     ? []
     : name === "context-bar"
       ? contextBarAgents(now)
@@ -526,7 +531,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       : tree;
 
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
-  app.opened.project = name === "first-run" ? null : PROJECT;
+  app.opened.project = name.startsWith("first-run") ? null : PROJECT;
 
   if (name === "tree-40") {
     // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.
