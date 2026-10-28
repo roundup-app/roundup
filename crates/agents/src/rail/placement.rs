@@ -2,6 +2,7 @@
 use super::*;
 
 impl Rail {
+    /// Put `id` at `index` among the children of `parent`, closing the gap it leaves behind.
     pub fn move_node(
         &mut self,
         id: &str,
