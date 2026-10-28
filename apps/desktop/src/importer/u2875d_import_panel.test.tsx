@@ -426,6 +426,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.until("!!document.querySelector('.rail-tree .reserved-line[role=status]')");
       await capture("U3299c", side!, "retained-task");
       await lane.browser("focus", ".spawn-prompt-field");
+      await lane.until("document.activeElement === document.querySelector('.spawn-prompt-field')");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.spawn-prompt-field')");
       await lane.browser("click", ".todo-project-root");
