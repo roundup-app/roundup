@@ -16,8 +16,6 @@ impl Observation {
 pub(super) struct State {
     /// Wake lifecycle observers even when an acknowledgement leaves Status unchanged.
     pub(super) observed: Arc<tokio::sync::Notify>,
-    /// H19: a test's observer of each gate decision; absent in production.
-    pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     pub(super) channel_deadline: Duration,
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
@@ -335,14 +333,11 @@ impl Shared {
         // The caller holds `runs`: a woken observer reads the completed fold after unlock.
         self.events.observed.notify_waiters();
         let exited = matches!(observation, Observation::Exit { .. });
-        // H19: the first Steer waits for the first `SessionStart` and the first star title.
+        // A4452a: coordination waits for SessionStart; no star gates it.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            if !run.session_started && run.prompt.is_some() {
-                self.refuse_unless_gate_opens(id, &run.attempt);
-            }
             run.session_started = true;
         }
         if star {
@@ -493,12 +488,7 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
-        if (session_start || star)
-            && let Some(observer) = &self.events.gate_observer
-        {
-            observer(id, prompt.is_some());
-        }
+        let prompt = run.prompt.take_if(|_| run.session_started);
         Ok((prompt, run.adapter.tick_at()))
     }
 }

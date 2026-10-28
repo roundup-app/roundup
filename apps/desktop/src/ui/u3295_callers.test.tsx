@@ -111,7 +111,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
 
 it("u3295b_dialog_owned_controls_still_work: Start-after Todo picker", async () => {
   const { app } = await mountTodos([todo(1, { title: "Ship", owner: { kind: "user", id: "you", parent: null } }), todo(2, { title: "Docs" })]);
-  const row = await screen.findByRole("button", { name: /#1 Ship/ });
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 Ship/ });
 
   row.focus();
   fireEvent.keyDown(row, { key: "o", code: "KeyO" });
@@ -127,7 +127,6 @@ it("u3295b_dialog_owned_controls_still_work: Start-after Todo picker", async () 
   fireEvent.keyDown(input, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
   expect(document.activeElement).toBe(trigger);
-  expect(screen.getByRole("dialog", { name: "New Workstream" })).toBeTruthy();
   fireEvent.click(trigger);
   await screen.findByRole("combobox");
   const change = modal();

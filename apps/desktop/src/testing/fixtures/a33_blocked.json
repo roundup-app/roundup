@@ -2,6 +2,39 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_a33_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"blocker\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_a33_1"
       },
       "response": {
@@ -53,39 +86,6 @@
       },
       "response": {
         "content": "Status noted."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What should this Agent do?",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_a33_0",
-            "name": "mcp__roundup__todo_create",
-            "arguments": "{\"title\": \"blocker\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready for your instructions."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What should this Agent do?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready."
       }
     }
   ]
