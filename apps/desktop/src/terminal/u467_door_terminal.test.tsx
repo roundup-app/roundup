@@ -1,5 +1,6 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { copy } from "../copy";
 import { mountCentre } from "../testing/centreFixture";
 import { agent, door, workstream } from "../testing/nodes";
 
@@ -80,6 +81,6 @@ describe("u467 a Workstream shows its Door's Terminal", () => {
   it("u467_a_missing_door_has_an_actionable_state_and_no_input_target", async () => {
     const { app } = await mountCentre([workstream("w1")]);
 
-    expect([await screen.findByText("Supervisor not started"), screens(), app.calls.filter((call) => call.method === "terminal.write")]).toEqual([expect.anything(), [], []]);
+    expect([await screen.findByText(copy.doorNotStarted), screens(), app.calls.filter((call) => call.method === "terminal.write")]).toEqual([expect.anything(), [], []]);
   });
 });
