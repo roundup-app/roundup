@@ -2,6 +2,7 @@ import { createRoot } from "solid-js";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { bubbleCalls, bubbleChord, mountBubbles } from "../bubbles/bubblesFixture";
+import { workstream } from "../testing/nodes";
 import { createScreens } from "./screens";
 import { connectFakeProject, fakeEmulators } from "./paneHarness";
 
@@ -36,7 +37,7 @@ it("u4590_unready_destination_fails_and_releases_only_its_preparation", async ()
 });
 
 it("u4590_preparing_shell_offers_close_and_minimise_only_after_launch_receipt", async () => {
-  const { app } = await mountBubbles();
+  const { app } = await mountBubbles("w", [], [workstream("w")]);
   const reply = Promise.withResolvers<{ terminal_id: string }>();
   const open = app.handlers["terminal.open"]!;
   app.handlers["terminal.open"] = () => reply.promise;

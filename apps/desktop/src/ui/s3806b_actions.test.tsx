@@ -286,7 +286,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       }
 
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
-      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.params]);
+      // App recovery remounts its Pane; a standalone Rail retry remains hostless.
+      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.owner === "App" ? visibleParams : row.params]);
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
 
       if (submitted) {
