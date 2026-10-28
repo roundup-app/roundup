@@ -75,7 +75,7 @@ impl Config {
             let dir = std::path::absolute(dir)?;
             // R20: a directory override alone leaves the macOS single-instance socket
             // shared with the installed App, which can consume the launch and exit 0.
-            // Keep its identifier bounded for sun_path and stable for the same profile.
+            // Keep it bounded for sun_path and repeatable for this build/profile.
             let mut identity = DefaultHasher::new();
             dir.hash(&mut identity);
             let config = context.config_mut();
