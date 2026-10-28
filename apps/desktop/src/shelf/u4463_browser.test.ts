@@ -7,6 +7,7 @@ import { captureDir } from "../testing/captures";
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const directory = captureDir("U4463");
+
 const dir = directory ? join(directory, process.env.ROUNDUP_U4463_BASELINE === "1" ? "base" : "head") : null;
 
 const capture = async (name: string) => {

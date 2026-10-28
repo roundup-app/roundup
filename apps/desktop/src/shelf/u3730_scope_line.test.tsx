@@ -25,20 +25,19 @@ const select = async (name: string) => {
 it("u3730_the_scope_line_holds_the_name_and_one_add_button", async () => {
   // Rule 10: visible label/order checks retire to the critic; this test retains accessible scope and unique creation.
   const { app } = await open();
+
   const expectScope = async (name: string) => {
-    await waitFor(() => expect(within(line()).getAllByRole("button", { name: /^add todo to / })).toHaveLength(1));
-    expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy();
+    await waitFor(() => expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy());
+    expect(within(line()).getAllByRole("button", { name: /^add todo to / })).toHaveLength(1);
   };
 
   await expectScope("Overview");
   await select("backend");
   await expectScope("backend");
   await app.rpc("rail.rename", { id: "backend", name: "Renamed work" });
-  await waitFor(() => expect(within(line()).getByRole("button", { name: "add todo to Renamed work" })).toBeTruthy());
   await expectScope("Renamed work");
   await select("migrate-db");
   await expectScope("migrate-db");
-
 });
 
 it("u3730_add_files_into_the_scope_and_returns_focus", async () => {
