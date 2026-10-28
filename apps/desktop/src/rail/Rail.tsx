@@ -566,20 +566,20 @@ export const Rail = () => {
   });
 
   // U4453b: leader `A` and the Overview row both return to Ask.
+  const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
   const backToAsk = () => {
-    if (connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending()) return;
+    if (!isAskReturnAllowed()) return;
     connected.importing.cancel();
     connected.settingsView.close(false);
     connected.showView(null);
     rail.select(null);
   };
 
-
   createEffect(() => {
     if (rail.selected() === null && !connected.settingsView.open()) return;
 
     registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
-      available: () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending()),
+      available: isAskReturnAllowed,
       invoke: backToAsk,
     }) }]);
   });
