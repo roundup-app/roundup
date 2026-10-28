@@ -18,7 +18,7 @@ Policy: this explicitly adds a narrow exception to N20's absence of a historical
 
 ## CI guard
 
-Policy: run a filename-only guard in a required `check` lane, before any Rust compilation it needs no part of. Use the PR's checked target-base tree (the first parent of CI's merge checkout), not its head or its first authored commit. Compare base and proposed trees directly. A missing/unreadable base fails visibly with a nonzero exit; main pushes still run the complete duplicate-prefix audit. A single invocation, including fixture tests, completes within five seconds on CI without compiling Rust, installing dependencies, opening a database or starting an App/Daemon.
+Policy: run a filename-only guard in a required `check` lane before Rust compilation. Use the PR's checked target-base tree (the first parent of CI's merge checkout), not its head or its first authored commit. Compare base and proposed trees directly. A missing/unreadable base fails visibly with a nonzero exit; main pushes still run the complete duplicate-prefix audit. A single invocation, including fixture tests, completes within five seconds on CI without compiling Rust, installing dependencies, opening a database or starting an App/Daemon.
 
 Policy: discover every tracked migration directory, including a newly added one. An entry is a direct numbered SQL file or a numbered child directory containing `up.sql`; nested `project/` is its own set, never an entry of its parent. Compare entry names bytewise, exactly as the Project loader does. A prefix is the leading decimal integer, so different zero padding does not create another prefix. Check each directory separately; equal numbers in different directories do not conflict.
 
@@ -47,6 +47,8 @@ Policy: the sole duplicate exceptions are these exact pre-existing path groups, 
 Policy: Messages' two `001` entries belong to independent Message and Digest sequences (`schema::open` and `digest_schema::open`); the explicit exception preserves both without granting new duplicates. The audit also covers `crates/agents/migrations/`, `crates/checkpoints/migrations/`, `crates/pads/migrations/`, `crates/provenance/migrations/`, `crates/rupd/migrations/` and `crates/todos/migrations/`; these contain no other duplicate prefixes at specification time. Future position-applied sets receive the same guard automatically. For explicit Rust lists, append new entries after existing ones as well as choosing an appended filename (policy).
 
 ## Checks and observers
+
+Applicable P12 gate (policy): can the repair substitute a published Pad incarnation or override explicit revocation? Observer: `b4522_skipped_pad_migration_recovers_on_open` verifies exact restored identity and continued revocation of the old publication through existing Daemon calls.
 
 Required checks (policy; existing anchors on main):
 
