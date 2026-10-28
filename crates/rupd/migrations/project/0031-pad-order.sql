@@ -1,0 +1,1 @@
+ALTER TABLE pads ADD COLUMN position INTEGER;
