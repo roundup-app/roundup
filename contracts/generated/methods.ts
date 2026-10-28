@@ -154,6 +154,7 @@ import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { OpeningPromptParams as workstream_OpeningPromptParams } from "./workstream/OpeningPromptParams";
 import type { QueueMoveParams as workstream_QueueMoveParams } from "./workstream/QueueMoveParams";
 import type { QueueState as workstream_QueueState } from "./workstream/QueueState";
 import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstream/QueuedWorkstream";
@@ -184,6 +185,7 @@ export type RpcMethods = {
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
+  "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
