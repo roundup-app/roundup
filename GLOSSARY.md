@@ -802,37 +802,6 @@ The retained target identity of a Deliverable: local bytes with length and SHA-2
 **Resolution** (`Resolution`, `UnavailableCause`):
 The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.
 
-**Measurement** (`project.measurements`):
-A retained source contribution attributed to its original Project, maker Agent, Home at
-observation and Attempt when known. A source revision replaces the same contribution;
-the revision journal preserves earlier facts. roundup keeps no token or money (P14).
-`MeasurementValue` is an `Execution` interval (Agent or tool) or an observed Timed activity; source wall-clock
-endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
-coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
-tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
-failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
-
-**Timed activity** (`TimedActivity`):
-A roundup-observed Attempt lifetime, Startup, Idle phase, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
-
-**Startup** (`TimedActivity::Startup`):
-The positively observed launch phase ending at its first acknowledgement. It is retained only for an acknowledged Attempt; missing historical launch points stay unknown.
-
-**Idle phase** (`TimedActivity::Idle`):
-A continuously observed Adapter idle Status, identified by its opening Status revision and original Agent, Attempt and Home. The next non-idle Status or Attempt end closes it; working and blocked Statuses imply neither idle nor execution. Clock gaps remain uncovered.
-
-**Clock point** (`ClockPoint`):
-An observation of local wall time and a monotonic offset within one clock lifetime. Wall time aligns evidence; monotonic offsets measure durations only within that lifetime.
-
-**Observed segment** (`ObservedSegment`):
-Two comparable Clock points bounding continuously observed activity. A sleep, clock disagreement, outage or missing observation leaves a gap between segments.
-
-**Time state** (`TimeState`):
-An observed activity is active, ended at an observed Clock point, or interrupted with its end unknown.
-
-**Measurement wait** (`MeasurementWait`):
-The observation of one continuously blocking operation. It carries no delivery or control authority.
-
 **Result report** (`ResultReport`, `ReportParams`, `message.report`):
 An authenticated Agent's claim about its own Attempt's submitted Instruction delivery,
 retained in the Project Message holder with exact instruction, original Workstream,
@@ -886,35 +855,11 @@ User-label states, each led by a glyph: "Accepted" (check), "Checked independent
 (check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
 and "Evidence unavailable" (x).
 
-**Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
-One Workstream's time and its contributors, ranked by summed Agent time (exact
-nanoseconds, then stable Agent identity), at one Measurement revision. Later pages name that
-revision; a changed revision requires reconciliation. It carries collection coverage and
-failure independently of known time.
-
-**Measurement contributor** (`MeasurementContributor`):
-An Agent's retained time in one Home, including a stopped or removed maker.
-
-**Measurement time** (`MeasurementTime`):
-Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
-disjoint categories give human wait, tools, coordination and model execution precedence
-in that order; positive startup is other time and unexplained duration is unmeasured.
-Observed idle intervals and time after the Agent stops contribute to neither the sum
-nor any category. An Attempt ends when its Agent stops; an unknown end stays disclosed.
-Incomparable clock lifetimes never authorize continuous execution through a gap.
-
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
 
 **Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`):
 The native actions for the selected Project: import, settings, requested views and the shortcut registry's actions. The webview supplies create, navigate or views grouping; native code preserves its order within each group. Each activation keeps that Project's identity; an unavailable action cannot run. Opening a view changes no Daemon data and starts no Agent.
-
-**Agent time rule** (`Kind::counts_time`, generated `countsTime`):
-An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
-contributes none while the Attempt remains alive. Timeline samples retain the `ended`
-fact from Status Events or the Rail and use the Status `since` as the observed boundary.
-Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
-A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
 
 **Exit button** (`ExitButton`):
 The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.

@@ -728,7 +728,6 @@ export const Rail = () => {
                             return () => { if (copied.get(id) === feedback) copied.delete(id); };
                           }}
                           editing={editingName() === view().node.id}
-                          onOpen={() => openRow(view().node.id)}
                           selected={selection.selection.isSelected(view().node.id)}
                           multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
