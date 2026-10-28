@@ -1,4 +1,3 @@
-import GripVertical from "lucide-solid/icons/grip-vertical";
 import { rowTypeahead } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -552,8 +551,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </button>
             </Show>
             <Show when={!editing()}>
-              <button type="button" data-button="quiet" class="pad-grip" data-reorderable aria-label={copy.movePad(pad.name)} ref={props.parts.handleRef}
-                onPointerDown={() => props.onLift(pad)} onKeyDown={event => { if (event.key === " " || event.key === "Enter") props.onLift(pad); }}><GripVertical class="icon" aria-hidden="true" /></button>
+              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>

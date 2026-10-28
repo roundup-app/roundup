@@ -145,7 +145,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   } else if (task === "assign") {
     leader("KeyS");
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
-    const row = await screen.findByRole("button", { name: /Selected work/ });
+    const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
     screen.getByRole("textbox", { name: "Ask" }).focus();
     runLeader("KeyA");
