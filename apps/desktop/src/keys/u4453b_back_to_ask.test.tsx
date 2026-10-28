@@ -1,13 +1,14 @@
 import { door } from "../testing/nodes";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { openProjectPage } from "../testing/menuProbe";
 import { mountNavigation } from "../testing/navigationFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 const press = (code: string, init: KeyboardEventInit = {}) => document.body.dispatchEvent(new KeyboardEvent("keydown", { code, key: code.replace(/^Key/, "").toLowerCase(), bubbles: true, cancelable: true, ...init }));
 
-it.each(["leader", "rail"])("u4453b_back_to_ask_by_leader_and_rail: %s", async by => {
+it.each(["leader", "rail", "rail-keyboard"])("u4453b_back_to_ask_by_leader_and_rail: %s", async by => {
   const { connected, daemon, nodes } = await mountNavigation();
   nodes.push(door("running", "working", "Working"));
   await connected().rail.refresh();
@@ -18,11 +19,20 @@ it.each(["leader", "rail"])("u4453b_back_to_ask_by_leader_and_rail: %s", async b
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
 
+    openProjectPage("project-settings", "/p");
+    await screen.findByRole("region", { name: "Project settings" });
+
     if (by === "leader") {
       press("KeyK", { metaKey: true });
       press("KeyA");
     } else {
-      fireEvent.click(screen.getAllByRole("button", { name: /^Overview/ })[0]!);
+      const root = screen.getAllByRole("button", { name: /^Overview/ })[0]!;
+
+      if (by === "rail-keyboard") {
+        root.focus();
+        // Native button keyboard activation dispatches a click with detail 0.
+        fireEvent.click(root, { detail: 0 });
+      } else fireEvent.click(root);
     }
 
     const field = await screen.findByRole("textbox", { name: "Ask" });

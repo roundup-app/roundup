@@ -5,10 +5,8 @@ import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack, lazy } from "solid-js";
-import { OrderLine } from "../orders/OrderLine";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
-import { NoteQueue } from "./NoteQueue";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
@@ -20,7 +18,6 @@ import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
 
-const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
 /**
  * The selected row's Terminal. Every error line of the centre lives in the pane's one fixed-height slot, so the
@@ -60,13 +57,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const workstream = selected();
 
     return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.doorPending(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
-  });
-
-  const closedAgent = createMemo(() => {
-    const node = selected();
-
-    return node?.kind === "agent" && rail.exitOf(node) !== null
-      && (node.terminal_id !== null || node.status?.kind === "done" || node.status?.kind === "error");
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
@@ -194,12 +184,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
   };
 
-  const focusTerminal = () => {
-    const current = terminalId();
-
-    if (current !== null) screens.emulatorFor(current).focus();
-  };
-
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
   let body: HTMLElement | undefined;
@@ -265,7 +249,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     <div class="pane">
       <div class="pane-origin">
 
-      <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
         class="pane-body"
         classList={{ "drop-over": dropOver() }}
@@ -275,11 +258,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
+        <Show when={selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
-        </Show>
-        <Show when={closedAgent()}>
-          <OrderDrawer id={selected()!.id} inline />
         </Show>
         <Show when={doorState()}>
           {(state) => (
@@ -298,15 +278,14 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           )}
         </Show>
       </div>
-      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
-      <div class="pane-failure">
+      <Show when={notice()}><div class="pane-failure">
         <ReservedLine message={notice()?.message}>
           <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
           <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
-      </div>
+      </div></Show>
     </div>
   );
 };
