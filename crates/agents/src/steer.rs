@@ -180,6 +180,14 @@ impl Agents {
         }
     }
 
+    /// A4452d: send roundup's own `text` to `id`'s Claude inbox as a Message; no byte is typed.
+    pub async fn coordinate(&self, id: &str, text: String) -> Result<(), PromptError> {
+        self.shared
+            .coordinate(id, None, text)
+            .await
+            .map_err(PromptError::from)
+    }
+
     pub async fn prompt<'a>(
         &self,
         id: &str,

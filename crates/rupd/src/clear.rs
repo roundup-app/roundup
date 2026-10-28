@@ -350,32 +350,14 @@ impl Daemon {
         }
     }
 
-    /// Steer `id` once it takes a Steer: a Busy refusal, which writes nothing (B6), is tried again
-    /// at `id`'s next Status, so an Agent still in a turn, its first prompt included, is Steered
-    /// when the turn ends.
+    /// A4452d: ask `id` for its Handoff through its Claude inbox; the ask is never typed.
     async fn steer_when_free(
         &self,
         agents: &agents::Agents,
         id: &str,
         text: &str,
     ) -> Result<(), agents::PromptError> {
-        let mut events = self.bus.subscribe();
-        loop {
-            let busy = match agents.prompt(id, text).await {
-                Err(busy @ agents::PromptError::Busy { .. }) => busy,
-                done => return done,
-            };
-            loop {
-                match events.recv().await {
-                    Ok(event) if matches!(&event.data, EventData::AgentStatus(s) if s.id == id) => {
-                        break;
-                    }
-                    Ok(_) => {}
-                    Err(broadcast::error::RecvError::Lagged(_)) => break,
-                    Err(broadcast::error::RecvError::Closed) => return Err(busy),
-                }
-            }
-        }
+        agents.coordinate(id, text.to_owned()).await
     }
 
     /// Everything after the Handoff exists, in the order of A32.
