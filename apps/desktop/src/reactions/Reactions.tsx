@@ -183,13 +183,13 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "list"}>
       <div class="reaction-head">
         <h2 class="overview-heading">{copy.reactions}</h2>
-        <div class="reaction-actions"><Show when={read().list.length > 0}><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button></Show><button type="button" data-button="quiet" onClick={() => { hideView("reactions"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.reactions)}</button></div>
+        <div class="reaction-actions"><Show when={read().list.length > 0 || read.loading}><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button></Show><button type="button" data-button="quiet" onClick={() => { hideView("reactions"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.reactions)}</button></div>
       </div>
       <ReservedLine overlay message={read().failure}>
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<Show when={read.state !== "pending" && read.state !== "unresolved" && read().failure === null}><EmptyState art="play" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} action={<button type="button" data-button="primary" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>} /></Show>}>
+      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="play" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} action={<button type="button" data-button="primary" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>} /></Show>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
