@@ -486,11 +486,11 @@ const Item = (props: ItemProps) => {
   return props.children(sortable);
 };
 
-/** The library binds both pointer and keyboard activation to this independent control. */
-const Handle = (props: { label: string; tooltip?: string; ref: (element: HTMLButtonElement | undefined) => void }) => {
+/** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. */
+const Handle = (props: { label: string; tooltip?: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
   onCleanup(() => props.ref(undefined));
 
-  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><GripVertical aria-hidden="true" /></IconButton>;
+  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => { event.stopPropagation(); if (event.key === " " || event.key === "Enter") props.onLift?.(); }}><GripVertical aria-hidden="true" /></IconButton>;
 };
 
 export const Sortable = { Root, Item, Handle };

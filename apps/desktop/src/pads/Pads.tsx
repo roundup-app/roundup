@@ -490,8 +490,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
           <ShelfRow
             ref={props.parts.ref}
             data-pad={pad.name}
-            onPointerDown={event => { if (event.target instanceof Element && event.target.closest(".sortable-handle")) props.onLift(pad); }}
-            on:keydown={{ capture: true, handleEvent: event => { if ((event.key === " " || event.key === "Enter") && event.target instanceof Element && event.target.closest(".sortable-handle")) props.onLift(pad); } }}
             onClick={event => {
               if (!editing() && !props.bulk.pending() && event.target instanceof Element && !event.target.closest("button, input")) { props.selection.click(pad.incarnation, event); row?.focus(); }
             }}
@@ -550,7 +548,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </button>
             </Show>
             <Show when={!editing()}>
-              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} />
+              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
