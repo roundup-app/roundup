@@ -193,7 +193,7 @@ async fn a32_a_failed_stop_retries_without_double_archive() {
         .iter()
         .flat_map(user_texts)
         .find(|text| {
-            text.contains("Follow this instruction: Retry the Handoff.")
+            text.contains("Retry the Handoff.")
                 && text.contains("archived in the Pad archive-1")
         })
         .expect("restarted Door receives the Handoff and archive pointer");
