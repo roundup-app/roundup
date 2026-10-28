@@ -382,8 +382,6 @@
 {"file":"apps/desktop/src/terminal/u162_file_drop.test.tsx","test":"u162 drop files on a pane > u162_a_failed_write_shows_its_message","identity":"b82d3922e0cf2d1b5e4b6511b22a271d3a12081e74a23609e4403ca02262ac35"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_is_hidden_while_the_view_is_at_the_bottom","identity":"2bd96acfa95481fad854da8974bc5e60f965d29cc8b181c6d0789f1009877475"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_shows_once_the_user_scrolls_up","identity":"75878d400646b78d07c3edb99e48540438b08c112046228aa036ad01bf149b58"}
-{"file":"apps/desktop/src/terminal/u3517_browser.test.ts","test":"u3517f_rendered_terminal_reference","identity":"dff246724c3610650f3d05d2a1909f6f795c83fe8b95c30919a47b5869dc042a"}
-{"file":"apps/desktop/src/terminal/u3517_browser.test.ts","test":"u3517f_rendered_terminal_reference","identity":"57593b95e164701287d7d701ce101e94726ed9b5d0ea1b51c08e830fbd104627"}
 {"file":"apps/desktop/src/terminal/u3560_failure.test.tsx","test":"u3560d_clipboard_failure_preserves_input_%s","identity":"09bed70f11b8a4af09db2f4f9dfad7282a26e8c50ada898ae2f585fb9fe89459"}
 {"file":"apps/desktop/src/terminal/u3560_failure.test.tsx","test":"u3560d_clipboard_failure_preserves_input_%s","identity":"f7fd252ab63802430b914f410bb4a2ee940b2500f4996320f5db6a76f51dccda"}
 {"file":"apps/desktop/src/terminal/u3560_failure.test.tsx","test":"u3560d_a_terminal_in_an_open_bubble_shows_its_failure_there_and_not_in_the_pane","identity":"58e95a4af7bb7748ca3022bd25389516db72789006e542dcb8e7f7117fbf8d87"}
