@@ -81,7 +81,7 @@ function member(source, node) {
 }
 
 function namespaceProperty(origin, name) {
-  if (origin === "namespace" || (origin === "config namespace" && name === "defineConfig") ||
+  if (origin === "namespace" || (origin === "config namespace" && ["defineConfig", "defineProject"].includes(name)) ||
       (origin === "vi" && name === "setConfig")) return name;
   return null;
 }
@@ -101,7 +101,7 @@ function imported(source, node, seen = new Set()) {
       if (!["vitest", "vite", "vitest/config"].includes(module)) continue;
       if (def.node.type === "ImportNamespaceSpecifier") return module === "vitest" ? "namespace" : "config namespace";
       const name = def.node.imported?.name ?? def.node.imported?.value;
-      return module === "vitest" || name === "defineConfig" ? name : null;
+      return module === "vitest" || name === "defineConfig" || (module === "vitest/config" && name === "defineProject") ? name : null;
     }
     if (def.type !== "Variable" || def.node.parent.kind !== "const" || def.node.id.type !== "ObjectPattern") continue;
     if (binding.references.some(ref => ref.isWrite() && !ref.init)) return null;
@@ -130,9 +130,9 @@ function registration(source, node, seen = new Set()) {
   return null;
 }
 
-// Both Vite and Vitest expose defineConfig as an identity helper; it does not mutate options.
+// Vitest project/config helpers and Vite defineConfig return options unchanged; none mutate them.
 function isConfigDefinition(source, node) {
-  return imported(source, node) === "defineConfig";
+  return ["defineConfig", "defineProject"].includes(imported(source, node));
 }
 
 function objectProperty(source, node, name, seen = new Set()) {
