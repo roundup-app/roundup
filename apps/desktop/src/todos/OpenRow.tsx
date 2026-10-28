@@ -177,6 +177,7 @@ export const OpenRow = (props: {
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      data-requested={connected.padsTab() === "todos" && props.todo.creator.kind === "agent" && props.todo.creator.id === connected.padsOwner() ? "true" : undefined}
       onClick={event => {
         if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
 

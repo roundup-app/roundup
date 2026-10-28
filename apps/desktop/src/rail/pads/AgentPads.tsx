@@ -1,67 +1,23 @@
-import { createCopyLabels, type createCopyFeedback } from "../../ui/CopyButton";
-import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
-import { createBulkDelete } from "../../shelf/BulkDelete";
-import { activationSource, type ActivationSource } from "../../keys/registry";
 import { copy } from "../../copy";
-import { createMemo, createSignal, For, Show } from "solid-js";
-import type { JSX } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { Todo } from "@contracts/todo/Todo";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Icon } from "../../ink/Icon";
 import { IconButton } from "../../ui/IconButton";
-import { NameField } from "../../ui/Editable";
-import type { Pad } from "@contracts/pad/Pad";
-import { createSelection } from "../../shelf/selection";
-import { PadDrawer } from "../../pads/PadDrawer";
-import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
-import { treeRows } from "../../todos/todoView";
-import { OpenRow } from "../../todos/OpenRow";
-import { homesToOffer } from "../../todos/homes";
-import { failureOf } from "../../todos/failureOf";
-import { TodoDrawer } from "../../todos/TodoDrawer";
-import { createSortedList } from "../../todos/sortedList";
-import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
-import { createItemFailure } from "../itemFailure";
-import { Trunks } from "../../ui/TreeView";
 import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
-/** The Pads and Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
+/** The count behind one Rail row's Pads control (U58, U60): how many Pads its Agent owns and Todos it created (0 for any other row). */
 export const createAgentPads = (node: Accessor<RailNode>) => {
   const all = usePadList().pads;
   const todos = useTodoList();
-  const [shown, setShown] = createSignal(false);
   const owned = createMemo(() => (node().kind === "agent" ? padsOwnedBy(all(), node().id) : []));
   const ownedTodos = createMemo(() => (node().kind === "agent" ? todosCreatedBy(todos.all(), node().id) : []));
-  /** P3557c: items are `pad:<incarnation>` and `todo:<id>`; a failure goes with its item. */
-  const failure = createItemFailure((item) => item.startsWith("pad:") ? owned().some((pad) => `pad:${pad.incarnation}` === item) : ownedTodos().some((todo) => `todo:${todo.id}` === item));
-  const connected = useConnectedProject();
 
-  const reorder = createSortedList({
-    ids: () => ownedTodos().map((todo) => todo.id),
-    all: todos.all,
-    reload: todos.reload,
-    call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
-    reducedMotion: connected.reducedMotion,
-  });
-
-  const count = () => owned().length + ownedTodos().length;
-
-  return {
-    all,
-    owned,
-    todos,
-    ownedTodos,
-    reorder,
-    n: count,
-    shown: () => shown() && count() > 0,
-    toggle: () => setShown((open) => !open),
-    failure,
-  };
+  return { owned, ownedTodos, n: () => owned().length + ownedTodos().length };
 };
 
 export type AgentPads = ReturnType<typeof createAgentPads>;
@@ -73,8 +29,9 @@ const controlName = (pads: number, todos: number): string =>
 /** An empty `title` ends the row's native name at this control, which keeps its own tooltip (U2228a). */
 const NO_NATIVE_TITLE = { title: "" };
 
-/** `◇<n>` at the right end of an Agent's row; absent at 0. */
-export const PadsControl = (props: { pads: AgentPads }) => {
+/** `◇<n>` at the right end of an Agent's row; absent at 0. U4457: it opens the Shelf on the Agent's Pads group. */
+export const PadsControl = (props: { pads: AgentPads; agent: string }) => {
+  const connected = useConnectedProject();
   const name = () => controlName(props.pads.owned().length, props.pads.ownedTodos().length);
 
   return (
@@ -85,268 +42,9 @@ export const PadsControl = (props: { pads: AgentPads }) => {
         data-pads-control
         {...NO_NATIVE_TITLE}
         aria-label={name()}
-        aria-expanded={props.pads.shown()}
-        onClick={click => { click.stopPropagation(); props.pads.toggle(); }}
+        onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent, props.pads.owned().length > 0 ? "pads" : "todos"); }}
       ><Icon name="diamond" /></IconButton>
     </Show>
   );
 };
 
-/** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
-const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; stem?: boolean; todo?: boolean; onContextMenu?: (event: MouseEvent) => void; children: JSX.Element }) => (
-  <div
-    role="treeitem"
-    aria-level={props.depth + 2}
-    class="rail-leaf"
-    onContextMenu={props.onContextMenu}
-    data-leaf={props.todo ? "todo" : "pad"}
-    style={{ "--indent": `calc(${props.depth + 1} * var(--rail-step) + var(--rail-inset))` }}
-  >
-    <Trunks depth={props.depth + 1} trail={[...props.trail, !props.last]} stem={props.stem ?? false} />
-    {props.children}
-  </div>
-);
-
-/** The Pad leaves, then the Todo leaves, one level below `depth`, folded at rest; a click selects an item and explicit Open reaches its existing Drawer (U3789a). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
-export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
-  const connected = useConnectedProject();
-  const list = usePadList();
-  const copiedTodos = new Map<number, ReturnType<typeof createCopyFeedback>>();
-  const copiedPads = createCopyLabels(() => props.pads.shown() ? props.pads.owned().map(pad => pad.incarnation) : []);
-  const selection = createSelection(() => props.pads.owned().map(pad => pad.name), () => connected.rail.selected() ?? "overview");
-  const selected = selection.selected;
-  const setSelected = selection.replace;
-  const clear = selection.clear;
-
-  const bulk = createBulkDelete({
-    app: connected.app,
-    selected,
-    targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
-    context: () => connected.rail.selected() ?? "overview",
-    noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
-    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: async (names) => {
-      const pads = props.pads.owned().filter(pad => names.includes(pad.name));
-      const failures = await connected.drafts.todoUndo.removePads(pads);
-
-      return failures.flatMap(failure => { const pad = pads.find(pad => pad.incarnation === failure.id);
-
- return pad ? [{ id: pad.name, message: failure.message }] : []; });
-    },
-    reload: async () => {
-      await list.reload();
-
-      return list.failure();
-    },
-  });
-
-  const todoSelection = createSelection(() => props.pads.ownedTodos().map(todo => todo.id), () => connected.rail.selected() ?? "overview");
-  const selectedTodos = todoSelection.selected;
-  const setSelectedTodos = todoSelection.replace;
-  const clearTodos = todoSelection.clear;
-
-  const todoBulk = createBulkDelete({
-    app: connected.app,
-    selected: selectedTodos,
-    targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
-    context: () => connected.rail.selected() ?? "overview",
-    noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
-    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: connected.drafts.todoUndo.removeTodos,
-    reload: async () => {
-      await props.pads.todos.reload();
-
-      return props.pads.todos.failure();
-    },
-  });
-
-  /** A save's outcome: a message is the item's failure, none acknowledges it. */
-  const showOutcome = (item: string, message: string | null) => {
-    if (message === null) props.pads.failure.acknowledge(item);
-    else props.pads.failure.show(message, item);
-  };
-
-  const todoFailures = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
-
-  const todoMenu = (todo: Todo, event: MouseEvent) => {
-    event.stopPropagation();
-    const homes = homesToOffer(connected.rail.nodes, todo.home);
-    const order = props.pads.ownedTodos().map(item => item.id);
-    const move: MenuEntry = { id: "move", label: copy.move, enabled: homes.length > 0 };
-
-    if (homes.length > 0) move.children = homes.map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name,
-      run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) }));
-
-    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "open", label: copy.openDraft, run: () => openTodo(todo, "pointer") },
-      ...(todoFailures.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => todoFailures.get(todo.id)?.show(null) }] : []),
-      move,
-      { id: "move-up", label: copy.moveUp, enabled: !todo.done && order.indexOf(todo.id) > 0, run: () => props.pads.reorder.step(todo.id, -1) },
-      { id: "move-down", label: copy.moveDown, enabled: !todo.done && order.indexOf(todo.id) < order.length - 1, run: () => props.pads.reorder.step(todo.id, 1) },
-      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`), () => props.pads.failure.acknowledge(`todo:${todo.id}`), copiedTodos.get(todo.id)),
-      { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
-    ], x, y));
-  };
-
-  const openTodo = (todo: Todo, source: ActivationSource) => connected.drawer.open(() => <TodoDrawer id={todo.id} todos={props.pads.todos} />, source, { kind: "todo", project: connected.project.path });
-
-  const openPad = (name: string, source: ActivationSource) => {
-    const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`;
-
-    props.pads.failure.acknowledge(item);
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, source, { kind: "pad", project: connected.project.path });
-  };
-
-  const padMenu = (name: string, event: MouseEvent) => {
-    event.stopPropagation();
-    const pad = props.pads.owned().find(pad => pad.name === name);
-
-    if (!pad) return;
-
-    const item = `pad:${pad.incarnation}`;
-    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "open", label: copy.openDraft, run: () => openPad(name, "pointer") },
-      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, item), () => props.pads.failure.acknowledge(item), copiedPads().get(pad.incarnation)),
-      { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
-    ], x, y));
-  };
-
-  const nested = createMemo(() => treeRows(props.pads.ownedTodos()));
-
-  const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
-  const last = (at: number) => at === leaves() - 1 && !props.children;
-
-  return (
-    <>
-      <Show when={props.pads.shown()}>
-        <Sortable.Root
-          class="rail-leaves"
-          data-pads
-          role="group"
-          plain
-          ids={props.pads.ownedTodos().map((todo) => String(todo.id))}
-          onOrderChange={props.pads.reorder.order}
-        >
-          <For each={props.pads.owned()}>
-            {(pad, at) => (
-              <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
-                <OwnedPad copied={copiedPads().get(pad.incarnation)?.copied()} pad={pad} pads={props.pads.all} selected={selection.selected().includes(pad.name)}
-                  register={row => selection.register(pad.name, row)} pick={event => selection.click(pad.name, event)}
-                  key={event => selection.key(pad.name, event)} open={event => openPad(pad.name, activationSource(event))} menu={event => padMenu(pad.name, event)}
-                  fail={message => showOutcome(`pad:${pad.incarnation}`, message)} />
-              </Leaf>
-            )}
-          </For>
-          <For each={nested().map(place => place.todo)}>
-            {(todo, at) => { const place = () => nested().find(place => place.todo.id === todo.id)!;
-
-              const continues = (id: number) => {
-                const row = nested().find(row => row.todo.id === id)!;
-
-                return nested().filter(other => other.parent === row.parent).at(-1)?.todo.id !== id || (row.parent === null && props.children);
-              };
-
-              const trail = () => {
-                const ancestors: boolean[] = [];
-                let parent = place().parent;
-
-                while (parent !== null) {
-                  ancestors.unshift(continues(parent));
-                  parent = nested().find(row => row.todo.id === parent)!.parent;
-                }
-
-                return [...props.trail, ...ancestors];
-              };
-
- return (
-              <Sortable.Item id={String(todo.id)} index={at()}>
-                {(parts) => {
-                  const sorted = props.pads.reorder.row(todo.id, parts);
-
-                  return (
-                    <Leaf depth={props.depth + place().level - 1} trail={trail()} last={!continues(todo.id)} stem={nested().some(row => row.parent === todo.id)} todo onContextMenu={(event) => todoMenu(todo, event)}>
-                      <OpenRow
-                        copyWith={feedback => {
-                          const id = todo.id;
-                          copiedTodos.set(id, feedback);
-
-                          return () => { if (copiedTodos.get(id) === feedback) copiedTodos.delete(id); };
-                        }}
-                        nested
-                        place={place()}
-                        failWith={(show, message) => todoFailures.set(todo.id, { show, message })}
-                        todo={todo}
-                        pressed={todoSelection.selected().includes(todo.id)}
-                        onPick={(item, event) => todoSelection.click(item.id, event)}
-                        onSelectionKey={(item, event) => todoSelection.key(item.id, event)}
-                        registerRow={todoSelection.register}
-                        known={props.pads.todos.byId()}
-                        onOpen={openTodo}
-                        sorted={sorted}
-                        onToggle={async (done) => {
-                          const message = await failureOf(() => done.done
-                            ? connected.app.rpc("todo.reopen", { id: done.id })
-                            : connected.app.rpc("todo.complete", { id: done.id }));
-
-                          if (message === null) props.pads.failure.acknowledge(`todo:${done.id}`);
-
-                          return message;
-                        }}
-                      />
-                    </Leaf>
-                  );
-                }}
-              </Sortable.Item>
-            ); }}
-          </For>
-        </Sortable.Root>
-      </Show>
-      <bulk.Bar />
-      <todoBulk.Bar />
-    </>
-  );
-};
-
-const OwnedPad = (props: {
-  copied?: boolean | undefined;
-  pad: Pad; pads: Accessor<readonly Pad[]>; selected: boolean;
-  register: (row: HTMLButtonElement) => void; pick: (event: MouseEvent) => void; key: (event: KeyboardEvent) => void;
-  open: (event: MouseEvent) => void; menu: (event: MouseEvent) => void; fail: (message: string | null) => void;
-}) => {
-  const connected = useConnectedProject();
-  const list = usePadList();
-  const [editing, setEditing] = createSignal(false);
-  let button: HTMLButtonElement | undefined;
-
-  const open = () => {
-    const name = props.pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.fail(message)} />, "key", { kind: "pad", project: connected.project.path });
-  };
-
-  const rename = () => { if (props.pad.owner.kind === "user") setEditing(true); else props.fail(copy.renamePadOwnership); };
-
-  const close = (restore = true) => { setEditing(false);
-
- if (restore) queueMicrotask(() => button?.focus()); };
-
-  return <div class="pad-row-head" data-incarnation={props.pad.incarnation} data-selected={props.selected ? "true" : undefined} onContextMenu={props.menu}
-    onClick={event => { if (!editing() && event.target instanceof Element && !event.target.closest("button,input")) props.pick(event); }}
-    onDblClick={event => { if (!editing() && event.target instanceof Element && !event.target.closest("button,input")) rename(); }}>
-    <Show when={!editing()} fallback={<NameField object={`pad:${props.pad.incarnation}`} name={props.pad.name} version={async () => props.pad.incarnation}
-      commit={async (text, base, version) => { await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }); await list.reload(); }} close={close} fail={props.fail} />}>
-      <button type="button" data-button="quiet" class="rail-pad" aria-pressed={props.selected} ref={row => { button = row; props.register(row); }}
-        onClick={props.pick} onDblClick={rename} onKeyDown={event => {
-          props.key(event);
-
-          if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-
-          if (event.key === "Enter") { event.preventDefault();
-
- if (!event.repeat) open(); }
-
-          if (event.key === "F2") { event.preventDefault(); rename(); }
-        }}><span style={cutName}>{props.copied ? copy.copied : props.pad.name}</span></button>
-    </Show>
-  </div>;
-};

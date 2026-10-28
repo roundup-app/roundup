@@ -8,6 +8,7 @@
   display: flex;
   flex: none;
   align-items: stretch;
+  justify-content: space-between;
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
@@ -18,7 +19,7 @@
 }
 
 .rail-actions button {
-  flex: 1;
+  flex: none;
   justify-content: flex-start;
   min-height: calc(var(--space-5) + var(--space-1));
   --button-lead: 0;
