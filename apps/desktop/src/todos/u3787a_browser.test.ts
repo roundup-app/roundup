@@ -37,9 +37,10 @@ it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () =
       await lane.until("document.body.textContent.includes('The original Home changed')");
       await lane.capture("U3787a", `${seed}-failure`);
     } else {
-      await lane.until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
+      await lane.until("document.body.textContent.includes('Deleted')");
       await lane.capture("U3787a", `${seed}-deleted`);
-      await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+      await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
       await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"]')`);
       expect(await lane.calls("todo.restore")).toHaveLength(1);
       await lane.capture("U3787a", `${seed}-restored`);
@@ -67,11 +68,12 @@ it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => 
   await lane.until("[...document.querySelectorAll('.shelf button')].some(b => b.textContent === 'Delete 2')");
   await lane.capture("U3787a", "shelf-pads-before");
   await lane.evaluate("(() => { window.__fake.failNext(-32002, 'The original Home is unavailable. Restore the Home and retry deletion.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 2').click(); return true; })()");
-  await lane.until("document.body.textContent.includes('Could not delete') && [...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
+  await lane.until("document.body.textContent.includes('Could not delete') && document.body.textContent.includes('Deleted')");
   await lane.capture("U3787a", "shelf-pads-partial-failure");
   // The fake transport refuses failNext before journaling; only the acknowledged member reaches its call journal.
   expect(await lane.calls("pad.delete")).toHaveLength(1);
-  await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+  await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
   await lane.until("document.querySelectorAll('.shelf .pad-name').length >= 5");
   expect(await lane.calls("pad.restore")).toHaveLength(1);
   await lane.capture("U3787a", "shelf-pads-restored");
@@ -172,7 +174,8 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
       await lane.browser("fill", ".todo-comment-field", "  未送信 é 🧭\n keep trailing spaces  ");
 
       if (restoring) {
-        await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+        await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
         await lane.until("window.__restoreWaiting === true");
       }
 
