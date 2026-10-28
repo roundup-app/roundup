@@ -3559,16 +3559,12 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     )
     .await
     .unwrap_or_else(|report| panic!("{report}"));
-    // The Agent's spawn prompt arrives after it first idles: wait for it, then count.
-    let deadline = Instant::now() + TEN_IDLE_BOUND;
-    while std::fs::read_to_string(&input)
-        .unwrap_or_default()
-        .is_empty()
-    {
-        assert!(Instant::now() < deadline, "the startup prompt never came");
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // A4452: coordination is inbox-only; its receipt bounds startup before sampling.
+    next(&mut client, |event| match event {
+        EventData::MessageDelivered(message) if message.to == agent.id => Some(()),
+        _ => None,
+    })
+    .await;
     let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
     let tree_before = format!("{:?}", rail_tree(&client).await);
     let files_before = d8_listing(project.dir.path());

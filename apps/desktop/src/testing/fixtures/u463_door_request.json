@@ -2,6 +2,15 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_u463_todo",
         "toolResultContains": "u463 real request"
       },
@@ -30,15 +39,6 @@
       },
       "response": {
         "content": "{\"title\":\"Workstream planning\"}"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready for your instructions."
       }
     }
   ]
