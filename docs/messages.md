@@ -55,7 +55,7 @@ Gates and observers: P1/P11 require zero Message writes to Terminal input, so na
 
 The model's `Idle` event and `World.idle` mean delivery readiness, not a literal
 Kind. A33 presents an idle Terminal waiting on a Todo as `blocked`; it remains
-inbox-ready, so a Clear can request its Handoff without Terminal input.
+inbox-ready for ordinary Message delivery without Terminal input.
 For the current Attempt, a running Terminal at `idle` or at `error` after
 `StopFailure` is delivery-ready. Kind `error` alone is not evidence of ending.
 The Attempt identity and authoritative ending facts must be checked before

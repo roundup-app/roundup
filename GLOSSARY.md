@@ -11,8 +11,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App copy catalogue (`copy`) | same | — |
 | Start Door | Start | — |
 | Retry Door | Retry | — |
-| Clear without Handoff | Clear without a summary | — |
-| Clear (prompt submit) | Clear and keep a summary | — |
 
 ### Project and its nodes
 
@@ -48,8 +46,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Queue | same | — |
 | Workstream cap | same | — |
 | Running | same | — |
-| Clear | same | — |
-| Handoff | summary | — |
 | Iteration | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |

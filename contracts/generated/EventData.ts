@@ -16,8 +16,6 @@ import type { TitleEvent } from "./terminal/TitleEvent";
 import type { Todo } from "./todo/Todo";
 import type { TodoId } from "./todo/TodoId";
 import type { ToolCallEvent } from "./agent/ToolCallEvent";
-import type { WorkstreamClearFailedEvent } from "./workstream/WorkstreamClearFailedEvent";
-import type { WorkstreamClearedEvent } from "./workstream/WorkstreamClearedEvent";
 
 /**  Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`. */
 export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
@@ -47,7 +45,7 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 { "name": "rail.renamed", "data": {
 	id: string,
 	name: string,
-} } | { "name": "checkpoint.written", "data": Checkpoint } | { "name": "workstream.rewound", "data": Rewound } | { "name": "project.requested", "data": Requested } | { "name": "workstream.cleared", "data": WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": WorkstreamClearFailedEvent } | 
+} } | { "name": "checkpoint.written", "data": Checkpoint } | { "name": "workstream.rewound", "data": Rewound } | { "name": "project.requested", "data": Requested } | 
 /**  A3195: the Queue or the Project's cap changed; read `workstream.queue`. */
 { "name": "workstream.queueChanged" };
 

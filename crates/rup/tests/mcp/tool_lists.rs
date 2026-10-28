@@ -104,7 +104,7 @@ pub const TOOL_METHODS: [&str; 89] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 8] = [
+pub const DOOR_METHODS: [&str; 7] = [
     "agent.digest",
     // LC7, LC8
     "agent.extras",
@@ -112,13 +112,12 @@ pub const DOOR_METHODS: [&str; 8] = [
     // B53
     "terminal.show",
     "checkpoint.write",
-    "workstream.handoff",
     "workstream.rewindPlan",
     "workstream.rewind",
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 80] = [
+pub const NO_TOOL: [&str; 79] = [
     // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
     "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
@@ -199,8 +198,6 @@ pub const NO_TOOL: [&str; 80] = [
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
-    // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
-    "workstream.clear",
     "close_project",
     "projects",
     // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
@@ -349,4 +346,54 @@ async fn u3789a_mcp_and_cli_rename_keep_the_guarded_creation() {
             .unwrap(),
         expected
     );
+}
+
+#[tokio::test]
+async fn a32_removed_tools_are_unavailable() {
+    let project = super::start_daemon();
+    let user = super::client_as(&project.socket, contracts::Actor::user()).await;
+    let door = user
+        .request("rail.createWorkstream", serde_json::json!({"name":"team"}))
+        .await
+        .unwrap();
+    user.request("todo.create", serde_json::json!({"title":"retained task"}))
+        .await
+        .unwrap();
+    user.request(
+        "pad.create",
+        serde_json::json!({"name":"retained pad","text":"exact text"}),
+    )
+    .await
+    .unwrap();
+    let mut before = Vec::new();
+    for method in ["rail.tree", "todo.list", "pad.list", "message.list"] {
+        before.push(user.request(method, serde_json::json!({})).await.unwrap());
+    }
+    for id in ["ordinary", door["id"].as_str().unwrap()] {
+        let shim = super::spawn_shim(&project.socket, id).await;
+        let tools = shim.client.list_all_tools().await.unwrap();
+        for name in ["workstream_clear", "workstream_handoff"] {
+            assert!(!tools.iter().any(|tool| tool.name == name), "{id}: {name}");
+            let error = shim
+                .client
+                .call_tool(super::CallToolRequestParams::new(name).with_arguments(serde_json::json!({"id":door["id"],"reason":"retired","without_handoff":true,"summary":"retired","keep_todos":[],"keep_pads":[]}).as_object().unwrap().clone()))
+                .await
+                .unwrap_err();
+            let rmcp::service::ServiceError::McpError(error) = error else {
+                panic!("{error:?}")
+            };
+            assert_eq!(error.code.0, -32602);
+            assert_eq!(error.message, format!("no tool named {name}"));
+        }
+        for (method, expected) in ["rail.tree", "todo.list", "pad.list", "message.list"]
+            .into_iter()
+            .zip(&before)
+        {
+            assert_eq!(
+                &user.request(method, serde_json::json!({})).await.unwrap(),
+                expected,
+                "{method}"
+            );
+        }
+    }
 }

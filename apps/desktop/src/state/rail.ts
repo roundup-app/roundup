@@ -10,7 +10,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
-import type { RailStorage } from "../rail/persist/storage";
+import type { RailSection, RailStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
 
@@ -41,6 +41,8 @@ export type RailState = {
   terminalFocus(): ReturnType<typeof captureFocus>;
   restored(): boolean;
   collapsed(): ReadonlySet<string>;
+  closedSections(): ReadonlySet<RailSection>;
+  setSectionOpen(section: RailSection, open: boolean): void;
   toggleCollapsed(id: string): void;
   storageFailure(): string | null;
   clearStorageFailure(): void;
@@ -78,11 +80,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
+  const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   let firstTree = true;
 
-  const save = async () => setStorageFailure(await storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
+  const save = async () => {
+    const layout: Parameters<RailStorage["write"]>[0] = { selected: selected(), collapsed: [...collapsed()] };
+
+    if (closedSections().size > 0) layout.sections = [...closedSections()];
+    setStorageFailure(await storage?.write(layout) ?? null);
+  };
 
   const reveal = (id: string | null) => {
     if (id === null) return;
@@ -130,6 +138,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         const saved = storage?.read();
 
         if (saved) {
+          setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
           setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
           reveal(selected());
@@ -322,6 +331,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     terminalFocus,
     restored,
     collapsed,
+    closedSections,
+    setSectionOpen: (section, open) => {
+      if (closedSections().has(section) !== open) return;
+      setClosedSections(closed => new Set(open ? [...closed].filter(each => each !== section) : [...closed, section]));
+      void save();
+    },
     storageFailure,
     clearStorageFailure: () => setStorageFailure(null),
     toggleCollapsed: (id) => {

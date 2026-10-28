@@ -431,23 +431,13 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rup/tests/common/d9_fixture.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
-    "kind": "reference"
-  },
   "crates/rup/tests/common/served.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
-    "sha256": "725e4546a6720826c6dabbb0537b1ecf64639c603a8e758454942569d3fb0883"
+    "sha256": "a370336d610f8bfc84123839d89a6b62869c4188b4caa58a97f7c0ae6b819ee9"
   },
   "crates/rup/tests/resume_work.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/rup/tests/d9.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -493,7 +483,7 @@
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
-    "sha256": "47ec1ff75c597f9d1c8c2ff2b372ceb97867a797206a9d061589e03a63d893bb"
+    "sha256": "1a52b07cacacc3b1ff5c22c326b7e337201cc412177e2fa48c559ef36b9c6740"
   },
   "crates/rup/tests/models.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -554,7 +544,7 @@
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
     "kind": "in-process",
-    "sha256": "97078e1396e0e866ea3eb662d31d7476859579e8b367dca6191d29047a447eef"
+    "sha256": "4ed006e12b9842ea538bc8eac0eb3ed7b79e0f791c3da649be5ce346c84e842a"
   },
   "crates/rupd/src/main.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -813,5 +803,11 @@
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/a32_removed.rs": {
+    "cleanup": "The test aborts its server; clients and the temporary Project are dropped with the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "0f662e999a1d5b5a332a06c336ea7f86e1c220fa3bb26e70437650affb06069f"
   }
 }
