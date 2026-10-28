@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
+import { todo } from "../../todos/testHarness";
+import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
 import { agent, event } from "../../testing/nodes";
-import { padHandlers } from "../../testing/stores";
+import { padHandlers, todoHandlers } from "../../testing/stores";
 import { path, renderTabs } from "../../header/stripFixture";
 
 afterEach(cleanup);
@@ -15,10 +17,11 @@ const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name
 const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "working", "x", { name: "docs", order: 1 })];
 
 /** The App on one Project whose Daemon holds `pads`; the Shelf starts closed. */
-const mount = async (pads: Pad[]) => {
+const mount = async (pads: Pad[], todos: Todo[] = []) => {
   const { app } = renderTabs({ p: TREE });
   const daemon = app.of(path("p"));
 
+  Object.assign(daemon.handlers, todoHandlers({ todos }, data => daemon.emit(event(data))));
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, data => daemon.emit(event(data))));
   await waitFor(() => expect(document.querySelector("[role=tree] [data-id]")).not.toBeNull());
 };
@@ -40,12 +43,12 @@ describe("u4457 the Pads control opens the Shelf", () => {
     fireEvent.click(control("a1")!);
 
     await waitFor(() => expect(screen.getByRole("tab", { name: /Pads/, selected: true })).toBeTruthy());
-    await waitFor(() => expect(group("a1")?.querySelector(".shelf-group-control")).toBe(document.activeElement));
+    await waitFor(() => expect(within(group("a1")!).getByRole("button", { name: pad.name })).toBe(document.activeElement));
     expect(group("a1")?.getAttribute("aria-expanded")).toBe("true");
     expect(within(group("a1")!).getByRole("button", { name: pad.name })).toBeTruthy();
 
     fireEvent.click(control("a1")!);
-    expect(document.activeElement).toBe(group("a1")?.querySelector(".shelf-group-control"));
+    expect(document.activeElement).toBe(within(group("a1")!).getByRole("button", { name: pad.name }));
   });
 
   it("u4457_the_control_switches_a_shelf_open_on_another_tab", async () => {
@@ -86,6 +89,15 @@ describe("u4457 the Pads control opens the Shelf", () => {
     fireEvent.keyDown(rail.getByRole("treeitem", { name: /auth/ }), { key: "ArrowRight" });
     expect(rail.queryAllByRole("button").filter(button => button.closest("[data-pad], [data-todo]"))).toEqual([]);
     expect(document.querySelector(".rail-leaf")).toBeNull();
+  });
+
+  it("u4457_a_todo_only_control_opens_its_todos_group", async () => {
+    await mount([], [todo(1, { title: "work", creator: by("a1"), owner: by("a1") })]);
+    await waitFor(() => expect(control("a1")).not.toBeNull());
+    fireEvent.click(control("a1")!);
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Todos/, selected: true })).toBeTruthy());
+    await waitFor(() => expect(group("a1")?.querySelector(".shelf-group-control")).toBe(document.activeElement));
+    expect(within(group("a1")!).getByRole("button", { name: /work/ })).toBeTruthy();
   });
 
   it("u4457_the_control_keeps_its_count_and_name", async () => {
