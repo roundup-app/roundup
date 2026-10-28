@@ -23,10 +23,10 @@ Policy: the implementation PR records each row's removal or retained behavior an
 | `apps/desktop/src/rail/Rail.tsx`, `rail/menu/model.ts`, `rail/rows.ts` | Remove Clear row action, both menu construction paths, target state and prompt mount; preserve the other actions. |
 | `rail/ClearPrompt.tsx`, `rail/clear.ts`, `rail/styles.css`, `copy.ts`, `copy/rail.ts` | Remove reason, fallback, pending/failure and summary copy; no Clear surface remains. |
 | `rail/persist/`, `state/`, Rail draft/recovery tests and harness fixtures | Remove `rail-clear` destination and its stored drafts/recovery only. Keep unrelated unfinished input (P11). |
-| `keys/registry.ts`, `keys/chords.ts`, `crates/desktop/src/` menu dispatch | Keep existing unrelated keys/menu commands. No dedicated Clear chord is registered on main; remove any Clear forwarding found during implementation, with no replacement binding. Vendor Terminal `/clear` remains the user's input. |
+| `keys/registry.ts`, `keys/chords.ts`, `crates/desktop/src/` menu dispatch | Keep existing unrelated keys/menu commands. No dedicated Clear chord is registered on main; remove any Clear forwarding found during implementation, with no replacement binding. Vendor Terminal `/clear`, including the user's Ask-routed local command (A2698a), remains user input; it never calls Workstream Clear. |
 | `crates/agents/src/asks.rs` and App Ask | Keep Ask routing and user text delivery: no Clear-specific Ask command exists. An Ask cannot invoke a retired RPC or change the Opening prompt. |
 | `crates/rupd/src/clear.rs`, `lib.rs`, `open.rs`, dispatch registration | Remove both RPC handlers, coordinator, retry/archive state and Clear events. |
-| `crates/rup/src/mcp.rs`, `mcp/agent_tools.rs`; M5/M17 (`scenarios/mcp.md`) | Remove Door Handoff tool, success prose, special permission/dispatch branch and Clear exclusion row; reject retired calls. |
+| `crates/rup/src/mcp.rs`, `mcp/agent_tools.rs`; M5/M2706a (`scenarios/mcp.md`) | Remove Door Handoff tool, success prose, special permission/dispatch branch and Clear exclusion row; reject retired calls. |
 | `crates/agents/src/door.rs`, Rail/Marks; `crates/checkpoints`; `crates/messages` | Remove only Clear's fresh-Handoff restart and Iteration storage/guards; retain session restart reservations, normal history and Rewind. |
 | A33 (`scenarios/agents.md`), `docs/messages.md`, Message delivery | Keep Todo-blocked presentation with the underlying idle inbox eligible for ordinary Messages. Remove only the Clear/Handoff example; blocked Todo state is not Terminal-busy state. |
 | `crates/rupd/src/specialist.rs`, LC12/LC13 | Keep specialist summary/replacement behavior; it never calls `workstream.handoff`. P14's separate token-count retirement remains in force. |
@@ -39,13 +39,13 @@ Policy: these retirements authorize deletion of the tests that prove only the re
 | Scenario | Retirement / retained boundary |
 |---|---|
 | A32, U350 | All former reason, request, Handoff, archive, fallback, failure/retry, fresh-Clear restart and Iteration clauses are replaced above. |
-| U427, U2694b, U3812, U422 | Clear icon/menu clauses retire; other row actions and menu-state rules stay. |
-| U2773a, Z3799d, U3530a–c | Clear draft/panel, focus and overflow clauses retire; other editable surfaces and library ownership stay. |
+| U427, U2694b, U3812, U422, U4322a/b, U4409a, U4461, U4275b | Clear icon/menu clauses retire; other row actions and menu-state rules stay. |
+| U2773a, Z3799d, U3530a–c, U3517d | Clear draft/panel, focus and overflow clauses retire; other editable surfaces and library ownership stay. |
 | U416, U471, U472, U2570a | Clear copy/catalogue/journey/tooltip requirements retire; start/retry, authored text and surviving failure feedback stay. |
 | B55 | Entire Clear-only fresh-session isolation probe retires; B50–B52 ordinary inbox acknowledgement/deduplication stay. |
 | D9 | Only Clear completion/failure and App-bound-Clear probes retire; independent requests, connection state ordering, event delivery, cancellation and removal bounds stay. |
 | A35, N14 | Earlier-Iteration invalidation/round-trip fields retire; old Marks, selected children, original files, conversation copies and later-Rewind invalidation stay. |
-| A4452a/d/e, U3801/U3802, A3516a | Remove Clear/Handoff launch examples and Clear-specific regression branches. Keep idle launch, inbox coordination, user launch settings and permission authority. A4452c retains fresh-restart once-only Opening prompt delivery, independent of Clear. |
+| A4452a/d/e, U3801/U3802, A3516a, B2706 | Remove Clear/Handoff launch examples and Clear-specific regression branches. Keep idle launch, inbox coordination, user launch settings and permission authority. A4452c retains fresh-restart once-only Opening prompt delivery, independent of Clear. |
 | LC12/LC13, I5, I2706a, M2706a, F2/F8, Q11 | Drop A32 support, Handoff command/result and Clear launch examples only; specialist summaries, caller identity, naming and launch settings stay. |
 | E10–E13, A2961, TC1/T4b | Retire inventories of `a32_*` positive Clear tests, `b55_*`, Clear-only D9 tests and `a35_a_clear_makes_earlier_marks_unusable`; retain process-cost requirements for surviving behavior. |
 
