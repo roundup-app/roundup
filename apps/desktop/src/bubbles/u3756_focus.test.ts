@@ -361,6 +361,8 @@ it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => 
 it("u3756b_a_terminal_name_return_frame_yields_to_the_newer_ask_bar", async () => {
   await load();
   await choose("bubble");
+  await read(`window.dispatchEvent(new CustomEvent('roundup:reveal-bubble',{detail:'101'}))`);
+  await wait(`document.activeElement?.closest('.bubble[data-bubble="101"]')`);
   await browser("dblclick", '.bubble[data-bubble="101"] .bubble-name');
   await wait(`document.activeElement?.matches('.bubble-title-editor input')`);
   await holdFrames();

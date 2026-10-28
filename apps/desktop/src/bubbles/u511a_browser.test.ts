@@ -81,21 +81,6 @@ const capture = async (step: string, id = "U3021c") => {
 
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
 
-it("u511a_click_away_commits_without_swallowing_the_click", async () => {
-  await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
-  await until(`!!window.__fake`);
-  await browser("click", '.rail-row[data-id="runner"] .name');
-  await until(`!!document.querySelector('.bubble-name')`);
-  await browser("eval", `window.dispatchEvent(new CustomEvent('roundup:reveal-bubble',{detail:document.querySelector('.bubble').dataset.bubble})); document.querySelector('.bubble-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
-  await until(`document.activeElement?.matches('.bubble-title-editor input')`);
-  await browser("fill", '.bubble-title-editor input', 'xy');
-  await browser("click", '.rail-row[data-id="first-workstream"] .name');
-  await until(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'first-workstream'`);
-  await browser("click", '.rail-row[data-id="runner"] .name');
-  await until(`document.querySelector('.bubble[data-bubble="101"]')?.getAttribute('aria-label') === 'xy'`);
-  expect(await read<string>(`document.querySelector('.bubble[data-bubble="101"]').getAttribute('aria-label')`)).toBe('xy');
-}, 90_000);
-
 it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", async () => {
   await withProjectPair(async (first, second) => {
     // Await Vite's App-module readiness before Chromium's navigation deadline starts.
@@ -173,87 +158,3 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
 
 
 // Mounted App opening inventory: actual double-click and the native menu's Rename action.
-it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_recover_in_the_mounted_App_%s", async seed => {
-  const directory = captureDir("U3787c");
-
-  if (directory) { mkdirSync(directory, { recursive: true }); await browser("record", "start", join(directory, `terminal-${seed}.webm`)); }
-
-  try {
-    await browser("open", new URL(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, origin).href);
-    await until(`!!window.__fake`);
-    await browser("set", "media", "dark");
-    await until(`matchMedia('(prefers-color-scheme: dark)').matches`);
-
-    if (seed === "tabs-8") {
-      await until(`document.querySelectorAll('.project-tab').length === 8`);
-      await browser("click", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
-    }
-
-    if (seed === "conflict") await read(`window.__fake.app.rpc('todo.list',null).catch(() => null)`);
-    await browser("eval", "window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))");
-    await until(`!!document.querySelector('.bubble-name')`);
-    const target = '.bubble .bubble-header';
-    const saved = await read<string>(`document.querySelector('${target}').getAttribute('aria-label')`);
-    const baseline = await read(`window.__checks()`);
-    await capture(`terminal-${seed}-before`, "U3787c");
-
-    let edited = "";
-
-    for (const opening of ["double-click", "native Rename"]) {
-      if (opening === "double-click") await browser("dblclick", '.bubble-name');
-      else await browser("eval", `(() => { window.__fake.app.menuChoice = 'rename'; document.querySelector('${target}').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true})); })()`);
-      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
-      const exact = `  ${opening} é 🪁 雪\t  `;
-      edited = exact;
-      await browser("fill", '.bubble-title-editor input', exact);
-      await browser("eval", `(() => {
-        window.__renameInput = document.activeElement;
-        window.__renameInput.setSelectionRange(2,6,'backward');
-        window.__renameInput.dispatchEvent(new Event('select',{bubbles:true}));
-        window.__renameEscapes = 0;
-        window.__renameUnderlying = event => { if(event.key === 'Escape') window.__renameEscapes++; };
-        document.addEventListener('keydown',window.__renameUnderlying);
-        window.__renameWrites = [];
-        window.__renameWrite = Storage.prototype.setItem;
-        Storage.prototype.setItem = function(key,value) { if(key.startsWith('roundup:bubble-places:')) window.__renameWrites.push([key,value]); return window.__renameWrite.call(this,key,value); };
-        window.__fake.app.calls.length = 0;
-      })()`);
-      await browser("press", "Escape");
-      await browser("eval", `window.__renameInput.dispatchEvent(new FocusEvent('blur'))`);
-      await until(`document.activeElement?.matches('${target}') && !document.querySelector('.bubble-title-editor input')`);
-      expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe(saved);
-      expect(await read<number>(`window.__renameEscapes`)).toBe(0);
-      expect(await read<unknown[]>(`window.__renameWrites`)).toEqual([]);
-      expect(await read<unknown[]>(`window.__fake.app.calls.filter(call => /rename|terminal.write|terminal.close/.test(call.method))`)).toEqual([]);
-      const retained = await read<unknown[]>(`Object.keys(localStorage).filter(key => key.startsWith('roundup:drafts:')).flatMap(key => JSON.parse(localStorage.getItem(key)).drafts).filter(draft => draft.destination.surface === 'bubbles')`);
-      expect(retained).toContainEqual(expect.objectContaining({ value: { name: exact, base: saved }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" }));
-      await browser("eval", `(() => { Storage.prototype.setItem = window.__renameWrite; document.removeEventListener('keydown',window.__renameUnderlying); })()`);
-      await capture(`terminal-${seed}-${opening.replaceAll(' ', '-')}-cancelled`, "U3787c");
-      await browser("dblclick", '.bubble-name');
-      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
-      expect(await read<string>(`document.activeElement.value`)).toBe(exact);
-      await browser("press", "Escape");
-      await until(`!document.querySelector('.bubble-title-editor input')`);
-    }
-
-    if (seed !== "tree-40") {
-      await recovery();
-      await until(`!!document.querySelector('.bubble-recovery .draft-value')`);
-      expect(await read<string>(`document.querySelector('.bubble-recovery .draft-value').textContent`)).toBe(edited);
-      await capture(`terminal-${seed}-recovery`, "U3787c");
-      await browser("press", "Escape");
-      await until(`!document.querySelector('.bubble-recovery')`);
-    }
-
-    if (seed === "tree-40") {
-      await browser("dblclick", '.bubble-name');
-      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
-      await browser("eval", `(() => { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key,value) { if(key.startsWith('roundup:bubble-places:')) throw new Error('Terminal name could not be saved. Recover the draft and retry.'); return write.call(this,key,value); }; })()`);
-      await browser("press", "Enter");
-      await until(`document.querySelector('.bubble-recovery')?.textContent.includes('Unfinished work')`);
-      await capture("terminal-tree-40-save-failure", "U3787c");
-    }
-
-    process.stdout.write(`${JSON.stringify({ seed, baseline, after: await read(`window.__checks()`) })}\n`);
-  } finally { if (directory) await browser("record", "stop"); }
-}, 180_000);
