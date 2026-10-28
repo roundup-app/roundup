@@ -21,8 +21,8 @@ type Point = { x: number; y: number };
 const rows = '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button';
 
 const setup = async () => {
-  await page.scheme("light");
-  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+  await page.scheme("dark");
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
@@ -42,8 +42,8 @@ const setup = async () => {
 const ids = () => page.call<number[]>(`rows => [...document.querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1]))`, rows);
 
 const centre = (n: number) => page.call<Point>(`(rows, n) => {
-  const b = document.querySelectorAll(rows)[n].getBoundingClientRect();
-  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  const b = document.querySelectorAll(rows)[n].closest(".todo-row").querySelector(".sortable-handle").getBoundingClientRect();
+  return {x: b.left + 1, y: b.top + b.height / 2};
 }`, rows, n);
 
 type Call = { method: string; params: { id: number; before?: number; blockers?: number[] } };
@@ -123,7 +123,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const order = await ids();
     const first = await centre(0);
     // Empty owner targets can add a scrollbar during the drag; leave room for it inside the list.
-    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 32`, rows);
+    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 1`, rows);
 
     // The first row has no row above: far right inside the list changes nothing.
     await drag(first, { x: Math.min(first.x + 200, right), y: first.y });

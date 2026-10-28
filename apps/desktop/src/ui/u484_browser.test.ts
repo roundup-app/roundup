@@ -174,7 +174,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("mouse", "down");
   await browser("mouse", "move", String(handle.x + 2), String(handle.y));
   await browser("mouse", "up");
-  expect(await read<number>(`Number(document.querySelector('[aria-label=Actions]').textContent)`)).toBe(1);
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Actions]').textContent)`)).toBe(0);
   expect(await commits()).toBe(0);
   expect(await read<boolean>(`(() => {
     const row = document.querySelector('[data-id=A]');

@@ -223,10 +223,10 @@ export const createSortedList = (source: {
     /** U3711: shows a refusal on the row. */
     show: (id: number, message: string | null) => fails.get(id)?.(message),
     /** The Sortable's new order of the ids: the row it moved goes to its index. */
-    order: (next: readonly string[]) => {
+    order: (next: readonly string[], dragged?: string) => {
       const before = source.ids().map(String).filter(id => next.includes(id));
       const at = next.findIndex((id, index) => id !== before[index]);
-      const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
+      const moved = dragged ?? [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
       instantOrder = null;
@@ -301,8 +301,9 @@ export const createSortedList = (source: {
           fails.delete(id);
         }
 
-        parts.handleRef(el ?? undefined);
+
       },
+      handle: el => parts.handleRef(el ?? undefined),
       fail: (show) => fails.set(id, show),
       step: (by) => step(id, by, ids()),
       can: (by) => {

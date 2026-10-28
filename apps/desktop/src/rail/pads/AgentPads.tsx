@@ -260,7 +260,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
               };
 
  return (
-              <Sortable.Item id={String(todo.id)} index={at()} pressable>
+              <Sortable.Item id={String(todo.id)} index={at()}>
                 {(parts) => {
                   const sorted = props.pads.reorder.row(todo.id, parts);
 

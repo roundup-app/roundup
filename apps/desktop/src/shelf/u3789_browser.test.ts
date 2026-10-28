@@ -71,7 +71,7 @@ it("u3789a_drag_never_opens", async () => {
   await load("tree-40");
   await overview();
   await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-  const selector = '.todos-tab [data-todo="1"] .todo-row-button';
+  const selector = '.todos-tab [data-todo="1"] .sortable-handle';
   await wait(`document.querySelector('${selector}')`);
   const point = await read<{ x: number; y: number }>(`(() => { const row = document.querySelector('${selector}'); row.scrollIntoView({block:'center'}); const box = row.getBoundingClientRect(); return {x: box.x + box.width / 2, y: box.y + box.height / 2}; })()`);
   await browser("eval", "window.__fake.app.calls.length = 0");
@@ -86,6 +86,25 @@ it("u3789a_drag_never_opens", async () => {
   expect(await read("window.__fake.app.calls.filter(call => ['todo.getHistory','todo.readHistory','todo.update'].includes(call.method))")).toEqual([]);
   await shot("U3789a", "head", "drag-release");
 }, 120_000);
+
+it("u3800a_owned_todo_grip_reorders_once", async () => {
+  await load("tree-40");
+  await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
+  await wait('document.querySelectorAll(".rail-leaf .sortable-handle").length > 1');
+  const grip = '.rail-leaf [data-todo="1"] .sortable-handle';
+  await browser("eval", "window.__fake.app.calls.length = 0");
+  await browser("focus", grip);
+  await browser("press", "Space");
+  await wait('document.querySelector("[data-dnd-placeholder]")');
+  await shot("U3800a", "head", "owned-todo-slot");
+  await browser("press", "ArrowDown");
+  await wait('document.querySelector(".rail-leaves").dataset.sortableIndex === "1"');
+  await browser("press", "Space");
+  await wait('!document.querySelector("[data-dnd-placeholder]")');
+  expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:5}]);
+  expect(await read("window.__fake.app.calls.filter(c => ['todo.getHistory','todo.complete','todo.update','pad.write'].includes(c.method))")).toEqual([]);
+  await wait(`document.activeElement === document.querySelector('${grip}')`);
+}, 60_000);
 
 it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await browser("set", "viewport", "1512", "950");

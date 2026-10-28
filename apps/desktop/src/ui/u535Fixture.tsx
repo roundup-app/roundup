@@ -41,8 +41,8 @@ const u535Fixture = () => {
       onOrderChange={(next) => order([...orders(), next.join(",")])}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
-          <button ref={parts.handleRef} data-button="quiet" data-reads="text" aria-label={`Move ${row.id}`}>Move {row.id}</button>
           <span>{row.id}</span>
+          <Sortable.Handle ref={parts.handleRef} label={`Move ${row.id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

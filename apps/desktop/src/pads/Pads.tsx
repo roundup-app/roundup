@@ -432,7 +432,7 @@ const PadRows = (props: {
     <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} external={props.external} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
-          <Sortable.Item id={pad.name} index={at()} pressable>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
+          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
         )}
       </For>
     </Sortable.Root>
@@ -500,7 +500,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
-                props.parts.handleRef(element ?? undefined);
+
 
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
@@ -526,6 +526,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
+            <Sortable.Handle label={`Move ${pad.name}`} ref={props.parts.handleRef} />
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>
