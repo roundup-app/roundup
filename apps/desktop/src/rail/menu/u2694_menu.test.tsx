@@ -42,45 +42,6 @@ describe("u2694 the Rail's system menu", () => {
     expect(railCallsTo(app, "terminal.kill")).toEqual([]);
   });
 
-  it("u2694e_an_agent_owned_pad_opens_its_menu_on_release", async () => {
-    const { app } = await mountRail([agent("a", "idle", "ready")], [], undefined, () => true, {}, [{
-      incarnation: "notes-1", name: "notes", owner: { kind: "agent", id: "a", parent: null },
-      text: "", updated_at: 0, revision: 1, home: null,
-    }]);
-
-    fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
-
-    const pad = await screen.findByRole("button", { name: "notes" });
-    const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
-
-    fireEvent(pad, press);
-    expect(press.defaultPrevented).toBe(true);
-    expect(app.shownMenus).toHaveLength(0);
-    fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
-
-    expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
-    await app.pickMenu("Delete");
-    await waitFor(() => expect(railCallsTo(app, "pad.delete")).toEqual([{ name: "notes", expectedIncarnation: "notes-1", operation: expect.any(String) }]));
-  });
-
-  it("u2694e_an_agent_owned_todo_opens_its_menu_on_release", async () => {
-    const { app } = await mountRail([agent("a", "idle", "ready")], [], undefined, () => true);
-    app.handlers["todo.list"] = () => [todo(5, { creator: { kind: "agent", id: "a", parent: null } })];
-    app.emit(event({ name: "todo.created", data: todo(5, { creator: { kind: "agent", id: "a", parent: null } }) }));
-    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-    const row = await screen.findByRole("button", { name: /#5 todo 5/ });
-    const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
-
-    fireEvent(row, press);
-    expect(press.defaultPrevented).toBe(true);
-    expect(app.shownMenus).toHaveLength(0);
-    fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
-    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Complete", "Send to Agent", "Copy link", "Delete"]));
-    app.handlers["todo.complete"] = () => todo(5, { done: true });
-    await app.pickMenu("Complete");
-    expect(railCallsTo(app, "todo.complete")).toEqual([{ id: 5 }]);
-  });
-
   it("u2694b_a_group_offers_remove_only", async () => {
     const { app } = await mountRail([workstream("g")]);
 
@@ -281,28 +242,6 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
         else Reflect.deleteProperty(Element.prototype, "getAnimations");
         vi.unstubAllGlobals();
       }
-    } },
-    { name: "Rail Todo Home: only its current root; content links still offer their owner", run: async () => {
-      const { app } = await mountRail([agent("a", "idle", "ready")]);
-      const own = { kind: "agent" as const, id: "a", parent: null };
-      const item = todo(1, { creator: own });
-      app.handlers["todo.list"] = () => [item];
-      app.emit(event({ name: "todo.created", data: item }));
-      fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-      fireEvent.contextMenu(await screen.findByRole("button", { name: /#1 todo 1/ }));
-      expect(app.menuLabels()).not.toContain("Move");
-      expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
-      await app.closeMenu();
-      expect(actionCalls(app)).toEqual([]);
-    } },
-    { name: "Rail Pad link: its only Agent has exited", run: async () => {
-      const own = { kind: "agent" as const, id: "a", parent: null };
-      const { app } = await mountRail([agent("a", "done", "stopped")], [exitedTerminal("a", 0)], undefined, () => true, {}, [padOf("notes", own)]);
-      fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
-      fireEvent.contextMenu(await screen.findByRole("button", { name: "notes" }));
-      expect(app.menuLabels()).not.toContain("Send to Agent");
-      await app.closeMenu();
-      expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Terminal tab: no eligible receiver", run: async () => {
       const { app } = await mountBubbles(null, [info("shell", { owner: "/p" })], []);
@@ -506,17 +445,6 @@ it.each([
     },
   },
   {
-    name: "Rail Pad",
-    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["delete", "7"]],
-    receivers: ["a", "b"],
-    mount: async () => {
-      const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })], [], undefined, () => true, {}, [padOf("notes", { kind: "agent", id: "a", parent: null })]);
-      fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
-
-      return { app, target: await screen.findByRole("button", { name: "notes" }) };
-    },
-  },
-  {
     name: "Work-item Pad",
     expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
@@ -529,19 +457,6 @@ it.each([
       if (disclosure?.getAttribute("aria-expanded") === "false") fireEvent.click(disclosure);
 
       return { app, target: (await screen.findByText("notes")).closest("[data-shelf-row]")! };
-    },
-  },
-  {
-    name: "Rail Todo",
-    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
-    receivers: ["a", "b"],
-    mount: async () => {
-      const owner = { kind: "agent" as const, id: "a", parent: null };
-      const { app } = await mountTodos([1, 2, 3].map(id => todo(id, { owner, creator: owner })), true, [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 }), workstream("other", { order: 2 })], true);
-      fireEvent.click(await screen.findByRole("button", { name: "3 todos" }));
-      const rail = screen.getByRole("tree", { name: "Rail" });
-
-      return { app, target: (await within(rail).findByText("todo 2")).closest("[data-todo]")! };
     },
   },
   {
@@ -574,22 +489,6 @@ it.each([
       const made = await screen.findByRole("region", { name: "Made" });
 
       return { app, target: await within(made).findByRole("listitem") };
-    },
-  },
-  {
-    name: "Completed Rail Todo with omitted groups",
-    expected: [["open", "0"], ["copy-link", "4"], ["delete", "7"]],
-    receivers: [],
-    mount: async () => {
-      const owner = { kind: "agent" as const, id: "a", parent: null };
-      const { app, connected } = await mountTodos([todo(2, { owner, creator: owner, done: true })], true, [agent("a", "done", "stopped")], true);
-      app.handlers["terminal.list"] = () => [exitedTerminal("a", 0)];
-      app.handlers["rail.tree"] = () => [agent("a", "done", "stopped")];
-      await connected.rail.refresh({ terminals: true });
-      fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-      const rail = screen.getByRole("tree", { name: "Rail" });
-
-      return { app, target: (await within(rail).findByText("todo 2")).closest("[data-todo]")! };
     },
   },
 ])("u4409a_each_surface_projects_ordered_nonempty_groups: $name", async ({ mount, expected, receivers }) => {

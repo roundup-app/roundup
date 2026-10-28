@@ -185,10 +185,24 @@ pub(crate) mod tests {
         assert_eq!(is_on(&preferences), Some(true), "a gap changes nothing");
     }
     pub(crate) fn run() {
-        let tests: &[(&str, fn())] = &[(
-            "s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so",
-            s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so,
-        )];
+        let tests: &[(&str, fn())] = &[
+            (
+                "s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so",
+                s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so,
+            ),
+            (
+                "u4462_the_hint_takes_the_key_equivalent_colour_and_font",
+                crate::menu::tests::u4462_the_hint_takes_the_key_equivalent_colour_and_font,
+            ),
+            (
+                "u4462_the_hint_stop_is_the_key_equivalent_edge",
+                crate::menu::tests::u4462_the_hint_stop_is_the_key_equivalent_edge,
+            ),
+            (
+                "u4462_installed_and_tracked_menus_use_one_decoration",
+                crate::menu::tests::u4462_installed_and_tracked_menus_use_one_decoration,
+            ),
+        ];
         let args: Vec<_> = std::env::args().collect();
         if args.iter().any(|arg| arg == "--list") {
             if !args.iter().any(|arg| arg == "--ignored") {
@@ -199,7 +213,9 @@ pub(crate) mod tests {
             return;
         }
         for (name, test) in tests {
-            if !args.iter().any(|arg| arg.starts_with("s2297a_"))
+            if !args
+                .iter()
+                .any(|arg| tests.iter().any(|(name, _)| arg == name))
                 || args.iter().any(|arg| arg == name)
             {
                 test();

@@ -40,8 +40,10 @@ impl Todos {
         id: &str,
         actor: &contracts::Actor,
         removal: &mut contracts::agent::Removal,
+        scope: contracts::agent::RemoveScope,
     ) -> Result<Vec<EventData>, RpcError> {
-        self.store()?.remove_workstream(db, id, actor, removal)
+        self.store()?
+            .remove_workstream(db, id, actor, removal, scope)
     }
 
     /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.
