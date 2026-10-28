@@ -71,11 +71,14 @@ physical pixel at DPR 1 or 2 (respectively 1 or 0.5 CSS px), without scaling the
 font or canvas. The paired observer records the actual DPR and advance; Linux
 measurements establish no native WKWebView observation.
 
-The paired DPR-1 Agent observation measures 7→6 CSS px cells and 126→148
-columns at the same host width; rows measure 19→22 CSS px. Joined `->`, `=>`,
+The DPR-1 investigation measured 7→6 CSS px cells and 126→148 Agent
+columns. The final paired DPR-2 Agent observation measures 7→6.5 CSS px cells
+and 126→136 columns at the same host width; head rows measure 22 CSS px. Joined `->`, `=>`,
 `!=` and `===` remain visible in regular and bold output with continuous table
 borders. Font size remains 11 CSS px, and the failure message stays visible.
-The independent critic judges all paired surfaces and Checks.
+At DPR 2, D8 flags the unchanged Rail row baseline (1.109375) and D10
+reports D8, identically on base and head. D2/D5/D6 pass on every surface;
+no passing Check regresses. The independent critic judges all paired surfaces.
 
 ## Historical U4456 correction
 
