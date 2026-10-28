@@ -19,6 +19,7 @@
 
 .pane-screen {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   height: 100%;
   /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the centre has none of its own. */
   padding-inline: var(--space-2);
