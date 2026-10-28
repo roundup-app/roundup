@@ -37,8 +37,6 @@ mod pr_checks;
 mod reach;
 pub use asks::Asks;
 pub use models::mcp_on;
-mod measurement;
-pub use rail::MeasurementWait;
 mod name;
 mod order;
 mod peer;
@@ -95,7 +93,6 @@ struct Shared {
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
-    timing: Arc<Mutex<rail::Timing>>,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as

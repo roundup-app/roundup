@@ -3,14 +3,11 @@ import { NameField } from "../ui/Editable";
 import type { Accessor, JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
-import { IconButton } from "../ui/IconButton";
 import { createCutTitle } from "../ui/cutTitle";
-import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 
@@ -163,7 +160,6 @@ export const OpenRow = (props: {
         </RowButton>
         </Show>
         <span class="row-controls">
-          <IconButton aria-label={copy.openDraft} onClick={event => props.onOpen(props.todo, activationSource(event))}><Icon name="right" /></IconButton>
           <Show when={props.groupComplete === undefined}><TickBox motion={props.motion === true} todo={props.todo} onToggle={toggle} /></Show>
         </span>
       </div>

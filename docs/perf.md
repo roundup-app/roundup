@@ -64,7 +64,6 @@ method without a measured mapping or non-empty reason fails live coverage.
 
 ```json
 {
-  "project.measurements": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.measurementSummary": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
   "deliverable.publish": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.list": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
   "deliverable.get": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.resolve": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
   "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",

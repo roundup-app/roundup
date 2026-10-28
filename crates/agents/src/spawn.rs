@@ -389,7 +389,7 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id),
         };
         let started = attempt.to_owned();
-        let (argv, mut env) = self
+        let (argv, env) = self
             .launcher
             .launch_on(
                 claude_code::Folders {
@@ -404,23 +404,10 @@ impl Agents {
                 &pair,
             )
             .await?;
-        env.extend(self.listen_measurements(id, attempt).await?);
         self.retain_worktree(id).await?;
-        self.shared
-            .timing
-            .lock()
-            .expect("measurement timing lock")
-            .prepare_attempt(id, attempt);
         let spawned = match self.spawn_behind(id, cwd, Some(argv), env, attach).await {
             Ok(spawned) => spawned,
-            Err(error) => {
-                self.shared
-                    .timing
-                    .lock()
-                    .expect("measurement timing lock")
-                    .abandon_attempt(id, attempt);
-                return Err(error);
-            }
+            Err(error) => return Err(error),
         };
         self.shared.watch_channel(id, &started);
         if role == Role::Door

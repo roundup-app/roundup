@@ -1,7 +1,7 @@
 import { createCopyLabels, type createCopyFeedback } from "../../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease, type MenuEntry } from "../../ui/contextMenu";
 import { createBulkDelete } from "../../shelf/BulkDelete";
-import { activationSource } from "../../keys/registry";
+import { activationSource, type ActivationSource } from "../../keys/registry";
 import { copy } from "../../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
@@ -178,6 +178,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       run: async () => showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.move", { id: todo.id, home: home.home }))) }));
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "open", label: copy.openDraft, run: () => openTodo(todo, "pointer") },
       ...(todoFailures.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => todoFailures.get(todo.id)?.show(null) }] : []),
       move,
       { id: "move-up", label: copy.moveUp, enabled: !todo.done && order.indexOf(todo.id) > 0, run: () => props.pads.reorder.step(todo.id, -1) },
@@ -188,11 +189,13 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     ], x, y));
   };
 
-  const openPad = (name: string, event: MouseEvent) => {
+  const openTodo = (todo: Todo, source: ActivationSource) => connected.drawer.open(() => <TodoDrawer id={todo.id} todos={props.pads.todos} />, source);
+
+  const openPad = (name: string, source: ActivationSource) => {
     const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`;
 
     props.pads.failure.acknowledge(item);
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, activationSource(event));
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, source);
   };
 
   const padMenu = (name: string, event: MouseEvent) => {
@@ -203,6 +206,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
     const item = `pad:${pad.incarnation}`;
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "open", label: copy.openDraft, run: () => openPad(name, "pointer") },
       ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, item), () => props.pads.failure.acknowledge(item), copiedPads().get(pad.incarnation)),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
@@ -229,7 +233,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
               <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
                 <OwnedPad copied={copiedPads().get(pad.incarnation)?.copied()} pad={pad} pads={props.pads.all} selected={selection.selected().includes(pad.name)}
                   register={row => selection.register(pad.name, row)} pick={event => selection.click(pad.name, event)}
-                  key={event => selection.key(pad.name, event)} open={event => openPad(pad.name, event)} menu={event => padMenu(pad.name, event)}
+                  key={event => selection.key(pad.name, event)} open={event => openPad(pad.name, activationSource(event))} menu={event => padMenu(pad.name, event)}
                   fail={message => showOutcome(`pad:${pad.incarnation}`, message)} />
               </Leaf>
             )}
@@ -278,7 +282,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         onSelectionKey={(item, event) => todoSelection.key(item.id, event)}
                         registerRow={todoSelection.register}
                         known={props.pads.todos.byId()}
-                        onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
+                        onOpen={openTodo}
                         sorted={sorted}
                         onToggle={async (done) => {
                           const message = await failureOf(() => done.done
@@ -344,6 +348,5 @@ const OwnedPad = (props: {
           if (event.key === "F2") { event.preventDefault(); rename(); }
         }}><span style={cutName}>{props.copied ? copy.copied : props.pad.name}</span></button>
     </Show>
-    <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={props.open}><Icon name="right" /></IconButton></span>
   </div>;
 };
