@@ -171,9 +171,10 @@ export const Pads = (props: {
 
   const bulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
-    targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
+    targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),

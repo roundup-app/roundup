@@ -191,10 +191,11 @@ export const Todos = (props: {
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
-  const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
+  const target = (todo: Todo) => ({ id: todo.id, label: todo.title, owner: todo.owner });
 
   const bulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
