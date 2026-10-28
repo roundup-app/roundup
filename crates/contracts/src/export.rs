@@ -229,6 +229,7 @@ pub fn types() -> specta::Types {
         .register::<crate::project::MeasurementSummary>()
         .register::<crate::project::MeasurementTime>()
         .register::<crate::workstream::AutoParams>()
+        .register::<crate::workstream::OpeningPromptParams>()
         .register::<crate::workstream::StartChoice>()
         .register::<crate::workstream::StartWorkstreamParams>()
         .register::<crate::workstream::QueueEntry>()

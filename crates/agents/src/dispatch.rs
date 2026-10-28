@@ -355,6 +355,16 @@ impl Agents {
         }
     }
 
+    async fn rpc_workstream_set_opening_prompt(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.set_opening_prompt(ctx, params(value)?)?;
+        reply(&())
+    }
+
     async fn rpc_agent_instructions(
         &self,
         ctx: &Ctx,

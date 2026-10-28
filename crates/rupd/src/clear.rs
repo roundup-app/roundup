@@ -16,7 +16,7 @@ use contracts::workstream::{
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Value, json};
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::oneshot;
 use tokio::time::Instant;
 
 use super::Daemon;
@@ -56,6 +56,15 @@ struct Saved {
     archive: String,
     iteration: u32,
     removed: Vec<Removed>,
+    /// A4452c: the Workstream's saved opening prompt as the clear began, and how far it got.
+    opening: Option<Opening>,
+}
+
+/// A4452c: the text A35's reservation holds for the restarted Door, typed once.
+#[derive(Clone)]
+struct Opening {
+    text: String,
+    reserved: bool,
 }
 
 /// How a clear begins.
@@ -277,6 +286,10 @@ impl Daemon {
                     archive: format!("archive-{iteration}"),
                     iteration,
                     removed: Vec::new(),
+                    opening: node.opening_prompt.clone().map(|text| Opening {
+                        text,
+                        reserved: false,
+                    }),
                 }
             }
         };
@@ -396,8 +409,17 @@ impl Daemon {
                 .any(|pad| pad.name == saved.archive)
                 .then_some(saved.archive.as_str()),
         );
-        agents.stop_door(Actor::user(), id).await?;
         let next = saved.iteration + 1;
+        let key = format!("clear-{id}-{next}");
+        if let (Some(opening), Some(messages)) = (&mut saved.opening, self.sender.get())
+            && !opening.reserved
+        {
+            messages
+                .reserve_restart(id, &key, Some(&opening.text))
+                .await?;
+            opening.reserved = true;
+        }
+        agents.stop_door(Actor::user(), id).await?;
         let ctx = self.ctx(Actor::user());
         agents
             .restart_door(
@@ -409,6 +431,7 @@ impl Daemon {
                 p.permission_mode,
             )
             .await?;
+        self.type_opening_prompt(agents, id, &key, saved).await?;
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;
         }
@@ -420,6 +443,33 @@ impl Daemon {
             }),
         );
         self.bus.emit(Actor::user(), EventData::RailChanged);
+        Ok(())
+    }
+
+    /// A4452c: after `SessionStart`, type the saved opening prompt once as the user's first
+    /// message, record it (A35) and release the reservation. A retry restarts the session first, so it is typed once per session.
+    async fn type_opening_prompt(
+        &self,
+        agents: &agents::Agents,
+        id: &str,
+        key: &str,
+        saved: &Saved,
+    ) -> Result<(), RpcError> {
+        let (Some(opening), Some(messages)) = (&saved.opening, self.sender.get()) else {
+            return Ok(());
+        };
+        agents
+            .prompt(id, agents::Steer::User(&opening.text))
+            .await?;
+        let attempt = self
+            .rail()
+            .await?
+            .into_iter()
+            .find(|n| n.id == id)
+            .and_then(|n| n.attempt)
+            .ok_or_else(|| RpcError::conflict("restarted Door missing"))?;
+        messages.record_restart_prompt(id, key, &attempt).await?;
+        messages.release_restart(id, key, &attempt).await?;
         Ok(())
     }
 

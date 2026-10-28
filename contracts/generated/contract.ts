@@ -153,6 +153,7 @@ export const CONTRACT = {
     "workstream.rewind": "39dff0d8d5cfe481",
     "workstream.rewindPlan": "52de6ad949ee8ee8",
     "workstream.setAuto": "5e70af924e06d425",
+    "workstream.setOpeningPrompt": "4901081bb52d4a65",
     "workstream.startNow": "64351dad58a36786",
   },
 } as const;

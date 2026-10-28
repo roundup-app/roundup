@@ -117,6 +117,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "agent.instructions": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.channelUp": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "rail.list": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "workstream.setOpeningPrompt": "Workstream settings are absent from the steady Rail-read workload.",
   "rail.createWorkstream": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.move": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "rail.rename": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.startDoor": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "agent.run": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
