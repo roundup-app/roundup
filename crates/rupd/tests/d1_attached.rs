@@ -323,3 +323,90 @@ mod startup {
         assert!(stderr.contains("rupd: refusing to start:"), "{stderr}");
     }
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn u4590_owned_shell_and_run_read_the_initial_pty_size_before_drawing() {
+    use std::os::unix::fs::PermissionsExt;
+    let project = tempfile::tempdir().unwrap();
+    let program = project.path().join("size-program");
+    std::fs::create_dir(project.path().join("home")).unwrap();
+    std::fs::write(&program, r#"#!/usr/bin/env python3
+import os, signal, sys
+if sys.argv[1:3] == ['plugin', 'test']:
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
+def draw(marker):
+    size = os.get_terminal_size(0)
+    print('\033[2J\033[H%s %d %d pid=%d' % (marker, size.columns, size.lines, os.getpid()), flush=True)
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGWINCH})
+draw('first')
+while True:
+    signal.sigwait({signal.SIGWINCH})
+    draw('later')
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let daemon = rupd_harness::start(
+        Path::new(env!("CARGO_BIN_EXE_rupd")),
+        project.path(),
+        true,
+        |cmd| {
+            cmd.env("SHELL", &program)
+                .env("ROUNDUP_CLAUDE_BIN", &program)
+                .env("ROUNDUP_RUP_BIN", &program)
+                .env("HOME", project.path().join("home"))
+                .env("CLAUDE_CONFIG_DIR", project.path().join("config"));
+        },
+    );
+    let client = rpc::Client::connect(&daemon.socket).await.unwrap();
+    let agent = client
+        .request("agent.spawn", json!({"cwd": project.path()}))
+        .await
+        .unwrap();
+    assert!(
+        size_frame(&client, &agent["terminal_id"], "first")
+            .await
+            .contains("first 80 24")
+    );
+    for method in ["terminal.open", "agent.run"] {
+        let params = if method == "terminal.open" {
+            json!({"cols": 119, "rows": 41})
+        } else {
+            json!({"id": agent["id"], "command": [program], "cols": 119, "rows": 41})
+        };
+        let opened = client.request(method, params).await.unwrap();
+        let id = opened["terminal_id"].clone();
+        let first = size_frame(&client, &id, "first").await;
+        assert!(first.contains("first 119 41"), "{method}: {first}");
+        let pid = first.split("pid=").nth(1).unwrap().trim().to_owned();
+        client
+            .request(
+                "terminal.resize",
+                json!({"id": id, "cols": 101, "rows": 33}),
+            )
+            .await
+            .unwrap();
+        let later = size_frame(&client, &id, "later").await;
+        assert!(
+            later.contains(&format!("later 101 33 pid={pid}")),
+            "{method}: {later}"
+        );
+    }
+}
+
+async fn size_frame(client: &rpc::Client, id: &serde_json::Value, marker: &str) -> String {
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let frame = client
+                .request("terminal.screen", json!({"id": id}))
+                .await
+                .unwrap();
+            let lines: Vec<String> = serde_json::from_value(frame["lines"].clone()).unwrap();
+            let text = lines.join("\n");
+            if text.contains(marker) {
+                return text;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("program reports its kernel PTY dimensions")
+}
