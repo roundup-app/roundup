@@ -618,6 +618,16 @@ export const App = (props: {
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
           }}</For>
+          <For each={keys()}>{path => {
+            const failure = () => connectionOf(path)?.rail.commandFailure;
+            const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
+            const name = () => tabOf(path)()?.project.name ?? "";
+
+            return <Show when={message()}>{message => <ReservedLine message={`${name()}: ${message()}`}>
+              <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>
+              <button data-button="quiet" type="button" onClick={() => failure()?.clear()}>{copy.dismiss}</button>
+            </ReservedLine>}</Show>;
+          }}</For>
           <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
