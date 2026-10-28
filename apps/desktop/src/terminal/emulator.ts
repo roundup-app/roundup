@@ -132,7 +132,6 @@ export const xtermOptions: ITerminalOptions = {
   fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
   fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
-  fontWeightBold: 700,
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   // WebGL draws box borders across the full cell even with extra line height.
