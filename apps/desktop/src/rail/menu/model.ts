@@ -145,7 +145,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const remove = (current: MenuState, scope: "this" | "all") =>
     attempt(async () => {
-      await app.rpc("rail.remove", { id: current.node.id, ...(scope === "all" ? { scope } : {}) });
+      await app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id });
       current.removed?.();
     }, current.node.id);
 

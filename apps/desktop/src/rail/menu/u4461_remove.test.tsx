@@ -24,6 +24,7 @@ it("u4461_the_message_names_what_remove_all_adds", async () => {
     agent("dirty", "done", "finished", { parent: "chosen", worktree: { path: "/p/dirty", branch: "dirty", base: "main" } }),
     agent("ahead", "done", "finished", { parent: "chosen", worktree: { path: "/p/ahead", branch: "ahead", base: "main" } }),
   ]);
+
   app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "dirty", ahead: id === "ahead" ? 2 : 0, behind: 0 });
   app.handlers["todo.list"] = () => [todo(1, { home: "chosen" })];
   app.handlers["pad.list"] = () => [{ ...padOf("notes", { kind: "agent", id: "running", parent: null }), home: "chosen" }];
@@ -50,7 +51,7 @@ it.each(["this", "all"] as const)("u4461_remove_this_and_remove_all_each_call_on
   fireEvent.contextMenu(rowOf("other"));
   await app.pickMenu("Remove");
   app.answerRemoval!(answer);
-  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen", ...(answer === "all" ? { scope: "all" } : {}) }]));
+  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([answer === "all" ? { id: "chosen", scope: "all" } : { id: "chosen" }]));
   expect(app.removalQuestions).toHaveLength(1);
 });
 
@@ -76,11 +77,12 @@ it("u4461_with_nothing_staying_all_three_are_offered", async () => {
 it("u4461_a_failed_removal_shows_the_message", async () => {
   const { app } = await mountRail([workstream("chosen")]);
   app.handlers["rail.remove"] = () => { throw new RpcError(-32603, "Cannot remove: stop the process and retry"); };
+
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.answerRemoval).toBeTypeOf("function"));
   app.answerRemoval!("all");
-  expect(await screen.findByText("Cannot remove: stop the process and retry")).toBeTruthy();
+  await screen.findByText("Cannot remove: stop the process and retry");
   expect(rowOf("chosen")).toBeTruthy();
 });
 
@@ -89,7 +91,7 @@ it("u4461_a_failed_native_question_authorizes_nothing_and_retries", async () => 
   app.questionFailure = new RpcError(-32603, "Alert unavailable; retry");
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
-  expect(await screen.findByText("Alert unavailable; retry")).toBeTruthy();
+  await screen.findByText("Alert unavailable; retry");
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
   app.questionFailure = null;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));

@@ -29,6 +29,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
       const before = await originalTree();
       const chosen = before.find(node => node.id === made.id);
       Object.assign(chosen, { kind: 'agent', terminal_id: null, status: { kind: 'done', label: 'finished', since: 0, finished: '0' } });
+      app.handlers['rail.tree'] = async () => (await originalTree()).map(node => node.id === made.id ? chosen : node);
       window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
       const remove = app.handlers['rail.remove'];
       let receipt = null;
