@@ -27,6 +27,7 @@ it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async 
   const m = await mountRail([workstream("w"), workstream("other")], [], undefined, () => true);
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
 
+
   fireEvent.contextMenu(rowOf("w"));
   await m.app.pickMenu("Opening prompt…");
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" });
@@ -64,6 +65,7 @@ it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async 
   const m = await mountRail([workstream("w")], [], undefined, () => true);
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
 
+
   fireEvent.contextMenu(rowOf("w"));
   await m.app.pickMenu("Opening prompt…");
   const field = await screen.findByRole("textbox", { name: "Opening prompt" });
@@ -82,10 +84,20 @@ it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async 
 it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () => {
   const m = await mountRail([workstream("w")], [], undefined, () => true);
   const order: string[] = [];
+
   let finishSave = () => {};
+
   const saved = new Promise<void>(resolve => { finishSave = resolve; });
-  m.app.handlers["workstream.setOpeningPrompt"] = async () => { order.push("save"); await saved; return null; };
+
+  m.app.handlers["workstream.setOpeningPrompt"] = async () => {
+    order.push("save");
+    await saved;
+
+    return null;
+  };
+
   m.app.handlers["workstream.restart"] = () => { order.push("restart"); throw new RpcError(-32003, "Recording failed; retry restart"); };
+
   fireEvent.contextMenu(rowOf("w"));
   await m.app.pickMenu("Opening prompt…");
   const field = await screen.findByRole("textbox", { name: "Opening prompt" });

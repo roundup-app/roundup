@@ -43,6 +43,7 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
       await drafts.settle(revision.revision, "acknowledged");
 
       if (current()?.id === id) setFailure(null);
+
       return true;
     } catch (error) {
       await drafts.settle(revision.revision, outcomeOf(error));
@@ -50,6 +51,7 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
       if (!(error instanceof Error)) throw error;
 
       if (current()?.id === id) setFailure(error.message);
+
       return false;
     }
   };

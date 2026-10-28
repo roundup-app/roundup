@@ -126,10 +126,12 @@ async fn a4452c_restart_sends_exactly_the_saved_prompt_once() {
         .unwrap();
     let todo = run
         .user
-        .request(
-            "todo.create",
-            json!({"title":"retained task","home":run.child}),
-        )
+        .request("todo.create", json!({"title":"retained task"}))
+        .await
+        .unwrap();
+    let todo = run
+        .user
+        .request("todo.move", json!({"id":todo["id"],"home":run.child}))
         .await
         .unwrap();
     let pad = run
@@ -144,10 +146,30 @@ async fn a4452c_restart_sends_exactly_the_saved_prompt_once() {
         .request("pad.move", json!({"name":"retained pad","home":run.child}))
         .await
         .unwrap();
+    run.user
+        .request("rail.rename", json!({"id":run.child,"name":"Fresh team"}))
+        .await
+        .unwrap();
     let before = run.attempt.clone();
     let node = restart(&mut run, "fresh-1").await.unwrap();
     assert_ne!(node["attempt"], before);
     assert_eq!(node["opening_prompt"], prompt);
+    tokio::time::timeout(BOUND, async {
+        let inbox = run.dir.path().join(format!("received-{}.jsonl", run.child));
+        loop {
+            if std::fs::read_to_string(&inbox).is_ok_and(|text| {
+                text.lines().any(|line| {
+                    line.contains("roundup-context")
+                        && line.contains("Your Rail name is Fresh team")
+                })
+            }) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("fresh Context reaches the Claude inbox");
     let expected = format!("\x1b[200~{prompt}\x1b[201~\r").into_bytes();
     assert_eq!(recorded_bytes(&run).await, expected);
     let tree = run.user.request("rail.tree", ()).await.unwrap();
