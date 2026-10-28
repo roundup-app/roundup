@@ -9,7 +9,7 @@ use tokio::process::Command;
 
 use crate::config::Config;
 
-/// Includes spawning, reading and waiting; a silent executable cannot hold first run open.
+/// Includes PATH lookup, spawning, reading and waiting; a silent executable cannot hold first run open.
 const BINARY_BOUND: Duration = Duration::from_secs(2);
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -19,17 +19,14 @@ pub struct ClaudeBinary {
 }
 
 pub async fn claude_binary(config: &Config) -> Option<ClaudeBinary> {
-    let name = config
-        .claude_bin
-        .as_deref()
-        .unwrap_or_else(|| std::ffi::OsStr::new("claude"));
-    let path = which::which_in(
-        name,
-        Some(&config.search_path),
-        std::env::current_dir().ok()?,
-    )
-    .ok()?;
+    let name = config.claude_bin.clone().unwrap_or_else(|| "claude".into());
+    let search_path = config.search_path.clone();
     tokio::time::timeout(BINARY_BOUND, async {
+        let path = tokio::task::spawn_blocking(move || {
+            which::which_in(name, Some(search_path), std::env::current_dir().ok()?).ok()
+        })
+        .await
+        .ok()??;
         let mut child = Command::new(&path)
             .arg("--version")
             .env("PATH", &config.search_path)
@@ -88,28 +85,54 @@ mod tests {
         std::fs::create_dir(&second).unwrap();
         executable(&first.join("claude"), "printf 'first'");
         executable(&second.join("claude"), "printf 'second'");
-        let mut config = config(dir.path());
-        config.search_path = std::env::join_paths([&first, &second]).unwrap();
-        assert_eq!(
-            claude_binary(&config).await.unwrap().path,
-            first.join("claude")
-        );
-        config.claude_bin = Some(second.join("claude").into_os_string());
-        assert_eq!(claude_binary(&config).await.unwrap().version, "second");
-        config.claude_bin = Some(dir.path().join("absent").into_os_string());
-        assert_eq!(claude_binary(&config).await, None);
-        config.claude_bin = None;
-        config.search_path.clear();
-        assert_eq!(claude_binary(&config).await, None);
+        let search_path = std::env::join_paths([&first, &second]).unwrap();
+        let cases = [
+            (
+                None,
+                search_path.clone(),
+                Some(ClaudeBinary {
+                    path: first.join("claude"),
+                    version: "first".into(),
+                }),
+            ),
+            (
+                Some(second.join("claude").into_os_string()),
+                search_path.clone(),
+                Some(ClaudeBinary {
+                    path: second.join("claude"),
+                    version: "second".into(),
+                }),
+            ),
+            (
+                Some(dir.path().join("absent").into_os_string()),
+                search_path,
+                None,
+            ),
+            (None, std::ffi::OsString::new(), None),
+        ];
+        for (binary, paths, expected) in cases {
+            let mut config = config(dir.path());
+            config.claude_bin = binary;
+            config.search_path = paths;
+            assert_eq!(claude_binary(&config).await, expected);
+        }
     }
 
-    #[tokio::test(start_paused = true)]
+    #[tokio::test]
     async fn s6_a_binary_that_never_answers_is_bounded() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("claude");
         executable(&path, "while :; do :; done");
         let mut config = config(dir.path());
         config.claude_bin = Some(path.into_os_string());
-        assert_eq!(claude_binary(&config).await, None);
+        let started = std::time::Instant::now();
+        let answer = tokio::time::timeout(
+            BINARY_BOUND + Duration::from_secs(1),
+            claude_binary(&config),
+        )
+        .await
+        .expect("binary lookup exceeded its bound");
+        assert_eq!(answer, None);
+        assert!(started.elapsed() >= BINARY_BOUND);
     }
 }
