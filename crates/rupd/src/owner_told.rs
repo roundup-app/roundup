@@ -632,6 +632,42 @@ mod tests {
     }
 
     #[test]
+    fn t4597_user_replies_reach_owner_and_earlier_authors_once() {
+        for owner in [None, Some(Actor::user()), Some(agent_actor("a")), Some(agent_actor("b"))] {
+            let mut told = told_with(vec![todo(1, "Ship", owner.clone(), vec![])]);
+            let thread = vec![
+                comment(1, agent_actor("a"), "question"),
+                comment(2, agent_actor("a"), "detail"),
+                comment(3, Actor::user(), "answer"),
+            ];
+            told.commented(1, &thread);
+            told.commented(1, &thread);
+            for id in ["a", "b", "c"] {
+                let expected = id == "a" || agent(&owner) == Some(id);
+                assert_eq!(told.take(id), expected.then(|| "[todos]\n- Ship: new comment from you: answer (rup todo get 1)".into()), "{id}, {owner:?}");
+                assert!(told.take(id).is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn t4597_only_user_replies_to_existing_participants_are_told() {
+        let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+        let thread = vec![
+            comment(1, Actor::user(), "before"),
+            comment(2, agent_actor("a"), "question"),
+            comment(3, Actor::daemon(), "system"),
+            comment(4, Actor::user(), "first"),
+            comment(5, agent_actor("b"), "later"),
+            comment(6, Actor::user(), "second"),
+        ];
+        told.commented(1, &thread);
+        assert_eq!(told.take("a").unwrap(), "[todos]\n- Ship: new comment from you: first, new comment from you: second (rup todo get 1)");
+        assert_eq!(told.take("b").unwrap(), "[todos]\n- Ship: new comment from you: second (rup todo get 1)");
+        assert!(told.waiting().is_empty());
+    }
+
+    #[test]
     fn t24_two_quick_user_comments_after_a_start_are_both_told() {
         let a = Some(agent_actor("a"));
         let mut told = told_with(vec![todo(1, "Ship", a, vec![])]);
