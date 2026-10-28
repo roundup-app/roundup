@@ -177,6 +177,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |
+| Session restart (`RestartParams`, `SessionRestart`, `workstream.restart`, `Agents::opening_prompt`, `session_restart`, `set_session_restart`) | Restart session | — |
 | Mode first prompt (`OpeningPromptParams`, `opening_prompt`, `workstream.setOpeningPrompt`) | First prompt | — |
 | Claude inbox (`CoordinationSink`, `with_coordination`, `coordinate`) | same | — |
 | Mcp | same | — |

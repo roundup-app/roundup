@@ -101,6 +101,19 @@ impl Daemon {
         .await
     }
 
+    pub(super) async fn rpc_workstream_restart(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        rpc::reply(
+            &self
+                .restart_session(&conn.actor, rpc::params(params)?)
+                .await?,
+        )
+    }
+
     pub(super) async fn rpc_workstream_clear(
         &self,
         conn: &mut Conn,
