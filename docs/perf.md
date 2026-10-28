@@ -760,3 +760,29 @@ Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.
 Measured moves: ImportPanel alone grew the closure by 1,491 to 439,299 (checker exit 1), so it was discarded. Deferring OrderDrawer at its three production callers saved 15,662 relative to base; a clean committed-head rebuild reproduced 422,146. Solid's existing `lazy` and native dynamic imports defer the Order editor and progress view until shown. Shared chunks remain counted: `index-BIzfQbNs.js`, `copy-CGbSrKPM.js`, `ReservedLine-BMsOCD5R.js`, `floating-ui.dom-vtOd0C_f.js` (all under `assets/`). No budget, observer, compression, dependency or bundler configuration changed; drag remains eager and Terminal remains lazy.
 
 Reproduce in separate base/head worktrees with identical environment: `pnpm install --frozen-lockfile`; remove each `apps/desktop/dist`; `pnpm --filter desktop build`; `pnpm --filter desktop run check:startup`. Each install/build exits 0. Raw reports for every attempt, logs, commands, observer hashes and final revision metadata: [Builder 40319239117](https://github.com/roundup-app/roundup/actions/runs/40319239117), job `build #4229 / build`, artifact `answer-4229`, `r4229-measurements.tar.gz` SHA-256 `d1685adf27de76673d61c3a2ff01e84fdd637333d1f6e0df1d61a2fff82f1eb1` and directory `r4229` (published after this run). Existing affected behavior observers, R3800 startup tests and rendered Order/progress observers cover first opening, editing, recovery, dismissal and focus; no tests are weakened or removed. All 68 Order/progress tests and the six R3800 shell tests pass. Dark 1512×950 first-open/edit/Escape observations call each opening read once; P3557c’s rendered failure/dismissal observer passes D2/D5/D6. The opt-in U3078i earlier-expansion capture times out on both base and head; its failed attempts are retained too.
+
+## R20 recorder startup isolation (2026-10-28)
+
+The Mac flood observation at `5b36bf532dc45e53d818a727e67423acd51ecd3a`
+exited 2 on all three runs: the App exited 0 before opening its Daemon socket,
+with empty stdout/stderr. The machine was an M4 Max, 16 cores, macOS 26.0.1,
+AC power, Low Power Mode off, unlocked, load/CPU ≤ 0.33. The full failed
+reports and commands remain in [#3550](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6477777448).
+
+The native single-instance plugin is an early exit-0 path: it forwards launches
+using a socket derived from the Tauri identifier, before Project setup. The
+perf data-directory override previously kept the installed App's identifier.
+`Config::context` now scopes that identifier to the absolute overridden data
+directory, using a bounded standard-library hash suffix. Different profile paths receive distinct derived identities; reopening the
+same profile in this build retains its identity. The normal App with no data override retains its identity.
+`r20_perf_profile_does_not_share_the_installed_apps_singleton` reproduces the
+shared identity before this repair and checks isolation afterward, without
+starting an App, Daemon, browser or window.
+
+This removes a concrete collision path, not proof of which process answered
+the socket on that Mac. After this repair merges, one invocation of
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json`
+on the quiet Mac decides whether startup now reaches the flood/hop report.
+Retain all three reports, exit code, logs and machine/power/load evidence.
+No new latency measurement, dominant-hop choice or R21 pass is claimed here;
+the full acceptance remains open on #3550.
