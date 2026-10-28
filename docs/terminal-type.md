@@ -116,3 +116,60 @@ preservation. The U4456 rendered observer records the actual renderer and frame.
 Capture cases clear prior preferences before opening each surface, and hold
 write/resize refusals so an unrelated successful refit cannot erase the intended
 failure feedback before the reading.
+
+## Fractional tracking upstream contribution (U4592, #4635)
+
+Status: source candidate only; #4635 remains open until upstream review and
+merge. #4633 separately owns a maintained published dependency and its full
+acceptance. This record changes no roundup runtime, Token or acceptance.
+
+Upstream base: [`0ddc8a8fa1c4287297b708722ae2dae83a4ada51`](https://github.com/xtermjs/xterm.js/commit/0ddc8a8fa1c4287297b708722ae2dae83a4ada51).
+No upstream-reviewed or merged implementation commit exists for this candidate.
+
+### Regression first
+
+Save this as `test/playwright/LetterSpacing.test.ts` in that upstream checkout.
+The original renderer fails both cases: a 0.5 device-pixel increment becomes 1.
+The public `Terminal.dimensions` option observer also exercises resize, selected
+text, later output and actual keyboard input. It does not prove painted joins.
+
+```ts
+/**
+ * Copyright (c) 2026 The xterm.js authors. All rights reserved.
+ * @license MIT
+ */
+import { expect, test } from '@playwright/test';
+import { createTestContext, openTerminal } from './TestUtils';
+
+test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader'] } });
+
+for (const renderer of ['dom', 'webgl']) {
+  for (const dpr of [1]) {
+    test.describe(`${renderer} letter spacing at DPR ${dpr}`, () => {
+      test('fractional tracking survives resize, selection and later output', async ({ browser }) => {
+        const ctx = await createTestContext(browser);
+        try {
+          await openTerminal(ctx, { cols: 80, rows: 10, fontSize: 11, letterSpacing: 0 });
+          if (renderer === 'webgl') {
+            await ctx.page.evaluate('window.addon = new window.WebglAddon(true); window.term.loadAddon(window.addon)');
+          }
+          const base = (await ctx.proxy.dimensions)!.device.cell.width;
+          for (const spacing of [0.5, 0.95, 1, 0]) {
+            await ctx.page.evaluate(`window.term.options.letterSpacing = ${spacing}`);
+            await expect.poll(async () => (await ctx.proxy.dimensions)!.device.cell.width).toBeCloseTo(base + spacing, 6);
+            await ctx.proxy.write('\r\n-> => != === later output');
+            await ctx.proxy.resize(67, 12);
+            await ctx.proxy.select(0, spacing === 0.5 ? 1 : spacing === 0.95 ? 2 : spacing === 1 ? 3 : 4, 2);
+            expect(await ctx.proxy.getSelection()).toBe('->');
+          }
+          await ctx.page.evaluate('window.input = []; window.term.onData(data => window.input.push(data)); window.term.focus()');
+          await ctx.page.keyboard.type('draft');
+          expect(await ctx.page.evaluate('window.input.join("")')).toBe('draft');
+        } finally {
+          await ctx.page.close();
+        }
+      });
+    });
+  }
+}
+```
