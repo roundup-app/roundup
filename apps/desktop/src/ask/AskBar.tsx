@@ -500,9 +500,11 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
 
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
   }).map(record => ({ value: record.id, label: record.title })), {
-    onActivate: id => { const record = records().find(record => record.id === id);
+    onActivate: id => {
+      const record = records().find(record => record.id === id);
 
- if (record) void open(record); },
+      if (record) void open(record);
+    },
   });
 
   const copied = createCopyLabels(() => records().map(record => record.id));
