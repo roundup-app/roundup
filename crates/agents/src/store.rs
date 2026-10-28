@@ -143,6 +143,7 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 context: None,
+                coordination: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
@@ -204,6 +205,19 @@ impl Agents {
     {
         self.configure(|shared| {
             shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
+        })
+    }
+
+    /// A4452a, A4452d: send `send(agent id, text)` as a Message to the Agent's Claude inbox
+    /// for every text roundup authors; none of it is typed. Call it before the first call is made.
+    #[must_use]
+    pub fn with_coordination<F, Fut>(self, send: F) -> Self
+    where
+        F: Fn(String, String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
+    {
+        self.configure(|shared| {
+            shared.coordination = Some(Arc::new(move |id, text| Box::pin(send(id, text))))
         })
     }
 
@@ -601,6 +615,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
         shared
@@ -666,6 +681,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -763,6 +779,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)

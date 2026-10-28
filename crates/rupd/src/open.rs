@@ -63,6 +63,32 @@ impl Daemon {
                     Ok(context::text(&nodes, &context))
                 }
             })
+            .with_coordination({
+                let messages = Arc::clone(&messages);
+                let ctx_bus = bus.clone();
+                let ctx_touches = Arc::clone(&touches);
+                move |id, text| {
+                    let messages = Arc::clone(&messages);
+                    let ctx = Ctx {
+                        actor: Actor::daemon(),
+                        bus: ctx_bus.clone(),
+                        touches: Arc::clone(&ctx_touches),
+                    };
+                    async move {
+                        let Some(messages) = messages.get() else {
+                            return Err(RpcError::internal("Messages are not open yet"));
+                        };
+                        messages
+                            .call(
+                                &ctx,
+                                "message.send",
+                                serde_json::json!({"to": id, "kind": "note", "body": text}),
+                            )
+                            .await
+                            .map(|_| ())
+                    }
+                }
+            })
             .with_steer_effect(steer_effect_observer())
             .with_resume_effect(resume_effect_observer()),
         );
