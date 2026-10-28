@@ -232,7 +232,7 @@ const shared = async (owner: string, trigger: string, phase: string) => {
   pointer("pointerup", target, 0, 40, 70); await settle();
   expect(dragging).toHaveBeenLastCalledWith(false);
 
-  if (owner === "sort-flat") expect(commits).toHaveBeenCalledExactlyOnceWith(["B", "A"]);
+  if (owner === "sort-flat") expect(commits).toHaveBeenCalledExactlyOnceWith(["B", "A"], "A");
 
   if (owner === "sort-tree") expect(commits).toHaveBeenCalledExactlyOnceWith({ id: "A", parent: "B", index: 0 });
 

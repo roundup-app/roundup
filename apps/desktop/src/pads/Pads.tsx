@@ -525,7 +525,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
-            <Sortable.Handle label={`Move ${pad.name}`} ref={props.parts.handleRef} />
+            <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} />
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>

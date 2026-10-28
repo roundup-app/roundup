@@ -102,10 +102,10 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(screen.getByRole("tab", { name: /Todos/, selected: true })).toBeTruthy());
-    await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /unassigned work/ })).toBe(document.activeElement));
+    await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ unassigned work/ })).toBe(document.activeElement));
     expect(group("unassigned")?.getAttribute("aria-expanded")).toBe("true");
     expect(group("a2")?.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /finished work/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ finished work/ })).toBeTruthy();
     expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
