@@ -7,14 +7,12 @@ import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
 import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
-import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
@@ -35,7 +33,6 @@ const focusPane = (): void => {
   const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
 
   target?.focus();
-
 };
 
 const ESCAPE = "Escape".split(" ");
@@ -46,6 +43,7 @@ export const Bubbles = (props: {
   /** Open only this Project's original, non-pending revision in a shown Terminal tab.
    * Refuse foreign/unavailable work; restore never sends or retries storage.
    */
+  recoveryOpen?: number | undefined;
   recovery?: { project: string; revision: string } | undefined;
 }) => {
   const connected = useConnectedProject();
@@ -215,6 +213,8 @@ export const Bubbles = (props: {
     const focus = captureFocus(true);
     setTimeout(() => focus(() => { target?.()?.focus(); recover(true); }));
   };
+
+  createEffect(on(() => props.recoveryOpen, () => openRecovery(), { defer: true }));
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
   createEffect(() => {
@@ -631,7 +631,7 @@ export const Bubbles = (props: {
     return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
   };
 
-  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
+  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, .pane-screen") !== null;
 
   const switchPair = (focus: Element | null) => {
     const selected = rail.selected();
@@ -700,7 +700,7 @@ export const Bubbles = (props: {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, [role=menu], [role=menuitem]")) return;
 
     for (const { id } of shown()) if (!placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
   };
@@ -875,7 +875,7 @@ export const Bubbles = (props: {
               }} /></Editable.Area>;
               }}</Editable.Context>
             </Editable.Root>
-          </div>}</Show> : undefined} />
+          </div>}</Show> : <Tip content={name()} when={nameCut()}>{trigger => <span {...trigger()} ref={nameRef} class="bubble-name" onDblClick={event => { event.stopPropagation(); start(); }}>{name()}</span>}</Tip>} />
     </>;
   };
 

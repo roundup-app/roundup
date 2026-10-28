@@ -78,7 +78,7 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
   await selectDoor();
 
   if (captureDir("U2892")) {
-    await evaluate(`(() => { window.__fake.failNext(-32000, 'Terminal could not open'); document.querySelector('.terminal-new').click(); return true; })()`);
+    await evaluate(`(() => { window.__fake.failNext(-32000, 'Terminal could not open'); window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', metaKey: true, bubbles: true, cancelable: true })); return true; })()`);
     await browser("wait", ".bubble-failure");
   }
 
@@ -98,7 +98,7 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
   await browser("press", "Escape");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(false);
-  await evaluate(`(() => { document.querySelector('.terminal-new').focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus(); return true; })()`);
   await browser("press", "Escape");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);

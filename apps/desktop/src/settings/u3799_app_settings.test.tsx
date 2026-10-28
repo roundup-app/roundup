@@ -247,7 +247,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.browser("click", "#shelf-tab-pads");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
-    await lane.browser("click", ".terminal-new");
+    await lane.browser("press", "Meta+t");
     await lane.until("!!document.querySelector('.bubble:not([hidden])')");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.capture("U3814", "terminal-bubble-and-settings");

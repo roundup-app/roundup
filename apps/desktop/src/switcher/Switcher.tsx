@@ -13,15 +13,19 @@ import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
+import { createTerminalClose } from "../bubbles/close";
+import { nameOf, placesStorage } from "../bubbles/places";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
 import "./styles.css";
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
-export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { app, rail, project, drafts } = useConnectedProject();
+export const Switcher = (props: { onTerminalRecovery?: () => void; onFailure: (message: string | null) => void; onOpen: () => void }) => {
+  const connected = useConnectedProject();
+  const { app, rail, project, drafts } = connected;
   const [open, setOpen] = createSignal(false);
+  const [returnFocus, setReturnFocus] = createSignal(true);
   trackSurface(open);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
@@ -52,10 +56,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
-    restoreFocus: true, closeOnInteractOutside: true,
+    restoreFocus: returnFocus(), closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => chosenPane
+    finalFocusEl: () => !returnFocus() ? document.activeElement instanceof HTMLElement ? document.activeElement : null : chosenPane
       ? chosenTerminal
         ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
         : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
@@ -73,13 +77,33 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const actions = createMemo(() => openingSurvives() ? opening().actions.filter((action) => action.available()) : []);
 
-  const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
+  const terminalName = (terminal: Parameters<typeof nameOf>[0]) => placesStorage(project.path).read()[terminal.id]?.name ?? nameOf(terminal);
+
+  const { close: closeTerminal, closing } = createTerminalClose(connected, rail.terminals, terminalName, props.onFailure, () => props.onFailure(null));
+
+  const entries = createMemo(() => {
+    open();
+
+    return entriesOf(rail.nodes, rail.terminals()).map(entry => entry.terminal ? { ...entry, label: copy.showTerminal(terminalName(entry.terminal)) } : entry);
+  });
+
+  const terminalActions = createMemo(() => entries().flatMap(entry => entry.terminal && !closing().has(entry.terminal.id) ? [{
+    value: `action:close-terminal:${entry.terminal.id}`, label: copy.closeTerminal(terminalName(entry.terminal)), keys: "",
+    available: () => connected.daemonExit() === null && rail.terminals().some(terminal => terminal.id === entry.terminal!.id && terminal.incarnation === entry.terminal!.incarnation),
+    run: () => { void closeTerminal(entry.terminal!.id); },
+  }] : []));
+
+  const recoveryActions = () => props.onTerminalRecovery && drafts.list().some(draft => draft.destination.surface === "bubbles") ? [{
+    value: "action:terminal-recovery", label: copy.unfinishedWorkMenu, keys: "", available: () => true, run: props.onTerminalRecovery,
+  }] : [];
 
   const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
     ...matching(actions(), text()),
+    ...matching(terminalActions(), text()),
+    ...matching(recoveryActions(), text()),
   ]);
 
   createEffect(() => {
@@ -169,10 +193,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   });
 
   const chooseValue = (value: string | null): void => {
-    const action = opening().actions.find((candidate) => candidate.value === value);
+    const action = [...opening().actions, ...terminalActions(), ...recoveryActions()].find((candidate) => candidate.value === value);
 
     if (action) {
       if (!openingSurvives() || !action.available()) return;
+      setReturnFocus(value !== "action:chord:⌘T");
       close(true);
       action.run();
 
@@ -192,6 +217,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (modalOpen()) return;
     chosenPane = false;
     chosenTerminal = null;
+    setReturnFocus(true);
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
     props.onOpen();
@@ -234,7 +260,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
-            const action = actions().find((candidate) => candidate.value === item.value);
+            const action = [...actions(), ...terminalActions(), ...recoveryActions()].find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
 
             if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;

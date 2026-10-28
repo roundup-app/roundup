@@ -1,6 +1,7 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
 .pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;

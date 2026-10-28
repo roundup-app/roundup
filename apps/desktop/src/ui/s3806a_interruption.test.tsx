@@ -357,7 +357,7 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   if (trigger === "capture-blur") Reflect.deleteProperty(target, "setPointerCapture");
 
   // Focus leaving the panel keeps U2307's minimisation policy; reopen before the fresh press.
-  if (owner !== "pull" && settled.min) document.querySelector<HTMLButtonElement>('.terminal-tab[data-bubble="2"]')!.click();
+  if (owner !== "pull" && settled.min) window.dispatchEvent(new CustomEvent("roundup:reveal-bubble", { detail: "2" }));
   pointer("pointerdown", target, button, 400, 300);
   pointer("pointermove", window, button, 460, 360);
   pointer("pointerup", window, button);

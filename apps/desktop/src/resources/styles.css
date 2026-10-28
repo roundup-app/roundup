@@ -58,13 +58,18 @@
 
 .hint-line {
   position: absolute;
-  inset: auto 0 0;
+  inset: auto var(--space-2) var(--space-2);
   z-index: var(--layer-popover);
   display: flex;
   column-gap: var(--space-4);
   box-sizing: border-box;
   flex: none;
-  height: var(--hint-row-height);
+  min-height: var(--hint-row-height);
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  background: var(--ground);
+  border-radius: var(--radius-drawer);
   margin: 0;
   padding: 0 var(--space-2);
   overflow: hidden;

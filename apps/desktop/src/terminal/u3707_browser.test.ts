@@ -26,7 +26,7 @@ const STATES = [
   ["door-terminal", "tree-40", '.rail-row[data-id="payments"]'],
   ["door-not-running", "door-stopped", null],
   ["daemon-gone", "daemon-exits", null],
-  ["bubble", "door-stopped", ".terminal-new"],
+  ["bubble", "door-stopped", null],
 ] as const;
 
 const failing = (checks: Checks) => CHECK_IDS.filter((id) => checks[id].status === "fail");
@@ -37,6 +37,8 @@ it("u3707_rendered_checks", async () => {
       await page.scheme(scheme, contrast);
       await page.load(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, FULLSCREEN.width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row, .pane'))`);
+
+      if (name === "bubble") await page.call("() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', metaKey: true, bubbles: true, cancelable: true }))");
 
       if (row) await page.call(`(row) => document.querySelector(row).click()`, row);
 

@@ -106,7 +106,7 @@ export const HintLine = () => {
 
   return (
     <Show when={hints().length > 0}>
-      <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
+      <p class="hint-line key-chips-surface" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
         <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
       </p>
     </Show>

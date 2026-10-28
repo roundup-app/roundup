@@ -194,9 +194,8 @@ export const Bubble = (props: {
   /** U2307a: a primary press outside the bubble minimises it; its own tab or chip toggles it, and the press still reaches its target. */
   const dismissed = (event: { detail: { originalEvent: Event } }): void => {
     const press = event.detail.originalEvent;
-    const target = press.target;
 
-    if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
+    if (!(press instanceof PointerEvent) || press.button !== 0) return;
 
     if (!place().min) props.setPlace(id, { ...place(), min: true });
   };

@@ -257,7 +257,7 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
   }
 
   if (scope === "terminal") {
-    fireEvent.click(document.querySelector('.terminal-new')!);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
     await waitFor(() => expect(rpcCalls(app, "terminal.open")).toHaveLength(1));
   }
 

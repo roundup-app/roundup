@@ -197,7 +197,6 @@ it("u477_icon_button_preserves_bound_click_handler", async () => {
 const appIcons = [
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]' },
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]' },
-  { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
   { seed: "tree-40", selector: '.todo-delete' },
 ];
 
@@ -207,10 +206,10 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
 
   if (seed === "bubbles") {
     await browser("click", '.rail-row[data-id="runner"] .name');
-    await browser("wait", "--fn", `document.querySelectorAll('.terminal-tab').length === 3`);
+    await browser("wait", "--fn", `document.querySelectorAll('.bubble').length === 3`);
 
     if (selector.includes('bubble-header')) {
-      await browser("eval", `document.querySelector('.terminal-tab[aria-pressed="false"]').click()`);
+      await browser("eval", `window.dispatchEvent(new CustomEvent('roundup:reveal-bubble', { detail: '101' }))`);
       await browser("wait", "--fn", `!!document.querySelector('.bubble:not([hidden]) .bubble-header')`);
     }
   }
