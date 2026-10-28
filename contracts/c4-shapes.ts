@@ -282,9 +282,13 @@ type After = {
 
 // U4593 widens only owner inputs; stored Actors and every other baseline field stay exact.
 type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string : T[K] };
+
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams" | "pad/SetOwnerParams";
+
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+
 type SelectorMethods = "todo.assign" | "todo.create" | "pad.setOwner";
+
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
   : BeforeRpcMethods[K] };

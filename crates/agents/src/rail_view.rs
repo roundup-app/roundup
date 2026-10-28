@@ -227,6 +227,11 @@ impl Agents {
         self.shared.rail().name(id)
     }
 
+    /// Preserve canonical Rail identities after their nodes leave the live tree.
+    pub fn rail_last_id(&self) -> Result<i64, RpcError> {
+        self.shared.rail().last_id()
+    }
+
     /// B32: run a synchronous input-recording operation against authoritative ownership.
     ///
     /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
