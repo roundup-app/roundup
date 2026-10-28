@@ -433,7 +433,7 @@ policy remain unchanged.
 ### Matched Light comparison, 2026-10-28
 
 Main `e9c92247cebb9b6a42dc2e830592556e6aa4fec0` and rendering head
-`00744c9f0995bf34a2ca1fc33dc3bfe0e4f645d7` replay the same SHA-256
+`648db0561223d66e9503847c273d6b33e65c71a6` replay the same SHA-256
 `5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`,
 Dark 1512×950, DPR 2, through the existing capture path. Both use WebGL with
 matched canvas backing scale. Head records the loaded 300/400/700 faces and
@@ -467,3 +467,9 @@ Latest completed main CI [40781133074](https://github.com/roundup-app/roundup/ac
 passed `mac` and `mac-clippy` on `1d224d7e0e3374e3f6fc1a3325f6cfb27c3f7ab8`.
 No native appearance or WKWebView timing is inferred; the owner reports native
 appearance after merge under the unchanged observation policy.
+
+The capture selects the replay's newest Turn after the refused paste, then waits
+for xterm's selection render frame. Pasting clears selection even when the
+Daemon refuses input; selecting before that failure left no painted selection.
+The refreshed six paired/continuity cases pass with the selected first line
+visible, preserving the same replay bytes, sizes and Check delta.
