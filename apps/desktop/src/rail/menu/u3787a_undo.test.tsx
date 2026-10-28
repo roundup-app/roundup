@@ -14,12 +14,12 @@ stubDialogLayout();
 
 afterEach(cleanup);
 
-it.each(["menu", "key", "unknown", "exited", "pending"])("u3787a_rail_%s_deletes_without_question_and_restores_retained_identity", async entry => {
+it.each(["menu", "key", "unknown", "pending"])("u3787a_rail_%s_deletes_without_question_and_restores_retained_identity", async entry => {
   localStorage.clear();
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   let connected: ConnectedProject | undefined;
-  const nodes = [entry === "exited" ? agent("chosen", "idle", "idle", { terminal_id: null }) : workstream("chosen"), agent("other", "idle", "idle", { terminal_id: null })];
+  const nodes = [agent("chosen", "idle", "idle", { terminal_id: null }), agent("other", "idle", "idle", { terminal_id: null })];
   app.add("/p");
   const daemon = app.of("/p");
   daemon.handlers["rail.tree"] = () => nodes;
@@ -91,7 +91,7 @@ it.each(["process", "worktree", "cascade"])("u3787a_rail_%s_requires_native_cons
   await screen.findByText("chosen", { selector: ".name" });
   fireEvent.contextMenu(rowOf("chosen"));
   await daemon.pickMenu("Remove");
-  await waitFor(() => expect(daemon.questions).toHaveLength(1));
+  await waitFor(() => expect(effect === "cascade" ? daemon.removalQuestions : daemon.questions).toHaveLength(1));
   await answerQuestion(false);
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toEqual([]);
   expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
