@@ -1,5 +1,7 @@
 # Tauri 2 + xterm.js keystroke latency spike
 
+Retired measurement. Source and raw samples are historical, retained at revision `a4e112a75aee57145171bb78dd0f63fb663d7dc7` under `spikes/tauri-latency/` in git history. The runnable spike and its dependency manifests have been removed; this report retains the ADR evidence.
+
 Budget under test: keystroke-to-render p95 < 16 ms (in-webview, NOT input-to-photon).
 
 ## Machine
@@ -22,7 +24,7 @@ macOS 26.0.1 (25A362), Apple M4 Max, devicePixelRatio 2. Tauri 2.11.6 (WKWebView
 | write callback -> next `onRender` (frame wait + render) | 2.0 | 13.0 | 16.0 | 0.0 | 10.0 | 15.0 |
 | **keydown -> `onRender` (total)** | **3.0** | **14.0** | **17.0** | **2.0** | **11.0** | **16.0** |
 
-Per-run total p95 (keydown -> onRender): DOM 15 / 14, WebGL 11 / 13 (the four runs in order dom, webgl, dom2, webgl2: 15, 11, 14, 13). Max observed 19 ms. xterm parse of the echo: p50/p95 0 ms (below clock resolution). Raw samples are in `results.json`.
+Per-run total p95 (keydown -> onRender): DOM 15 / 14, WebGL 11 / 13 (the four runs in order dom, webgl, dom2, webgl2: 15, 11, 14, 13). Max observed 19 ms. xterm parse of the echo: p50/p95 0 ms (below clock resolution). Raw samples were recorded in `results.json` (historical reference at the source revision above).
 
 ## Verdict vs 16 ms
 - p95: WebGL 11-13 ms, DOM 14-15 ms. Both under 16 ms, WebGL with more headroom (~3-5 ms), DOM only ~1-2 ms.
@@ -40,5 +42,8 @@ Per-run total p95 (keydown -> onRender): DOM 15 / 14, WebGL 11 / 13 (the four ru
 7. Only 4 runs of 1500; DOM vs WebGL p95 difference (3 ms) is consistent across both pairs but run-to-run variance is ~1-2 ms. Display refresh rate was not pinned.
 8. Count anomaly: each run showed one extra Rust->webview message (1601 vs 1600) in 3 of 4 runs; probably an initial/stray chunk. 3 samples dropped.
 
-## Reproduce
+## Reproduce (historical)
+
+These commands require checking out the historical source revision above and running from `spikes/tauri-latency/`; they do not run against the current tree.
+
 `pnpm install && pnpm build && cd src-tauri && cargo build --release --features tauri/custom-protocol && ../src-tauri/target/release/tauri-latency` (needs a display; writes `results.json`, then exits). The `custom-protocol` feature is required when building without the Tauri CLI so the embedded `dist/` loads. Source: `src/main.ts`, `src-tauri/src/main.rs`.
