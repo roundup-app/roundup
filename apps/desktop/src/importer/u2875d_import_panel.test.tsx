@@ -337,7 +337,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.until("!!document.querySelector('.todo-project-root')");
 
       if (phase === "retention") {
-        await lane.evaluate(`localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({version:1,drafts:[{revision:'audit-order',destination:{surface:'orders',object:'tokens',recipient:'tokens'},value:{title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'},selection:null,status:'failed',policy:'ordinary'}]}))`);
+        await lane.evaluate(`(() => { localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({version:1,drafts:[{revision:'audit-order',destination:{surface:'orders',object:'tokens',recipient:'tokens'},value:{title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'},selection:null,status:'failed',policy:'ordinary'}]})); return true; })()`);
         await lane.browser("reload");
         await lane.until("!!document.querySelector('.todo-project-root')");
       }
