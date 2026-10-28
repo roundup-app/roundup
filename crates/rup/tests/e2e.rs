@@ -1310,16 +1310,6 @@ async fn m1_offers_agent_digest_to_a_door_and_to_no_other_agent() {
             .await
             .contains(&"agent_digest".to_owned())
     );
-    assert!(
-        tool_names(&mut door)
-            .await
-            .contains(&"workstream_handoff".to_owned())
-    );
-    assert!(
-        !tool_names(&mut plain)
-            .await
-            .contains(&"workstream_handoff".to_owned())
-    );
     let digest = door.call("agent_digest", json!({})).await;
     assert_eq!(digest["children"].as_array().unwrap().len(), 2);
 }
@@ -4068,7 +4058,6 @@ async fn m16_a_door_is_offered_no_terminal_start_tool() {
         "terminal_kill",
         "agent_spawn",
         "agent_digest",
-        "workstream_handoff",
         "checkpoint_write",
     ] {
         // M5 keeps `terminal_snapshot` without a tool, so only the offered ones are asserted.
