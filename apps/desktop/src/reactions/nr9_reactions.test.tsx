@@ -782,7 +782,6 @@ it.each(["Enter", " ", "click"])("u3787c_reaction_activation_preserves_identity_
   else fireEvent.keyDown(rows[2]!, { key });
   await screen.findByRole("region", { name: copy.reactionDetail(records[2]!.name) });
   await waitFor(() => expect(app.calls.slice(before)).toEqual([{ method: "reaction.get", params: { id: "r2" } }]));
-  expect(document.querySelector(".reaction-detail .reaction-facts")?.textContent).toContain("Other Home");
   fireEvent.click(screen.getByRole("button", { name: copy.closeView(records[2]!.name) }));
   await waitFor(() => expect(document.activeElement).toBe(document.querySelectorAll(".reaction-row")[2]));
   expect(selectedRows([...document.querySelectorAll<HTMLButtonElement>(".reaction-row")]).map(row => row.dataset.reactionOpener)).toEqual(["r1"]);

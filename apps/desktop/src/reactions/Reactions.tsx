@@ -108,6 +108,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
   };
 
   const heads = new Map<string, HTMLElement>();
+
   const content = createRowCollection(() => read().list.filter(reaction => {
     const head = heads.get(reaction.id);
 
