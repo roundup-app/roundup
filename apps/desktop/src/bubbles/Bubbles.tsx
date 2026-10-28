@@ -883,6 +883,7 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
+      <For each={shownIds()}>{id => <Tab id={id} />}</For>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
