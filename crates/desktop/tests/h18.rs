@@ -311,7 +311,7 @@ mod recovery {
                     r#"#!/bin/sh
     record() {{ printf '%s\n' "$1" >> '{d}/starts'; }}
     if test -f "$1/fail"; then record "$1"; exit 17; fi
-    if test -f "$1/hold"; then echo $$ > "$1/held-pid"; record "$1"; exec cat > "$1/input"; fi
+    if test -f "$1/hold"; then echo $$ > "$1/held-pid"; record "$1"; exec 3>&1; exec cat > "$1/input"; fi
     ln -s '{d}/real.sock' "$RUPD_SOCKET"
     printf 'rupd-bound\n'
     echo $$ > "$1/pid"

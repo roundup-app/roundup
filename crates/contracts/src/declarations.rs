@@ -96,7 +96,7 @@ declarations! { $;
         "todo.deletion": contracts::todo::DeletionParams => Option<contracts::todo::Deletion>, rpc_todo_deletion, none();
         "todo.restore": contracts::todo::DeletionParams => contracts::todo::Deletion, rpc_todo_restore, none();
         "todo.comment": contracts::todo::CommentParams => contracts::todo::Comment, rpc_todo_comment, all(schema(contracts::todo::CommentParams,"Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here."));
-        "todo.comments": contracts::todo::TodoId => Vec<contracts::todo::Comment>, rpc_todo_comments, none();
+        "todo.comments": contracts::todo::TodoId => Vec<contracts::todo::Comment>, rpc_todo_comments, all(schema(contracts::todo::TodoId,"Read a Todo comment thread oldest first, including authors and user replies. Reading does not mark comments read."));
         "todo.unread": () => Vec<contracts::todo::UnreadComment>, rpc_todo_unread, none();
         "todo.markCommentsRead": contracts::todo::TodoId => (), rpc_todo_mark_comments_read, none();
         "todo.addRef": contracts::todo::RefParams => contracts::todo::Todo, rpc_todo_add_ref, all(schema(contracts::todo::RefParams,"Point the user to a Pad or one section of it from a Todo, so they open it from the Todo and read it. Pass the link `roundup://pad/<name>?project=<key>`; a section link ends in `#<heading>`, the heading's text percent-encoded. The Pad and heading must exist. Adding the same link twice keeps one."));

@@ -21,16 +21,16 @@ const entry = (app: { shownMenus: { items: { label: string; enabled: boolean; ch
   app.shownMenus.at(-1)!.items.find((item) => item.label === label)!;
 
 describe("u2694 the Rail's system menu", () => {
-  it("u2694b_the_items_of_each_object", async () => {
+  it("u2694b_the_menu_shows_rename_and_remove_shortcuts", async () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual([copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
     expect(entry(app, copy.rename)).toMatchObject({ shortcut: "F2" });
     expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⌘⌫" });
 
     open("a");
-    expect(app.menuLabels()).toEqual([copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -84,8 +84,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual([...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
-
+    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.openingPromptMenu, copy.addMenu, copy.remove]);
   });
 
   it("u4322a_inapplicable_actions_are_absent", async () => {
@@ -392,7 +391,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 it.each([
   {
     name: "Workstream row",
-    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
     receivers: ["a"],
     mount: async () => {
       const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
@@ -402,7 +401,7 @@ it.each([
   },
   {
     name: "Agent row",
-    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
     receivers: ["b"],
     mount: async () => {
       const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })]);
