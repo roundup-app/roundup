@@ -173,8 +173,8 @@ export const Rail = () => {
 
   const sections: { id: RailSection; label: string; icon: "messages" | "circle" | "diamond" }[] = [
     { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
-    { id: "modes", label: "MODES", icon: "diamond" },
-    { id: "agents", label: "AGENTS", icon: "circle" },
+    { id: "modes", label: copy.modesHead, icon: "diamond" },
+    { id: "agents", label: copy.agentsHead, icon: "circle" },
   ];
 
   const sectionNodes = createMemo(() => {
@@ -779,9 +779,9 @@ export const Rail = () => {
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
-          <Collapsible.Root open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
+          <Collapsible.Root role="treeitem" aria-label={section.label} aria-expanded={!rail.closedSections().has(section.id)} open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
             <SectionHead icon={section.icon} label={section.label} disclosure={{ setOpen: open => rail.setSectionOpen(section.id, open) }} />
-            <Collapsible.Content>
+            <Collapsible.Content role="group">
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>

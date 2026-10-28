@@ -51,8 +51,8 @@ run("u520 the Rail is a tree", () => {
     await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
     await page.until(`() => document.querySelector('.shelf')?.hidden === true`);
 
-    // Tab enters the Rail on its first row.
-    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.closest('[role=tree]') !== null`)); tabs += 1) await page.press("Tab", "Tab");
+    // U4547a adds heading Tab stops; enter the first data row after its heading.
+    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.matches('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]') === true`)); tabs += 1) await page.press("Tab", "Tab");
 
     await at("backend");
     await press("ArrowDown");
