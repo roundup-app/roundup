@@ -267,5 +267,5 @@ operators/boxes, later painting, fitted resize, selection, input, fallback or
 context-loss acceptance, nor App visual/performance or WKWebView results.
 Those remain required when an upstream-supported published candidate exists.
 
-The diagnostic PNGs and metrics are retained, uncommitted, under
+The diagnostic PNG files and metrics are retained, uncommitted, under
 `artifacts/ux/U4592/xterm-dependency/`; these are not matched App captures.
