@@ -103,6 +103,8 @@ struct Shared {
     channels: Mutex<HashMap<String, (String, Channel)>>,
     /// E3: the Daemon supplies mutable Context before the one first Steer.
     context: Option<ContextText>,
+    /// A4452d: where roundup's own text goes instead of the Terminal.
+    coordination: Option<CoordinationSink>,
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
@@ -158,6 +160,17 @@ pub const RESUME_ACK_BOUND: Duration = Duration::from_secs(10);
 pub const START_DOOR_ACK_BOUND: Duration = Duration::from_secs(8);
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+
+/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(agent id, text)`.
+type CoordinationSink = Arc<
+    dyn Fn(
+            String,
+            String,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), RpcError>> + Send>>
+        + Send
+        + Sync,
+>;
 
 type ContextText = Arc<
     dyn Fn(

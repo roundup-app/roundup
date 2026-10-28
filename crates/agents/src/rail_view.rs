@@ -343,52 +343,19 @@ impl Agents {
         };
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
-        if ctx.actor.kind == ActorKind::Agent && ctx.actor.id != id {
-            self.shared
-                .prompt(
-                    &id,
-                    &order::steer(&order, None),
-                    None,
-                    false,
-                    Some(PromptRecord {
-                        revision,
-                        written: None,
-                    }),
-                )
-                .await
-                .map_err(|err| match err {
-                    SteerError::Refused(reason) => {
-                        let mut error = RpcError::from(reason);
-                        error.message = format!(
-                            "Order stored; Steer refused; no bytes written: {}",
-                            error.message
-                        );
-                        error
-                    }
-                    SteerError::Uncertain(reason) => RpcError::unknown_outcome(format!(
-                        "Order stored; Steer bytes may have been written; do not retry: {reason}"
-                    )),
-                })?;
-        } else if ctx.actor.id != id {
+        if ctx.actor.id != id {
+            // A4452d: a changed Order reaches the target's inbox, never its Terminal.
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
-            tokio::spawn(async move {
-                if let Err(err) = shared
-                    .prompt(
-                        &id,
-                        &text,
-                        None,
-                        false,
-                        Some(PromptRecord {
-                            revision,
-                            written: None,
-                        }),
-                    )
-                    .await
-                {
-                    eprintln!("agents: the new order of {id} was not steered: {err}");
+            let sent = shared.coordinate(&id, None, text).await;
+            if let Err(err) = sent {
+                if ctx.actor.kind == ActorKind::Agent {
+                    let mut error = RpcError::from(PromptError::from(err));
+                    error.message = format!("Order stored; not sent: {}", error.message);
+                    return Err(error);
                 }
-            });
+                eprintln!("agents: the new order of {id} was not sent: {err}");
+            }
         }
         self.shared.node(&node.id)
     }

@@ -1,8 +1,9 @@
 use super::*;
 
 impl Shared {
-    /// H12: Steer the first prompt of `id`'s `attempt` on a task of its own, since `agent.spawn`
-    /// has returned by now. A Steer that fails settles the Status to `error`, never silently.
+    /// A4452a: send the coordination text of `id`'s `attempt` to its Claude inbox on a task of its
+    /// own, since `agent.spawn` has returned by now. Nothing is typed; a refused write settles to
+    /// the Message states of B3563c, never to Status `error`.
     pub(super) fn steer_first_prompt(&self, id: &str, attempt: &str, prompt: String) {
         let Some(shared) = self.me.upgrade() else {
             return;
@@ -27,12 +28,9 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            let result = shared
-                .prompt(&id, &prompt, Some(&attempt), !startup_context, None)
-                .await;
+            let result = shared.coordinate(&id, Some(&attempt), prompt).await;
             if let Err(err) = &result {
-                eprintln!("agents: the first prompt of {id} failed: {err}");
-                shared.refuse_prompt(&id, &attempt);
+                eprintln!("agents: the coordination text of {id} failed: {err}");
             }
             if let Some(Slot::Running(run)) = shared.runs().get_mut(&id)
                 && run.attempt == attempt
@@ -77,6 +75,41 @@ impl Shared {
                 shared.refuse_prompt(&id, &attempt);
             }
         });
+    }
+
+    /// A4452a, A4452d: roundup's own text reaches `id` as a Message to its Claude inbox and writes
+    /// no byte to its Terminal. `attempt` fences a stale start.
+    pub(super) async fn coordinate(
+        &self,
+        id: &str,
+        attempt: Option<&str>,
+        text: String,
+    ) -> Result<(), SteerError> {
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        match self.runs().get(id) {
+            Some(Slot::Running(run))
+                if attempt.is_none_or(|attempt| run.attempt == attempt)
+                    && !run.ended
+                    && !run.closing => {}
+            _ => {
+                return Err(SteerError::Refused(PromptError::NotFound {
+                    id: id.to_owned(),
+                    name,
+                }));
+            }
+        }
+        let Some(send) = &self.coordination else {
+            return Err(SteerError::Refused(PromptError::NotAccepted {
+                id: id.to_owned(),
+                name,
+            }));
+        };
+        send(id.to_owned(), text)
+            .await
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))
     }
 
     /// H12: settle `id` to `error` with the label `prompt not accepted`, if `attempt` is still
