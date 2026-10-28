@@ -14,7 +14,7 @@ import { tab, path } from "../header/stripFixture";
 import { rowOf, settled } from "../rail/railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import { useBrowserStorage } from "../state/storage";
-import { agent, workstream } from "../testing/nodes";
+import { agent, event, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
 afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); localStorage.clear(); sessionStorage.clear(); });
@@ -206,7 +206,14 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(ofMethod()).toHaveLength(1);
 
   if (outcome === "resolve") {
+    if (row.owner === "App") {
+      app.handlers["rail.tree"] = () => [workstream("ops"), agent("created", "idle", "idle", { parent: "ops" })];
+    }
     reply.resolve();
+    if (row.owner === "App") {
+      app.emit(event({ name: "rail.changed" }));
+      await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "created")?.parent).toBe("ops"));
+    }
     await Promise.resolve();
     expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
     if (row.owner === "App") expect(document.querySelector('[data-id="created"]')).toBeNull();
