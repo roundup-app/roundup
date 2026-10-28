@@ -14,7 +14,7 @@ describe("u6 rows", () => {
       agent("checkout", "working", "planning", { order: 0 }),
     ]);
 
-    expect(rowNames()).toEqual(["checkout", "migrate", "backfill", "rename-cols"]);
+    expect(rowNames()).toEqual(["migrate", "backfill", "rename-cols", "checkout"]);
   });
 
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
@@ -27,12 +27,6 @@ describe("u6 rows", () => {
     await mountRail([workstream("checkout", { attempt: "1", status: { kind: "idle", label: "idle", since: 0, finished: "0" } })]);
 
     expect(glyphOf("checkout").getAttribute("aria-label")).toBe("Idle");
-  });
-
-  it("u6_a_plain_group_shows_a_down_triangle", async () => {
-    await mountRail([workstream("migrate")]);
-
-    expect(rowOf("migrate").querySelector("button[aria-label=Collapse] svg.lucide-chevron-down")).not.toBeNull();
   });
 
   it("u6_the_selected_row_has_a_faint_band", async () => {

@@ -5,6 +5,7 @@ import { resolveVariable } from "../shared/scope.ts";
 import { unwrapArrayExpression } from "../shared/array-method.ts";
 
 const limit = 60_000;
+const builders = new Set(["each", "for", "skipIf", "runIf", "extend", "scoped", "override"]);
 
 function unwrap(node) {
   return node ? unwrapArrayExpression(node) : node;
@@ -124,7 +125,7 @@ function registration(source, node, seen = new Set()) {
   if (node?.type === "CallExpression" || node?.type === "TaggedTemplateExpression") {
     const callee = node.callee ?? node.tag;
     const property = member(source, callee);
-    if (property && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(property.name)) return registration(source, property.object, seen);
+    if (property && builders.has(property.name)) return registration(source, property.object, seen);
   }
   return null;
 }
@@ -228,7 +229,7 @@ export const boundedTestTimeoutRule = defineRule({
         }
         const kind = registration(source, node.callee);
         const method = member(source, node.callee);
-        const builder = method && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(method.name);
+        const builder = method && builders.has(method.name);
         if (kind && !builder && node.arguments.length >= 2) calls.push({ node, kind });
         if (isConfig(source, node)) {
           const configured = objectProperty(source, node.arguments[0], "testTimeout");

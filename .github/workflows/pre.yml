@@ -36,9 +36,10 @@ jobs:
     outputs:
       web: ${{ steps.plan.outputs.web }}
     steps:
+      # HEAD^1, the diff base, is all the plan reads; the full fetch of every branch took up to 47 minutes.
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
       - id: plan
         run: |
           reached=$(python3 loop/affected.py web "$BASE")
@@ -52,7 +53,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
+      # The lint ratchets diff against `git merge-base HEAD origin/main`; recent `main` history is all they read.
+      - run: git fetch --no-tags --depth=200 origin +refs/heads/main:refs/remotes/origin/main
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
@@ -65,7 +68,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
+      # The lint ratchets diff against `git merge-base HEAD origin/main`; recent `main` history is all they read.
+      - run: git fetch --no-tags --depth=200 origin +refs/heads/main:refs/remotes/origin/main
       - uses: ./.github/actions/setup
         with:
           rust: 'false'

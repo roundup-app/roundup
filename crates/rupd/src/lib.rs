@@ -6,7 +6,6 @@ mod auto;
 #[cfg(test)]
 mod auto_tests;
 mod builtin;
-mod clear;
 mod connection;
 mod context;
 mod contract_handlers;
@@ -83,8 +82,6 @@ pub struct Daemon {
     digests: Arc<messages::digest::Seen>,
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
-    /// A32: the clears under way, and what they act through.
-    clears: clear::Clears,
     /// A35: the Marks a rewind reads, and the rewinds under way.
     checkpoints: Arc<checkpoints::Checkpoints>,
     rewinding: rewind::Rewinding,

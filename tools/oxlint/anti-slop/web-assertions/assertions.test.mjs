@@ -82,7 +82,10 @@ for (const [name, source, kind] of cases) {
 
 for (const change of ["unchanged", "removed with entry", "additional", "duplicate", "deleted", "added entry", "broadened entry", "rekeyed entry", "renamed", "moved", "edited", "timeout edited"]) {
   const passing = ["unchanged", "removed with entry", "timeout edited"];
-  test(`t3779b_assertion_boundary: baseline ${change}`, () => {
+  const name = change === "rekeyed entry"
+    ? "t4448a_rekey_cannot_authorize_edited_assertion"
+    : `t3779b_assertion_boundary: baseline ${change}`;
+  test(name, () => {
     const dir = mkdtempSync(resolve(tmpdir(), ".baseline-fixture-"));
     const file = resolve(dir, "fixture.test.tsx");
     const config = resolve(dir, "config.json");

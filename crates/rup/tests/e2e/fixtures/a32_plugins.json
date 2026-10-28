@@ -2,15 +2,6 @@
   "fixtures": [
     {
       "match": {
-        "toolCallId": "toolu_q11_clear_0",
-        "toolResultContains": "Launching skill: hope:intent"
-      },
-      "response": {
-        "content": "Plugin observer complete."
-      }
-    },
-    {
-      "match": {
         "toolCallId": "toolu_q11_resume_2_2",
         "toolResultContains": "Launching skill: hold:grasp"
       },
@@ -131,29 +122,6 @@
       },
       "response": {
         "content": "Plugin observer complete."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "No Handoff was written, so every Todo and Pad was archived."
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_q11_clear_0",
-            "name": "Skill",
-            "arguments": "{\"skill\": \"hope:intent\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "no handoff observer",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "I will leave the Handoff unanswered."
       }
     },
     {

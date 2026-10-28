@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 81 retained fixtures include 52 negatives, each with its own diagnostic and
+The 84 retained fixtures include 53 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -47,7 +47,7 @@ own directory.
 The rule reads the installed Vitest APIs: numeric third argument, options timeout,
 import aliases, local aliases/constants/arithmetic, namespace imports (including
 constant computed members and direct const destructuring), chained and
-parameterized registrations, suite inheritance, `vi.setConfig`, and configured
+parameterized registrations, `test.override` fixture builders, suite inheritance, `vi.setConfig`, and configured
 `testTimeout`. `defineConfig` from Vite or Vitest (including imported aliases and namespace
 imports) resolves the effective `test` / `testTimeout` through the same property
 resolver. Unknown configuration spreads and computed keys fail; a later explicit
@@ -60,6 +60,13 @@ An exported alias of `defineConfig(...)` is checked at its call rather than
 misread as an unresolved object. Configuration-wide defaults still cannot use
 a named-test exception. Configuration namespace destructuring reuses the same
 import resolution as test registrations; unrelated objects remain outside this rule.
+
+Vitest 5.0.3's installed `createTaskCollector` implements `test.override` as a
+fixture builder returning the test API. Its own fixture options are not test
+options; the returned registration still receives normal timeout and exact-test
+exception checks. The retained override fixtures distinguish an over-limit
+registration, a builder fixture timeout and the returned test's exact exception.
+No existing fixture was cut: the new builder form was previously unrecognized.
 
 Unknown file configuration and computed option keys fail at their
 source location. A later explicit timeout overrides an earlier unknown property,
@@ -88,6 +95,18 @@ lint activation, retained-clause mappings, and equivalent successful base/head C
 timings with setup and retries distinguished. Keep T3779b’s baseline and shrinking
 enforcement (including Python), now enabled through normal lint. The earlier consumer/timing audit remains in
 `../web-cost/`. This slice changes no product path or protected observer.
+
+## App timeout inventory and timing evidence (T4451a / T4451b)
+
+PR #4449 lowered 79 declarations in 49 App test files. That source inventory
+establishes no timing bound. [The evidence ledger](evidence-4451.md) records a
+complete seven-shard CI extraction, every affected file and original declaration,
+per-test results, retries, and deleted or replaced observers. Its historical
+measurements identify their own CI SHA. Skipped capture observers remain
+unmeasured; neither a missing entry nor the extractor's skipped-file placeholder
+justifies a cap. File totals include hooks and multiple tests and do not establish
+an individual callback's timeout requirement. #4451 stays open until its requested
+observer evidence and exact-test cap decisions are complete.
 
 ## Reuse
 
