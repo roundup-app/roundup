@@ -153,7 +153,7 @@ describe("u2230 shortcut hints", () => {
         if (hint.keys === "⌘⌫") await answerQuestion(true);
 
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(place === "bubble" ? ".pane-screen" : ".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
         else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
       }

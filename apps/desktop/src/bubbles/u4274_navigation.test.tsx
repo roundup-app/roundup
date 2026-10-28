@@ -58,6 +58,7 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
   const { connected, shells } = await mountNavigation(true);
   shells.push(info("shell", { owner: "other" }));
   await connected().rail.refresh({ terminals: true });
-  const bar = await screen.findByRole("group", { name: "Terminals" });
-  expect(within(bar).queryByRole("status")).toBeNull();
+  await waitFor(() => expect(document.querySelector(".bubbles")).not.toBeNull());
+  expect(screen.queryByRole("group", { name: "Terminals" })).toBeNull();
+  expect(screen.queryByText(/no terminals/i)).toBeNull();
 });
