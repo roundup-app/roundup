@@ -6,12 +6,11 @@ mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 use child_run::BOUND;
-use door_terminals::{door_terminal, idle, order_child, order_result, recorded_bytes};
+use door_terminals::{door_terminal, idle, order_child, recorded_bytes, user_steer};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::Client;
 use serde_json::json;
-use std::sync::Arc;
 use std::time::Duration;
 
 #[tokio::test]
@@ -218,7 +217,7 @@ async fn door_interrupt_completion_accounts_for_a_blocked_escape() {
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");
     std::fs::write(&gate, "pause").unwrap();
-    let order = order_result(&run, Arc::clone(&caller)).await;
+    let order = user_steer(&run).await;
     tokio::time::timeout(BOUND, async {
         while !gate.with_extension("arrived").is_file() {
             tokio::task::yield_now().await;
@@ -259,7 +258,7 @@ async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");
     std::fs::write(&gate, "pause").unwrap();
-    let order = order_result(&run, Arc::clone(&caller)).await;
+    let order = user_steer(&run).await;
     tokio::time::timeout(BOUND, async {
         while !gate.with_extension("arrived").is_file() {
             tokio::task::yield_now().await;
@@ -301,7 +300,7 @@ async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     assert!(error.message.contains("no bytes written"), "{error:?}");
     let expected = [
         agents::claude_code::LEAD_IN.as_bytes(),
-        b"\x1b[200~first order\x1b[201~\r",
+        b"\x1b[200~user steer\x1b[201~\r",
         &vec![b'x'; queued],
     ]
     .concat();

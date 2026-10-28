@@ -85,6 +85,16 @@ pub async fn order_result(
     })
 }
 
+/// The user's own Steer, the one write left that types into the child's Terminal (A4452d).
+pub async fn user_steer(run: &Run) -> tokio::task::JoinHandle<Result<Value, RpcError>> {
+    let child = run.child.clone();
+    let user = Client::connect(&run.daemon.socket).await.unwrap();
+    tokio::spawn(async move {
+        user.request("agent.prompt", json!({"id":child,"text":"user steer"}))
+            .await
+    })
+}
+
 pub async fn recorded_bytes(run: &Run) -> Vec<u8> {
     run.recorded_input()
         .await
