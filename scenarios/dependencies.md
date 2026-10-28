@@ -10,6 +10,10 @@ Module: `pnpm-lock.yaml`, `apps/desktop/package.json`, `package.json`. Ids: ever
 - *No advisory gate.* No workflow, recipe or rule fails a PR because an advisory exists (policy: the user decides it).
 - *Out of scope.* Alerts #1 and #2 (`glib`, Rust through Tauri's GTK on Linux) stay open.
 
+**Code PR**: A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scenarios:` line (L46).
+
+**Build file**: What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `rust-toolchain.toml`, `tsconfig.json`, `.oxlintrc.json`, `.fallowrc.json`, `.cargo/` and `tools/` (L46).
+
 **Z3 diffs highlight with Pierre's highlighter.** Given `apps/desktop/package.json` holds `@pierre/diffs` `^1.5.2` and `apps/desktop/src/changes/DiffReader.tsx` registers the `roundup` CSS-variable theme (`registerCustomCSSVariableTheme("roundup", {})`), when `@pierre/diffs` is raised to 1.6.1 and the reader opens a changed file, then:
 - *Pierre's highlighter.* `DiffReader.tsx` passes `preferredHighlighter: 'highlights'` to every `@pierre/diffs` diff it builds (test: `z3_diff_reader_prefers_highlights`, asserting the option on the options the reader hands the library).
 - *Colours kept.* The `roundup` theme still colours tokens through its CSS variables under `highlights`; a highlighted line carries token colours from those variables, not from a fallback theme (test: `z3_highlights_uses_roundup_theme`). If `highlights` cannot use a CSS-variable theme, the PR says so on Issue #3322 and stops: no silent fallback to Shiki.

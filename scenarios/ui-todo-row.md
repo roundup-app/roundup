@@ -14,6 +14,8 @@ Webview only: no App command, no Daemon method and nothing under `contracts/` ch
 
 Observer: Vitest `u361_` cases on the fake App seam retain both schemes; captures and critic Check readings use dark only (U3725). The design critic judges the row boxes and the Checks (AGENTS.md rule 10), and `u361_the_rendered_done_row_is_ticked_and_disabled_with_no_id_or_move_words` is amended by U461a to assert an enabled reopening control, retaining its other behavior assertions; the WKWebView rendering stays the user's `just app` observation. Moves: D2, D5, D6, D14.
 
+**Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked; unticking it reopens it, and ticking an open Todo completes it. Both keep the accepted value until the Daemon accepts the change.
+
 **U362 the user moves a Todo by dragging its row onto the Rail.** Narrows U157 and U155; replaces U157's row `Move` word and its popover; the Drawer's `Move` (U157) stays. Given the Shelf's open Todos and a Rail with Workstreams (T12, T13), when the user drags a Todo row (U155's drag, started the same way) out of the Shelf and over the Rail, then:
 
 - **Targets.** A Workstream row and the pinned Overview band for the Project root (U2716a) are drop targets; the Todo's current Home is not. While a Todo is dragged over a target the target shows U22's drop highlight (`--hover` wash, no drop line, no row makes room) and the Todo's row stays in the Shelf with its place held (U155); over any other part of the Rail, or outside both lists, nothing is highlighted. Test: `u362_only_other_homes_are_targets`.
