@@ -53,3 +53,10 @@ The moved JS chunks on that revision are `Disclosure-D02pOFbA.js` (299),
 `ImportPanel-DlK4rp1R.js` (2,939), `OwnerPicker-C2RhnXqe.js` (12,573) and
 `Pads-D_2Ajwa9.js` (5,548): 21,359 gzip bytes total. Motion's incremental
 bytes remain zero.
+
+Paired isolated headless U26 captures compare `95dff3cba` with the merged
+implementation at 1512×950, dark, `tree-40` and dense import candidates.
+Pads and import pass D1–D14 on both. Failed Pad creation preserves its exact
+draft and visible cause; only the identical pre-existing D12 reading of 1240
+fails on both. `loop/rules.sh delta` exits 0; no passing Check regresses.
+PNGs and readings stay under `artifacts/ux/U3010d/{base,head}/`.
