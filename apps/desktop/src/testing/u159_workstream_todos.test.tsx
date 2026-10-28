@@ -73,6 +73,18 @@ const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${n
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
+it("u2744a_pads_remain_project_wide_across_rail_selections", async () => {
+  const { connected } = await mount();
+  await tab("Pads");
+  const expected = Array.from({ length: 12 }, (_, i) => `pad-${i + 1}`).sort();
+  for (const selected of [null, "w", "v", "a", "b", "r"]) {
+    connected.rail.select(selected);
+    await waitFor(() => expect(names().toSorted()).toEqual(expected));
+    expect(count("Pads")).toBe("12");
+    expect(document.querySelector(".shelf-scope-name")?.textContent).toBe(connected.project.name);
+  }
+});
+
 // The Todo placement clauses moved to U3717: u3717_todos_group_by_owner_once_each and u3717_group_order_is_me_agents_unassigned.
 it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await mount();
