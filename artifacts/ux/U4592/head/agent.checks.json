@@ -6,10 +6,12 @@
   },
   "D10": {
     "selector": "",
-    "status": "pass",
+    "status": "fail",
     "value": {
       "contrast": "no-preference",
-      "failing": [],
+      "failing": [
+        "D8"
+      ],
       "scheme": "dark",
       "viewport": "1512x950"
     }
@@ -88,65 +90,17 @@
     }
   },
   "D8": {
-    "selector": "",
-    "status": "pass",
+    "selector": "div.rail-row",
+    "status": "fail",
     "value": {
-      "extension": {
-        "expected": 56,
-        "readings": [
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.359375,
-            "inset": 56,
-            "row": "div.rail-row"
-          },
-          {
-            "baseline": 0.5625,
-            "inset": 56,
-            "row": "div.rail-fold"
-          }
-        ]
-      },
-      "original": []
+      "expected": 56,
+      "readings": [
+        {
+          "baseline": 1.359375,
+          "inset": 56,
+          "row": "div.rail-row"
+        }
+      ]
     }
   },
   "D9": {

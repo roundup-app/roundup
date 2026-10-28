@@ -64,7 +64,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: What should this Agent do?",
+        "userMessage": "What should this Agent do?",
         "hasToolResult": false
       },
       "response": {
@@ -90,7 +90,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "userMessage": "What is this Workstream for?",
         "hasToolResult": false
       },
       "response": {

@@ -476,7 +476,7 @@ export const App = (props: {
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
-        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : actions.find(action => action.value === id)?.label ?? row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
       }),
     ].filter(item => item.enabled);
   });
@@ -617,6 +617,16 @@ export const App = (props: {
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
+          }}</For>
+          <For each={keys()}>{path => {
+            const failure = () => connectionOf(path)?.rail.commandFailure;
+            const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
+            const name = () => tabOf(path)()?.project.name ?? "";
+
+            return <Show when={message()}>{message => <ReservedLine message={`${name()}: ${message()}`}>
+              <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>
+              <button data-button="quiet" type="button" onClick={() => failure()?.clear()}>{copy.dismiss}</button>
+            </ReservedLine>}</Show>;
           }}</For>
           <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>

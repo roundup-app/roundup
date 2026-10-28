@@ -456,7 +456,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
       return found;
     });
 
-    const messages = () => app.rpc("message.list", { to: receiver.id, status: null });
+    const messages = async () => (await app.rpc("message.list", { to: receiver.id, status: null })).filter(message => message.from.kind === "user");
     let choice: string | null = null;
     app.showContextMenu = vi.fn(async () => choice);
     const rpc = app.rpc;

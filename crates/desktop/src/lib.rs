@@ -144,13 +144,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var_os("ROUNDUP_IDLE_EVIDENCE_DIR").as_deref(),
     )?;
     let config = Config::from_env()?;
-    let mut context = context();
-    if let Some(dir) = &config.data_dir {
-        // Isolate the webview profile as well as the Project store and Daemon.
-        context.config_mut().app.app_directories_override = Some(
-            tauri::utils::config::AppDirectoriesOverride::Root(std::path::absolute(dir)?),
-        );
-    }
+    let context = config.context()?;
     let project_dir = std::env::args_os()
         .nth(1)
         .filter(|argument| !argument.to_string_lossy().contains("://"))

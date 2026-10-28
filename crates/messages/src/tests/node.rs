@@ -5,6 +5,7 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
     RailNode {
         id: id.into(),
         auto: (kind == NodeKind::Workstream).then_some(false),
+        opening_prompt: None,
         kind,
         name: id.into(),
         parent: None,

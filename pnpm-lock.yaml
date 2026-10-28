@@ -32,7 +32,7 @@ patchedDependencies:
     hash: 08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974
     path: patches/@pierre__diffs@1.6.1.patch
   '@pierre/trees@1.0.0-beta.6':
-    hash: 14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6
+    hash: f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77
     path: patches/@pierre__trees@1.0.0-beta.6.patch
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
@@ -134,7 +134,7 @@ importers:
         version: 1.6.1(patch_hash=08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@pierre/trees':
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(patch_hash=14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
+        version: 1.0.0-beta.6(patch_hash=f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
       '@radix-ui/colors':
         specifier: 3.0.0
         version: 3.0.0
@@ -169,8 +169,8 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@xterm/addon-ligatures':
-        specifier: 0.9.0
-        version: 0.9.0(@xterm/xterm@6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf))
+        specifier: 0.10.0
+        version: 0.10.0
       '@xterm/addon-serialize':
         specifier: 0.14.0
         version: 0.14.0
@@ -2189,11 +2189,9 @@ packages:
   '@xterm/addon-image@0.9.0':
     resolution: {integrity: sha512-oYWA8/QAr5/Emwl1xL7WCoOqeG3IZfpzEz/OVq1j4Oi9934TQmHiyubClikRf0D/jL3JNiNuz/Lsqx0kXQ02BA==}
 
-  '@xterm/addon-ligatures@0.9.0':
-    resolution: {integrity: sha512-zVV1AHV1SIm/rdzR5VDPyg+qUnR1SjH4H75iXiB7r6YDa1yEHIqc/EwnUIwz+yeeZozkh8hjbH80L7luEgtxtQ==}
+  '@xterm/addon-ligatures@0.10.0':
+    resolution: {integrity: sha512-/Few8ZSHMib7sGjRJoc5l7bCtEB9XJfkNofvPpOcWADxKaUl8og8P172j67OoACSNJAXqeCLIuvj8WFCBkcTxg==}
     engines: {node: '>8.0.0'}
-    peerDependencies:
-      '@xterm/xterm': ^5.0.0
 
   '@xterm/addon-serialize@0.14.0':
     resolution: {integrity: sha512-uteyTU1EkrQa2Ux6P/uFl2fzmXI46jy5uoQMKEOM0fKTyiW7cSn0WrFenHm5vO5uEXX/GpwW/FgILvv3r0WbkA==}
@@ -6963,7 +6961,7 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
       shiki: 4.5.0
 
-  '@pierre/trees@1.0.0-beta.6(patch_hash=14252df8a6b51b64f4a915dda1174dc075de6ea45567a72f06f7f357d8a248d6)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
+  '@pierre/trees@1.0.0-beta.6(patch_hash=f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
     dependencies:
       '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
       '@zag-js/collection': 1.45.0
@@ -7803,9 +7801,8 @@ snapshots:
 
   '@xterm/addon-image@0.9.0': {}
 
-  '@xterm/addon-ligatures@0.9.0(@xterm/xterm@6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf))':
+  '@xterm/addon-ligatures@0.10.0':
     dependencies:
-      '@xterm/xterm': 6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf)
       font-finder: 1.1.0
       font-ligatures: 1.4.1
 

@@ -1,8 +1,8 @@
 {
-  "cellHeight": 19,
+  "cellHeight": 19.511627906976745,
   "cellWidth": 7,
   "cols": 126,
-  "dpr": 1,
+  "dpr": 2,
   "fonts": [
     {
       "family": "Fira Code",
@@ -19,12 +19,12 @@
   ],
   "renderer": "webgl",
   "resources": [],
-  "rows": 44,
+  "rows": 43,
   "canvas": {
-    "cssHeight": 836,
+    "cssHeight": 839,
     "cssWidth": 882,
-    "height": 836,
-    "width": 882
+    "height": 1678,
+    "width": 1764
   },
   "fontStatus": "loaded",
   "host": {
@@ -53,7 +53,7 @@
     "height": 950,
     "width": 1512
   },
-  "commit": "8c08261dcc2369aa3eccb9f5626fe8eb5e58fa0c",
+  "commit": "c0ab5e0d24beccc11faddd3759fd73ba2657cdce",
   "seed": "tree-40",
   "state": "door",
   "candidate": "selected",

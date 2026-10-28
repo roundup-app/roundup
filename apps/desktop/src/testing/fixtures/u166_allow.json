@@ -2,6 +2,15 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_u166a_1"
       },
       "response": {
@@ -60,15 +69,6 @@
             "arguments": "{\"file_path\": \"/tmp/ship a\"}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready for your instructions."
       }
     }
   ]

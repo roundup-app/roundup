@@ -53,7 +53,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "userMessage": "What is this Workstream for?",
         "hasToolResult": false
       },
       "response": {

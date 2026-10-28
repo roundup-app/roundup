@@ -1,15 +1,9 @@
 {
   "cellHeight": 22,
-  "cellWidth": 6,
-  "cols": 148,
-  "dpr": 1,
+  "cellWidth": 6.5,
+  "cols": 136,
+  "dpr": 2,
   "fonts": [
-    {
-      "family": "Fira Code",
-      "status": "loaded",
-      "style": "normal",
-      "weight": "300"
-    },
     {
       "family": "Fira Code",
       "status": "loaded",
@@ -28,9 +22,9 @@
   "rows": 38,
   "canvas": {
     "cssHeight": 836,
-    "cssWidth": 888,
-    "height": 836,
-    "width": 888
+    "cssWidth": 884,
+    "height": 1672,
+    "width": 1768
   },
   "fontStatus": "loaded",
   "host": {
@@ -45,7 +39,7 @@
     "lineHeight": 1.7,
     "size": 11,
     "tracking": 0,
-    "weight": 300
+    "weight": 400
   },
   "smoothing": "auto",
   "tokens": {
@@ -53,13 +47,13 @@
     "--letter-terminal": "0px",
     "--line-terminal": "1.7",
     "--text-terminal": "11px",
-    "--weight-terminal": "300"
+    "--weight-terminal": ""
   },
   "viewport": {
     "height": 950,
     "width": 1512
   },
-  "commit": "b7ffbbec885f78ef56c43210a8fd14611001e275",
+  "commit": "e88f5b85b9cd3a623541f9af7dd48a5f221d1e0c",
   "seed": "agents-10",
   "state": "agent",
   "candidate": "selected",

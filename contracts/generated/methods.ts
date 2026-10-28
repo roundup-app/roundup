@@ -154,9 +154,11 @@ import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { OpeningPromptParams as workstream_OpeningPromptParams } from "./workstream/OpeningPromptParams";
 import type { QueueMoveParams as workstream_QueueMoveParams } from "./workstream/QueueMoveParams";
 import type { QueueState as workstream_QueueState } from "./workstream/QueueState";
 import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstream/QueuedWorkstream";
+import type { RestartParams as workstream_RestartParams } from "./workstream/RestartParams";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
 import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
@@ -184,6 +186,7 @@ export type RpcMethods = {
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
+  "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
@@ -306,6 +309,7 @@ export type RpcMethods = {
   "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
+  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };

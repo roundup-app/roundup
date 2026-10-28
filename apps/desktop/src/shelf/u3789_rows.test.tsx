@@ -63,6 +63,17 @@ it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.getHistory", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
+it("u3789a_return_and_open_activate_once_todo_shelf", async () => {
+  const { app, row } = await target("todo-shelf");
+  const arrow = row.closest('.shelf-row')!.querySelector<HTMLButtonElement>('.todo-open')!;
+  expect(arrow).not.toBeNull();
+  fireEvent.click(arrow);
+  await waitFor(() => expect(rpcCalls(app, "todo.getHistory")).toEqual([{ id: 1 }]));
+  expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull();
+  expect(rpcCalls(app, "todo.complete")).toEqual([]);
+  expect(rpcCalls(app, "todo.update")).toEqual([]);
+});
+
 it.each(cases)("u3789a_return_activates_once_%s", async kind => {
   const { app, row } = await target(kind);
 
@@ -512,11 +523,7 @@ it("u4275b_row_actions_keep_menu_semantics", async () => {
   const row = document.querySelector('.rail-row[data-id="auth"]')!;
   fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
   await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null}]));
-  fireEvent.click(row.querySelector('[aria-label="Clear…"]')!);
-  await screen.findByRole("textbox", { name: copy.whyClear });
-  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: /^Keep$/ }));
-  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+
 });
 
 

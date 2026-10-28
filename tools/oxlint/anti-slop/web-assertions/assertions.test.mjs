@@ -80,7 +80,7 @@ for (const [name, source, kind] of cases) {
 }
 
 
-for (const change of ["unchanged", "removed with entry", "additional", "duplicate", "deleted", "added entry", "broadened entry", "renamed", "moved", "edited", "timeout edited"]) {
+for (const change of ["unchanged", "removed with entry", "additional", "duplicate", "deleted", "added entry", "broadened entry", "rekeyed entry", "renamed", "moved", "edited", "timeout edited"]) {
   const passing = ["unchanged", "removed with entry", "timeout edited"];
   test(`t3779b_assertion_boundary: baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), ".baseline-fixture-"));
@@ -112,7 +112,7 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
       if (change === "duplicate") writeFileSync(file, source.replace(' });', ' expect(element.scrollWidth).toBe(10); });'));
       if (change === "removed with entry") { writeFileSync(file, source.replace('expect(element.scrollWidth).toBe(10);', '')); writeFileSync(baseline, ""); }
       if (change === "deleted") writeFileSync(file, source.replace('expect(element.scrollWidth).toBe(10);', ''));
-      if (["added entry", "broadened entry"].includes(change)) {
+      if (["added entry", "broadened entry", "rekeyed entry"].includes(change)) {
         writeFileSync(file, change === "added entry"
           ? source + '\ntest("t3779b_new", () => { expect(element.clientHeight).toBe(20); });'
           : source.replace("toBe(10)", "toBe(11)"));
@@ -122,6 +122,9 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
         const rows = JSON.parse(current.stdout).diagnostics.filter(item => item.code === "anti-slop(audit-web-assertions)").map(item => JSON.parse(item.message));
         // These entries match the new source exactly: only the subset check can reject them.
         writeFileSync(baseline, rows.map(row => JSON.stringify({ file: "fixture.test.tsx", test: row.test, identity: row.identity })).join("\n") + "\n");
+        if (change === "rekeyed entry") writeFileSync(resolve(dir, directory, "rekey.jsonl"), JSON.stringify({
+          file: entry.file, test: entry.test, from: entry.identity, to: rows[0].identity,
+        }) + "\n");
         writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
       }
       if (change === "renamed") writeFileSync(file, source.replace("t3779b_fixture", "t3779b_other"));
@@ -132,7 +135,7 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
       assert.equal(result.status, passing.includes(change) ? 0 : 1, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, result.stdout);
-      if (["added entry", "broadened entry"].includes(change)) assert.ok(report.diagnostics.some(item => item.message.startsWith("Added or broadened assertion baseline entry:")), result.stdout);
+      if (["added entry", "broadened entry", "rekeyed entry"].includes(change)) assert.ok(report.diagnostics.some(item => item.message.startsWith("Added or broadened assertion baseline entry:")), result.stdout);
       assert.equal(report.diagnostics.filter(item => item.severity === "error").length === 0, passing.includes(change), result.stdout);
       if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `baseline ${change}`, source: readFileSync(file, "utf8"), exitCode: result.status, diagnostics: report.diagnostics.map(item => item.message) }) + "\n");
     } finally {
