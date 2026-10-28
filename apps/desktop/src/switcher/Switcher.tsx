@@ -174,7 +174,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (action) {
       if (!openingSurvives() || !action.available()) return;
       close(true);
-      action.run();
+      // Let the dialog release its focus trap before the command requests its destination.
+      queueMicrotask(action.run);
 
       return;
     }
