@@ -703,6 +703,7 @@ export const Rail = () => {
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          inset: (row) => (row.querySelector<HTMLElement>(".line")?.getBoundingClientRect().left ?? row.getBoundingClientRect().left) - row.getBoundingClientRect().left,
           nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
