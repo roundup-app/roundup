@@ -68,9 +68,7 @@ struct MarkSource {
 impl Agents {
     fn mark_sources(&self, workstream: &str) -> Result<Vec<MarkSource>, RpcError> {
         let rail = self.shared.rail();
-        if rail.node(workstream)?.kind != NodeKind::Workstream {
-            return Err(RpcError::new(code::INVALID_PARAMS, "not a Workstream"));
-        }
+        rail.node(workstream)?;
         let nodes = rail.tree()?;
         let mut members = Vec::new();
         for node in &nodes {
