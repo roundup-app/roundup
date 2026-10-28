@@ -6,7 +6,6 @@ import type { Accessor, JSX } from "solid-js";
 import { useTabsContext, useTabs } from "@ark-ui/solid/tabs";
 import { Tabs } from "../ui/Tabs";
 
-import { shelfScope } from "./scope";
 import { ShelfActions } from "./BulkDelete";
 import { SectionHead } from "../ink/SectionHead";
 import { Pads } from "../pads/Pads";
@@ -112,12 +111,11 @@ export const Shelf = (props: { open: Accessor<boolean> }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
   const [line, setLine] = createSignal<HTMLElement>();
   const connected = useConnectedProject();
-  const scope = shelfScope(connected);
   const tabs = useTabsContext();
 
   return (
     <>
-      <div class="shelf-bar" data-shelf-scope ref={setLine}><span class="shelf-scope-name">{tabs().value === "pads" ? connected.project.name : scope.label()}</span></div>
+      <div class="shelf-bar" data-shelf-scope ref={setLine}><Show when={tabs().value === "pads"}><span class="shelf-scope-name">{connected.project.name}</span></Show></div>
       <ShelfActions.Provider value={{ mount: actions, open: props.open, scope: line }}>
       <ScrollShadow>
         <For each={SHELF_TABS}>
