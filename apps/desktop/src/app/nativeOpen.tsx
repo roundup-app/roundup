@@ -36,7 +36,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
       // The active Project mounts its existing Bubble listener after selection.
       queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
     } else if (content.kind === "pad" || content.kind === "todo") {
-      open.drawer.open(() => item(content, fail), "key");
+      open.drawer.open(() => item(content, fail), "key", { kind: content.kind, project: target.path });
     }
 
     setLinked(null);

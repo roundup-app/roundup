@@ -1,3 +1,4 @@
+import { createMaximiseSlide } from "../ui/slideLifetime";
 import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
 import X from "lucide-solid/icons/x";
@@ -111,34 +112,21 @@ export const Layout = (props: {
   }, { defer: true }));
   createEffect(() => { if (placement().sliding === false) setShelfSliding(false); });
   onCleanup(() => placement().onSettle());
-  let maximiseSlide: Animation | undefined;
+  const maximiseSlide = createMaximiseSlide(() => windowElement?.querySelector<HTMLElement>(".shelf") ?? undefined, () => placement().open && !placement().reducedMotion);
 
   const maximised = createMemo(() => placement().maximised === true);
 
   createEffect(on(maximised, (expanded) => {
     const shelf = windowElement?.querySelector<HTMLElement>(".shelf");
-    const offset = shelf && maximiseSlide && (maximiseSlide.playState === "running" || maximiseSlide.playState === "paused") ? new DOMMatrixReadOnly(getComputedStyle(shelf).transform).m41 : 0;
-    maximiseSlide?.cancel();
+    const offset = maximiseSlide.offset();
+    maximiseSlide.cancel();
 
     if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
     const style = getComputedStyle(windowElement);
     const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.getBoundingClientRect().width ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
-    const duration = style.getPropertyValue("--duration-drawer").trim();
-    maximiseSlide = shelf.animate([
-      { transform: `translateX(${offset + (expanded ? displacement : -displacement)}px)` },
-      { transform: "translateX(0)" },
-    ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
-    const slide = maximiseSlide;
-
-    const settled = () => {
-      if (maximiseSlide === slide && placement().open) setShelfSliding(false);
-    };
-
-    void slide.finished.then(settled, settled);
+    maximiseSlide.start(offset + (expanded ? displacement : -displacement), () => setShelfSliding(false));
   }, { defer: true }));
-  createEffect(() => { if (!placement().open || placement().reducedMotion) maximiseSlide?.cancel(); });
   createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
-  onCleanup(() => maximiseSlide?.cancel());
   onCleanup(() => setShelfSliding(false));
 
   return (
