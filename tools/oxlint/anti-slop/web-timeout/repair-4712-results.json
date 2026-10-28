@@ -92,6 +92,20 @@
     ],
     "command": "python3 loop/app-data.py pnpm --filter desktop exec vitest run <files in listed order> --maxWorkers=3",
     "concurrent_command": "just ready",
-    "status": "running; no timing bound claimed"
-  }
+    "status": "interrupted at the Builder budget; incomplete, no timing bound",
+    "log": "repair-4712-normal-46.log.gz",
+    "observed_failures": [
+      "u3814_project_pages_survive_work_elsewhere_import-work",
+      "u3814_project_pages_survive_work_elsewhere_project-settings"
+    ],
+    "observed_retry_aggregates_ms": [
+      59424,
+      45582
+    ],
+    "first_attempt_durations": "not available in the incomplete normal reporter output; not inferred from retry aggregates",
+    "required_checks_log": "repair-4712-ready.log.gz",
+    "required_checks_status": "unfinished at this snapshot; no passing ready claim",
+    "snapshot_utc": "2026-10-28T23:43:09.574149+00:00"
+  },
+  "workflow_source_sha": "343669a0ecfb83b929aa290053e0f2dd42b785ef"
 }
