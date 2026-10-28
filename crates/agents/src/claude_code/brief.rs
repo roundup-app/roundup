@@ -265,10 +265,6 @@ const TOOLS: &[(&str, &str)] = &[
         "read retained measurements and collection coverage",
     ),
     (
-        "project_measurementSummary",
-        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
-    ),
-    (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
     ),

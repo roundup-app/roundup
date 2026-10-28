@@ -69,11 +69,10 @@ it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.getHistory", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
-it.each(cases.flatMap(kind => ["return", "open"].map(input => ({ kind, input, name: `${kind}-${input}` }))))("u3789a_return_and_open_activate_once_$name", async ({ kind, input }) => {
+it.each(cases)("u3789a_return_activates_once_%s", async kind => {
   const { app, row } = await target(kind);
 
-  if (input === "return") { row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
-  else fireEvent.click(row.closest('.shelf-row, .rail-row, .pad-row-head')!.querySelector<HTMLButtonElement>('[aria-label="Open"]')!);
+  row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
   if (kind === "workstream" || kind === "agent") {
     await waitFor(() => expect(document.activeElement?.closest('.pane-screen')).not.toBeNull());
@@ -166,7 +165,8 @@ it("u3789a_open_never_starts_a_stopped_door", async () => {
   const row = document.querySelector<HTMLElement>(".rail-row")!;
   fireEvent.click(row);
   await settled();
-  fireEvent.click(row.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  await settled();
   expect(app.calls.filter(call => ["rail.startDoor", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
@@ -401,14 +401,13 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
 });
 
 
-it.each(["return", "open"])("u3789d_controls_keep_native_attention_destination_%s", async input => {
+it("u3789d_controls_keep_native_attention_destination_return", async () => {
   const {app, emulators} = await open();
   const row = document.querySelector<HTMLElement>('.rail-row[data-id="backend"]')!;
   fireEvent.click(row);
   await settled();
 
-  if (input === "return") fireEvent.keyDown(row, {key:"Enter"});
-  else fireEvent.click(row.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, {key:"Enter"});
   await waitFor(() => expect(emulators.made.get("t-migrate")?.host?.contains(document.activeElement)).toBe(true));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("migrate");
   expect(app.calls.filter(call => ["agent.spawn","agent.resume","rail.startDoor"].includes(call.method))).toEqual([]);
@@ -505,7 +504,7 @@ it("u4275a_state_updates_without_row_activation", async () => {
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
 });
 
-it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", async input => {
+it("u4275c_rows_keep_details_in_the_opened_todo_return", async () => {
   const { app, row } = await target("todo-shelf");
   const authored = await app.rpc("todo.update", { id: 1, title: "Name only", body: "Private multiline body\nSecond detail" });
   await waitFor(() => expect(row.textContent).toContain(authored.title));
@@ -513,8 +512,7 @@ it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", as
   fireEvent.click(row);
   expect(row.closest('.shelf-row')!.textContent).not.toContain(authored.body!.split("\n")[0]!);
 
-  if (input === "return") fireEvent.keyDown(row, { key: "Enter" });
-  else fireEvent.click(row.closest('.shelf-row')!.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, { key: "Enter" });
   await waitFor(() => expect(document.querySelector('.drawer[data-open=true]')?.textContent).toContain(authored.body!.split("\n")[0]!));
   expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
 });

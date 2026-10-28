@@ -766,6 +766,7 @@ export const Todos = (props: {
     const order = treeRows(ownerGroups(connected, listed(), item => item.owner).find(group => group.items.some(item => item.id === todo.id))?.items ?? []).map(row => row.todo.id);
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "open", label: copy.openDraft, run: () => show(todo, "pointer") },
       ...(pickFails.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => pickFails.get(todo.id)?.show(null) }] : []),
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 

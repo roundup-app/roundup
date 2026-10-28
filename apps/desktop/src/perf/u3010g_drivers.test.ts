@@ -466,7 +466,7 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     root.dataset.layoutRoot = "";
     root.dataset.shelf = "open";
-    root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><div class="row-controls"><button aria-label="Open"></button></div></div></section><button class="shelf-tab" data-selected></button>';
+    root.innerHTML = '<aside class="drawer" data-open="false"></aside><section class="shelf"><div data-todo="1"><button class="todo-row-button"></button></div></section><button class="shelf-tab" data-selected></button>';
     document.body.append(root);
     let activate: (event: Event) => void = () => {};
 
@@ -476,7 +476,7 @@ describe("u3010g the frame recorder drives every workload", () => {
       return () => {};
     });
 
-    const target = root.querySelector(action === "openDrawer" ? '[aria-label="Open"]' : '.shelf-tab')!;
+    const target = root.querySelector(action === "openDrawer" ? '.todo-row-button' : '.shelf-tab')!;
 
     try {
       const run = controls[action]();
