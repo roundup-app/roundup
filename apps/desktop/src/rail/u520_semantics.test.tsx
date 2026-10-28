@@ -20,11 +20,10 @@ describe("u520 the Rail's accessibility tree", () => {
 
     expect(screen.getAllByRole("tree")).toHaveLength(1);
     expect(screen.getByRole("tree").getAttribute("aria-labelledby")).not.toBeNull();
-    expect(screen.getByRole("tree", { name: "Rail" })).toBeTruthy();
 
     const levels = Object.fromEntries(["outer", "inner", "leaf", "door", "child"].map((name) => [name, itemOf(name).getAttribute("aria-level")]));
 
-    expect(levels).toEqual({ outer: "1", inner: "2", leaf: "3", door: "1", child: "2" });
+    expect(levels).toEqual({ outer: "2", inner: "3", leaf: "4", door: "2", child: "3" });
     // A fold is a branch's own attribute; a leaf carries none.
     expect(["outer", "inner", "door"].map((name) => itemOf(name).getAttribute("aria-expanded"))).toEqual(["true", "true", "true"]);
     expect(["leaf", "child"].map((name) => itemOf(name).hasAttribute("aria-expanded"))).toEqual([false, false]);

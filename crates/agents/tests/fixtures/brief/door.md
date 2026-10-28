@@ -93,7 +93,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `terminal_resize`: resize a Terminal you or your Reach own.
 - `terminal_kill`: stop the program of a Terminal you or your Reach own.
 - `agent_digest`: ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.
-- `workstream_handoff`: answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to.
 - `checkpoint_write`: mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made.
 - `agent_extras`: list the skills, plugins and servers of the user's setup that a child can be given.
 - `agent_extras_add`: give a running child of yours such extras by name; it is relaunched with its conversation.
