@@ -429,3 +429,41 @@ does not trigger another renderer-change performance observation. The complete
 main-side performance report above remains renderer evidence; historical failed
 #4624 performance attempts are not claimed as passes. K1–K3 and native timing
 policy remain unchanged.
+
+### Matched Light comparison, 2026-10-28
+
+Main `e9c92247cebb9b6a42dc2e830592556e6aa4fec0` and rendering head
+`00744c9f0995bf34a2ca1fc33dc3bfe0e4f645d7` replay the same SHA-256
+`5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`,
+Dark 1512×950, DPR 2, through the existing capture path. Both use WebGL with
+matched canvas backing scale. Head records the loaded 300/400/700 faces and
+requested regular/bold 300/700; base requests 400/700. Agent and Door retain
+136×38 cells; shell retains 108×29, all 6.5×22 CSS px. Both already request 0px
+tracking. This pair isolates thinner regular strokes; it does not claim another
+tracking reduction beyond main's whole-pixel integration. Bold remains distinct,
+operators join, table edges/intersections remain continuous, and dense Door and
+shell failure feedback remains visible. The independent critic judges the pairs.
+
+The existing observer passes all three behavioral cases and all three matched
+capture cases. D2/D5/D6 pass on all six screens; `loop/rules.sh delta` exits 0.
+D8 and aggregate D10 fail equally on both sides as before. Images are uncommitted
+under `artifacts/ux/U4592/{base,head}/`; metrics and Check readings are committed.
+113 focused checks pass, retaining all six scale guards, readiness, resize,
+fallback, context loss, input, scrollback and K1/K2 opt-in/timing boundaries.
+No new geometry, palette or copied-value test is added.
+
+The first workspace `just capture U4592` exits 1 during its reporting preflight:
+shared dependency symlinks crossed Vite's worktree boundary. Separate frozen
+installs repair that setup. A subsequent isolated browser launch with the
+system Chromium also failed; closing only that run's session and selecting
+the bundled headless Chrome repairs it. The successful observer command is
+`ROUNDUP_CAPTURES=U4592 U500_BASE_ROOT=/tmp/roundup-u4592-base/apps/desktop
+pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts`,
+with `AGENT_BROWSER_EXECUTABLE_PATH` selecting bundled Chrome 156.0.8078.73 and
+`AGENT_BROWSER_ARGS='--no-sandbox,--disable-gpu,--enable-unsafe-swiftshader,--force-device-scale-factor=2'`.
+All failures remain observer failures, never visual evidence.
+
+Latest completed main CI [40781133074](https://github.com/roundup-app/roundup/actions/runs/40781133074)
+passed `mac` and `mac-clippy` on `1d224d7e0e3374e3f6fc1a3325f6cfb27c3f7ab8`.
+No native appearance or WKWebView timing is inferred; the owner reports native
+appearance after merge under the unchanged observation policy.
