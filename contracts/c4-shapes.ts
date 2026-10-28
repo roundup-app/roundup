@@ -186,11 +186,7 @@ type After = {
   "project/ImportSelection": import("./generated/project/ImportSelection").ImportSelection;
   "project/Mcp": import("./generated/project/Mcp").Mcp;
   "project/Measurement": import("./generated/project/Measurement").Measurement;
-  "project/MeasurementContributor": import("./generated/project/MeasurementContributor").MeasurementContributor;
   "project/MeasurementSource": import("./generated/project/MeasurementSource").MeasurementSource;
-  "project/MeasurementSummary": import("./generated/project/MeasurementSummary").MeasurementSummary;
-  "project/MeasurementSummaryParams": import("./generated/project/MeasurementSummaryParams").MeasurementSummaryParams;
-  "project/MeasurementTime": import("./generated/project/MeasurementTime").MeasurementTime;
   "project/MeasurementValue": import("./generated/project/MeasurementValue").MeasurementValue;
   "project/Measurements": import("./generated/project/Measurements").Measurements;
   "project/ModelList": import("./generated/project/ModelList").ModelList;
