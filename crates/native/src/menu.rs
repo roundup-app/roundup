@@ -127,3 +127,62 @@ pub fn context_menu<R: Runtime>(
         result
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    pub(crate) fn u4462_the_hint_takes_the_key_equivalent_colour_and_font() {
+        let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
+        // SAFETY: AppKit objects stay retained on the main thread for the whole probe.
+        unsafe {
+            let application = AnyClass::get(c"NSApplication").expect("AppKit is loaded");
+            let _: Retained<AnyObject> = msg_send![application, sharedApplication];
+            let menus = AnyClass::get(c"NSMenu").expect("AppKit is loaded");
+            let menu: Retained<AnyObject> = msg_send![menus, new];
+            let _: () = msg_send![&*menu, setAutoenablesItems: false];
+            let fonts = AnyClass::get(c"NSFont").expect("AppKit is loaded");
+            let font: Retained<AnyObject> = msg_send![fonts, menuFontOfSize: 16.0f64];
+            let _: () = msg_send![&*menu, setFont: &*font];
+            let items = AnyClass::get(c"NSMenuItem").expect("AppKit is loaded");
+            let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
+            for enabled in [true, false] {
+                let item: Retained<AnyObject> = msg_send![items, new];
+                let title = NSString::from_str("项目 🦀");
+                let _: () = msg_send![&*item, setTitle: &*title];
+                let _: () = msg_send![&*item, setEnabled: enabled];
+                let _: () = msg_send![&*menu, addItem: &*item];
+            }
+            decorate(&menu, vec![(0, "⌘K P".into()), (1, "⌘K W".into())]);
+            for (index, enabled) in [(0isize, true), (1, false)] {
+                let item: Retained<AnyObject> = msg_send![&*menu, itemAtIndex: index];
+                let title: Retained<NSString> = msg_send![&*item, title];
+                assert_eq!(title.to_string(), "项目 🦀");
+                let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
+                assert!(key.is_empty(), "a hint must never register an accelerator");
+                let attributed: Retained<AnyObject> = msg_send![&*item, attributedTitle];
+                let font_key = NSString::from_str("NSFont");
+                let color_key = NSString::from_str("NSColor");
+                let hint_index = title.length() + 1;
+                let actual_font: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*font_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let actual_font = actual_font.expect("hint has the menu's font");
+                let same_font: bool = msg_send![&*actual_font, isEqual: &*font];
+                assert!(same_font);
+                let actual_color: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let actual_color = actual_color.expect("hint has an explicit semantic color");
+                let expected_color: Retained<AnyObject> = if enabled {
+                    msg_send![colors, secondaryLabelColor]
+                } else {
+                    msg_send![colors, disabledControlTextColor]
+                };
+                let same_color: bool = msg_send![&*actual_color, isEqual: &*expected_color];
+                assert!(same_color);
+                let title_color: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*color_key, atIndex: 0usize, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                assert!(
+                    title_color.is_none(),
+                    "AppKit retains title highlighting and dimming"
+                );
+            }
+        }
+    }
+}
