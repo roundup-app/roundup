@@ -21,15 +21,15 @@ const entry = (app: { shownMenus: { items: { label: string; enabled: boolean; ch
   app.shownMenus.at(-1)!.items.find((item) => item.label === label)!;
 
 describe("u2694 the Rail's system menu", () => {
-  it("u2694b_the_items_of_each_object", async () => {
+  it("u2694b_the_menu_shows_rename_and_remove_shortcuts", async () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual([copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
     expect(entry(app, copy.rename)).toMatchObject({ shortcut: "F2" });
     expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
-    expect(app.menuLabels()).toEqual([copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -82,7 +82,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual([...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.clearMenu, copy.addMenu, copy.remove]);
   });
 
   it("u4322a_inapplicable_actions_are_absent", async () => {
@@ -290,11 +290,13 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 
         for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-grip"]]) {
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
-          await lane.until(`!!document.querySelector('.shelf [data-shelf-group=me] ${row}')`);
+          const group = tab === "pads" ? "unassigned" : "me";
+          await lane.until(`!!document.querySelector('.shelf [data-shelf-group="${group}"] ${row}')`);
+          await lane.evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="${group}"]'); if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
 
           const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
             const point = element => { const box = element.getBoundingClientRect(); return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }; };
-            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group=me] .shelf-group-head')) };
+            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group="${group}"] .shelf-group-head')) };
           })()`);
 
           await lane.resetCalls();
@@ -303,7 +305,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           await lane.browser("mouse", "move", String(points.from.x + 6), String(points.from.y - 6));
           await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
           await lane.browser("mouse", "move", String(points.to.x), String(points.to.y));
-          expect(await lane.evaluate<boolean>("!document.querySelector('.shelf [data-shelf-group=me][data-drop-target]')")).toBe(true);
+          expect(await lane.evaluate<boolean>(`!document.querySelector('.shelf [data-shelf-group="${group}"][data-drop-target]')`)).toBe(true);
           await lane.browser("mouse", "up");
           await lane.until("!document.querySelector('[data-dnd-placeholder]')");
           expect((await lane.calls()).filter(call => ["todo.assign", "todo.reorder", "pad.setOwner", "pad.reorder"].includes(call.method))).toEqual([]);
@@ -387,7 +389,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 it.each([
   {
     name: "Workstream row",
-    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["clear", "5"], ["add", "6"], ["remove", "7"]],
     receivers: ["a"],
     mount: async () => {
       const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
@@ -397,7 +399,7 @@ it.each([
   },
   {
     name: "Agent row",
-    expected: [["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
     receivers: ["b"],
     mount: async () => {
       const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })]);
