@@ -114,16 +114,10 @@ for (const state of ["agent", "door", "shell"]) {
         await read(`window.__terminals.get('${id}').ready`);
       }
 
+      await read(`window.__fake.writeOutput('${id}', ${JSON.stringify(replay)})`);
+      await wait(`window.__terminals.get('${id}').serialize().data.includes('unterminated input')`);
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
-        window.__fake.writeOutput('${id}', ${JSON.stringify(replay)});
-        await new Promise(resolve => {
-          const parsed = () => {
-            if (emulator.serialize().data.includes('unterminated input')) resolve();
-            else requestAnimationFrame(parsed);
-          };
-          parsed();
-        });
         // xterm schedules painting after its parser callback; the next animation frame drains that render.
         await new Promise(resolve => requestAnimationFrame(resolve));
         emulator.selectTurn(0, false);
@@ -148,7 +142,7 @@ for (const state of ["agent", "door", "shell"]) {
         smoothing: string;
       }>(`(async () => {
         const host = document.querySelector('${surface}');
-        const canvas = host.querySelector('canvas');
+        const canvas = host.querySelector('.xterm-screen canvas:not(.xterm-link-layer)');
         const {width, height, x, y} = host.getBoundingClientRect();
         const style = getComputedStyle(document.documentElement);
         const { xtermOptions } = await import('/src/terminal/emulator.ts');

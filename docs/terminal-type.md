@@ -306,3 +306,13 @@ requested Tokens, loaded faces, renderer, backing size and content/grid metrics;
 Images and Check readings remain under `artifacts/ux/U4592/{base,head}/`.
 This Linux DPR-2 observer represents the owner’s display density, not their Mac
 or WKWebView timing. Native appearance remains a post-merge owner observation.
+
+Run the observer with `AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium` and
+`AGENT_BROWSER_ARGS='--no-sandbox,--disable-gpu,--enable-unsafe-swiftshader,--force-device-scale-factor=2'`.
+The browser itself must start at DPR 2: viewport emulation alone left xterm’s
+ResizeObserver device-pixel measurement at DPR 1, giving a mismatched WebGL
+backing size and blank captures. Those images are rejected observer failures,
+not rendering evidence. The metadata records the WebGL canvas rather than its
+separate link-overlay canvas. Replay enters through `__fake.writeOutput`, so
+snapshot restoration and subsequent output share the same bytes; a bounded
+parse wait precedes the paint frame and selection.
