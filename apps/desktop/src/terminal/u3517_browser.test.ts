@@ -110,10 +110,6 @@ for (const state of ["agent", "door", "shell"]) {
         return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
       })()`);
 
-      if (!base) {
-        expect(metrics.fonts.every(font => font.status === "loaded")).toBe(true);
-      }
-
       const checks = JSON.stringify(await read("window.__checks()"), null, 2);
       let screenshot: string | undefined;
 

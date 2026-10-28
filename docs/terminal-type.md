@@ -41,8 +41,10 @@ height by `lineHeight`, rather than multiplying `fontSize`. Consequently 11 px
 and 1.7 do not produce the scenario's predicted 18.7 px pitch. U3517b's retained
 18–20 px range conflicts with the prescribed raw settings. No font-size or
 line-height compensation is silently applied; the PR remains a draft pending
-the requested rendering target's resolution. The original Solo screenshot is
-not present to establish the alternative calibration.
+the requested rendering target's resolution. An isolated browser-only calibration at the same 11 px with xterm lineHeight
+1.5 measures 19 px rows, the same 7.772 px width and a 114×42 Agent grid. It is
+not applied to the defaults because U4456a explicitly prescribes 1.7. The
+original Solo screenshot is not present to settle the competing targets.
 
 `DEFAULT_FONT_SIZE` reads the same size Token for the emulator, App Settings
 and Project zoom reset. Saved absolute sizes stay unchanged; clearing a custom
@@ -86,8 +88,9 @@ default text and App controls retain D5.
   scheme consumers; X17's query-ownership and connection-lifetime tests remain.
 
 Rule 10 retirement: X17's copied Ghostty colour expectations now read Terminal
-Tokens while retaining its scheme-change assertions. The capture's fixed
-four-font-face count is removed: it asserted asset layout rather than behaviour;
-loaded-face readings and the font-readiness observers remain. No geometry or
+Tokens while retaining its scheme-change assertions. The capture's font-face count and loaded-style assertions are removed: these
+are policy observations, retained in the face readings and font-readiness
+observers rather than UI appearance assertions. Their exact lint-baseline
+entries are removed too. No geometry or
 copied-palette test is added. The four obsolete JetBrains font files are removed;
 their notice stays. Performance budgets and CI observers are unchanged.
