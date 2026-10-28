@@ -56,7 +56,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await waitFor(() => expect(control("a1")).not.toBeNull());
 
     fireEvent.click(control("a1")!);
-    await waitFor(() => expect(group("a1")).not.toBeNull());
+    await waitFor(() => expect(group("a1")?.querySelector(".shelf-group-control")).toBe(document.activeElement));
     fireEvent.click(screen.getByRole("tab", { name: /Todos/ }));
     await waitFor(() => expect(screen.getByRole("tab", { name: /Todos/, selected: true })).toBeTruthy());
     fireEvent.click(control("a1")!);
@@ -107,6 +107,17 @@ describe("u4457 the Pads control opens the Shelf", () => {
     expect(group("a2")?.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("button", { name: /finished work/ })).toBeTruthy();
     expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("u4457_a_todo_only_control_reopens_the_folded_group", async () => {
+    await mount([], [todo(1, { title: "work", creator: by("a1") })]);
+    await waitFor(() => expect(control("a1")).not.toBeNull());
+    fireEvent.click(control("a1")!);
+    await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /Idle #1 work/ })).toBe(document.activeElement));
+    fireEvent.click(group("unassigned")!.querySelector(".shelf-group-control")!);
+    await waitFor(() => expect(group("unassigned")?.getAttribute("aria-expanded")).toBe("false"));
+    fireEvent.click(control("a1")!);
+    await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /Idle #1 work/ })).toBe(document.activeElement));
   });
 
   it("u4457_a_control_counting_only_finished_todos_opens_and_focuses_them", async () => {
