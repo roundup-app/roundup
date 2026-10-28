@@ -49,13 +49,13 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
           const original = Storage.prototype.setItem;
           window.__restoreStorage = () => { Storage.prototype.setItem = original; };
           window.__failureCause = "write work.json: disk quota exceeded at /original/調査/résumé — committed records remain available; retry after freeing space";
-          window.__failStorage = () => {
+          window.__failStorage = (prefix = "roundup:") => {
             Storage.prototype.setItem = function(key, value) {
-              if (key.startsWith('roundup:')) throw new Error(window.__failureCause);
+              if (key.startsWith(prefix)) throw new Error(window.__failureCause);
               return original.call(this, key, value);
             };
           };
-          window.__failStorage();
+          window.__failStorage("roundup:rail:");
         })()`);
         await lane.browser("click", "[data-todo-root]");
         await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
