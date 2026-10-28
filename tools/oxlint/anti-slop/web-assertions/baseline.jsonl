@@ -420,12 +420,6 @@
 {"file":"apps/desktop/src/terminal/p3557c_failure_lifetime_screens.test.tsx","test":"p3557c_failure_lifetime_screens_%s","identity":"7d7f837cf538ad5a9568afef10e23a351b688f6a101a7200876d94a55fb259e9"}
 {"file":"apps/desktop/src/terminal/u12_typing.test.tsx","test":"u12 typing > u12_a_failed_write_shows_its_message","identity":"4b33efa986dfa5805e6a43b8bde9ae8405ae59d46d8a0adbd33616acc8aeaf1b"}
 {"file":"apps/desktop/src/terminal/u162_file_drop.test.tsx","test":"u162 drop files on a pane > u162_a_failed_write_shows_its_message","identity":"b82d3922e0cf2d1b5e4b6511b22a271d3a12081e74a23609e4403ca02262ac35"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016g_a_summary_of_two_agents_renders_one_mark_per_nonzero_category_and_no_cost","identity":"51ad49f454ebff42f4d4b6e25359087a4c6c49d5e640690b5d3737130ad2053d"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016j_state_changes_never_add_or_remove_content_above_the_chart","identity":"4289ad1eab880024fb2652b0b6532da5965a5408ca36d870631a3144fd87cdbd"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016j_one_failed_read_then_success_shows_no_message","identity":"7475f3d725ab9efee68591ea41573d9417873bc850844157b74c86bd2853ccc0"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016k_empty_sections_have_one_message_and_no_placeholder_rows","identity":"86a7e759c00221547faf90fedf195492261b2e9d6000f32e0a97a499b081fe42"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016k_partial_figures_keep_their_own_notes","identity":"192f9f0cc78c203779e7e12b419f27900581b35f6d0ed72691f4ef2f7a38d8f5"}
-{"file":"apps/desktop/src/terminal/u3016_dashboard.test.tsx","test":"u3016k_partial_figures_keep_their_own_notes","identity":"1d8d80c2495054e077baa21a8d59baba1475782830eb5507a26284d926e3aa85"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_is_hidden_while_the_view_is_at_the_bottom","identity":"2bd96acfa95481fad854da8974bc5e60f965d29cc8b181c6d0789f1009877475"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_shows_once_the_user_scrolls_up","identity":"75878d400646b78d07c3edb99e48540438b08c112046228aa036ad01bf149b58"}
 {"file":"apps/desktop/src/terminal/u3517_browser.test.ts","test":"u3517f_rendered_terminal_reference","identity":"dff246724c3610650f3d05d2a1909f6f795c83fe8b95c30919a47b5869dc042a"}
@@ -476,11 +470,6 @@
 {"file":"apps/desktop/src/testing/u389_geometry.test.ts","test":"u389_a_drag_sets_the_width_and_clamps","identity":"17c3f641349f948494c9834486a13cf6ebfe15fc11baed5e72e81f1e5a61c697"}
 {"file":"apps/desktop/src/testing/u389_geometry.test.ts","test":"u389_a_drag_sets_the_width_and_clamps","identity":"897b82fa7f84ebb53685123e23e12dcbcb024a6404db8eb05851599fb7b2e414"}
 {"file":"apps/desktop/src/testing/u389_geometry.test.ts","test":"u389_a_drag_sets_the_width_and_clamps","identity":"3c685eb7b81a6b93db1626d8ac954d65f7d115ad5922f8dd2b8e769a35b1f51f"}
-{"file":"apps/desktop/src/timeline/u3768_timeline.test.tsx","test":"u3768b_blocks_follow_kind_changes_and_attempts","identity":"d9afe2d424f2367d9e049b5dd1b81798067bcb077b243aa5fee36f0791d6187e"}
-{"file":"apps/desktop/src/timeline/u3768_timeline.test.tsx","test":"u3768b_a_log_shorter_than_the_window_leaves_an_unknown_span","identity":"de0e22f87eb1442afeaa8724655fbf8310a674904fa73c6baeefd82597e0e634"}
-{"file":"apps/desktop/src/timeline/u3768_timeline.test.tsx","test":"u3768b_a_view_opened_later_shows_the_history_before_it_opened","identity":"2ff241a41100d07402c4b573070426dc65d1c78ca5db1113205a1c0fd95e6f50"}
-{"file":"apps/desktop/src/timeline/u3768_timeline.test.tsx","test":"u3768g_log_replays_saved_events_on_creation","identity":"c0734e5719932483bf6a731ffa4a0411e920d2766ccd0fb1b805cd7b3b2d24db"}
-{"file":"apps/desktop/src/timeline/u3768_timeline.test.tsx","test":"u3768c_a_removed_subagent_keeps_its_lane_and_line","identity":"d72d7fb28c9fef1dd49bf2f69e188951b9d397a5d9b2fe99711fd30c7f9f9ec3"}
 {"file":"apps/desktop/src/toasts/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_$name","identity":"b01d8bf1f8e7573b5f791ddfa2e590af4b4d90895c11ab14618b51dcfa4f6bfa"}
 {"file":"apps/desktop/src/toasts/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_$name > deleting the item clears its failure; another item's deletion does not","identity":"5a61f2841acf1da6223db6cd2dc7a5495fa1759eb778cb2824142265bf3ee270"}
 {"file":"apps/desktop/src/toasts/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_$name > a save of the same item clears it; a save of another does not","identity":"89dc7096e5f4c569da0bda8a3022fe73ba16a0f76cb47f32a34b955ad73d5fbe"}

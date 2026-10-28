@@ -12,7 +12,7 @@ import { Checkbox } from "../ui/Checkbox";
 const capOf = (text: string): number | null => /^\d+$/.test(text.trim()) && Number(text) >= 1 ? Number(text) : null;
 
 /** U3813/U3814: native Project commands share one persistent center-page owner. */
-export const ProjectSettingsView = (props: { compact?: boolean | undefined }) => {
+export const ProjectSettingsView = () => {
   const { app, project, settingsView, importing, rail } = useConnectedProject();
   let disposed = false;
   let stop: (() => void) | undefined;
@@ -36,13 +36,13 @@ export const ProjectSettingsView = (props: { compact?: boolean | undefined }) =>
   const closeImport = () => { if (!importing.pending()) close(); };
 
   return <>
-    <Show when={settingsView.open() && settingsView.page() === "project-settings"}><ProjectSettingsBody compact={props.compact} onClose={close} /></Show>
-    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><ImportPanel compact={props.compact} onClose={closeImport} /></Show>
+    <Show when={settingsView.open() && settingsView.page() === "project-settings"}><ProjectSettingsBody onClose={close} /></Show>
+    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><ImportPanel onClose={closeImport} /></Show>
   </>;
 };
 
 /** the Project's `Workstreams at once` cap. Enter or blur with a changed value, or the `No limit` toggle, is one `project.setWorkstreamCap`; a bad entry is refused in the field and calls nothing. */
-const ProjectSettingsBody = (props: { compact?: boolean | undefined; onClose: () => void }) => {
+const ProjectSettingsBody = (props: { onClose: () => void }) => {
   const { app, drafts } = useConnectedProject();
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = { surface: "settings", object: "workstreamCap", recipient: null };
@@ -98,7 +98,7 @@ const ProjectSettingsBody = (props: { compact?: boolean | undefined; onClose: ()
     else setFailure(null);
   };
 
-  return <SettingsShell compact={props.compact} heading={copy.projectSettings} onClose={props.onClose}>
+  return <SettingsShell heading={copy.projectSettings} onClose={props.onClose}>
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
       <label class="app-dialog-field">
         <span>{copy.runAtMost}</span>
