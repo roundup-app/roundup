@@ -134,6 +134,8 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
+    recentProjects: async () => [],
+    claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     onNativeOpen: async listener => {
       nativeListeners.add(listener);
 
