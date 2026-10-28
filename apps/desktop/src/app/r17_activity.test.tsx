@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
@@ -11,6 +11,10 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { openProjectPage } from "../testing/menuProbe";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, NOW } from "../testing/nodes";
+
+// Motion captures requestAnimationFrame at import; fake it before loading the App.
+// jsdom otherwise implements frames with an interval counted as a periodic clock.
+vi.hoisted(() => vi.useFakeTimers({ toFake: ["Date", "performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", "cancelAnimationFrame"] }));
 
 const intervals = new Set<Parameters<typeof clearInterval>[0]>();
 
@@ -50,7 +54,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
 };
 
 beforeEach(() => {
-  vi.useFakeTimers(); vi.setSystemTime(NOW); visibility("visible");
+  vi.setSystemTime(NOW); visibility("visible");
   intervals.clear();
   const start = globalThis.setInterval;
   const stop = globalThis.clearInterval;
@@ -63,7 +67,9 @@ beforeEach(() => {
   vi.spyOn(globalThis, "clearInterval").mockImplementation((id) => { intervals.delete(id); stop(id); });
 });
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.clearAllTimers(); visibility("visible"); });
+
+afterAll(() => vi.useRealTimers());
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
@@ -105,6 +111,11 @@ it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async
   expect(clock).toHaveBeenCalledTimes(reads + 1);
   status(app, "child", "done");
   expect(intervals.size).toBe(0);
+  reads = clock.mock.calls.length;
+  app.calls.length = 0;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(clock).toHaveBeenCalledTimes(reads);
+  expect(app.calls).toEqual([]);
   status(app.of("/other"), "other", "working");
   expect(intervals.size).toBe(1);
   app.exitDaemon({ code: 0 }, "/other");
