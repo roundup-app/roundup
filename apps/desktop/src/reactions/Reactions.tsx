@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -188,7 +189,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<div class="reaction-empty"><h3 class="reaction-title">{copy.reactionsEmpty}</h3><p>{reactionCopy.emptyHelp}</p><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button></div>}>
+      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="play" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} action={<button type="button" data-button="primary" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>} /></Show>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;

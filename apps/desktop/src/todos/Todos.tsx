@@ -800,7 +800,7 @@ export const Todos = (props: {
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
       <Show when={isEmpty() && !typing()}>
-        <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
+        <EmptyState art="check" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
       <Show when={inScope().length > 0}>
         <div class="todo-progress" data-todo-progress>
