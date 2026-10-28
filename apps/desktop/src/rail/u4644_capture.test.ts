@@ -54,13 +54,13 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
       await browser("click", '[role="tab"][data-value="pads"]');
       await wait(`!!document.querySelector('.pads-tab')`);
       await snap(`${theme}-mixed-pads`);
-      await read(`window.__fake.app.handlers['pad.list'] = () => []; window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'pad.changed'});`);
-      await wait(`document.querySelectorAll('.pad-row').length === 0`);
+      await read(`(async () => { const pads = await window.__fake.app.rpc('pad.list',{}); for (const pad of pads) await window.__fake.app.rpc('pad.delete',{name:pad.name}); })()`);
+      await wait(`document.querySelectorAll('.pads-tab [data-incarnation]').length === 0 && !!document.querySelector('.pads-tab .empty-state')`);
       await snap(`${theme}-pads-last-removed`);
       await browser("click", '[role="tab"][data-value="todos"]');
       await wait(`!!document.querySelector('.todos-tab')`);
-      await read(`window.__fake.app.handlers['todo.list'] = () => []; window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.changed'});`);
-      await wait(`document.querySelectorAll('.todo-row').length === 0`);
+      await read(`(async () => { const todos = await window.__fake.app.rpc('todo.list',{}); await window.__fake.app.rpc('todo.delete',{ids:todos.map(todo => todo.id),operation:crypto.randomUUID()}); })()`);
+      await wait(`document.querySelectorAll('.todos-tab [data-todo]').length === 0 && !!document.querySelector('.todos-tab .empty-state')`);
       await snap(`${theme}-todos-last-removed`);
     }
     await load("tree-40");
@@ -68,12 +68,17 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
     await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
     await snap("dark-dense-creation-failure");
     if (phase === "head") {
-      for (const shift of [false, true]) {
+      for (const activation of ["chord", "enter", "pointer"]) for (const shift of [false, true]) {
         await load("empty-project");
-        await browser("press", shift ? "Meta+Shift+n" : "Meta+n");
+        if (activation === "chord") await browser("press", shift ? "Meta+Shift+n" : "Meta+n");
+        else {
+          const selector = `.empty-state-start:nth-child(${shift ? 1 : 2}) button`;
+          if (activation === "pointer") await browser("click", selector);
+          else { await browser("focus", selector); await wait(`document.activeElement.matches(${JSON.stringify(selector)})`); await browser("press", "Enter"); }
+        }
         await wait(`window.__fake.app.calls.some(call => call.method === '${shift ? "rail.createWorkstream" : "agent.spawn"}')`);
         expect(await read(`window.__fake.app.calls.filter(call => call.method === '${shift ? "rail.createWorkstream" : "agent.spawn"}').length`)).toBe(1);
-        await snap(`dark-${shift ? "workstream" : "agent"}-chord-result`);
+        await snap(`dark-${shift ? "workstream" : "agent"}-${activation}-result`);
       }
     }
   } finally {
