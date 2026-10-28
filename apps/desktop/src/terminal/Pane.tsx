@@ -259,7 +259,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
+        <Show when={selected()?.kind === "agent" && terminalId() === null && notice() === null}>
           <EmptyState art="editor" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
         <Show when={doorState()}>

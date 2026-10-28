@@ -202,7 +202,7 @@ p.ink[role="alert"] {
   width: calc(var(--space-6) * 3);
   height: calc(var(--space-6) * 3);
   border-radius: var(--radius-round);
-  background: var(--lightest, var(--gray-3));
+  background: var(--key-chip-fill);
   flex: 0 0 auto;
 }
 
