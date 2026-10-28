@@ -41,6 +41,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
 | Snapshot | same | — |
 | Workstream | same | room, folder |
+| Mode | same | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
 | Queue | same | — |
