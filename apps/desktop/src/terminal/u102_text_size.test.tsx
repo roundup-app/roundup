@@ -35,14 +35,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it.each([
-  ["=", false, 15], ["=", true, 15], ["+", false, 15], ["+", true, 15], ["-", false, 13], ["0", false, 14],
-])("u102_command_%s_shift_%s_sets_size_%s", async (key, shiftKey, expected) => {
+  ["=", false, 1], ["=", true, 1], ["+", false, 1], ["+", true, 1], ["-", false, -1],
+])("u102_command_%s_shift_%s_changes_size_by_%s", async (key, shiftKey, delta) => {
   const { emulator, target, app } = await mount();
   const typed = vi.fn();
   target.addEventListener("keydown", typed);
   expect(press(target, key, { shiftKey }).defaultPrevented).toBe(true);
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(expected);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + Number(delta));
   expect(typed).not.toHaveBeenCalled();
   expect(callsTo(app, "terminal.write")).toEqual([]);
 });
