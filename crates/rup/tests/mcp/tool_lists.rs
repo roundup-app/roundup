@@ -367,7 +367,7 @@ async fn a32_removed_tools_are_unavailable() {
     .unwrap();
     let mut before = Vec::new();
     for method in ["rail.tree", "todo.list", "pad.list", "message.list"] {
-        before.push(user.request(method, ()).await.unwrap());
+        before.push(user.request(method, serde_json::json!({})).await.unwrap());
     }
     for id in ["ordinary", door["id"].as_str().unwrap()] {
         let shim = super::spawn_shim(&project.socket, id).await;
@@ -390,7 +390,7 @@ async fn a32_removed_tools_are_unavailable() {
             .zip(&before)
         {
             assert_eq!(
-                &user.request(method, ()).await.unwrap(),
+                &user.request(method, serde_json::json!({})).await.unwrap(),
                 expected,
                 "{method}"
             );
