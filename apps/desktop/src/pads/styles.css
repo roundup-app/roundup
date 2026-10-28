@@ -394,7 +394,7 @@ li[aria-selected="true"] svg {
 }
 
 /* Reserved controls keep the Pad name width stable on focus and selection. */
-.pad-row-head { display: flex; align-items: center; min-width: 0; }
+.pad-row-head { display: flex; align-items: flex-start; min-width: 0; }
 .pad-row-head .pad-name { flex: 1; }
 
 
@@ -406,3 +406,5 @@ li[aria-selected="true"] svg {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
 }
+
+.pad-grip { position: relative; z-index: 1; cursor: grab; }

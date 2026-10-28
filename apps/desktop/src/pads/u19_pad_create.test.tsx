@@ -35,7 +35,8 @@ describe("u19 create", () => {
   });
 
   it("u19_enter_calls_pad_create_with_the_name_and_leaves_a_fresh_focused_field", async () => {
-    const { app } = await openShelf([]);
+    const { app, connected } = await openShelf([]);
+    connected.rail.select(AGENT.id);
     app.handlers["pad.create"] = ({ name }) => padOf(name, USER);
 
     const field = await typeName("notes");
@@ -43,6 +44,7 @@ describe("u19 create", () => {
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
       { method: "pad.create", params: { name: "notes", text: null } },
     ]));
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual([{ name: "notes", home: AGENT.id }]));
     expect(field).toHaveProperty("value", "");
     expect(document.activeElement).toBe(field);
   });
