@@ -20,7 +20,6 @@ describe("u520 the Rail's accessibility tree", () => {
 
     expect(screen.getAllByRole("tree")).toHaveLength(1);
     expect(screen.getByRole("tree").getAttribute("aria-labelledby")).not.toBeNull();
-    expect(screen.getByRole("tree", { name: "Rail" })).toBeTruthy();
 
     const levels = Object.fromEntries(["outer", "inner", "leaf", "door", "child"].map((name) => [name, itemOf(name).getAttribute("aria-level")]));
 

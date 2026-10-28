@@ -186,6 +186,7 @@ export const Rail = () => {
 
     return createTreeCollection({ nodeToValue: node => node.id, nodeToString: node => node.name, rootNode: { id: "", name: "", children } });
   });
+
   const expanded = createMemo(() => collection().getBranchValues().filter(id => {
     const section = sections.find(section => `section:${section.id}` === id);
 
