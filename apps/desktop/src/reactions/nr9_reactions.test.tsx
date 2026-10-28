@@ -1,5 +1,8 @@
+import { App } from "../App";
+import { createFakeApp } from "../testing/fakeApp";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { openProjectPage } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
@@ -690,4 +693,115 @@ it.each(["Z", "-05:00", "+05:30"])("u4276b_time_choice_uses_exact_preview: %s", 
     { date: "2030-01-01", time: "12:00", offset }, { date: "2030-01-02", time: "12:00", offset },
   ]));
   expect(app.calls.find(call => call.method === "reaction.create")?.params).toMatchObject({ condition: { kind: "instant", at: "2030-01-01T12:00:00Z" }, expires_at: "2030-01-02T12:00:00Z" });
+});
+
+const openings = [
+  { opening: "Project menu → Named reactions", detail: false },
+  { opening: "Named reactions → detail → list", detail: true },
+];
+
+const mountList = async (detail: boolean) => {
+  localStorage.clear();
+  const records = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"].map((name, at) => saved({ id: `r${at}`, name, home: at === 2 ? "other-home" : null, target: at === 2 ? "b" : "a" }));
+  const app = createFakeApp();
+  app.opened.project = { path: "/p", name: "Project" };
+  app.handlers["rail.tree"] = () => [workstream("other-home", { name: "Other Home", status: null }), agent("a", "idle", "ready"), agent("b", "idle", "ready", { parent: "other-home" })];
+  app.handlers["terminal.list"] = () => [];
+  app.handlers["reaction.list"] = () => records;
+  app.handlers["reaction.get"] = ({ id }) => records.find(record => record.id === id)!;
+  const { factory } = fakeEmulators();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} />);
+  await screen.findByRole("region", { name: "Project overview" });
+  openProjectPage("view:reactions", "/p");
+  await waitFor(() => expect(document.querySelectorAll(".reaction-row")).toHaveLength(8));
+
+  if (detail) {
+    fireEvent.click(document.querySelectorAll(".reaction-row")[2]!);
+    await screen.findByRole("region", { name: copy.reactionDetail(records[2]!.name) });
+    fireEvent.click(screen.getByRole("button", { name: copy.closeView(records[2]!.name) }));
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelectorAll(".reaction-row")[2]));
+  }
+
+  const rows = [...document.querySelectorAll<HTMLButtonElement>(".reaction-row")];
+  rows[5]!.hidden = true;
+  rows[6]!.disabled = true;
+  rows[7]!.closest("li")!.setAttribute("inert", "");
+
+  return { app, rows, records };
+};
+
+const selectedRows = (rows: HTMLButtonElement[]) => rows.filter(row => row.dataset.rowSelected === "true");
+
+it.each(openings)("u3787c_each_list_navigates_visible_rows $opening", async ({ detail }) => {
+  const { app, rows } = await mountList(detail);
+  const before = app.calls.length;
+  rows[1]!.focus();
+
+  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["ArrowUp", 3], ["ArrowDown", 4], ["a", 0], ["l", 0]] as const) {
+    fireEvent.keyDown(document.activeElement!, { key });
+    expect(document.activeElement).toBe(rows[at]);
+  }
+
+  expect(selectedRows(rows)).toEqual([rows[0]]);
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(document.querySelector(".reaction-detail, .todo-drawer")).toBeNull();
+});
+
+it.each(openings)("u3787c_each_list_selects_only_visible_rows $opening", async ({ detail }) => {
+  const { app, rows: r } = await mountList(detail);
+  const before = app.calls.length;
+  fireEvent.click(r[1]!, { shiftKey: true });
+  expect(selectedRows(r)).toEqual([r[1]]);
+  fireEvent.click(r[4]!, { metaKey: true, shiftKey: true });
+  expect(selectedRows(r)).toEqual([r[4]]);
+  fireEvent.click(r[1]!, { metaKey: true });
+  expect(selectedRows(r)).toEqual([r[1], r[4]]);
+  fireEvent.click(r[3]!, { shiftKey: true });
+  expect(selectedRows(r)).toEqual([r[1], r[2], r[3]]);
+  fireEvent.click(r[2]!, { metaKey: true });
+  expect(selectedRows(r)).toEqual([r[1], r[3]]);
+  fireEvent.click(r[4]!, { metaKey: true, shiftKey: true });
+  expect(selectedRows(r)).toEqual([r[2], r[3], r[4]]);
+  fireEvent.keyDown(r[4]!, { key: "a", metaKey: true });
+  expect(selectedRows(r)).toEqual(r.slice(0, 5));
+  r[1]!.hidden = true;
+  fireEvent.keyDown(r[4]!, { key: "a", metaKey: true });
+  expect(selectedRows(r)).toEqual([r[0], r[2], r[3], r[4]]);
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(app.openedTargets).toEqual([]);
+  expect(document.querySelector(".reaction-detail, .todo-drawer")).toBeNull();
+});
+
+it.each(["Enter", " ", "click"])("u3787c_reaction_activation_preserves_identity_and_list_lifetime_%s", async key => {
+  const { app, rows, records } = await mountList(false);
+  fireEvent.click(rows[1]!, { metaKey: true });
+  rows[2]!.focus();
+  const before = app.calls.length;
+
+  if (key === "click") fireEvent.click(rows[2]!);
+  else fireEvent.keyDown(rows[2]!, { key });
+  await screen.findByRole("region", { name: copy.reactionDetail(records[2]!.name) });
+  await waitFor(() => expect(app.calls.slice(before)).toEqual([{ method: "reaction.get", params: { id: "r2" } }]));
+  fireEvent.click(screen.getByRole("button", { name: copy.closeView(records[2]!.name) }));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelectorAll(".reaction-row")[2]));
+  expect(selectedRows([...document.querySelectorAll<HTMLButtonElement>(".reaction-row")]).map(row => row.dataset.reactionOpener)).toEqual(["r1"]);
+});
+
+it("u3787c_reaction_form_keeps_editor_key_ownership", async () => {
+  const { app } = await mountList(false);
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionCreate }));
+  const field = await screen.findByLabelText(copy.reactionInstruction);
+  const exact = "  é 🧭\n original target  ";
+  fireEvent.input(field, { target: { value: exact } });
+  field.focus();
+  const before = app.calls.length;
+
+  for (const key of ["ArrowDown", "Home", "End", "a"]) {
+    expect(fireEvent.keyDown(field, { key, metaKey: key === "a" })).toBe(true);
+    expect(document.activeElement).toBe(field);
+  }
+
+  expect(field).toHaveProperty("value", exact);
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(document.querySelector(".reaction-detail")).toBeNull();
 });
