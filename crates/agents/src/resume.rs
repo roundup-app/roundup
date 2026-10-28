@@ -34,6 +34,7 @@ impl Agents {
             RailPublication::Immediate,
             mode,
             permission_mode,
+            (80, 24),
         )
         .await
     }
@@ -76,6 +77,7 @@ impl Agents {
                 &id,
                 RESUME_ACK_BOUND,
                 self.launcher.selected_permission_mode(&id),
+                (80, 24),
             )
             .await?;
         }
@@ -93,6 +95,7 @@ impl Agents {
         id: &str,
         ack_bound: Duration,
         permission_mode: Option<contracts::agent::PermissionMode>,
+        size: (u16, u16),
     ) -> Result<RailNode, RpcError> {
         self.resume_conversation(
             ctx,
@@ -103,6 +106,7 @@ impl Agents {
             RailPublication::Immediate,
             None,
             permission_mode,
+            size,
         )
         .await
     }
@@ -118,6 +122,7 @@ impl Agents {
         publication: RailPublication,
         mode: Option<contracts::agent::ResumeMode>,
         permission_mode: Option<contracts::agent::PermissionMode>,
+        size: (u16, u16),
     ) -> Result<RailNode, RpcError> {
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
@@ -243,6 +248,7 @@ impl Agents {
                 false,
                 mode == Some(contracts::agent::ResumeMode::Yolo),
                 permission_mode,
+                size,
             )
             .await
         {

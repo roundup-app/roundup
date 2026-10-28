@@ -138,6 +138,8 @@ impl Project {
 
     pub async fn spawn_agent(&self, client: &Client) -> RailNode {
         let params = SpawnParams {
+            cols: None,
+            rows: None,
             permission_mode: None,
             engine: None,
             cwd: self.dir.path().to_string_lossy().into_owned(),
