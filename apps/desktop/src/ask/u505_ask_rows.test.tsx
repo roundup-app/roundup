@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -56,13 +57,13 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       typed,
     ]);
 
-    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | Sent", "later | lead | Queued for the supervisor"]));
+    await waitFor(() => expect(rowTexts()).toEqual([`ship it | ops | ${copy.askSent}`, `later | lead | ${copy.askQueued}`]));
 
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
-    await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Sent"));
-    expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Idle" })).toBeTruthy();
+    await waitFor(() => expect(rowTexts()[1]).toBe(`later | lead | ${copy.askSent}`));
+    expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: copy.idle })).toBeTruthy();
     app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2, finished: "0" } } }));
-    await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Working" })).toBeTruthy());
+    await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: copy.working })).toBeTruthy());
   });
 
   it("u505_selecting_a_row_selects_its_workstream", async () => {
@@ -167,7 +168,7 @@ it("u4277c_empty_history_keeps_composition_without_target_actions", async () => 
   const list = document.querySelector<HTMLElement>(".ask-rows")!;
   await waitFor(() => expect(list.getAttribute("aria-busy")).toBe("false"));
   expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
-  expect(document.querySelector('.ask-history-status[role="status"]')).not.toBeNull();
+  expect(screen.getByRole("group", { name: copy.askHistoryEmpty })).toBeTruthy();
   expect(document.querySelector('.ask-input')).toBeTruthy();
   expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
@@ -107,7 +108,7 @@ it("u4277c_empty_made_keeps_refresh_and_distinguishes_read_failure", async () =>
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(within(made).queryAllByRole("listitem")).toHaveLength(0);
-  expect(within(made).getByRole("status")).toBeTruthy();
+  expect(within(made).getByRole("group", { name: copy.deliverablesEmpty })).toBeTruthy();
   app.handlers["deliverable.list"] = () => { throw new RpcError(-32003, "Publication list unavailable"); };
 
   fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
