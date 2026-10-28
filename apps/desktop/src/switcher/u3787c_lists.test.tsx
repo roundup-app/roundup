@@ -94,7 +94,8 @@ it("u3787c_filter_and_reopening_preserve_query_and_reset_content_selection", asy
   inventory[0]!.open();
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".switcher input")));
   const restored = document.querySelector<HTMLInputElement>(".switcher input")!;
-  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual(["Delta", 1, 4, "backward"]);
+  // Focus precedes the native select event that restores the retained query selection.
+  await waitFor(() => expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual(["Delta", 1, 4, "backward"]));
   expect(selected()).toEqual([]);
   expect(app.calls.slice(before)).toEqual([]);
 });
