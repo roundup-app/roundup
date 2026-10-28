@@ -79,7 +79,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await load("agents-10");
       await read(`(async () => { const {seedApp} = await import('/src/testing/seeds.ts'); const stopped = await seedApp('door-stopped', Date.now()).app.rpc('rail.tree', {}); const nodes = await window.__fake.app.rpc('rail.tree',{}); window.__fake.app.handlers['rail.tree'] = () => [...nodes, ...stopped.map(node => ({...node, terminal_id:null}))]; window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'}); })()`);
       await wait(`!!document.querySelector('.rail-row[data-id="first-workstream"]')`);
-      await browser("click", '.rail-row[data-id="first-workstream"]');
+      await browser("focus", '.rail-row[data-id="first-workstream"]');
+      await wait(`document.activeElement.matches('.rail-row[data-id="first-workstream"]')`);
+      await browser("press", "Enter");
       await wait(`!!document.querySelector('.pane-door .empty-state')`);
       await snap(`${theme}-stopped-door`);
       await load("resources", "resources");
