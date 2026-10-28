@@ -91,4 +91,4 @@ exact manifest reads and the merge-base comparison.
 
 ## Timeout re-key
 
-`rekey.jsonl` maps 59 baseline entries from the identity that included the timeout argument to the current one. The head's entry count cannot exceed the merge base's, and a new key passes the subset check only through a row whose `from` key the base holds (once). It adds no assertion; once the new keys are on `main` the rows are inert.
+`rekey.jsonl` maps 59 baseline entries from the identity that included the timeout argument to the current one. The normalized keys are now on `main`. This file is historical evidence only: lint never reads it or accepts a key absent from the merge base's baseline. Editing or adding migration rows cannot authorize another assertion.

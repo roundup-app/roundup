@@ -258,12 +258,17 @@ mod lean_specialists {
         run.summary(&first, &run.requests(&first.id).await[0]).await;
         let next = run.spawn(Some("repo"), true).await.unwrap();
         run.idle(&next.id).await;
+        // A4452a: the Handoff reaches the replacement's inbox as a Message, never typed.
         tokio::time::timeout(Duration::from_secs(15), async {
             loop {
-                let input =
-                    std::fs::read_to_string(run.dir.path().join("inputs")).unwrap_or_default();
-                if input.contains("Handoff from the previous specialist") {
-                    assert!(input.contains("Repository findings to retain."));
+                let messages = run
+                    .user
+                    .request("message.list", json!({"to":next.id}))
+                    .await
+                    .unwrap()
+                    .to_string();
+                if messages.contains("Handoff from the previous specialist") {
+                    assert!(messages.contains("Repository findings to retain."));
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
@@ -271,6 +276,8 @@ mod lean_specialists {
         })
         .await
         .unwrap();
+        let typed = std::fs::read_to_string(run.dir.path().join("inputs")).unwrap_or_default();
+        assert!(!typed.contains("Handoff from the previous specialist"));
         run.stop_signal(&next, 161000).await;
         assert_eq!(run.launches(3).await.len(), 3);
         run.summary(&next, &run.requests(&next.id).await[0]).await;

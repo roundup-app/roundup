@@ -205,6 +205,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
+            .with_coordination(|_, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
@@ -286,16 +287,28 @@ impl DoorHarness {
         self.h.agents.call(&self.h.ctx,"rail.createWorkstream",json!({"name":"Work","order":{"kind":"work","title":"Work","ask":"initial","limits":[]}})).await.unwrap()["id"].as_str().unwrap().into()
     }
     async fn start(&mut self, id: &str) {
+        let mut events = self.h.ctx.bus.subscribe();
         let node = self
             .h
             .agents
             .call(&self.h.ctx, "rail.startDoor", json!({"id":id}))
             .await
             .unwrap();
+        // The fake's startup title must be folded before a test submits user input.
+        // Otherwise its late idle title can overtake that input's working signal.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let contracts::EventData::AgentStatus(status) = events.recv().await.unwrap().data
+                    && status.id == id
+                    && status.status.kind == contracts::Kind::Idle
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
         self.signal(id, "SessionStart").await;
-        let initial = self.read().await;
-        assert!(String::from_utf8_lossy(&initial).contains("initial"));
-        self.signal(id, "UserPromptSubmit").await;
         assert_eq!(
             self.h
                 .agents
@@ -304,7 +317,6 @@ impl DoorHarness {
                 .unwrap(),
             agents::FirstSteerCompletion::Submitted
         );
-        self.signal(id, "Stop").await;
     }
     async fn changed(
         &self,
@@ -435,7 +447,6 @@ async fn a41_a_stopped_door_is_started_first() {
         }
     }
     f.signal(&id, "SessionStart").await;
-    assert!(String::from_utf8_lossy(&f.read().await).contains("initial"));
     f.signal(&id, "UserPromptSubmit").await;
     assert!(f.bytes.try_recv().is_err());
     f.signal(&id, "Stop").await;
