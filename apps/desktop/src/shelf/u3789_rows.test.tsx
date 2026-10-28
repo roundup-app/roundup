@@ -3,7 +3,7 @@ import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
