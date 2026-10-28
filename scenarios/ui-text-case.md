@@ -112,7 +112,7 @@ These are future implementation observers, not claims that tests exist on main. 
 
 ## Door wording without a role label
 
-**U471 Door copy names the Workstream or the action.** Given a selected Workstream whose Door is starting, never started, failed or stopped, or an Ask, Clear, recovery or Todos Auto surface referring to it, when the App renders its own copy or builds a native menu, then:
+**Door copy names the Workstream or the action (U471 policy amendment).** Given a selected Workstream whose Door is starting, never started, failed or stopped, or an Ask, Clear, recovery or Todos Auto surface referring to it, when the App renders its own copy or builds a native menu, then:
 
 - **Wording (policy).** No App-authored visible or accessible text calls the Door a supervisor, Door, coordinator, lead or another role. Name the Workstream, preserving its authored name exactly, or omit the subject. A stopped centre reads `<workstream> stopped` beside `Start`; a pending start reads `Starting <workstream>…`; the Auto hint reads `Hand out unassigned Todos`. Start and Retry apply in Rail menus too. Other statuses keep U143's distinct meanings and exit details. User/Agent text, names, paths, code, Adapter labels and Terminal output remain unchanged, even when they contain a role word.
 - **Glossary (policy).** In the implementation PR, change Door's user label to `none`, Start Door to `Start`, Retry Door to `Retry`, and every other glossary row using supervisor. Keep Door identifiers, RPC methods and wire values unchanged. This specification defines the mapping; the glossary changes atomically with callers under the Contract recipe.
