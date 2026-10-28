@@ -4,6 +4,7 @@ import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
+import { captureFocus } from "../keys/focus";
 import type { OwnerGroup } from "./scope";
 
 type Entry = { id: string; name: string; children: Entry[] };
@@ -23,6 +24,11 @@ export const OwnerGroups = <T,>(props: {
   arrivals?: Accessor<readonly string[]>;
   /** A Todo filed before groups first mount starts its new group expanded. */
   unfold?: Accessor<number>;
+  /** U4457: the group a Rail Agent's Pads control asks for; it unfolds, scrolls into view and takes focus, then `onFocused` ends the request. */
+  focus?: Accessor<string | null>;
+  /** A Todo request lands on the first counted item rather than its owner's header. */
+  focusItem?: () => HTMLElement | null;
+  onFocused?: () => void;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
   bare?: Accessor<string | null>;
   /** U3770: completion effects only play in expanded groups. */
@@ -30,7 +36,7 @@ export const OwnerGroups = <T,>(props: {
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
-  const [closed, setClosed] = createSignal<string[]>(!props.unfold?.() && props.groups().some(group => group.id === "unassigned" && group.items.length > 0) ? ["unassigned"] : []);
+  const [closed, setClosed] = createSignal<string[]>(!props.unfold?.() && !props.arrivals?.().includes("unassigned") && props.focus?.() !== "unassigned" && props.groups().some(group => group.id === "unassigned" && group.items.length > 0) ? ["unassigned"] : []);
 
   createEffect(() => props.onClosedChange?.(closed()));
 
@@ -52,7 +58,24 @@ export const OwnerGroups = <T,>(props: {
 
   createEffect(on([props.reveal, () => props.arrivals?.() ?? []], ([reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== reveal && !arrivals.includes(each)))));
 
+  createEffect(() => {
+    const id = props.focus?.();
 
+    if (id === null || id === undefined || !shown().some(group => group.id === id)) return;
+    setClosed(kept => kept.filter(each => each !== id));
+    const focus = captureFocus();
+
+    // Ark Collapsible applies its controlled open state before the next paint; a hidden Todo cannot take native focus.
+    requestAnimationFrame(() => focus(() => {
+      if (props.focus?.() !== id) return;
+      const branch = document.querySelector<HTMLElement>(`[data-shelf-group="${CSS.escape(id)}"]`);
+      const target = props.focusItem?.() ?? branch?.querySelector<HTMLElement>(".shelf-group-head:not([hidden]) .shelf-group-control") ?? branch?.querySelector<HTMLElement>("[role=treeitem] button, button");
+
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest" });
+      props.onFocused?.();
+    }));
+  });
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {

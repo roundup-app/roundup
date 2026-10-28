@@ -19,6 +19,12 @@ Observer: `a35_` tests in `crates/rup/tests/**` against a real `rupd` with a det
 
 U374 is removed by #1580: no App Checkpoint rewind word, picker, or files-choice form is required. The implementation removes U374-only code, tests and captures alongside the obsolete App-facing rewind callers; existing Checkpoint storage and A35's Daemon support remain. Test: `a35_rewind_has_no_app_only_caller_or_u374_surface` (vitest, `apps/desktop/src/a35_surface.test.ts`) inventories surviving callers and verifies the removed Thread surface is absent. The user may still use Claude Code's own `/rewind` directly in a child's Terminal; the Door uses its direct tool instead (policy). No visual change is claimed by this specification.
 
+**Mark**: The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
+
+**Restart reservation**: The Daemon coordinator's durable protection of Message delivery to a retained Agent during its conversation restart (A35). Pending Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
+**Retirement reservation**: The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for delivery, separate from a retained Agent's Restart reservation.
+
 ## A2961 process requirements
 
 For the fixed inventory in `scenarios/rewind-test-cost.md`, retain only these process-dependent A35 observers. Each row names the process or clock, the break it detects, and why a process-free owner test cannot observe it. Removed names in the clauses above map to the surviving assertions in the implementation PR’s A2961 inventory; no product outcome is retired. Process-free replacements use production stores, dispatch and Adapter methods without serving a Daemon or launching a program.

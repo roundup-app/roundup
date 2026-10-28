@@ -10,5 +10,5 @@ import { shelfScope } from "../shelf/scope";
 export const shownPads = (connected: ConnectedProject, list: PadList): Accessor<Pad[]> => {
   const scope = shelfScope(connected);
 
-  return createMemo(() => list.pads().filter(pad => scope.includes(pad.home, pad.owner)));
+  return createMemo(() => list.pads().filter(pad => scope.includes(pad.home, pad.owner) || (pad.owner.kind === "agent" && pad.owner.id === connected.padsOwner())));
 };
