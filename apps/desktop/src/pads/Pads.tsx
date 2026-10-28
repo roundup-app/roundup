@@ -447,7 +447,7 @@ const PadRows = (props: {
   onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
 }) => (
-    <Sortable.Root class="shelf-list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} external={props.external} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} external={props.external} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
           <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
