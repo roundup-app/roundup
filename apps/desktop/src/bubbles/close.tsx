@@ -40,8 +40,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       if (controlHadFocus) queueMicrotask(() => focus(() => {
         const remaining = shown();
         const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
-        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
-        control?.focus();
+        if (nextId !== undefined) document.querySelector<HTMLElement>(`.bubble[data-bubble="${nextId}"] .bubble-header`)?.focus();
       }));
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
@@ -56,7 +55,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   const Failure = (props: { message: string | null; children?: JSX.Element }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message}>
     <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
-      document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${failed().id}"] button:last-child`)?.focus();
+      document.querySelector<HTMLElement>(`.bubble[data-bubble="${failed().id}"] [aria-label="${copy.close}"]`)?.focus();
       void close(failed().id);
     }}>{copy.retry}</button>}</Show>
     {props.children}

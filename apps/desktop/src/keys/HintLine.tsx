@@ -1,5 +1,5 @@
 import { KeyHint } from "./KeyHint";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { hintsFor, LEADER } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "../copy";
@@ -105,8 +105,10 @@ export const HintLine = () => {
   });
 
   return (
-    <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
-      <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
-    </p>
+    <Show when={hints().length > 0}>
+      <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
+        <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
+      </p>
+    </Show>
   );
 };
