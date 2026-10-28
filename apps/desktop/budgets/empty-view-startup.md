@@ -60,3 +60,31 @@ Pads and import pass D1–D14 on both. Failed Pad creation preserves its exact
 draft and visible cause; only the identical pre-existing D12 reading of 1240
 fails on both. `loop/rules.sh delta` exits 0; no passing Check regresses.
 Screenshots and readings stay under `artifacts/ux/U3010d/{base,head}/`.
+
+The CI repair compares incoming immutable head
+`1fc15d269c3d01b4256d706ac9b5da6bf4ab76fb` with implementation
+`c9e02b34c` after a clean merge of `origin/main`. Same Node/pnpm, clean production
+builds and level-9 compression:
+
+| Revision | Entry gzip | Eager closure gzip | Raw eager bytes | JS files |
+| --- | ---: | ---: | ---: | ---: |
+| Incoming head `1fc15d269` | 166,140 | 400,881 | 1,240,503 | 16 |
+| Repair `c9e02b34c` | 158,722 | 394,833 | 1,214,029 | 20 |
+
+The incoming head incorporated upstream product changes after the earlier
+399,474-byte observation. Its previous deferrals no longer meet U3010d.
+Deferring the existing Ark font-size control in App Settings restores a
+5,167-byte margin. Solid still owns loading/retry; the existing settings owner
+retains drafts and save callbacks. The new NumberInput facade chunk is 110
+gzip bytes; shared chunk repartition also changes the closure total. Pads and
+ImportPanel remain deferred (5,619 and 2,941 gzip bytes respectively).
+No dependency, bundler, startup guard or contract changes; incremental Motion
+bytes remain zero. Both startup observers verify artifact hashes and pass.
+
+ReservedLine now owns pending feedback; failed imports show catalogue copy
+naming the surface and Retry instead of the browser's URL. An unavailable
+Import keeps its SettingsShell heading, Close action and content inset.
+Paired headless dark captures at 1512×950 on tree-40 compare the incoming head
+and repair: Pads failure, Import failure and loaded Settings preserve D1–D14
+(`loop/rules.sh delta`, exit 0). Captures remain in
+`artifacts/ux/U3010d/{base,head}/`; they make no native rendering claim.
