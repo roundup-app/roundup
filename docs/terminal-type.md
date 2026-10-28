@@ -356,10 +356,48 @@ The initial focused capture attempts exited 1 with storage denied before any
 App capture; those attempts supply no visual evidence. The first broad related
 run was stopped after it selected unrelated App/Daemon observers; the changed
 capture file's related run and the focused regression runs above completed.
-Raw logs remain uncommitted in `artifacts/ux/U4592/validation/`.
+Raw logs are retained uncommitted in `artifacts/ux/U4592/validation.tar.gz`.
 
 The latest completed main CI run [40754668320](https://github.com/roundup-app/roundup/actions/runs/40754668320)
 on `fbec3b5e5d1487565b34503353225e5c6b12512d` passed both `mac` and
 `mac-clippy`. No native timing is inferred; the existing K1/K2 tests above retain
 the opt-in build and echoed-character timing boundaries. Native appearance and
 WKWebView timing remain post-merge observations.
+
+### Linux performance pair
+
+`just perf --out artifacts/ux/U4592/validation/perf.json` exits 0 on host
+`runnervm48cm3`, job `40758778090/1/fix-run` (`linux-9v45`). The immutable
+baseline is `c0ab5e0d24beccc11faddd3759fd73ba2657cdce`; implementation head is
+`b5091cb6a0579b134337b03b028b898f1f67384b`. Later commits change only the capture
+observer and evidence. Separate release builds produce identical Daemon, CLI
+and sidecar hashes. One common observer collects eleven samples per side,
+1,000 calls per latency observation. The full report, observer/toolchain identity,
+commands, hashes, samples and exit are committed in
+`artifacts/ux/U4592/perf.json`; command/build/startup logs and the original raw
+report are retained in `artifacts/ux/U4592/validation.tar.gz`.
+
+| Metric | Base | Head |
+| --- | --- | --- |
+| Cold plugin materialization | 10.346 ms | 10.037 ms |
+| Cold start | 10.208 ms | 10.202 ms |
+| Hook loop | 255.323 ms | 247.601 ms |
+| Ping p95 | 0.044126 ms | 0.045829 ms |
+| Rail tree, 10 nodes p95 | 0.130106 ms | 0.130037 ms |
+| Rail tree, 40 nodes p95 | 0.394917 ms | 0.375516 ms |
+| Extra RSS | 2.184 MB | 2.230 MB |
+| Terminal write p95 | 0.071098 ms | 0.067521 ms |
+| Write-to-output p95 | 0.107774 ms | 0.103906 ms |
+
+All nine comparisons pass the unchanged limits and 10% regression policy;
+`passed` and `clean` are true, with no skipped metric or stored miss. This
+Daemon observer supplies no WKWebView key-to-render timing.
+
+Final validation: `just ready` exits 0, including lints, trailer/frozen guards,
+workflow tests, N7 launch-site test and proofs (`ALL PROOFS CHECK`). The first
+attempt exited 143 during proof checks. The next exited 1 because untracked raw
+logs quoted existing spelling diagnostics and were themselves scanned. Moving
+those logs outside the source tree repaired the observation; no rule, baseline
+or source check changed. The final logs are retained in `validation.tar.gz`.
+`loop/rules.sh vocab`, `ci-trailers local`, `frozen local` and `merge-loss` also
+exit 0. No PNG or video is committed.
