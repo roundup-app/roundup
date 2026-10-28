@@ -62,7 +62,7 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   }));
 
   return <Show when={current()}>{node => <div class="todo-auto">
-    <Switch checked={node().auto ?? false} onCheckedChange={async auto => {
+    <Switch description={copy.todoAutoHint} checked={node().auto ?? false} onCheckedChange={async auto => {
       if (pending()) return;
       const id = node().id;
       setPending(true);
@@ -71,7 +71,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       if (current()?.id === id) setFailure(message);
       setPending(false);
     }}>{copy.todoAuto}</Switch>
-    <span class="todo-auto-hint">{copy.todoAutoHint}</span>
     <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };

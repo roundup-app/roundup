@@ -21,16 +21,16 @@
   align-items: center;
   flex: none;
   box-sizing: border-box;
-  width: calc(var(--space-5) + var(--space-4));
-  height: var(--space-5);
+  width: calc(var(--space-4) + var(--space-3));
+  height: var(--space-4);
   padding: var(--hairline-width);
   border: var(--hairline-width) solid var(--form-border);
   border-radius: var(--radius-pill);
   background: var(--form-off);
 }
 .app-switch-thumb {
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--space-3);
+  height: var(--space-3);
   border-radius: var(--radius-pill);
   background: var(--form-thumb);
 }
@@ -58,4 +58,9 @@
 }
 .app-switch:has(input[data-pressed="true"]:not(:disabled)) {
   opacity: var(--press-opacity);
+}
+
+/* Pointer activation ends the keyboard ring even when the input keeps focus. */
+.app-switch:not([data-keyboard-focus]):has(input:focus-visible) .app-switch-track {
+  outline: none;
 }
