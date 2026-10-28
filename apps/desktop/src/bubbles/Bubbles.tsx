@@ -818,7 +818,7 @@ export const Bubbles = (props: {
 
     return <>
       <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised}
-        title={editing()?.id === id ? <Show when={editing()} keyed>{_edit =>
+        heading={editing()?.id === id ? <Show when={editing()} keyed>{_edit =>
           <div class="bubble-title-editor" data-bubble={id}>
             <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
               onValueCommit={async ({ value }) => {

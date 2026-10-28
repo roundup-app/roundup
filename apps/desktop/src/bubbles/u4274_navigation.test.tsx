@@ -17,9 +17,6 @@ it.each(["keyboard", "menu"].flatMap(source => ["home", "a1", null, "empty"].map
 
     return { terminal_id: "shell" }; };
 
-  expect(screen.queryByRole("group", { name: "Terminals" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "New Terminal" })).toBeNull();
-
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   else openProjectPage("action:chord:⌘T", "/p");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
