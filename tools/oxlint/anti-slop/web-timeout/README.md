@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 158 timeout observations in 50 files require review
+  -> 160 timeout observations in 52 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source equals base `d99d98226`;
+file count and each diagnostic. Its App source equals base `00eb126ac`;
 the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 70 retained fixtures include 45 negatives, each with its own diagnostic and
+The 76 retained fixtures include 49 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -42,7 +42,8 @@ output file while running the fixture test command. Each fixture removes only it
 own directory.
 
 The rule reads the installed Vitest APIs: numeric third argument, options timeout,
-import aliases, local aliases/constants/arithmetic, namespace imports, chained and
+import aliases, local aliases/constants/arithmetic, namespace imports (including
+constant computed members and direct const destructuring), chained and
 parameterized registrations, suite inheritance, `vi.setConfig`, and configured
 `testTimeout`. `defineConfig` from Vite or Vitest (including imported aliases and namespace
 imports) resolves the effective `test` / `testTimeout` through the same property
@@ -54,7 +55,8 @@ CJS/ESM extensions) resolve the same effective properties, including aliases,
 computed keys and spreads. Unrelated default exports are not configuration.
 An exported alias of `defineConfig(...)` is checked at its call rather than
 misread as an unresolved object. Configuration-wide defaults still cannot use
-a named-test exception.
+a named-test exception. Configuration namespace destructuring reuses the same
+import resolution as test registrations; unrelated objects remain outside this rule.
 
 Unknown file configuration and computed option keys fail at their
 source location. A later explicit timeout overrides an earlier unknown property,
