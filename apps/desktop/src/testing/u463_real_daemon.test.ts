@@ -548,6 +548,7 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
   const app = createServedApp(real.base);
   const evidence = captureDir("U4590") ?? join(scratch, "evidence");
   mkdirSync(evidence, { recursive: true });
+
   try {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
@@ -555,9 +556,11 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
     await wait("!!document.querySelector('[aria-label=\"Add Workstream\"]')");
     await read(`(() => {
       window.__launches = [];
+      window.__sizingWrites = [];
       const original = window.fetch.bind(window);
       window.fetch = async (url, options) => {
         const call = options?.body && JSON.parse(options.body);
+        if (call?.method === 'terminal.write') window.__sizingWrites.push(call);
         const launch = call && ['rail.startDoor', 'agent.spawn', 'terminal.open'].includes(call.method);
         const fitted = launch ? [...window.__terminals.values()].at(-1).fit() : null;
         const response = await original(url, options);
@@ -565,30 +568,45 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
         return response;
       };
     })()`);
-    for (const action of ["door", "agent", "shell", "quick"]) {
+
+    for (const action of ["door", "agent", "prompt", "shell", "quick"]) {
       await read("window.__launches.length = 0");
+
       if (action === "door") await browser("click", '[aria-label="Add Workstream"]');
       else if (action === "agent") await browser("click", '[aria-label="New Agent"]');
+      else if (action === "prompt") {
+        await browser("press", "Meta+Shift+n");
+        await wait("document.activeElement?.matches('.spawn-prompt-field')");
+        await browser("fill", ".spawn-prompt-field", "sizing-fixture");
+        await browser("press", "Enter");
+      }
       else if (action === "shell") await browser("click", ".terminal-new");
       else {
         await read("document.querySelector('.rail-row').click()");
         await wait("!document.querySelector('.bubble:not([hidden])')");
         await browser("press", "Meta+t");
       }
+
       await wait("window.__launches.length === 1");
       const trace = await read<{ method: string; params: { cols: number; rows: number }; fitted: { cols: number; rows: number }; outcome: { result: { terminal_id: string } } }>("window.__launches[0]");
       expect({ cols: trace.params.cols, rows: trace.params.rows }).toEqual(trace.fitted);
+      expect(await read("window.__sizingWrites")).toEqual([]);
       const id = trace.outcome.result.terminal_id;
       let first: Awaited<ReturnType<typeof app.rpc<"terminal.snapshot">>>;
-      await expect.poll(async () => { first = await app.rpc("terminal.snapshot", { id }); return Buffer.from(first.data, "base64").toString(); }).toContain("first ");
+      await expect.poll(async () => { first = await app.rpc("terminal.snapshot", { id });
+
+ return Buffer.from(first.data, "base64").toString(); }).toContain("first ");
       const before = Buffer.from(first!.data, "base64").toString();
       expect(before).toContain(`first ${trace.fitted.cols} ${trace.fitted.rows}`);
       const pid = /pid=(\d+)/.exec(before)![1];
       const incarnation = (await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation;
       await browser("set", "viewport", "1412", "850");
+
       if (action === "shell" || action === "quick") await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
       let later = "";
-      await expect.poll(async () => { const snapshot = await app.rpc("terminal.snapshot", { id }); later = Buffer.from(snapshot.data, "base64").toString(); return later; }).toContain("later ");
+      await expect.poll(async () => { const snapshot = await app.rpc("terminal.snapshot", { id }); later = Buffer.from(snapshot.data, "base64").toString();
+
+ return later; }).toContain("later ");
       expect(later).toContain(`pid=${pid}`);
       expect((await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation).toBe(incarnation);
       writeFileSync(join(evidence, `${action}-launch.json`), JSON.stringify({ trace, before, later, pid, incarnation }, null, 2));

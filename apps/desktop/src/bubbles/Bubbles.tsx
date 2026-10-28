@@ -29,10 +29,11 @@ import {
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
-/** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
+
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const ESCAPE = "Escape".split(" ");
+
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: {
   screens: Screens;
@@ -59,33 +60,45 @@ export const Bubbles = (props: {
   createEffect(() => {
     const listed = records();
     const prior = untrack(copyFailure);
+
     if (prior && !listed.some(draft => draft.revision === prior.revision)) failCopy(null);
   });
   const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
+
   const problem = () => {
     const failure = drafts.problem();
+
     return failure?.destination && failure.destination.surface !== "bubbles" ? null : failure;
   };
+
   const original = (draft: ReturnType<typeof drafts.list>[number]) => rail.terminals().find(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running);
   let recoveryPanel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
+
   const refreshPlaces = (event: StorageEvent) => {
     if (event.storageArea === window.sessionStorage && event.key === `roundup:bubble-places:${path}`) setPlaces(store.read());
   };
+
   window.addEventListener("storage", refreshPlaces);
   onCleanup(() => window.removeEventListener("storage", refreshPlaces));
+
   const persistPlaces = (value: Record<string, Place>): void => {
     if (connected.daemonExit() === null) store.write(value);
   };
+
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
   const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
+
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
     setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
   };
+
   createEffect(() => {
     const terminals = rail.terminals();
+
     if (connected.daemonExit() !== null) return;
     const prior = untrack(failure);
+
     if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
   });
   const [opening, setOpening] = createSignal(false);
@@ -106,14 +119,18 @@ export const Bubbles = (props: {
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
+
   const extent = (): Extent => {
     const box = layer()?.getBoundingClientRect();
+
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
   };
+
   // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
   const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
   const [openedHere, setOpenedHere] = createSignal<readonly string[]>([]);
   createEffect(on(() => rail.selected(), () => setOpenedHere([]), { defer: true }));
+
   const shown = createMemo(() => {
     if (rail.selected() === null) return rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id));
     const eligible = shownFor(rail.terminals(), rail.nodes, rail.selected());
@@ -366,9 +383,11 @@ export const Bubbles = (props: {
     destinations.set(key, destination.resolve);
     setReserved(prior => ({ ...prior, [key]: null }));
     let prepared: Awaited<ReturnType<Screens["prepare"]>> | undefined;
+
     try {
       const { host, settled } = await destination.promise;
       prepared = await props.screens.prepare(host, settled, controller.signal);
+
       if (!current() || rail.selected() !== selection) return null;
       const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
       prepared.bind(opened.terminal_id);
@@ -379,12 +398,13 @@ export const Bubbles = (props: {
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
 
-        if (selection !== null && workstream === null) setOpenedHere(prior => [...prior, opened.terminal_id]);
+        if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
 
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
       setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
+
       if (available() && focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
 
       if (available()) {
@@ -406,7 +426,10 @@ export const Bubbles = (props: {
       controller.abort();
       prepared?.dispose();
       destinations.delete(key);
-      if (reserved()[key] === null) setReserved(prior => { const next = { ...prior }; delete next[key]; return next; });
+
+      if (reserved()[key] === null) setReserved(prior => { const next = { ...prior }; delete next[key];
+
+ return next; });
       setOpening(false);
 
       if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
@@ -932,7 +955,8 @@ export const Bubbles = (props: {
     <div class="bubbles" ref={setLayer}>
       <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
         const id = () => reserved()[key] ?? key;
-        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : copy.terminals} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={terminal => { if (reserved()[key] === null) { openingController?.abort(); return Promise.resolve(); } return close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
+
+        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : copy.terminals} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
       }}</For>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
       <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>

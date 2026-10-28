@@ -233,9 +233,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     setDoors(id, { pending: true, observedLive: false, failure: null });
 
     let prepared: TerminalPreparation | undefined;
+
     try {
       if (selected() === id) prepared = await state.prepareTerminal?.();
       const node = await boundedStart(id, prepared?.size);
+
       if (node.terminal_id) prepared?.bind(node.terminal_id);
       commandFailure.acknowledge(id);
       fetching(fetchTree);

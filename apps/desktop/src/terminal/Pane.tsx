@@ -95,11 +95,18 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const host = screen();
 
     if (!host) throw new Error("Terminal destination unavailable");
+
     try {
       const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);
-      return { ...prepared, dispose: () => { prepared.dispose(); if (preparation === controller) { preparation = undefined; setPreparing(false); } } };
-    } catch (error) { if (preparation === controller) { preparation = undefined; setPreparing(false); } throw error; }
+
+      return { ...prepared, dispose: () => { prepared.dispose();
+
+ if (preparation === controller) { preparation = undefined; setPreparing(false); } } };
+    } catch (error) { if (preparation === controller) { preparation = undefined; setPreparing(false); }
+
+ throw error; }
   };
+
   createEffect(on(rail.selected, () => preparation?.abort(), { defer: true }));
   onCleanup(() => { preparation?.abort(); rail.prepareTerminal = undefined; });
   let pendingFrame: number | null = null;

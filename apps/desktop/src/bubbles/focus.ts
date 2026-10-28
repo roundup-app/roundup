@@ -10,12 +10,11 @@ export const focusPane = (): void => {
 
 export const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
-  export const focusItem = (id: string, place: Place | undefined, screens: Screens): void => {
+export const focusItem = (id: string, place: Place | undefined, screens: Screens): void => {
+  if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
+  else screens.emulatorFor(id).focus();
+};
 
-    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
-    else screens.emulatorFor(id).focus();
-  };
-
-  export const focusedId = (active: Element | null = document.activeElement): string | null => {
-    return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
-  };
+export const focusedId = (active: Element | null = document.activeElement): string | null => {
+  return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
+};
