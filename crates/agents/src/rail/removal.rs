@@ -3,11 +3,152 @@ use super::*;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Placement {
-    before: Vec<RailNode>,
-    after: Vec<RailNode>,
+    before: Vec<Position>,
+    after: Vec<Position>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct Position {
+    id: String,
+    name: String,
+    parent: Option<String>,
+    order: u32,
+}
+
+impl From<RailNode> for Position {
+    fn from(node: RailNode) -> Self {
+        Self {
+            id: node.id,
+            name: node.name,
+            parent: node.parent,
+            order: node.order,
+        }
+    }
+}
+
+impl Placement {
+    // Old receipts already contain the original row values in their inverse changeset.
+    // Decode them with SQLite's iterator, so their unrelated placements get the same repair.
+    fn read(boundary: &str, graph: &[u8], current: &[RailNode]) -> Result<Self, RpcError> {
+        use rusqlite::{
+            fallible_streaming_iterator::FallibleStreamingIterator, session::ChangesetIter,
+            types::ValueRef,
+        };
+        if let Ok(placement) = serde_json::from_str::<Self>(boundary) {
+            return Ok(placement);
+        }
+        let rows: Vec<(serde_json::Value, Option<serde_json::Value>, u32)> =
+            serde_json::from_str(boundary).map_err(RpcError::internal)?;
+        let id_text = |id: serde_json::Value| {
+            id.as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| id.to_string())
+        };
+        let after: Vec<_> = rows
+            .into_iter()
+            .map(|(id, parent, order)| {
+                let id = id_text(id);
+                let name = current
+                    .iter()
+                    .find(|n| n.id == id)
+                    .map(|n| n.name.clone())
+                    .unwrap_or_default();
+                Position {
+                    id,
+                    parent: parent.map(id_text),
+                    order,
+                    name,
+                }
+            })
+            .collect();
+        let mut before = after.clone();
+        let input: &mut dyn std::io::Read = &mut graph.as_ref();
+        let mut changes = ChangesetIter::start_strm(&input).map_err(sql)?;
+        while let Some(item) = changes.next().map_err(sql)? {
+            let op = item.op().map_err(sql)?;
+            if op.table_name() != "nodes" {
+                continue;
+            }
+            let insert = op.code() == rusqlite::hooks::Action::SQLITE_INSERT;
+            if !insert && op.code() != rusqlite::hooks::Action::SQLITE_UPDATE {
+                continue;
+            }
+            let id = if insert {
+                item.new_value(0)
+            } else {
+                item.old_value(0)
+            }
+            .map_err(sql)?
+            .as_i64()
+            .map_err(RpcError::internal)?
+            .to_string();
+            if insert {
+                before.push(Position {
+                    id: id.clone(),
+                    name: item
+                        .new_value(2)
+                        .map_err(sql)?
+                        .as_str()
+                        .map_err(RpcError::internal)?
+                        .into(),
+                    parent: None,
+                    order: 0,
+                });
+            }
+            let node = before
+                .iter_mut()
+                .find(|n| n.id == id)
+                .ok_or_else(|| RpcError::internal("retained placement missing"))?;
+            match item.new_value(3) {
+                Ok(ValueRef::Null) => node.parent = None,
+                Ok(value) => {
+                    node.parent = Some(value.as_i64().map_err(RpcError::internal)?.to_string())
+                }
+                Err(rusqlite::Error::InvalidColumnIndex(_)) if !insert => {}
+                Err(error) => return Err(sql(error)),
+            }
+            match item.new_value(4) {
+                Ok(value) => {
+                    node.order = u32::try_from(value.as_i64().map_err(RpcError::internal)?)
+                        .map_err(RpcError::internal)?
+                }
+                Err(rusqlite::Error::InvalidColumnIndex(_)) if !insert => {}
+                Err(error) => return Err(sql(error)),
+            }
+        }
+        Ok(Self { before, after })
+    }
 }
 
 impl Rail {
+    pub(super) fn prepare_placements(db: &Connection) -> Result<(), RpcError> {
+        let mut query = db.prepare("SELECT operation,boundary,graph FROM rail_deletions WHERE restored=0 AND json_type(boundary)='array'").map_err(sql)?;
+        let rows = query
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, Vec<u8>>(2)?,
+                ))
+            })
+            .map_err(sql)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sql)?;
+        let current = load(db)?;
+        for (operation, boundary, graph) in rows {
+            let placement = Placement::read(&boundary, &graph, &current)?;
+            db.execute(
+                "UPDATE rail_deletions SET boundary=? WHERE operation=?",
+                params![
+                    serde_json::to_string(&placement).map_err(RpcError::internal)?,
+                    operation
+                ],
+            )
+            .map_err(sql)?;
+        }
+        Ok(())
+    }
+
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
     /// still under `id`.
@@ -86,7 +227,7 @@ impl Rail {
             });
             tx.execute("INSERT INTO rail_deletions(operation,actor,node,record,graph,boundary) VALUES(?,?,?,?,?,?)", params![
             operation, serde_json::to_string(actor).map_err(RpcError::internal)?, id,
-            serde_json::to_string(&removal).map_err(RpcError::internal)?, inverse, serde_json::to_string(&Placement { before, after: load(&tx)? }).map_err(RpcError::internal)?
+            serde_json::to_string(&removal).map_err(RpcError::internal)?, inverse, serde_json::to_string(&Placement { before: before.into_iter().map(Position::from).collect(), after: load(&tx)?.into_iter().map(Position::from).collect() }).map_err(RpcError::internal)?
         ]).map_err(sql)?;
         }
         drop(graph);
@@ -201,14 +342,15 @@ impl Rail {
                 |r| r.get(0),
             )
             .map_err(sql)?;
-        let placement = serde_json::from_str::<Placement>(&boundary).ok();
         let current = load(db)?;
-        // Older receipts retain their existing guard; they remain recoverable.
-        if placement.is_none() && boundary != Self::removal_boundary(db)? {
-            return Err(RpcError::conflict(
-                "Can't undo this removal while its original placement is unavailable. The deletion is retained.",
-            ));
-        }
+        let graph: Vec<u8> = db
+            .query_row(
+                "SELECT graph FROM rail_deletions WHERE operation=?",
+                [&p.operation],
+                |r| r.get(0),
+            )
+            .map_err(sql)?;
+        let placement = Placement::read(&boundary, &graph, &current)?;
         let restored_ids: Vec<_> = removal
             .removed
             .iter()
@@ -223,7 +365,7 @@ impl Rail {
                     .as_str(),
             ))
             .collect();
-        if let Some(placement) = &placement {
+        {
             for node in placement
                 .before
                 .iter()
@@ -246,13 +388,6 @@ impl Rail {
                 }
             }
         }
-        let graph: Vec<u8> = db
-            .query_row(
-                "SELECT graph FROM rail_deletions WHERE operation=?",
-                [&p.operation],
-                |r| r.get(0),
-            )
-            .map_err(sql)?;
         // The changeset already contains every trigger's graph mutation. Replaying
         // triggers would create new instruction revisions or repeat placement effects.
         let config = rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_TRIGGER;
@@ -283,7 +418,7 @@ impl Rail {
             RpcError::conflict("Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first.")
         })?;
         let mut affected = Vec::new();
-        if let Some(placement) = placement {
+        {
             // Restore all surviving placements before inserting retained relationships. Changeset
             // order updates are bookkeeping and cannot decide whether a user's move wins.
             for node in &current {
@@ -304,11 +439,10 @@ impl Rail {
                             .find(|n| n.id == node.id)
                             .is_some_and(|after| {
                                 after.parent != node.parent
-                                    && current.iter().find(|n| n.id == node.id).is_some_and(
-                                        |live| {
-                                            live.parent == after.parent && live.order == after.order
-                                        },
-                                    )
+                                    && current
+                                        .iter()
+                                        .find(|n| n.id == node.id)
+                                        .is_some_and(|live| live.parent == after.parent)
                             })
                 })
                 .collect();
@@ -355,8 +489,5 @@ impl Rail {
             .expect("retained operation")
             .restored = true;
         Ok(removal)
-    }
-    fn removal_boundary(db: &Connection) -> Result<String, RpcError> {
-        db.query_row("SELECT json_group_array(json_array(id,parent,ord)) FROM (SELECT id,parent,ord FROM nodes ORDER BY id)",[],|r|r.get(0)).map_err(sql)
     }
 }
