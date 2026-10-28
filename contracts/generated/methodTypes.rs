@@ -22,6 +22,7 @@
     Method { name: "rail.tree", params: "null", result: "agent_RailNode[]" },
     Method { name: "rail.list", params: "null", result: "agent_RailNode[]" },
     Method { name: "workstream.setAuto", params: "workstream_AutoParams", result: "null" },
+    Method { name: "workstream.setOpeningPrompt", params: "workstream_OpeningPromptParams", result: "null" },
     Method { name: "rail.createWorkstream", params: "agent_CreateWorkstreamParams", result: "agent_RailNode" },
     Method { name: "rail.move", params: "agent_MoveParams", result: "null" },
     Method { name: "rail.rename", params: "agent_RenameParams", result: "agent_RailNode" },
