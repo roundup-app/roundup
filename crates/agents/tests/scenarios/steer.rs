@@ -244,77 +244,44 @@ async fn h11_only_the_user_or_a_doors_own_workstream_may_steer() {
 }
 
 #[tokio::test]
-async fn h12_the_first_prompt_is_steered_at_the_first_session_start_and_not_before() {
+async fn a4452a_spawn_and_door_start_write_no_user_input() {
     let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
     let node = f.spawn(None, Some("build it")).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
-
-    signal(&f, &node.id, "UserPromptSubmit").await;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(
-        read(&typed(&f)),
-        "",
-        "written before the first SessionStart"
-    );
-
     signal(&f, &node.id, "SessionStart").await;
     star(f.dir.path());
-    let text = paste("build it");
-    assert_eq!(until_typed(&f, text.len()).await, text);
-    signal(&f, &node.id, "UserPromptSubmit").await;
-    signal(&f, &node.id, "Stop").await;
-    signal(&f, &node.id, "SessionStart").await;
 
-    // Once: a later idle does not send it again.
+    f.until(|tree| status_of(tree, &node.id).kind == Kind::Idle)
+        .await;
     tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(read(&typed(&f)), text);
+    assert_eq!(read(&typed(&f)), "", "roundup typed into a new session");
     assert_eq!(status_of(&f.tree().await, &node.id).kind, Kind::Idle);
 }
 
 #[tokio::test]
-async fn h12_a_message_waits_until_the_first_steer_is_accepted() {
-    let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
+async fn a4452a_coordination_text_reaches_the_inbox() {
+    let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
     let node = f.spawn(None, Some("build it")).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
-    signal(&f, &node.id, "SessionStart").await;
-    f.until(|tree| status_of(tree, &node.id).kind == Kind::Idle)
-        .await;
+    assert!(f.inbox().is_empty(), "written before the first SessionStart");
 
-    // Idle, but the first Steer is still waiting for the star: a Message is refused, unwritten.
-    let refused = steer(&f, &node.id, "a note").await.unwrap();
-    assert_eq!(refused.unwrap_err().code, RpcError::busy("").code);
+    signal(&f, &node.id, "SessionStart").await;
+    for _ in 0..500 {
+        if !f.inbox().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let inbox = f.inbox();
+    assert_eq!(inbox.len(), 1);
+    assert_eq!(inbox[0].0, node.id);
+    assert!(inbox[0].1.contains("build it"), "{:?}", inbox[0].1);
+    // Once: a later session start does not send it again.
+    signal(&f, &node.id, "Stop").await;
+    signal(&f, &node.id, "SessionStart").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(f.inbox().len(), 1);
     assert_eq!(read(&typed(&f)), "");
-
-    star(f.dir.path());
-    let text = paste("build it");
-    assert_eq!(until_typed(&f, text.len()).await, text);
-}
-
-#[tokio::test]
-async fn h12_a_first_prompt_that_is_not_accepted_leaves_the_agent_in_error() {
-    let f = frozen(Fixture::running(RECORD), BOUND);
-    let node = f.spawn(None, Some("build it")).await.unwrap();
-    until_file(&f.dir.path().join("ready")).await;
-    star(f.dir.path());
-    signal(&f, &node.id, "SessionStart").await;
-
-    let tree = f
-        .until(|tree| status_of(tree, &node.id).kind == Kind::Error)
-        .await;
-    assert_eq!(status_of(&tree, &node.id).label, "prompt not accepted");
-    let text = paste("build it");
-    assert_eq!(until_typed(&f, text.len()).await, text);
-    let attempt = f.attempt(&node.id).await;
-    assert_eq!(
-        f.agents.first_steer_completion(&node.id, &attempt).await,
-        Ok(FirstSteerCompletion::Uncertain)
-    );
-    // A late acknowledgement cannot turn an accounted timeout into permission to retry.
-    signal(&f, &node.id, "UserPromptSubmit").await;
-    assert_eq!(
-        f.agents.first_steer_completion(&node.id, &attempt).await,
-        Ok(FirstSteerCompletion::Uncertain)
-    );
 }
 
 #[tokio::test]
