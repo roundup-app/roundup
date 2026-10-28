@@ -188,7 +188,7 @@ async fn a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid() 
         model,
         &client,
         &door,
-        "Follow this instruction: Valid handoff after bad ids",
+        "Valid handoff after bad ids",
     )
     .await;
     for entry in model.journal() {

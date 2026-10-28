@@ -78,7 +78,7 @@ async fn a32_message_list_spans_iterations() {
                         .as_array()
                         .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
                             && m["content"].as_str().is_some_and(|text|
-                                text.contains("Follow this instruction: What is this Workstream for?"))))
+                                text.contains("What is this Workstream for?"))))
             }).then_some(())
         }).await;
         idle(&client, &door).await;
@@ -414,7 +414,7 @@ async fn a32_the_door_restarts_fresh_from_the_handoff_and_the_iteration_advances
             && entry["body"]["messages"].as_array().is_some_and(|messages|
                 messages.iter().any(|message| message["role"] == "user"
                     && message["content"].as_str().is_some_and(|text|
-                        text.contains("Follow this instruction: Build the login page.")
+                        text.contains("Build the login page.")
                         && text.contains("archived in the Pad archive-1")))))
             .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
         // A resumed conversation would retain the earlier Clear and child-spawn turns.
