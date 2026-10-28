@@ -28,9 +28,9 @@ Module: root dependency manifests and lockfiles, `apps/desktop/package.json`, `s
 Checks (existing observers on `main`):
 
 1. `pnpm-workspace.yaml`, heading `overrides`, and `package.json`, field `packageManager`: use the pinned pnpm to regenerate, then run `pnpm install --frozen-lockfile`; exit 0 and no lockfile change on the frozen install.
-2. `docs/adr/0001-tauri-webview-ui.md`, heading `Status`, and `spikes/tauri-latency/REPORT.md`, headings `Method`, `Results (ms, pooled over 2 runs per mode)` and `Caveats (be honest)`: retain the evidence while retiring the runnable spike.
+2. `docs/adr/0001-tauri-webview-ui.md`, heading `Notes`, and `spikes/tauri-latency/REPORT.md`, headings `Method`, `Results (ms, pooled over 2 runs per mode)` and `Caveats (be honest)`: retain the evidence while retiring the runnable spike.
 3. `tools/lint/debt.json`, spike-path entries, and `docs/lint-suite-evidence.md`, spike-schema rows: remove the obsolete entries without enlarging another allowance; `justfile`, recipes `lint-web` and `lint-rust`, remain green.
 4. `Cargo.lock`, package `glib`, and `tools/lint/debt.json`, advisory `RUSTSEC-2024-0429`: inspect `cargo tree --locked -i glib` and compare parent requirements with the [RustSec advisory](https://rustsec.org/advisories/RUSTSEC-2024-0429.html), which lists patched `glib >=0.20.0`. Recheck published releases during implementation.
 5. `apps/desktop/package.json`, scripts `build` and `test`, and `justfile`, recipes `check`, `test-web-since` and `test-rust-since`: `pnpm --filter desktop build` and `pnpm --filter desktop test` exit 0; CI's required `check` passes on the same implementation head. Builders run `just ready` and reached tests locally; they do not run `just check`.
 
-Every command failure is recorded separately with command, exit code and cause on the implementation Issue. These policy observers add no script, runtime API, UI behavior or loop machinery.
+Record one table row per failing command with its command, exit code and cause on the implementation Issue. These policy observers add no script, runtime API, UI behavior or loop machinery.
