@@ -184,7 +184,11 @@ export const Rail = () => {
       children: railCollection(layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })).rootNode.children ?? [],
     }));
 
-    return createTreeCollection({ nodeToValue: node => node.id, nodeToString: node => node.name, rootNode: { id: "", name: "", children } });
+    return createTreeCollection({
+      nodeToValue: node => node.id, nodeToString: node => node.name,
+      isNodeDisabled: node => Boolean(rowElement(node.id)?.closest("[hidden], [inert], [aria-disabled=true]")),
+      rootNode: { id: "", name: "", children },
+    });
   });
 
   const expanded = createMemo(() => collection().getBranchValues().filter(id => {
@@ -283,7 +287,7 @@ export const Rail = () => {
     }
 
     // Ark owns the complete walk, including section headings; selection still contains only data rows.
-    if (["Home", "End", "ArrowUp", "ArrowDown"].includes(event.key) && !event.metaKey) return;
+    if (!event.metaKey && (event.key === "Home" || event.key === "End" || event.key === "ArrowUp" || event.key === "ArrowDown")) return;
 
     if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
     const match = selection.search(event);
