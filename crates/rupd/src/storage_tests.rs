@@ -50,7 +50,12 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
     let mut historical = migrations();
-    historical.truncate(historical.len() - 2);
+    historical.truncate(
+        10 + added::ADDED
+            .iter()
+            .position(|sql| sql.contains("CREATE TABLE deliverable_files"))
+            .unwrap(),
+    );
     apply(&mut db, historical).unwrap();
     assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
     db.prepare("SELECT operation FROM rail_deletions").unwrap();
@@ -495,6 +500,29 @@ async fn n16_all_stores_share_one_project_database() {
     let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
     expected.extend(standalone::schema(&resize_schema));
+    let mut retention = Connection::open_in_memory().unwrap();
+    agents::schema::open(&mut retention, Path::new("agents")).unwrap();
+    retention
+        .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
+        .unwrap();
+    retention.execute_batch(FLIGHT).unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0013-instruction-messages.sql"
+        ))
+        .unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0030-coordination-instructions.sql"
+        ))
+        .unwrap();
+    expected.extend(
+        standalone::schema(&retention)
+            .into_iter()
+            .filter(|(name, _)| {
+                name == "instruction_deliveries" || name.starts_with("instruction_message")
+            }),
+    );
     // The standalone Agents store keeps its frozen head; the Project drops the answers table.
     expected.remove("decision_answers");
     expected.remove("decision_answers_agent");

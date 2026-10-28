@@ -345,6 +345,12 @@ impl Agents {
             // A4452d: a changed Order reaches the target's inbox, never its Terminal.
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
+            if let Some(attempt) = node.attempt.as_deref() {
+                let mut rail = shared.rail();
+                if let Some(revision) = rail.order_revision(&id)? {
+                    rail.prepare_instruction(&revision, attempt, &text, false)?;
+                }
+            }
             let sent = shared.coordinate(&id, None, text).await;
             if let Err(err) = sent {
                 if ctx.actor.kind == ActorKind::Agent {
