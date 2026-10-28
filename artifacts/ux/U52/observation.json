@@ -1,0 +1,15 @@
+{
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "captures": [
+    "no-recent",
+    "five-recent",
+    "missing-binary",
+    "failed-recent"
+  ],
+  "checks": "D1-D14 and D16 pass for every head capture",
+  "baseline_u52": "3 tests fail with origin/main FirstRun; pass with implementation",
+  "capture_command": "just capture U52 started and stopped after ten seconds to avoid a second full-suite run; dedicated headless agent-browser captures are in head/",
+  "native_initial": "5 S6 tests pass; full native run had 130 pass and 6 fail because fixture binaries were not built; binaries built before rerun",
+  "web_initial": "70 pass; U26 tree fixture hook times out under concurrent load; isolated run subsequently passes all 42 selected tests"
+}

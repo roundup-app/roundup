@@ -159,7 +159,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn s6_recent_paths_are_distinct_bounded_ordered_persisted_and_existing() {
+    fn s6_recent_paths_are_distinct_bounded_ordered_and_persisted() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(Some(dir.path().join("data")));
         let paths: Vec<_> = (0..7)
