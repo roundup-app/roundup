@@ -72,26 +72,41 @@ function value(source, node, seen = new Set()) {
   return null;
 }
 
-function member(node) {
+function member(source, node) {
   node = unwrap(node);
   if (node?.type !== "MemberExpression") return null;
-  const name = node.computed ? node.property.value : node.property.name;
+  const name = node.computed ? value(source, node.property) : node.property.name;
   return typeof name === "string" ? { name, object: node.object } : null;
+}
+
+function namespaceProperty(origin, name) {
+  if (origin === "namespace" || (origin === "config namespace" && name === "defineConfig")) return name;
+  return null;
 }
 
 function imported(source, node, seen = new Set()) {
   node = unwrap(node);
   if (!node || seen.has(node)) return null;
   seen = new Set(seen).add(node);
-  const property = member(node);
-  if (property && imported(source, property.object, seen) === "namespace") return property.name;
+  const property = member(source, node);
+  if (property) return namespaceProperty(imported(source, property.object, seen), property.name);
   if (node.type !== "Identifier") return null;
   const binding = resolveVariable(source, node);
-  if (!binding) return ["it", "test", "describe", "suite", "vi"].includes(node.name) ? node.name : null;
+  if (!binding) return ["it", "test", "describe", "suite", "vi", "defineConfig"].includes(node.name) ? node.name : null;
   for (const def of binding.defs) {
-    if (def.type !== "ImportBinding" || def.parent?.source.value !== "vitest") continue;
-    if (def.node.type === "ImportNamespaceSpecifier") return "namespace";
-    return def.node.imported?.name ?? def.node.imported?.value ?? null;
+    if (def.type === "ImportBinding") {
+      const module = def.parent?.source.value;
+      if (!["vitest", "vite", "vitest/config"].includes(module)) continue;
+      if (def.node.type === "ImportNamespaceSpecifier") return module === "vitest" ? "namespace" : "config namespace";
+      const name = def.node.imported?.name ?? def.node.imported?.value;
+      return module === "vitest" || name === "defineConfig" ? name : null;
+    }
+    if (def.type !== "Variable" || def.node.parent.kind !== "const" || def.node.id.type !== "ObjectPattern") continue;
+    if (binding.references.some(ref => ref.isWrite() && !ref.init)) return null;
+    const property = def.node.id.properties.find(property => property.type === "Property" && property.value.type === "Identifier" && property.value.name === node.name);
+    if (!property) return null;
+    const name = property.computed ? value(source, property.key) : property.key.name ?? property.key.value;
+    return namespaceProperty(imported(source, def.node.init, seen), name);
   }
   return imported(source, initializer(source, node), seen);
 }
@@ -107,28 +122,15 @@ function registration(source, node, seen = new Set()) {
   if (node.type === "MemberExpression") return registration(source, node.object, seen);
   if (node?.type === "CallExpression" || node?.type === "TaggedTemplateExpression") {
     const callee = node.callee ?? node.tag;
-    const property = member(callee);
+    const property = member(source, callee);
     if (property && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(property.name)) return registration(source, property.object, seen);
   }
   return null;
 }
 
 // Both Vite and Vitest expose defineConfig as an identity helper; it does not mutate options.
-function isConfigDefinition(source, node, seen = new Set()) {
-  node = unwrap(node);
-  if (!node || seen.has(node)) return false;
-  seen = new Set(seen).add(node);
-  const property = member(node);
-  const identifier = property?.object ?? node;
-  if (identifier.type !== "Identifier") return false;
-  const binding = resolveVariable(source, identifier);
-  if (!binding) return !property && identifier.name === "defineConfig";
-  for (const def of binding.defs) {
-    if (def.type !== "ImportBinding" || !["vite", "vitest/config"].includes(def.parent?.source.value)) continue;
-    if (property) return def.node.type === "ImportNamespaceSpecifier" && property.name === "defineConfig";
-    return (def.node.imported?.name ?? def.node.imported?.value) === "defineConfig";
-  }
-  return !property && isConfigDefinition(source, initializer(source, node), seen);
+function isConfigDefinition(source, node) {
+  return imported(source, node) === "defineConfig";
 }
 
 function objectProperty(source, node, name, seen = new Set()) {
@@ -176,7 +178,7 @@ function validException(entry) {
 }
 
 function isConfig(source, call) {
-  const method = member(call.callee);
+  const method = member(source, call.callee);
   return method?.name === "setConfig" && imported(source, method.object) === "vi";
 }
 
@@ -225,7 +227,7 @@ export const boundedTestTimeoutRule = defineRule({
           if (configured) defaults.add(configured);
         }
         const kind = registration(source, node.callee);
-        const method = member(node.callee);
+        const method = member(source, node.callee);
         const builder = method && ["each", "for", "skipIf", "runIf", "extend", "scoped"].includes(method.name);
         if (kind && !builder && node.arguments.length >= 2) calls.push({ node, kind });
         if (isConfig(source, node)) {
