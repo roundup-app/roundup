@@ -12,7 +12,7 @@ import { refTarget } from "./refTarget";
 
 /** U3760: the Todo's Pad links in the order added. An `ok` one opens its Pad; a `missing` one is text. An Agent's change shows without reopening. */
 export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: () => void }) => {
-  const { app, drawer, events } = useConnectedProject();
+  const { app, drawer, events, project } = useConnectedProject();
   const [refs, setRefs] = createSignal<readonly Ref[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [actionFailure, setActionFailure] = createSignal<string | null>(null);
@@ -94,7 +94,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
 
           return <div class="todo-ref" data-state={ref.state}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event))}>{label}</button>
+              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event), { kind: "pad", project: project.path })}>{label}</button>
             </Show>
             <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={(event) => void remove(ref.url, event.currentTarget)}>{copy.remove}</button>
           </div>;
