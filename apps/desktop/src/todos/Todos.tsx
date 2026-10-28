@@ -1,3 +1,4 @@
+import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
@@ -102,10 +103,18 @@ export const Todos = (props: {
 
   const open = shownTodos(connected, todos);
 
-  const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    scope.includes(todo.home, todo.creator, todo.owner)));
+  const requested = createMemo(() => {
+    const agent = connected.padsRequest();
 
-  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
+    return active() && agent ? todos.all().filter(todo => todo.creator.kind === "agent" && todo.creator.id === agent) : [];
+  });
+
+  const includes = (todo: Todo) => scope.includes(todo.home, todo.creator, todo.owner)
+    || (todo.creator.kind === "agent" && todo.creator.id === connected.padsOwner());
+
+  const done = createMemo(() => doneTodos(todos.all()).filter(includes));
+
+  const inScope = createMemo(() => todos.all().filter(includes));
 
   const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
@@ -235,6 +244,8 @@ export const Todos = (props: {
   let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
 
+  const targets = todoDropTargets(connected, todos, board);
+
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
@@ -242,50 +253,11 @@ export const Todos = (props: {
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
-      target: (id, x, y) => {
-        board.preview(null);
-        const current = todos.byId().get(id)?.home;
-        const rail = document.querySelector(".rail");
-        const clip = rail?.getBoundingClientRect();
-
-        if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
-
-        for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
-
-          if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
-
-          return { element, home };
-        }
-
-        return null;
-      },
+      target: targets.home,
       move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
-      target: (id, x, y) => {
-        const own = todos.byId().get(id);
-
-        for (const element of document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-group]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const group = element.dataset.shelfGroup!;
-          const owner = ownersOnRail(connected).find(each => each.id === group);
-
-          // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
-          if (!owner || !own || sameOwner(owner.actor, own.owner)) return null;
-
-          board.preview({ id, group });
-
-          return { element, attribute: "data-drop-target", owner: owner.actor };
-        }
-
-        return null;
-      },
+      target: targets.owner,
       assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
@@ -346,6 +318,26 @@ export const Todos = (props: {
   let plusButton: HTMLButtonElement | undefined;
 
   const rowButtonOf = triageRowOf;
+  const requestedOpen = createMemo(() => requested().filter(todo => !todo.done));
+
+  createEffect(() => {
+    const items = requested();
+
+    if (!items.length) return;
+
+    if (items.some(todo => todo.done)) setUnfolded(true);
+
+    if (requestedOpen().length) return;
+    const first = items[0]!;
+
+    queueFocus(() => {
+      const target = rowButtonOf(first.id);
+
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest" });
+    });
+    connected.finishPadsRequest();
+  });
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
   let namingNext: number | null = null;
@@ -367,6 +359,8 @@ export const Todos = (props: {
   const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
+
+  const requestedGroups = createMemo(() => [...arrivals(), ...requestedOpen().map(groupOf)]);
 
   createOwnerPicker({ todos,
     when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
@@ -571,7 +565,7 @@ export const Todos = (props: {
     })} />;
 
     setShown({ id: todo.id, content });
-    connected.drawer.open(content, source);
+    connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
@@ -788,7 +782,6 @@ export const Todos = (props: {
     <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <OwnerCommand active={active} selected={() => selection.focused() ?? (selection.selected().length === 1 ? selection.selected()[0] : undefined)} todos={todos} connected={connected} assign={assign} />
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
-      <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -802,6 +795,7 @@ export const Todos = (props: {
           <span>{copy.todo}</span>
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
       <Show when={isEmpty() && !typing()}>
@@ -815,7 +809,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };

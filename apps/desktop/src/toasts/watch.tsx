@@ -68,7 +68,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     if (!listed.some((todo) => todo.id === id)) return GONE;
 
     show();
-    drawer.open(() => <TodoHost id={id} />, source);
+    drawer.open(() => <TodoHost id={id} />, source, { kind: "todo", project: connected.project.path });
 
     return null;
   };
@@ -87,7 +87,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     if (!listed.some((pad) => pad.name === name)) return GONE;
 
     show();
-    drawer.open(() => <PadHost name={name} />, source);
+    drawer.open(() => <PadHost name={name} />, source, { kind: "pad", project: connected.project.path });
 
     return null;
   };
