@@ -1,14 +1,14 @@
 # Terminal typography (U4456)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified Light (300), regular (400) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests all four style/weight combinations before its first authoritative fit.
+requests normal and italic at all three bundled weights before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
-keeps its existing stack. xterm's normal/bold defaults already select 400/700.
+keeps its existing stack. U4592 selects regular weight 300 through `--weight-terminal`; bold retains xterm's 700 default.
 
 ## Metrics
 
@@ -18,6 +18,7 @@ keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 | `--text-terminal` | `fontSize` | 11 CSS px |
 | `--line-terminal` | `lineHeight` | 1.7, unitless (22 CSS px rows) |
 | `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
+| `--weight-terminal` | `fontWeight` | 300 (Light); bold remains 700 |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
@@ -401,3 +402,30 @@ those logs outside the source tree repaired the observation; no rule, baseline
 or source check changed. The final logs are retained in `validation.tar.gz`.
 `loop/rules.sh vocab`, `ci-trailers local`, `frozen local` and `merge-loss` also
 exit 0. No PNG or video is committed.
+
+## Lighter regular strokes (U4592, #4619)
+
+The controlled investigation recorded on #4619 held Fira Code 11px, weights
+400/700, tracking 0.95px, colours, content and DPR 1 fixed. Installed WebGL
+retained continuous boxes; built-in DOM left gaps at the required row pitch.
+Host `-webkit-font-smoothing: antialiased` produced a byte-identical regular
+text crop on Linux. xterm's TextureAtlas rasterizes into a detached 2D canvas,
+so inherited host CSS is no canvas-smoothing control. The public WebGL addon
+offers no antialiasing option. These observations establish no WebKit fact.
+
+The one-variable Light 300 comparison visibly reduced regular strokes with
+unchanged cell metrics and bold 700. Select the unmodified upstream Fira Code
+6.2 Light face through xterm's public `fontWeight` option. Font readiness loads
+normal/italic 300, 400 and 700 before fitting; existing custom-family and zoom
+paths remain. No palette or glyph-rendering code changes. The main-side official
+ligatures 0.10.0 addon, disposal order, fallback and context-loss paths remain.
+
+Main already delivers 0px tracking, 22px rows and joined operators under #4627.
+This continuation of #4624 adds the lighter face to that supported rendering
+path. Fresh main/head captures therefore isolate the weight change; the
+whole-pixel pairs above retain the narrower-cell comparison to the older 0.95px
+tracking baseline. The current renderer is unchanged from main, so this change
+does not trigger another renderer-change performance observation. The complete
+main-side performance report above remains renderer evidence; historical failed
+#4624 performance attempts are not claimed as passes. K1–K3 and native timing
+policy remain unchanged.
