@@ -50,7 +50,7 @@ mod tests {
         }
         db.pragma_update(None, "user_version", 15).unwrap();
         open(&mut db, Path::new("agents.db")).unwrap();
-        db.execute("INSERT INTO nodes (kind, name, opening_prompt) VALUES ('workstream', 'team', 'Read the plan')", []).unwrap();
+        db.execute("INSERT INTO nodes (kind, name, ord, opening_prompt) VALUES ('workstream', 'team', 0, 'Read the plan')", []).unwrap();
         let prompt: String = db
             .query_row(
                 "SELECT opening_prompt FROM nodes WHERE name='team'",
