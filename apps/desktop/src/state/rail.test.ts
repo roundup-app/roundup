@@ -268,6 +268,7 @@ describe("u62 Door launch failures", () => {
 it("u4523_current_owner_uses_rail_identity_and_liveness", async () => {
   const actor = { kind: "agent", id: "a", parent: null } as const;
   const { app, rail } = await open([node("a", { name: "Renamed" }), node("other", { name: "Renamed" })]);
+
   const cases = [
     { tree: [node("a", { name: "Original" })], owner: actor, exited: false, expected: { id: "a", name: "Original", live: true } },
     { tree: [node("a", { name: "Renamed", status: { kind: "done", label: "done", since: 0, finished: "0" } })], owner: actor, exited: false, expected: { id: "a", name: "Renamed", live: true } },
