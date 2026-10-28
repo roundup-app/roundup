@@ -110,6 +110,7 @@ it("u4453c_command_menu_opens_saved_terminal_drafts", async () => {
 it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   const { daemon, shells } = await mountNavigation(true);
   daemon.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
+
   const open = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
 
   open();
