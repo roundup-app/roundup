@@ -385,6 +385,8 @@ async fn a34_a_stopped_door_remains_resumable_and_announced_after_failed_removal
 #[tokio::test]
 async fn u4461_remove_all_deletes_a_dirty_agents_worktree_and_branch() {
     let f = project(AGENT).await;
+    let other = f.workstream("other", None).await;
+    let survivor = f.spawn(Some(&other), None).await.unwrap();
     let before = git_state(f.dir.path());
     let ws = f.workstream("all", None).await;
     let agent = f.spawn(Some(&ws), None).await.unwrap();
@@ -393,10 +395,114 @@ async fn u4461_remove_all_deletes_a_dirty_agents_worktree_and_branch() {
     git(&path, &["add", "committed"]);
     git(&path, &["commit", "-qm", "ahead"]);
     std::fs::write(path.join("scratch"), "dirty").unwrap();
-    let result = f.call("rail.remove", json!({"id":ws,"scope":"all"})).await.unwrap();
+    let state = git_state(f.dir.path());
+    let db = rusqlite::Connection::open(f.dir.path().join(".roundup/agents.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER u4461_fail BEFORE DELETE ON nodes WHEN old.kind='workstream' BEGIN SELECT RAISE(FAIL, 'commit refused'); END;").unwrap();
+    f.call("rail.remove", json!({"id":ws,"scope":"all"}))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        std::fs::read_to_string(path.join("scratch")).unwrap(),
+        "dirty"
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("committed")).unwrap(),
+        "ahead"
+    );
+    assert_eq!(git_state(f.dir.path()), state);
+    assert_eq!(
+        find(&f.tree().await, &agent.id).unwrap().parent.as_deref(),
+        Some(ws.as_str())
+    );
+    db.execute_batch("DROP TRIGGER u4461_fail").unwrap();
+    let result = f
+        .call("rail.remove", json!({"id":ws,"scope":"all"}))
+        .await
+        .unwrap();
+    assert_eq!(result["kept"], json!([]));
+    assert_eq!(result["removed"][0]["id"], agent.id);
+    let tree = f.tree().await;
+    assert_eq!(tree.len(), 2);
+    assert_eq!(
+        find(&tree, &survivor.id).unwrap().parent.as_deref(),
+        Some(other.as_str())
+    );
+    assert!(path_of(&survivor).exists());
+    assert!(!path.exists());
+    assert_eq!(git_state(f.dir.path()), before);
+}
+
+#[tokio::test]
+async fn u4461_scope_all_on_an_agent_is_invalid() {
+    let f = Fixture::running(AGENT);
+    let agent = f.spawn(None, None).await.unwrap();
+    let before = f.tree().await;
+    let error = f
+        .call("rail.remove", json!({"id":agent.id,"scope":"all"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(f.tree().await, before);
+}
+
+#[tokio::test]
+async fn u4461_no_scope_is_remove_this() {
+    for scope in [None, Some("this")] {
+        let f = Fixture::running(AGENT);
+        let ws = f.workstream("this", None).await;
+        let agent = f.spawn(Some(&ws), None).await.unwrap();
+        let mut params = json!({"id":ws});
+        if let Some(scope) = scope {
+            params["scope"] = json!(scope);
+        }
+        let result = f.call("rail.remove", params).await.unwrap();
+        assert_eq!(result["removed"], json!([]));
+        assert_eq!(result["kept"][0]["id"], agent.id);
+        let tree = f.tree().await;
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].parent, None);
+        assert_eq!(tree[0].terminal_id, agent.terminal_id);
+    }
+}
+
+#[tokio::test]
+async fn u4461_a_failed_stop_changes_nothing_and_retries() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let mut f = Fixture::running("stty -isig; echo ready > ready; exec sleep 30");
+    let fail = Arc::new(AtomicBool::new(true));
+    let kills = fail.clone();
+    let terminals = f.terminals.clone();
+    f.agents = f.agents.with_terminal_kills(move |id| {
+        let fail = kills.clone();
+        let terminals = terminals.clone();
+        async move {
+            if fail.load(Ordering::SeqCst) {
+                return Err(rpc::RpcError::internal("stop refused"));
+            }
+            terminals.kill(&id).await
+        }
+    });
+    let ws = f.workstream("all", None).await;
+    let agent = f.spawn(Some(&ws), None).await.unwrap();
+    crate::common::until_file(&f.dir.path().join("ready")).await;
+    let before = f.tree().await;
+    let params = json!({"id":ws,"scope":"all"});
+    let error = f.call("rail.remove", params.clone()).await.unwrap_err();
+    assert!(error.message.contains("stop refused"));
+    let after = f.tree().await;
+    assert_eq!(after.len(), before.len());
+    for node in &before {
+        let current = find(&after, &node.id).unwrap();
+        assert_eq!(current.parent, node.parent);
+        assert_eq!(current.worktree, node.worktree);
+        assert_eq!(current.terminal_id, node.terminal_id);
+    }
+    fail.store(false, Ordering::SeqCst);
+    let result = f.call("rail.remove", params).await.unwrap();
     assert_eq!(result["kept"], json!([]));
     assert_eq!(result["removed"][0]["id"], agent.id);
     assert!(f.tree().await.is_empty());
-    assert!(!path.exists());
-    assert_eq!(git_state(f.dir.path()), before);
 }
