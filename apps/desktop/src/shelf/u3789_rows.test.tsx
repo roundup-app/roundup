@@ -370,7 +370,8 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
 
   if (kind === "pad") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
   const panel = () => document.querySelector(kind === "todo" ? '.todos-tab' : '.pads-tab')!;
-  await waitFor(() => expect(panel().querySelectorAll('[data-shelf-group]')).toHaveLength(1));
+  const group = kind === "pad" ? '[data-shelf-group="auth"]' : '[data-shelf-group]';
+  await waitFor(() => expect(panel().querySelectorAll(group)).toHaveLength(1));
 
   if ("id" in item) {
     if (action === "delete") await app.rpc("todo.delete", {operation: crypto.randomUUID(), ids:[item.id]});
@@ -380,8 +381,13 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
     else await app.rpc("pad.move", {name:item.name, home:null});
   }
 
-  await waitFor(() => expect(panel().querySelectorAll('[data-shelf-group]')).toHaveLength(0));
-  expect(panel().querySelectorAll('.empty-state')).toHaveLength(1);
+  await waitFor(() => expect(panel().querySelectorAll(group)).toHaveLength(0));
+
+  if (kind === "todo") expect(panel().querySelectorAll('.empty-state')).toHaveLength(1);
+  else {
+    expect(panel().querySelector('[data-pad="pad-0"]')).not.toBeNull();
+    expect(panel().querySelector('[data-pad="only item"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group')).toBe(action === "move" ? "unassigned" : undefined);
+  }
 });
 
 
