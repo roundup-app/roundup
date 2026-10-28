@@ -1,0 +1,27 @@
+{
+  "observed_revision": "15d380f48700337ecc156466810a9c6906707e50",
+  "baseline_revision": "391ad6af3ea8990bc44ae7c5fb033b4fdd723a59",
+  "original_pr_head": "1e71ebcb4b2115d2ff07c7de0775ae067ea822d0",
+  "observer": "ROUNDUP_CAPTURES=U4453b,U3791b,U3078i pnpm --filter desktop exec vitest run src/orders/u3078i_rendered.test.ts",
+  "environment": {
+    "browser": "isolated headless Chromium",
+    "viewport": "1512x950",
+    "scheme": "dark",
+    "seeds": [
+      "agents-10",
+      "tree-40"
+    ]
+  },
+  "result": "Both seeds pass reachability, evidence, refusal, unknown-outcome reconciliation, dismissal and explicit retry; D2, D5 and D6 pass in all 14 captured head states.",
+  "baseline": "The current main Rail menu lacks Work progress; the observer records unreachable Progress rather than adding an opener.",
+  "existing_failure": {
+    "checks": [
+      "D4",
+      "D10"
+    ],
+    "selector": "li.progress-row",
+    "cause": "Progress rows have no KindGlyph; D10 reports the failed D4. Reproduced unchanged on the original PR head via the same visible Rail menu.",
+    "prior_evidence": "artifacts/ux/P3557c/head/agents-10-open.checks.json"
+  },
+  "capture_setup_repair": "Installed missing ffmpeg after the first recording could not be encoded; the repeated capture observer passed."
+}
